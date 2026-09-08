@@ -53,6 +53,8 @@ interface ActiveRentRequest {
   house_category: string | null;
   landlord_name?: string | null;
   property_address?: string | null;
+  repayment_frequency: string | null;
+  repayment_starts_on: string | null;
 }
 
 interface Profile {
