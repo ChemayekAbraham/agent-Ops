@@ -8,16 +8,58 @@ Reference request `3f505690-8f92-4f36-873f-ac4dface5ca0` — principal 1,000,000
 access fee 330,000, registration fee 20,000, total repayment 1,350,000, 30 days,
 daily instalment 45,000.
 
-| Component | Amount | Basis |
+### Step 1 — the instalment splits three ways (all are real ledger amounts)
+
+| Component | Amount | Destination | Basis |
+|---|---:|---|---|
+| Principal | **33,333** | Landlord Float economics | 1,000,000 / 1,350,000 of the instalment |
+| Registration fee | **667** | Platform Treasury | 20,000 / 1,350,000 |
+| Access fee | **11,000** | Platform Treasury | 330,000 / 1,350,000 |
+| **Instalment total** | **45,000** | | 33,333 + 667 + 11,000 |
+
+**Platform Treasury = Registration Fee + Access Fee = 11,667.** Principal is never
+Treasury.
+
+### Step 2 — what the ledger actually posts
+
+| Leg | Account | Amount |
+|---|---|---:|
+| Treasury drawn down | DR **L7** | 11,667 |
+| Agent Commission payable | CR **L5** | 4,500 |
+| **Platform Net Revenue** | CR **R1** | **7,167** |
+
+`7,167 = 11,667 Treasury − 4,500 Agent Commission`. **This is the only revenue
+figure. Nothing else is recognised.**
+
+### Step 3 — memo attributions inside the Access Fee (NOT ledger amounts)
+
+These three sum to the Access Fee and exist only in `instalment_allocations` for
+economic analysis. **Only the Agent Commission creates a payable.**
+
+| Attribution | Amount | Creates a payable? |
 |---|---:|---|
-| Principal | **33,333** | 1,000,000 / 1,350,000 of the instalment |
-| Registration fee | **667** | 20,000 / 1,350,000 |
-| Access fee | **11,000** | 330,000 / 1,350,000 |
-| **Instalment total** | **45,000** | 33,333 + 667 + 11,000 |
-| Partner Reward allocation | **5,000** | 150,000 plan total ÷ 30 instalments (15% of principal) |
-| Agent Commission | **4,500** | 10% × 45,000 |
-| Platform residual | **1,500** | 11,000 − 5,000 − 4,500 |
-| **Access split total** | **11,000** | 5,000 + 4,500 + 1,500 |
+| Partner Reward allocation | **5,000** | **No** — allocation-only under BD-2; borne through portfolio ROI expense (X2). No L3 entry |
+| Agent Commission | **4,500** | **Yes** — L5 |
+| **Platform Net Revenue (within Access Fee)** | **1,500** | No — memo sub-figure |
+| **Access fee total** | **11,000** | |
+
+> ⚠️ **Do not read the 1,500 as platform earnings.** The platform recognises
+> **7,167** for this instalment. The 1,500 is only the Access Fee remainder
+> *after notionally attributing* the partner reward — and that partner attribution
+> is not deducted from revenue here, because it creates no payable. The
+> reconciliation is:
+>
+> `R1 7,167 = 1,500 memo remainder + 5,000 partner attribution + 667 registration fee`
+>
+> Treating 1,500 as recognised revenue understates it by 79%.
+
+### Terminology
+
+The term **"Platform Residual" is retired** — it implied a leftover plug with no
+defined meaning. The correct terms are:
+
+- **Platform Treasury** — Registration Fee + Access Fee (the recognised Treasury fees)
+- **Platform Net Revenue** — what is actually credited to R1 (Treasury less Agent Commission)
 
 ### Correction to earlier test documentation
 
@@ -38,14 +80,27 @@ the 10% Agent Commission rule are unchanged.**
 
 30 instalments of 45,000 reconcile exactly:
 
+**Ledger amounts**
+
 | | Sum of instalments | Priced |
 |---|---:|---:|
-| Principal | 1,000,000 | 1,000,000 |
-| Registration | 20,000 | 20,000 |
-| Access | 330,000 | 330,000 |
-| Partner allocation | 150,000 | 15% × principal |
-| Agent commission | 135,000 | 10% × 1,350,000 |
-| Platform residual | 45,000 | balance |
+| Principal → Landlord Float | 1,000,000 | 1,000,000 |
+| Registration → Treasury | 20,000 | 20,000 |
+| Access → Treasury | 330,000 | 330,000 |
+| **Platform Treasury gross** | **350,000** | registration + access |
+| Agent Commission → **L5** | 135,000 | 10% × 1,350,000 |
+| **Platform Net Revenue → R1** | **215,000** | 350,000 − 135,000 |
+
+**Memo attributions inside the 330,000 Access Fee** (not ledger amounts):
+
+| Attribution | Amount | Creates a payable? |
+|---|---:|---|
+| Partner Reward allocation | 150,000 | **No** — 15% × principal, allocation-only (BD-2) |
+| Agent Commission | 135,000 | Yes — L5 |
+| Platform Net Revenue (within Access Fee) | 45,000 | No — memo sub-figure |
+
+Reconciliation: `R1 215,000 = 45,000 memo remainder + 150,000 partner attribution
++ 20,000 registration fee`.
 
 ## Go-live scope — Option B
 
