@@ -3,11 +3,80 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Wallet, Lock, ChevronRight, ChevronDown, X, ArrowRightLeft, Banknote } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Loader2, Search, Wallet, Lock, ChevronRight, ChevronDown, X,
+  ArrowRightLeft, Banknote, FileDown, Share2, Layers,
+} from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
+import {
+  generateUserWalletStatementPdf,
+  type UserWalletStatementRow,
+} from '@/lib/userWalletStatementPdf';
+import { sharePdfViaWhatsApp } from '@/lib/whatsappShare';
+import { toast } from 'sonner';
 
 type FocusBucket = 'float' | 'withdrawable' | null;
+
+const CATEGORY_LABEL: Record<string, string> = {
+  agent_float_deposit: 'Float deposit',
+  operational_float_deposit: 'Float deposit',
+  agent_float_topup: 'Float top-up',
+  float_received: 'Float received',
+  partner_float_transfer_in: 'Partner transfer in',
+  rent_payment_for_tenant: "Paid tenant's rent",
+  agent_float_used_for_rent: "Paid tenant's rent",
+  agent_float_payout: 'Float payout',
+  float_withdrawal: 'Float withdrawal',
+  landlord_payout: 'Paid landlord',
+  partner_float_transfer_out: 'Partner transfer out',
+  agent_rent_commission: 'Rent commission (10%)',
+  rent_commission: 'Rent commission',
+  agent_commission_earned: 'Commission earned',
+  agent_commission: 'Commission earned',
+  agent_commission_payout: 'Commission paid out',
+  agent_commission_payable: 'Commission posted',
+  agent_investment_commission: 'Investment commission',
+  investment_commission: 'Investment commission',
+  partner_commission: 'Partner commission (2%)',
+  subagent_commission: 'Sub-agent override',
+  registration_bonus: 'Registration bonus',
+  verification_bonus: 'Verification bonus',
+  facilitation_bonus: 'Facilitation bonus',
+  listing_bonus: 'Listing bonus',
+  tenant_placement_bonus: 'Tenant placement bonus',
+  agent_bonus: 'Bonus',
+  approval_bonus: 'Approval bonus',
+  referral_bonus: 'Referral bonus',
+  roi_wallet_credit: 'Investor returns',
+  withdrawal: 'Withdrawal',
+  agent_wallet_withdrawal: 'Withdrawal',
+  wallet_withdrawal: 'Withdrawal',
+  deposit: 'Deposit',
+  wallet_deposit: 'Deposit',
+  tenant_repayment: 'Tenant repayment',
+  rent_repayment: 'Rent repayment',
+  rent_auto_deduction: 'Auto rent deduction',
+  agent_float_settlement: 'Float settled',
+  rent_float_funding: 'Rent funding',
+  rent_disbursement: 'Rent disbursed to landlord',
+  rent_receivable_created: 'Rent recorded',
+  advance_disbursement: 'Advance disbursed',
+  advance_repayment: 'Advance repayment',
+  advance_recovery: 'Advance recovered',
+  balance_correction: 'Wallet correction',
+  historical_balance_reseed: 'Opening balance',
+  wallet_transfer: 'Wallet transfer',
+  transfer_in: 'Transfer received',
+  transfer_out: 'Transfer sent',
+  welcome_bonus: 'Welcome bonus',
+};
+
+function labelForCategory(cat: string | null): string {
+  if (!cat) return 'Transaction';
+  return CATEGORY_LABEL[cat] ?? cat.replace(/_/g, ' ');
+}
 
 /**
  * Read-only wallet breakdown for managers / Fin Ops. Lists every wallet
@@ -162,6 +231,100 @@ export function WalletBreakdownReadOnly({
   );
   const focusLabel = effectiveBucket === 'float' ? 'Operations Float' : effectiveBucket === 'withdrawable' ? 'Withdrawable' : '';
 
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<'download' | 'share' | null>(null);
+
+  const fetchAndBuildPdf = async (row: WalletRow): Promise<{ blob: Blob; filename: string }> => {
+    const { data: ledgerRows, error: ledgerError } = await supabase
+      .from('general_ledger')
+      .select('id, transaction_date, direction, category, description, amount, wallet_bucket')
+      .eq('user_id', row.user_id)
+      .eq('ledger_scope', 'wallet')
+      .order('transaction_date', { ascending: false })
+      .limit(500);
+
+    if (ledgerError) throw ledgerError;
+
+    const mappedRows: UserWalletStatementRow[] = (ledgerRows ?? []).map((r) => ({
+      date: r.transaction_date,
+      bucket: (r.wallet_bucket === 'float' ? 'float' : 'withdrawable') as 'withdrawable' | 'float',
+      label: labelForCategory(r.category),
+      description: r.description || null,
+      direction: (r.direction === 'cash_in' ? 'cash_in' : 'cash_out') as 'cash_in' | 'cash_out',
+      amount: Number(r.amount || 0),
+    }));
+
+    const blob = await generateUserWalletStatementPdf({
+      userName: row.full_name || 'Customer',
+      userPhone: row.phone || null,
+      withdrawableBalance: row.withdrawable,
+      floatBalance: row.float,
+      rows: mappedRows,
+    });
+
+    const safeName = (row.full_name || 'user').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `wallet_statement_${safeName}_${dateStr}.pdf`;
+
+    return { blob, filename };
+  };
+
+  const handleDownloadStatement = async (row: WalletRow, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setBusyId(row.user_id);
+      setBusyAction('download');
+      const { blob, filename } = await fetchAndBuildPdf(row);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      toast.success(`Statement downloaded for ${row.full_name}`);
+    } catch (err: any) {
+      console.error('Failed to generate wallet statement:', err);
+      toast.error('Could not generate the statement PDF');
+    } finally {
+      setBusyId(null);
+      setBusyAction(null);
+    }
+  };
+
+  const handleShareStatement = async (row: WalletRow, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setBusyId(row.user_id);
+      setBusyAction('share');
+      const { blob, filename } = await fetchAndBuildPdf(row);
+      const caption = `Welile wallet statement — ${row.full_name}: Withdrawable ${formatUGX(row.withdrawable)}, Float ${formatUGX(row.float)}.`;
+
+      let cleanPhone = row.phone ? row.phone.replace(/\D/g, '') : undefined;
+      if (cleanPhone && cleanPhone.startsWith('0') && cleanPhone.length === 10) {
+        cleanPhone = `256${cleanPhone.slice(1)}`;
+      }
+
+      const result = await sharePdfViaWhatsApp(blob, {
+        filename,
+        caption,
+        phone: cleanPhone,
+      });
+      if (result === 'deeplink') {
+        toast.success('Statement downloaded — attach it in WhatsApp');
+      } else if (result === 'shared') {
+        toast.success('Statement shared via WhatsApp');
+      }
+    } catch (err: any) {
+      console.error('Failed to share wallet statement:', err);
+      toast.error('Could not share the statement');
+    } finally {
+      setBusyId(null);
+      setBusyAction(null);
+    }
+  };
+
   return (
     <div ref={rootRef} className="space-y-5 scroll-mt-4">
       <div>
@@ -247,37 +410,48 @@ export function WalletBreakdownReadOnly({
             className="mt-1"
           />
         </div>
-        <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-2">
-          {/* FUNCTIONAL PLACEHOLDER — Gemini: restyle as a branded segmented
-              control. Wiring only: setLocalBucket drives the same
-              effectiveBucket filter/sort the tile drilldowns already use. */}
-          <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
-            {([
-              { key: null, label: 'All' },
-              { key: 'withdrawable' as const, label: 'Withdrawable' },
-              { key: 'float' as const, label: 'Float' },
-            ]).map((opt) => (
-              <button
-                key={opt.label}
-                type="button"
-                onClick={() => setLocalBucket(opt.key)}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  effectiveBucket === opt.key
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+        <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-border/60">
+          {/* Branded segmented control */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-muted-foreground">Filter by bucket:</span>
+            <div className="inline-flex items-center p-1 rounded-xl bg-muted/70 border border-border/80 shadow-inner gap-1">
+              {([
+                { key: null, label: 'All Wallets', icon: Layers },
+                { key: 'withdrawable' as const, label: 'Withdrawable', icon: Banknote, activeTone: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' },
+                { key: 'float' as const, label: 'Operational Float', icon: ArrowRightLeft, activeTone: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30' },
+              ]).map((opt) => {
+                const Icon = opt.icon;
+                const isActive = effectiveBucket === opt.key;
+                return (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => setLocalBucket(opt.key)}
+                    className={`relative inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      isActive
+                        ? `${(opt as any).activeTone ?? 'bg-card text-foreground border-border/80 shadow-sm'} font-semibold border`
+                        : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => { setSearch(''); setMinBal(''); setMaxBal(''); setLocalBucket(null); }}
-            className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-          >
-            Clear filters
-          </button>
+          {(search || minBal || maxBal || localBucket !== null) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => { setSearch(''); setMinBal(''); setMaxBal(''); setLocalBucket(null); onClearFocus?.(); }}
+              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear filters
+            </Button>
+          )}
         </div>
       </div>
 
@@ -298,23 +472,24 @@ export function WalletBreakdownReadOnly({
                 <th className="px-3 py-2 font-semibold w-8"></th>
                 <th className="px-3 py-2 font-semibold">Owner</th>
                 <th className="px-3 py-2 font-semibold text-right">Total</th>
-                <th className={`px-3 py-2 font-semibold text-right ${focusBucket === 'withdrawable' ? 'text-primary' : ''}`}>Withdrawable</th>
-                <th className={`px-3 py-2 font-semibold text-right ${focusBucket === 'float' ? 'text-primary' : ''}`}>Float</th>
+                <th className={`px-3 py-2 font-semibold text-right ${effectiveBucket === 'withdrawable' ? 'text-primary font-bold' : ''}`}>Withdrawable</th>
+                <th className={`px-3 py-2 font-semibold text-right ${effectiveBucket === 'float' ? 'text-primary font-bold' : ''}`}>Float</th>
                 <th className="px-3 py-2 font-semibold text-right">Advance</th>
                 <th className="px-3 py-2 font-semibold text-right">Locked</th>
+                <th className="px-3 py-2 font-semibold text-right w-24">Statement</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
                     Loading wallets…
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                     No wallets match your filters.
                   </td>
                 </tr>
@@ -335,14 +510,101 @@ export function WalletBreakdownReadOnly({
                           <div className="text-[11px] text-muted-foreground">{row.phone || '—'}</div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono tabular-nums font-semibold">{formatUGX(row.balance)}</td>
-                        <td className={`px-3 py-2 text-right font-mono tabular-nums ${focusBucket === 'withdrawable' ? 'text-primary font-semibold' : ''}`}>{formatUGX(row.withdrawable)}</td>
-                        <td className={`px-3 py-2 text-right font-mono tabular-nums ${focusBucket === 'float' ? 'text-primary font-semibold' : ''}`}>{formatUGX(row.float)}</td>
+                        <td className={`px-3 py-2 text-right font-mono tabular-nums ${effectiveBucket === 'withdrawable' ? 'text-primary font-semibold' : ''}`}>{formatUGX(row.withdrawable)}</td>
+                        <td className={`px-3 py-2 text-right font-mono tabular-nums ${effectiveBucket === 'float' ? 'text-primary font-semibold' : ''}`}>{formatUGX(row.float)}</td>
                         <td className="px-3 py-2 text-right font-mono tabular-nums text-warning">{row.advance > 0 ? formatUGX(row.advance) : '—'}</td>
                         <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{row.locked > 0 ? formatUGX(row.locked) : '—'}</td>
+                        <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                              title="Print / download wallet statement"
+                              disabled={busyId === row.user_id}
+                              onClick={(e) => handleDownloadStatement(row, e)}
+                            >
+                              {busyId === row.user_id && busyAction === 'download' ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <FileDown className="h-3.5 w-3.5" />
+                              )}
+                              <span className="sr-only">Print statement</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10"
+                              title="Share wallet statement via WhatsApp"
+                              disabled={busyId === row.user_id}
+                              onClick={(e) => handleShareStatement(row, e)}
+                            >
+                              {busyId === row.user_id && busyAction === 'share' ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Share2 className="h-3.5 w-3.5" />
+                              )}
+                              <span className="sr-only">Share via WhatsApp</span>
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                       {isOpen && (
                         <tr className="border-t border-border/60">
-                          <td colSpan={7} className="p-0">
+                          <td colSpan={8} className="p-0">
+                            {/* Expanded statement action banner */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-card border-b border-border">
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                                  {(row.full_name || 'U').charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="text-xs font-semibold text-foreground flex items-center gap-2">
+                                    {row.full_name}
+                                    {row.phone && <span className="text-[11px] font-normal text-muted-foreground">({row.phone})</span>}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground">
+                                    Withdrawable: <span className="font-mono font-medium text-foreground">{formatUGX(row.withdrawable)}</span>
+                                    {' · '}Float: <span className="font-mono font-medium text-foreground">{formatUGX(row.float)}</span>
+                                    {row.advance > 0 && <> · Advance: <span className="font-mono font-medium text-warning">{formatUGX(row.advance)}</span></>}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => handleDownloadStatement(row, e)}
+                                  disabled={busyId === row.user_id}
+                                  className="h-8 gap-1.5 text-xs font-semibold hover:border-primary/50"
+                                >
+                                  {busyId === row.user_id && busyAction === 'download' ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <FileDown className="h-3.5 w-3.5 text-primary" />
+                                  )}
+                                  Print statement
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => handleShareStatement(row, e)}
+                                  disabled={busyId === row.user_id}
+                                  className="h-8 gap-1.5 text-xs font-semibold border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
+                                >
+                                  {busyId === row.user_id && busyAction === 'share' ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Share2 className="h-3.5 w-3.5" />
+                                  )}
+                                  Share via WhatsApp
+                                </Button>
+                              </div>
+                            </div>
                             <WalletBucketLedgerDetail
                               userId={row.user_id}
                               withdrawable={row.withdrawable}
