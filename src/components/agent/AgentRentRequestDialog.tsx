@@ -2934,6 +2934,11 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           request_fee: fees.requestFee,
           total_repayment: fees.totalRepayment,
           daily_repayment: fees.dailyRepayment,
+          // Weekly earners repay once a week. Stamping the frequency + the start
+          // date lets the daily eligibility law expect them only on their own
+          // collection weekday instead of every single day.
+          repayment_frequency: isWeeklyEarner ? 'weekly' : 'daily',
+          ...(isWeeklyEarner ? { repayment_starts_on: new Date().toISOString().slice(0, 10) } : {}),
           status: 'pending',
           house_category: resolvedHouseCategory,
           preferred_language: preferredLanguage || null,
