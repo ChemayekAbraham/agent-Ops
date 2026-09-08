@@ -740,23 +740,27 @@ export function ReportsOverview() {
               </p>
             )}
             {view === 'preview' ? (
-              doc ? (
-                <>
-                  <ReportHtmlPreview html={doc.html} title={`${active?.label} report preview`} />
-                  <p className="text-[11px] text-muted-foreground">
-                    This is the exact document the PDF is generated from.
+              <div className="space-y-4">
+                {picker()}
+                {doc ? (
+                  <>
+                    <ReportHtmlPreview html={doc.html} title={`${active?.label} report preview`} />
+                    <p className="text-[11px] text-muted-foreground">
+                      This is the exact document the PDF is generated from.
+                    </p>
+                  </>
+                ) : (reportType === 'agent' && !agentId) || (reportType === 'team-collections' && !teamId) ? (
+                  <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                    {reportType === 'agent'
+                      ? 'Select an agent to load their rent repayment history.'
+                      : 'Select a team leader to load their sub-agent collections.'}
                   </p>
-                </>
-              ) : (
-                <div className="space-y-4">
-                  {(reportType === 'agent' || reportType === 'team-collections') && body()}
-                  {reportType !== 'agent' && reportType !== 'team-collections' && (
-                    <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Preparing the report…
-                    </div>
-                  )}
-                </div>
-              )
+                ) : (
+                  <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Preparing the report…
+                  </div>
+                )}
+              </div>
             ) : (
               body()
             )}
