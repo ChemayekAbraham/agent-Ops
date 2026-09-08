@@ -52668,6 +52668,7 @@ export type Database = {
           reserved_stage: string
         }[]
       }
+      pso_can_view_my_performance: { Args: never; Returns: boolean }
       pso_cohort_volume: {
         Args: { p_from: string; p_to: string }
         Returns: {
