@@ -141,25 +141,26 @@ Deno.serve(async (req) => {
     // for existing partners left wallets credited but never debited
     // (see backfill 2026-07-24 for ISAAC / PAMELA / Mbakureeba Joshua).
 
-    // Strict balance check applies to BOTH invite and direct confirmation —
-    // we debit the wallet at creation in every path so money never sits in
-    // the wallet while a portfolio exists (even if pending partner details).
+    // Funding source = OPERATIONAL FLOAT (never withdrawable).
+    // See mem://business-model/self-support-float-funding — partner portfolio
+    // principal is deployed company float, not the partner's cash-out money.
     {
-      const { data: strictAvailRaw, error: availErr } = await admin.rpc("get_user_available_balance", {
+      const { data: floatAvailRaw, error: availErr } = await admin.rpc("funder_float_available", {
         p_user_id: partnerId,
       });
       if (availErr) {
-        console.error("[create-portfolio-invite] strict balance lookup failed:", availErr);
-        return json({ error: "Could not verify partner wallet balance. Please retry." }, 500);
+        console.error("[create-portfolio-invite] float balance lookup failed:", availErr);
+        return json({ error: "Could not verify partner operational float. Please retry." }, 500);
       }
 
-      const strictAvail = Number(strictAvailRaw ?? 0);
-      if (strictAvail < amount) {
+      const floatAvail = Number(floatAvailRaw ?? 0);
+      if (floatAvail < amount) {
         return json({
-          error: `Insufficient partner wallet balance. Need UGX ${amount.toLocaleString()}, but only UGX ${strictAvail.toLocaleString()} is available.`,
+          error: `Insufficient partner operational float. Need UGX ${amount.toLocaleString()}, but only UGX ${floatAvail.toLocaleString()} of float is available.`,
         }, 400);
       }
     }
+
 
     const rawToken = generateToken();
 
@@ -215,13 +216,15 @@ Deno.serve(async (req) => {
             direction: "cash_out",
             category: "partner_funding",
             ledger_scope: "wallet",
-            recipient_type: "user",
-            description: `Wallet deduction for portfolio ${portfolioCode}`,
+            recipient_type: "operational_wallet",
+            wallet_bucket: "float",
+            description: `Operational float deployed to portfolio ${portfolioCode} (float_usage=partner_portfolio_funding)`,
             source_table: "investor_portfolios",
             source_id: portfolioId,
             reference_id: portfolioCode,
             linked_party: "platform",
           },
+
           {
             amount,
             direction: "cash_in",
