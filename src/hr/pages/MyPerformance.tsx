@@ -184,6 +184,15 @@ export default function MyPerformancePage() {
     },
   });
 
+  const {
+    data: cohortRows = [],
+    isLoading: cohortLoading,
+    error: cohortError,
+  } = useQuery<PsoCohortRow[]>({
+    queryKey: ['pso-cohort-volume', from, to],
+    queryFn: () => fetchPsoCohort(from, to),
+  });
+
   if (error && error.message.toLowerCase().includes('not permitted')) {
     return (
       <PersonalLayout title="My performance">
