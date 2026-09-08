@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +54,8 @@ interface ActiveRentRequest {
   house_category: string | null;
   landlord_name?: string | null;
   property_address?: string | null;
+  repayment_frequency: string | null;
+  repayment_starts_on: string | null;
 }
 
 interface Profile {
@@ -138,6 +141,69 @@ function formatStatus(status: string) {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function kampalaDateParts(d = new Date()): { year: number; month: number; day: number; weekday: number } {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Kampala',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(d).map((p) => [p.type, p.value]));
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    weekday: weekdays.indexOf(String(parts.weekday)),
+  };
+}
+
+function parseLocalDate(iso: string): Date {
+  const [year, month, day] = iso.split('-').map((n) => Number(n));
+  return new Date(year, month - 1, day);
+}
+
+function isWeeklyRequest(request: ActiveRentRequest): boolean {
+  return String(request.repayment_frequency || 'daily').toLowerCase() === 'weekly';
+}
+
+function getWeeklyNextPaymentDate(repaymentStartsOn: string | null): string | null {
+  if (!repaymentStartsOn) return null;
+  const start = parseLocalDate(repaymentStartsOn);
+  start.setHours(0, 0, 0, 0);
+  const { year, month, day } = kampalaDateParts();
+  const today = new Date(year, month - 1, day);
+  today.setHours(0, 0, 0, 0);
+  if (today <= start) return format(start, 'dd MMM yyyy');
+  const daysDiff = Math.floor((today.getTime() - start.getTime()) / 86_400_000);
+  const weeks = Math.floor((daysDiff + 6) / 7);
+  const next = new Date(start.getTime() + weeks * 7 * 86_400_000);
+  return format(next, 'dd MMM yyyy');
+}
+
+function FrequencyTag({ request }: { request: ActiveRentRequest }) {
+  const weekly = isWeeklyRequest(request);
+  const nextDate = weekly ? getWeeklyNextPaymentDate(request.repayment_starts_on) : null;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Badge
+        variant="outline"
+        className={cn(
+          'w-fit gap-1 px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide',
+          weekly ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-blue-300 bg-blue-50 text-blue-700',
+        )}
+      >
+        {weekly ? <CalendarDays className="h-3 w-3" /> : <CircleDot className="h-3 w-3" />}
+        {weekly ? 'Weekly' : 'Daily'}
+      </Badge>
+      {weekly && nextDate && (
+        <span className="text-[10px] text-muted-foreground">Next: {nextDate}</span>
+      )}
+    </div>
+  );
+}
+
 type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'position';
 
 export function AgentMonitoring() {
@@ -162,7 +228,7 @@ export function AgentMonitoring() {
       const requests = await fetchAll<ActiveRentRequest>((from, to) =>
         supabase
           .from('rent_requests')
-          .select('id, tenant_id, agent_id, landlord_id, daily_repayment, total_repayment, amount_repaid, status, created_at, house_category')
+          .select('id, tenant_id, agent_id, landlord_id, daily_repayment, total_repayment, amount_repaid, status, created_at, house_category, repayment_frequency, repayment_starts_on')
           .in('status', ['funded', 'disbursed', 'repaying'])
           .range(from, to),
       );
@@ -458,7 +524,10 @@ export function AgentMonitoring() {
                               </p>
                               <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}</p>
                             </div>
-                            <StatusIndicator status={collectionStatus(expected, collected)} />
+                            <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:items-center">
+                              <FrequencyTag request={request} />
+                              <StatusIndicator status={collectionStatus(expected, collected)} />
+                            </div>
                           </div>
                           <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                             <div><Label className="text-[10px] text-muted-foreground">Expected</Label><p className="font-semibold tabular-nums">{formatUGX(expected)}</p></div>
