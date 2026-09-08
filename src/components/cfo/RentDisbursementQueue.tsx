@@ -247,6 +247,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   });
 
   const selectedItems = useMemo(() => items.filter(i => selected.has(i.id)), [items, selected]);
+  // New tenant / Renewing tag per row — presentation only, from real prior plans.
+  const { data: renewalMap } = useTenantRenewalMap(
+    useMemo(() => items.map(i => i.tenant_id), [items]),
+    useMemo(() => items.map(i => i.id), [items]),
+  );
 
   // Pre-tick rows handed over by the location/category recipient picker.
   useEffect(() => {
