@@ -34,8 +34,12 @@ export function ServiceCenterVerificationVettingQueue({ only, searchQuery = '' }
   const MIN_COMMENT = 10;
   const commentFor = (id: string) => (comments[id] ?? '').trim();
 
-  const landlords = only === 'lc1' ? [] : data?.landlords ?? [];
-  const lc1 = only === 'landlord' ? [] : data?.lc1 ?? [];
+  const landlords = (only === 'lc1' ? [] : data?.landlords ?? []).filter((row) =>
+    matchesVettingQuery(searchQuery, row.agent_name, row.agent_phone, row.name, row.phone, row.village, row.district),
+  );
+  const lc1 = (only === 'landlord' ? [] : data?.lc1 ?? []).filter((row) =>
+    matchesVettingQuery(searchQuery, row.agent_name, row.agent_phone, row.name, row.phone, row.village, row.district),
+  );
   const total = landlords.length + lc1.length;
 
   const act = async (

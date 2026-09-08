@@ -51,6 +51,10 @@ export function ServiceCenterListingVettingQueue({ searchQuery = '' }: { searchQ
     }
   };
 
+  const filtered = data.filter((row) =>
+    matchesVettingQuery(searchQuery, row.agent_name, row.agent_phone, row.landlord_name, row.landlord_phone, row.title, row.village, row.district),
+  );
+
   if (isLoading) {
     return <div className="space-y-3">{[0, 1].map((i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}</div>;
   }
