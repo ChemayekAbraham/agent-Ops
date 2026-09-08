@@ -518,6 +518,7 @@ export function TppoPlanDetailTable({
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="min-h-11"
                         onClick={() => setArrearsShown((s) => s + PAGE)}
                       >
                         {`Load more · ${arrearsRemaining} remaining`}
