@@ -2005,6 +2005,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 </div>
                 <InlineEditableField field="rent_amount" label="Rent Amount" value={selectedRequest.rent_amount} prefix="UGX " className="font-bold text-base" />
                 <InlineEditableField field="duration_days" label="Duration" value={selectedRequest.duration_days} suffix=" days" />
+                <div className="flex items-center justify-between gap-2 py-1">
+                  <span className="text-xs text-muted-foreground">Repayment cycle</span>
+                  <span className="text-xs font-semibold">
+                    {getRentCycleLabel(selectedRequest.repayment_frequency, selectedRequest.duration_days).full}
+                  </span>
+                </div>
                 <InlineEditableField field="access_fee" label="Access Fee" value={selectedRequest.access_fee} prefix="UGX " />
                 <InlineEditableField field="daily_repayment" label="Daily Repayment" value={selectedRequest.daily_repayment} prefix="UGX " className="font-bold text-base text-primary" />
                 <InlineEditableField field="total_repayment" label="Total Repayment" value={selectedRequest.total_repayment} prefix="UGX " />
