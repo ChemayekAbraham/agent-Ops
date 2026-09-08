@@ -880,11 +880,11 @@ function FinOpsHome({
           desc="Live transaction inbox extracted from Gmail."
         />
         <MajorActionButton
-          onClick={() => onView('deposits')}
-          icon={ShieldCheck}
+          onClick={() => onOpenTool('wallet_buckets')}
+          icon={Wallet}
           tone="primary"
-          title="Verify Deposits"
-          desc={`${queues?.depositsPending ?? 0} deposit${(queues?.depositsPending ?? 0) === 1 ? '' : 's'} awaiting verification.`}
+          title="Wallet Buckets"
+          desc="Withdrawable, float & advance balances per wallet — spot drift, open the ledger."
         />
         <MajorActionButton
           onClick={() => onOpenTool('withdrawals')}
