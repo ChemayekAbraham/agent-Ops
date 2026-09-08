@@ -15,10 +15,12 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
 import {
-  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, Receipt,
+  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, Receipt, AlertTriangle,
 } from 'lucide-react';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
 import { AgentCollectionsAgentTable } from './AgentCollectionsAgentTable';
+import { TenantsOwingDialog } from './TenantsOwingDialog';
+import { DormantAgentsDialog } from './DormantAgentsDialog';
 
 import { NextSevenDaysExpected } from './NextSevenDaysExpected';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
