@@ -85,6 +85,10 @@ function formatUgxCompact(v: number): string {
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
+function fmtZero(n: number): string | number {
+  return n === 0 ? '—' : n;
+}
+
 function formatKampalaDateTime(iso: string): string {
   return new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
