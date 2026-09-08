@@ -22,3 +22,28 @@ Limit structure (agents, `recalculate_credit_limit`): base UGX 20,000; sub-agent
 rent requests +9,000 each (cap 1.5M); activated promissory notes +9,000 each (cap 600K);
 hard cap UGX 9,000,000. House-listing, ratings, receipts and landlord-rent bonuses are
 retired for agents.
+
+## CFO override (2026-09-08)
+
+Business decision: the CFO must be able to issue an advance regardless of any
+eligibility condition. The gate above still applies to agent self-requests and the
+ops-approval pipeline; it is stood down only for a request explicitly stamped as an
+override.
+
+- `agent_advance_requests.gate_override` (+ `_by`, `_at`, `_reason`, `_gates`) carries it.
+- `aaa_guard_advance_gate_override` fires first and rejects the flag unless the caller
+  holds cfo/ceo/super_admin/admin, and unless a reason is supplied. It cannot be
+  self-granted from the client.
+- All seven issuance gates early-return on the flag: min principal (request + advance
+  row), no-double-advance, tiered rate rewrite, activity, duplicate account, and the
+  UGX 1,000 / 33% bounds in `enforce_advance_principal_integrity`. Two rules are
+  deliberately NOT overridable: principal must be > 0, and an existing advance's
+  principal can never be increased on UPDATE.
+- `disburse_agent_advance_request` relaxes its own UGX 10,000 / 33% checks for an
+  overridden request and copies the flag onto `agent_advances`.
+- Entry point is `cfo_create_advance(...)` — authorises, snapshots the gates it is
+  bypassing into `gate_override_gates`, and writes `audit_logs.action_type =
+  'cfo_advance_gate_override'`. The CFO dialog no longer inserts the row directly.
+- `agent_advance_blocking_gates(agent, principal, rate)` previews the same gates so the
+  operator sees them before filling the form.
+- Review overrides with `SELECT * FROM v_advance_gate_overrides`.

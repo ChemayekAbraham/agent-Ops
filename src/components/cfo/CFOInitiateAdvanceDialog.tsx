@@ -13,7 +13,7 @@ import { Loader2, ShieldAlert, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { UserSearchPicker } from '@/components/cfo/UserSearchPicker';
 import {
   formatUGX,
-  calculateAccessFee,
+  calculateAccessFeeSimple,
   calculateRegistrationFee,
   installmentCount,
   frequencyLabel,
@@ -23,11 +23,24 @@ import {
 import { disburseAgentAdvanceRequest } from '@/lib/disburseAgentAdvance';
 import { DuplicateAccountAlert, useAgentDuplicateMap } from '@/components/ops/DuplicateAccountAlert';
 
-/** Hard guardrails — deliberately conservative to stop fat-finger issuance. */
+/**
+ * Fat-finger guardrails. These are ADVISORY: the CFO may issue outside them, but only
+ * by ticking the override and writing down why — which is then recorded on the request
+ * and in audit_logs. The database enforces the same rule from the other side
+ * (`aaa_guard_advance_gate_override`): the override flag is rejected outright unless
+ * the caller actually holds cfo/ceo/super_admin/admin.
+ */
 const MIN_PRINCIPAL = 50_000;
 const MAX_PRINCIPAL = 3_000_000;
 const STEP = 1_000;
 const MIN_REASON = 15;
+const MIN_OVERRIDE_REASON = 10;
+
+interface GateSnapshot {
+  gates: string[];
+  labels: string[];
+  blocked: boolean;
+}
 
 const RATE_OPTIONS = [
   { label: '33% / month (standard)', value: '33' },
@@ -56,87 +69,110 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
   const [reason, setReason] = useState('');
   const [confirmAmount, setConfirmAmount] = useState('');
   const [ackRisk, setAckRisk] = useState(false);
-  const [overrideLimit, setOverrideLimit] = useState(false);
+  const [overrideGates, setOverrideGates] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const reset = () => {
     setAgent(null); setAmount(''); setCycleDays('30');
     setRatePreset('33'); setCustomRate('33'); setFrequency('daily');
-    setReason(''); setConfirmAmount(''); setAckRisk(false); setOverrideLimit(false);
+    setReason(''); setConfirmAmount(''); setAckRisk(false);
+    setOverrideGates(false); setOverrideReason('');
   };
 
   useEffect(() => { if (!open) reset(); }, [open]);
 
   const { data: duplicateMap = {} } = useAgentDuplicateMap(agent ? [agent.id] : []);
 
-  // Eligibility: existing exposure + computed limit for this one agent.
-  const [checking, setChecking] = useState(false);
-  const [blockers, setBlockers] = useState<string[]>([]);
-  const [limit, setLimit] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!agent) { setBlockers([]); setLimit(null); return; }
-    let active = true;
-    (async () => {
-      setChecking(true);
-      const found: string[] = [];
-      try {
-        const [{ data: roles }, { data: actives }, { data: pending }] = await Promise.all([
-          supabase.from('user_roles').select('role').eq('user_id', agent.id).eq('enabled', true),
-          supabase.from('agent_advances').select('id,outstanding_balance,status').eq('agent_id', agent.id).in('status', ['active', 'overdue']),
-          supabase.from('agent_advance_requests').select('id,status').eq('agent_id', agent.id)
-            .in('status', ['pending', 'agent_ops_approved', 'cfo_approved']),
-        ]);
-        if (!active) return;
-        const roleList = (roles || []).map((r: any) => String(r.role));
-        if (!roleList.includes('agent') && !roleList.includes('senior_agent') && !roleList.includes('sub_agent')) {
-          found.push('This user does not hold an agent role — advances are for agents only.');
-        }
-        if ((actives || []).length > 0) {
-          const out = (actives || []).reduce((s: number, a: any) => s + Number(a.outstanding_balance || 0), 0);
-          found.push(`Agent already has an ongoing advance (outstanding ${formatUGX(out)}). Clear it before issuing another.`);
-        }
-        if ((pending || []).length > 0) {
-          found.push('Agent has a request already moving through the approval pipeline — use that request instead.');
-        }
-
-        const { data: limitRows } = await supabase.rpc('get_agent_advance_limits' as any, {
-          _search: agent.phone || agent.full_name, _limit: 25, _offset: 0,
-        } as any);
-        if (!active) return;
-        const row = (limitRows as any[] | null)?.find((r) => r.agent_id === agent.id);
-        setLimit(row ? Number(row.total_limit || 0) : null);
-      } catch (e: any) {
-        found.push(e.message || 'Eligibility check failed');
-      }
-      if (active) { setBlockers(found); setChecking(false); }
-    })();
-    return () => { active = false; };
-  }, [agent]);
-
   const principal = Number(String(amount).replace(/[^0-9]/g, '')) || 0;
   const days = Number(cycleDays);
   const ratePct = ratePreset === 'custom' ? Number(customRate) : Number(ratePreset);
   const rateValid = Number.isFinite(ratePct) && ratePct >= 0 && ratePct <= 100;
   const monthlyRate = rateValid ? ratePct / 100 : 0;
-  const accessFee = principal > 0 ? calculateAccessFee(principal, days, monthlyRate) : 0;
+  // Simple pro-rata, matching what cfo_create_advance writes and what disbursement
+  // recomputes. The compound `calculateAccessFee` would show the operator a figure the
+  // database then silently replaces on any cycle other than 30 days.
+  const accessFee = principal > 0 ? calculateAccessFeeSimple(principal, days, monthlyRate) : 0;
   const registrationFee = principal > 0 ? calculateRegistrationFee(principal) : 0;
   const totalPayable = principal + accessFee + registrationFee;
   const installments = installmentCount(days, frequency);
   const installment = principal > 0 ? Math.ceil(totalPayable / installments) : 0;
 
+  // Every gate the database would raise, asked BEFORE the form is filled in rather
+  // than discovered at submit. Same function the RPC records on the audit row.
+  const [checking, setChecking] = useState(false);
+  const [gateSnapshot, setGateSnapshot] = useState<GateSnapshot | null>(null);
+  const [limit, setLimit] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!agent) { setGateSnapshot(null); setLimit(null); return; }
+    let active = true;
+    const t = setTimeout(() => {
+      (async () => {
+        setChecking(true);
+        try {
+          const [{ data: gates, error: gateErr }, { data: limitRows }] = await Promise.all([
+            supabase.rpc('agent_advance_blocking_gates' as any, {
+              p_agent_id: agent.id,
+              p_principal: principal > 0 ? principal : null,
+              p_monthly_rate: rateValid ? monthlyRate : null,
+            } as any),
+            supabase.rpc('get_agent_advance_limits' as any, {
+              _search: agent.phone || agent.full_name, _limit: 25, _offset: 0,
+            } as any),
+          ]);
+          if (!active) return;
+          if (gateErr) throw gateErr;
+          const g = (gates as any) || {};
+          setGateSnapshot({
+            gates: Array.isArray(g.gates) ? g.gates : [],
+            labels: Array.isArray(g.labels) ? g.labels : [],
+            blocked: !!g.blocked,
+          });
+          const row = (limitRows as any[] | null)?.find((r) => r.agent_id === agent.id);
+          setLimit(row ? Number(row.total_limit || 0) : null);
+        } catch (e: any) {
+          if (!active) return;
+          setGateSnapshot({
+            gates: ['check_failed'],
+            labels: [e.message || 'Eligibility check failed — treat as blocked.'],
+            blocked: true,
+          });
+        }
+        if (active) setChecking(false);
+      })();
+    }, 250);
+    return () => { active = false; clearTimeout(t); };
+  }, [agent, principal, monthlyRate, rateValid]);
+
   const overLimit = limit !== null && principal > limit;
 
+  /** Shape errors are never overridable — the request would be nonsense. */
   const amountErrors = useMemo(() => {
     const errs: string[] = [];
     if (principal <= 0) errs.push('Enter an amount.');
-    else {
-      if (principal < MIN_PRINCIPAL) errs.push(`Minimum advance is ${formatUGX(MIN_PRINCIPAL)}.`);
-      if (principal > MAX_PRINCIPAL) errs.push(`Maximum staff-initiated advance is ${formatUGX(MAX_PRINCIPAL)}.`);
-      if (principal % STEP !== 0) errs.push(`Amount must be a multiple of ${formatUGX(STEP)}.`);
-    }
     return errs;
   }, [principal]);
+
+  /** Policy bounds — overridable by the CFO with a written reason. */
+  const amountWarnings = useMemo(() => {
+    if (principal <= 0) return [];
+    const warns: string[] = [];
+    if (principal < MIN_PRINCIPAL) warns.push(`Below the ${formatUGX(MIN_PRINCIPAL)} standard minimum.`);
+    if (principal > MAX_PRINCIPAL) warns.push(`Above the ${formatUGX(MAX_PRINCIPAL)} standard maximum for staff-initiated advances.`);
+    if (principal % STEP !== 0) warns.push(`Not a multiple of ${formatUGX(STEP)}.`);
+    return warns;
+  }, [principal]);
+
+  /** Everything the CFO is being asked to knowingly step over. */
+  const overrideItems = useMemo(() => {
+    const items = [...(gateSnapshot?.labels ?? []), ...amountWarnings];
+    if (overLimit) items.push(`Above the agent's computed limit of ${formatUGX(limit || 0)}.`);
+    return items;
+  }, [gateSnapshot, amountWarnings, overLimit, limit]);
+
+  const needsOverride = overrideItems.length > 0;
+  const overrideReasonOk = overrideReason.trim().length >= MIN_OVERRIDE_REASON;
 
   const roiPercentNum = Number(roiPercent);
   const recoveryValid =
@@ -146,41 +182,36 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
   const canSubmit =
     !!agent &&
     !checking &&
-    blockers.length === 0 &&
     amountErrors.length === 0 &&
     rateValid &&
     recoveryValid &&
     reason.trim().length >= MIN_REASON &&
     ackRisk &&
-    (!overLimit || overrideLimit) &&
+    (!needsOverride || (overrideGates && overrideReasonOk)) &&
     confirmAmount.replace(/[^0-9]/g, '') === String(principal) &&
     !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit || !agent || !user?.id) return;
     setSubmitting(true);
+    const usedOverride = needsOverride && overrideGates;
     try {
-      // 1. Create the originating request row so the advance keeps a paper trail.
-      const { data: req, error: reqErr } = await supabase
-        .from('agent_advance_requests')
-        .insert({
-          agent_id: agent.id,
-          principal,
-          cycle_days: days,
-          monthly_rate: monthlyRate,
-          access_fee: accessFee,
-          registration_fee: registrationFee,
-          total_payable: totalPayable,
-          daily_payment: installment,
-          repayment_frequency: frequency,
-          reason: `[CFO-initiated] ${reason.trim()}`,
-          status: 'cfo_approved',
-          cfo_approved_by: user.id,
-          cfo_approved_at: new Date().toISOString(),
-        })
-        .select('*')
-        .single();
+      // 1. Create the originating request through the privileged RPC. It authorises the
+      //    caller, stamps the override (with the gates it bypassed) and writes audit_logs
+      //    in one transaction — the frontend can no longer set any of that on its own.
+      const { data: created, error: reqErr } = await supabase.rpc('cfo_create_advance' as any, {
+        p_agent_id: agent.id,
+        p_principal: principal,
+        p_cycle_days: days,
+        p_monthly_rate: monthlyRate,
+        p_repayment_frequency: frequency,
+        p_reason: reason.trim(),
+        p_override: usedOverride,
+        p_override_reason: usedOverride ? overrideReason.trim() : null,
+      } as any);
       if (reqErr) throw reqErr;
+      const req = (created as any)?.request;
+      if (!req?.id) throw new Error('Advance request was not created');
 
       // 2. Disburse through the single shared disbursement path.
       await disburseAgentAdvanceRequest({
@@ -195,27 +226,30 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
         roiRecoveryPercent: recoverySource === 'roi' ? roiPercentNum : 0,
       });
 
+      // cfo_create_advance already wrote the audit row (including the bypassed gates);
+      // this only adds the client-side context the RPC cannot see.
       await supabase.from('audit_logs').insert({
         user_id: user.id,
-        action_type: 'cfo_initiated_advance',
+        action_type: 'cfo_initiated_advance_disbursed',
         table_name: 'agent_advance_requests',
         record_id: req.id,
         metadata: {
           agent_id: agent.id,
           agent_name: agent.full_name,
           principal,
-          cycle_days: days,
-          monthly_rate: monthlyRate,
-          repayment_frequency: frequency,
-          installment_amount: installment,
-          total_payable: totalPayable,
-          reason: reason.trim(),
+          recovery_source: recoverySource,
+          roi_recovery_percent: recoverySource === 'roi' ? roiPercentNum : 0,
           over_limit: overLimit,
           computed_limit: limit,
+          gate_override: usedOverride,
         },
       });
 
-      toast.success(`Advance of ${formatUGX(principal)} issued to ${agent.full_name}`);
+      toast.success(
+        usedOverride
+          ? `Advance of ${formatUGX(principal)} issued to ${agent.full_name} — eligibility gates overridden and logged`
+          : `Advance of ${formatUGX(principal)} issued to ${agent.full_name}`,
+      );
       onSuccess?.();
       onOpenChange(false);
     } catch (e: any) {
@@ -251,17 +285,24 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
             </p>
           )}
 
-          {agent && !checking && blockers.length > 0 && (
-            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 space-y-1">
-              {blockers.map((b) => (
-                <p key={b} className="text-xs font-medium text-destructive flex gap-1.5">
+          {agent && !checking && needsOverride && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-1">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-500">
+                {overrideItems.length} condition{overrideItems.length === 1 ? '' : 's'} would normally block this issuance
+              </p>
+              {overrideItems.map((b) => (
+                <p key={b} className="text-xs text-amber-700 dark:text-amber-500 flex gap-1.5">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" /> {b}
                 </p>
               ))}
+              <p className="text-[11px] text-muted-foreground pt-1">
+                The CFO may still issue. Tick the override below and record why — it is stored on
+                the request and in the audit log.
+              </p>
             </div>
           )}
 
-          {agent && !checking && blockers.length === 0 && (
+          {agent && !checking && !needsOverride && (
             <p className="text-xs font-medium text-emerald-600 inline-flex items-center gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5" /> Eligible
               {limit !== null && <> · computed limit {formatUGX(limit)}</>}
@@ -282,6 +323,9 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
               />
               {amount !== '' && amountErrors.map((e) => (
                 <p key={e} className="text-[11px] text-destructive mt-1">{e}</p>
+              ))}
+              {amount !== '' && amountWarnings.map((w) => (
+                <p key={w} className="text-[11px] text-amber-600 mt-1">{w}</p>
               ))}
               {overLimit && (
                 <p className="text-[11px] text-amber-600 mt-1">
@@ -390,11 +434,31 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
             <p className="text-[10px] text-muted-foreground mt-1">{reason.trim().length}/{MIN_REASON}</p>
           </div>
 
-          {overLimit && (
-            <label className="flex items-start gap-2 text-xs">
-              <Checkbox checked={overrideLimit} onCheckedChange={(c) => setOverrideLimit(!!c)} className="mt-0.5" />
-              <span>I am knowingly issuing above the agent's computed limit.</span>
-            </label>
+          {needsOverride && (
+            <div className="rounded-xl border border-amber-500/40 p-3 space-y-2">
+              <label className="flex items-start gap-2 text-xs">
+                <Checkbox checked={overrideGates} onCheckedChange={(c) => setOverrideGates(!!c)} className="mt-0.5" />
+                <span>
+                  I am knowingly overriding {overrideItems.length} eligibility condition
+                  {overrideItems.length === 1 ? '' : 's'} on my authority as CFO.
+                </span>
+              </label>
+              {overrideGates && (
+                <div>
+                  <Label>Override justification (min {MIN_OVERRIDE_REASON} characters)</Label>
+                  <Textarea
+                    value={overrideReason}
+                    onChange={(e) => setOverrideReason(e.target.value.slice(0, 500))}
+                    placeholder="Why are the eligibility gates being bypassed for this agent?"
+                    className="mt-1 text-sm"
+                    rows={2}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {overrideReason.trim().length}/{MIN_OVERRIDE_REASON} · recorded against your name on the request
+                  </p>
+                </div>
+              )}
+            </div>
           )}
 
           <div>
