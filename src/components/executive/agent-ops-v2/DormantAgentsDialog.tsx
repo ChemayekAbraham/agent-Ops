@@ -113,21 +113,47 @@ export function DormantAgentsDialog({
 
         <div className="max-h-[85vh] overflow-y-auto space-y-3 pr-1">
           <div className="flex flex-wrap items-center gap-2">
-            {[7, 14, 30].map((d) => (
-              <Button
-                key={d}
-                size="sm"
-                className="h-8 text-xs"
-                variant={silentDays === d ? 'default' : 'outline'}
-                onClick={() => setSilentDays(d)}
-              >
-                {d}+ days
-              </Button>
-            ))}
+            <Button
+              size="sm"
+              className="h-8 text-xs min-h-11 sm:min-h-8"
+              variant={mode === 'silent' ? 'default' : 'outline'}
+              onClick={() => setMode('silent')}
+            >
+              Gone quiet
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs min-h-11 sm:min-h-8"
+              variant={mode === 'not_scheduled' ? 'default' : 'outline'}
+              onClick={() => setMode('not_scheduled')}
+            >
+              Not on today's schedule
+            </Button>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            {mode === 'not_scheduled'
+              ? 'Agents holding tenants in arrears who have nothing scheduled today, so they do not appear anywhere in the schedule above. These balances are invisible in the daily view.'
+              : 'Agents who have recorded no collection for the selected number of days, while still holding tenants in arrears.'}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {mode === 'silent' &&
+              [7, 14, 30].map((d) => (
+                <Button
+                  key={d}
+                  size="sm"
+                  className="h-8 text-xs"
+                  variant={silentDays === d ? 'default' : 'outline'}
+                  onClick={() => setSilentDays(d)}
+                >
+                  {d}+ days
+                </Button>
+              ))}
             <Button
               size="sm"
               variant="outline"
-              className="h-8 text-xs ml-auto"
+              className="h-8 text-xs ml-auto min-h-11"
               disabled={isPending || agents.length === 0}
               onClick={() => data && downloadDormantAgentsPdf(data as DormantAgentsReport)}
             >
