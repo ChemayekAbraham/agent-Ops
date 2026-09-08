@@ -1,6 +1,46 @@
 # Phase 2 deployment runbook — blockers and minimum-privilege resolution
 
-Status: **prepared. Nothing applied, deployed, or executed.**
+Status, corrected **2026-09-08** after a read-only live-state audit:
+
+- **M1–M4 ARE LIVE.** `20260908120000`, `20260908120500`, `20260908130000` and
+  `20260908140000` are all in force in project `wirntoujqoyjobfhyelc`. The
+  "nothing applied" status this file previously carried was stale. Do **not**
+  re-apply them.
+- **G7 (`20260908101500`) is still NOT applied.**
+  `agent_allocate_tenant_payment_internal` still contains the
+  `rent_receivable_created` leg, so every agent collection still debits A3.
+- **Edge Functions are still undeployed** through this path: no
+  `SUPABASE_ACCESS_TOKEN`, and `build.yml` contains no Supabase reference.
+- None of these versions appear in `supabase_migrations.schema_migrations` —
+  they were applied directly. **The migrations table is not evidence of live
+  state in either direction.** Verify against `pg_proc` /
+  `information_schema` instead (see "Live-state verification" below).
+- The landlord-float-bucket columns `cycles_disbursed`, `accrual_mode` and
+  `cfo_float_cycles_disbursed` are **not live**, and
+  `landlord_float_buckets` does not exist. Those migration files are
+  repo-only in that respect.
+
+## Live-state verification (run this first, always)
+
+```sql
+-- expect 6 (all present today)
+SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname IN (
+  'recognise_funding_treasury','assert_funding_treasury_recognised',
+  'record_rent_request_repayment_v2','treasury_waterfall_go_live',
+  'treasury_waterfall_go_live_at','is_treasury_waterfall_scope');
+
+-- both must be 2026-09-08 00:00:00+00 and identical
+SELECT public.rent_pricing_floor_effective_from(), public.treasury_waterfall_go_live();
+
+-- > 0 means G7 is still unapplied
+SELECT position('rent_receivable_created' in prosrc)
+FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'agent_allocate_tenant_payment_internal';
+
+-- 0 today: the waterfall has never executed in production
+SELECT count(*) FROM public.instalment_allocations;
+```
 
 ---
 
@@ -41,22 +81,20 @@ at all.**
 
 ### Minimum required authorization — recommended path
 
-**A maintainer applies M2–M4 directly, outside this session.** No permission
-change, no classifier weakening, no broadened tool access.
+**RESOLVED — no longer required.** M1, M2, M3 and M4 are all live. The
+instruction below is retained only as a record of what was originally planned;
+**do not follow it**, because re-applying these files would redefine live money
+functions for no benefit.
 
-Run these three files **in this exact order**, in the Supabase SQL editor or via
-an authenticated CLI, against project `wirntoujqoyjobfhyelc`:
+> ~~Run these three files in this exact order:
+> `20260908120500_atomic_repayment_waterfall.sql`,
+> `20260908130000_option_b_golive_scope.sql`,
+> `20260908140000_single_golive_boundary.sql`, preceded by
+> `20260908120000_funding_treasury_recognition.sql` (M1).~~
 
-1. `supabase/migrations/20260908120500_atomic_repayment_waterfall.sql`
-2. `supabase/migrations/20260908130000_option_b_golive_scope.sql`
-3. `supabase/migrations/20260908140000_single_golive_boundary.sql`
-
-Order matters: file 2 scopes the functions created in file 1, and file 3
-collapses the duplicated go-live constant that files 1–2 rely on.
-
-> **Note:** `20260908120000_funding_treasury_recognition.sql` (M1) was applied and
-> then **deliberately dropped** to restore the clean baseline. It must be
-> re-applied **first**, before the three files above.
+The only migration still awaiting deliberate application is
+`20260908101500_g7_collection_direction_fix.sql`, which is a separate change
+with its own approval and its own pre-checks (see that file's header).
 
 ### Post-apply verification
 
@@ -85,8 +123,9 @@ SELECT (SELECT count(*) FROM general_ledger)          AS gl_rows,
 
 ### Status
 
-**Requires your approval and a maintainer action.** Nothing here can or should be
-self-authorised from inside this session.
+**CLOSED.** M1–M4 are live; the verification block above passes. The remaining
+database work is G7 only, which requires its own approval and maintainer action
+and must not be self-authorised.
 
 ---
 
