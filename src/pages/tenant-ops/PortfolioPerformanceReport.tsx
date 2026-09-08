@@ -417,6 +417,9 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
         <VarianceA2 report={data} earlier={earlier} />
       </div>
 
+      <ArrearsMovementA2b granularity={granularity} anchor={anchor} />
+
+
       <ProjectionA3 granularity={granularity} anchor={anchor} />
 
       <div className="flex items-center gap-2 border-b border-border/60 pb-2 pt-1">
