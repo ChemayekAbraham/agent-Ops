@@ -204,7 +204,7 @@ export function TppoPlanDetailTable({
             <button
               type="button"
               onClick={() => setCollapsed((c) => !c)}
-              className="flex items-center gap-1.5 text-left touch-manipulation"
+              className="flex min-h-11 items-center gap-1.5 text-left touch-manipulation"
               aria-expanded={!collapsed}
             >
               <ChevronDown
@@ -502,7 +502,7 @@ export function TppoPlanDetailTable({
               <button
                 type="button"
                 onClick={() => setArrearsCollapsed((c) => !c)}
-                className="flex items-center gap-1.5 text-left touch-manipulation"
+                className="flex min-h-11 items-center gap-1.5 text-left touch-manipulation"
                 aria-expanded={!arrearsCollapsed}
               >
                 <ChevronDown
