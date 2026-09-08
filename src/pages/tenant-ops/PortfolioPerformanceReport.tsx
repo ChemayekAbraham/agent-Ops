@@ -309,7 +309,9 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <PeriodToggle value={granularity} onChange={setGranularity} />
+          <div className="w-full sm:w-auto">
+            <PeriodToggle value={granularity} onChange={setGranularity} />
+          </div>
           <Button
             type="button"
             variant="ghost"
