@@ -21,6 +21,54 @@ type FocusBucket = 'float' | 'withdrawable' | null;
  *
  * No mutation hooks, no buttons. Pure observability.
  */
+type WalletRow = {
+  user_id: string;
+  full_name: string;
+  phone: string;
+  balance: number;
+  withdrawable: number;
+  float: number;
+  advance: number;
+  locked: number;
+};
+
+async function hydrateWalletRows(userIds: string[]): Promise<WalletRow[]> {
+  if (userIds.length === 0) return [];
+
+  // Use the ops-scoped RPC so Fin Ops / manager roles can read names & phones
+  // even when direct SELECT on public.profiles is blocked by RLS.
+  const { data: profiles } = await supabase.rpc('ops_get_profiles_lite', {
+    p_ids: userIds,
+  });
+  const pmap = new Map(
+    ((profiles ?? []) as Array<{ id: string; full_name: string | null; phone: string | null }>).map(
+      (p) => [p.id, p],
+    ),
+  );
+
+  const { data: rows, error } = await supabase
+    .from('wallets')
+    .select('user_id, balance, withdrawable_balance, float_balance, advance_balance, locked_balance')
+    .in('user_id', userIds);
+  if (error) throw error;
+  const wmap = new Map((rows ?? []).map((r) => [r.user_id, r]));
+
+  return userIds.map((id) => {
+    const p = pmap.get(id);
+    const w = wmap.get(id);
+    return {
+      user_id: id,
+      full_name: p?.full_name ?? 'Unknown',
+      phone: p?.phone ?? '',
+      balance: Number(w?.balance ?? 0),
+      withdrawable: Number(w?.withdrawable_balance ?? 0),
+      float: Number(w?.float_balance ?? 0),
+      advance: Number(w?.advance_balance ?? 0),
+      locked: Number(w?.locked_balance ?? 0),
+    };
+  });
+}
+
 export function WalletBreakdownReadOnly({
   focusBucket = null,
   onClearFocus,
@@ -32,7 +80,9 @@ export function WalletBreakdownReadOnly({
   const [minBal, setMinBal] = useState<string>('');
   const [maxBal, setMaxBal] = useState<string>('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [localBucket, setLocalBucket] = useState<FocusBucket>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const effectiveBucket = localBucket ?? focusBucket;
 
   // When a bucket drilldown is requested, scroll the table into view so the
   // operator immediately lands on the focused breakdown.
@@ -42,83 +92,75 @@ export function WalletBreakdownReadOnly({
     }
   }, [focusBucket]);
 
-  const { data, isLoading } = useQuery({
+  const trimmedSearch = search.trim();
+
+  // Default browse view: top 1000 wallets by balance. Fine for "who holds the
+  // most" but a zero-balance (or just low-balance) account can sit outside
+  // this window entirely, so it must never be relied on for search.
+  const { data: browseData, isLoading: browseLoading } = useQuery({
     queryKey: ['manager-wallet-breakdown'],
+    enabled: trimmedSearch.length === 0,
     queryFn: async () => {
-      // Pull wallets with balance > 0 first (top 1000 by balance desc).
       const { data: rows, error } = await supabase
         .from('wallets')
-        .select('user_id, balance, withdrawable_balance, float_balance, advance_balance, locked_balance')
-        .gt('balance', 0)
+        .select('user_id')
         .order('balance', { ascending: false })
         .limit(1000);
       if (error) throw error;
-
-      const userIds = (rows ?? []).map((r) => r.user_id).filter((id): id is string => !!id);
-      if (userIds.length === 0) return [];
-
-      // Use the ops-scoped RPC so Fin Ops / manager roles can read names & phones
-      // even when direct SELECT on public.profiles is blocked by RLS.
-      const { data: profiles } = await supabase.rpc('ops_get_profiles_lite', {
-        p_ids: userIds,
-      });
-
-      const pmap = new Map(
-        ((profiles ?? []) as Array<{ id: string; full_name: string | null; phone: string | null }>).map(
-          (p) => [p.id, p],
-        ),
-      );
-
-      return (rows ?? []).map((r) => {
-        const p = r.user_id ? pmap.get(r.user_id) : undefined;
-        return {
-          user_id: r.user_id ?? '',
-          full_name: p?.full_name ?? 'Unknown',
-          phone: p?.phone ?? '',
-          balance: Number(r.balance ?? 0),
-          withdrawable: Number(r.withdrawable_balance ?? 0),
-          float: Number(r.float_balance ?? 0),
-          advance: Number(r.advance_balance ?? 0),
-          locked: Number(r.locked_balance ?? 0),
-        };
-      });
+      return hydrateWalletRows((rows ?? []).map((r) => r.user_id).filter((id): id is string => !!id));
     },
     staleTime: 60_000,
   });
 
+  // Search view: resolves against every user by name/phone (search_users_fast),
+  // not just the top-1000-by-balance browse window, so an account with UGX 0
+  // right now -- but real transaction history -- is still found.
+  const { data: searchData, isLoading: searchLoading } = useQuery({
+    queryKey: ['manager-wallet-breakdown-search', trimmedSearch],
+    enabled: trimmedSearch.length > 0,
+    queryFn: async () => {
+      const { data: profiles, error } = await supabase.rpc('search_users_fast', {
+        p_query: trimmedSearch,
+        p_limit: 200,
+      } as any);
+      if (error) throw error;
+      const ids = ((profiles ?? []) as Array<{ id: string }>).map((p) => p.id).filter(Boolean);
+      return hydrateWalletRows(ids);
+    },
+    staleTime: 30_000,
+  });
+
+  const data = trimmedSearch.length > 0 ? searchData : browseData;
+  const isLoading = trimmedSearch.length > 0 ? searchLoading : browseLoading;
+
   const filtered = useMemo(() => {
     if (!data) return [];
-    const q = search.trim().toLowerCase();
     const min = minBal ? Number(minBal) : null;
     const max = maxBal ? Number(maxBal) : null;
     const rows = data.filter((row) => {
-      if (q) {
-        const hay = `${row.full_name} ${row.phone}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
       if (min !== null && row.balance < min) return false;
       if (max !== null && row.balance > max) return false;
       // Bucket focus: only show wallets actually holding that bucket.
-      if (focusBucket === 'float' && row.float <= 0) return false;
-      if (focusBucket === 'withdrawable' && row.withdrawable <= 0) return false;
+      if (effectiveBucket === 'float' && row.float <= 0) return false;
+      if (effectiveBucket === 'withdrawable' && row.withdrawable <= 0) return false;
       return true;
     });
     // When focused on a bucket, sort by that bucket descending so the
     // biggest holders surface first.
-    if (focusBucket === 'float') {
+    if (effectiveBucket === 'float') {
       rows.sort((a, b) => b.float - a.float);
-    } else if (focusBucket === 'withdrawable') {
+    } else if (effectiveBucket === 'withdrawable') {
       rows.sort((a, b) => b.withdrawable - a.withdrawable);
     }
     return rows;
-  }, [data, search, minBal, maxBal, focusBucket]);
+  }, [data, minBal, maxBal, effectiveBucket]);
 
   const totalShown = filtered.reduce((s, r) => s + r.balance, 0);
   const focusTotal = filtered.reduce(
-    (s, r) => s + (focusBucket === 'float' ? r.float : focusBucket === 'withdrawable' ? r.withdrawable : 0),
+    (s, r) => s + (effectiveBucket === 'float' ? r.float : effectiveBucket === 'withdrawable' ? r.withdrawable : 0),
     0,
   );
-  const focusLabel = focusBucket === 'float' ? 'Operations Float' : focusBucket === 'withdrawable' ? 'Withdrawable' : '';
+  const focusLabel = effectiveBucket === 'float' ? 'Operations Float' : effectiveBucket === 'withdrawable' ? 'Withdrawable' : '';
 
   return (
     <div ref={rootRef} className="space-y-5 scroll-mt-4">
@@ -136,10 +178,10 @@ export function WalletBreakdownReadOnly({
       </div>
 
       {/* Active bucket focus banner */}
-      {focusBucket && (
+      {effectiveBucket && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
-            {focusBucket === 'float' ? (
+            {effectiveBucket === 'float' ? (
               <ArrowRightLeft className="h-4 w-4 text-primary shrink-0" />
             ) : (
               <Banknote className="h-4 w-4 text-primary shrink-0" />
@@ -153,15 +195,16 @@ export function WalletBreakdownReadOnly({
               </p>
             </div>
           </div>
-          {onClearFocus && (
-            <button
-              type="button"
-              onClick={onClearFocus}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
-            >
-              <X className="h-3.5 w-3.5" /> Clear
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setLocalBucket(null);
+              onClearFocus?.();
+            }}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+          >
+            <X className="h-3.5 w-3.5" /> Clear
+          </button>
         </div>
       )}
 
@@ -204,10 +247,33 @@ export function WalletBreakdownReadOnly({
             className="mt-1"
           />
         </div>
-        <div className="flex items-end justify-end">
+        <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-2">
+          {/* FUNCTIONAL PLACEHOLDER — Gemini: restyle as a branded segmented
+              control. Wiring only: setLocalBucket drives the same
+              effectiveBucket filter/sort the tile drilldowns already use. */}
+          <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+            {([
+              { key: null, label: 'All' },
+              { key: 'withdrawable' as const, label: 'Withdrawable' },
+              { key: 'float' as const, label: 'Float' },
+            ]).map((opt) => (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() => setLocalBucket(opt.key)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  effectiveBucket === opt.key
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
-            onClick={() => { setSearch(''); setMinBal(''); setMaxBal(''); }}
+            onClick={() => { setSearch(''); setMinBal(''); setMaxBal(''); setLocalBucket(null); }}
             className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
           >
             Clear filters
