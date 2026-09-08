@@ -76,15 +76,17 @@ export function ServiceCenterListingVettingQueue({ searchQuery = '' }: { searchQ
         <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <Home className="h-4 w-4" /> Houses awaiting your vetting
         </h3>
-        <Badge variant={data.length ? 'default' : 'outline'}>{data.length}</Badge>
+        <Badge variant={filtered.length ? 'default' : 'outline'}>{filtered.length}</Badge>
       </div>
 
-      {data.length === 0 ? (
+      {filtered.length === 0 ? (
         <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">
-          No houses waiting on you. New listings from your agents will appear here first.
+          {searchQuery.trim()
+            ? 'No houses match that search.'
+            : 'No houses waiting on you. New listings from your agents will appear here first.'}
         </CardContent></Card>
       ) : (
-        data.map((row) => (
+        filtered.map((row) => (
           <Card key={row.id}>
             <CardContent className="space-y-2.5 p-3">
                <button type="button" onClick={() => setDetailsRow(row)} className="flex w-full items-start gap-3 text-left">

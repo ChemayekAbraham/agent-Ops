@@ -38,7 +38,7 @@ const STATUS_LABEL: Record<string, string> = {
   rent_requested: 'Rent plan raised',
 };
 
-export function TenantRentIntakeQueue() {
+export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: string } = {}) {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [declineFor, setDeclineFor] = useState<string | null>(null);
