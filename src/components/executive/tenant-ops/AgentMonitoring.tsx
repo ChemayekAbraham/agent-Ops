@@ -171,10 +171,14 @@ function isWeeklyRequest(request: ActiveRentRequest): boolean {
 function getWeeklyNextPaymentDate(repaymentStartsOn: string | null): string | null {
   if (!repaymentStartsOn) return null;
   const start = parseLocalDate(repaymentStartsOn);
-  const startWeekday = start.getDay();
-  const { weekday: todayWeekday, year, month, day } = kampalaDateParts();
-  const daysUntil = (startWeekday - todayWeekday + 7) % 7;
-  const next = new Date(year, month - 1, day + daysUntil);
+  start.setHours(0, 0, 0, 0);
+  const { year, month, day } = kampalaDateParts();
+  const today = new Date(year, month - 1, day);
+  today.setHours(0, 0, 0, 0);
+  if (today <= start) return format(start, 'dd MMM yyyy');
+  const daysDiff = Math.floor((today.getTime() - start.getTime()) / 86_400_000);
+  const weeks = Math.floor((daysDiff + 6) / 7);
+  const next = new Date(start.getTime() + weeks * 7 * 86_400_000);
   return format(next, 'dd MMM yyyy');
 }
 
