@@ -449,7 +449,8 @@ export function TppoPlanDetailTable({
                     These tenants are past their agreed end date or otherwise had no instalment falling due, so nothing appears for them in the schedule above. Every shilling here reduces the arrears balance the moment it is recorded.
                   </p>
 
-                  <Table>
+                  <div className="hidden sm:block">
+                  <Table className="w-full table-fixed">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-10">#</TableHead>
@@ -458,26 +459,24 @@ export function TppoPlanDetailTable({
                         <TableHead className="text-right">Paid</TableHead>
                         <TableHead className="text-right">Arrears now</TableHead>
                         <TableHead className="text-right">Outstanding</TableHead>
-                        <TableHead className="text-right">Daily amount</TableHead>
-                        <TableHead className="text-right">Days past term</TableHead>
-                        <TableHead>Obligation end</TableHead>
+                        <TableHead className="text-right">Days past</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {visibleArrears.map((row, index) => (
                         <TableRow key={row.rent_request_id}>
                           <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                          <TableCell>
+                          <TableCell className="truncate" title={row.tenant_name}>
                             <button
                               type="button"
                               onClick={() => setSelected({ id: row.rent_request_id, name: row.tenant_name })}
-                              className="underline decoration-dotted underline-offset-2 hover:decoration-solid touch-manipulation"
+                              className="min-h-11 underline decoration-dotted underline-offset-2 hover:decoration-solid touch-manipulation"
                               title="See where this arrears comes from"
                             >
                               {row.tenant_name}
                             </button>
                           </TableCell>
-                          <TableCell>{row.agent_name}</TableCell>
+                          <TableCell className="truncate" title={row.agent_name}>{row.agent_name}</TableCell>
                           <TableCell className={`${moneyCell} text-emerald-600`}>
                             {formatUGX(row.paid_in_period)}
                           </TableCell>
@@ -489,9 +488,7 @@ export function TppoPlanDetailTable({
                             )}
                           </TableCell>
                           <TableCell className={moneyCell}>{formatUGX(row.outstanding)}</TableCell>
-                          <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
                           <TableCell className={moneyCell}>{row.days_past_term}</TableCell>
-                          <TableCell>{row.obligation_end}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -506,11 +503,63 @@ export function TppoPlanDetailTable({
                         <TableCell />
                         <TableCell />
                         <TableCell />
-                        <TableCell />
-                        <TableCell />
                       </TableRow>
                     </TableFooter>
                   </Table>
+                  </div>
+
+                  <div className="sm:hidden space-y-2">
+                    {visibleArrears.map((row, index) => (
+                      <div key={row.rent_request_id} className="rounded-md border p-3">
+                        <p className="text-[11px] text-muted-foreground">{index + 1}</p>
+                        <button
+                          type="button"
+                          onClick={() => setSelected({ id: row.rent_request_id, name: row.tenant_name })}
+                          className="min-h-11 text-sm font-medium underline decoration-dotted underline-offset-2 hover:decoration-solid touch-manipulation"
+                          title="See where this arrears comes from"
+                        >
+                          {row.tenant_name}
+                        </button>
+                        <p className="text-[11px] text-muted-foreground">{`via ${row.agent_name}`}</p>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
+                          <div>
+                            <p className="text-[11px] text-muted-foreground">Paid</p>
+                            <p className="text-sm tabular-nums text-emerald-600">{formatUGX(row.paid_in_period)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground">Arrears now</p>
+                            <p className="text-sm tabular-nums">
+                              {row.arrears > 0 ? (
+                                <span className="text-destructive">{formatUGX(row.arrears)}</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground">Outstanding</p>
+                            <p className="text-sm tabular-nums">{formatUGX(row.outstanding)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground">Days past</p>
+                            <p className="text-sm tabular-nums">{row.days_past_term}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="sm:hidden rounded-md border p-3">
+                      <p className="text-sm font-semibold">TOTAL</p>
+                      <p className="text-[11px] text-muted-foreground">{`${data.totals.arrears_paid_plans} tenants`}</p>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
+                        <div>
+                          <p className="text-[11px] text-muted-foreground">Paid</p>
+                          <p className="text-sm font-semibold tabular-nums">
+                            {formatUGX(data.totals.arrears_paid_total)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                   {arrearsRemaining > 0 && (
                     <div className="mt-3 flex justify-center">
