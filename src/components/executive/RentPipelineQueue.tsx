@@ -2066,6 +2066,19 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 <div className="space-y-0.5 col-span-2">
                   <p className="text-xs text-muted-foreground">Assigned Agent</p>
                   <p className="font-semibold">{selectedRequest.assigned_agent_name || selectedRequest.agent_name || 'No Agent'}</p>
+                  {(() => {
+                    const sub = subAgentParentMap?.get(selectedRequest.assigned_agent_id || selectedRequest.agent_id);
+                    if (!sub) return null;
+                    return (
+                      <span
+                        className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 border border-indigo-500/30 w-fit"
+                        title={`Sub-agent of ${sub.parentName}`}
+                      >
+                        <Users className="h-2.5 w-2.5" />
+                        Sub-agent of {sub.parentName}
+                      </span>
+                    );
+                  })()}
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className="text-xs text-muted-foreground">{selectedRequest.agent_phone}</span>
                     <WhatsAppButton phone={selectedRequest.agent_phone} name={selectedRequest.assigned_agent_name || selectedRequest.agent_name} label="WhatsApp" />
