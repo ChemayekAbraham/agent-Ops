@@ -399,6 +399,10 @@ export default function SmartphoneOrderStatus({
                       ))}
                     </ul>
                     <p className="text-[11px] text-muted-foreground">{MO_BANJA.lockNotice}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Welile pays the down payment straight to the supplier. The daily repayment stays yours —
+                      it is deducted from your wallet or commission.
+                    </p>
                   </div>
                 )}
                 {status === 'rejected' && (
