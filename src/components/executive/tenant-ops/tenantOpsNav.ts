@@ -106,6 +106,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
       { key: 'daily-collections', label: 'Daily Collection Monitoring', icon: CalendarCheck, keywords: ['expected', 'collected', 'edit'] },
       { key: 'agent-monitoring', label: 'Agent Monitoring', icon: Users, keywords: ['agents', 'monitoring', 'collections', 'expected', 'collected', 'performance'] },
       { key: 'reliability-hub', label: 'Repayment Reliability Score', icon: ShieldCheck, keywords: ['risk', 'score', 'recency'] },
+      { key: 'location-corrections', label: 'Tenant Location Corrections', icon: MapPin, keywords: ['location', 'village', 'district', 'legacy', 'corrections', 'fix'] },
       { key: 'tenant-products-report', label: 'Tenant Products & Services', icon: FileText, keywords: ['products', 'services', 'report'] },
     ],
   },
