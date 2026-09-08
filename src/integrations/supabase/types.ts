@@ -259,6 +259,11 @@ export type Database = {
           cycle_days: number
           daily_payment: number
           extend_days: number | null
+          gate_override: boolean
+          gate_override_at: string | null
+          gate_override_by: string | null
+          gate_override_gates: string[] | null
+          gate_override_reason: string | null
           id: string
           landlord_ops_notes: string | null
           landlord_ops_reviewed_at: string | null
@@ -297,6 +302,11 @@ export type Database = {
           cycle_days?: number
           daily_payment?: number
           extend_days?: number | null
+          gate_override?: boolean
+          gate_override_at?: string | null
+          gate_override_by?: string | null
+          gate_override_gates?: string[] | null
+          gate_override_reason?: string | null
           id?: string
           landlord_ops_notes?: string | null
           landlord_ops_reviewed_at?: string | null
@@ -335,6 +345,11 @@ export type Database = {
           cycle_days?: number
           daily_payment?: number
           extend_days?: number | null
+          gate_override?: boolean
+          gate_override_at?: string | null
+          gate_override_by?: string | null
+          gate_override_gates?: string[] | null
+          gate_override_reason?: string | null
           id?: string
           landlord_ops_notes?: string | null
           landlord_ops_reviewed_at?: string | null
@@ -822,6 +837,7 @@ export type Database = {
           daily_rate: number
           deduction_paused: boolean
           expires_at: string
+          gate_override: boolean
           id: string
           installment_amount: number | null
           issued_at: string
@@ -865,6 +881,7 @@ export type Database = {
           daily_rate?: number
           deduction_paused?: boolean
           expires_at?: string
+          gate_override?: boolean
           id?: string
           installment_amount?: number | null
           issued_at?: string
@@ -908,6 +925,7 @@ export type Database = {
           daily_rate?: number
           deduction_paused?: boolean
           expires_at?: string
+          gate_override?: boolean
           id?: string
           installment_amount?: number | null
           issued_at?: string
@@ -45792,6 +45810,10 @@ export type Database = {
       }
       can_ops_approve_smartphone_orders: {
         Args: { _user_id: string }
+        Returns: boolean
+      }
+      can_override_advance_gates: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
       can_pause_agent_advance: { Args: { _user_id: string }; Returns: boolean }
