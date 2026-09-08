@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarRange, Download, FileBarChart, Info, Loader2, Search } from 'lucide-react';
+import { CalendarRange, Download, Eye, FileBarChart, Info, Loader2, Search, Table as TableIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -666,14 +666,35 @@ export function ReportsOverview() {
         </Card>
       ) : (
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+          <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="text-sm">{active?.label} report</CardTitle>
               <p className="mt-0.5 text-[11px] text-muted-foreground">{rangeLabel}</p>
             </div>
-            <Button size="sm" variant="outline" disabled={!pdfReady} onClick={downloadPdf} className={cn('shrink-0 gap-1.5')}>
-              <Download className="h-3.5 w-3.5" /> PDF
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-md border border-border p-0.5">
+                <Button
+                  size="sm"
+                  variant={view === 'preview' ? 'default' : 'ghost'}
+                  className="h-7 gap-1.5 px-2.5 text-xs"
+                  onClick={() => setView('preview')}
+                >
+                  <Eye className="h-3.5 w-3.5" /> Preview
+                </Button>
+                <Button
+                  size="sm"
+                  variant={view === 'data' ? 'default' : 'ghost'}
+                  className="h-7 gap-1.5 px-2.5 text-xs"
+                  onClick={() => setView('data')}
+                >
+                  <TableIcon className="h-3.5 w-3.5" /> Data
+                </Button>
+              </div>
+              <Button size="sm" variant="outline" disabled={!pdfReady || pdfBusy} onClick={downloadPdf} className={cn('shrink-0 gap-1.5')}>
+                {pdfBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {pdfBusy ? 'Building PDF…' : 'PDF'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {err && (
@@ -681,7 +702,27 @@ export function ReportsOverview() {
                 Could not load this report: {err.message}
               </p>
             )}
-            {body()}
+            {view === 'preview' ? (
+              doc ? (
+                <>
+                  <ReportHtmlPreview html={doc.html} title={`${active?.label} report preview`} />
+                  <p className="text-[11px] text-muted-foreground">
+                    This is the exact document the PDF is generated from.
+                  </p>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  {(reportType === 'agent' || reportType === 'team-collections') && body()}
+                  {reportType !== 'agent' && reportType !== 'team-collections' && (
+                    <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Preparing the report…
+                    </div>
+                  )}
+                </div>
+              )
+            ) : (
+              body()
+            )}
           </CardContent>
         </Card>
       )}
