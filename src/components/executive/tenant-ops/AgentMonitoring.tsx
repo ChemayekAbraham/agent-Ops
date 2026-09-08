@@ -520,7 +520,10 @@ export function AgentMonitoring() {
                               </p>
                               <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}</p>
                             </div>
-                            <StatusIndicator status={collectionStatus(expected, collected)} />
+                            <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:items-center">
+                              <FrequencyTag request={request} />
+                              <StatusIndicator status={collectionStatus(expected, collected)} />
+                            </div>
                           </div>
                           <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                             <div><Label className="text-[10px] text-muted-foreground">Expected</Label><p className="font-semibold tabular-nums">{formatUGX(expected)}</p></div>
