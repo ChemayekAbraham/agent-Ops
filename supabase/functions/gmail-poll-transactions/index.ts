@@ -915,7 +915,7 @@ Deno.serve(async (req) => {
         if (dedupHash) orParts.push(`dedup_hash.eq.${dedupHash}`);
         const { data: dup } = await supabase
           .from('gmail_transactions')
-          .select('id, transaction_id, dedup_hash')
+          .select('id, transaction_id, dedup_hash, counterparty, counterparty_name')
           .or(orParts.join(','))
           .limit(1)
           .maybeSingle();
@@ -923,8 +923,42 @@ Deno.serve(async (req) => {
           const reason = (parsed.transaction_id && (dup as any).transaction_id?.toLowerCase() === parsed.transaction_id.toLowerCase())
             ? 'transaction_id_match'
             : 'dedup_hash_match';
+
+          // ── Enrich-on-duplicate ─────────────────────────────────────────
+          // MTN sometimes sends TWO receipt emails for the same transaction
+          // seconds apart in different templates — one with only the payer's
+          // name (e.g. the phone-less "Message: Till:" shape), one with
+          // "(NAME) 256XXXXXXXXX". Poll/arrival order isn't guaranteed, so
+          // the phone-bearing version can land AFTER the name-only one is
+          // already stored — and used to be discarded here outright,
+          // permanently losing the one signal that would let the matcher use
+          // an exact phone lookup instead of a fragile name fallback (this is
+          // exactly what happened to a real Otai deposit: the stored row had
+          // no phone, and the wrongly-discarded duplicate did). If this
+          // duplicate's parsed counterparty is phone-shaped and the stored
+          // row's isn't, patch the stored row with the better identity data.
+          // Deliberately NOT re-running the matcher here — the original
+          // message may already have been auto-credited (correctly or not)
+          // by the time its duplicate arrives, and re-matching/re-crediting
+          // needs an RPC-backed reversal path, not a blind in-place credit.
+          const phoneShape = /^(?:\+?256|0)\d{9}$/;
+          const incomingIsPhone = !!parsed.counterparty && phoneShape.test(parsed.counterparty);
+          const existingCp = (dup as any).counterparty as string | null | undefined;
+          const existingIsPhone = !!existingCp && phoneShape.test(existingCp);
+          let enriched = false;
+          if (incomingIsPhone && !existingIsPhone) {
+            const { error: enrichErr } = await supabase
+              .from('gmail_transactions')
+              .update({
+                counterparty: parsed.counterparty,
+                counterparty_name: (parsed as any).counterparty_name ?? (dup as any).counterparty_name ?? existingCp ?? null,
+              })
+              .eq('id', (dup as any).id);
+            enriched = !enrichErr;
+          }
+
           if (debug) {
-            debugReport.push({ id: m.id, decision: 'skipped', reason, from: fromEmail, subject });
+            debugReport.push({ id: m.id, decision: 'skipped', reason, from: fromEmail, subject, enriched });
           } else {
             await supabase.from('gmail_dedup_audit').insert({
               gmail_message_id: m.id,
@@ -949,6 +983,7 @@ Deno.serve(async (req) => {
               subject,
               matched_transaction_id: (dup as any).transaction_id ?? null,
               matched_row_id: (dup as any).id,
+              enriched,
             },
           });
           continue;
@@ -1003,6 +1038,7 @@ Deno.serve(async (req) => {
         direction: parsed.direction ?? null,
         channel: parsed.channel ?? null,
         counterparty: parsed.counterparty ?? null,
+        counterparty_name: (parsed as any).counterparty_name ?? null,
         fee: parsed.fee ?? null,
         balance: parsed.balance ?? null,
         dedup_hash: dedupHash,
