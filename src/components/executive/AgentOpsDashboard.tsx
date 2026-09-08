@@ -62,6 +62,7 @@ import { TenantSelfRepaymentsPanel } from '@/components/reporting/TenantSelfRepa
 import { AgentDailyCollectionsView } from '@/components/executive/agent-ops/AgentDailyCollectionsView';
 import { AgentOpsComprehensiveReport } from '@/components/executive/agent-ops/AgentOpsComprehensiveReport';
 import { AgentOpsReportWindow } from '@/components/executive/agent-ops/AgentOpsReportWindow';
+import { ReportsOverview } from '@/components/executive/agent-ops-v2/ReportsOverview';
 import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
 import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
 import { CallingHub } from '@/components/ops/calling';
@@ -92,10 +93,11 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type ActiveView = null | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments';
+type ActiveView = null | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments' | 'reports-overview';
 
 const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; priority?: boolean }[] = [
   { key: 'agents-space', icon: Wallet, label: "Agents' Space", color: 'bg-primary', priority: true },
+  { key: 'reports-overview', icon: FileBarChart, label: 'Overview', color: 'bg-emerald-600', priority: true },
   { key: 'agent-ops-report', icon: FileBarChart, label: 'Agent Operations Report', color: 'bg-emerald-700', priority: true },
   { key: 'portfolio-performance', icon: BarChart3, label: 'Portfolio Performance', color: 'bg-emerald-700', priority: true },
   { key: 'comprehensive-report', icon: FileBarChart, label: 'Comprehensive Report', color: 'bg-emerald-800', priority: true },
@@ -286,6 +288,7 @@ export function AgentOpsDashboard() {
   // Render sub-view content
   const renderSubView = () => {
     switch (activeView) {
+      case 'reports-overview': return <ReportsOverview />;
       case 'agent-ops-report': return <AgentOpsReportWindow />;
       case 'comprehensive-report': return <AgentOpsComprehensiveReport />;
       case 'portfolio-performance':
@@ -448,7 +451,7 @@ export function AgentOpsDashboard() {
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
-    { title: 'Reports', keys: ['agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
+    { title: 'Reports', keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
 
   // Main content region — sub-view when one is active, else the overview / more-grid.
@@ -690,7 +693,7 @@ function AgentOpsSideNav({
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
-    { title: 'Reports', defaultOpen: true, keys: ['agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
+    { title: 'Reports', defaultOpen: true, keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
