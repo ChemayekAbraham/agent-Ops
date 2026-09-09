@@ -79,7 +79,8 @@ export function useTenantSmartphoneOverview(filters: SmartphoneOverviewFilters =
   return useQuery({
     queryKey: ['tenant-smartphone-overview', district, agentId],
     queryFn: async (): Promise<TenantSmartphoneOverview> => {
-      const { data, error } = await supabase.rpc('get_tenant_smartphone_overview', {
+      // RPC is newer than the checked-in generated types.
+      const { data, error } = await (supabase.rpc as any)('get_tenant_smartphone_overview', {
         p_district: district,
         p_agent_id: agentId,
       });
