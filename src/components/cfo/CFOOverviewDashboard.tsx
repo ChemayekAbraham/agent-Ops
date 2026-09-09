@@ -28,6 +28,7 @@ import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilld
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
+import { WelileAccountReconciliationPanel } from '@/components/financial-ops/WelileAccountReconciliationPanel';
 
 
 
@@ -285,6 +286,15 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
             />
           </div>
+
+          {/* Informational tally straight off the WELILE Equity account's own
+              bank-alert emails — feeds understanding of "Money in Bank" above,
+              not the ledger figure itself. See WelileAccountReconciliationPanel. */}
+          <Card className="rounded-2xl shadow-sm">
+            <CardContent className="p-4 sm:p-5">
+              <WelileAccountReconciliationPanel />
+            </CardContent>
+          </Card>
         </Band>
 
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
