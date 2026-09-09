@@ -51884,6 +51884,21 @@ export type Database = {
           visible_scope: number
         }[]
       }
+      ops_landlord_change_history: {
+        Args: { p_landlord_id: string; p_limit?: number }
+        Returns: {
+          action_type: string
+          actor_id: string
+          actor_name: string
+          audit_id: string
+          changed_at: string
+          field_name: string
+          new_value: string
+          old_value: string
+          reason: string
+          record_id: string
+        }[]
+      }
       ops_landlord_funded_stats: {
         Args: { p_date_from?: string; p_date_to?: string; p_search?: string }
         Returns: Json
