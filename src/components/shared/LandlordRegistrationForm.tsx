@@ -536,18 +536,8 @@ export default function LandlordRegistrationForm({
       return;
     }
 
-    // Mandatory only for an agent registering a NEW landlord.
-    if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
-      hapticWarning();
-      setStep(1);
-      focusField('landlordAgreement');
-      toastFn({
-        title: 'Signed agreement required',
-        description: 'Upload the signed landlord agreement to register this new landlord.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    // Signed agreement stays optional — never blocks registration.
+
 
 
     // Pre-save duplicate check: if the phone hasn't already been verified as
