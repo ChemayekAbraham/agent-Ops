@@ -144,90 +144,129 @@ export function generateTenantOpsExtractPdf(opts: ExtractPdfOptions): Blob {
     y += rowCount * (cardH + rowGap) + 2;
   }
 
-  // ===== Table =====
-  // Scale column widths to content width.
-  const totalDeclared = opts.columns.reduce((s, c) => s + c.width, 0);
-  const scale = contentWidth / totalDeclared;
-  const colXs: number[] = [];
-  const colWs: number[] = [];
-  let cursor = margin;
-  opts.columns.forEach(c => {
-    const w = c.width * scale;
-    colXs.push(cursor);
-    colWs.push(w);
-    cursor += w;
-  });
-
-  const drawTableHeader = () => {
-    doc.setFillColor(146, 52, 234);
-    doc.rect(margin, y, contentWidth, 7.5, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(255, 255, 255);
-    opts.columns.forEach((c, i) => {
-      const align = c.align ?? (c.format === 'number' || c.format === 'ugx' ? 'right' : 'left');
-      const tx = align === 'right' ? colXs[i] + colWs[i] - 2 : colXs[i] + 2;
-      doc.text(c.label, tx, y + 5, { align });
-    });
-    y += 7.5;
-  };
-
-  drawTableHeader();
+  // ===== Tables =====
+  const sections: ExtractSection[] = opts.sections && opts.sections.length
+    ? opts.sections
+    : [{ title: '', columns: opts.columns ?? [], rows: opts.rows ?? [], totals: opts.totals }];
 
   const rowH = 6.5;
   const bottomLimit = pageHeight - 14;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  sections.forEach((section, sIdx) => {
+    if (!section.columns.length) return;
 
-  opts.rows.forEach((row, i) => {
-    if (y + rowH > bottomLimit) {
+    // Scale column widths to content width.
+    const totalDeclared = section.columns.reduce((s, c) => s + c.width, 0) || 1;
+    const scale = contentWidth / totalDeclared;
+    const colXs: number[] = [];
+    const colWs: number[] = [];
+    let cursor = margin;
+    section.columns.forEach(c => {
+      const w = c.width * scale;
+      colXs.push(cursor);
+      colWs.push(w);
+      cursor += w;
+    });
+
+    const drawTableHeader = () => {
+      doc.setFillColor(146, 52, 234);
+      doc.rect(margin, y, contentWidth, 7.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(255, 255, 255);
+      section.columns.forEach((c, i) => {
+        const align = c.align ?? (c.format === 'number' || c.format === 'ugx' ? 'right' : 'left');
+        const tx = align === 'right' ? colXs[i] + colWs[i] - 2 : colXs[i] + 2;
+        doc.text(c.label, tx, y + 5, { align });
+      });
+      y += 7.5;
+    };
+
+    const drawSectionTitle = () => {
+      if (!section.title) return;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text(section.title, margin, y + 3.5);
+      y += 6;
+      if (section.note) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(120, 122, 135);
+        doc.text(section.note, margin, y + 1, { maxWidth: contentWidth });
+        y += 4;
+      }
+    };
+
+    if (sIdx > 0) y += 4;
+    // Keep the heading with at least a couple of rows.
+    if (y + (section.title ? 10 : 0) + 7.5 + rowH * 2 > bottomLimit) {
       doc.addPage();
       y = 14;
-      drawTableHeader();
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
     }
-    if (i % 2 === 1) {
-      doc.setFillColor(248, 249, 252);
-      doc.rect(margin, y, contentWidth, rowH, 'F');
-    }
-    doc.setDrawColor(232, 234, 240);
-    doc.setLineWidth(0.12);
-    doc.line(margin, y + rowH, margin + contentWidth, y + rowH);
+    drawSectionTitle();
+    drawTableHeader();
 
-    const baseline = y + rowH - 2;
-    opts.columns.forEach((c, ci) => {
-      const align = c.align ?? (c.format === 'number' || c.format === 'ugx' ? 'right' : 'left');
-      const text = formatCell(row[ci], c.format);
-      const maxChars = Math.max(6, Math.floor(colWs[ci] / 1.6));
-      const trimmed = text.length > maxChars ? text.slice(0, maxChars - 1) + '…' : text;
-      const tx = align === 'right' ? colXs[ci] + colWs[ci] - 2 : colXs[ci] + 2;
-      doc.setTextColor(40, 47, 70);
-      doc.text(trimmed, tx, baseline, { align });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+
+    if (!section.rows.length) {
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(130, 132, 145);
+      doc.text('No records for the selected period.', margin + 2, y + rowH - 2);
+      y += rowH + 2;
+    }
+
+    section.rows.forEach((row, i) => {
+      if (y + rowH > bottomLimit) {
+        doc.addPage();
+        y = 14;
+        drawTableHeader();
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+      }
+      if (i % 2 === 1) {
+        doc.setFillColor(248, 249, 252);
+        doc.rect(margin, y, contentWidth, rowH, 'F');
+      }
+      doc.setDrawColor(232, 234, 240);
+      doc.setLineWidth(0.12);
+      doc.line(margin, y + rowH, margin + contentWidth, y + rowH);
+
+      const baseline = y + rowH - 2;
+      section.columns.forEach((c, ci) => {
+        const align = c.align ?? (c.format === 'number' || c.format === 'ugx' ? 'right' : 'left');
+        const text = formatCell(row[ci], c.format);
+        const maxChars = Math.max(6, Math.floor(colWs[ci] / 1.6));
+        const trimmed = text.length > maxChars ? text.slice(0, maxChars - 1) + '…' : text;
+        const tx = align === 'right' ? colXs[ci] + colWs[ci] - 2 : colXs[ci] + 2;
+        doc.setTextColor(40, 47, 70);
+        doc.text(trimmed, tx, baseline, { align });
+      });
+      y += rowH;
     });
-    y += rowH;
+
+    // Totals row
+    if (section.totals && section.totals.length === section.columns.length) {
+      if (y + rowH + 2 > bottomLimit) { doc.addPage(); y = 14; drawTableHeader(); }
+      doc.setFillColor(243, 244, 248);
+      doc.rect(margin, y, contentWidth, rowH + 1, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      const baseline = y + rowH - 1.5;
+      section.columns.forEach((c, ci) => {
+        const align = c.align ?? (c.format === 'number' || c.format === 'ugx' ? 'right' : 'left');
+        const text = formatCell(section.totals![ci], c.format);
+        const tx = align === 'right' ? colXs[ci] + colWs[ci] - 2 : colXs[ci] + 2;
+        doc.text(text, tx, baseline, { align });
+      });
+      y += rowH + 4;
+    } else {
+      y += 3;
+    }
   });
 
-  // Totals row
-  if (opts.totals && opts.totals.length === opts.columns.length) {
-    if (y + rowH + 2 > bottomLimit) { doc.addPage(); y = 14; drawTableHeader(); }
-    doc.setFillColor(243, 244, 248);
-    doc.rect(margin, y, contentWidth, rowH + 1, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(15, 23, 42);
-    const baseline = y + rowH - 1.5;
-    opts.columns.forEach((c, ci) => {
-      const align = c.align ?? (c.format === 'number' || c.format === 'ugx' ? 'right' : 'left');
-      const text = formatCell(opts.totals![ci], c.format);
-      const tx = align === 'right' ? colXs[ci] + colWs[ci] - 2 : colXs[ci] + 2;
-      doc.text(text, tx, baseline, { align });
-    });
-    y += rowH + 4;
-  } else {
-    y += 3;
-  }
 
   if (opts.footerNote) {
     if (y + 8 > bottomLimit) { doc.addPage(); y = 14; }
