@@ -21,6 +21,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // platform-wide "Not on Welile yet? Sign up" prompt does not apply.
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { errorMessage } from "../_shared/errorMessage.ts";
 import { generateLinkToken, sha256Hex } from "../_shared/deviceClass.ts";
 import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
 import { loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
@@ -168,7 +169,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
+    const msg = errorMessage(error);
     console.error(`[${EVENT_KEY}] Fatal:`, msg);
     return new Response(JSON.stringify({ success: false, error: msg }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
