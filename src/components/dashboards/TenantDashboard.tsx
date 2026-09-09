@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
 import { ReactNode } from 'react';
 import DashboardHeader from '@/components/DashboardHeader';
+import { TenantInAppNotificationBell } from '@/components/tenant/TenantInAppNotificationBell';
 
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
@@ -320,6 +321,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
         onRoleChange={onRoleChange}
         onSignOut={signOut}
         menuItems={menuItems}
+        headerActions={<TenantInAppNotificationBell tenantId={user.id} />}
       />
 
       {/* Scrollable content area */}

@@ -20,10 +20,11 @@ import {
 import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, GraduationCap, Briefcase, UserRound, Bell, Star } from 'lucide-react';
 
 import { hapticTap } from '@/lib/haptics';
-import { AppRole } from '@/hooks/useAuth';
+import { AppRole, useAuth } from '@/hooks/useAuth';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import IOSInstallGuide from '@/components/IOSInstallGuide';
 import { cn } from '@/lib/utils';
+import { TenantInAppNotificationBell } from '@/components/tenant/TenantInAppNotificationBell';
 
 interface MenuItemConfig {
   icon: React.ComponentType<{ className?: string }>;
@@ -84,6 +85,7 @@ const DashboardHeader = memo(function DashboardHeader({
   onOpportunityBadgeClick,
   headerActions,
 }: DashboardHeaderProps) {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { isInstalled, hasPrompt: isInstallable, promptInstall } = usePWAInstall();
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
@@ -254,6 +256,9 @@ const DashboardHeader = memo(function DashboardHeader({
             {/* Right: Notification + Menu */}
             <div className="flex items-center gap-0.5">
               {headerActions}
+              {!headerActions && currentRole === 'tenant' && user?.id && (
+                <TenantInAppNotificationBell tenantId={user.id} />
+              )}
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

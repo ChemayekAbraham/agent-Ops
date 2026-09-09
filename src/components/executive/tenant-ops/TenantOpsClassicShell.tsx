@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { TenantOpsDashboard, type TenantOpsClassicView } from '../TenantOpsDashboard';
 import { TenantOpsSidebar } from './TenantOpsSidebar';
@@ -34,6 +34,7 @@ interface Props {
  * overview suppressed.
  */
 export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGenerateWordReport }: Props) {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { data: counts } = useTenantOpsToolCounts();
 
@@ -54,6 +55,10 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     if (key === 'action.portfolio-performance') {
       next.set('view', key);
     } else if (isTenantOpsAction(key)) {
+      if (key === 'action.notifications-analytics') {
+        navigate('/tenant-ops/notifications');
+        return;
+      }
       if (key === 'action.locations') onOpenLocations();
       if (key === 'action.welile-homes') onOpenWelileHomes();
       if (key === 'action.word-report') onGenerateWordReport();

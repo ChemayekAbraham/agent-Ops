@@ -25,6 +25,7 @@ import {
   Headphones,
   PhoneCall,
   AlertTriangle,
+  Smartphone,
   type LucideIcon,
 } from 'lucide-react';
 import type { TenantOpsClassicView } from '../TenantOpsDashboard';
@@ -42,7 +43,8 @@ export type TenantOpsActionKey =
   | 'action.word-report'
   | 'action.locations'
   | 'action.welile-homes'
-  | 'action.portfolio-performance';
+  | 'action.portfolio-performance'
+  | 'action.notifications-analytics';
 
 export interface TenantOpsNavChild {
   key: TenantOpsViewKey | TenantOpsActionKey;
@@ -63,6 +65,7 @@ export interface TenantOpsNavItem {
 export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
   { key: 'home', label: 'Home', icon: LayoutDashboard, view: 'home', keywords: ['overview', 'summary', 'landing', 'start'] },
   { key: 'action.portfolio-performance', label: 'Portfolio Performance', icon: TrendingUp, keywords: ['portfolio', 'performance', 'collections', 'requests', 'report'] },
+  { key: 'action.notifications-analytics', label: 'Notifications & Devices', icon: Smartphone, keywords: ['smartphone', 'notifications', 'sms', 'push', 'analytics', 'devices'] },
   {
     key: 'verification',
     label: 'Verification & Users',

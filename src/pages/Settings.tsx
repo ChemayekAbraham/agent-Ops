@@ -54,6 +54,7 @@ const ArchivedPdfsCard = lazy(() =>
 );
 
 const PushNotificationButton = lazy(() => import('@/components/PushNotificationButton').then(m => ({ default: m.PushNotificationButton })));
+import { TenantNotificationPreferencesCard } from '@/components/tenant/TenantNotificationPreferencesCard';
 
 /**
  * Chunk prefetch map — dynamic imports are module-cached, so calling these
@@ -718,6 +719,10 @@ export default function Settings() {
                   </Collapsible>
                   </CardContent>
                 </Card>
+
+                {user?.id && (roles.includes('tenant') || role === 'tenant') && (
+                  <TenantNotificationPreferencesCard tenantId={user.id} />
+                )}
               </div>
             )}
 
