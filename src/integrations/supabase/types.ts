@@ -45903,6 +45903,19 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      budget_my_outstanding_obligations: {
+        Args: never
+        Returns: {
+          call_id: string
+          cycle_title: string
+          deadline: string
+          department_id: string
+          department_key: string
+          department_name: string
+          draft_submission_id: string
+          is_overdue: boolean
+        }[]
+      }
       budget_my_position_in_department: {
         Args: { _department_id: string }
         Returns: string
