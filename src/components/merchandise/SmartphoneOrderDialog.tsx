@@ -351,7 +351,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   {formatUGX(dailyAmount)}
                   <span className="text-sm font-medium text-muted-foreground">/day</span>
                 </p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] font-bold text-muted-foreground">
                   {period.days} days · {formatUGX(totalRepayable)} in total. Deductions start 7 days after your
                   phone is released.
                   {osType === 'ios'
