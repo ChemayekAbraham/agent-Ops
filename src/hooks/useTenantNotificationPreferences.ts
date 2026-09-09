@@ -2,7 +2,7 @@
  * Stage 6L: the tenant's one notification preference.
  *
  * Deliberately a single marketing_push_opt_out toggle, not four switches.
- * PAYMENT_*/RENT_LIMIT_INCREASED/FIVE_DAY_AGENT_OPPORTUNITY/
+ * PAYMENT events, RENT_LIMIT_INCREASED, FIVE_DAY_AGENT_OPPORTUNITY and
  * MERCHANT_CODE_REMINDER are all `critical` in the channel policy, and Stage
  * 6L is explicit that critical/contractual communication must not become
  * suppressible just because promotional push is off — routeTenantNotification
@@ -31,7 +31,7 @@ export function useTenantNotificationPreferences(tenantId: string) {
     queryKey: ['tenant-notification-preferences', tenantId],
     enabled: Boolean(tenantId),
     queryFn: async (): Promise<TenantNotificationPreferences> => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('tenant_notification_preferences')
         .select('push_enabled, marketing_push_opt_out')
         .eq('tenant_id', tenantId)
@@ -49,7 +49,7 @@ export function useUpdateTenantNotificationPreferences(tenantId: string) {
 
   return useMutation({
     mutationFn: async (patch: Partial<TenantNotificationPreferences>) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('tenant_notification_preferences')
         .upsert(
           { tenant_id: tenantId, ...patch, updated_at: new Date().toISOString() },

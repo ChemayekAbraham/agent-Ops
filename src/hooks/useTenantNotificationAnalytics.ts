@@ -79,7 +79,8 @@ export function useTenantSmartphoneOverview(filters: SmartphoneOverviewFilters =
   return useQuery({
     queryKey: ['tenant-smartphone-overview', district, agentId],
     queryFn: async (): Promise<TenantSmartphoneOverview> => {
-      const { data, error } = await supabase.rpc('get_tenant_smartphone_overview', {
+      // RPC is newer than the checked-in generated types.
+      const { data, error } = await (supabase.rpc as any)('get_tenant_smartphone_overview', {
         p_district: district,
         p_agent_id: agentId,
       });
@@ -104,7 +105,8 @@ export function useTenantNotificationPerformance(filters: NotificationPerformanc
   return useQuery({
     queryKey: ['tenant-notification-performance', startDate, endDate, eventKey, district],
     queryFn: async (): Promise<TenantNotificationPerformance> => {
-      const { data, error } = await supabase.rpc('get_tenant_notification_performance', {
+      // RPC is newer than the checked-in generated types.
+      const { data, error } = await (supabase.rpc as any)('get_tenant_notification_performance', {
         p_start: startDate,
         p_end: endDate,
         p_event_key: eventKey,
@@ -156,7 +158,7 @@ export function useTenantChannelPerformance(filters: ChannelPerformanceFilters) 
   return useQuery({
     queryKey: ['tenant-channel-performance', startDate, endDate, eventKey],
     queryFn: async (): Promise<TenantChannelPerformance> => {
-      const { data, error } = await supabase.rpc('get_tenant_channel_performance', {
+      const { data, error } = await (supabase as any).rpc('get_tenant_channel_performance', {
         p_start: startDate,
         p_end: endDate,
         p_event_key: eventKey,
