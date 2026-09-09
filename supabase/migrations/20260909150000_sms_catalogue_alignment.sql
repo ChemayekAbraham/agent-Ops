@@ -130,12 +130,18 @@ create policy "payment_channels_ops_write"
   using (
     public.has_role(auth.uid(),'super_admin') or public.has_role(auth.uid(),'cfo')
     or public.has_role(auth.uid(),'coo') or public.has_role(auth.uid(),'ceo')
-    or public.has_role(auth.uid(),'finance')
+    -- app_role has no 'finance' member; the finance role in this codebase is
+    -- 'financial_ops' (see the financial_ops enum value / financial-ops-daily
+    -- naming elsewhere). The bare literal would fail every call.
+    or public.has_role(auth.uid(),'financial_ops')
   )
   with check (
     public.has_role(auth.uid(),'super_admin') or public.has_role(auth.uid(),'cfo')
     or public.has_role(auth.uid(),'coo') or public.has_role(auth.uid(),'ceo')
-    or public.has_role(auth.uid(),'finance')
+    -- app_role has no 'finance' member; the finance role in this codebase is
+    -- 'financial_ops' (see the financial_ops enum value / financial-ops-daily
+    -- naming elsewhere). The bare literal would fail every call.
+    or public.has_role(auth.uid(),'financial_ops')
   );
 
 -- ---------------------------------------------------------------------------

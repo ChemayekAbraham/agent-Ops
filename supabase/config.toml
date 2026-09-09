@@ -90,6 +90,8 @@ project_id = "wirntoujqoyjobfhyelc"
   # in. It returns no financial data and does not create a session.
   [functions.tenant-dashboard-open]
     verify_jwt = false
+  [functions.tenant-notification-attribution]
+    verify_jwt = false
   [functions.scan-receipt]
     verify_jwt = false
   [functions.seed-test-funds]

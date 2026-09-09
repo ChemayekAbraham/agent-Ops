@@ -379,7 +379,10 @@ begin
     or public.has_role(v_actor,'manager') or public.has_role(v_actor,'coo')
     or public.has_role(v_actor,'ceo') or public.has_role(v_actor,'operations')
     or public.has_role(v_actor,'agent_ops') or public.has_role(v_actor,'agent')
-    or public.has_role(v_actor,'call_centre')
+    -- 'crm' is the call-centre role in this codebase (see crm-place-call,
+    -- crm-voice-callback); has_role's second arg is a strict app_role enum
+    -- with no 'call_centre' member, so that literal would fail every call.
+    or public.has_role(v_actor,'crm')
   ) then
     raise exception 'not authorized';
   end if;

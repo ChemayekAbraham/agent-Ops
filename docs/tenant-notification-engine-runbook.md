@@ -418,6 +418,18 @@ select cron.schedule(
       body := '{"mode":"invite"}'::jsonb
   );$$
 );
+
+-- Attribution sweep (Stage 5): hourly. Idempotent, cheap when nothing new
+-- matches — see "Two attribution paths, not one" above.
+select cron.schedule(
+  'tenant-notification-attribution',
+  '20 * * * *',
+  $$select net.http_post(
+      url := 'https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/tenant-notification-attribution',
+      headers := '{"Content-Type":"application/json"}'::jsonb,
+      body := '{}'::jsonb
+  );$$
+);
 ```
 
 `RENT_LIMIT_PROGRESS` is intentionally left unscheduled even here: it competes
@@ -452,6 +464,87 @@ group by 1
 having count(*) > (select marketing_max_per_week from tenant_notification_settings where id = 1);
 ```
 
+## Stage 5 — measurement and attribution
+
+Two RPCs, both SQL-aggregated (no row set for the frontend to reduce), and
+`src/hooks/useTenantNotificationAnalytics.ts` as thin typed fetchers. The
+cards/charts consuming them are Gemini's.
+
+```sql
+select get_tenant_smartphone_overview();
+select get_tenant_smartphone_overview(p_district := 'Kampala');
+select get_tenant_notification_performance(current_date - 6, current_date);
+select get_tenant_notification_performance(current_date - 6, current_date, 'PAYMENT_MISSED');
+```
+
+Filters implemented now: `district` and `agent_id` (resolved through the
+tenant's currently active Rent Plan) on the smartphone overview; `district`
+and `event_key` on notification performance. The rest of the list from the
+brief — sub-agent, days overdue, payment behaviour, Rent Plan status — is not
+wired; each needs its own join and was left out rather than half-built.
+
+### Two attribution paths, not one
+
+**Deterministic** — a dashboard link now remembers which SMS minted it
+(`tenant_dashboard_links.notification_log_id`, attached by
+`attach_notification_to_dashboard_link` right after `notifyTenant` returns a
+send). When the tenant opens it, `record_tenant_dashboard_access` stamps
+`acted_at` on that exact log row — not "the most recent send to this tenant",
+which was always an approximation. The gate is `device_class <> 'bot'`
+(genuine engagement), which is *wider* than smartphone confirmation
+(`android_phone`/`iphone` only): a desktop open is not smartphone evidence,
+but it is a real person acting on the SMS.
+
+**Correlational** — `MERCHANT_CODE_REMINDER` and `FIVE_DAY_AGENT_OPPORTUNITY`
+have no tracked link, so there is no deterministic path. Both are bounded
+observations, reported as *"payment after reminder"* / *"became agent after
+opportunity SMS"* — never *"caused by"*. Backfilled by
+`attribute_tenant_notification_actions`, wrapped in the
+`tenant-notification-attribution` edge function:
+
+```bash
+curl -sX POST "$SUPABASE_URL/functions/v1/tenant-notification-attribution" \
+  -H "Content-Type: application/json" -H "apikey: $ANON_KEY" \
+  -d '{"lookback_days":14,"merchant_window_hours":24}'
+```
+
+| Event | Match | Window |
+|---|---|---|
+| `MERCHANT_CODE_REMINDER` | an `agent_collections` row for the same tenant, `amount > 0`, **not** `notes ILIKE '%[REVERSED:%'** | 24h after send (configurable) |
+| `FIVE_DAY_AGENT_OPPORTUNITY` | a `user_roles` row for `agent`/`sub_agent`, enabled, `created_at` strictly after the send | none — registering is not instant |
+
+Idempotent: only `acted_at is null` rows are scanned, and the write itself is
+guarded the same way, so re-running (by hand or on a schedule) never
+double-attributes. Verified against production before trusting the join
+logic: the `[REVERSED:` marker matches the one reversed collection that
+exists, and `user_roles(role='agent')` timestamps are genuinely distinct
+(61,857 rows, Dec 2025–Sep 2026, no backfill artifact that would fabricate a
+conversion). This sweep is unscheduled, same as every sender — call it by hand
+or add a cron once you're ready.
+
+### What "delivered" means
+
+`get_tenant_notification_performance`'s `delivered` figure comes from
+`sms_delivery_log.status = 'delivered'`, populated only by Africa's Talking's
+delivery-report callback (`sms-delivery-report`). Yoola and LANA don't confirm
+handset delivery, so their rows stay `sent` (accepted by the provider) and are
+counted as sent, not delivered — an undercount for non-AT sends, never an
+overclaim.
+
+### Two bugs caught building this stage
+
+Both **`set_tenant_smartphone_status`** (Stage 4) and **`payment_channels`**'s
+write policy (Stage 3) called `has_role(..., 'call_centre')` and
+`has_role(..., 'finance')`. `has_role`'s second argument is a strict `app_role`
+enum with no such members — the real values are `crm` (this codebase's
+call-centre role; see `crm-place-call`, `crm-voice-callback`) and
+`financial_ops`. Since the literal has to resolve to the enum type at parse
+time, every call would have failed, not just the branch that reached it.
+Fixed in place in the original migration files, since neither had ever
+executed. Caught by diffing every `has_role(...)` literal in these migrations
+against the live `app_role` enum — worth repeating for any future migration
+that adds a role check.
+
 ## Catalogue status
 
 | Event key | Class | Sender | Built |
@@ -471,11 +564,11 @@ having count(*) > (select marketing_max_per_week from tenant_notification_settin
 
 ## Not built yet
 
-- **Stage 5: ops dashboards** — smartphone segmentation and SMS performance,
-  including the conversion metrics (invites sent vs opened vs activated,
-  five-day sends vs agent registrations, merchant-code reminders vs payments
-  received afterward). `tenant_notification_log.acted_at` / `action` exist to
-  carry these but nothing writes them yet.
+- **Stage 5 UI** — the actual Tenant Ops cards/charts. The RPCs and hooks
+  exist (`get_tenant_smartphone_overview`, `get_tenant_notification_performance`,
+  `useTenantNotificationAnalytics.ts`); the page markup is Gemini's.
+- **Stage 5 filters not yet wired**: sub-agent, days-overdue, payment
+  behaviour, Rent Plan status. District and agent are wired.
 - **Stage 6: push/in-app routing** — `push_token`, `push_permission_status`,
   and the channel routing table. SMS stays the channel for payment and
   security events; push takes engagement and proposition copy.

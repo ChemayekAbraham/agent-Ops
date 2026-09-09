@@ -180,21 +180,34 @@ Deno.serve(async (req) => {
           },
         });
 
-        if (outcome.sent) results.sent++;
-        else if (outcome.reason === "provider_failed") results.failed++;
-        else {
-          results.skipped++;
-          const key = outcome.reason ?? "unknown";
-          skipReasons[key] = (skipReasons[key] ?? 0) + 1;
-        }
+        if (outcome.sent) {
+          results.sent++;
+          // Deterministic attribution (Stage 5): this link now points back to
+          // the exact SMS that carried it, so a later open attributes to this
+          // row instead of a "most recent send" heuristic.
+          if (linkId && outcome.logId) {
+            await admin.rpc("attach_notification_to_dashboard_link", {
+              p_link_id: linkId,
+              p_notification_log_id: outcome.logId,
+            });
+          }
+        } else {
+          if (outcome.reason === "provider_failed") results.failed++;
+          else {
+            results.skipped++;
+            const key = outcome.reason ?? "unknown";
+            skipReasons[key] = (skipReasons[key] ?? 0) + 1;
+          }
 
-        // A link minted for a send that the governor refused is dead weight;
-        // revoke it so it cannot be used later by someone reading the log.
-        if (!outcome.sent && outcome.reason !== "provider_failed" && linkId) {
-          await admin
-            .from("tenant_dashboard_links")
-            .update({ revoked_at: new Date().toISOString() })
-            .eq("id", linkId);
+          // A link minted for a send that never reached the tenant — refused
+          // by the governor, or rejected by the provider — is dead weight;
+          // revoke it so it cannot be used later by someone reading the log.
+          if (linkId) {
+            await admin
+              .from("tenant_dashboard_links")
+              .update({ revoked_at: new Date().toISOString() })
+              .eq("id", linkId);
+          }
         }
       } catch (err) {
         results.failed++;
