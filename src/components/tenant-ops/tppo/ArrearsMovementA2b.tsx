@@ -50,6 +50,12 @@ function signedMoney(value?: number | null): string {
   return `${sign}${formatUGX(Math.abs(value))}`;
 }
 
+function signedPct(value?: number | null): string {
+  if (value === null || value === undefined) return '—';
+  const sign = value > 0 ? '+' : value < 0 ? '−' : '';
+  return `${sign}${Math.abs(value).toFixed(1)}%`;
+}
+
 function netClass(value?: number | null): string {
   if (value === null || value === undefined) return '';
   return value > 0 ? 'text-destructive' : value < 0 ? 'text-emerald-600' : '';
