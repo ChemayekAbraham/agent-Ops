@@ -45378,6 +45378,10 @@ export type Database = {
         Returns: undefined
       }
       agent_ops_tenants_owing: { Args: { p_as_of?: string }; Returns: Json }
+      agent_ops_verify_bike_lease: {
+        Args: { p_note?: string; p_sale_id: string }
+        Returns: Json
+      }
       agent_ops_whitelist_admin: {
         Args: { _user_id: string }
         Returns: boolean
@@ -46309,6 +46313,10 @@ export type Database = {
         Returns: boolean
       }
       can_ops_approve_smartphone_orders: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      can_ops_verify_bike_leases: {
         Args: { _user_id: string }
         Returns: boolean
       }
@@ -51253,6 +51261,7 @@ export type Database = {
           lease_daily_rate: number
           lease_term_months: number
           model_type: string
+          ops_approved_at: string
           order_status: string
           payment_projection: number
           rejection_reason: string
