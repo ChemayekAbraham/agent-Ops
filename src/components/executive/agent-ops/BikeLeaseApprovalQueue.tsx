@@ -472,17 +472,24 @@ export function BikeLeaseApprovalQueue({
 
 
 
-              <div className="space-y-1">
-                <Label className="text-xs">Approved bike valuation (UGX)</Label>
-                <Input
-                  type="number"
-                  min={100000}
-                  step={50000}
-                  inputMode="numeric"
-                  value={approvedValuation}
-                  onChange={(e) => setApprovedValuation(e.target.value)}
-                />
-              </div>
+              {approveStage === 'ops' ? (
+                <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs flex justify-between">
+                  <span className="text-muted-foreground">Requested valuation</span>
+                  <span className="font-semibold">{formatUGX(valuationNum)}</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label className="text-xs">Approved bike valuation (UGX)</Label>
+                  <Input
+                    type="number"
+                    min={100000}
+                    step={50000}
+                    inputMode="numeric"
+                    value={approvedValuation}
+                    onChange={(e) => setApprovedValuation(e.target.value)}
+                  />
+                </div>
+              )}
 
               {approveStage === 'coo' && (
                 <div className="space-y-1">
@@ -533,7 +540,7 @@ export function BikeLeaseApprovalQueue({
               onClick={() => approveTarget && approve.mutate({ id: approveTarget.id, stage: approveStage })}
             >
               {approve.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-              {approveStage === 'cfo' ? 'Release & activate lease' : 'Approve & send to CFO'}
+              {ACTION_LABEL[approveStage]}
             </Button>
           </DialogFooter>
         </DialogContent>
