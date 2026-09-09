@@ -31829,6 +31829,102 @@ export type Database = {
           },
         ]
       }
+      rent_fee_collection_exceptions: {
+        Row: {
+          collection_id: string | null
+          created_at: string
+          detail: Json
+          id: string
+          payment_amount: number
+          reason: string
+          rent_request_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          source_table: string
+        }
+        Insert: {
+          collection_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          payment_amount: number
+          reason: string
+          rent_request_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source_table?: string
+        }
+        Update: {
+          collection_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          payment_amount?: number
+          reason?: string
+          rent_request_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+        ]
+      }
       rent_history_records: {
         Row: {
           agent_ops_verified_at: string | null
@@ -32334,6 +32430,7 @@ export type Database = {
           reopened_at: string | null
           reopened_by: string | null
           repayment_frequency: string
+          repayment_frequency_locked: boolean
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -32465,6 +32562,7 @@ export type Database = {
           reopened_at?: string | null
           reopened_by?: string | null
           repayment_frequency?: string
+          repayment_frequency_locked?: boolean
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -32596,6 +32694,7 @@ export type Database = {
           reopened_at?: string | null
           reopened_by?: string | null
           repayment_frequency?: string
+          repayment_frequency_locked?: boolean
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -45560,6 +45659,7 @@ export type Database = {
           reopened_at: string | null
           reopened_by: string | null
           repayment_frequency: string
+          repayment_frequency_locked: boolean
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -52265,6 +52365,15 @@ export type Database = {
         }
         Returns: Json
       }
+      ops_set_rent_plan_frequency: {
+        Args: {
+          p_frequency: string
+          p_reason?: string
+          p_rent_request_id: string
+          p_starts_on?: string
+        }
+        Returns: Json
+      }
       ops_sync_rent_request_status_to_balance: {
         Args: { p_rent_request_id: string }
         Returns: undefined
@@ -52866,6 +52975,15 @@ export type Database = {
           p_desk_id: string
           p_evidence_note?: string
           p_reason: string
+        }
+        Returns: Json
+      }
+      post_rent_fee_collection: {
+        Args: {
+          p_payment_amount: number
+          p_rent_request_id: string
+          p_source_id: string
+          p_source_table: string
         }
         Returns: Json
       }
