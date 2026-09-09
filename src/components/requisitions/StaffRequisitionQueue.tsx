@@ -615,27 +615,27 @@ export function StaffRequisitionQueue() {
                       <td className="px-3 py-2"><StageBadge row={row} compact /></td>
                       <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{fmtDay(row.created_at)}</td>
                       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex flex-wrap justify-end gap-1">
+                        <div className="flex flex-nowrap justify-end gap-1">
                           {canReviewRow(row) && (
                             <>
-                              <Button size="sm" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'approve')}>Approve</Button>
-                              <Button size="sm" variant="secondary" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'approve', true)}>
+                              <Button size="sm" className="h-7 px-2 text-[11px] whitespace-nowrap" onClick={() => openAction(row, 'approve')}>Approve</Button>
+                              <Button size="sm" variant="secondary" className="h-7 px-2 text-[11px] whitespace-nowrap" onClick={() => openAction(row, 'approve', true)}>
                                 Reduce
                               </Button>
-                              <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'reject')}>
+                              <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px] whitespace-nowrap" onClick={() => openAction(row, 'reject')}>
                                 Decline
                               </Button>
                             </>
                           )}
                           {canOwnReduce(row) && (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => openOwnReduce(row)}>
-                              <ArrowDownCircle className="mr-1 h-3 w-3" /> Reduce requested amount
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] whitespace-nowrap" onClick={() => openOwnReduce(row)}>
+                              <ArrowDownCircle className="mr-1 h-3 w-3" /> Reduce
                             </Button>
                           )}
                           {row.stage === 'approved' && row.wallet_credit_status !== 'credited' && (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={retrying === row.id} onClick={() => void retryCredit(row.id)}>
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] whitespace-nowrap" disabled={retrying === row.id} onClick={() => void retryCredit(row.id)}>
                               {retrying === row.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-1 h-3 w-3" />}
-                              Retry credit
+                              Retry
                             </Button>
                           )}
                           {!canReviewRow(row) && !canOwnReduce(row) && row.stage !== 'approved' && (
