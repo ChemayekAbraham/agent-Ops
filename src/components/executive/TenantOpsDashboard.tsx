@@ -941,14 +941,15 @@ export function TenantOpsDashboard({
     try {
       const { from, to } = resolveWindow(90, true);
       // Active rent plans = funded/disbursed/repaying (not rejected/cancelled/fully_repaid/defaulted).
-      const { data: plans, error } = await supabase
+      const plans = await fetchAllPaged<any>(() => supabase
         .from('rent_requests')
         .select('id, tenant_id, daily_repayment, total_repayment, amount_repaid, duration_days, disbursed_at, funded_at, status, tenancy_status')
-        .in('status', ['funded', 'disbursed', 'repaying']);
-      if (error) throw error;
+        .in('status', ['funded', 'disbursed', 'repaying'])
+        .order('created_at', { ascending: false }));
       const active = (plans || []).filter((p: any) =>
         !['ended', 'terminated'].includes((p.tenancy_status || '').toLowerCase())
       );
+
       if (active.length === 0) { toast.error('No active rent plans'); return; }
       const profiles = await enrichWithProfiles(active);
 
