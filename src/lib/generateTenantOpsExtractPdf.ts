@@ -14,17 +14,31 @@ export interface ExtractKpi {
   color?: [number, number, number];
 }
 
+export interface ExtractSection {
+  /** Heading rendered above the table. */
+  title: string;
+  /** Optional one-line note under the heading. */
+  note?: string;
+  columns: ExtractColumn[];
+  rows: (string | number | null | undefined)[][];
+  totals?: (string | number | null | undefined)[];
+}
+
 export interface ExtractPdfOptions {
   title: string;
   subtitle?: string;
   range?: { from?: Date | null; to?: Date | null };
   kpis?: ExtractKpi[];
-  columns: ExtractColumn[];
-  rows: (string | number | null | undefined)[][];
+  /** Single-table mode (kept for existing reports). */
+  columns?: ExtractColumn[];
+  rows?: (string | number | null | undefined)[][];
   /** Optional totals row appended after data rows (will be styled). */
   totals?: (string | number | null | undefined)[];
+  /** Multi-table mode — each section gets its own heading and table. */
+  sections?: ExtractSection[];
   footerNote?: string;
 }
+
 
 export function generateTenantOpsExtractPdf(opts: ExtractPdfOptions): Blob {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
