@@ -132,6 +132,7 @@ export function LandlordEditCard({ landlordId, landlord, canEdit }: Props) {
     onSuccess: () => {
       toast.success('Landlord profile updated');
       qc.invalidateQueries({ queryKey: ['drilldown-landlord', landlordId] });
+      qc.invalidateQueries({ queryKey: ['landlord-change-history', landlordId] });
       setOpen(false);
       setReason('');
       setLocError(null);
