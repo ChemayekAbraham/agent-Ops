@@ -502,14 +502,14 @@ export function TenantOpsDashboard({
     setExtracting('applied');
     try {
       const { from, to } = resolveWindow(30);
-      const { data, error } = await supabase
+      const data = await fetchAllPaged<any>(() => supabase
         .from('rent_requests')
         .select('id, tenant_id, landlord_id, rent_amount, daily_repayment, duration_days, status, created_at')
         .gte('created_at', from.toISOString())
         .lte('created_at', to.toISOString())
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      if (!data || data.length === 0) { toast.error('No tenant applications in this window'); return; }
+        .order('created_at', { ascending: false }));
+      if (!data.length) { toast.error('No tenant applications in this window'); return; }
+
       const profiles = await enrichWithProfiles(data);
       const rows = data.map((r: any) => {
         const t = profiles.get(r.tenant_id); const l = profiles.get(r.landlord_id);
