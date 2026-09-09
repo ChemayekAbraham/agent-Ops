@@ -787,6 +787,13 @@ export function AgentMonitoring() {
                             <div><Label className="text-[10px] text-muted-foreground">Paid ahead</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.aheadAmount)}{schedule.periodsAhead > 0 ? ` · ${schedule.periodsAhead} ${unit}${schedule.periodsAhead === 1 ? '' : 's'}` : ''}</p></div>
                             <div><Label className="text-[10px] text-muted-foreground">Outstanding plan</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.outstandingPlan)}</p></div>
                           </div>
+                          <Separator className="my-3" />
+                          <TenantPaymentHistory
+                            payments={paymentHistory?.get(request.id) ?? []}
+                            loading={historyLoading}
+                            planAgentId={selectedAgent.id}
+                            nameFor={(id) => profileMap.get(id)?.full_name || 'another agent'}
+                          />
                         </div>
                       );
                     })}
