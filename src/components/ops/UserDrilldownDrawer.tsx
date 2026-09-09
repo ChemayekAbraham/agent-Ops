@@ -1718,14 +1718,29 @@ function TenantPane({
             onChange={(e) => setReassignReason(e.target.value)}
             className="h-8 text-sm"
           />
-          <Button
-            size="sm" className="w-full"
-            disabled={!reassignAgent || reassign.isPending}
-            onClick={() => reassign.mutate()}
-          >
-            {reassign.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-            {activeRr ? 'Link & reassign rent' : 'Link to agent'}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              size="sm" className="w-full sm:flex-1"
+              disabled={!reassignAgent || reassign.isPending}
+              onClick={() => reassign.mutate()}
+            >
+              {reassign.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              {activeRr ? 'Link & reassign rent' : 'Link to agent'}
+            </Button>
+            {activeRr && (
+              <PaymentPeriodControl
+                rentRequestId={activeRr.id}
+                frequency={activeRr.repayment_frequency ?? null}
+                dailyRepayment={activeRr.daily_repayment ?? null}
+                canEdit={isOps}
+                onSaved={() => {
+                  qc.invalidateQueries({ queryKey: ['drilldown-tenant-rr', tenantId] });
+                  qc.invalidateQueries({ queryKey: ['tenant-ops-agent-monitoring'] });
+                  qc.invalidateQueries({ queryKey: ['agent-capacity-map'] });
+                }}
+              />
+            )}
+          </div>
         </Card>
       )}
     </div>
