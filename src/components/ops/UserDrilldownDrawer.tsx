@@ -44,6 +44,7 @@ import { ContactActions } from './ContactActions';
 import { LandlordEditCard } from './LandlordEditCard';
 import { LandlordChangeHistory } from './LandlordChangeHistory';
 import { TenantLandlordPayoutsEditor } from './TenantLandlordPayoutsEditor';
+import { PaymentPeriodControl } from './PaymentPeriodControl';
 import LandlordAgreementHistory from '@/components/landlord/agreement/LandlordAgreementHistory';
 
 type UserBrief = { id: string; full_name: string | null; phone: string | null };
@@ -1459,7 +1460,7 @@ function TenantPane({
     queryFn: async () => {
       const { data } = await supabase
         .from('rent_requests')
-        .select('id, rent_amount, daily_repayment, total_repayment, amount_repaid, status, agent_id, assigned_agent_id, landlord_id, created_at')
+        .select('id, rent_amount, daily_repayment, total_repayment, amount_repaid, status, agent_id, assigned_agent_id, landlord_id, created_at, repayment_frequency, repayment_starts_on')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(5);
