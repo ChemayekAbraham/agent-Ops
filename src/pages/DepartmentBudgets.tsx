@@ -11,14 +11,14 @@ export default function DepartmentBudgets() {
   const dashboard = params.get('dashboard') ?? undefined;
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-4 p-4 pb-24">
-      <header className="flex items-center gap-3">
+    <main className="mx-auto w-full max-w-[1440px] space-y-5 p-4 pb-24 sm:p-6 lg:p-8">
+      <header className="flex items-center gap-3 border-b border-border/70 pb-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-lg font-semibold">Department Budgets</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-xl font-semibold sm:text-2xl">Department Budgets</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Prepare your department budget against the company chart of accounts and submit it for CFO approval.
           </p>
         </div>

@@ -334,17 +334,20 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
 
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Department budget</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-5">
+      <section className="border-b border-border/70 pb-5" aria-labelledby="budget-context-title">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 id="budget-context-title" className="text-sm font-semibold text-foreground">Budget context</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Choose where this budget will be filed.</p>
+          </div>
+          {route && <Badge variant="outline" className="font-normal">{BUDGET_ROUTE_LABEL[route]}</Badge>}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label className="text-xs">Budget cycle</Label>
+              <Label className="mb-1.5 block text-xs font-semibold">Budget cycle</Label>
               <Select value={cycleId} onValueChange={setCycleId}>
-                <SelectTrigger><SelectValue placeholder="Select cycle" /></SelectTrigger>
+                <SelectTrigger className="h-11 rounded-lg bg-card"><SelectValue placeholder="Select cycle" /></SelectTrigger>
                 <SelectContent className="z-[100]">
                   {cycles.map(c => (
                     <SelectItem key={c.id} value={c.id}>
@@ -355,10 +358,10 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Department</Label>
+              <Label className="mb-1.5 block text-xs font-semibold">Department</Label>
               {selectableDepartments.length > 1 ? (
                 <Select value={departmentId} onValueChange={setDepartmentId}>
-                  <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                  <SelectTrigger className="h-11 rounded-lg bg-card"><SelectValue placeholder="Select department" /></SelectTrigger>
                   <SelectContent className="z-[100]">
                     {filingOnBehalf ? (
                       /* Own postings first so a reviewer filing for their own
@@ -383,7 +386,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                 /* Single posting and not a reviewer: the department is fixed to
                    the user's own so a budget can never be filed under another. */
                 <div
-                  className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm"
+                  className="flex h-11 items-center rounded-lg border border-input bg-card px-3 text-sm"
                   aria-readonly="true"
                 >
                   {selectedDepartment?.name ?? '—'}
@@ -399,102 +402,112 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                   Filing on behalf of {selectedDepartment.name} — you are not posted to this department.
                 </p>
               )}
-              {route && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Approval route: {BUDGET_ROUTE_LABEL[route]}
-                </p>
-              )}
-
             </div>
-
-          </div>
+        </div>
           {cycle?.instructions && (
-            <p className="rounded-md border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
+            <p className="mt-3 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">CFO instructions: </span>{cycle.instructions}
             </p>
           )}
           {cycle?.deadline && (
-            <p className="text-xs text-muted-foreground">
+            <p className="mt-2 text-xs text-muted-foreground">
               Deadline: {format(new Date(cycle.deadline), 'dd MMM yyyy, HH:mm')} — late submissions are accepted but flagged.
             </p>
           )}
-        </CardContent>
-      </Card>
+      </section>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">My submissions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
+      <section aria-labelledby="budget-submissions-title">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 id="budget-submissions-title" className="text-sm font-semibold">My submissions</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Open a saved draft or review its current status.</p>
+          </div>
+          <span className="text-xs tabular-nums text-muted-foreground">{submissions.length} total</span>
+        </div>
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {submissions.length === 0 && <p className="text-xs text-muted-foreground">No budgets yet for this cycle.</p>}
           {submissions.map(s => (
-            <button
+            <Button
               key={s.id}
+              type="button"
+              variant="outline"
               onClick={() => openSubmission(s)}
-              className={`w-full rounded-lg border p-3 text-left text-xs transition-colors ${activeId === s.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+              className={`h-auto min-h-[72px] w-full items-start justify-start whitespace-normal rounded-lg p-3 text-left text-xs shadow-none ${activeId === s.id ? 'border-primary bg-primary/5' : 'bg-card'}`}
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono font-medium">{s.reference}</span>
-                <Badge variant="outline" className="text-[10px]">v{s.version}</Badge>
-                <Badge variant="secondary" className="text-[10px]">
-                  {s.status === 'pending_coo'
-                    ? 'Pending COO approval'
-                    : s.status === 'coo_under_review'
-                      ? 'COO reviewing'
-                      : s.status.replace(/_/g, ' ')}
-                </Badge>
-                {s.is_late && <Badge variant="destructive" className="gap-1 text-[10px]"><AlertTriangle className="h-3 w-3" /> late</Badge>}
+              <div className="w-full">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono font-medium">{s.reference}</span>
+                  <Badge variant="outline" className="text-[10px]">v{s.version}</Badge>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {s.status === 'pending_coo'
+                      ? 'Pending COO approval'
+                      : s.status === 'coo_under_review'
+                        ? 'COO reviewing'
+                        : s.status.replace(/_/g, ' ')}
+                  </Badge>
+                  {s.is_late && <Badge variant="destructive" className="gap-1 text-[10px]"><AlertTriangle className="h-3 w-3" /> late</Badge>}
+                </div>
+                <p className="mt-2 font-normal text-muted-foreground">
+                  Requested {formatUGX(Number(s.total_amount))}
+                  {Number(s.approved_total) > 0 && ` · Approved ${formatUGX(Number(s.approved_total))}`}
+                </p>
+                {s.cfo_comment && <p className="mt-1 font-normal text-warning">CFO: {s.cfo_comment}</p>}
               </div>
-              <p className="mt-1 text-muted-foreground">
-                Requested {formatUGX(Number(s.total_amount))}
-                {Number(s.approved_total) > 0 && ` · Approved ${formatUGX(Number(s.approved_total))}`}
-              </p>
-              {s.cfo_comment && <p className="mt-1 text-[11px] text-amber-600">CFO: {s.cfo_comment}</p>}
-            </button>
+            </Button>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">
+      <Card className="overflow-hidden rounded-lg border-border shadow-soft">
+        <CardHeader className="border-b border-border bg-card px-4 py-5 sm:px-6">
+          <CardTitle className="text-xl font-semibold">
             {activeId ? (readOnly ? 'Submission (read-only)' : 'Edit draft') : 'New budget draft'}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <CardContent className="space-y-5 p-4 sm:p-6">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label className="text-xs">Title</Label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} disabled={readOnly} placeholder="e.g. Marketing — August" />
+              <Label className="mb-1.5 block text-xs font-semibold">Title</Label>
+              <Input className="h-12 rounded-lg bg-card text-sm" value={title} onChange={e => setTitle(e.target.value)} disabled={readOnly} placeholder="e.g. Marketing — August" />
             </div>
             <div>
-              <Label className="text-xs">Purpose</Label>
-              <Input value={purpose} onChange={e => setPurpose(e.target.value)} disabled={readOnly} placeholder="What this budget covers" />
+              <Label className="mb-1.5 block text-xs font-semibold">Purpose</Label>
+              <Input className="h-12 rounded-lg bg-card text-sm" value={purpose} onChange={e => setPurpose(e.target.value)} disabled={readOnly} placeholder="What this budget covers" />
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="overflow-hidden rounded-lg border border-border">
+            <div className="hidden grid-cols-[44px_minmax(150px,1.1fr)_minmax(190px,1.35fr)_80px_120px_140px_minmax(160px,1.2fr)_120px_96px] bg-muted/70 text-[11px] font-semibold text-muted-foreground xl:grid">
+              <div className="border-r border-border px-3 py-3 text-center">#</div>
+              <div className="border-r border-border px-3 py-3">Item / Description</div>
+              <div className="border-r border-border px-3 py-3">Budget Category</div>
+              <div className="border-r border-border px-3 py-3">Quantity</div>
+              <div className="border-r border-border px-3 py-3">Unit Cost (UGX)</div>
+              <div className="border-r border-border px-3 py-3">Month</div>
+              <div className="border-r border-border px-3 py-3">Justification</div>
+              <div className="border-r border-border px-3 py-3">Total (UGX)</div>
+              <div className="px-3 py-3 text-center">Actions</div>
+            </div>
             {lines.map((l, idx) => (
-              <div key={idx} className="space-y-2 rounded-lg border border-border p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium">Item {idx + 1}</span>
-                  {!readOnly && lines.length > 1 && (
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive"
-                      onClick={() => setLines(prev => prev.filter((_, i) => i !== idx))}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div>
-                    <Label className="text-[11px]">Description</Label>
-                    <Input value={l.description} disabled={readOnly}
+              <div key={idx} className="grid gap-3 border-t border-border bg-card p-3 first:border-t-0 sm:grid-cols-2 xl:grid-cols-[44px_minmax(150px,1.1fr)_minmax(190px,1.35fr)_80px_120px_140px_minmax(160px,1.2fr)_120px_96px] xl:gap-0 xl:p-0">
+                  <div className="flex items-center justify-between sm:col-span-2 xl:col-span-1 xl:justify-center xl:border-r xl:border-border xl:px-3 xl:py-4">
+                    <span className="text-xs font-semibold text-muted-foreground"><span className="xl:hidden">Item </span>{idx + 1}</span>
+                    {!readOnly && lines.length > 1 && (
+                      <Button type="button" size="icon-sm" variant="ghost" className="text-destructive xl:hidden" aria-label={`Delete item ${idx + 1}`} title="Delete item"
+                        onClick={() => setLines(prev => prev.filter((_, i) => i !== idx))}>
+                        <Trash2 />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="xl:border-r xl:border-border xl:p-2">
+                    <Label className="mb-1 block text-[11px] xl:hidden">Description</Label>
+                    <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" value={l.description} disabled={readOnly} placeholder="Enter item description"
                       onChange={e => updateLine(idx, { description: e.target.value })} />
                   </div>
-                  <div>
-                    <Label className="text-[11px]">Budget category (Chart of Accounts)</Label>
+                  <div className="xl:border-r xl:border-border xl:p-2">
+                    <Label className="mb-1 block text-[11px] xl:hidden">Budget category (Chart of Accounts)</Label>
                     <Select value={l.account_code} onValueChange={v => updateLine(idx, { account_code: v })} disabled={readOnly}>
-                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                      <SelectTrigger className="h-11 rounded-lg text-sm"><SelectValue placeholder="Select category" /></SelectTrigger>
                       <SelectContent className="z-[100]">
                         {budgetableAccounts.map(a => (
                           <SelectItem key={a.code} value={a.code}>{a.code} — {a.label}</SelectItem>
@@ -505,76 +518,40 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                         empty list. Say so rather than rendering a dropdown
                         with nothing in it and no way to tell why. */}
                     {!budgetableAccounts.length && !refLoading && (
-                      <p className="mt-1 text-[11px] text-destructive">
+                      <p className="mt-1 text-[10px] text-destructive">
                         No spending categories are available to your account, so this budget cannot be
                         filed. Ask Finance to grant access to the chart of accounts.
                       </p>
                     )}
                   </div>
-                  <div className="grid grid-cols-3 gap-2 sm:col-span-2">
-                    <div>
-                      <Label className="text-[11px]">Quantity</Label>
-                      <Input type="number" min="0" value={l.quantity} disabled={readOnly}
+                  <div className="xl:border-r xl:border-border xl:p-2">
+                      <Label className="mb-1 block text-[11px] xl:hidden">Quantity</Label>
+                      <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" type="number" min="0" value={l.quantity} disabled={readOnly}
                         onChange={e => updateLine(idx, { quantity: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label className="text-[11px]">Unit cost (UGX)</Label>
-                      <Input type="number" min="0" value={l.unit_amount} disabled={readOnly}
-                        onChange={e => updateLine(idx, { unit_amount: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label className="text-[11px]">Month</Label>
-                      <Input type="date" value={l.period_month} disabled={readOnly}
-                        onChange={e => updateLine(idx, { period_month: e.target.value })} />
-                    </div>
                   </div>
-                  <div className="sm:col-span-2">
-                    <Label className="text-[11px]">Justification</Label>
-                    <Textarea rows={2} value={l.justification} disabled={readOnly}
+                  <div className="xl:border-r xl:border-border xl:p-2">
+                      <Label className="mb-1 block text-[11px] xl:hidden">Unit cost (UGX)</Label>
+                      <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" type="number" min="0" value={l.unit_amount} disabled={readOnly}
+                        onChange={e => updateLine(idx, { unit_amount: e.target.value })} />
+                  </div>
+                  <div className="xl:border-r xl:border-border xl:p-2">
+                      <Label className="mb-1 block text-[11px] xl:hidden">Month</Label>
+                      <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" type="date" value={l.period_month} disabled={readOnly}
+                        onChange={e => updateLine(idx, { period_month: e.target.value })} />
+                  </div>
+                  <div className="xl:border-r xl:border-border xl:p-2">
+                    <Label className="mb-1 block text-[11px] xl:hidden">Justification</Label>
+                    <Textarea className="min-h-11 rounded-lg px-3 py-2 text-sm xl:h-11 xl:min-h-11" rows={1} value={l.justification} disabled={readOnly} placeholder="Add justification"
                       onChange={e => updateLine(idx, { justification: e.target.value })} />
                   </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-mono text-muted-foreground">
-                    Total {formatUGX((Number(l.quantity) || 0) * (Number(l.unit_amount) || 0))}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {l.document_path && (
-                      /* Named, not "View document": the filename is how you
-                         tell whether the right file went on the right line. */
-                      <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 py-1 pl-2 pr-1 text-[11px]">
-                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <button
-                          type="button"
-                          className="max-w-[16rem] truncate underline-offset-2 hover:underline"
-                          title={`Open ${l.document_name || documentDisplayName(l.document_path)}`}
-                          onClick={async () => {
-                            try { window.open(await getBudgetDocumentUrl(l.document_path), '_blank'); }
-                            catch { toast.error('Could not open document'); }
-                          }}
-                        >
-                          {l.document_name || documentDisplayName(l.document_path)}
-                        </button>
-                        {!readOnly && (
-                          <button
-                            type="button"
-                            aria-label={`Remove ${l.document_name || documentDisplayName(l.document_path)}`}
-                            title="Remove attachment"
-                            className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => {
-                              updateLine(idx, { document_path: '', document_name: '' });
-                              toast.success('Attachment removed');
-                            }}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </span>
-                    )}
+                  <div className="flex min-h-11 items-center rounded-lg bg-muted px-3 text-xs font-medium tabular-nums text-muted-foreground xl:m-2">
+                    <span className="mr-1 xl:hidden">Total </span>{formatUGX((Number(l.quantity) || 0) * (Number(l.unit_amount) || 0))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end xl:flex-col xl:justify-center xl:px-2 xl:py-3">
                     {!readOnly && (
-                      <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px]">
+                      <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-2 text-[11px] font-medium transition-colors hover:bg-muted" title={l.document_path ? 'Replace attachment' : 'Attach document'}>
                         {uploadingIdx === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                        {l.document_path ? 'Replace' : 'Attach'}
+                        <span className="xl:sr-only">{l.document_path ? 'Replace' : 'Attach'}</span>
                         <input type="file" className="hidden"
                           onChange={e => {
                             const f = e.target.files?.[0];
@@ -583,36 +560,73 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                           }} />
                       </label>
                     )}
+                    {!readOnly && lines.length > 1 && (
+                      <Button type="button" size="icon-sm" variant="ghost" className="hidden text-destructive xl:inline-flex" aria-label={`Delete item ${idx + 1}`} title="Delete item"
+                        onClick={() => setLines(prev => prev.filter((_, i) => i !== idx))}>
+                        <Trash2 />
+                      </Button>
+                    )}
                   </div>
-                </div>
+                  {l.document_path && (
+                    <span className="inline-flex min-w-0 items-center gap-1 rounded-lg border border-border bg-muted/40 py-1 pl-2 pr-1 text-[11px] sm:col-span-2 xl:col-span-9 xl:mx-2 xl:mb-2">
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <button
+                        type="button"
+                        className="truncate underline-offset-2 hover:underline"
+                        title={`Open ${l.document_name || documentDisplayName(l.document_path)}`}
+                        onClick={async () => {
+                          try { window.open(await getBudgetDocumentUrl(l.document_path), '_blank'); }
+                          catch { toast.error('Could not open document'); }
+                        }}
+                      >
+                        {l.document_name || documentDisplayName(l.document_path)}
+                      </button>
+                      {!readOnly && (
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Remove ${l.document_name || documentDisplayName(l.document_path)}`}
+                          title="Remove attachment"
+                          className="ml-auto h-7 min-h-7 w-7 min-w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            updateLine(idx, { document_path: '', document_name: '' });
+                            toast.success('Attachment removed');
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </span>
+                  )}
               </div>
             ))}
           </div>
 
           {!readOnly && (
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs"
+            <Button size="sm" variant="default" className="gap-1.5 rounded-lg text-xs"
               onClick={() => setLines(prev => [...prev, emptyLine()])}>
-              <Plus className="h-3.5 w-3.5" /> Add line
+              <Plus className="h-3.5 w-3.5" /> Add item
             </Button>
           )}
 
-          <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
-            <span className="text-muted-foreground">Requested total</span>
-            <span className="font-mono font-semibold">{formatUGX(total)}</span>
+          <div className="flex items-center justify-end gap-10 rounded-lg bg-muted px-4 py-4 text-sm sm:px-6">
+            <span className="font-semibold text-muted-foreground">Requested total</span>
+            <span className="font-mono text-base font-bold tabular-nums text-foreground">{formatUGX(total)}</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-3">
-            {!readOnly && (
-              <Button size="sm" onClick={saveDraft} disabled={saving} className="gap-2 text-xs">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save draft
-              </Button>
-            )}
-            <Button size="sm" className="gap-1.5 bg-purple-600 text-xs text-white hover:bg-purple-700"
+          <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-end">
+            <Button size="sm" variant="outline" className="rounded-lg text-xs sm:mr-auto"
               onClick={startNew} disabled={!!pendingSubmission}>
               <Plus className="h-3.5 w-3.5" /> New budget
             </Button>
             {!readOnly && (
-              <Button size="sm" onClick={submit} disabled={submitting || saving} variant="secondary" className="gap-2 text-xs">
+              <Button size="sm" onClick={saveDraft} disabled={saving} variant="outline" className="rounded-lg text-xs">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save draft
+              </Button>
+            )}
+            {!readOnly && (
+              <Button size="sm" onClick={submit} disabled={submitting || saving} className="rounded-lg text-xs">
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Submit for review
               </Button>
             )}
