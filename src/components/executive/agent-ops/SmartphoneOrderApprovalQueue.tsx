@@ -179,6 +179,36 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
     },
   });
 
+  // Fetch the agent's actual NIN from their profile so ops can see the number directly.
+  // Checks both profiles.national_id and proxy_agent_identity.nin and uses whichever is set.
+  const { data: agentProfile } = useQuery({
+    queryKey: ['smartphone-applicant-profile', detailsTarget?.customer_id],
+    enabled: !!detailsTarget?.customer_id,
+    queryFn: async () => {
+      const [profileRes, proxyRes] = await Promise.all([
+        db
+          .from('profiles')
+          .select('national_id, full_name, phone')
+          .eq('id', detailsTarget!.customer_id)
+          .maybeSingle(),
+        db
+          .from('proxy_agent_identity')
+          .select('nin')
+          .eq('agent_user_id', detailsTarget!.customer_id)
+          .maybeSingle(),
+      ]);
+      const nin =
+        (profileRes.data?.national_id && profileRes.data.national_id.trim()) ||
+        (proxyRes.data?.nin && proxyRes.data.nin.trim()) ||
+        null;
+      return {
+        national_id: nin,
+        full_name: profileRes.data?.full_name ?? null,
+        phone: profileRes.data?.phone ?? null,
+      } as { national_id: string | null; full_name: string | null; phone: string | null };
+    },
+  });
+
 
   const { data: orders = [], isLoading } = useQuery<SmartphoneOrderRow[]>({
     queryKey: ['smartphone-order-queue'],
@@ -684,11 +714,15 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                         </Badge>
                         <Badge
                           variant="outline"
-                          className={applicant.has_national_id
+                          className={agentProfile?.national_id || applicant.has_national_id
                             ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                            : 'bg-destructive/15 text-destructive border-destructive/30'}
+                            : 'bg-amber-500/15 text-amber-600 border-amber-500/30'}
                         >
-                          National ID {applicant.has_national_id ? 'verified' : 'missing'}
+                          {agentProfile?.national_id
+                            ? `✓ NIN: ${agentProfile.national_id}`
+                            : applicant.has_national_id
+                              ? '✓ National ID on profile'
+                              : '⏳ ID declared — verify on collection day'}
                         </Badge>
                         <Badge
                           variant="outline"
@@ -696,7 +730,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                             ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
                             : 'bg-amber-500/15 text-amber-600 border-amber-500/30'}
                         >
-                          Workplace {applicant.has_workplace_verification ? 'captured' : 'not captured'}
+                          {applicant.has_workplace_verification ? '✓ Workplace captured' : '⏳ Workplace photo — bring on collection day'}
                         </Badge>
                         <Badge
                           variant="outline"

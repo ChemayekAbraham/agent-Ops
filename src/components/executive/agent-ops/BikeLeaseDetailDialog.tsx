@@ -91,27 +91,6 @@ export function BikeLeaseDetailDialog({
   onReject,
   onEditPrice,
 }: Props) {
-  // Eligibility query for the applicant
-  const { data: eligibility, isLoading: eligibilityLoading } = useQuery({
-    queryKey: ['bike-lease-eligibility-detail', order?.customer_id],
-    enabled: open && !!order?.customer_id,
-    queryFn: async () => {
-      const { data, error } = await db.rpc('get_agent_smartphone_eligibility', {
-        p_user_id: order!.customer_id,
-      });
-      if (error) throw error;
-      return data as {
-        active_tenant_count: number;
-        required_active_tenants: number;
-        collected_30d: number;
-        has_national_id: boolean;
-        has_workplace_verification: boolean;
-        has_open_application: boolean;
-        eligible: boolean;
-      } | null;
-    },
-  });
-
   if (!order) return null;
 
   const valuationNum = Number(order.valuation_amount || 0);
@@ -126,9 +105,6 @@ export function BikeLeaseDetailDialog({
   const isAwaitingCfo = order.order_status === 'coo_approved';
   const isOpen = isPending || isAwaitingCfo;
 
-  const tenantCount = Number(eligibility?.active_tenant_count || 0);
-  const requiredTenants = Number(eligibility?.required_active_tenants || 3);
-  const meetsThreshold = tenantCount >= requiredTenants;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -267,79 +243,7 @@ export function BikeLeaseDetailDialog({
             </div>
           </div>
 
-          {/* SECTION 2: APPLICANT ELIGIBILITY & COMPLIANCE */}
-          <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-2.5 shadow-xs">
-            <div className="flex items-center gap-2 pb-0.5 border-b border-border/40">
-              <div className="h-6 w-6 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <ShieldCheck className="h-3.5 w-3.5" />
-              </div>
-              <h3 className="text-xs font-bold text-foreground truncate">
-                Agent Eligibility &amp; Compliance Standing
-              </h3>
-            </div>
-
-            {eligibilityLoading ? (
-              <p className="text-xs text-muted-foreground py-2 text-center">Checking agent eligibility…</p>
-            ) : !eligibility ? (
-              <p className="text-xs text-muted-foreground py-1">
-                Eligibility details not linked or unavailable for this agent account.
-              </p>
-            ) : (
-              <div className="divide-y divide-border/40 text-xs">
-                <div className="flex flex-wrap items-center justify-between gap-1.5 py-1.5">
-                  <span className="text-muted-foreground font-medium">Active Tenant Rent Plans</span>
-                  <span className="font-semibold flex items-center gap-1.5 shrink-0 text-foreground">
-                    {tenantCount} / {requiredTenants}
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] ${
-                        meetsThreshold
-                          ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                          : 'bg-destructive/15 text-destructive border-destructive/30'
-                      }`}
-                    >
-                      {meetsThreshold ? 'Meets threshold' : 'Below threshold'}
-                    </Badge>
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-1.5 py-1.5">
-                  <span className="text-muted-foreground font-medium">National ID on File</span>
-                  <span className={eligibility.has_national_id ? 'font-semibold text-emerald-600' : 'font-semibold text-destructive'}>
-                    {eligibility.has_national_id ? 'Verified on record' : 'Missing'}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-1.5 py-1.5">
-                  <span className="text-muted-foreground font-medium">Workplace Verification</span>
-                  <span className={eligibility.has_workplace_verification ? 'font-semibold text-emerald-600' : 'font-semibold text-amber-600'}>
-                    {eligibility.has_workplace_verification ? 'Captured' : 'Pending review'}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-1.5 py-1.5">
-                  <span className="text-muted-foreground font-medium">Collections (Last 30 Days)</span>
-                  <span className="font-bold text-foreground shrink-0">{formatUGX(Number(eligibility.collected_30d || 0))}</span>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2">
-                  <span className="text-muted-foreground font-medium">Programme Recommendation</span>
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] shrink-0 font-semibold ${
-                      eligibility.eligible
-                        ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                        : 'bg-amber-500/15 text-amber-600 border-amber-500/30'
-                    }`}
-                  >
-                    {eligibility.eligible ? 'Eligible for Spiro Lease' : 'Review Required'}
-                  </Badge>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* SECTION 3: AUDIT & TIMELINE */}
+          {/* SECTION 2: AUDIT & TIMELINE */}
           <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-2.5 shadow-xs">
             <div className="flex items-center gap-2 pb-0.5 border-b border-border/40">
               <div className="h-6 w-6 rounded-md bg-muted text-muted-foreground flex items-center justify-center shrink-0">

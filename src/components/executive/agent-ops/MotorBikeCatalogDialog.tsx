@@ -170,6 +170,7 @@ export function MotorBikeCatalogDialog() {
     setIsActive(true);
     setAddMode(false);
     setEditItem(null);
+    setDisabledPeriods(new Set());
   };
 
   const openEdit = (item: MotorBikeCatalogItem) => {
@@ -324,6 +325,15 @@ export function MotorBikeCatalogDialog() {
     return spiroLeaseGrid(previewBasePrice);
   }, [previewBasePrice]);
 
+  // Periods the manager has toggled off for this bike
+  const [disabledPeriods, setDisabledPeriods] = useState<Set<number>>(new Set());
+  const togglePeriod = (months: number) =>
+    setDisabledPeriods((prev) => {
+      const next = new Set(prev);
+      next.has(months) ? next.delete(months) : next.add(months);
+      return next;
+    });
+
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
@@ -473,28 +483,76 @@ export function MotorBikeCatalogDialog() {
               {/* Lease schedule projection preview */}
               {leaseSchedulePreview && (
                 <div className="rounded-lg border bg-card p-3 space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-                    Calculated Lease Repayment Grid (Base {formatUGX(previewBasePrice)})
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                    {leaseSchedulePreview.map((tier) => (
-                      <div key={tier.months} className="rounded-md border bg-muted/40 p-2 space-y-1">
-                        <p className="font-semibold text-primary">{tier.months} Months ({tier.feePct}% fee)</p>
-                        <div className="flex justify-between text-muted-foreground">
-                          <span>Total:</span>
-                          <span className="font-semibold text-foreground">{formatUGX(tier.total)}</span>
-                        </div>
-                        <div className="flex justify-between text-muted-foreground">
-                          <span>Monthly:</span>
-                          <span className="font-medium text-foreground">{formatUGX(tier.monthly)}</span>
-                        </div>
-                        <div className="flex justify-between text-muted-foreground">
-                          <span>Daily:</span>
-                          <span className="font-medium text-foreground">{formatUGX(tier.daily)}</span>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                      Calculated Lease Repayment Grid (Base {formatUGX(previewBasePrice)})
+                    </p>
+                    {disabledPeriods.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setDisabledPeriods(new Set())}
+                        className="text-[10px] text-muted-foreground hover:text-primary underline"
+                      >
+                        Restore all
+                      </button>
+                    )}
                   </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                    {leaseSchedulePreview.map((tier) => {
+                      const disabled = disabledPeriods.has(tier.months);
+                      return (
+                        <div
+                          key={tier.months}
+                          className={`rounded-md border p-2 space-y-1 transition-opacity ${
+                            disabled
+                              ? 'bg-muted/20 opacity-40'
+                              : 'bg-muted/40'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <p className={`font-semibold text-primary text-[10px] leading-tight ${
+                              disabled ? 'line-through text-muted-foreground' : ''
+                            }`}>
+                              {tier.months}m ({tier.feePct}% fee)
+                            </p>
+                            <button
+                              type="button"
+                              title={disabled ? 'Restore period' : 'Remove period'}
+                              onClick={() => togglePeriod(tier.months)}
+                              className={`shrink-0 rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold transition-colors ${
+                                disabled
+                                  ? 'bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30'
+                                  : 'bg-destructive/15 text-destructive hover:bg-destructive/25'
+                              }`}
+                            >
+                              {disabled ? '+' : '×'}
+                            </button>
+                          </div>
+                          {!disabled && (
+                            <>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Total:</span>
+                                <span className="font-semibold text-foreground">{formatUGX(tier.total)}</span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Monthly:</span>
+                                <span className="font-medium text-foreground">{formatUGX(tier.monthly)}</span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Daily:</span>
+                                <span className="font-medium text-foreground">{formatUGX(tier.daily)}</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {disabledPeriods.size > 0 && (
+                    <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                      ⚠ {disabledPeriods.size} period{disabledPeriods.size > 1 ? 's' : ''} removed from this bike's order options.
+                    </p>
+                  )}
                 </div>
               )}
 
