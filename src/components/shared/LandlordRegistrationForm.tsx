@@ -487,18 +487,9 @@ export default function LandlordRegistrationForm({
       }
     }
 
-    // The signed agreement is mandatory when an agent registers a NEW landlord.
-    // For a landlord already in the system it stays optional everywhere.
-    if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
-      hapticWarning();
-      focusField('landlordAgreement');
-      toastFn({
-        title: 'Signed agreement required',
-        description: 'Upload the signed landlord agreement to register this new landlord.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    // The signed agreement is optional everywhere, including when an agent
+    // registers a brand-new landlord. It can be attached later.
+
 
 
     hapticTap();
