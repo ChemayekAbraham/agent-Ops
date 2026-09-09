@@ -167,7 +167,7 @@ export function StaffRequisitionQueue() {
   const [tab, setTab] = useState<TabKey>('inbox');
 
   const [active, setActive] = useState<StaffRequisition | null>(null);
-  const [actionType, setActionType] = useState<'approve' | 'reject' | 'return_info'>('approve');
+  const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
   const [reduceMode, setReduceMode] = useState(false);
   const [comment, setComment] = useState('');
   const [amountOverride, setAmountOverride] = useState('');
