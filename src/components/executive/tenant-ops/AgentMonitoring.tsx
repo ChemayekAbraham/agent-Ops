@@ -608,34 +608,72 @@ export function AgentMonitoring() {
     [selectedAgent],
   );
 
-  /** Recorded receipts for the open agent's plans — the same rows the tenant
-   *  register shows, read straight from `agent_collections`. */
+  /**
+   * The full receipt history for the open agent's plans, from both authoritative
+   * receipt tables: `agent_collections` (keyed in by whichever agent collected —
+   * current or previous) and `repayments` (tenant self-payments and the other
+   * supported channels). Repayment rows that mirror a collection are dropped so
+   * the same money is never listed twice.
+   */
   const { data: paymentHistory, isLoading: historyLoading } = useQuery({
     queryKey: ['tenant-ops-agent-monitoring-history', selectedPlanIds],
     enabled: selectedPlanIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
+      const collections: Collection[] = [];
       const rows: PaymentRecord[] = [];
+      const selfPayments: RepaymentRow[] = [];
       const CHUNK = 100;
       for (let index = 0; index < selectedPlanIds.length; index += CHUNK) {
-        const { data: batch, error: historyError } = await supabase
-          .from('agent_collections')
-          .select('id, rent_request_id, tenant_id, agent_id, amount, created_at, payment_method, is_partial, expected_amount, momo_provider, tracking_id')
-          .in('rent_request_id', selectedPlanIds.slice(index, index + CHUNK))
-          .order('created_at', { ascending: false });
-        if (historyError) throw historyError;
-        rows.push(...((batch ?? []) as PaymentRecord[]));
+        const slice = selectedPlanIds.slice(index, index + CHUNK);
+        const [collected, repaid] = await Promise.all([
+          supabase
+            .from('agent_collections')
+            .select('id, rent_request_id, tenant_id, agent_id, amount, created_at, payment_method, is_partial, expected_amount, momo_provider, tracking_id')
+            .in('rent_request_id', slice)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('repayments')
+            .select('id, rent_request_id, tenant_id, amount, created_at, payment_method, paid_by, external_reference')
+            .in('rent_request_id', slice)
+            .order('created_at', { ascending: false }),
+        ]);
+        if (collected.error) throw collected.error;
+        if (repaid.error) throw repaid.error;
+        const batch = (collected.data ?? []) as unknown as Omit<PaymentRecord, 'source'>[];
+        collections.push(...(batch as unknown as Collection[]));
+        rows.push(...batch.map((row) => ({ ...row, payment_method: row.payment_method, source: 'agent' as const })));
+        selfPayments.push(...((repaid.data ?? []) as RepaymentRow[]));
       }
-      const byPlan = new Map<string, PaymentRecord[]>();
-      rows.forEach((row) => {
-        if (!row.rent_request_id) return;
-        const list = byPlan.get(row.rent_request_id) ?? [];
-        list.push(row);
-        byPlan.set(row.rent_request_id, list);
+      unmatchedRepayments(selfPayments, collections).forEach((row) => {
+        rows.push({
+          id: row.id,
+          rent_request_id: row.rent_request_id,
+          tenant_id: row.tenant_id,
+          agent_id: null,
+          amount: row.amount,
+          created_at: row.created_at,
+          payment_method: row.payment_method,
+          is_partial: null,
+          expected_amount: null,
+          momo_provider: null,
+          tracking_id: row.external_reference,
+          source: 'tenant',
+        });
       });
+      const byPlan = new Map<string, PaymentRecord[]>();
+      rows
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .forEach((row) => {
+          if (!row.rent_request_id) return;
+          const list = byPlan.get(row.rent_request_id) ?? [];
+          list.push(row);
+          byPlan.set(row.rent_request_id, list);
+        });
       return byPlan;
     },
   });
+
 
 
 
