@@ -50620,6 +50620,7 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      get_welile_account_reconciliation: { Args: never; Returns: Json }
       get_withdraw_context: { Args: { p_user_id: string }; Returns: Json }
       get_withdrawable_total: { Args: { p_user_id: string }; Returns: number }
       get_withdrawable_wallet_holders_by_recent_withdrawal: {
