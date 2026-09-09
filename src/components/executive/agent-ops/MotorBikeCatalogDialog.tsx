@@ -83,6 +83,19 @@ export const DEFAULT_MOTORBIKES: Omit<MotorBikeCatalogItem, 'id'>[] = [
 /**
  * Shared hook to get active and all motorbike catalog items with automatic baseline seed.
  */
+/** Sentinel stored in description to mark catalog rows owned by this dialog. */
+const MOTOR_BIKE_SENTINEL = '[motor_bike]';
+
+/** Keywords used as a fallback to identify legacy bike rows that predate the sentinel. */
+const BIKE_KEYWORDS = ['spiro', 'bike', 'ekoride', 'ekocycle', 'commando', 'mocoo', 'electric', 'moto', 'ebike', 'scooter', 'boda'];
+
+function isMotorBikeRow(row: MotorBikeCatalogItem): boolean {
+  const desc = (row.description || '').toLowerCase();
+  const name = (row.item_name || '').toLowerCase();
+  if (desc.includes(MOTOR_BIKE_SENTINEL)) return true;
+  return BIKE_KEYWORDS.some((kw) => name.includes(kw) || desc.includes(kw));
+}
+
 export function useMotorBikeCatalog() {
   return useQuery<MotorBikeCatalogItem[]>({
     queryKey: MOTORBIKE_CATALOG_QUERY_KEY,
@@ -99,9 +112,11 @@ export function useMotorBikeCatalog() {
 
       const rows: MotorBikeCatalogItem[] = (data || []) as MotorBikeCatalogItem[];
 
-      // Merge with defaults: ensure all baseline Spiro models are always present
-      // even if they haven't yet been seeded into the DB.
-      const merged: MotorBikeCatalogItem[] = [...rows];
+      // Only keep rows that are motor bikes (sentinel or keyword match).
+      const bikeRows = rows.filter(isMotorBikeRow);
+
+      // Merge defaults: ensure all baseline Spiro models are always present.
+      const merged: MotorBikeCatalogItem[] = [...bikeRows];
       for (const def of DEFAULT_MOTORBIKES) {
         const found = merged.find((m) => m.item_name.toLowerCase() === def.item_name.toLowerCase());
         if (!found) {
@@ -183,6 +198,13 @@ export function MotorBikeCatalogDialog() {
       if (numPrice <= 0) throw new Error('Base valuation / price must be greater than zero');
       const numCost = Math.max(0, Math.round(Number(cost) || numPrice));
 
+      // Ensure description always includes the motor_bike sentinel so the filter
+      // recognises this row as a bike regardless of its name.
+      const taggedDesc = (rawDesc: string | null) => {
+        const base = (rawDesc || '').replace(MOTOR_BIKE_SENTINEL, '').trim();
+        return base ? `${base} ${MOTOR_BIKE_SENTINEL}` : MOTOR_BIKE_SENTINEL;
+      };
+
       if (editItem && !editItem.id.startsWith('default-')) {
         const { error } = await db
           .from('merchandise_catalog')
@@ -190,7 +212,7 @@ export function MotorBikeCatalogDialog() {
             item_name: cleanName,
             unit_price: numPrice,
             unit_cost: numCost,
-            description: desc.trim() || null,
+            description: taggedDesc(desc.trim() || null),
             is_active: isActive,
             updated_at: new Date().toISOString(),
           })
@@ -201,7 +223,7 @@ export function MotorBikeCatalogDialog() {
           item_name: cleanName,
           unit_price: numPrice,
           unit_cost: numCost,
-          description: desc.trim() || null,
+          description: taggedDesc(desc.trim() || null),
           is_active: isActive,
         });
         if (error) throw error;
@@ -227,11 +249,12 @@ export function MotorBikeCatalogDialog() {
     setSavingId(item.id);
     try {
       if (item.id.startsWith('default-')) {
+        const baseDesc = (item.description || '').replace(MOTOR_BIKE_SENTINEL, '').trim();
         const { error } = await db.from('merchandise_catalog').insert({
           item_name: item.item_name,
           unit_price: newPrice,
           unit_cost: item.unit_cost || newPrice,
-          description: item.description,
+          description: baseDesc ? `${baseDesc} ${MOTOR_BIKE_SENTINEL}` : MOTOR_BIKE_SENTINEL,
           is_active: item.is_active,
         });
         if (error) throw error;
