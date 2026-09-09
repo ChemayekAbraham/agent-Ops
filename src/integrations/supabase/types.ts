@@ -54311,6 +54311,10 @@ export type Database = {
         Returns: number
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
+      tenant_location_correction_active_metrics: {
+        Args: { p_agent_id?: string }
+        Returns: Json
+      }
       tenant_location_correction_agents: {
         Args: { p_limit?: number; p_search?: string }
         Returns: {
