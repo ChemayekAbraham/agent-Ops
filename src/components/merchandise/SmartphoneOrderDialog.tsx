@@ -347,9 +347,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 <p className="text-xs text-muted-foreground">
                   {osType === 'ios' ? 'Daily repayment to Welile' : 'Daily repayment'}
                 </p>
-                <p className="text-2xl font-bold tabular-nums">
+                <p className="text-2xl font-bold tabular-nums text-green-600">
                   {formatUGX(dailyAmount)}
-                  <span className="text-sm font-medium text-muted-foreground">/day</span>
+                  <span className="text-sm font-medium text-green-600">/day</span>
                 </p>
                 <p className="text-[11px] font-bold text-muted-foreground">
                   {period.days} days · {formatUGX(totalRepayable)} in total. Deductions start 7 days after your
