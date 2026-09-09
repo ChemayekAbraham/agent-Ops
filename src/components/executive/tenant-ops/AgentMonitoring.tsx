@@ -8,6 +8,7 @@ import {
   CircleAlert,
   CircleCheck,
   CircleDot,
+  History,
   Loader2,
   Phone,
   Search,
@@ -78,6 +79,23 @@ interface Collection {
   tenant_id: string;
   amount: number | null;
   created_at: string;
+  /** Authoritative link to the rent plan the receipt was posted against. */
+  rent_request_id: string | null;
+}
+
+/** One recorded receipt, as already stored by the collection flow. */
+interface PaymentRecord {
+  id: string;
+  rent_request_id: string | null;
+  tenant_id: string;
+  agent_id: string;
+  amount: number | null;
+  created_at: string;
+  payment_method: string | null;
+  is_partial: boolean | null;
+  expected_amount: number | null;
+  momo_provider: string | null;
+  tracking_id: string | null;
 }
 
 interface AgentRow {
@@ -227,6 +245,81 @@ function SchedulePositionTag({ schedule }: { schedule: PlanSchedule }) {
 }
 
 
+/** Recorded receipts for one rent plan, newest first. */
+function TenantPaymentHistory({
+  payments,
+  loading,
+  planAgentId,
+  nameFor,
+}: {
+  payments: PaymentRecord[];
+  loading: boolean;
+  planAgentId: string;
+  nameFor: (id: string) => string;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? payments : payments.slice(0, 5);
+
+  if (loading) {
+    return (
+      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" /> Loading payment history…
+      </p>
+    );
+  }
+
+  if (payments.length === 0) {
+    return <p className="text-[11px] text-muted-foreground">No payments recorded on this rent plan yet.</p>;
+  }
+
+  const total = payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <History className="h-3 w-3" /> Recent payments
+        </Label>
+        <span className="text-[10px] tabular-nums text-muted-foreground">
+          {payments.length} payment{payments.length === 1 ? '' : 's'} · {formatUGX(total)} received
+        </span>
+      </div>
+      <ul className="divide-y rounded-md border">
+        {visible.map((payment) => {
+          const collector = payment.agent_id && payment.agent_id !== planAgentId ? nameFor(payment.agent_id) : null;
+          const method = (payment.payment_method || '').replace(/_/g, ' ');
+          return (
+            <li key={payment.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2.5 py-1.5 text-[11px]">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-medium tabular-nums">{format(new Date(payment.created_at), 'dd MMM yyyy')}</span>
+                <span className="text-muted-foreground tabular-nums">{format(new Date(payment.created_at), 'HH:mm')}</span>
+                {method && (
+                  <Badge variant="outline" className="px-1.5 py-0 text-[9px] uppercase tracking-wide text-muted-foreground">
+                    {payment.momo_provider ? `${method} · ${payment.momo_provider}` : method}
+                  </Badge>
+                )}
+                {payment.is_partial && (
+                  <Badge variant="outline" className="border-warning/40 bg-warning/10 px-1.5 py-0 text-[9px] text-warning-foreground">
+                    Partial{payment.expected_amount ? ` of ${formatUGX(Number(payment.expected_amount))}` : ''}
+                  </Badge>
+                )}
+                {collector && <span className="truncate text-muted-foreground">received by {collector}</span>}
+              </div>
+              <span className="font-semibold tabular-nums">{formatUGX(Number(payment.amount ?? 0))}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {payments.length > 5 && (
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setShowAll((value) => !value)}>
+          {showAll ? 'Show less' : `Show full history (${payments.length})`}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+
 type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'position';
 
 export function AgentMonitoring() {
@@ -260,7 +353,7 @@ export function AgentMonitoring() {
       const activeRequests = requests.filter((request) => eligibleIds.has(request.id) && request.agent_id);
       const { data: collections, error: collectionsError } = await supabase
         .from('agent_collections')
-        .select('id, agent_id, tenant_id, amount, created_at')
+        .select('id, agent_id, tenant_id, amount, created_at, rent_request_id')
         .gte('created_at', bounds.from)
         .lt('created_at', bounds.to)
         .not('agent_id', 'is', null);
@@ -298,13 +391,30 @@ export function AgentMonitoring() {
   });
 
   const profileMap = useMemo(() => new Map((data?.profiles ?? []).map((profile) => [profile.id, profile])), [data?.profiles]);
+  /**
+   * A receipt belongs to the rent plan it was posted against, not to whoever
+   * happened to key it in. Attributing by `agent_id + tenant_id` hid every
+   * payment recorded by a different agent (transfers, sub-agents, ops entries)
+   * from the plan's own agent, which made paying tenants look like missed days.
+   * `rent_request_id` is the authoritative link; the agent+tenant map only
+   * still serves legacy rows that carry no plan reference.
+   */
   const collectionMap = useMemo(() => {
-    const totals = new Map<string, number>();
+    const byPlan = new Map<string, number>();
+    const byAgentTenant = new Map<string, number>();
     (data?.collections ?? []).forEach((collection) => {
+      const amount = Number(collection.amount ?? 0);
+      if (collection.rent_request_id) {
+        byPlan.set(collection.rent_request_id, (byPlan.get(collection.rent_request_id) ?? 0) + amount);
+        return;
+      }
       const key = `${collection.agent_id}:${collection.tenant_id}`;
-      totals.set(key, (totals.get(key) ?? 0) + Number(collection.amount ?? 0));
+      byAgentTenant.set(key, (byAgentTenant.get(key) ?? 0) + amount);
     });
-    return totals;
+    return {
+      forPlan: (agentId: string, request: Pick<ActiveRentRequest, 'id' | 'tenant_id'>) =>
+        (byPlan.get(request.id) ?? 0) + (byAgentTenant.get(`${agentId}:${request.tenant_id}`) ?? 0),
+    };
   }, [data?.collections]);
 
   /** One schedule reading per rent plan, computed once for the selected day. */
@@ -359,7 +469,7 @@ export function AgentMonitoring() {
         });
 
         const collected = tenants.reduce(
-          (sum, request) => sum + (collectionMap.get(`${agentId}:${request.tenant_id}`) ?? 0),
+          (sum, request) => sum + collectionMap.forPlan(agentId, request),
           0,
         );
         const profile = profileMap.get(agentId);
@@ -420,10 +530,46 @@ export function AgentMonitoring() {
     return selectedAgent.tenants.map((request) => ({
       request,
       tenant: profileMap.get(request.tenant_id),
-      collected: collectionMap.get(`${selectedAgent.id}:${request.tenant_id}`) ?? 0,
+      collected: collectionMap.forPlan(selectedAgent.id, request),
       schedule: scheduleMap.get(request.id) ?? describePlanSchedule(request, day),
     }));
   }, [collectionMap, day, profileMap, scheduleMap, selectedAgent]);
+
+  const selectedPlanIds = useMemo(
+    () => (selectedAgent ? selectedAgent.tenants.map((request) => request.id).sort() : []),
+    [selectedAgent],
+  );
+
+  /** Recorded receipts for the open agent's plans — the same rows the tenant
+   *  register shows, read straight from `agent_collections`. */
+  const { data: paymentHistory, isLoading: historyLoading } = useQuery({
+    queryKey: ['tenant-ops-agent-monitoring-history', selectedPlanIds],
+    enabled: selectedPlanIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const rows: PaymentRecord[] = [];
+      const CHUNK = 100;
+      for (let index = 0; index < selectedPlanIds.length; index += CHUNK) {
+        const { data: batch, error: historyError } = await supabase
+          .from('agent_collections')
+          .select('id, rent_request_id, tenant_id, agent_id, amount, created_at, payment_method, is_partial, expected_amount, momo_provider, tracking_id')
+          .in('rent_request_id', selectedPlanIds.slice(index, index + CHUNK))
+          .order('created_at', { ascending: false });
+        if (historyError) throw historyError;
+        rows.push(...((batch ?? []) as PaymentRecord[]));
+      }
+      const byPlan = new Map<string, PaymentRecord[]>();
+      rows.forEach((row) => {
+        if (!row.rent_request_id) return;
+        const list = byPlan.get(row.rent_request_id) ?? [];
+        list.push(row);
+        byPlan.set(row.rent_request_id, list);
+      });
+      return byPlan;
+    },
+  });
+
+
 
 
   const renderAgentRow = (agent: AgentRow, compact = false) => {
@@ -641,6 +787,13 @@ export function AgentMonitoring() {
                             <div><Label className="text-[10px] text-muted-foreground">Paid ahead</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.aheadAmount)}{schedule.periodsAhead > 0 ? ` · ${schedule.periodsAhead} ${unit}${schedule.periodsAhead === 1 ? '' : 's'}` : ''}</p></div>
                             <div><Label className="text-[10px] text-muted-foreground">Outstanding plan</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.outstandingPlan)}</p></div>
                           </div>
+                          <Separator className="my-3" />
+                          <TenantPaymentHistory
+                            payments={paymentHistory?.get(request.id) ?? []}
+                            loading={historyLoading}
+                            planAgentId={selectedAgent.id}
+                            nameFor={(id) => profileMap.get(id)?.full_name || 'another agent'}
+                          />
                         </div>
                       );
                     })}
