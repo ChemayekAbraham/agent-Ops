@@ -996,7 +996,7 @@ export function AgentMonitoring() {
           ) : (
             <>
               <div className="hidden overflow-x-auto lg:block">
-                <Table>
+                <Table className="min-w-[960px] [&_td]:px-2 [&_th]:px-2">
                   <TableHeader>
                     <TableRow className="bg-muted/40 hover:bg-muted/40">
                       <TableHead className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide">Agent</TableHead>
