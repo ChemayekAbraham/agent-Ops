@@ -66,6 +66,7 @@ import { AngelPoolManagementPanel } from '@/components/executive/AngelPoolManage
 import { WalletRetractionsFeed } from '@/components/cfo/WalletRetractionsFeed';
 import { CFOAdvancesManager } from '@/components/cfo/CFOAdvancesManager';
 import { CFOAdvanceRequestPayments } from '@/components/cfo/CFOAdvanceRequestPayments';
+import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
 import { AdvancesAnalyticsView } from '@/components/advances/AdvancesAnalyticsView';
 import { AllAdvancesReportPanel } from '@/components/advances/AllAdvancesReportPanel';
 import { DisbursedAdvancesRegister } from '@/components/cfo/DisbursedAdvancesRegister';
@@ -403,6 +404,18 @@ export default function CFODashboardPage() {
           <div className="space-y-6">
             <CFOAllocationReturnApprovals />
             <CFOUnfundingApprovals />
+          </div>
+        );
+      case 'bike-leases':
+        return (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-bold">Bike Leases</h1>
+              <p className="text-sm text-muted-foreground">
+                Applications approved by the COO. Releasing one sends the money into the ordering agent's own wallet and starts daily recovery.
+              </p>
+            </div>
+            <BikeLeaseApprovalQueue stage="cfo" />
           </div>
         );
       case 'advances-analytics':
