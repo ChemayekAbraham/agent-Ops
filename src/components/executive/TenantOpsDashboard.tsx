@@ -575,16 +575,16 @@ export function TenantOpsDashboard({
         'repaying',
         'completed',
       ];
-      const { data, error } = await supabase
+      const data = await fetchAllPaged<any>(() => supabase
         .from('rent_requests')
         .select('id, tenant_id, approved_by, rent_amount, total_repayment, daily_repayment, approved_at, created_at, status')
         .in('status', POST_APPROVAL_STATUSES)
         // Pull anything that *could* fall in the window using either timestamp,
         // then filter precisely in JS.
         .or(`and(approved_at.gte.${from.toISOString()},approved_at.lte.${to.toISOString()}),and(approved_at.is.null,created_at.gte.${from.toISOString()},created_at.lte.${to.toISOString()})`)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      if (!data || data.length === 0) { toast.error('No approvals in this window'); return; }
+        .order('created_at', { ascending: false }));
+      if (!data.length) { toast.error('No approvals in this window'); return; }
+
       const profiles = await enrichWithProfiles(data);
       let stamped = 0;
       let inferred = 0;
