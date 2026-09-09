@@ -164,6 +164,128 @@ curl -sX POST "$SUPABASE_URL/functions/v1/tenant-merchant-code-notices" \
   -d '{"dry_run":true}'
 ```
 
+## Stage 4 — smartphone lifecycle and dashboard links
+
+### The backfill decision (4A)
+
+`profiles.has_smartphone` is **NOT NULL DEFAULT true**. Measured 2026-09-09:
+61,961 true, 93 false, 0 null out of 62,054 live profiles. That `true` is
+almost entirely the column default and carries no information — treating it as
+a confirmation would have manufactured ~62,000 false confirmations and made
+segmentation meaningless on day one.
+
+So `true` backfilled to `UNKNOWN`. Only deliberate signals produced a
+`CONFIRMED_FEATURE_PHONE`:
+
+| Signal | Rows |
+|---|---|
+| `has_smartphone` actively set false against a true default | 93 profiles |
+| `rent_requests.tenant_no_smartphone` flagged by an agent | 430 distinct tenants (624 requests) |
+
+Starting at ~62k `UNKNOWN` is the truthful state, and is what
+`SMARTPHONE_DISCOVERY` exists to resolve.
+
+### Legacy sync
+
+One trigger, deliberately asymmetric:
+
+- **status → `has_smartphone`**: only for the two CONFIRMED states. `UNKNOWN`
+  leaves the legacy flag untouched — mapping 62k rows to false would silently
+  switch off every feature gated on `has_smartphone` (~195 references).
+- **`has_smartphone` → status**: on UPDATE only, never INSERT. A deliberate
+  edit is evidence; the insert default is not. This keeps `EditTenantDialog`
+  working without the default leaking back in as a confirmation.
+
+### What the link does and does not do (4C)
+
+`welileapp.com/t/{token}` → `tenant-dashboard-open`. Only the SHA-256 hash of
+the token is stored, so a database read cannot reproduce a working link, and
+the tenant UUID never appears in the URL.
+
+**It does not sign the tenant in.** The platform authenticates by OTP
+(`otp_verifications`), and turning an SMS URL into a session would be a new
+security posture for ~62k tenants — SMS forwarding, shared handsets and
+browser history all leak URLs. The token proves *device capability* and records
+engagement, which is what the lifecycle needs; balances still require the
+existing OTP step. The endpoint returns no financial data, only a phone hint so
+the page can start OTP for the right person. Invalid, expired and revoked
+tokens all return the same shape, so it cannot be used to probe for live tokens.
+
+If you want the link to auto-authenticate, that is a deliberate decision to
+take separately — it is not implied by this stage.
+
+Because only the hash is stored, an existing link can never be recovered and
+re-sent, so each send mints a fresh token. Old tokens stay valid for 90 days,
+so an older SMS still works.
+
+### Device evidence (4D)
+
+Only an **Android phone** or **iPhone** browser confirms a smartphone.
+Everything else is logged as engagement but leaves `smartphone_status`
+untouched, recorded via `counted_as_smartphone` so an audit can tell the
+difference.
+
+Verified against real user-agent strings:
+
+| Open from | Classified | Confirms smartphone |
+|---|---|---|
+| Android phone Chrome / Samsung Internet | `android_phone` | Yes |
+| iPhone Safari | `iphone` | Yes |
+| Android tablet, iPad | `tablet` | No |
+| Windows / macOS browser | `desktop` | No |
+| WhatsApp, facebookexternalhit, curl | `bot` | No |
+| Opera Mini, Nokia Series40 | `unknown` | No |
+
+The preview bots matter most: WhatsApp and Facebook fetch every URL they are
+sent, so a forwarded SMS link would otherwise confirm a smartphone the tenant
+never touched. These links *will* get forwarded.
+
+Device evidence outranks an agent's claim, so a phone open upgrades a profile
+previously marked `CONFIRMED_FEATURE_PHONE`; the access log keeps the
+contradiction visible.
+
+### Senders
+
+```bash
+# 4F — resolve UNKNOWN tenants
+curl -sX POST "$SUPABASE_URL/functions/v1/tenant-dashboard-invites" \
+  -H "Content-Type: application/json" -H "apikey: $ANON_KEY" \
+  -d '{"mode":"discovery","dry_run":true}'
+
+# 4G — confirmed smartphone, never activated
+curl -sX POST "$SUPABASE_URL/functions/v1/tenant-dashboard-invites" \
+  -H "Content-Type: application/json" -H "apikey: $ANON_KEY" \
+  -d '{"mode":"invite","dry_run":true}'
+
+# 4H — call-centre single send
+curl -sX POST "$SUPABASE_URL/functions/v1/tenant-dashboard-invites" \
+  -H "Content-Type: application/json" -H "apikey: $ANON_KEY" \
+  -d '{"tenant_id":"<uuid>","mode":"invite"}'
+```
+
+A dry run renders `/t/<token>` as a literal placeholder — it must not mint real
+credentials.
+
+`DASHBOARD_ACTIVATED` fires from `tenant-dashboard-open` on a first open that
+is *also* smartphone evidence, keyed `episodeKey: "activated"` so it sends
+once ever, not once per day. A preview bot's fetch is logged but never
+triggers a welcome.
+
+### Handed to Gemini
+
+The backend is complete; three pieces of UI are not mine to build:
+
+- the `/t/:token` landing page, which POSTs the token to
+  `tenant-dashboard-open` and then runs the existing OTP flow
+- the Yes / No / **Unknown** radio in the tenant registration form, posting
+  `smartphone_answer` to `submit-tenant-form` (the endpoint already accepts it
+  and still honours the legacy `no_smartphone` boolean)
+- the call-centre panel: status, source, dashboard state, and the four actions.
+  `[Confirm Smartphone]` / `[Feature Phone]` / `[Keep Unknown]` call
+  `set_tenant_smartphone_status`; `[Send Dashboard Link]` calls
+  `tenant-dashboard-invites` with `{tenant_id}`. It must not carry its own SMS
+  copy.
+
 ## Copy and configuration
 
 SMS wording lives in `tenant_notification_events.body_template`, editable
@@ -274,6 +396,28 @@ select cron.schedule(
       body := '{}'::jsonb
   );$$
 );
+-- Smartphone discovery: Wed 09:00 Kampala. Marketing-capped, so this competes
+-- with relocation for the tenant's two weekly slots.
+select cron.schedule(
+  'tenant-smartphone-discovery',
+  '0 6 * * 3',
+  $$select net.http_post(
+      url := 'https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/tenant-dashboard-invites',
+      headers := '{"Content-Type":"application/json"}'::jsonb,
+      body := '{"mode":"discovery"}'::jsonb
+  );$$
+);
+
+-- Dashboard invite: Mon 09:00 Kampala.
+select cron.schedule(
+  'tenant-dashboard-invite',
+  '0 6 * * 1',
+  $$select net.http_post(
+      url := 'https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/tenant-dashboard-invites',
+      headers := '{"Content-Type":"application/json"}'::jsonb,
+      body := '{"mode":"invite"}'::jsonb
+  );$$
+);
 ```
 
 `RENT_LIMIT_PROGRESS` is intentionally left unscheduled even here: it competes
@@ -320,29 +464,22 @@ having count(*) > (select marketing_max_per_week from tenant_notification_settin
 | `RENT_LIMIT_INCREASED` | transactional | `tenant-rent-limit-notices` (increased) | Yes |
 | `RENT_LIMIT_PROGRESS` | marketing | `tenant-rent-limit-notices` (progress) | Yes |
 | `MERCHANT_CODE_REMINDER` | transactional | `tenant-merchant-code-notices` | Yes |
-| `DASHBOARD_INVITE` | marketing | — | Stage 4 |
-| `SMARTPHONE_DISCOVERY` | marketing | — | Stage 4 |
-| `DASHBOARD_ACTIVATED` | transactional | — | Stage 4 |
+| `DASHBOARD_INVITE` | marketing | `tenant-dashboard-invites` (invite) | Yes |
+| `SMARTPHONE_DISCOVERY` | marketing | `tenant-dashboard-invites` (discovery) | Yes |
+| `DASHBOARD_ACTIVATED` | transactional | `tenant-dashboard-open` | Yes |
 | `PUSH_MIGRATION` | transactional | — | Stage 6 |
 
 ## Not built yet
 
-- **Stage 4A–4E: smartphone lifecycle and dashboard tracking.**
-  `profiles.has_smartphone` is a bare boolean with ~195 references, so
-  `smartphone_status` / `_source` / `_verified_at` must be added alongside it
-  and kept in sync, not swapped in.
-- **The per-tenant dashboard link**, which Stage 4C depends on.
-  `/dashboard/tenant` is an authenticated SPA route and `agent_form_tokens` is
-  agent-scoped, so there is nothing to instrument yet. The four Stage 4 events
-  above have catalog rows and copy but cannot send until the link exists —
-  their templates all require `{{dashboard_link}}`.
-  When it is built, device gating applies: a link opened from an Android or
-  iOS mobile browser is evidence of smartphone access; one opened from
-  desktop, a tablet, a crawler or a WhatsApp preview bot is **not**, and must
-  leave the status `UNKNOWN`.
-- **Stage 5: ops dashboards** for smartphone segmentation and SMS performance.
-- **Stage 6: push/in-app migration.** SMS stays the channel for payment and
+- **Stage 5: ops dashboards** — smartphone segmentation and SMS performance,
+  including the conversion metrics (invites sent vs opened vs activated,
+  five-day sends vs agent registrations, merchant-code reminders vs payments
+  received afterward). `tenant_notification_log.acted_at` / `action` exist to
+  carry these but nothing writes them yet.
+- **Stage 6: push/in-app routing** — `push_token`, `push_permission_status`,
+  and the channel routing table. SMS stays the channel for payment and
   security events; push takes engagement and proposition copy.
+- **Gemini's three Stage 4 UI pieces**, listed under Stage 4 above.
 
 ## Known dead code
 

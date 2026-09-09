@@ -84,6 +84,12 @@ project_id = "wirntoujqoyjobfhyelc"
     verify_jwt = false
   [functions.tenant-merchant-code-notices]
     verify_jwt = false
+  [functions.tenant-dashboard-invites]
+    verify_jwt = false
+  # Public: reached from welileapp.com/t/{token} by tenants who are not signed
+  # in. It returns no financial data and does not create a session.
+  [functions.tenant-dashboard-open]
+    verify_jwt = false
   [functions.scan-receipt]
     verify_jwt = false
   [functions.seed-test-funds]

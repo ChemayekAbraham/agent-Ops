@@ -63,7 +63,22 @@ Deno.serve(async (req) => {
     // Fee fields are NEVER trusted from the client. The DB trigger
     // `enforce_rent_request_formula` recomputes them from rent_amount + duration_days.
     // We pass zeros and let the trigger overwrite.
-    const no_smartphone = body.no_smartphone === true;
+    // Stage 4B smartphone capture. `smartphone_answer` is the tri-state the
+    // agent form now asks for ("YES" | "NO" | "UNKNOWN"); UNKNOWN is a valid
+    // answer and must stay one, so agents are never forced to guess.
+    //
+    // `no_smartphone` is the legacy boolean and is still honoured for older
+    // clients, but it cannot express "don't know" — a missing flag used to be
+    // indistinguishable from a confirmed smartphone, which is how ~62k
+    // profiles ended up looking confirmed when nobody had ever asked.
+    const rawSmartphoneAnswer = String(body.smartphone_answer ?? "").trim().toUpperCase();
+    const smartphone_answer =
+      rawSmartphoneAnswer === "YES" || rawSmartphoneAnswer === "NO" || rawSmartphoneAnswer === "UNKNOWN"
+        ? rawSmartphoneAnswer
+        : body.no_smartphone === true
+        ? "NO"
+        : "UNKNOWN";
+    const no_smartphone = smartphone_answer === "NO";
     const house_category = (body.house_category as string) || 'single-room';
     const landlordNameCheck = validateFullName(body.landlord_name);
     const landlord_name = landlordNameCheck.valid ? landlordNameCheck.trimmed : null;
@@ -192,6 +207,21 @@ Deno.serve(async (req) => {
       } as any).select("id").single();
 
     if (rentErr) { console.error("Rent request error:", rentErr); return err("Failed to create rent request", 500); }
+
+    // Record the smartphone answer on the profile lifecycle. Only an explicit
+    // YES/NO is a confirmation; UNKNOWN is left alone so the profile stays
+    // UNKNOWN and gets picked up by SMARTPHONE_DISCOVERY instead of being
+    // silently treated as a smartphone owner. Never fails the registration.
+    if (userId && smartphone_answer !== "UNKNOWN") {
+      const { error: smartphoneErr } = await supabaseAdmin.rpc("set_tenant_smartphone_status", {
+        p_tenant_id: userId,
+        p_status: smartphone_answer === "YES" ? "CONFIRMED_SMARTPHONE" : "CONFIRMED_FEATURE_PHONE",
+        p_source: "ONBOARDING",
+      });
+      if (smartphoneErr) {
+        console.error("[submit-tenant-form] smartphone status write failed:", smartphoneErr.message);
+      }
+    }
 
     // --- Upload house photos ---
     if (house_photos.length > 0 && rentReq?.id) {
