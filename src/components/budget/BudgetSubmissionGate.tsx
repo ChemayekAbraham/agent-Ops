@@ -119,11 +119,11 @@ export function BudgetSubmissionGate({ children }: { children: React.ReactNode }
 
         <div className="mt-6 flex flex-col gap-2">
           <Button className="w-full" onClick={openBudgetForm}>
-            Complete budget submission
+            Complete Budget Submission
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
           <Button variant="ghost" className="w-full" onClick={skip}>
-            Skip for now
+            Skip for Now
           </Button>
         </div>
 
