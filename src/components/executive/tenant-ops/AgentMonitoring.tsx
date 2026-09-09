@@ -75,7 +75,7 @@ interface Profile {
 
 interface Collection {
   id: string;
-  agent_id: string;
+  agent_id: string | null;
   tenant_id: string;
   amount: number | null;
   created_at: string;
@@ -88,7 +88,7 @@ interface PaymentRecord {
   id: string;
   rent_request_id: string | null;
   tenant_id: string;
-  agent_id: string;
+  agent_id: string | null;
   amount: number | null;
   created_at: string;
   payment_method: string | null;
@@ -96,7 +96,48 @@ interface PaymentRecord {
   expected_amount: number | null;
   momo_provider: string | null;
   tracking_id: string | null;
+  /** Where the receipt was recorded: agent collection or tenant self-payment. */
+  source: 'agent' | 'tenant';
 }
+
+/** A tenant self-payment row, the other authoritative receipt table. */
+interface RepaymentRow {
+  id: string;
+  rent_request_id: string | null;
+  tenant_id: string;
+  amount: number | null;
+  created_at: string;
+  payment_method: string | null;
+  paid_by: string | null;
+  external_reference: string | null;
+}
+
+/**
+ * `repayments` and `agent_collections` overlap: the agent collection flow writes
+ * both legs for the same money. A repayment row is only an extra receipt when no
+ * collection on the same plan carries the same amount within five minutes — the
+ * same pairing the reconciliation reads use. Everything else is a tenant
+ * self-payment (or another supported channel) that the agent never keyed in.
+ */
+const MATCH_WINDOW_MS = 5 * 60 * 1000;
+
+function unmatchedRepayments(repayments: RepaymentRow[], collections: { rent_request_id: string | null; amount: number | null; created_at: string }[]) {
+  const byPlan = new Map<string, { amount: number; time: number }[]>();
+  collections.forEach((row) => {
+    if (!row.rent_request_id) return;
+    const list = byPlan.get(row.rent_request_id) ?? [];
+    list.push({ amount: Number(row.amount ?? 0), time: new Date(row.created_at).getTime() });
+    byPlan.set(row.rent_request_id, list);
+  });
+  return repayments.filter((row) => {
+    if (!row.rent_request_id) return false;
+    const candidates = byPlan.get(row.rent_request_id) ?? [];
+    const amount = Number(row.amount ?? 0);
+    const time = new Date(row.created_at).getTime();
+    return !candidates.some((c) => c.amount === amount && Math.abs(c.time - time) < MATCH_WINDOW_MS);
+  });
+}
+
 
 interface AgentRow {
   id: string;
