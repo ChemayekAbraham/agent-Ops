@@ -36,6 +36,16 @@ const statusColor = (s: string) => {
   return m[s] || 'bg-muted';
 };
 
+interface TenantProfile {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  city: string | null;
+  created_at: string | null;
+  smartphone_status?: string | null;
+  smartphone_source?: string | null;
+}
+
 interface TenantDetailPanelProps {
   tenantId: string;
   tenantName: string;
@@ -126,7 +136,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
       const landlordMap = new Map((landlordRes.data || []).map(l => [l.id, l]));
 
       return {
-        profile: profileRes.data,
+        profile: profileRes.data as unknown as TenantProfile | null,
         requests: (requestsRes.data || []).map(r => {
           const effectiveAgentId = r.assigned_agent_id || r.agent_id;
           return {
