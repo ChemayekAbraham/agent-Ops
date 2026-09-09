@@ -309,7 +309,7 @@ export function StaffRequisitionQueue() {
     [visible, page],
   );
 
-  const openAction = (row: StaffRequisition, type: 'approve' | 'reject' | 'return_info', reduce = false) => {
+  const openAction = (row: StaffRequisition, type: 'approve' | 'reject', reduce = false) => {
     setActive(row);
     setActionType(type);
     setReduceMode(reduce);
