@@ -9,6 +9,11 @@ export default function DepartmentBudgets() {
   // Opened from a department hub (e.g. /budgets?dashboard=tenant-ops) the form is
   // locked to that department, so submissions stay department-specific.
   const dashboard = params.get('dashboard') ?? undefined;
+  // Opened from the budget submission gate: the exact cycle/department that is
+  // owed, and the existing draft to resume so no duplicate submission is made.
+  const initialCycleId = params.get('cycle') ?? undefined;
+  const initialDepartmentId = params.get('department') ?? undefined;
+  const initialSubmissionId = params.get('submission') ?? undefined;
 
   return (
     <main className="mx-auto w-full max-w-[1440px] space-y-5 p-4 pb-24 sm:p-6 lg:p-8">
@@ -23,7 +28,12 @@ export default function DepartmentBudgets() {
           </p>
         </div>
       </header>
-      <DepartmentBudgetSubmission dashboard={dashboard} />
+      <DepartmentBudgetSubmission
+        dashboard={dashboard}
+        initialCycleId={initialCycleId}
+        initialDepartmentId={initialDepartmentId}
+        initialSubmissionId={initialSubmissionId}
+      />
     </main>
   );
 }

@@ -21,6 +21,7 @@ import {
 } from '@/hooks/useDepartmentBudgets';
 import { departmentKeysForDashboard } from './departmentScope';
 import { useAuth } from '@/hooks/useAuth';
+import { useBudgetSubmissionGate } from '@/hooks/useBudgetSubmissionGate';
 
 interface DraftLine {
   description: string;
@@ -59,10 +60,22 @@ interface Props {
   dashboard?: string;
   /** Explicit hr_departments.key allowlist; overrides `dashboard`. */
   departmentKeys?: string[];
+  /** Budget cycle to open on mount (used by the budget submission gate). */
+  initialCycleId?: string;
+  /** Department to open on mount (used by the budget submission gate). */
+  initialDepartmentId?: string;
+  /** Existing draft to resume, so the gate never starts a second submission. */
+  initialSubmissionId?: string;
 }
 
 /** Department-facing budget preparation and submission interface. */
-export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }: Props = {}) {
+export default function DepartmentBudgetSubmission({
+  dashboard,
+  departmentKeys,
+  initialCycleId,
+  initialDepartmentId,
+  initialSubmissionId,
+}: Props = {}) {
   const { cycles, loading: cyclesLoading } = useBudgetCycles();
   const {
     departments,
@@ -92,6 +105,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
    * widening it here would let a hub page file outside its own hub.
    */
   const { roles } = useAuth();
+  const { refresh: refreshBudgetObligation } = useBudgetSubmissionGate();
   const isReviewer = useMemo(
     () => (roles ?? []).some(r => BUDGET_REVIEWER_ROLES.includes(r as string)),
     [roles],
@@ -103,8 +117,11 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     [myDepartments],
   );
 
-  const [cycleId, setCycleId] = useState<string>('');
-  const [departmentId, setDepartmentId] = useState<string>('');
+  const [cycleId, setCycleId] = useState<string>(initialCycleId ?? '');
+  const [departmentId, setDepartmentId] = useState<string>(initialDepartmentId ?? '');
+  // Set once the requested draft has been opened, so a user edit is never
+  // overwritten by re-opening it.
+  const [resumedDraftId, setResumedDraftId] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<BudgetSubmission[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -146,6 +163,9 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     // posting exists, the field stays empty so an alphabetically-first
     // department is never silently pre-selected on the user's behalf.
     if (refLoading) return;
+    // Arrived from the budget submission gate with an explicit department: that
+    // is the department that is actually owed, so keep it selected.
+    if (initialDepartmentId && departmentId === initialDepartmentId) return;
     // Filing on behalf of departments: never preselect. A reviewer's own HR
     // posting is not the department they are usually budgeting for, and a
     // prefilled field invites submitting under the wrong one.
@@ -208,6 +228,19 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
       document_name: r.document_path ? documentDisplayName(r.document_path) : '',
     })) : [emptyLine()]);
   };
+
+  // Arrived from the budget submission gate pointing at an existing draft:
+  // resume that draft instead of starting a second submission.
+  useEffect(() => {
+    if (!initialSubmissionId || resumedDraftId === initialSubmissionId) return;
+    const target = submissions.find(s => s.id === initialSubmissionId);
+    if (!target) return;
+    setResumedDraftId(initialSubmissionId);
+    void openSubmission(target);
+    // openSubmission is stable enough for this one-shot resume.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSubmissionId, resumedDraftId, submissions]);
+
 
   const startNew = () => {
     setActiveId(null);
@@ -301,6 +334,9 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
       const res = data as unknown as { is_late?: boolean };
       toast.success(res?.is_late ? 'Submitted — flagged as late' : 'Budget submitted for CFO review');
       await loadSubmissions();
+      // Re-derive the obligation from the database so the required-action gate
+      // and the notification bell release without a reload.
+      refreshBudgetObligation();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not submit');
     } finally {
