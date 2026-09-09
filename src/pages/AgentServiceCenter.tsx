@@ -188,6 +188,16 @@ export default function AgentServiceCenter() {
           </TabsList>
 
           <TabsContent value="vetting" className="mt-3 space-y-3">
+            {intakeNewCount > 0 && (
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <p className="text-xs font-semibold text-primary">
+                  {intakeNewCount} tenant{intakeNewCount === 1 ? '' : 's'} asked for rent themselves
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Open the “Tenant requests” tab to claim, visit and verify them.
+                </p>
+              </div>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
