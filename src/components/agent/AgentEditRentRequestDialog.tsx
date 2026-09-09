@@ -662,6 +662,40 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         )}
 
         <div className="space-y-3">
+          <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-primary">
+              Edit tenant details
+            </p>
+            <div className="space-y-1.5">
+              <Label>Tenant name</Label>
+              <PersonNameFields
+                idPrefix="edit-rent-req-tenant"
+                value={tenantNameParts}
+                onChange={setTenantNameParts}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="tn-phone">Phone</Label>
+                <Input id="tn-phone" inputMode="tel" value={tenantPhone}
+                  onChange={(e) => setTenantPhone(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="tn-nid">National ID</Label>
+                <Input id="tn-nid" value={tenantNationalId}
+                  onChange={(e) => setTenantNationalId(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="tn-occ">Occupation</Label>
+              <Input id="tn-occ" value={tenantOccupation}
+                onChange={(e) => setTenantOccupation(e.target.value)} />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Saved to the tenant's record on resubmit. Use both names exactly as on the national ID.
+            </p>
+          </div>
+
           <div className="space-y-1.5">
             <Label>Landlord</Label>
             <LandlordSearchSelect value={landlord} onChange={setLandlord} />
