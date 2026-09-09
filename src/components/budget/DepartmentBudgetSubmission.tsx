@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import {
   fetchLines, fetchSubmissions, uploadBudgetDocument, getBudgetDocumentUrl,
-  registerBudgetDocuments, isBudgetableAccount, fetchDepartmentRoute, BUDGET_ROUTE_LABEL,
+  registerBudgetDocuments, fetchDepartmentRoute, BUDGET_ROUTE_LABEL,
   useBudgetCycles, useBudgetReferenceData,
   type BudgetSubmission, type BudgetLine,
 } from '@/hooks/useDepartmentBudgets';
@@ -117,7 +117,6 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
   const [route, setRoute] = useState<'direct' | 'coo' | null>(null);
 
   const openCycles = useMemo(() => cycles.filter(c => c.status === 'open'), [cycles]);
-  const budgetableAccounts = useMemo(() => accounts.filter(isBudgetableAccount), [accounts]);
   const cycle = useMemo(() => cycles.find(c => c.id === cycleId), [cycles, cycleId]);
   const active = useMemo(() => submissions.find(s => s.id === activeId) ?? null, [submissions, activeId]);
   const selectedDepartment = useMemo(
@@ -537,7 +536,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                     )}
                   </div>
                   {l.document_path && (
-                    <span className="inline-flex min-w-0 items-center gap-1 rounded-lg border border-border bg-muted/40 py-1 pl-2 pr-1 text-[11px] sm:col-span-2 xl:col-span-9 xl:mx-2 xl:mb-2">
+                    <span className="inline-flex min-w-0 items-center gap-1 rounded-lg border border-border bg-muted/40 py-1 pl-2 pr-1 text-[11px] sm:col-span-2 xl:col-span-7 xl:mx-2 xl:mb-2">
                       <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       <button
                         type="button"
