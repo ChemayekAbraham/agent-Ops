@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   emptyLandlordAgreementInline,
-  isLandlordAgreementInlineComplete,
-
   LandlordAgreementInlineFields,
   type LandlordAgreementInlineValue,
 } from '@/components/landlord/agreement/LandlordAgreementInlineFields';
+
 import { submitLandlordAgreementFile, twelveMonthEndDate } from '@/lib/landlordAgreementSubmit';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
