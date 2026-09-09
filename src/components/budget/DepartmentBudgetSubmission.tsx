@@ -356,85 +356,30 @@ export default function DepartmentBudgetSubmission({
 
   return (
     <div className="space-y-5">
-      <section className="border-b border-border/70 pb-5" aria-labelledby="budget-context-title">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 id="budget-context-title" className="text-sm font-semibold text-foreground">Budget context</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Choose where this budget will be filed.</p>
-          </div>
+      {/* Where a budget is filed is not the preparer's decision: the cycle and
+          department are fixed by the open call and the preparer's own posting,
+          so this is a plain statement of record, not a set of choices. */}
+      <section className="border-b border-border/70 pb-5" aria-labelledby="budget-filing-title">
+        <h2 id="budget-filing-title" className="sr-only">Filing details</h2>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+          <span className="text-sm font-semibold text-foreground">{selectedDepartment?.name ?? '—'}</span>
+          {cycle && (
+            <span>
+              {cycle.title}{cycle.financial_year ? ` · ${cycle.financial_year}` : ''}
+            </span>
+          )}
           {route && <Badge variant="outline" className="font-normal">{BUDGET_ROUTE_LABEL[route]}</Badge>}
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label className="mb-1.5 block text-xs font-semibold">Budget cycle</Label>
-              <Select value={cycleId} onValueChange={setCycleId}>
-                <SelectTrigger className="h-11 rounded-lg bg-card"><SelectValue placeholder="Select cycle" /></SelectTrigger>
-                <SelectContent className="z-[100]">
-                  {cycles.map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.title}{c.financial_year ? ` · ${c.financial_year}` : ''}{c.status !== 'open' ? ' (closed)' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="mb-1.5 block text-xs font-semibold">Department</Label>
-              {selectableDepartments.length > 1 ? (
-                <Select value={departmentId} onValueChange={setDepartmentId}>
-                  <SelectTrigger className="h-11 rounded-lg bg-card"><SelectValue placeholder="Select department" /></SelectTrigger>
-                  <SelectContent className="z-[100]">
-                    {filingOnBehalf ? (
-                      /* Own postings first so a reviewer filing for their own
-                         department does not hunt through the full list. */
-                      <>
-                        {selectableDepartments.filter(d => myDepartmentIds.has(d.id)).map(d => (
-                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                        ))}
-                        {selectableDepartments.some(d => myDepartmentIds.has(d.id)) && (
-                          <div className="my-1 border-t border-border" role="separator" />
-                        )}
-                        {selectableDepartments.filter(d => !myDepartmentIds.has(d.id)).map(d => (
-                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                        ))}
-                      </>
-                    ) : (
-                      selectableDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)
-                    )}
-                  </SelectContent>
-                </Select>
-              ) : (
-                /* Single posting and not a reviewer: the department is fixed to
-                   the user's own so a budget can never be filed under another. */
-                <div
-                  className="flex h-11 items-center rounded-lg border border-input bg-card px-3 text-sm"
-                  aria-readonly="true"
-                >
-                  {selectedDepartment?.name ?? '—'}
-                </div>
-              )}
-              {selectableDepartments.length > 1 && !departmentId && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Pick the department this budget belongs to.
-                </p>
-              )}
-              {filingOnBehalf && selectedDepartment && !myDepartmentIds.has(selectedDepartment.id) && (
-                <p className="mt-1 text-[11px] text-amber-600">
-                  Filing on behalf of {selectedDepartment.name} — you are not posted to this department.
-                </p>
-              )}
-            </div>
-        </div>
-          {cycle?.instructions && (
-            <p className="mt-3 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">CFO instructions: </span>{cycle.instructions}
-            </p>
-          )}
-          {cycle?.deadline && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Deadline: {format(new Date(cycle.deadline), 'dd MMM yyyy, HH:mm')} — late submissions are accepted but flagged.
-            </p>
-          )}
+        {cycle?.instructions && (
+          <p className="mt-3 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">CFO instructions: </span>{cycle.instructions}
+          </p>
+        )}
+        {cycle?.deadline && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Deadline: {format(new Date(cycle.deadline), 'dd MMM yyyy, HH:mm')} — late submissions are accepted but flagged.
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="budget-submissions-title">
