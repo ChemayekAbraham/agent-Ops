@@ -45073,6 +45073,18 @@ export type Database = {
         Returns: Json
       }
       agent_ops_report_authorized: { Args: never; Returns: boolean }
+      agent_ops_report_collected: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          collected: number
+          collected_arrears: number
+          collected_on_schedule: number
+          collected_unattributed: number
+          paid_tenants: number
+          payments: number
+        }[]
+      }
       agent_ops_report_expected: {
         Args: { p_from: string; p_to: string }
         Returns: {
