@@ -161,6 +161,32 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
           setExistingLcUrl(data?.signedUrl ?? null);
         })();
       }
+      // Hydrate the tenant editor from the tenant record on the request.
+      (async () => {
+        if (!request.tenant_id) {
+          setTenantNameParts({ firstName: '', otherNames: '', lastName: '' });
+          setTenantPhone(''); setTenantNationalId(''); setTenantOccupation('');
+          setTenantOriginal(null);
+          return;
+        }
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, phone, national_id, occupation')
+          .eq('id', request.tenant_id)
+          .maybeSingle();
+        const t = (data ?? {}) as { full_name?: string | null; phone?: string | null; national_id?: string | null; occupation?: string | null };
+        setTenantNameParts(splitPersonName(t.full_name ?? request.tenant_name ?? ''));
+        setTenantPhone(t.phone ?? request.tenant_phone ?? '');
+        setTenantNationalId(t.national_id ?? '');
+        setTenantOccupation(t.occupation ?? '');
+        setTenantOriginal({
+          name: t.full_name ?? '',
+          phone: t.phone ?? '',
+          nid: t.national_id ?? '',
+          occupation: t.occupation ?? '',
+        });
+      })();
+
       // Hydrate the landlord picker from the request's current landlord_id.
       (async () => {
         if (!request.landlord_id) {
