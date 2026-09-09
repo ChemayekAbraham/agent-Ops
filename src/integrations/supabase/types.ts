@@ -52197,6 +52197,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ops_rent_frequency_history: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          changed_at: string
+          changed_by: string
+          changed_by_name: string
+          id: string
+          new_frequency: string
+          old_frequency: string
+          reason: string
+          starts_on: string
+        }[]
+      }
       ops_resolve_agent_segment: {
         Args: {
           _district?: string
