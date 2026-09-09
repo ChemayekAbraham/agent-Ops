@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
  * This project builds comfortably under 4 GB; raise via BUILD_HEAP_MB if ever
  * needed.
  */
-const REQUESTED_HEAP_MB = Number(process.env.BUILD_HEAP_MB || 4096);
+const REQUESTED_HEAP_MB = Number(process.env.BUILD_HEAP_MB || 3072);
 
 /**
  * Hard ceiling available to this container. Forcing an 8 GB V8 heap inside a
