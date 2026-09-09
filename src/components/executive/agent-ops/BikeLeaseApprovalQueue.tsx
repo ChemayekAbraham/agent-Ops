@@ -49,6 +49,7 @@ interface BikeLeaseRow {
   order_status: string;
   rejection_reason: string | null;
   created_at: string;
+  ops_approved_at?: string | null;
   coo_approved_at: string | null;
   cfo_disbursed_at: string | null;
   lease_activated_at: string | null;
@@ -59,6 +60,7 @@ interface BikeLeaseRow {
 const STATUS_TONE: Record<string, string> = {
   submitted: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
   pending_approval: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+  ops_approved: 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30',
   coo_approved: 'bg-sky-500/15 text-sky-600 border-sky-500/30',
   approved: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
   completed: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
@@ -66,25 +68,49 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  submitted: 'Submitted — awaiting COO',
-  pending_approval: 'Submitted — awaiting COO',
+  submitted: 'Submitted — awaiting Agent Ops',
+  pending_approval: 'Submitted — awaiting Agent Ops',
+  ops_approved: 'Agent Ops verified — awaiting COO',
   coo_approved: 'COO approved — awaiting CFO',
-  approved: 'Bike disbursed & active lease',
+  approved: 'Funds disbursed & active lease',
   completed: 'Lease completed',
 };
 
+type Stage = 'ops' | 'coo' | 'cfo';
+
 const statusLabel = (s: string) => STATUS_LABEL[s] || s.replace(/_/g, ' ');
 const isPending = (s: string) => s === 'submitted' || s === 'pending_approval';
+const isAwaitingCoo = (s: string) => s === 'ops_approved';
 const isAwaitingCfo = (s: string) => s === 'coo_approved';
-const isOpen = (s: string) => isPending(s) || isAwaitingCfo(s);
+const isOpen = (s: string) => isPending(s) || isAwaitingCoo(s) || isAwaitingCfo(s);
+
+/** The step a row is currently waiting on. */
+const stageOf = (s: string): Stage => (isAwaitingCfo(s) ? 'cfo' : isAwaitingCoo(s) ? 'coo' : 'ops');
+
+const ACTION_LABEL: Record<Stage, string> = {
+  ops: 'Verify & send to COO',
+  coo: 'Approve & send to CFO',
+  cfo: 'Disburse to agent wallet',
+};
+
+const SHORT_ACTION_LABEL: Record<Stage, string> = {
+  ops: 'Verify',
+  coo: 'Approve',
+  cfo: 'Disburse',
+};
 
 /**
- * Agent Ops → Agent Products & Services → Agent Motor Bikes queue for the
- * Spiro electric bike lease: the COO approves the valuation and lease term
- * (no money moves), then the CFO releases the bike and activates the lease
- * recovery plan. Includes the payment recovery projection.
+ * Shared Spiro / motor bike lease queue used by three dashboards.
+ *
+ * The application route is Agent Ops verification → COO approval → CFO
+ * disbursement into the ordering agent's own wallet. Pass `stage` to show only
+ * the rows a dashboard is responsible for; Agent Ops sees every row and so
+ * tracks the status at every step.
  */
-export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: boolean } = {}) {
+export function BikeLeaseApprovalQueue({
+  pendingOnly = false,
+  stage: stageFilter,
+}: { pendingOnly?: boolean; stage?: Stage } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [approveTarget, setApproveTarget] = useState<BikeLeaseRow | null>(null);
