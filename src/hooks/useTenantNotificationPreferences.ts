@@ -2,7 +2,7 @@
  * Stage 6L: the tenant's one notification preference.
  *
  * Deliberately a single marketing_push_opt_out toggle, not four switches.
- * PAYMENT_*/RENT_LIMIT_INCREASED/FIVE_DAY_AGENT_OPPORTUNITY/
+ * PAYMENT events, RENT_LIMIT_INCREASED, FIVE_DAY_AGENT_OPPORTUNITY and
  * MERCHANT_CODE_REMINDER are all `critical` in the channel policy, and Stage
  * 6L is explicit that critical/contractual communication must not become
  * suppressible just because promotional push is off — routeTenantNotification
