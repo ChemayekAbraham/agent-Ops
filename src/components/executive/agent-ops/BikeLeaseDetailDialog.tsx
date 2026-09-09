@@ -353,7 +353,11 @@ export function BikeLeaseDetailDialog({
                 }}
               >
                 <Check className="h-3.5 w-3.5 mr-1" />
-                {isAwaitingCfo ? 'Release & Activate Lease' : 'Approve & Send to CFO'}
+                {isAwaitingCfo
+                  ? 'Disburse to agent wallet'
+                  : isAwaitingCoo
+                    ? 'Approve & send to CFO'
+                    : 'Verify & send to COO'}
               </Button>
             )}
           </div>
