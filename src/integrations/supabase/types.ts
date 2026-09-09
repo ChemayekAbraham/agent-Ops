@@ -10053,18 +10053,21 @@ export type Database = {
         Row: {
           captured_at: string
           day: string
+          deadlocks: number | null
           xact_commit: number
           xact_rollback: number
         }
         Insert: {
           captured_at?: string
           day: string
+          deadlocks?: number | null
           xact_commit: number
           xact_rollback: number
         }
         Update: {
           captured_at?: string
           day?: string
+          deadlocks?: number | null
           xact_commit?: number
           xact_rollback?: number
         }
