@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   emptyLandlordAgreementInline,
-  isLandlordAgreementInlineComplete,
-
   LandlordAgreementInlineFields,
   type LandlordAgreementInlineValue,
 } from '@/components/landlord/agreement/LandlordAgreementInlineFields';
+
 import { submitLandlordAgreementFile, twelveMonthEndDate } from '@/lib/landlordAgreementSubmit';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -487,18 +486,9 @@ export default function LandlordRegistrationForm({
       }
     }
 
-    // The signed agreement is mandatory when an agent registers a NEW landlord.
-    // For a landlord already in the system it stays optional everywhere.
-    if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
-      hapticWarning();
-      focusField('landlordAgreement');
-      toastFn({
-        title: 'Signed agreement required',
-        description: 'Upload the signed landlord agreement to register this new landlord.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    // The signed agreement is optional everywhere, including when an agent
+    // registers a brand-new landlord. It can be attached later.
+
 
 
     hapticTap();
@@ -545,18 +535,8 @@ export default function LandlordRegistrationForm({
       return;
     }
 
-    // Mandatory only for an agent registering a NEW landlord.
-    if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
-      hapticWarning();
-      setStep(1);
-      focusField('landlordAgreement');
-      toastFn({
-        title: 'Signed agreement required',
-        description: 'Upload the signed landlord agreement to register this new landlord.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    // Signed agreement stays optional — never blocks registration.
+
 
 
     // Pre-save duplicate check: if the phone hasn't already been verified as
