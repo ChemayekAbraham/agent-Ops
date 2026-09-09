@@ -370,9 +370,7 @@ export function StaffRequisitionQueue() {
           ? (reduceMode
             ? `Approved at the reduced amount of ${formatUGX(amount)}`
             : 'Approved — the requisition moved forward')
-          : actionType === 'reject'
-            ? 'Requisition declined'
-            : 'Sent back to the requester',
+          : 'Requisition declined',
       );
       setActive(null);
       setComment('');
