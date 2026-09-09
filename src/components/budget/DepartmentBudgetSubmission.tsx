@@ -468,11 +468,11 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label className="mb-1.5 block text-xs font-semibold">Title</Label>
-              <Input className="h-12 rounded-lg bg-card text-sm" value={title} onChange={e => setTitle(e.target.value)} disabled={readOnly} placeholder="e.g. Marketing — August" />
+              <AutoGrowTextarea className="min-h-12 bg-card" value={title} onChange={e => setTitle(e.target.value)} disabled={readOnly} placeholder="e.g. Marketing — August" />
             </div>
             <div>
               <Label className="mb-1.5 block text-xs font-semibold">Purpose</Label>
-              <Input className="h-12 rounded-lg bg-card text-sm" value={purpose} onChange={e => setPurpose(e.target.value)} disabled={readOnly} placeholder="What this budget covers" />
+              <AutoGrowTextarea className="min-h-12 bg-card" value={purpose} onChange={e => setPurpose(e.target.value)} disabled={readOnly} placeholder="What this budget covers" />
             </div>
           </div>
 
@@ -501,7 +501,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                   </div>
                   <div className="xl:border-r xl:border-border xl:p-2">
                     <Label className="mb-1 block text-[11px] xl:hidden">Description</Label>
-                    <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" value={l.description} disabled={readOnly} placeholder="Enter item description"
+                    <AutoGrowTextarea className="min-h-11" value={l.description} disabled={readOnly} placeholder="Enter item description"
                       onChange={e => updateLine(idx, { description: e.target.value })} />
                   </div>
                   <div className="xl:border-r xl:border-border xl:p-2">
@@ -541,7 +541,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                   </div>
                   <div className="xl:border-r xl:border-border xl:p-2">
                     <Label className="mb-1 block text-[11px] xl:hidden">Justification</Label>
-                    <Textarea className="min-h-11 rounded-lg px-3 py-2 text-sm xl:h-11 xl:min-h-11" rows={1} value={l.justification} disabled={readOnly} placeholder="Add justification"
+                    <AutoGrowTextarea className="min-h-11" value={l.justification} disabled={readOnly} placeholder="Add justification"
                       onChange={e => updateLine(idx, { justification: e.target.value })} />
                   </div>
                   <div className="flex min-h-11 items-center rounded-lg bg-muted px-3 text-xs font-medium tabular-nums text-muted-foreground xl:m-2">
