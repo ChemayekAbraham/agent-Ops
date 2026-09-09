@@ -65,7 +65,6 @@ interface Props {
 export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }: Props = {}) {
   const { cycles, loading: cyclesLoading } = useBudgetCycles();
   const {
-    accounts,
     departments,
     myDepartments: allMyDepartments,
     loading: refLoading,
