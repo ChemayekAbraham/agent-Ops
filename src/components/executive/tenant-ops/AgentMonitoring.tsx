@@ -459,6 +459,42 @@ export function AgentMonitoring() {
     }));
   }, [collectionMap, day, profileMap, scheduleMap, selectedAgent]);
 
+  const selectedPlanIds = useMemo(
+    () => (selectedAgent ? selectedAgent.tenants.map((request) => request.id).sort() : []),
+    [selectedAgent],
+  );
+
+  /** Recorded receipts for the open agent's plans — the same rows the tenant
+   *  register shows, read straight from `agent_collections`. */
+  const { data: paymentHistory, isLoading: historyLoading } = useQuery({
+    queryKey: ['tenant-ops-agent-monitoring-history', selectedPlanIds],
+    enabled: selectedPlanIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const rows: PaymentRecord[] = [];
+      const CHUNK = 100;
+      for (let index = 0; index < selectedPlanIds.length; index += CHUNK) {
+        const { data: batch, error: historyError } = await supabase
+          .from('agent_collections')
+          .select('id, rent_request_id, tenant_id, agent_id, amount, created_at, payment_method, is_partial, expected_amount, momo_provider, tracking_id')
+          .in('rent_request_id', selectedPlanIds.slice(index, index + CHUNK))
+          .order('created_at', { ascending: false });
+        if (historyError) throw historyError;
+        rows.push(...((batch ?? []) as PaymentRecord[]));
+      }
+      const byPlan = new Map<string, PaymentRecord[]>();
+      rows.forEach((row) => {
+        if (!row.rent_request_id) return;
+        const list = byPlan.get(row.rent_request_id) ?? [];
+        list.push(row);
+        byPlan.set(row.rent_request_id, list);
+      });
+      return byPlan;
+    },
+  });
+
+
+
 
   const renderAgentRow = (agent: AgentRow, compact = false) => {
     const rate = agent.expected > 0 ? Math.min(100, (agent.collected / agent.expected) * 100) : null;
