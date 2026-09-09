@@ -110,3 +110,21 @@ export function landlordOpsLabelFor(key: string): string {
   const item = findLandlordOpsItem(key);
   return item?.label || 'Landlord Operations';
 }
+
+/** Section search used by the top bar: matches label, section title and path. */
+export function searchLandlordOpsNav(
+  query: string,
+): Array<LandlordOpsNavItem & { parentLabel?: string }> {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const out: Array<LandlordOpsNavItem & { parentLabel?: string }> = [];
+  for (const section of LANDLORD_OPS_SECTIONS) {
+    for (const item of section.items) {
+      const haystack = `${item.label} ${section.title ?? ''} ${item.path}`.toLowerCase();
+      if (haystack.includes(q)) {
+        out.push({ ...item, parentLabel: section.title });
+      }
+    }
+  }
+  return out.slice(0, 12);
+}
