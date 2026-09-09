@@ -161,13 +161,29 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
 
   const status = openRequest ? STATUS_COPY[openRequest.status] : null;
 
+  const trackSteps = latest
+    ? [
+        { key: 'submitted', label: 'Request sent', at: latest.created_at, note: latest.service_centre_name ? `Routed to ${latest.service_centre_name}` : 'Routed to your nearest Service Centre' },
+        { key: 'claimed', label: 'Agent assigned', at: latest.claimed_at, note: 'An agent picked up your request' },
+        { key: 'visit_verified', label: 'House verified', at: latest.visit_verified_at, note: 'The agent visited and verified your house' },
+        {
+          key: 'decided',
+          label: latest.status === 'declined' ? 'Not approved' : 'Approved',
+          at: latest.decided_at,
+          note: latest.status === 'declined'
+            ? (latest.decline_reason || 'Your agent did not approve this request')
+            : 'Your agent will now raise your rent plan',
+        },
+      ]
+    : [];
+  const doneCount = trackSteps.filter((s) => !!s.at).length;
+
   return (
     <>
       <button
         type="button"
-        onClick={() => (openRequest ? undefined : setOpen(true))}
-        disabled={!!openRequest}
-        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation disabled:opacity-60 disabled:active:scale-100"
+        onClick={() => (openRequest ? setTrackOpen(true) : setOpen(true))}
+        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation"
       >
         <div className="flex flex-col justify-between h-full w-full gap-2 lg:gap-4">
           <div className="space-y-2 lg:space-y-3">
