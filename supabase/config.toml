@@ -74,6 +74,8 @@ project_id = "wirntoujqoyjobfhyelc"
     verify_jwt = false
   [functions.tenant-behavior-messages]
     verify_jwt = false
+  [functions.tenant-default-agent-opportunity]
+    verify_jwt = false
   [functions.scan-receipt]
     verify_jwt = false
   [functions.seed-test-funds]
