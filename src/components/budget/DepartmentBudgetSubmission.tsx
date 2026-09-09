@@ -24,10 +24,8 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface DraftLine {
   description: string;
-  account_code: string;
   quantity: string;
   unit_amount: string;
-  period_month: string;
   justification: string;
   document_path: string;
   /** Original filename, kept for display only; never sent to the server. */
@@ -35,8 +33,8 @@ interface DraftLine {
 }
 
 const emptyLine = (): DraftLine => ({
-  description: '', account_code: '', quantity: '1', unit_amount: '',
-  period_month: '', justification: '', document_path: '', document_name: '',
+  description: '', quantity: '1', unit_amount: '',
+  justification: '', document_path: '', document_name: '',
 });
 
 const EDITABLE_STATUSES = ['draft'];
@@ -205,10 +203,8 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     const rows: BudgetLine[] = await fetchLines(s.id);
     setLines(rows.length ? rows.map(r => ({
       description: r.description,
-      account_code: r.account_code ?? '',
       quantity: String(r.quantity ?? 1),
       unit_amount: String(r.unit_amount ?? 0),
-      period_month: r.period_month ?? '',
       justification: r.justification ?? '',
       document_path: r.document_path ?? '',
       document_name: r.document_path ? documentDisplayName(r.document_path) : '',
@@ -250,17 +246,17 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
   const persistDraft = async (): Promise<string | null> => {
     if (!cycleId || !departmentId) { toast.error('Pick a budget cycle and department'); return null; }
     const payload = lines
-      .filter(l => l.description.trim() && l.account_code)
+      .filter(l => l.description.trim())
       .map(l => ({
         description: l.description.trim(),
-        account_code: l.account_code,
+        account_code: null,
         quantity: Number(l.quantity) || 1,
         unit_amount: Number(l.unit_amount) || 0,
-        period_month: l.period_month || null,
+        period_month: null,
         justification: l.justification || null,
         document_path: l.document_path || null,
       }));
-    if (!payload.length) { toast.error('Add at least one line with a description and a budget category'); return null; }
+    if (!payload.length) { toast.error('Add at least one line with a description'); return null; }
     const { data, error } = await supabase.rpc('budget_save_draft', {
       p_submission_id: activeId,
       p_call_id: cycleId,
