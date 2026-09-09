@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { AutoGrowTextarea } from '@/components/budget/AutoGrowTextarea';
 import { Badge } from '@/components/ui/badge';
@@ -453,11 +453,6 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
       </section>
 
       <Card className="overflow-hidden rounded-lg border-border shadow-soft">
-        <CardHeader className="border-b border-border bg-card px-4 py-5 sm:px-6">
-          <CardTitle className="text-xl font-semibold">
-            {activeId ? (readOnly ? 'Submission (read-only)' : 'Edit draft') : 'New budget draft'}
-          </CardTitle>
-        </CardHeader>
         <CardContent className="space-y-5 p-4 sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
