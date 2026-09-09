@@ -35,7 +35,7 @@ import {
 } from '@/components/agent/service-center/SubAgentActionDialogs';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
-import { TenantRentIntakeQueue } from '@/components/agent/TenantRentIntakeQueue';
+import { TenantRentIntakeQueue, useTenantRentIntakeQueue } from '@/components/agent/TenantRentIntakeQueue';
 
 export default function AgentServiceCenter() {
   const navigate = useNavigate();
@@ -202,7 +202,7 @@ export default function AgentServiceCenter() {
                   Rent{vetting?.pending_count ? ` (${vetting.pending_count})` : ''}
                 </TabsTrigger>
                 <TabsTrigger value="tenant_requests" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
-                  Tenant requests
+                  Tenant requests{intakeOpenCount ? ` (${intakeOpenCount})` : ''}
                 </TabsTrigger>
                 <TabsTrigger value="houses" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
                   Houses{listingQueue.length ? ` (${listingQueue.length})` : ''}
