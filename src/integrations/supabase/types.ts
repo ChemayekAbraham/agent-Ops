@@ -45108,6 +45108,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_collect_context: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
       agent_create_promissory_note: {
         Args: { p_payload: Json; p_rent_request_ids?: string[] }
         Returns: Json
@@ -53491,6 +53495,10 @@ export type Database = {
       rent_pipeline_tenant_history: {
         Args: { p_exclude_request_id?: string; p_tenant_id: string }
         Returns: Json
+      }
+      rent_plan_collect_authorized: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
       }
       rent_plan_day_ledger: {
         Args: { p_rent_request_id: string }
