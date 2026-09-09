@@ -327,7 +327,11 @@ function TenantPaymentHistory({
       </div>
       <ul className="divide-y rounded-md border">
         {visible.map((payment) => {
-          const collector = payment.agent_id && payment.agent_id !== planAgentId ? nameFor(payment.agent_id) : null;
+          const collector = payment.source === 'tenant'
+            ? 'paid by the tenant'
+            : payment.agent_id && payment.agent_id !== planAgentId
+              ? `received by ${nameFor(payment.agent_id)}`
+              : null;
           const method = (payment.payment_method || '').replace(/_/g, ' ');
           return (
             <li key={payment.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2.5 py-1.5 text-[11px]">
