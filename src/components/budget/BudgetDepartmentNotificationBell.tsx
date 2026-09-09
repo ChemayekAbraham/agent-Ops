@@ -44,6 +44,30 @@ export function BudgetDepartmentNotificationBell({
     navigate(n.link || '/budgets');
   };
 
+  /**
+   * Required-action state comes from `hasOutstanding`, never `shouldPrompt`:
+   * skipping the full-screen gate hides the gate only, so the bell must keep
+   * offering the way back to the outstanding budget.
+   */
+  const { obligation, hasOutstanding } = useBudgetSubmissionGate();
+  const scopeKeys = departmentKeys ?? departmentKeysForDashboard(dashboard);
+  const required =
+    hasOutstanding && obligation && (!scopeKeys || scopeKeys.includes(obligation.department_key))
+      ? obligation
+      : null;
+
+  const openRequired = () => {
+    if (!required) return;
+    setOpen(false);
+    const params = new URLSearchParams({
+      cycle: required.call_id,
+      department: required.department_id,
+    });
+    if (required.draft_submission_id) params.set('submission', required.draft_submission_id);
+    navigate(`/budgets?${params.toString()}`);
+  };
+
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
