@@ -112,6 +112,7 @@ import { useAgentLandlordFloat } from '@/hooks/useAgentLandlordFloat';
 import { useAgentDashboardRealtime } from '@/hooks/useAgentDashboardRealtime';
 import { AgentHubTabs, type AgentHubTab } from '@/components/agent/AgentHubTabs';
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
+import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
 import { ReceiptNumberCheckDialog } from '@/components/agent/ReceiptNumberCheckDialog';
