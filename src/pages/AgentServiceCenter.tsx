@@ -46,6 +46,7 @@ export default function AgentServiceCenter() {
   const { data: vetting } = useServiceCenterRentQueue();
   const { data: verificationQueue } = useServiceCenterVerificationQueue();
   const { data: listingQueue = [] } = useServiceCenterListingQueue();
+  const { openCount: intakeOpenCount, newCount: intakeNewCount } = useTenantRentIntakeQueue();
 
   const [query, setQuery] = useState('');
   const [vettingQuery, setVettingQuery] = useState('');
