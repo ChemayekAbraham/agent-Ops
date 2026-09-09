@@ -515,6 +515,14 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         landlord_address: nextAddress,
         ...evidencePatch,
       };
+      // Only send tenant fields the agent actually changed, so nothing else on
+      // the tenant record is touched.
+      if (tenantOriginal) {
+        if (tenantName.trim() && tenantName.trim() !== tenantOriginal.name) patch.tenant_name = tenantName.trim();
+        if (tenantPhone.trim() && tenantPhone.trim() !== tenantOriginal.phone) patch.tenant_phone = tenantPhone.trim();
+        if (tenantNationalId.trim() && tenantNationalId.trim() !== tenantOriginal.nid) patch.tenant_national_id = tenantNationalId.trim().toUpperCase();
+        if (tenantOccupation.trim() && tenantOccupation.trim() !== tenantOriginal.occupation) patch.tenant_occupation = tenantOccupation.trim();
+      }
       if (isOutstanding) {
         patch.initial_outstanding_balance = outstandingBalance ? Number(outstandingBalance) : null;
         patch.outstanding_grace_days = graceDays ? Math.max(0, parseInt(graceDays, 10)) : null;
