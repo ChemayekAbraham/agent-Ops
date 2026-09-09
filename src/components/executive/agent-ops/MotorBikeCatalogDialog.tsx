@@ -97,14 +97,11 @@ export function useMotorBikeCatalog() {
         return DEFAULT_MOTORBIKES.map((b, i) => ({ ...b, id: `default-${i}` }));
       }
 
-      const rows: any[] = data || [];
-      const bikeRows = rows.filter((r) => {
-        const n = (r.item_name || '').toLowerCase();
-        return n.includes('spiro') || n.includes('bike') || n.includes('ekoride') || n.includes('ekocycle') || n.includes('commando');
-      });
+      const rows: MotorBikeCatalogItem[] = (data || []) as MotorBikeCatalogItem[];
 
-      // If empty or missing key models, merge with defaults
-      const merged: MotorBikeCatalogItem[] = [...bikeRows];
+      // Merge with defaults: ensure all baseline Spiro models are always present
+      // even if they haven't yet been seeded into the DB.
+      const merged: MotorBikeCatalogItem[] = [...rows];
       for (const def of DEFAULT_MOTORBIKES) {
         const found = merged.find((m) => m.item_name.toLowerCase() === def.item_name.toLowerCase());
         if (!found) {
@@ -544,7 +541,7 @@ export function MotorBikeCatalogDialog() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                        <div className="flex items-center justify-center gap-1.5 shrink-0 self-center sm:self-center">
                           <Button
                             variant="outline"
                             size="sm"

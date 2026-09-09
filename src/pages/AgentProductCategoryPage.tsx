@@ -51,14 +51,20 @@ export default function AgentProductCategoryPage() {
         </Link>
 
         <header className="flex flex-col sm:flex-row sm:items-start gap-4 rounded-2xl border bg-card p-4 sm:p-5 shadow-sm max-w-full overflow-hidden">
-          <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${entry.color} text-white shadow-md`}>
-            <Icon className="h-6 w-6" />
+          <div className="flex items-center gap-3 sm:contents">
+            <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${entry.color} text-white shadow-md`}>
+              <Icon className="h-6 w-6" />
+            </div>
+            <div className="min-w-0 flex-1 sm:hidden">
+              <h1 className="text-xl font-bold tracking-tight">{entry.label}</h1>
+              <p className="text-sm text-muted-foreground">{entry.desc}</p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{entry.label}</h1>
+          <div className="hidden sm:block min-w-0 flex-1">
+            <h1 className="text-2xl font-bold tracking-tight">{entry.label}</h1>
             <p className="text-sm text-muted-foreground">{entry.desc}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end max-w-full">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:justify-end w-full sm:w-auto">
             {entry.slug === 'smart-phones' && <SmartphoneCatalogDialog />}
             {entry.slug === 'motor-bikes' && <MotorBikeCatalogDialog />}
             <AgentProductsServicesExportButton />
