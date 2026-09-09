@@ -60,7 +60,7 @@ export function PartnerAccountCreated({
                         <td align="left" style={{ verticalAlign: "middle" }}>
                           <Img src={logo_url} alt={company_name} width="130" style={logoImg} />
                         </td>
-                        <td align="right" style={{ verticalAlign: "middle" }} className="hide-mobile" style={secureLabel}>
+                        <td align="right" className="hide-mobile" style={{ verticalAlign: "middle", ...secureLabel }}>
                           SYSTEM NOTIFICATION
                         </td>
                       </tr></tbody>
@@ -126,7 +126,7 @@ export function PartnerAccountCreated({
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td colSpan={2} style={{ verticalAlign: "top" }} style={statusRow}>
+                                  <td colSpan={2} style={{ verticalAlign: "top", ...statusRow }}>
                                     <Text style={docKey}>Account Status</Text>
                                     <Text style={statusPending}>Active</Text>
                                   </td>
@@ -145,7 +145,7 @@ export function PartnerAccountCreated({
                   <td align="center" className="padding-mobile" style={{ padding: '0 40px 30px 40px' }}>
                     <table border={0} cellSpacing={0} cellPadding={0} role="presentation">
                       <tbody><tr>
-                        <td align="center" style={ctaCell} style={{...ctaCell, backgroundColor: BRAND}}>
+                        <td align="center" style={{ ...ctaCell, backgroundColor: BRAND }}>
                           <a href={portal_url || agreement_download_url} target="_blank" style={ctaLink}>
                             Open Your Partner Dashboard
                           </a>
