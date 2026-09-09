@@ -51,6 +51,7 @@ import { template as performanceAssessmentReportTemplate } from './performance-a
 import { template as boardTechnologyMemoTemplate } from './board-technology-memo.tsx'
 import { template as proxyAgentOnboardedTemplate } from './proxy-agent-onboarded.tsx'
 import { template as proxyDailyNudgeTemplate } from './proxy-daily-nudge.tsx'
+import { template as smartphoneOrderDisbursedTemplate } from './smartphone-order-disbursed.tsx'
 import type { TemplateEntry } from './types.ts'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
