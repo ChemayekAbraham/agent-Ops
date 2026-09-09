@@ -167,7 +167,7 @@ export function StaffRequisitionQueue() {
   const [tab, setTab] = useState<TabKey>('inbox');
 
   const [active, setActive] = useState<StaffRequisition | null>(null);
-  const [actionType, setActionType] = useState<'approve' | 'reject' | 'return_info'>('approve');
+  const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
   const [reduceMode, setReduceMode] = useState(false);
   const [comment, setComment] = useState('');
   const [amountOverride, setAmountOverride] = useState('');
@@ -309,7 +309,7 @@ export function StaffRequisitionQueue() {
     [visible, page],
   );
 
-  const openAction = (row: StaffRequisition, type: 'approve' | 'reject' | 'return_info', reduce = false) => {
+  const openAction = (row: StaffRequisition, type: 'approve' | 'reject', reduce = false) => {
     setActive(row);
     setActionType(type);
     setReduceMode(reduce);
@@ -370,9 +370,7 @@ export function StaffRequisitionQueue() {
           ? (reduceMode
             ? `Approved at the reduced amount of ${formatUGX(amount)}`
             : 'Approved — the requisition moved forward')
-          : actionType === 'reject'
-            ? 'Requisition declined'
-            : 'Sent back to the requester',
+          : 'Requisition declined',
       );
       setActive(null);
       setComment('');
@@ -624,9 +622,6 @@ export function StaffRequisitionQueue() {
                               <Button size="sm" variant="secondary" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'approve', true)}>
                                 Reduce
                               </Button>
-                              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'return_info')}>
-                                Send back
-                              </Button>
                               <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'reject')}>
                                 Decline
                               </Button>
@@ -750,9 +745,6 @@ export function StaffRequisitionQueue() {
                     <Button size="sm" variant="secondary" onClick={() => { const r = detail; setDetail(null); openAction(r, 'approve', true); }}>
                       Reduce requested amount
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => { const r = detail; setDetail(null); openAction(r, 'return_info'); }}>
-                      Send back for info
-                    </Button>
                     <Button size="sm" variant="destructive" onClick={() => { const r = detail; setDetail(null); openAction(r, 'reject'); }}>Decline</Button>
                   </>
                 )}
@@ -773,8 +765,7 @@ export function StaffRequisitionQueue() {
           <DialogHeader>
             <DialogTitle>
               {actionType === 'approve' ? (reduceMode ? 'Reduce requested amount' : 'Approve requisition')
-                : actionType === 'reject' ? 'Decline requisition'
-                  : 'Send back for more information'}
+                : 'Decline requisition'}
             </DialogTitle>
             <DialogDescription>
               {active?.requisition_code} • {active?.title}
