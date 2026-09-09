@@ -747,9 +747,6 @@ export function StaffRequisitionQueue() {
                     <Button size="sm" variant="secondary" onClick={() => { const r = detail; setDetail(null); openAction(r, 'approve', true); }}>
                       Reduce requested amount
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => { const r = detail; setDetail(null); openAction(r, 'return_info'); }}>
-                      Send back for info
-                    </Button>
                     <Button size="sm" variant="destructive" onClick={() => { const r = detail; setDetail(null); openAction(r, 'reject'); }}>Decline</Button>
                   </>
                 )}
