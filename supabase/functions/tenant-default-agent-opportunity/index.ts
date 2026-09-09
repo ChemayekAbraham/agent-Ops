@@ -22,7 +22,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // ~48 wasted characters that can push the SMS into a second billed segment.
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { notifyTenant } from "../_shared/tenantNotify.ts";
+import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
 import { agentCta, firstName, loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
@@ -55,15 +55,15 @@ interface Candidate {
 }
 
 /**
- * Renders the catalogue template. The approved copy leads with the earnings
- * opportunity and does not recite the missed days back at the tenant — five
- * consecutive missed days stays the internal trigger, not the message.
+ * Template vars. The approved copy leads with the earnings opportunity and
+ * does not recite the missed days back at the tenant — five consecutive
+ * missed days stays the internal trigger, not the message.
  */
-function buildMessage(template: string, row: Candidate, link: string | null): string {
-  return renderTemplate(template, {
+function buildVars(row: Candidate, link: string | null) {
+  return {
     name: firstName(row.tenant_name),
     agent_cta: agentCta(link),
-  });
+  };
 }
 
 Deno.serve(async (req) => {
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
             run_start_date: r.run_start_date,
             episode_key: r.episode_key,
             outstanding: r.outstanding,
-            message: buildMessage(event.body_template, r, link),
+            message: renderTemplate(event.body_template!, buildVars(r, link)),
           })),
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -156,23 +156,24 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const outcome = await notifyTenant({
+        const outcome = await routeTenantNotification({
           admin,
           tenantId: row.tenant_id,
           eventKey: EVENT_KEY,
           episodeKey: row.episode_key,
+          vars: buildVars(row, link),
           phone,
           tenantName: row.tenant_name,
-          message: buildMessage(event.body_template, row, link),
           payload: {
             consecutive_missed_days: row.consecutive_missed_days,
             run_start_date: row.run_start_date,
             outstanding: row.outstanding,
             link,
           },
+          linkPath: event.link_path,
         });
 
-        if (outcome.sent) {
+        if (outcome.smsSent || outcome.pushSent > 0 || outcome.inAppCreated) {
           results.sent++;
         } else if (outcome.reason === "provider_failed") {
           results.failed++;

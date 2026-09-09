@@ -85,8 +85,13 @@ from (values
    'Welile: If you use a smartphone, open your personal tenant dashboard here to see your rent payments and balance: {{dashboard_link}}'),
   ('DASHBOARD_ACTIVATED',
    'Welcome to your Welile dashboard. You can now track your rent payments, balances and available services anytime: {{dashboard_link}}'),
+  -- Corrected in Stage 6: the original draft here said notifications were
+  -- ALREADY on, but PUSH_MIGRATION's actual trigger (Stage 6K) is a confirmed
+  -- smartphone tenant with an active dashboard and NO push token yet — the
+  -- point of the message is to invite them to turn notifications on, not
+  -- confirm they already did.
   ('PUSH_MIGRATION',
-   'Your Welile account can now receive app notifications. Important payment notices may still be sent by SMS when necessary.')
+   'Welile: Turn on notifications from your tenant dashboard to receive faster payment updates and account information. Open: {{dashboard_link}}')
 ) as t(event_key, body)
 where public.tenant_notification_events.event_key = t.event_key
   and public.tenant_notification_events.body_template is null;

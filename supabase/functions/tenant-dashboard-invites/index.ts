@@ -23,7 +23,7 @@ import "../_shared/smsFooterInterceptor.ts";
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateLinkToken, sha256Hex } from "../_shared/deviceClass.ts";
-import { notifyTenant } from "../_shared/tenantNotify.ts";
+import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
 import { firstName, loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
@@ -158,19 +158,27 @@ Deno.serve(async (req) => {
         });
         if (linkError) throw linkError;
 
-        const message = renderTemplate(event.body_template, {
+        const dashboardLink = `${origin}/t/${token}`;
+        const vars = {
           name: firstName(row.tenant_name),
-          dashboard_link: `${origin}/t/${token}`,
-        });
+          dashboard_link: dashboardLink,
+        };
 
-        const outcome = await notifyTenant({
+        // Stage 6: DASHBOARD_INVITE/SMARTPHONE_DISCOVERY both have push/
+        // in-app disabled in the channel policy (a tenant reaching this
+        // sender has, by definition, no confirmed device or has never
+        // opened the dashboard — push/in-app are unusable for them), so this
+        // resolves to the same SMS-only send as before. Routed anyway for
+        // the shared governor/logging path and so notificationLogId is
+        // available for the deterministic attribution below.
+        const outcome = await routeTenantNotification({
           admin,
           tenantId: row.tenant_id,
           eventKey,
           episodeKey: `${mode}:${day}`,
+          vars,
           phone,
           tenantName: row.tenant_name,
-          message,
           // The raw token is never logged — only the row it belongs to.
           payload: {
             day,
@@ -178,17 +186,19 @@ Deno.serve(async (req) => {
             smartphone_status: row.smartphone_status,
             call_centre: Boolean(singleTenantId),
           },
+          linkPath: `/t/${token}`,
         });
 
-        if (outcome.sent) {
+        const delivered = outcome.smsSent || outcome.pushSent > 0 || outcome.inAppCreated;
+        if (delivered) {
           results.sent++;
           // Deterministic attribution (Stage 5): this link now points back to
           // the exact SMS that carried it, so a later open attributes to this
           // row instead of a "most recent send" heuristic.
-          if (linkId && outcome.logId) {
+          if (linkId && outcome.notificationLogId) {
             await admin.rpc("attach_notification_to_dashboard_link", {
               p_link_id: linkId,
-              p_notification_log_id: outcome.logId,
+              p_notification_log_id: outcome.notificationLogId,
             });
           }
         } else {

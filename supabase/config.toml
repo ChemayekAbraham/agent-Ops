@@ -92,6 +92,8 @@ project_id = "wirntoujqoyjobfhyelc"
     verify_jwt = false
   [functions.tenant-notification-attribution]
     verify_jwt = false
+  [functions.tenant-push-migration-notices]
+    verify_jwt = false
   [functions.scan-receipt]
     verify_jwt = false
   [functions.seed-test-funds]

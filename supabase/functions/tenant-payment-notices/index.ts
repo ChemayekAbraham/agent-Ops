@@ -18,15 +18,15 @@
 // balances and hardcodes no codes: business logic determines the event, the
 // engine only communicates what is already known to be true.
 //
-// Frequency, opt-outs and once-per-day idempotency are handled by
-// notifyTenant + the notification engine, not here.
+// Frequency, opt-outs, channel selection (SMS/push/in-app) and once-per-day
+// idempotency are handled by routeTenantNotification, not here.
 import "../_shared/smsFooterInterceptor.ts";
 // Every message here goes to an existing tenant, so the platform-wide
 // "Not on Welile yet? Sign up" prompt is both wrong for the audience and
 // ~48 wasted characters that can push the SMS into a second billed segment.
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { notifyTenant } from "../_shared/tenantNotify.ts";
+import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
 import {
   dashboardSuffix,
   firstName,
@@ -133,13 +133,18 @@ Deno.serve(async (req) => {
     const skipReasons: Record<string, number> = {};
     const preview: unknown[] = [];
 
+    // Stage 6: routed through routeTenantNotification, which decides SMS vs
+    // push vs in-app per tenant_notification_channel_policy — all three are
+    // "critical" for the payment events, so every eligible channel fires
+    // rather than one being chosen over another (see the policy seed's
+    // comment on financial events).
     async function dispatch(
       tenantId: string,
       eventKey: string,
       episodeKey: string,
       phone: string,
       name: string | null,
-      message: string,
+      vars: Record<string, string | number | null | undefined>,
       payload: Record<string, unknown>,
     ) {
       if (!events.get(eventKey)?.active) {
@@ -149,22 +154,24 @@ Deno.serve(async (req) => {
       }
       if (dryRun) {
         if (preview.length < 10) {
+          const message = renderTemplate(events.get(eventKey)!.body_template!, vars);
           preview.push({ tenant_id: tenantId, event: eventKey, episode_key: episodeKey, message });
         }
         return;
       }
       try {
-        const outcome = await notifyTenant({
+        const outcome = await routeTenantNotification({
           admin,
           tenantId,
           eventKey,
           episodeKey,
+          vars,
           phone,
           tenantName: name,
-          message,
           payload,
+          linkPath: null,
         });
-        if (outcome.sent) {
+        if (outcome.smsSent || outcome.pushSent > 0 || outcome.inAppCreated) {
           results.sent++;
         } else if (outcome.reason === "provider_failed") {
           results.failed++;
@@ -200,14 +207,14 @@ Deno.serve(async (req) => {
         const cleared = row.day_state === "cleared";
         const eventKey = cleared ? "PAYMENT_FULL" : "PAYMENT_PARTIAL";
 
-        const message = renderTemplate(events.get(eventKey)!.body_template!, {
+        const vars = {
           name: firstName(row.tenant_name),
           amount_paid: formatUGX(row.paid_on_day),
           amount_due: formatUGX(row.daily_expected),
           remaining_balance: formatUGX(row.remaining_today),
           balance: formatUGX(row.outstanding),
           dashboard_suffix: suffix,
-        });
+        };
 
         // Episode is the obligation day, so a tenant who pays repeatedly gets
         // at most one "partial" and one "cleared" message for that day — and
@@ -218,7 +225,7 @@ Deno.serve(async (req) => {
           `${cleared ? "paid" : "partial"}:${day}`,
           phone,
           row.tenant_name,
-          message,
+          vars,
           {
             day,
             day_state: row.day_state,
@@ -251,13 +258,13 @@ Deno.serve(async (req) => {
         const phone = String(row.tenant_phone ?? "").trim();
         if (!phone) continue;
 
-        const message = renderTemplate(events.get("PAYMENT_MISSED")!.body_template!, {
+        const vars = {
           name: firstName(row.tenant_name),
           amount_due: formatUGX(row.daily_expected),
           balance: formatUGX(row.outstanding),
           pay_direct: payDirectSentence(channels),
           dashboard_suffix: suffix,
-        });
+        };
 
         await dispatch(
           row.tenant_id,
@@ -265,7 +272,7 @@ Deno.serve(async (req) => {
           `missed:${day}`,
           phone,
           row.tenant_name,
-          message,
+          vars,
           {
             day,
             daily_expected: row.daily_expected,

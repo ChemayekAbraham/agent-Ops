@@ -19,7 +19,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // ~48 wasted characters that can push the SMS into a second billed segment.
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { notifyTenant } from "../_shared/tenantNotify.ts";
+import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
 import {
   firstName,
   loadEvent,
@@ -119,25 +119,27 @@ Deno.serve(async (req) => {
       const phone = String(row.tenant_phone ?? "").trim();
       if (!phone) continue;
 
-      const message = renderTemplate(event.body_template, {
+      const vars = {
         name: firstName(row.tenant_name),
         pay_channels: payChannelsPhrase(channels),
-      });
+      };
 
       if (dryRun) {
-        if (preview.length < 10) preview.push({ tenant_id: row.tenant_id, message });
+        if (preview.length < 10) {
+          preview.push({ tenant_id: row.tenant_id, message: renderTemplate(event.body_template, vars) });
+        }
         continue;
       }
 
       try {
-        const outcome = await notifyTenant({
+        const outcome = await routeTenantNotification({
           admin,
           tenantId: row.tenant_id,
           eventKey: EVENT_KEY,
           episodeKey: `merchant:${day}`,
+          vars,
           phone,
           tenantName: row.tenant_name,
-          message,
           payload: {
             day,
             remaining_today: row.remaining_today,
@@ -146,9 +148,10 @@ Deno.serve(async (req) => {
             airtel_code: channels.airtel,
             call_centre: Boolean(singleTenantId),
           },
+          linkPath: null,
         });
 
-        if (outcome.sent) results.sent++;
+        if (outcome.smsSent || outcome.pushSent > 0 || outcome.inAppCreated) results.sent++;
         else if (outcome.reason === "provider_failed") results.failed++;
         else {
           results.skipped++;

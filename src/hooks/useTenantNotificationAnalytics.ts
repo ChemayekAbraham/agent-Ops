@@ -116,3 +116,54 @@ export function useTenantNotificationPerformance(filters: NotificationPerformanc
     staleTime: 2 * 60 * 1000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Stage 6: per-channel breakdown (SMS / push / in-app).
+//
+// Rows are event_key × channel, not event_key alone. SMS facts come from
+// tenant_notification_log + sms_delivery_log; push/in-app come from
+// tenant_notification_deliveries — unioned at query time inside the RPC, so
+// SMS is never double-counted as a row in tenant_notification_deliveries
+// (see the Stage 6 migration's Part 8 comment). One business event that went
+// out on three channels is three rows here, not three notifications.
+// ---------------------------------------------------------------------------
+export interface TenantChannelPerformanceRow {
+  event_key: string;
+  channel: 'sms' | 'push' | 'in_app';
+  sent: number;
+  delivered: number;
+  failed: number;
+  opened_or_acted: number;
+}
+
+export interface TenantChannelPerformance {
+  start_date: string;
+  end_date: string;
+  event_key: string | null;
+  rows: TenantChannelPerformanceRow[];
+  generated_at: string;
+}
+
+interface ChannelPerformanceFilters {
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  eventKey?: string | null;
+}
+
+export function useTenantChannelPerformance(filters: ChannelPerformanceFilters) {
+  const { startDate, endDate, eventKey = null } = filters;
+
+  return useQuery({
+    queryKey: ['tenant-channel-performance', startDate, endDate, eventKey],
+    queryFn: async (): Promise<TenantChannelPerformance> => {
+      const { data, error } = await supabase.rpc('get_tenant_channel_performance', {
+        p_start: startDate,
+        p_end: endDate,
+        p_event_key: eventKey,
+      });
+      if (error) throw error;
+      return data as unknown as TenantChannelPerformance;
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+}

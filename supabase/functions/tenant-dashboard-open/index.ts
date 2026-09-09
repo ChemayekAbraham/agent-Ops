@@ -19,8 +19,8 @@ import "../_shared/smsFooterInterceptor.ts";
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyDevice, sha256Hex } from "../_shared/deviceClass.ts";
-import { notifyTenant } from "../_shared/tenantNotify.ts";
-import { loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
+import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
+import { loadEvent } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,22 +111,25 @@ Deno.serve(async (req) => {
     if (result.first_access === true && device.isSmartphoneEvidence) {
       try {
         const event = await loadEvent(admin, ACTIVATION_EVENT);
-        if (event?.active && event.body_template && profile?.phone) {
-          // The activation message needs a link; reuse the one just opened.
+        // Stage 6: push_preferred=true in this event's channel policy, so a
+        // tenant who just proved smartphone capability by opening this very
+        // link gets push+in-app once they register a device; sms_fallback
+        // covers the far more common case on THIS first visit, where no push
+        // token exists yet.
+        if (event?.active && event.body_template) {
           const origin = Deno.env.get("PUBLIC_SITE_ORIGIN") || "https://welileapp.com";
-          const message = renderTemplate(event.body_template, {
-            dashboard_link: `${origin}/t/${token}`,
-          });
-          await notifyTenant({
+          const dashboardLink = `${origin}/t/${token}`;
+          await routeTenantNotification({
             admin,
             tenantId,
             eventKey: ACTIVATION_EVENT,
             // Once, ever — not once per day.
             episodeKey: "activated",
-            phone: String(profile.phone),
-            tenantName: profile.full_name ?? null,
-            message,
+            vars: { dashboard_link: dashboardLink },
+            phone: profile?.phone ? String(profile.phone) : null,
+            tenantName: profile?.full_name ?? null,
             payload: { device_class: device.deviceClass, os: device.os },
+            linkPath: `/t/${token}`,
           });
         }
       } catch (err) {

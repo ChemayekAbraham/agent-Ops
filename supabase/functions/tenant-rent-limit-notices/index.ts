@@ -18,7 +18,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // ~48 wasted characters that can push the SMS into a second billed segment.
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { notifyTenant } from "../_shared/tenantNotify.ts";
+import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
 import {
   dashboardSuffix,
   firstName,
@@ -114,11 +114,11 @@ Deno.serve(async (req) => {
         const phone = String(row.tenant_phone ?? "").trim();
         if (!phone) continue;
 
-        const message = renderTemplate(event.body_template, {
+        const vars = {
           name: firstName(row.tenant_name),
           new_limit: formatUGX(row.new_total_limit),
           dashboard_suffix: suffix,
-        });
+        };
 
         if (dryRun) {
           if (preview.length < 10) {
@@ -127,22 +127,22 @@ Deno.serve(async (req) => {
               old_limit: row.old_total_limit,
               new_limit: row.new_total_limit,
               delta: row.delta,
-              message,
+              message: renderTemplate(event.body_template, vars),
             });
           }
           continue;
         }
 
         try {
-          const outcome = await notifyTenant({
+          const outcome = await routeTenantNotification({
             admin,
             tenantId: row.tenant_id,
             eventKey,
             // Keyed on the change row: one announcement per real increase.
             episodeKey: `limit:${row.change_id}`,
+            vars,
             phone,
             tenantName: row.tenant_name,
-            message,
             payload: {
               change_id: row.change_id,
               old_total_limit: row.old_total_limit,
@@ -150,9 +150,10 @@ Deno.serve(async (req) => {
               delta: row.delta,
               changed_at: row.changed_at,
             },
+            linkPath: event.link_path,
           });
 
-          if (outcome.sent) results.sent++;
+          if (outcome.smsSent || outcome.pushSent > 0 || outcome.inAppCreated) results.sent++;
           else if (outcome.reason === "provider_failed") results.failed++;
           else {
             results.skipped++;
@@ -163,7 +164,8 @@ Deno.serve(async (req) => {
           // Stamp the change row for anything that is not a transient
           // provider failure, so a retry cannot re-announce it later. A
           // failed send stays unstamped and is retried on the next run.
-          if (outcome.sent || (outcome.reason && outcome.reason !== "provider_failed")) {
+          const delivered = outcome.smsSent || outcome.pushSent > 0 || outcome.inAppCreated;
+          if (delivered || (outcome.reason && outcome.reason !== "provider_failed")) {
             await admin.rpc("mark_credit_limit_change_notified", { p_change_id: row.change_id });
           }
         } catch (err) {
@@ -216,29 +218,32 @@ Deno.serve(async (req) => {
         const phone = String(profile?.phone ?? "").trim();
         if (!phone) continue;
 
-        const message = renderTemplate(event.body_template, {
+        const vars = {
           name: firstName(profile?.full_name),
           dashboard_suffix: suffix,
-        });
+        };
 
         if (dryRun) {
-          if (preview.length < 10) preview.push({ tenant_id: row.tenant_id, message });
+          if (preview.length < 10) {
+            preview.push({ tenant_id: row.tenant_id, message: renderTemplate(event.body_template, vars) });
+          }
           continue;
         }
 
         try {
-          const outcome = await notifyTenant({
+          const outcome = await routeTenantNotification({
             admin,
             tenantId: row.tenant_id,
             eventKey,
             episodeKey: `progress:${day}`,
+            vars,
             phone,
             tenantName: profile?.full_name ?? null,
-            message,
             payload: { day, paid_on_day: row.paid_on_day, outstanding: row.outstanding },
+            linkPath: event.link_path,
           });
 
-          if (outcome.sent) results.sent++;
+          if (outcome.smsSent || outcome.pushSent > 0 || outcome.inAppCreated) results.sent++;
           else if (outcome.reason === "provider_failed") results.failed++;
           else {
             results.skipped++;

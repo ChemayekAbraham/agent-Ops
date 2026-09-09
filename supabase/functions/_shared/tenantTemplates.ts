@@ -16,6 +16,13 @@ export interface NotificationEvent {
   active: boolean;
   link_path: string | null;
   body_template: string | null;
+  // Stage 6: push/in-app copy. Null for events with no push/in-app content —
+  // the channel router treats a missing template as "channel not usable for
+  // this event", not "render an empty message".
+  push_title_template: string | null;
+  push_body_template: string | null;
+  in_app_title_template: string | null;
+  in_app_body_template: string | null;
 }
 
 export interface PaymentChannels {
@@ -30,7 +37,10 @@ export async function loadEvent(
 ): Promise<NotificationEvent | null> {
   const { data, error } = await admin
     .from("tenant_notification_events")
-    .select("event_key, label, message_class, active, link_path, body_template")
+    .select(
+      "event_key, label, message_class, active, link_path, body_template, " +
+      "push_title_template, push_body_template, in_app_title_template, in_app_body_template",
+    )
     .eq("event_key", eventKey)
     .maybeSingle();
 

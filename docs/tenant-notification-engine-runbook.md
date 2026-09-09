@@ -430,6 +430,19 @@ select cron.schedule(
       body := '{}'::jsonb
   );$$
 );
+
+-- Push migration (Stage 6K): weekly, Wed 09:00 Kampala. Low volume by
+-- design (only confirmed-smartphone, dashboard-activated, no-push-yet
+-- tenants), so daily would just be noise.
+select cron.schedule(
+  'tenant-push-migration-notices',
+  '0 6 * * 3',
+  $$select net.http_post(
+      url := 'https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/tenant-push-migration-notices',
+      headers := '{"Content-Type":"application/json"}'::jsonb,
+      body := '{}'::jsonb
+  );$$
+);
 ```
 
 `RENT_LIMIT_PROGRESS` is intentionally left unscheduled even here: it competes
@@ -545,33 +558,167 @@ executed. Caught by diffing every `has_role(...)` literal in these migrations
 against the live `app_role` enum — worth repeating for any future migration
 that adds a role check.
 
+## Stage 6 — multi-channel routing (SMS / push / in-app)
+
+### Correction before anything else
+
+The brief called for Firebase/FCM and new `tenant_push_devices` /
+`tenant_in_app_notifications` tables. **This codebase has no Firebase
+anywhere.** Push was already a complete, working implementation: VAPID Web
+Push (`push_subscriptions`: endpoint/p256dh/auth), full RFC 8291/8188
+aes128gcm encryption in `send-push-notification`, a registered `/sw.js`, and
+an existing UI trigger (`PushNotificationButton.tsx`). There is also already
+a generic in-app inbox (`notifications`: user_id/title/message/type/
+metadata/is_read), already written to by several other edge functions.
+
+Building the brief's new tables and an FCM sender would have been exactly the
+"two independent copies of the same fact" trap this codebase keeps getting
+bitten by (see the merchant OOP settlement RPC, the missed-days functions).
+So Stage 6 **extends** `push_subscriptions` and `notifications` additively
+instead — no RLS change, no constraint change, existing readers/writers of
+either table are unaffected — and reuses the existing VAPID crypto rather
+than adding a vendor dependency that isn't there. The VAPID encryption/JWT
+code was *moved* (not copied) into `_shared/webPushSend.ts`, and
+`send-push-notification/index.ts` now imports it — same behaviour, same
+contract, one implementation instead of a second one that could drift.
+
+### Architecture
+
+```
+Business Event -> routeTenantNotification() -> policy lookup
+                                              -> SMS  (existing notifyTenant, unchanged)
+                                              -> Push (webPushSend, per active device)
+                                              -> In-app (notifications inbox)
+```
+
+One event, one call site (`_shared/tenantChannelRouter.ts`), channel-specific
+rendering. SMS still runs through the existing `notifyTenant()` — that path
+already owns the frequency governor, episode idempotency and
+`sms_delivery_log` linkage proven across Stage 1–5; reimplementing it here
+would reopen the exact drift this project has spent five stages avoiding.
+
+`tenant_notification_channel_policy` decides per event:
+
+| Column | Meaning |
+|---|---|
+| `critical` | Financial/contractual. SMS always attempted regardless of push. Ignores the tenant's marketing opt-out. |
+| `push_preferred` | When true AND the tenant has an active device AND `push_enabled`, SMS is **skipped** — push+in-app carry it instead. This is the brief's "conditional SMS". |
+| `sms_fallback` | Only relevant when `push_preferred` skipped SMS and every device attempt failed. Sent once, synchronously (Web Push has no async delivery-failure callback the way Africa's Talking's DLR does, so failure is already known at send time). |
+
+Seeded: all five payment/limit-increase/five-day/merchant-code events are
+`critical` (every channel fires, always — "do not migrate these fully off
+SMS yet"). Relocation and rent-limit-progress are `push_preferred` (push once
+a device exists, SMS only for tenants push can't reach). Dashboard-invite and
+smartphone-discovery have push/in-app **disabled outright** — by definition
+the tenant has no confirmed device or has never opened the dashboard, so
+neither channel could do anything. Dashboard-activated is `push_preferred` +
+`sms_fallback` (a tenant proving smartphone capability on THIS visit
+overwhelmingly has no push token yet, so the fallback is the common case, not
+the exception).
+
+A tenant's own preference (`tenant_notification_preferences`) is **one**
+toggle — `marketing_push_opt_out` — not four. Stage 6L is explicit that
+critical/contractual communication must not become suppressible because
+promotional push is off, and a switch that looked like it controlled
+"payment updates" while being silently ignored for critical events would be
+worse than not offering it. SMS opt-out remains the separate, existing
+`sms_opt_outs` table.
+
+### Two bugs caught while building this, not before
+
+- **A phone-less tenant with SMS "wanted" by policy could never reach
+  in-app.** The router's original branching returned early whenever it
+  didn't attempt SMS, even when in-app needed no phone number at all.
+  Fixed by separating "policy wants SMS" (`wantSmsInitially`) from "SMS will
+  actually be attempted" (`willAttemptSms = wantSmsInitially && phone`) — a
+  missing phone now falls through to push/in-app instead of dead-ending.
+- **The `sms_fallback` path could silently send an empty SMS.** The
+  configuration guard ("every event needs a body_template or fail loudly")
+  was scoped to the primary SMS branch only; the fallback branch, reached by
+  the *opposite* condition, wasn't covered by it. Fixed by broadening the
+  guard to `policy.sms_enabled` generally. Not a live bug — the one seeded
+  event with `sms_fallback=true` has copy — but a latent one for any future
+  event configured the same way.
+
+### Senders retrofitted
+
+All nine SMS call sites across the eight existing senders now call
+`routeTenantNotification()` instead of `notifyTenant()` directly:
+`tenant-payment-notices` (×3), `tenant-default-agent-opportunity`,
+`tenant-relocation-notices`, `tenant-rent-limit-notices` (×2),
+`tenant-merchant-code-notices`, `tenant-dashboard-invites`,
+`tenant-dashboard-open`. Behaviour is unchanged for events with push/in-app
+disabled in policy (dashboard-invite, smartphone-discovery) — this was a
+safe, mechanical swap for those two specifically, verified by checking their
+policy row resolves to SMS-only.
+
+### `tenant-push-migration-notices` — Stage 6K
+
+Deliberately narrow: `get_tenant_push_migration_candidates` targets only
+`CONFIRMED_SMARTPHONE` tenants whose dashboard is already activated **and**
+who have zero active push subscriptions. Excludes feature-phone, `UNKNOWN`,
+dashboard-inactive, and already-push-enabled tenants outright — that's what
+makes it a targeted migration rather than another mass SMS. Mints a fresh
+per-tenant dashboard link the same way `tenant-dashboard-invites` does.
+
+```bash
+curl -sX POST "$SUPABASE_URL/functions/v1/tenant-push-migration-notices" \
+  -H "Content-Type: application/json" -H "apikey: $ANON_KEY" \
+  -d '{"dry_run":true}'
+```
+
+### Reading channel performance (6M)
+
+`get_tenant_channel_performance` unions SMS facts (already in
+`tenant_notification_log`/`sms_delivery_log`) with push/in-app facts
+(`tenant_notification_deliveries`) **at query time** — SMS never gets a
+synthetic row written into `tenant_notification_deliveries`, so one business
+event delivered over three channels is three rows in the report, never three
+notifications counted against the tenant (6N).
+
+```sql
+select get_tenant_channel_performance(current_date - 6, current_date);
+select get_tenant_channel_performance(current_date - 6, current_date, 'PAYMENT_MISSED');
+```
+
+### What's Gemini's
+
+- The in-app inbox UI (`useTenantInAppNotifications.ts` has the reads/writes;
+  no bell icon or list view exists yet).
+- The notification-preference toggle UI
+  (`useTenantNotificationPreferences.ts` has the read/write).
+- Nothing new needed for push *subscription* itself — `PushNotificationButton.tsx`
+  and `src/lib/webPush.ts` already handle permission + subscribe + save, and
+  are unchanged by this stage.
+
 ## Catalogue status
 
-| Event key | Class | Sender | Built |
-|---|---|---|---|
-| `PAYMENT_FULL` | transactional | `tenant-payment-notices` (payments) | Yes |
-| `PAYMENT_PARTIAL` | transactional | `tenant-payment-notices` (payments) | Yes |
-| `PAYMENT_MISSED` | transactional | `tenant-payment-notices` (missed) | Yes |
-| `FIVE_DAY_AGENT_OPPORTUNITY` | transactional | `tenant-default-agent-opportunity` | Yes |
-| `TENANT_RELOCATION` | marketing | `tenant-relocation-notices` | Yes |
-| `RENT_LIMIT_INCREASED` | transactional | `tenant-rent-limit-notices` (increased) | Yes |
-| `RENT_LIMIT_PROGRESS` | marketing | `tenant-rent-limit-notices` (progress) | Yes |
-| `MERCHANT_CODE_REMINDER` | transactional | `tenant-merchant-code-notices` | Yes |
-| `DASHBOARD_INVITE` | marketing | `tenant-dashboard-invites` (invite) | Yes |
-| `SMARTPHONE_DISCOVERY` | marketing | `tenant-dashboard-invites` (discovery) | Yes |
-| `DASHBOARD_ACTIVATED` | transactional | `tenant-dashboard-open` | Yes |
-| `PUSH_MIGRATION` | transactional | — | Stage 6 |
+| Event key | Class | Channels (policy) | Sender | Built |
+|---|---|---|---|---|
+| `PAYMENT_FULL` | transactional | SMS+push+in-app, critical | `tenant-payment-notices` (payments) | Yes |
+| `PAYMENT_PARTIAL` | transactional | SMS+push+in-app, critical | `tenant-payment-notices` (payments) | Yes |
+| `PAYMENT_MISSED` | transactional | SMS+push+in-app, critical | `tenant-payment-notices` (missed) | Yes |
+| `FIVE_DAY_AGENT_OPPORTUNITY` | transactional | SMS+push+in-app, critical | `tenant-default-agent-opportunity` | Yes |
+| `TENANT_RELOCATION` | marketing | SMS conditional, push+in-app preferred | `tenant-relocation-notices` | Yes |
+| `RENT_LIMIT_INCREASED` | transactional | SMS+push+in-app, critical | `tenant-rent-limit-notices` (increased) | Yes |
+| `RENT_LIMIT_PROGRESS` | marketing | SMS conditional, push+in-app preferred | `tenant-rent-limit-notices` (progress) | Yes |
+| `MERCHANT_CODE_REMINDER` | transactional | SMS+push+in-app, critical | `tenant-merchant-code-notices` | Yes |
+| `DASHBOARD_INVITE` | marketing | SMS only | `tenant-dashboard-invites` (invite) | Yes |
+| `SMARTPHONE_DISCOVERY` | marketing | SMS only | `tenant-dashboard-invites` (discovery) | Yes |
+| `DASHBOARD_ACTIVATED` | transactional | SMS fallback, push+in-app preferred | `tenant-dashboard-open` | Yes |
+| `PUSH_MIGRATION` | transactional | SMS only, in-app optional | `tenant-push-migration-notices` | Yes |
 
 ## Not built yet
 
 - **Stage 5 UI** — the actual Tenant Ops cards/charts. The RPCs and hooks
   exist (`get_tenant_smartphone_overview`, `get_tenant_notification_performance`,
-  `useTenantNotificationAnalytics.ts`); the page markup is Gemini's.
+  `get_tenant_channel_performance`, `useTenantNotificationAnalytics.ts`); the
+  page markup is Gemini's.
 - **Stage 5 filters not yet wired**: sub-agent, days-overdue, payment
   behaviour, Rent Plan status. District and agent are wired.
-- **Stage 6: push/in-app routing** — `push_token`, `push_permission_status`,
-  and the channel routing table. SMS stays the channel for payment and
-  security events; push takes engagement and proposition copy.
+- **In-app inbox UI and preference-toggle UI** — the reads/writes exist
+  (`useTenantInAppNotifications.ts`, `useTenantNotificationPreferences.ts`);
+  no bell icon, list view or settings screen exists yet. Gemini's.
 - **Gemini's three Stage 4 UI pieces**, listed under Stage 4 above.
 
 ## Known dead code

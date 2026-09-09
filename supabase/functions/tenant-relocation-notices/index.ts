@@ -16,7 +16,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // ~48 wasted characters that can push the SMS into a second billed segment.
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { notifyTenant } from "../_shared/tenantNotify.ts";
+import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
 import { firstName, loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
@@ -78,31 +78,31 @@ Deno.serve(async (req) => {
       const phone = String(row.tenant_phone ?? "").trim();
       if (!phone) continue;
 
-      const message = renderTemplate(event.body_template, {
-        name: firstName(row.tenant_name),
-      });
+      const vars = { name: firstName(row.tenant_name) };
 
       if (dryRun) {
         if (preview.length < 10) {
+          const message = renderTemplate(event.body_template, vars);
           preview.push({ tenant_id: row.tenant_id, name: row.tenant_name, message });
         }
         continue;
       }
 
       try {
-        const outcome = await notifyTenant({
+        const outcome = await routeTenantNotification({
           admin,
           tenantId: row.tenant_id,
           eventKey: EVENT_KEY,
           // One per calendar day; the weekly ceiling is the governor's job.
           episodeKey: `relocation:${day}`,
+          vars,
           phone,
           tenantName: row.tenant_name,
-          message,
           payload: { day, outstanding: row.outstanding },
+          linkPath: null,
         });
 
-        if (outcome.sent) results.sent++;
+        if (outcome.smsSent || outcome.pushSent > 0 || outcome.inAppCreated) results.sent++;
         else if (outcome.reason === "provider_failed") results.failed++;
         else {
           results.skipped++;
