@@ -313,7 +313,7 @@ export function BikeLeaseApprovalQueue({
                             openApprove(o);
                           }}
                         >
-                          {isAwaitingCfo(o.order_status) ? 'Release & activate' : 'Approve & send to CFO'}
+                          {ACTION_LABEL[stageOf(o.order_status)]}
                         </Button>
                         <Button
                           size="sm"
@@ -407,7 +407,7 @@ export function BikeLeaseApprovalQueue({
                                 ) : (
                                   <Check className="h-3.5 w-3.5" />
                                 )}
-                                <span className="ml-1">{isAwaitingCfo(o.order_status) ? 'Release' : 'Approve'}</span>
+                                <span className="ml-1">{SHORT_ACTION_LABEL[stageOf(o.order_status)]}</span>
                               </Button>
                               <Button
                                 size="sm"
@@ -442,12 +442,18 @@ export function BikeLeaseApprovalQueue({
         <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md max-h-[90dvh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>
-              {approveStage === 'cfo' ? 'Release bike & activate lease' : 'COO approval — valuation & lease terms'}
+              {approveStage === 'cfo'
+                ? 'Disburse to the agent wallet & activate lease'
+                : approveStage === 'coo'
+                  ? 'COO approval — valuation & lease terms'
+                  : 'Agent Ops verification'}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {approveStage === 'cfo'
-                ? 'Releasing the bike activates the lease and starts wallet recovery. No cash is credited to the agent wallet.'
-                : 'COO approval moves no money — the file is forwarded to the CFO for bike release.'}
+                ? 'The money goes into the ordering agent’s own wallet and daily wallet recovery starts immediately.'
+                : approveStage === 'coo'
+                  ? 'COO approval moves no money — the file is forwarded to the CFO for disbursement.'
+                  : 'Verification moves no money — the file is forwarded to the COO for approval.'}
             </DialogDescription>
           </DialogHeader>
 
