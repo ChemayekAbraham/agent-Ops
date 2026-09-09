@@ -394,6 +394,24 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
       });
       return;
     }
+    if (!tenantName.trim()) {
+      toast.error('Tenant name is required', {
+        description: "Enter the tenant's names as they appear on the national ID.",
+      });
+      return;
+    }
+    if (tenantPhone.trim() && !/^\+?\d[\d\s-]{6,}$/.test(tenantPhone.trim())) {
+      toast.error('Tenant phone looks invalid', {
+        description: 'Use digits only, e.g. 0772123456 or +256772123456.',
+      });
+      return;
+    }
+    if (tenantNationalId.trim() && !/^[A-Za-z0-9]{10,14}$/.test(tenantNationalId.trim())) {
+      toast.error('Tenant national ID looks invalid', {
+        description: 'A national ID is 10 to 14 letters and numbers, no spaces.',
+      });
+      return;
+    }
     if (!landlord?.id) {
       toast.error('Pick a landlord', {
         description: 'Use the search box at the top to select the landlord for this rent request.',
