@@ -64,7 +64,20 @@ export default defineConfig(({ mode }) => {
             return 'vendor-leaflet';
           }
           if (pkg.startsWith('@babel') || pkg.startsWith('@swc')) return 'vendor-babel';
-          return `vendor-${pkg.replace('@', '').replace('/', '-')}`;
+          // Heavy, lazily-used libraries keep their own chunk so they never
+          // load with the shell. Everything else collapses into one shared
+          // vendor chunk: hundreds of tiny sibling chunks cost more in rollup
+          // bookkeeping (and publish-container memory) than they save.
+          const HEAVY = [
+            'xlsx', 'jspdf', 'jspdf-autotable', 'pptxgenjs', 'html5-qrcode',
+            'recharts', 'html2canvas', 'jszip', 'framer-motion', 'motion',
+            'motion-dom', 'lucide-react', 'canvg', 'africastalking-client',
+            'react-markdown', 'country-state-city', 'qrcode',
+          ];
+          if (HEAVY.includes(pkg)) return `vendor-${pkg}`;
+          if (pkg.startsWith('@supabase')) return 'vendor-supabase';
+          return 'vendor-common';
+
         },
       },
     },
