@@ -76,6 +76,15 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
   const [landlordPhone, setLandlordPhone] = useState('');
   const [landlordAddress, setLandlordAddress] = useState('');
   const [landlordOriginal, setLandlordOriginal] = useState<{ name: string; phone: string; address: string } | null>(null);
+  // ── Tenant details ─────────────────────────────────────────────────
+  // Reviewers commonly reject for tenant data ("put both names of the tenant"),
+  // so the tenant's own record is editable here and saved on resubmit.
+  const [tenantNameParts, setTenantNameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
+  const tenantName = joinPersonName(tenantNameParts);
+  const [tenantPhone, setTenantPhone] = useState('');
+  const [tenantNationalId, setTenantNationalId] = useState('');
+  const [tenantOccupation, setTenantOccupation] = useState('');
+  const [tenantOriginal, setTenantOriginal] = useState<{ name: string; phone: string; nid: string; occupation: string } | null>(null);
   // ── Evidence: house photos + LC letter ──────────────────────────────
   // `existingPhotos` are the URLs already on the request; `newPhotos` hold
   // freshly picked files per slot. A slot with a new file replaces that index
@@ -152,6 +161,32 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
           setExistingLcUrl(data?.signedUrl ?? null);
         })();
       }
+      // Hydrate the tenant editor from the tenant record on the request.
+      (async () => {
+        if (!request.tenant_id) {
+          setTenantNameParts({ firstName: '', otherNames: '', lastName: '' });
+          setTenantPhone(''); setTenantNationalId(''); setTenantOccupation('');
+          setTenantOriginal(null);
+          return;
+        }
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, phone, national_id, occupation')
+          .eq('id', request.tenant_id)
+          .maybeSingle();
+        const t = (data ?? {}) as { full_name?: string | null; phone?: string | null; national_id?: string | null; occupation?: string | null };
+        setTenantNameParts(splitPersonName(t.full_name ?? request.tenant_name ?? ''));
+        setTenantPhone(t.phone ?? request.tenant_phone ?? '');
+        setTenantNationalId(t.national_id ?? '');
+        setTenantOccupation(t.occupation ?? '');
+        setTenantOriginal({
+          name: t.full_name ?? '',
+          phone: t.phone ?? '',
+          nid: t.national_id ?? '',
+          occupation: t.occupation ?? '',
+        });
+      })();
+
       // Hydrate the landlord picker from the request's current landlord_id.
       (async () => {
         if (!request.landlord_id) {
@@ -359,6 +394,24 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
       });
       return;
     }
+    if (!tenantName.trim()) {
+      toast.error('Tenant name is required', {
+        description: "Enter the tenant's names as they appear on the national ID.",
+      });
+      return;
+    }
+    if (tenantPhone.trim() && !/^\+?\d[\d\s-]{6,}$/.test(tenantPhone.trim())) {
+      toast.error('Tenant phone looks invalid', {
+        description: 'Use digits only, e.g. 0772123456 or +256772123456.',
+      });
+      return;
+    }
+    if (tenantNationalId.trim() && !/^[A-Za-z0-9]{10,14}$/.test(tenantNationalId.trim())) {
+      toast.error('Tenant national ID looks invalid', {
+        description: 'A national ID is 10 to 14 letters and numbers, no spaces.',
+      });
+      return;
+    }
     if (!landlord?.id) {
       toast.error('Pick a landlord', {
         description: 'Use the search box at the top to select the landlord for this rent request.',
@@ -480,6 +533,14 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         landlord_address: nextAddress,
         ...evidencePatch,
       };
+      // Only send tenant fields the agent actually changed, so nothing else on
+      // the tenant record is touched.
+      if (tenantOriginal) {
+        if (tenantName.trim() && tenantName.trim() !== tenantOriginal.name) patch.tenant_name = tenantName.trim();
+        if (tenantPhone.trim() && tenantPhone.trim() !== tenantOriginal.phone) patch.tenant_phone = tenantPhone.trim();
+        if (tenantNationalId.trim() && tenantNationalId.trim() !== tenantOriginal.nid) patch.tenant_national_id = tenantNationalId.trim().toUpperCase();
+        if (tenantOccupation.trim() && tenantOccupation.trim() !== tenantOriginal.occupation) patch.tenant_occupation = tenantOccupation.trim();
+      }
       if (isOutstanding) {
         patch.initial_outstanding_balance = outstandingBalance ? Number(outstandingBalance) : null;
         patch.outstanding_grace_days = graceDays ? Math.max(0, parseInt(graceDays, 10)) : null;
@@ -601,6 +662,40 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         )}
 
         <div className="space-y-3">
+          <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-primary">
+              Edit tenant details
+            </p>
+            <div className="space-y-1.5">
+              <Label>Tenant name</Label>
+              <PersonNameFields
+                idPrefix="edit-rent-req-tenant"
+                value={tenantNameParts}
+                onChange={setTenantNameParts}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="tn-phone">Phone</Label>
+                <Input id="tn-phone" inputMode="tel" value={tenantPhone}
+                  onChange={(e) => setTenantPhone(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="tn-nid">National ID</Label>
+                <Input id="tn-nid" value={tenantNationalId}
+                  onChange={(e) => setTenantNationalId(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="tn-occ">Occupation</Label>
+              <Input id="tn-occ" value={tenantOccupation}
+                onChange={(e) => setTenantOccupation(e.target.value)} />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Saved to the tenant's record on resubmit. Use both names exactly as on the national ID.
+            </p>
+          </div>
+
           <div className="space-y-1.5">
             <Label>Landlord</Label>
             <LandlordSearchSelect value={landlord} onChange={setLandlord} />
