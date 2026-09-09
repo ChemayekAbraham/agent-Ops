@@ -158,30 +158,21 @@ export default function DepartmentBudgetSubmission({
     if (!cycleId && openCycles.length) setCycleId(openCycles[0].id);
   }, [openCycles, cycleId]);
   useEffect(() => {
-    // Never guess: the field prepopulates with the user's own (home) department
-    // only. When the home department cannot be resolved and more than one
-    // posting exists, the field stays empty so an alphabetically-first
-    // department is never silently pre-selected on the user's behalf.
+    // The department is no longer a choice on the form: a budget is always
+    // filed under the preparer's own posting. The value is resolved here so
+    // nothing has to be picked, and it is re-resolved whenever the postings
+    // load or change.
     if (refLoading) return;
     // Arrived from the budget submission gate with an explicit department: that
-    // is the department that is actually owed, so keep it selected.
+    // is the department that is actually owed, so keep it.
     if (initialDepartmentId && departmentId === initialDepartmentId) return;
-    // Filing on behalf of departments: never preselect. A reviewer's own HR
-    // posting is not the department they are usually budgeting for, and a
-    // prefilled field invites submitting under the wrong one.
-    if (filingOnBehalf) {
-      if (departmentId && !selectableDepartments.some(d => d.id === departmentId)) setDepartmentId('');
-      return;
-    }
-    if (!myDepartments.length) { if (departmentId) setDepartmentId(''); return; }
-    if (myDepartments.some(d => d.id === departmentId)) return;
-    // More than one posting: start on the "Select department" placeholder
-    // rather than defaulting to the home department. A prefilled department
-    // is easy to miss, and filing under the wrong one is the mistake this
-    // field exists to prevent. Only a single posting fills itself in, and
-    // that case renders as a fixed field with nothing to choose.
-    setDepartmentId(myDepartments.length === 1 ? myDepartments[0].id : '');
-  }, [myDepartments, departmentId, refLoading, filingOnBehalf, selectableDepartments]);
+    if (!selectableDepartments.length) { if (departmentId) setDepartmentId(''); return; }
+    if (selectableDepartments.some(d => d.id === departmentId)) return;
+    // Own posting first — a reviewer who also carries a posting files under it
+    // rather than under an unrelated department.
+    const own = selectableDepartments.find(d => myDepartmentIds.has(d.id));
+    setDepartmentId((own ?? selectableDepartments[0]).id);
+  }, [departmentId, refLoading, selectableDepartments, myDepartmentIds, initialDepartmentId]);
 
 
   useEffect(() => {
