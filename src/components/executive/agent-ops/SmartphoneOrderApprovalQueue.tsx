@@ -246,11 +246,16 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
       if (error) throw error;
       return { ...(data as any), stage };
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: any, variables) => {
       if (data?.stage === 'cfo') {
         toast.success(
-          `${formatUGX(Number(data?.total_amount || 0))} disbursed to the agent's wallet float. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated.`,
+          `${formatUGX(Number(data?.total_amount || 0))} disbursed to the supplier's wallet. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated. The agent has been notified.`,
         );
+        // Fire-and-forget: tell the applying agent the down payment is with the
+        // supplier and share the supplier's contact for tracking.
+        void db.functions
+          .invoke('notify-smartphone-order-disbursed', { body: { sale_id: variables.id } })
+          .catch((e) => console.error('[SmartphoneOrderApprovalQueue] notify failed', e));
       } else {
         const daily = Number(data?.access_daily_amount || 0);
         toast.success(
