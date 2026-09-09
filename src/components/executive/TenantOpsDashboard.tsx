@@ -147,21 +147,48 @@ export function TenantOpsDashboard({
       const fromIso = fromDate ? fromDate.toISOString() : null;
       const toIso = toDate ? toDate.toISOString() : null;
 
-      // 1. Pull tenant payments from the ledger (source of truth)
-      let ledgerQ = supabase
-        .from('general_ledger')
-        .select('user_id, amount, source_id, source_table, transaction_date, transaction_group_id')
-        .in('category', ['tenant_repayment', 'rent_repayment'])
-        .eq('direction', 'cash_in');
-      if (fromIso) ledgerQ = ledgerQ.gte('transaction_date', fromIso);
-      if (toIso) ledgerQ = ledgerQ.lte('transaction_date', toIso);
-      const { data: payments, error: payErr } = await ledgerQ;
-      if (payErr) throw payErr;
+      // 1. Pull tenant payments from the ledger (source of truth for direct
+      //    repayments) plus the agent-collection record (the canonical record
+      //    of field collections). Agent-collection ledger legs are dropped in
+      //    favour of the collection rows themselves so nothing is counted
+      //    twice and every day in the range is represented.
+      const ledgerLegs = await fetchAllPaged<any>(() => {
+        let q = supabase
+          .from('general_ledger')
+          .select('user_id, amount, source_id, source_table, transaction_date, transaction_group_id')
+          .in('category', ['tenant_repayment', 'rent_repayment'])
+          .eq('direction', 'cash_in')
+          .order('transaction_date', { ascending: false });
+        if (fromIso) q = q.gte('transaction_date', fromIso);
+        if (toIso) q = q.lte('transaction_date', toIso);
+        return q;
+      });
+      const fieldCollections = await fetchAllPaged<any>(() => {
+        let q = supabase
+          .from('agent_collections')
+          .select('id, tenant_id, agent_id, amount, created_at')
+          .order('created_at', { ascending: false });
+        if (fromIso) q = q.gte('created_at', fromIso);
+        if (toIso) q = q.lte('created_at', toIso);
+        return q;
+      });
+      const payments: any[] = [
+        ...ledgerLegs.filter((l: any) => l.source_table !== 'agent_collections'),
+        ...fieldCollections.map((c: any) => ({
+          user_id: c.tenant_id,
+          amount: Number(c.amount || 0),
+          source_id: c.id,
+          source_table: 'agent_collections',
+          transaction_date: c.created_at,
+          transaction_group_id: null,
+        })),
+      ];
 
-      if (!payments || payments.length === 0) {
+      if (payments.length === 0) {
         toast.error('No tenant payments found for the selected period');
         return;
       }
+
 
       // 1b. Resolve the TRUE tenant for each payment leg.
       //     The ledger leg's user_id often holds the AGENT (because the
@@ -482,18 +509,34 @@ export function TenantOpsDashboard({
     return new Map((data || []).map((p: any) => [p.id, p]));
   };
 
+  // Page through a query so a long date range is never silently truncated
+  // by the default row cap (which used to make wide ranges look like they
+  // only returned the most recent day).
+  const fetchAllPaged = async <T,>(build: () => any, pageSize = 1000): Promise<T[]> => {
+    const out: T[] = [];
+    for (let offset = 0; offset < 100_000; offset += pageSize) {
+      const { data, error } = await build().range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      const chunk = (data || []) as T[];
+      out.push(...chunk);
+      if (chunk.length < pageSize) break;
+    }
+    return out;
+  };
+
+
   const handleExtractApplied = async () => {
     setExtracting('applied');
     try {
       const { from, to } = resolveWindow(30);
-      const { data, error } = await supabase
+      const data = await fetchAllPaged<any>(() => supabase
         .from('rent_requests')
         .select('id, tenant_id, landlord_id, rent_amount, daily_repayment, duration_days, status, created_at')
         .gte('created_at', from.toISOString())
         .lte('created_at', to.toISOString())
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      if (!data || data.length === 0) { toast.error('No tenant applications in this window'); return; }
+        .order('created_at', { ascending: false }));
+      if (!data.length) { toast.error('No tenant applications in this window'); return; }
+
       const profiles = await enrichWithProfiles(data);
       const rows = data.map((r: any) => {
         const t = profiles.get(r.tenant_id); const l = profiles.get(r.landlord_id);
@@ -559,16 +602,16 @@ export function TenantOpsDashboard({
         'repaying',
         'completed',
       ];
-      const { data, error } = await supabase
+      const data = await fetchAllPaged<any>(() => supabase
         .from('rent_requests')
         .select('id, tenant_id, approved_by, rent_amount, total_repayment, daily_repayment, approved_at, created_at, status')
         .in('status', POST_APPROVAL_STATUSES)
         // Pull anything that *could* fall in the window using either timestamp,
         // then filter precisely in JS.
         .or(`and(approved_at.gte.${from.toISOString()},approved_at.lte.${to.toISOString()}),and(approved_at.is.null,created_at.gte.${from.toISOString()},created_at.lte.${to.toISOString()})`)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      if (!data || data.length === 0) { toast.error('No approvals in this window'); return; }
+        .order('created_at', { ascending: false }));
+      if (!data.length) { toast.error('No approvals in this window'); return; }
+
       const profiles = await enrichWithProfiles(data);
       let stamped = 0;
       let inferred = 0;
@@ -640,72 +683,131 @@ export function TenantOpsDashboard({
         'repaying',
         'completed',
       ];
-      const { data, error } = await supabase
+      const data = await fetchAllPaged<any>(() => supabase
         .from('rent_requests')
-        .select('id, tenant_id, approved_by, rent_amount, total_repayment, daily_repayment, amount_repaid, funded_at, approved_at, created_at, status')
+        .select('id, tenant_id, agent_id, approved_by, rent_amount, total_repayment, daily_repayment, amount_repaid, funded_at, approved_at, created_at, status')
         .in('status', POST_FUNDING_STATUSES)
         .or(
           `and(funded_at.gte.${from.toISOString()},funded_at.lte.${to.toISOString()}),` +
           `and(funded_at.is.null,approved_at.gte.${from.toISOString()},approved_at.lte.${to.toISOString()}),` +
           `and(funded_at.is.null,approved_at.is.null,created_at.gte.${from.toISOString()},created_at.lte.${to.toISOString()})`
         )
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      if (!data || data.length === 0) { toast.error('No funded tenants in this window'); return; }
-      const profiles = await enrichWithProfiles(data);
+        .order('created_at', { ascending: false }));
+      if (!data.length) { toast.error('No funded tenants in this window'); return; }
+
+      const effTs = (r: any) => r.funded_at || r.approved_at || r.created_at;
+
+      // Full funding history for these tenants, so we can tell a FIRST-TIME
+      // funded tenant from a repeat / renewing one (and show which cycle
+      // this plan is for that tenant).
+      const tenantIds = [...new Set(data.map((r: any) => r.tenant_id).filter(Boolean) as string[])];
+      const history = tenantIds.length
+        ? await fetchAllPaged<any>(() => supabase
+            .from('rent_requests')
+            .select('id, tenant_id, funded_at, approved_at, created_at')
+            .in('status', POST_FUNDING_STATUSES)
+            .in('tenant_id', tenantIds))
+        : [];
+      const historyByTenant = new Map<string, any[]>();
+      for (const h of history) {
+        if (!h.tenant_id) continue;
+        const list = historyByTenant.get(h.tenant_id) || [];
+        list.push(h);
+        historyByTenant.set(h.tenant_id, list);
+      }
+      for (const [, list] of historyByTenant) {
+        list.sort((a, b) => new Date(effTs(a)).getTime() - new Date(effTs(b)).getTime());
+      }
+      // 1-based cycle number of a plan within its tenant's funding history.
+      const cycleOf = (r: any) => {
+        const list = historyByTenant.get(r.tenant_id) || [];
+        const idx = list.findIndex(h => h.id === r.id);
+        return idx >= 0 ? idx + 1 : 1;
+      };
+
+      const profiles = await enrichWithProfiles(
+        data.flatMap((r: any) => [{ tenant_id: r.tenant_id }, { tenant_id: r.agent_id }, { tenant_id: r.approved_by }])
+      );
+
       let stamped = 0;
       let inferred = 0;
-      const rows = data.map((r: any) => {
+      const build = (r: any) => {
         const t = profiles.get(r.tenant_id);
         const a = profiles.get(r.approved_by);
-        const effectiveTs = r.funded_at || r.approved_at || r.created_at;
+        const ag = profiles.get(r.agent_id);
         const isInferred = !r.funded_at;
         if (isInferred) inferred++; else stamped++;
-        return [
-          r.id,
-          t?.full_name || '—',
-          t?.phone || '—',
-          Number(r.rent_amount || 0),
-          Number(r.total_repayment || 0),
-          Number(r.daily_repayment || 0),
-          Number(r.amount_repaid || 0),
-          effectiveTs,
-          a?.full_name || '—',
-          isInferred ? `${r.status || ''} (inferred)` : (r.status || ''),
-        ];
+        const cycle = cycleOf(r);
+        return {
+          cycle,
+          isNew: cycle <= 1,
+          row: [
+            t?.full_name || '—',
+            t?.phone || '—',
+            cycle,
+            Number(r.rent_amount || 0),
+            Number(r.total_repayment || 0),
+            Number(r.daily_repayment || 0),
+            Number(r.amount_repaid || 0),
+            effTs(r),
+            ag?.full_name || a?.full_name || '—',
+            isInferred ? `${r.status || ''} (inferred)` : (r.status || ''),
+          ] as any[],
+        };
+      };
+      const built = data.map(build);
+      const newOnes = built.filter(b => b.isNew);
+      const repeatOnes = built.filter(b => !b.isNew);
+
+      const sum = (list: typeof built, idx: number) => list.reduce((s, b) => s + Number(b.row[idx] || 0), 0);
+      const totalFunded = sum(built, 3);
+      const totalRepay = sum(built, 4);
+      const totalRepaid = sum(built, 6);
+      const pct = (n: number) => built.length ? `${Math.round((n / built.length) * 100)}%` : '0%';
+
+      const columns = [
+        { label: '#',              width: 8,  align: 'left' as const },
+        { label: 'Tenant',         width: 34, format: 'text' as const },
+        { label: 'Phone',          width: 22, format: 'text' as const },
+        { label: 'Cycle',          width: 12, format: 'number' as const },
+        { label: 'Rent (UGX)',     width: 22, format: 'ugx' as const },
+        { label: 'Total Repay',    width: 24, format: 'ugx' as const },
+        { label: 'Daily (UGX)',    width: 20, format: 'ugx' as const },
+        { label: 'Repaid (UGX)',   width: 22, format: 'ugx' as const },
+        { label: 'Funded',         width: 26, format: 'datetime' as const },
+        { label: 'Agent',          width: 26, format: 'text' as const },
+        { label: 'Status',         width: 20, format: 'text' as const },
+      ];
+      const sectionOf = (list: typeof built, title: string, note: string) => ({
+        title,
+        note,
+        columns,
+        rows: list.map((b, i) => [i + 1, ...b.row]),
+        totals: ['', 'TOTAL', '', '', sum(list, 3), sum(list, 4), '', sum(list, 6), '', '', ''] as any[],
       });
-      const totalFunded = rows.reduce((s, r: any) => s + Number(r[3] || 0), 0);
-      const totalRepay = rows.reduce((s, r: any) => s + Number(r[4] || 0), 0);
-      const totalRepaid = rows.reduce((s, r: any) => s + Number(r[6] || 0), 0);
+
       const blob = generateTenantOpsExtractPdf({
         title: 'Tenants Funded',
-        subtitle: 'Rent applications past the funding gate in this period. Rows missing funded_at fall back to approved_at / created_at and are marked.',
+        subtitle: 'Rent plans past the funding gate in this period, split into first-time (new) and repeat / renewing tenants.',
         range: { from, to },
         kpis: [
-          { label: 'Funded', value: rows.length.toLocaleString(), color: [22, 163, 74] },
+          { label: 'Total Funded', value: built.length.toLocaleString(), color: [22, 163, 74] },
+          { label: 'New Tenants', value: `${newOnes.length} (${pct(newOnes.length)})`, color: [37, 99, 235] },
+          { label: 'Repeat / Renewing', value: `${repeatOnes.length} (${pct(repeatOnes.length)})`, color: [124, 58, 237] },
           { label: 'Rent Funded', value: `UGX ${Math.round(totalFunded).toLocaleString()}`, color: [15, 23, 42] },
           { label: 'Total Repayable', value: `UGX ${Math.round(totalRepay).toLocaleString()}`, color: [124, 58, 237] },
           { label: 'Already Repaid', value: `UGX ${Math.round(totalRepaid).toLocaleString()}`, color: [217, 119, 6] },
+          { label: 'Avg Rent Funded', value: `UGX ${built.length ? Math.round(totalFunded / built.length).toLocaleString() : 0}`, color: [15, 23, 42] },
           { label: 'Stamped / Inferred', value: `${stamped} / ${inferred}`, color: [148, 163, 184] },
         ],
-        columns: [
-          { label: '#',              width: 8,  align: 'left' },
-          { label: 'Tenant',         width: 38, format: 'text' },
-          { label: 'Phone',          width: 24, format: 'text' },
-          { label: 'Rent (UGX)',     width: 22, format: 'ugx' },
-          { label: 'Total Repay',    width: 24, format: 'ugx' },
-          { label: 'Daily (UGX)',    width: 20, format: 'ugx' },
-          { label: 'Repaid (UGX)',   width: 22, format: 'ugx' },
-          { label: 'Funded',         width: 26, format: 'datetime' },
-          { label: 'Funded By',      width: 28, format: 'text' },
-          { label: 'Status',         width: 22, format: 'text' },
+        sections: [
+          sectionOf(newOnes, `New tenants funded — ${newOnes.length} (${pct(newOnes.length)})`, 'First rent plan ever funded for this tenant.'),
+          sectionOf(repeatOnes, `Repeat / renewing tenants funded — ${repeatOnes.length} (${pct(repeatOnes.length)})`, 'Tenant had at least one earlier funded rent plan. Cycle = which funded plan this is for them.'),
         ],
-        rows: rows.map((r, i) => [i + 1, r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9]]),
-        totals: ['', 'TOTAL', '', totalFunded, totalRepay, '', totalRepaid, '', '', ''],
-        footerNote: 'Funded = status past funding gate (funded → completed). When funded_at is missing, the next-best timestamp is shown and the row is marked "inferred".',
+        footerNote: 'Funded = status past funding gate (funded → completed). New vs repeat is derived from the tenant\'s full funded-plan history. When funded_at is missing, the next-best timestamp is shown and the row is marked "inferred".',
       });
       downloadPdfBlob(blob, `tenants-funded_${windowSuffix(from, to)}.pdf`);
-      toast.success(`Extracted ${rows.length} funded tenants`);
+      toast.success(`Extracted ${built.length} funded plans — ${newOnes.length} new, ${repeatOnes.length} repeat`);
     } catch (err: any) {
       toast.error(err.message || 'Extract failed');
     } finally {
@@ -717,96 +819,142 @@ export function TenantOpsDashboard({
     setExtracting('collected');
     try {
       const { from, to } = resolveWindow(30);
-      // Pull from the ledger — same source as the PDF, so totals reconcile.
-      const { data: payments, error } = await supabase
+
+      // ── Source 1: agent collections (the canonical record of every tenant
+      //    payment taken in the field — covers every day in the range).
+      const collections = await fetchAllPaged<any>(() => supabase
+        .from('agent_collections')
+        .select('id, tenant_id, agent_id, amount, payment_method, collection_channel, created_at')
+        .gte('created_at', from.toISOString())
+        .lte('created_at', to.toISOString())
+        .order('created_at', { ascending: false }));
+
+      // ── Source 2: repayments posted straight to the ledger that are NOT
+      //    an agent collection (tenant paid from their own wallet, deposit
+      //    sweeps, etc.). Filtering out `agent_collections`-sourced legs is
+      //    what prevents double counting.
+      const ledger = await fetchAllPaged<any>(() => supabase
         .from('general_ledger')
         .select('user_id, amount, source_id, source_table, transaction_date, transaction_group_id')
         .in('category', ['tenant_repayment', 'rent_repayment'])
         .eq('direction', 'cash_in')
+        .neq('classification', 'admin_correction')
         .gte('transaction_date', from.toISOString())
         .lte('transaction_date', to.toISOString())
-        .order('transaction_date', { ascending: false });
-      if (error) throw error;
-      if (!payments || payments.length === 0) { toast.error('No repayments collected in this window'); return; }
+        .order('transaction_date', { ascending: false }));
+      const directLegs = ledger.filter((l: any) => l.source_table !== 'agent_collections');
 
-      // Resolve true tenant per leg via rent_requests / agent_collections.
-      const sourceIds = [...new Set(payments.map((p: any) => p.source_id).filter(Boolean) as string[])];
-      const [rrLookup, acLookup] = await Promise.all([
-        sourceIds.length ? supabase.from('rent_requests').select('id, tenant_id').in('id', sourceIds) : Promise.resolve({ data: [] as any[] }),
-        sourceIds.length ? supabase.from('agent_collections').select('id, tenant_id, agent_id').in('id', sourceIds) : Promise.resolve({ data: [] as any[] }),
-      ]);
-      const tenantBySource = new Map<string, string>();
-      const agentBySource = new Map<string, string>();
-      for (const r of (rrLookup.data || []) as any[]) if (r.tenant_id) tenantBySource.set(r.id, r.tenant_id);
-      for (const c of (acLookup.data || []) as any[]) {
-        if (c.tenant_id && !tenantBySource.has(c.id)) tenantBySource.set(c.id, c.tenant_id);
-        if (c.agent_id) agentBySource.set(c.id, c.agent_id);
+      if (!collections.length && !directLegs.length) {
+        toast.error('No repayments collected in this window');
+        return;
       }
-      // Float-allocation agent attribution via transaction_group_id.
-      const groupIds = [...new Set(payments.map((p: any) => p.transaction_group_id).filter(Boolean) as string[])];
-      const { data: groupLegs } = groupIds.length
-        ? await supabase.from('general_ledger').select('user_id, category, direction, transaction_group_id')
-            .in('transaction_group_id', groupIds)
-            .in('category', ['agent_float_used_for_rent', 'agent_commission_earned'])
+
+      // Resolve tenant for direct legs via their rent request when needed.
+      const directSourceIds = [...new Set(directLegs.map((l: any) => l.source_id).filter(Boolean) as string[])];
+      const { data: rrLookup } = directSourceIds.length
+        ? await supabase.from('rent_requests').select('id, tenant_id').in('id', directSourceIds)
         : { data: [] as any[] };
-      const agentByGroup = new Map<string, string>();
-      for (const leg of (groupLegs || []) as any[]) {
-        if (leg.category === 'agent_float_used_for_rent' && leg.direction === 'cash_out' && leg.user_id) agentByGroup.set(leg.transaction_group_id, leg.user_id);
-      }
-      for (const leg of (groupLegs || []) as any[]) {
-        if (leg.category === 'agent_commission_earned' && leg.direction === 'cash_in' && leg.user_id && !agentByGroup.has(leg.transaction_group_id)) agentByGroup.set(leg.transaction_group_id, leg.user_id);
-      }
+      const tenantBySource = new Map<string, string>();
+      for (const r of (rrLookup || []) as any[]) if (r.tenant_id) tenantBySource.set(r.id, r.tenant_id);
 
-      const resolveTenant = (p: any) => (p.source_id && tenantBySource.get(p.source_id)) || p.user_id || null;
-      const tenantIds = [...new Set(payments.map(resolveTenant).filter(Boolean) as string[])];
-      const agentIds = [...new Set([...agentByGroup.values(), ...agentBySource.values()])];
-      const profileIds = [...new Set([...tenantIds, ...agentIds])];
+      type Payment = { ts: string; tenantId: string | null; agentId: string | null; amount: number; channel: string };
+      const payments: Payment[] = [
+        ...collections.map((c: any) => ({
+          ts: c.created_at,
+          tenantId: c.tenant_id || null,
+          agentId: c.agent_id || null,
+          amount: Number(c.amount || 0),
+          channel: c.payment_method || c.collection_channel || 'agent collection',
+        })),
+        ...directLegs.map((l: any) => ({
+          ts: l.transaction_date,
+          tenantId: (l.source_id && tenantBySource.get(l.source_id)) || l.user_id || null,
+          agentId: null,
+          amount: Number(l.amount || 0),
+          channel: l.source_table || 'direct',
+        })),
+      ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+
+      const profileIds = [...new Set(payments.flatMap(p => [p.tenantId, p.agentId]).filter(Boolean) as string[])];
       const { data: profs } = profileIds.length
         ? await supabase.from('profiles').select('id, full_name, phone').in('id', profileIds)
         : { data: [] as any[] };
       const pmap = new Map((profs || []).map((p: any) => [p.id, p]));
 
-      let total = 0;
-      const rows = payments.map((p: any) => {
-        const tid = resolveTenant(p);
-        const aid = (p.transaction_group_id && agentByGroup.get(p.transaction_group_id)) || (p.source_id && agentBySource.get(p.source_id)) || null;
-        const t = tid ? pmap.get(tid) : null;
-        const a = aid ? pmap.get(aid) : null;
-        const amt = Number(p.amount || 0);
-        total += amt;
-        return [
-          p.transaction_date,
-          t?.full_name || '—',
-          t?.phone || '—',
-          a?.full_name || (aid ? 'Agent' : 'Direct (no agent)'),
-          amt,
-          p.source_table || '',
-        ];
-      });
+      const total = payments.reduce((s, p) => s + p.amount, 0);
+      const agentCollected = payments.filter(p => p.agentId).reduce((s, p) => s + p.amount, 0);
+      const uniqueTenants = new Set(payments.map(p => p.tenantId).filter(Boolean)).size;
+      const uniqueAgents = new Set(payments.map(p => p.agentId).filter(Boolean)).size;
+
+      // Per-day breakdown so it is obvious every selected day is included.
+      const byDay = new Map<string, { count: number; amount: number; tenants: Set<string> }>();
+      for (const p of payments) {
+        const key = format(new Date(p.ts), 'yyyy-MM-dd');
+        const bucket = byDay.get(key) || { count: 0, amount: 0, tenants: new Set<string>() };
+        bucket.count += 1;
+        bucket.amount += p.amount;
+        if (p.tenantId) bucket.tenants.add(p.tenantId);
+        byDay.set(key, bucket);
+      }
+      const dayRows = [...byDay.entries()]
+        .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+        .map(([day, b], i) => [i + 1, day, b.count, b.tenants.size, b.amount]);
+      const activeDays = dayRows.length;
+
       const blob = generateTenantOpsExtractPdf({
         title: 'Repayments Collected',
-        subtitle: 'Every tenant repayment posted to the ledger in this period.',
+        subtitle: 'Every tenant repayment recorded in the selected period — agent field collections plus direct wallet repayments.',
         range: { from, to },
         kpis: [
           { label: 'Total Collected', value: `UGX ${Math.round(total).toLocaleString()}`, color: [22, 163, 74] },
           { label: 'Payments', value: payments.length.toLocaleString(), color: [15, 23, 42] },
-          { label: 'Unique Tenants', value: new Set(payments.map((p: any) => resolveTenant(p)).filter(Boolean)).size.toLocaleString(), color: [37, 99, 235] },
+          { label: 'Days With Collections', value: activeDays.toLocaleString(), color: [37, 99, 235] },
+          { label: 'Unique Tenants', value: uniqueTenants.toLocaleString(), color: [37, 99, 235] },
+          { label: 'Agents Collecting', value: uniqueAgents.toLocaleString(), color: [124, 58, 237] },
+          { label: 'Collected By Agents', value: `UGX ${Math.round(agentCollected).toLocaleString()}`, color: [124, 58, 237] },
+          { label: 'Daily Average', value: `UGX ${activeDays ? Math.round(total / activeDays).toLocaleString() : 0}`, color: [217, 119, 6] },
         ],
-        columns: [
-          { label: '#',              width: 8,  align: 'left' },
-          { label: 'Date',           width: 26, format: 'datetime' },
-          { label: 'Tenant',         width: 40, format: 'text' },
-          { label: 'Phone',          width: 24, format: 'text' },
-          { label: 'Agent',          width: 36, format: 'text' },
-          { label: 'Amount (UGX)',   width: 26, format: 'ugx' },
-          { label: 'Source',         width: 22, format: 'text' },
+        sections: [
+          {
+            title: 'Daily totals across the selected period',
+            note: 'One row per calendar day that had collections inside the selected date range.',
+            columns: [
+              { label: '#',            width: 8,  align: 'left' },
+              { label: 'Day',          width: 30, format: 'date' },
+              { label: 'Payments',     width: 24, format: 'number' },
+              { label: 'Tenants',      width: 24, format: 'number' },
+              { label: 'Collected',    width: 34, format: 'ugx' },
+            ],
+            rows: dayRows,
+            totals: ['', 'TOTAL', payments.length, uniqueTenants, total],
+          },
+          {
+            title: 'Individual payments',
+            columns: [
+              { label: '#',              width: 8,  align: 'left' },
+              { label: 'Date',           width: 26, format: 'datetime' },
+              { label: 'Tenant',         width: 40, format: 'text' },
+              { label: 'Phone',          width: 24, format: 'text' },
+              { label: 'Agent',          width: 36, format: 'text' },
+              { label: 'Amount (UGX)',   width: 26, format: 'ugx' },
+              { label: 'Channel',        width: 24, format: 'text' },
+            ],
+            rows: payments.map((p, i) => [
+              i + 1,
+              p.ts,
+              (p.tenantId && pmap.get(p.tenantId)?.full_name) || '—',
+              (p.tenantId && pmap.get(p.tenantId)?.phone) || '—',
+              (p.agentId && pmap.get(p.agentId)?.full_name) || (p.agentId ? 'Agent' : 'Direct (no agent)'),
+              p.amount,
+              p.channel,
+            ]),
+            totals: ['', '', '', '', 'TOTAL', total, ''],
+          },
         ],
-        rows: rows.map((r, i) => [i + 1, r[0], r[1], r[2], r[3], r[4], r[5]]),
-        totals: ['', '', '', '', 'TOTAL', total, ''],
-        footerNote: 'Source = ledger source table (rent_requests, agent_collections, etc.). Reconciles with the Tenant Payments PDF for the same period.',
+        footerNote: 'Agent field collections come from the collections record; direct repayments come from the ledger (agent-collection legs excluded so nothing is counted twice).',
       });
       downloadPdfBlob(blob, `repayments-collected_${windowSuffix(from, to)}.pdf`);
-      toast.success(`Collected: UGX ${Math.round(total).toLocaleString()} across ${payments.length} payments`);
+      toast.success(`Collected: UGX ${Math.round(total).toLocaleString()} across ${payments.length} payments (${activeDays} day${activeDays === 1 ? '' : 's'})`);
     } catch (err: any) {
       toast.error(err.message || 'Extract failed');
     } finally {
@@ -814,19 +962,21 @@ export function TenantOpsDashboard({
     }
   };
 
+
   const handleExtractExpected = async () => {
     setExtracting('expected');
     try {
       const { from, to } = resolveWindow(90, true);
       // Active rent plans = funded/disbursed/repaying (not rejected/cancelled/fully_repaid/defaulted).
-      const { data: plans, error } = await supabase
+      const plans = await fetchAllPaged<any>(() => supabase
         .from('rent_requests')
         .select('id, tenant_id, daily_repayment, total_repayment, amount_repaid, duration_days, disbursed_at, funded_at, status, tenancy_status')
-        .in('status', ['funded', 'disbursed', 'repaying']);
-      if (error) throw error;
+        .in('status', ['funded', 'disbursed', 'repaying'])
+        .order('created_at', { ascending: false }));
       const active = (plans || []).filter((p: any) =>
         !['ended', 'terminated'].includes((p.tenancy_status || '').toLowerCase())
       );
+
       if (active.length === 0) { toast.error('No active rent plans'); return; }
       const profiles = await enrichWithProfiles(active);
 
