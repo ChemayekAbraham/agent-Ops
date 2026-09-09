@@ -4,6 +4,7 @@ import { EarningsForecastCard } from './EarningsForecastCard';
 import { CollectionStreakCard } from './CollectionStreakCard';
 import { PriorityCollectionQueue } from './PriorityCollectionQueue';
 import { DailyRentExpectedCard } from './DailyRentExpectedCard';
+import { AgentArrearsCard } from './AgentArrearsCard';
 
 interface Props {
   agentId: string;
@@ -18,6 +19,9 @@ export function AgentActionInsights({ agentId, hideDailyRent }: Props) {
       <div className="space-y-3">
         {/* Daily Rent Expected */}
         {!hideDailyRent && <DailyRentExpectedCard userId={agentId} />}
+
+        {/* Unpaid days to recover. Renders nothing when nobody is behind. */}
+        <AgentArrearsCard agentId={agentId} />
 
 
         {/* Collection Streak */}

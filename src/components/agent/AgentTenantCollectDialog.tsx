@@ -20,6 +20,8 @@ import { captureOfflineDraft } from '@/lib/offlineCollectionDrafts';
 import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
 import AgentContactLocationGate from './AgentContactLocationGate';
 import { useRequireContactLocation } from '@/hooks/useRequireContactLocation';
+import { useAgentCollectContext, useInvalidateArrears } from '@/hooks/useAgentArrears';
+import { hasArrears, splitPayment, arrearsHeadline } from '@/lib/arrearsAllocation';
 
 /**
  * Translate raw RPC / Postgres errors into something an agent can act on.
@@ -108,11 +110,14 @@ export function AgentTenantCollectDialog({
   // agent can see if it failed and manually resend from the success view.
   const [smsStatus, setSmsStatus] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const [smsResending, setSmsResending] = useState(false);
-  // Expected collection for this tenant today (flat daily amount, capped at the
-  // remaining balance). Sourced from the server helper so the frontend and the
-  // RPC gate agree on one definition — no duplicated fee arithmetic here.
-  const [expectedAmount, setExpectedAmount] = useState<number | null>(null);
   const [partialReason, setPartialReason] = useState('');
+  // Today's expected amount AND this plan's arrears context in ONE round trip.
+  // `expected_today` is computed server-side by the same `agent_expected_collection`
+  // helper the allocation RPC uses, so the screen and the gate keep one
+  // definition — no duplicated fee arithmetic here.
+  const { data: collectCtx } = useAgentCollectContext(rentRequestId, open);
+  const invalidateArrears = useInvalidateArrears();
+  const behind = hasArrears(collectCtx);
 
   useEffect(() => {
     if (open) {
@@ -125,28 +130,9 @@ export function AgentTenantCollectDialog({
       setSmsStatus('idle');
       setSmsResending(false);
       setPartialReason('');
-      setExpectedAmount(null);
       refetchBalances();
     }
   }, [open]);
-
-  // One round trip, one source of truth for "what should be collected".
-  useEffect(() => {
-    if (!open || !rentRequestId) return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase.rpc('agent_expected_collection', {
-        p_rent_request_id: rentRequestId,
-      });
-      if (cancelled) return;
-      if (error) {
-        console.warn('[AgentTenantCollectDialog] expected collection lookup failed', error);
-        return;
-      }
-      setExpectedAmount(Math.max(0, Number(data ?? 0)));
-    })();
-    return () => { cancelled = true; };
-  }, [open, rentRequestId]);
 
   // While the tenant-collection dialog is open, suppress iOS PWA full
   // cache invalidation and SW skipWaiting. Otherwise switching to MoMo /
@@ -165,10 +151,13 @@ export function AgentTenantCollectDialog({
   // Partial collections are ALLOWED and simply tracked — no gate, no forced
   // confirmation, no mandatory reason. The reason box stays as an optional note
   // so Operations still gets context in the Partial Collections view.
-  const expected = Math.max(0, Number(expectedAmount ?? 0));
+  const expected = Math.max(0, Number(collectCtx?.expected_today ?? 0));
   const isPartial = expected > 0 && amount > 0 && amount < expected;
   const shortfall = isPartial ? expected - amount : 0;
   const isValid = amount >= minAllowed && amount <= maxAllowable;
+  // How the server will apply this payment: oldest unpaid days first, then
+  // today, then ahead. Preview only — the RPC does the real allocation.
+  const split = splitPayment(collectCtx, amount);
 
   // Auto-suggest the EXPECTED amount (not the maximum) so the default action is
   // a complete collection. Falls back to the old behaviour when unknown.
@@ -257,6 +246,8 @@ export function AgentTenantCollectDialog({
           invalidateCreditAccessLimit(user.id);
           queryClient.invalidateQueries({ queryKey: ['agent-capacity-map'] });
           queryClient.invalidateQueries({ queryKey: ['agent-rent-capacity-fleet'] });
+          // Day attribution changed too, so the arrears split must be re-read.
+          invalidateArrears({ rentRequestId, agentId: user.id });
           toast.success('Payment already recorded', {
             description: `${formatUGX(amount)} for ${tenant.full_name} went through. Do not send it again.`,
           });
@@ -306,6 +297,9 @@ export function AgentTenantCollectDialog({
       // BOTH cached queries so the new allocation shows up immediately.
       queryClient.invalidateQueries({ queryKey: ['agent-capacity-map'] });
       queryClient.invalidateQueries({ queryKey: ['agent-rent-capacity-fleet'] });
+      // The RPC also attributed this payment to specific days - re-read the
+      // arrears context so a second collection never shows a stale split.
+      invalidateArrears({ rentRequestId, agentId: user.id });
 
       // 🎉 Trigger commission celebration — pure UI, no DB calls
       // Source priority: API response → fallback to client-side 10% estimate
@@ -676,6 +670,43 @@ export function AgentTenantCollectDialog({
                 <span className="text-muted-foreground">Float after</span>
                 <span className="font-mono">{formatUGX(floatBalance - amount)}</span>
               </div>
+
+              {/* Where this exact amount lands. Mirrors the server's oldest-day-first
+                  allocation; the three lines always add back to Amount. */}
+              {behind && (
+                <div className="border-t border-border/40 pt-2 space-y-1.5">
+                  <p className="text-[11px] font-bold text-warning-foreground">
+                    {arrearsHeadline(collectCtx, formatUGX)}
+                  </p>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      → Older unpaid days
+                      {split.daysCleared > 0 && (
+                        <span className="text-[10px] text-muted-foreground/80">
+                          {' '}(clears {split.daysCleared} of {split.daysBehind})
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-mono font-bold text-warning">{formatUGX(split.toArrears)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">→ Today</span>
+                    <span className="font-mono">{formatUGX(split.toToday)}</span>
+                  </div>
+                  {split.toFuture > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">→ Paid ahead</span>
+                      <span className="font-mono">{formatUGX(split.toFuture)}</span>
+                    </div>
+                  )}
+                  {split.nothingLandsOnToday && (
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      The older days take all of it, so today stays open. The money is not lost — it
+                      has cleared the days behind.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Tenant still owes</span>
                 <span className="font-mono">{formatUGX(outstandingBalance - amount)}</span>
@@ -997,6 +1028,23 @@ export function AgentTenantCollectDialog({
               </div>
             )}
 
+            {/* Behind on earlier days. The screen still offers only today's
+                amount — this explains where the money will actually land. */}
+            {behind && (
+              <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed">
+                  <p className="font-bold text-warning-foreground">
+                    {arrearsHeadline(collectCtx, formatUGX)}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Older unpaid days are settled first, so part of whatever you collect will go to
+                    them before it counts for today. Nothing extra is charged — this is the same
+                    money, just applied oldest first.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {!canAllocate && floatBalance < minAllowed && (
               <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-xl p-3">
