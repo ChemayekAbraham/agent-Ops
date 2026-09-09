@@ -176,6 +176,18 @@ export function TenantLocationCorrectionsHub() {
   const outstandingPct = pctOf(d?.outstanding ?? 0, d?.required ?? 0);
   const populationPct = pctOf(d?.required ?? 0, d?.total_tenants ?? 0);
 
+  // Active tenants = existing system definition (rent request funded / disbursed / repaying).
+  const activeQ = useTenantLocationActiveMetrics(agentId);
+  const am = activeQ.data;
+  const activeLoading = activeQ.isLoading;
+  const activeOutstandingPct = pctOf(am?.active_outstanding ?? 0, am?.active_tenants ?? 0);
+  const activeSplit = am
+    ? [
+        { name: 'Correct location', value: am.active_corrected, fill: 'hsl(var(--primary))' },
+        { name: 'Requires correction', value: am.active_outstanding, fill: 'hsl(var(--destructive))' },
+      ]
+    : [];
+
   const trend = useMemo(() => {
     let cum = 0;
     return daily.slice(-30).map((x) => {
