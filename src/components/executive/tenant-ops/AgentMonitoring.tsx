@@ -315,13 +315,30 @@ export function AgentMonitoring() {
   });
 
   const profileMap = useMemo(() => new Map((data?.profiles ?? []).map((profile) => [profile.id, profile])), [data?.profiles]);
+  /**
+   * A receipt belongs to the rent plan it was posted against, not to whoever
+   * happened to key it in. Attributing by `agent_id + tenant_id` hid every
+   * payment recorded by a different agent (transfers, sub-agents, ops entries)
+   * from the plan's own agent, which made paying tenants look like missed days.
+   * `rent_request_id` is the authoritative link; the agent+tenant map only
+   * still serves legacy rows that carry no plan reference.
+   */
   const collectionMap = useMemo(() => {
-    const totals = new Map<string, number>();
+    const byPlan = new Map<string, number>();
+    const byAgentTenant = new Map<string, number>();
     (data?.collections ?? []).forEach((collection) => {
+      const amount = Number(collection.amount ?? 0);
+      if (collection.rent_request_id) {
+        byPlan.set(collection.rent_request_id, (byPlan.get(collection.rent_request_id) ?? 0) + amount);
+        return;
+      }
       const key = `${collection.agent_id}:${collection.tenant_id}`;
-      totals.set(key, (totals.get(key) ?? 0) + Number(collection.amount ?? 0));
+      byAgentTenant.set(key, (byAgentTenant.get(key) ?? 0) + amount);
     });
-    return totals;
+    return {
+      forPlan: (agentId: string, request: Pick<ActiveRentRequest, 'id' | 'tenant_id'>) =>
+        (byPlan.get(request.id) ?? 0) + (byAgentTenant.get(`${agentId}:${request.tenant_id}`) ?? 0),
+    };
   }, [data?.collections]);
 
   /** One schedule reading per rent plan, computed once for the selected day. */
