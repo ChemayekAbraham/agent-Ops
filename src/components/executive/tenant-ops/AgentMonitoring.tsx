@@ -382,7 +382,7 @@ export function AgentMonitoring() {
         supabase.from('v_tenant_daily_eligibility').select('rent_request_id').range(from, to),
       );
       const eligibleIds = new Set(eligibility.map((row) => row.rent_request_id));
-      if (eligibleIds.size === 0) return { requests: [], collections: [], profiles: [] as Profile[], requestCounts: new Map<string, number>() };
+      if (eligibleIds.size === 0) return { requests: [], collections: [], repayments: [] as RepaymentRow[], profiles: [] as Profile[], requestCounts: new Map<string, number>() };
 
       const requests = await fetchAll<ActiveRentRequest>((from, to) =>
         supabase
@@ -392,13 +392,27 @@ export function AgentMonitoring() {
           .range(from, to),
       );
       const activeRequests = requests.filter((request) => eligibleIds.has(request.id) && request.agent_id);
+      /* Every receipt posted against a plan on this day counts, whoever keyed it
+         in — a payment recorded by a previous agent, a sub-agent or ops is still
+         the tenant's payment. Only rows with no plan link fall back to the
+         legacy agent+tenant pairing below. */
       const { data: collections, error: collectionsError } = await supabase
         .from('agent_collections')
         .select('id, agent_id, tenant_id, amount, created_at, rent_request_id')
         .gte('created_at', bounds.from)
-        .lt('created_at', bounds.to)
-        .not('agent_id', 'is', null);
+        .lt('created_at', bounds.to);
       if (collectionsError) throw collectionsError;
+
+      /* Tenants also pay themselves (wallet, mobile money, deposit bridge). Those
+         receipts land in `repayments` and never in `agent_collections`, so a day
+         settled by the tenant used to read as a missed day. */
+      const { data: dayRepayments, error: repaymentsError } = await supabase
+        .from('repayments')
+        .select('id, rent_request_id, tenant_id, amount, created_at, payment_method, paid_by, external_reference')
+        .gte('created_at', bounds.from)
+        .lt('created_at', bounds.to)
+        .not('rent_request_id', 'is', null);
+      if (repaymentsError) throw repaymentsError;
 
       const agentIds = new Set<string>(activeRequests.map((request) => request.agent_id).filter((id): id is string => Boolean(id)));
       const requestCounts = new Map<string, number>();
@@ -408,7 +422,7 @@ export function AgentMonitoring() {
       allRequests.forEach((request) => {
         if (request.agent_id) requestCounts.set(request.agent_id, (requestCounts.get(request.agent_id) ?? 0) + 1);
       });
-      (collections ?? []).forEach((collection) => agentIds.add(collection.agent_id));
+      (collections ?? []).forEach((collection) => { if (collection.agent_id) agentIds.add(collection.agent_id); });
 
       const ids = Array.from(new Set([
         ...Array.from(agentIds),
@@ -425,7 +439,14 @@ export function AgentMonitoring() {
         profiles.push(...((batch ?? []) as Profile[]));
       }
 
-      return { requests: activeRequests, collections: (collections ?? []) as Collection[], profiles, requestCounts };
+      return {
+        requests: activeRequests,
+        collections: (collections ?? []) as Collection[],
+        repayments: unmatchedRepayments((dayRepayments ?? []) as RepaymentRow[], (collections ?? []) as Collection[]),
+        profiles,
+        requestCounts,
+      };
+
     },
     staleTime: 30_000,
     refetchOnWindowFocus: true,
