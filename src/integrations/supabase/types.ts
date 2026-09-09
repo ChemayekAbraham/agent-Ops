@@ -32334,6 +32334,7 @@ export type Database = {
           reopened_at: string | null
           reopened_by: string | null
           repayment_frequency: string
+          repayment_frequency_locked: boolean
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -32465,6 +32466,7 @@ export type Database = {
           reopened_at?: string | null
           reopened_by?: string | null
           repayment_frequency?: string
+          repayment_frequency_locked?: boolean
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -32596,6 +32598,7 @@ export type Database = {
           reopened_at?: string | null
           reopened_by?: string | null
           repayment_frequency?: string
+          repayment_frequency_locked?: boolean
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -45560,6 +45563,7 @@ export type Database = {
           reopened_at: string | null
           reopened_by: string | null
           repayment_frequency: string
+          repayment_frequency_locked: boolean
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -52262,6 +52266,15 @@ export type Database = {
           _agent_id: string
           _reason: string
           _tier: Database["public"]["Enums"]["agent_tier"]
+        }
+        Returns: Json
+      }
+      ops_set_rent_plan_frequency: {
+        Args: {
+          p_frequency: string
+          p_reason?: string
+          p_rent_request_id: string
+          p_starts_on?: string
         }
         Returns: Json
       }
