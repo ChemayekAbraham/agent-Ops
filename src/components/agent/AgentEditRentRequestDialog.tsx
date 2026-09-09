@@ -76,6 +76,15 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
   const [landlordPhone, setLandlordPhone] = useState('');
   const [landlordAddress, setLandlordAddress] = useState('');
   const [landlordOriginal, setLandlordOriginal] = useState<{ name: string; phone: string; address: string } | null>(null);
+  // ── Tenant details ─────────────────────────────────────────────────
+  // Reviewers commonly reject for tenant data ("put both names of the tenant"),
+  // so the tenant's own record is editable here and saved on resubmit.
+  const [tenantNameParts, setTenantNameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
+  const tenantName = joinPersonName(tenantNameParts);
+  const [tenantPhone, setTenantPhone] = useState('');
+  const [tenantNationalId, setTenantNationalId] = useState('');
+  const [tenantOccupation, setTenantOccupation] = useState('');
+  const [tenantOriginal, setTenantOriginal] = useState<{ name: string; phone: string; nid: string; occupation: string } | null>(null);
   // ── Evidence: house photos + LC letter ──────────────────────────────
   // `existingPhotos` are the URLs already on the request; `newPhotos` hold
   // freshly picked files per slot. A slot with a new file replaces that index
