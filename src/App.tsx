@@ -19,6 +19,7 @@ const lazy = lazyWithRetry;
 // Critical providers — loaded eagerly for instant auth/routing
 import { AuthProvider } from "@/hooks/useAuth";
 import AccountFrozenGate from "@/components/account/AccountFrozenGate";
+import BudgetSubmissionGate from "@/components/budget/BudgetSubmissionGate";
 import { CombinedSettingsProvider } from "@/hooks/useCombinedSettings";
 import { CurrencyProvider } from "@/hooks/useCurrency";
 import StalledLoaderWatchdog from "@/components/common/StalledLoaderWatchdog";
@@ -911,7 +912,9 @@ const App = () => {
                       <DeferredProviders>
                         <MaintenanceBanner />
                           <AccountFrozenGate>
-                            <AppRoutes />
+                            <BudgetSubmissionGate>
+                              <AppRoutes />
+                            </BudgetSubmissionGate>
                           </AccountFrozenGate>
                         <MaintenanceLockScreen />
                         <AuthRecoveryPrompt />

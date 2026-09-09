@@ -56,7 +56,7 @@ function netClass(value?: number | null): string {
 }
 
 export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   const { data, isPending, error } = useQuery({
     queryKey: ['tppo-arrears-movement', granularity, anchor],
@@ -87,11 +87,28 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
         className="flex min-h-11 w-full items-start justify-between gap-3 text-left"
       >
         <span className="min-w-0">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Arrears movement
+          <span className="flex flex-wrap items-baseline gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Arrears movement
+            </span>
+            <span className="text-xs text-muted-foreground">—</span>
+            <span className="text-sm font-bold text-foreground tabular-nums">
+              {isPending || !current ? '…' : money(current.closing_arrears)}
+            </span>
           </span>
           <span className="mt-1 block text-[11px] text-muted-foreground">
-            how the balance owed moved, period by period
+            {isPending || !current ? (
+              'how the balance owed moved, period by period'
+            ) : (
+              <>
+                owed now ·{' '}
+                <span className={netClass(current.net_added_to_arrears)}>
+                  {signedMoney(current.net_added_to_arrears)}
+                </span>{' '}
+                this {granularity === 'day' ? 'day' : granularity === 'week' ? 'week' : 'month'} ·{' '}
+                {money(current.cleared_by_payment)} cleared
+              </>
+            )}
           </span>
         </span>
         <ChevronDown

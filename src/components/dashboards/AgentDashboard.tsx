@@ -112,6 +112,7 @@ import { useAgentLandlordFloat } from '@/hooks/useAgentLandlordFloat';
 import { useAgentDashboardRealtime } from '@/hooks/useAgentDashboardRealtime';
 import { AgentHubTabs, type AgentHubTab } from '@/components/agent/AgentHubTabs';
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
+import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
 import { ReceiptNumberCheckDialog } from '@/components/agent/ReceiptNumberCheckDialog';
@@ -257,6 +258,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { profile, loading: profileLoading } = useProfile();
+  const { data: hasRepayingTenant, isLoading: repayingTenantLoading } = useAgentHasRepayingTenant(user?.id);
   // Celebratory toast the moment the agent crosses today's 50% eligibility
   // threshold (fires once per Kampala day, on mount or via realtime).
   useAgentUnblockToast(user?.id);
@@ -1074,8 +1076,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         )}
         {activeTab === 'home' && !isMerchant && (
           <div className={cn("space-y-4", tabAnimClass)}>
-            {/* Collection League — weekly team competition */}
-            {!isMerchant && <AgentCollectionLeagueCard />}
+            {/* Collection League — weekly team competition (active agents only) */}
+            {!isMerchant && (repayingTenantLoading || hasRepayingTenant) && <AgentCollectionLeagueCard />}
 
             {/* Free Service Center qualification — permanent milestone tracker */}
             {!isMerchant && (
