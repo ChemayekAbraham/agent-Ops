@@ -453,11 +453,6 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
       </section>
 
       <Card className="overflow-hidden rounded-lg border-border shadow-soft">
-        <CardHeader className="border-b border-border bg-card px-4 py-5 sm:px-6">
-          <CardTitle className="text-xl font-semibold">
-            {activeId ? (readOnly ? 'Submission (read-only)' : 'Edit draft') : 'New budget draft'}
-          </CardTitle>
-        </CardHeader>
         <CardContent className="space-y-5 p-4 sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
