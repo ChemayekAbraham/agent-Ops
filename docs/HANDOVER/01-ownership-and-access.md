@@ -38,11 +38,10 @@ Losing access to any of these is an existential event, in roughly descending sev
 
 ```
 origin    https://github.com/weliletenants-sys/welilereceipts-com-98bba33b   <- the real product
-rentflow  https://github.com/Joshwanda17/rentflow.git                        <- separate, personal
 ```
 
-`origin` is the production repository. `rentflow` is a different project on a personal account.
-**Confirm the remote before every push.** Welile code has leaked into `rentflow` before. The
+`origin` is the production repository. 
+**Confirm the remote before every push.** The
 default branch is `lovable`, not `main`.
 
 ---
@@ -51,8 +50,8 @@ default branch is `lovable`, not `main`.
 
 | Role | Name | Contact | Knows |
 |---|---|---|---|
-| Founder / lead engineer | Josh Wanda | joshua.wanda@welile.com | Everything in this repo |
-| Backup engineer | **NONE TODAY — appoint one** | | |
+| lead engineer | PIUS SSENKAALI | [pexpert46@gmail.com] | Almost- Everything in this repo about agents operations  |
+| co-lead engineer | JOSHUA WANDA | [joshwanda17@gmail.com] |Almost everything in this repo about finances and accounting |
 | CFO / finance owner | FILL IN | | Ledger corrections, treasury, payouts |
 | Ops lead | FILL IN | | Agents, collections, merchants |
 | Telco account manager (MTN) | FILL IN | | Float, till, disbursement rails |
