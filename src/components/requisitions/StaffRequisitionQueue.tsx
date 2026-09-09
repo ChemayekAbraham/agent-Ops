@@ -624,9 +624,6 @@ export function StaffRequisitionQueue() {
                               <Button size="sm" variant="secondary" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'approve', true)}>
                                 Reduce
                               </Button>
-                              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'return_info')}>
-                                Send back
-                              </Button>
                               <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'reject')}>
                                 Decline
                               </Button>
