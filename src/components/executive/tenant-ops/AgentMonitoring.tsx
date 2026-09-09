@@ -393,7 +393,7 @@ export function AgentMonitoring() {
         });
 
         const collected = tenants.reduce(
-          (sum, request) => sum + (collectionMap.get(`${agentId}:${request.tenant_id}`) ?? 0),
+          (sum, request) => sum + collectionMap.forPlan(agentId, request),
           0,
         );
         const profile = profileMap.get(agentId);
@@ -454,7 +454,7 @@ export function AgentMonitoring() {
     return selectedAgent.tenants.map((request) => ({
       request,
       tenant: profileMap.get(request.tenant_id),
-      collected: collectionMap.get(`${selectedAgent.id}:${request.tenant_id}`) ?? 0,
+      collected: collectionMap.forPlan(selectedAgent.id, request),
       schedule: scheduleMap.get(request.id) ?? describePlanSchedule(request, day),
     }));
   }, [collectionMap, day, profileMap, scheduleMap, selectedAgent]);
