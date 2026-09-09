@@ -105,7 +105,8 @@ export function useTenantNotificationPerformance(filters: NotificationPerformanc
   return useQuery({
     queryKey: ['tenant-notification-performance', startDate, endDate, eventKey, district],
     queryFn: async (): Promise<TenantNotificationPerformance> => {
-      const { data, error } = await supabase.rpc('get_tenant_notification_performance', {
+      // RPC is newer than the checked-in generated types.
+      const { data, error } = await (supabase.rpc as any)('get_tenant_notification_performance', {
         p_start: startDate,
         p_end: endDate,
         p_event_key: eventKey,
