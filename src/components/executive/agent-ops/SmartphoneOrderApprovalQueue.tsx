@@ -109,13 +109,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   const openApprove = (o: SmartphoneOrderRow) => {
     setApproveTarget(o);
     const existing = Number(o.total_amount || 0);
-    // COO stage: Access Amount = phone amount + 33% markup, saved as the approved
-    // total price. CFO stage: the COO-approved amount is what gets disbursed.
-    if (isAwaitingCfo(o.order_status)) {
-      setOfficialAmount(existing > 0 ? String(Math.round(existing)) : '');
-    } else {
-      setOfficialAmount(existing > 0 ? String(Math.round(existing * 1.33)) : '');
-    }
+    // Welile funds the down payment only, so the Access Amount is exactly the
+    // down payment at both stages. Interest is charged on top of it.
+    setOfficialAmount(existing > 0 ? String(Math.round(existing)) : '');
     const days = Number(o.access_repayment_days || 0);
     setRepaymentDays(days > 0 ? String(days) : '30');
   };
@@ -130,13 +126,14 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   const officialProjection = Math.round(officialAmountNumber * 0.33);
 
   // Repayment maths shown to both the executive and (once saved) the agent:
-  // Difference = Access Amount (Total) − Phone Amount, spread over 30 days to get
-  // the daily wallet deduction, then multiplied by the chosen number of days.
+  // Access Amount = the down payment Welile releases. The agent repays that
+  // amount plus 33% interest, spread evenly over the chosen number of days.
   const phoneAmountNumber = Math.max(0, Math.round(Number(approveTarget?.total_amount || 0)));
-  const accessDifference = Math.max(0, officialAmountNumber - phoneAmountNumber);
-  const dailyDeduction = Math.round(accessDifference / 30);
+  const accessInterest = officialProjection;
+  const totalPayable = officialAmountNumber + accessInterest;
   const repaymentDaysNumber = Math.max(0, Math.round(Number(repaymentDays || 0) || 0));
-  const totalPayable = dailyDeduction * repaymentDaysNumber;
+  const dailyDeduction = repaymentDaysNumber > 0 ? Math.round(totalPayable / repaymentDaysNumber) : 0;
+
 
 
 
@@ -578,7 +575,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                 formatUGX(total),
               ],
               ['Projection (33%)', formatUGX(projection)],
-              ['Access Amount (Total)', formatUGX(Math.round(total * 1.33))],
+              ['Access Amount (down payment)', formatUGX(total)],
               ['Amount paid', formatUGX(Number(detailsTarget.amount_paid || 0))],
 
               ['Outstanding', formatUGX(Number(detailsTarget.amount_outstanding || 0))],
