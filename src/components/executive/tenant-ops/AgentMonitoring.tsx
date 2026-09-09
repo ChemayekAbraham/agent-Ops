@@ -8,6 +8,7 @@ import {
   CircleAlert,
   CircleCheck,
   CircleDot,
+  History,
   Loader2,
   Phone,
   Search,
