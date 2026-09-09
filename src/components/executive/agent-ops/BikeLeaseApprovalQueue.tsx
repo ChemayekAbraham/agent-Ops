@@ -135,8 +135,7 @@ export function BikeLeaseApprovalQueue({
     queryClient.invalidateQueries({ queryKey: ['agent-products'] });
   };
 
-  const approveStage: 'coo' | 'cfo' =
-    approveTarget && isAwaitingCfo(approveTarget.order_status) ? 'cfo' : 'coo';
+  const approveStage: Stage = approveTarget ? stageOf(approveTarget.order_status) : 'ops';
 
   const openApprove = (o: BikeLeaseRow) => {
     setApproveTarget(o);
@@ -150,24 +149,31 @@ export function BikeLeaseApprovalQueue({
   const perCredit = Math.round(valuationNum * rate);
   const monthly = valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
 
-
-
   const approve = useMutation({
-    mutationFn: async ({ id, stage }: { id: string; stage: 'coo' | 'cfo' }) => {
-      const { data, error } = await db.rpc(
-        stage === 'cfo' ? 'cfo_disburse_bike_lease' : 'coo_approve_bike_lease',
+    mutationFn: async ({ id, stage }: { id: string; stage: Stage }) => {
+      const fn =
+        stage === 'cfo'
+          ? 'cfo_disburse_bike_lease'
+          : stage === 'coo'
+            ? 'coo_approve_bike_lease'
+            : 'agent_ops_verify_bike_lease';
+      const args =
         stage === 'cfo'
           ? { p_sale_id: id, p_valuation: valuationNum }
-          : { p_sale_id: id, p_valuation: valuationNum, p_lease_term_months: termNum },
-      );
+          : stage === 'coo'
+            ? { p_sale_id: id, p_valuation: valuationNum, p_lease_term_months: termNum }
+            : { p_sale_id: id };
+      const { data, error } = await db.rpc(fn, args);
       if (error) throw error;
       return { ...(data as any), stage };
     },
     onSuccess: (data: any) => {
       toast.success(
         data?.stage === 'cfo'
-          ? `Bike released at ${formatUGX(Number(data?.valuation || 0))}. Lease active — ${Math.round(Number(data?.daily_rate || 0.15) * 100)}% wallet recovery started.`
-          : `Approved at ${formatUGX(Number(data?.valuation || 0))} and forwarded to the CFO for bike release.`,
+          ? `Disbursed ${formatUGX(Number(data?.valuation || 0))} to the agent wallet. Lease active — ${Math.round(Number(data?.daily_rate || 0.15) * 100)}% wallet recovery started.`
+          : data?.stage === 'coo'
+            ? `Approved at ${formatUGX(Number(data?.valuation || 0))} and forwarded to the CFO for disbursement.`
+            : 'Verified by Agent Ops and forwarded to the COO for approval.',
       );
       setApproveTarget(null);
       invalidate();
@@ -189,10 +195,17 @@ export function BikeLeaseApprovalQueue({
     onError: (e: any) => toast.error(e.message || 'Could not reject this application'),
   });
 
-  const scoped = useMemo(
-    () => (pendingOnly ? orders.filter((o) => isOpen(o.order_status)) : orders),
-    [orders, pendingOnly],
-  );
+  const scoped = useMemo(() => {
+    let rows = orders;
+    // A dashboard scoped to one step only ever sees the rows waiting on it,
+    // plus the rows it has already handled so officers can follow them through.
+    if (stageFilter === 'coo') {
+      rows = rows.filter((o) => isAwaitingCoo(o.order_status) || !!o.coo_approved_at);
+    } else if (stageFilter === 'cfo') {
+      rows = rows.filter((o) => isAwaitingCfo(o.order_status) || !!o.cfo_disbursed_at);
+    }
+    return pendingOnly ? rows.filter((o) => isOpen(o.order_status)) : rows;
+  }, [orders, pendingOnly, stageFilter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -205,6 +218,7 @@ export function BikeLeaseApprovalQueue({
   }, [scoped, search]);
 
   const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
+  const cooCount = useMemo(() => orders.filter((o) => isAwaitingCoo(o.order_status)).length, [orders]);
   const cfoCount = useMemo(() => orders.filter((o) => isAwaitingCfo(o.order_status)).length, [orders]);
 
   const rowBusy = (id: string) =>
