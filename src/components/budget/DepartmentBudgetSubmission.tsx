@@ -473,19 +473,17 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
           </div>
 
           <div className="overflow-hidden rounded-lg border border-border">
-            <div className="hidden grid-cols-[44px_minmax(150px,1.1fr)_minmax(190px,1.35fr)_80px_120px_140px_minmax(160px,1.2fr)_120px_96px] bg-muted/70 text-[11px] font-semibold text-muted-foreground xl:grid">
+            <div className="hidden grid-cols-[44px_minmax(200px,1.4fr)_80px_130px_minmax(160px,1.2fr)_120px_96px] bg-muted/70 text-[11px] font-semibold text-muted-foreground xl:grid">
               <div className="border-r border-border px-3 py-3 text-center">#</div>
               <div className="border-r border-border px-3 py-3">Item / Description</div>
-              <div className="border-r border-border px-3 py-3">Budget Category</div>
               <div className="border-r border-border px-3 py-3">Quantity</div>
               <div className="border-r border-border px-3 py-3">Unit Cost (UGX)</div>
-              <div className="border-r border-border px-3 py-3">Month</div>
               <div className="border-r border-border px-3 py-3">Justification</div>
               <div className="border-r border-border px-3 py-3">Total (UGX)</div>
               <div className="px-3 py-3 text-center">Actions</div>
             </div>
             {lines.map((l, idx) => (
-              <div key={idx} className="grid gap-3 border-t border-border bg-card p-3 first:border-t-0 sm:grid-cols-2 xl:grid-cols-[44px_minmax(150px,1.1fr)_minmax(190px,1.35fr)_80px_120px_140px_minmax(160px,1.2fr)_120px_96px] xl:gap-0 xl:p-0">
+              <div key={idx} className="grid gap-3 border-t border-border bg-card p-3 first:border-t-0 sm:grid-cols-2 xl:grid-cols-[44px_minmax(200px,1.4fr)_80px_130px_minmax(160px,1.2fr)_120px_96px] xl:gap-0 xl:p-0">
                   <div className="flex items-center justify-between sm:col-span-2 xl:col-span-1 xl:justify-center xl:border-r xl:border-border xl:px-3 xl:py-4">
                     <span className="text-xs font-semibold text-muted-foreground"><span className="xl:hidden">Item </span>{idx + 1}</span>
                     {!readOnly && lines.length > 1 && (
@@ -501,26 +499,6 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                       onChange={e => updateLine(idx, { description: e.target.value })} />
                   </div>
                   <div className="xl:border-r xl:border-border xl:p-2">
-                    <Label className="mb-1 block text-[11px] xl:hidden">Budget category (Chart of Accounts)</Label>
-                    <Select value={l.account_code} onValueChange={v => updateLine(idx, { account_code: v })} disabled={readOnly}>
-                      <SelectTrigger className="h-11 rounded-lg text-sm"><SelectValue placeholder="Select category" /></SelectTrigger>
-                      <SelectContent className="z-[100]">
-                        {budgetableAccounts.map(a => (
-                          <SelectItem key={a.code} value={a.code}>{a.code} — {a.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {/* An empty catalogue is a permissions problem, not an
-                        empty list. Say so rather than rendering a dropdown
-                        with nothing in it and no way to tell why. */}
-                    {!budgetableAccounts.length && !refLoading && (
-                      <p className="mt-1 text-[10px] text-destructive">
-                        No spending categories are available to your account, so this budget cannot be
-                        filed. Ask Finance to grant access to the chart of accounts.
-                      </p>
-                    )}
-                  </div>
-                  <div className="xl:border-r xl:border-border xl:p-2">
                       <Label className="mb-1 block text-[11px] xl:hidden">Quantity</Label>
                       <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" type="number" min="0" value={l.quantity} disabled={readOnly}
                         onChange={e => updateLine(idx, { quantity: e.target.value })} />
@@ -529,11 +507,6 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                       <Label className="mb-1 block text-[11px] xl:hidden">Unit cost (UGX)</Label>
                       <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" type="number" min="0" value={l.unit_amount} disabled={readOnly}
                         onChange={e => updateLine(idx, { unit_amount: e.target.value })} />
-                  </div>
-                  <div className="xl:border-r xl:border-border xl:p-2">
-                      <Label className="mb-1 block text-[11px] xl:hidden">Month</Label>
-                      <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" type="date" value={l.period_month} disabled={readOnly}
-                        onChange={e => updateLine(idx, { period_month: e.target.value })} />
                   </div>
                   <div className="xl:border-r xl:border-border xl:p-2">
                     <Label className="mb-1 block text-[11px] xl:hidden">Justification</Label>
