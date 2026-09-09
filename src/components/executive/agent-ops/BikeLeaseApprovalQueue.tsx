@@ -232,10 +232,17 @@ export function BikeLeaseApprovalQueue({
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <Bike className="h-4 w-4 text-primary" />
             Spiro bike lease applications
-            {pendingCount > 0 && <Badge variant="secondary">{pendingCount} awaiting COO</Badge>}
-            {cfoCount > 0 && <Badge variant="secondary">{cfoCount} awaiting CFO</Badge>}
+            {(!stageFilter || stageFilter === 'ops') && pendingCount > 0 && (
+              <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>
+            )}
+            {(!stageFilter || stageFilter === 'coo') && cooCount > 0 && (
+              <Badge variant="secondary">{cooCount} awaiting COO</Badge>
+            )}
+            {(!stageFilter || stageFilter === 'cfo') && cfoCount > 0 && (
+              <Badge variant="secondary">{cfoCount} awaiting CFO</Badge>
+            )}
           </CardTitle>
-          <MotorBikeCatalogDialog />
+          {!stageFilter && <MotorBikeCatalogDialog />}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
