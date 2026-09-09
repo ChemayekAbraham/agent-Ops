@@ -244,6 +244,81 @@ function SchedulePositionTag({ schedule }: { schedule: PlanSchedule }) {
 }
 
 
+/** Recorded receipts for one rent plan, newest first. */
+function TenantPaymentHistory({
+  payments,
+  loading,
+  planAgentId,
+  nameFor,
+}: {
+  payments: PaymentRecord[];
+  loading: boolean;
+  planAgentId: string;
+  nameFor: (id: string) => string;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? payments : payments.slice(0, 5);
+
+  if (loading) {
+    return (
+      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" /> Loading payment history…
+      </p>
+    );
+  }
+
+  if (payments.length === 0) {
+    return <p className="text-[11px] text-muted-foreground">No payments recorded on this rent plan yet.</p>;
+  }
+
+  const total = payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <History className="h-3 w-3" /> Recent payments
+        </Label>
+        <span className="text-[10px] tabular-nums text-muted-foreground">
+          {payments.length} payment{payments.length === 1 ? '' : 's'} · {formatUGX(total)} received
+        </span>
+      </div>
+      <ul className="divide-y rounded-md border">
+        {visible.map((payment) => {
+          const collector = payment.agent_id && payment.agent_id !== planAgentId ? nameFor(payment.agent_id) : null;
+          const method = (payment.payment_method || '').replace(/_/g, ' ');
+          return (
+            <li key={payment.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2.5 py-1.5 text-[11px]">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-medium tabular-nums">{format(new Date(payment.created_at), 'dd MMM yyyy')}</span>
+                <span className="text-muted-foreground tabular-nums">{format(new Date(payment.created_at), 'HH:mm')}</span>
+                {method && (
+                  <Badge variant="outline" className="px-1.5 py-0 text-[9px] uppercase tracking-wide text-muted-foreground">
+                    {payment.momo_provider ? `${method} · ${payment.momo_provider}` : method}
+                  </Badge>
+                )}
+                {payment.is_partial && (
+                  <Badge variant="outline" className="border-warning/40 bg-warning/10 px-1.5 py-0 text-[9px] text-warning-foreground">
+                    Partial{payment.expected_amount ? ` of ${formatUGX(Number(payment.expected_amount))}` : ''}
+                  </Badge>
+                )}
+                {collector && <span className="truncate text-muted-foreground">received by {collector}</span>}
+              </div>
+              <span className="font-semibold tabular-nums">{formatUGX(Number(payment.amount ?? 0))}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {payments.length > 5 && (
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setShowAll((value) => !value)}>
+          {showAll ? 'Show less' : `Show full history (${payments.length})`}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+
 type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'position';
 
 export function AgentMonitoring() {
