@@ -17,15 +17,20 @@
 //     never paid anything. Set EPISODE_START_FLOOR to the go-live date so
 //     only episodes beginning under the engine are messaged.
 import "../_shared/smsFooterInterceptor.ts";
+// Every message here goes to an existing tenant, so the platform-wide
+// "Not on Welile yet? Sign up" prompt is both wrong for the audience and
+// ~48 wasted characters that can push the SMS into a second billed segment.
+import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { notifyTenant } from "../_shared/tenantNotify.ts";
+import { agentCta, firstName, loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const EVENT_KEY = "default_5day_agent_opportunity";
+const EVENT_KEY = "FIVE_DAY_AGENT_OPPORTUNITY";
 
 // Day five is the trigger; beyond day seven the "5 days" framing is false and
 // the tenant belongs to collections follow-up, not this campaign.
@@ -49,21 +54,16 @@ interface Candidate {
   outstanding: number;
 }
 
-function firstName(fullName: string | null): string {
-  return String(fullName || "").trim().split(/\s+/)[0] || "there";
-}
-
-function formatUGX(n: number): string {
-  return `UGX ${Math.round(Number(n) || 0).toLocaleString()}`;
-}
-
-function buildMessage(row: Candidate, link: string | null): string {
-  // Regulatory terminology: "Rent Plan", never "loan".
-  const base =
-    `Hi ${firstName(row.tenant_name)}, your Welile Rent Plan has ${row.consecutive_missed_days} days ` +
-    `unpaid (${formatUGX(row.outstanding)} outstanding). You can also earn income as a Welile Agent ` +
-    `by helping people in your area access Welile services.`;
-  return link ? `${base} Start here: ${link}` : base;
+/**
+ * Renders the catalogue template. The approved copy leads with the earnings
+ * opportunity and does not recite the missed days back at the tenant — five
+ * consecutive missed days stays the internal trigger, not the message.
+ */
+function buildMessage(template: string, row: Candidate, link: string | null): string {
+  return renderTemplate(template, {
+    name: firstName(row.tenant_name),
+    agent_cta: agentCta(link),
+  });
 }
 
 Deno.serve(async (req) => {
@@ -106,21 +106,21 @@ Deno.serve(async (req) => {
 
     const rows: Candidate[] = (candidates ?? []) as Candidate[];
 
-    const { data: eventRow } = await admin
-      .from("tenant_notification_events")
-      .select("link_path, active")
-      .eq("event_key", EVENT_KEY)
-      .maybeSingle();
-
-    if (eventRow && eventRow.active === false) {
+    const event = await loadEvent(admin, EVENT_KEY);
+    if (!event || !event.active) {
       return new Response(
-        JSON.stringify({ success: true, message: "Event inactive — nothing sent", candidates: rows.length, sent: 0 }),
+        JSON.stringify({ success: true, message: "Event missing or inactive — nothing sent", candidates: rows.length, sent: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    if (!event.body_template) {
+      throw new Error(`${EVENT_KEY} has no body_template configured`);
+    }
 
+    // link_path points at the existing agent-earnings explainer until a
+    // dedicated tenant-to-agent conversion page exists.
     const origin = Deno.env.get("PUBLIC_SITE_ORIGIN") || "https://welileapp.com";
-    const link = eventRow?.link_path ? `${origin}${eventRow.link_path}` : null;
+    const link = event.link_path ? `${origin}${event.link_path}` : null;
 
     if (dryRun) {
       return new Response(
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
             run_start_date: r.run_start_date,
             episode_key: r.episode_key,
             outstanding: r.outstanding,
-            message: buildMessage(r, link),
+            message: buildMessage(event.body_template, r, link),
           })),
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
           episodeKey: row.episode_key,
           phone,
           tenantName: row.tenant_name,
-          message: buildMessage(row, link),
+          message: buildMessage(event.body_template, row, link),
           payload: {
             consecutive_missed_days: row.consecutive_missed_days,
             run_start_date: row.run_start_date,

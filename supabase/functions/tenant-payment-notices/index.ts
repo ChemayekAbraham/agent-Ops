@@ -1,4 +1,4 @@
-// Payment-behaviour SMS: payment received, partial payment, missed payment.
+// Payment-behaviour SMS: PAYMENT_FULL, PAYMENT_PARTIAL, PAYMENT_MISSED.
 //
 // From the 2026-09-09 tenant-ops meeting. Two modes, because the triggers have
 // different shapes:
@@ -10,17 +10,33 @@
 //     a short payment must never read as "nothing received".
 //
 //   mode=missed -- once daily, after the obligation day has closed. Tells
-//     tenants whose daily amount went unpaid that the balance carried forward.
+//     tenants whose daily amount went unpaid that the balance carried forward,
+//     and how to pay directly.
 //
-// Every balance in every message comes from get_tenant_payment_day_state. This
-// function never recomputes what a tenant owes -- the SMS layer consuming
-// obligation state rather than deriving its own was an explicit instruction.
+// Every amount in every message comes from get_tenant_payment_day_state and
+// every merchant code from payment_channels. This function computes no
+// balances and hardcodes no codes: business logic determines the event, the
+// engine only communicates what is already known to be true.
 //
 // Frequency, opt-outs and once-per-day idempotency are handled by
 // notifyTenant + the notification engine, not here.
 import "../_shared/smsFooterInterceptor.ts";
+// Every message here goes to an existing tenant, so the platform-wide
+// "Not on Welile yet? Sign up" prompt is both wrong for the audience and
+// ~48 wasted characters that can push the SMS into a second billed segment.
+import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { notifyTenant } from "../_shared/tenantNotify.ts";
+import {
+  dashboardSuffix,
+  firstName,
+  formatUGX,
+  loadEvent,
+  loadPaymentChannels,
+  payDirectSentence,
+  renderTemplate,
+  type NotificationEvent,
+} from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,48 +66,11 @@ interface MissedCandidate {
   days_since_last_payment: number | null;
 }
 
-function firstName(fullName: string | null): string {
-  return String(fullName || "").trim().split(/\s+/)[0] || "there";
-}
-
-function ugx(n: unknown): string {
-  return `UGX ${Math.round(Number(n) || 0).toLocaleString()}`;
-}
-
 /** Kampala calendar date (UTC+3, no DST) — the obligation day boundary. */
 function kampalaDate(offsetDays = 0): string {
   const shifted = new Date(Date.now() + 3 * 60 * 60 * 1000);
   shifted.setUTCDate(shifted.getUTCDate() + offsetDays);
   return shifted.toISOString().slice(0, 10);
-}
-
-// Regulatory terminology throughout: "Rent Plan", never "loan"; "Returns",
-// never "interest" or "ROI".
-function clearedMessage(row: PaymentCandidate): string {
-  const tail = Number(row.outstanding) > 0
-    ? `Rent Plan balance: ${ugx(row.outstanding)}.`
-    : `Your Rent Plan is fully repaid.`;
-  return (
-    `Hi ${firstName(row.tenant_name)}, Welile received ${ugx(row.paid_on_day)}. ` +
-    `Today's rent is cleared. ${tail} ` +
-    `Paying on time keeps improving your Welile rent access.`
-  );
-}
-
-function partialMessage(row: PaymentCandidate): string {
-  return (
-    `Hi ${firstName(row.tenant_name)}, Welile received ${ugx(row.paid_on_day)} of ` +
-    `today's ${ugx(row.daily_expected)} rent. ${ugx(row.remaining_today)} is still due today ` +
-    `and carries forward. Rent Plan balance: ${ugx(row.outstanding)}.`
-  );
-}
-
-function missedMessage(row: MissedCandidate, day: string): string {
-  return (
-    `Hi ${firstName(row.tenant_name)}, your ${ugx(row.daily_expected)} Welile rent for ${day} ` +
-    `was not paid and has been carried forward. Rent Plan balance: ${ugx(row.outstanding)}. ` +
-    `Pay via MTN/Airtel to Welile or through your agent.`
-  );
 }
 
 Deno.serve(async (req) => {
@@ -122,6 +101,34 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Load every template this run may need up front; a missing template is a
+    // configuration error, not something to paper over per tenant.
+    const neededKeys = mode === "payments"
+      ? ["PAYMENT_FULL", "PAYMENT_PARTIAL"]
+      : ["PAYMENT_MISSED"];
+
+    const events = new Map<string, NotificationEvent>();
+    for (const key of neededKeys) {
+      const event = await loadEvent(admin, key);
+      if (!event) throw new Error(`${key} has no catalog row`);
+      if (!event.body_template) throw new Error(`${key} has no body_template configured`);
+      events.set(key, event);
+    }
+
+    const activeKeys = neededKeys.filter((k) => events.get(k)!.active);
+    if (activeKeys.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: "All events for this mode are inactive — nothing sent", sent: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const channels = await loadPaymentChannels(admin);
+
+    // Per-tenant dashboard links do not exist yet (Stage 4C); until they do
+    // dashboardSuffix() returns "" and these messages end after the balance.
+    const suffix = dashboardSuffix(null);
+
     const results = { sent: 0, skipped: 0, failed: 0 };
     const skipReasons: Record<string, number> = {};
     const preview: unknown[] = [];
@@ -135,6 +142,11 @@ Deno.serve(async (req) => {
       message: string,
       payload: Record<string, unknown>,
     ) {
+      if (!events.get(eventKey)?.active) {
+        results.skipped++;
+        skipReasons["event_inactive"] = (skipReasons["event_inactive"] ?? 0) + 1;
+        return;
+      }
       if (dryRun) {
         if (preview.length < 10) {
           preview.push({ tenant_id: tenantId, event: eventKey, episode_key: episodeKey, message });
@@ -186,16 +198,27 @@ Deno.serve(async (req) => {
         if (!phone) continue;
 
         const cleared = row.day_state === "cleared";
+        const eventKey = cleared ? "PAYMENT_FULL" : "PAYMENT_PARTIAL";
+
+        const message = renderTemplate(events.get(eventKey)!.body_template!, {
+          name: firstName(row.tenant_name),
+          amount_paid: formatUGX(row.paid_on_day),
+          amount_due: formatUGX(row.daily_expected),
+          remaining_balance: formatUGX(row.remaining_today),
+          balance: formatUGX(row.outstanding),
+          dashboard_suffix: suffix,
+        });
+
         // Episode is the obligation day, so a tenant who pays repeatedly gets
         // at most one "partial" and one "cleared" message for that day — and
         // a partial that later completes still earns the cleared confirmation.
         await dispatch(
           row.tenant_id,
-          cleared ? "payment_received" : "payment_partial",
+          eventKey,
           `${cleared ? "paid" : "partial"}:${day}`,
           phone,
           row.tenant_name,
-          cleared ? clearedMessage(row) : partialMessage(row),
+          message,
           {
             day,
             day_state: row.day_state,
@@ -208,7 +231,7 @@ Deno.serve(async (req) => {
       }
     } else {
       // Default to the day that has just closed; today is still in progress
-      // and a tenant who has not paid yet this morning has not missed anything.
+      // and a tenant who has not paid yet this morning has missed nothing.
       const day = String(body.as_of ?? kampalaDate(-1));
 
       const { data, error } = await admin.rpc("get_tenant_missed_obligation_candidates", {
@@ -228,19 +251,29 @@ Deno.serve(async (req) => {
         const phone = String(row.tenant_phone ?? "").trim();
         if (!phone) continue;
 
+        const message = renderTemplate(events.get("PAYMENT_MISSED")!.body_template!, {
+          name: firstName(row.tenant_name),
+          amount_due: formatUGX(row.daily_expected),
+          balance: formatUGX(row.outstanding),
+          pay_direct: payDirectSentence(channels),
+          dashboard_suffix: suffix,
+        });
+
         await dispatch(
           row.tenant_id,
-          "payment_missed",
+          "PAYMENT_MISSED",
           `missed:${day}`,
           phone,
           row.tenant_name,
-          missedMessage(row, day),
+          message,
           {
             day,
             daily_expected: row.daily_expected,
             outstanding: row.outstanding,
             last_pay_date: row.last_pay_date,
             days_since_last_payment: row.days_since_last_payment,
+            mtn_code: channels.mtn,
+            airtel_code: channels.airtel,
           },
         );
       }

@@ -78,6 +78,12 @@ project_id = "wirntoujqoyjobfhyelc"
     verify_jwt = false
   [functions.tenant-payment-notices]
     verify_jwt = false
+  [functions.tenant-relocation-notices]
+    verify_jwt = false
+  [functions.tenant-rent-limit-notices]
+    verify_jwt = false
+  [functions.tenant-merchant-code-notices]
+    verify_jwt = false
   [functions.scan-receipt]
     verify_jwt = false
   [functions.seed-test-funds]
