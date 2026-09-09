@@ -42,6 +42,7 @@ import { ListingPhotoUploadDialog } from './ListingPhotoUploadDialog';
 import { ImagePlus } from 'lucide-react';
 import { ContactActions } from './ContactActions';
 import { LandlordEditCard } from './LandlordEditCard';
+import { LandlordChangeHistory } from './LandlordChangeHistory';
 import { TenantLandlordPayoutsEditor } from './TenantLandlordPayoutsEditor';
 import LandlordAgreementHistory from '@/components/landlord/agreement/LandlordAgreementHistory';
 
@@ -2479,6 +2480,8 @@ function LandlordPane({ landlordId, isOps }: { landlordId: string; isOps: boolea
         <LandlordSmartphoneToggle landlordId={landlordId} initial={landlord?.has_smartphone ?? true} canEdit={isOps} />
         <LandlordEditCard landlordId={landlordId} landlord={landlord} canEdit={isOps} />
       </Card>
+
+      <LandlordChangeHistory landlordId={landlordId} visible={isOps} />
 
       <LandlordAgreementHistory
         landlordId={landlordId}
