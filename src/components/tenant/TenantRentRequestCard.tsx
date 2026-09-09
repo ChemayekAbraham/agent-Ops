@@ -38,12 +38,14 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const [trackOpen, setTrackOpen] = useState(false);
+
   const { data: latest } = useQuery({
     queryKey: ['tenant-rent-intake', userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenant_rent_intake_requests')
-        .select('id, status, rent_amount, service_centre_name, decline_reason, created_at')
+        .select('id, status, rent_amount, service_centre_name, decline_reason, created_at, claimed_at, visit_verified_at, decided_at, distance_km, location_name, rent_request_id')
         .eq('tenant_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
