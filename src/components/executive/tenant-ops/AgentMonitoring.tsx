@@ -867,7 +867,7 @@ export function AgentMonitoring() {
       </div>
 
       {/* Collection hero + KPI strip, matching Tenant Ops Home */}
-      <div className="grid gap-3 xl:grid-cols-3">
+      <div className="grid items-start gap-3 xl:grid-cols-3">
         <Card className="border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm xl:col-span-1">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
