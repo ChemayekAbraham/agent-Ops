@@ -14,6 +14,7 @@ import {
   ugLocationLabel,
   type UgLocationSelection,
 } from '@/hooks/useUgLocations';
+import { validateUgandaPhone } from '@/lib/ugandaPhone';
 
 type Props = {
   landlordId: string;
@@ -44,6 +45,11 @@ const FIELDS: Array<{ key: string; label: string; type?: 'text' | 'number' | 'te
   { key: 'water_meter_number', label: 'Water meter #' },
   { key: 'description', label: 'Description / notes', type: 'textarea' },
 ];
+
+/** Numbers we dial, so they must be valid Ugandan numbers before saving. */
+const PHONE_FIELDS = ['phone', 'mobile_money_number', 'caretaker_phone'];
+/** Fields the landlord record cannot exist without. */
+const REQUIRED_FIELDS = ['name', 'phone'];
 
 export function LandlordEditCard({ landlordId, landlord, canEdit }: Props) {
   const qc = useQueryClient();
@@ -79,7 +85,24 @@ export function LandlordEditCard({ landlordId, landlord, canEdit }: Props) {
       for (const f of FIELDS) {
         const original = landlord?.[f.key] != null ? String(landlord[f.key]) : '';
         const next = (form[f.key] ?? '').trim();
-        if (next !== original.trim()) patch[f.key] = next;
+        if (next === original.trim()) continue;
+
+        // Validate only what the officer actually changed, so untouched
+        // legacy values are never rejected or overwritten.
+        if (PHONE_FIELDS.includes(f.key) && next !== '') {
+          const check = validateUgandaPhone(next);
+          if (!check.valid) throw new Error(`${f.label}: enter a valid Ugandan phone number`);
+          patch[f.key] = check.e164 as string;
+          continue;
+        }
+        if (f.type === 'number' && next !== '') {
+          const n = Number(next);
+          if (!Number.isFinite(n) || n < 0) throw new Error(`${f.label}: enter a valid amount`);
+        }
+        if (REQUIRED_FIELDS.includes(f.key) && next === '') {
+          throw new Error(`${f.label} cannot be emptied`);
+        }
+        patch[f.key] = next;
       }
       // Only send location fields that actually changed. A null/empty pick is
       // never sent, so an existing address can never be overwritten with nulls.
