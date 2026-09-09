@@ -105,8 +105,9 @@ export function BikeLeaseDetailDialog({
   const paid = Number(order.amount_paid || 0);
 
   const isPending = order.order_status === 'submitted' || order.order_status === 'pending_approval';
+  const isAwaitingCoo = order.order_status === 'ops_approved';
   const isAwaitingCfo = order.order_status === 'coo_approved';
-  const isOpen = isPending || isAwaitingCfo;
+  const isOpen = isPending || isAwaitingCoo || isAwaitingCfo;
 
 
   return (
