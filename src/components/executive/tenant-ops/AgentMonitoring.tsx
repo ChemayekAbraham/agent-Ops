@@ -473,11 +473,17 @@ export function AgentMonitoring() {
       const key = `${collection.agent_id}:${collection.tenant_id}`;
       byAgentTenant.set(key, (byAgentTenant.get(key) ?? 0) + amount);
     });
+    // Tenant self-payments settle the same day's obligation.
+    (data?.repayments ?? []).forEach((row) => {
+      if (!row.rent_request_id) return;
+      byPlan.set(row.rent_request_id, (byPlan.get(row.rent_request_id) ?? 0) + Number(row.amount ?? 0));
+    });
     return {
       forPlan: (agentId: string, request: Pick<ActiveRentRequest, 'id' | 'tenant_id'>) =>
         (byPlan.get(request.id) ?? 0) + (byAgentTenant.get(`${agentId}:${request.tenant_id}`) ?? 0),
     };
-  }, [data?.collections]);
+  }, [data?.collections, data?.repayments]);
+
 
   /** One schedule reading per rent plan, computed once for the selected day. */
   const scheduleMap = useMemo(() => {
