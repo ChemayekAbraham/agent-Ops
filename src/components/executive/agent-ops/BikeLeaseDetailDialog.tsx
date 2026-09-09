@@ -49,6 +49,7 @@ export interface BikeLeaseDetailRow {
   order_status: string;
   rejection_reason: string | null;
   created_at: string;
+  ops_approved_at?: string | null;
   coo_approved_at: string | null;
   cfo_disbursed_at: string | null;
   lease_activated_at: string | null;
@@ -59,6 +60,7 @@ export interface BikeLeaseDetailRow {
 const STATUS_TONE: Record<string, string> = {
   submitted: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
   pending_approval: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+  ops_approved: 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30',
   coo_approved: 'bg-sky-500/15 text-sky-600 border-sky-500/30',
   approved: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
   completed: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
@@ -66,10 +68,11 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  submitted: 'Submitted — awaiting COO',
-  pending_approval: 'Submitted — awaiting COO',
+  submitted: 'Submitted — awaiting Agent Ops',
+  pending_approval: 'Submitted — awaiting Agent Ops',
+  ops_approved: 'Agent Ops verified — awaiting COO',
   coo_approved: 'COO approved — awaiting CFO',
-  approved: 'Bike disbursed & active lease',
+  approved: 'Funds disbursed & active lease',
   completed: 'Lease completed',
   rejected: 'Rejected',
 };
