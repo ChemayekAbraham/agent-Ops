@@ -348,7 +348,7 @@ function TenantPaymentHistory({
                     Partial{payment.expected_amount ? ` of ${formatUGX(Number(payment.expected_amount))}` : ''}
                   </Badge>
                 )}
-                {collector && <span className="truncate text-muted-foreground">received by {collector}</span>}
+                {collector && <span className="truncate text-muted-foreground">{collector}</span>}
               </div>
               <span className="font-semibold tabular-nums">{formatUGX(Number(payment.amount ?? 0))}</span>
             </li>
