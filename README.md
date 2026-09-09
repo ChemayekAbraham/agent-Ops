@@ -13,7 +13,14 @@ Welile is a Ugandan rent-facilitation and fintech platform. Tenants who can't pa
 
 > Regulatory terminology is mandatory in user-facing copy: *Rent Plan* (not loan), *Supporter* (not lender), *Returns* (not ROI).
 
-For the full canonical architecture reference (data model, ledger internals, subsystem inventory, operational rules), see [`SYSTEM_CONTEXT.md`](./SYSTEM_CONTEXT.md) — it is kept in sync with the live database and is the source of truth ahead of this file.
+For the full canonical architecture reference (data model, ledger internals, subsystem inventory, operational rules), see [`SYSTEM_CONTEXT.md`](./SYSTEM_CONTEXT.md) — it is the source of truth ahead of this file.
+
+> ### 🚨 New engineer, or production is on fire?
+> Start at [**`docs/HANDOVER/`**](./docs/HANDOVER/) — the engineer survival manual.
+> `SYSTEM_CONTEXT.md` explains *how the system works*; the handover folder explains *how not to
+> destroy it*: kill switches, danger zones, incident runbooks, disaster recovery, and the traps
+> that have already cost real money. It is verified against the live production database and
+> records exactly where `SYSTEM_CONTEXT.md` has fallen behind.
 
 ### Contents
 
@@ -72,6 +79,7 @@ The platform is engineered as a secure, responsive PWA optimized for performance
 
 | Doc | Covers |
 | :--- | :--- |
+| [**`docs/HANDOVER/`**](./docs/HANDOVER/) | **Engineer survival manual** — kill switches, danger zones, incident runbooks, disaster recovery, live-state verification, and hard-won tribal knowledge. Read `07-tribal-knowledge.md` early. |
 | [`docs/WELILE_API.md`](./docs/WELILE_API.md) | The versioned public REST API (`api.welileapp.com`) consumed by the Welile Flutter app. |
 | [`docs/AGENT_SYSTEM_ARCHITECTURE.md`](./docs/AGENT_SYSTEM_ARCHITECTURE.md) | Field agent model — wallets, commissions, advances, portfolio limits. |
 | [`docs/FINANCIAL_SYSTEM_ARCHITECTURE.md`](./docs/FINANCIAL_SYSTEM_ARCHITECTURE.md) / [`FINANCIAL_OPERATIONS_ARCHITECTURE.md`](./docs/FINANCIAL_OPERATIONS_ARCHITECTURE.md) | The double-entry ledger, wallet invariants, and Financial Ops workflows. |
