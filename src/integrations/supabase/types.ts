@@ -12930,6 +12930,13 @@ export type Database = {
             referencedRelation: "agent_collections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "field_collections_confirmed_collection_id_fkey"
+            columns: ["confirmed_collection_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_collection_unapplied"
+            referencedColumns: ["collection_id"]
+          },
         ]
       }
       field_deposit_batch_audit: {
@@ -13008,6 +13015,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "agent_collections"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_deposit_batch_items_agent_collection_id_fkey"
+            columns: ["agent_collection_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_collection_unapplied"
+            referencedColumns: ["collection_id"]
           },
           {
             foreignKeyName: "field_deposit_batch_items_allocation_id_fkey"
@@ -31759,6 +31773,62 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_day_settlements: {
+        Row: {
+          amount: number
+          collection_id: string
+          created_at: string
+          day: string
+          id: string
+          rent_request_id: string
+        }
+        Insert: {
+          amount: number
+          collection_id: string
+          created_at?: string
+          day: string
+          id?: string
+          rent_request_id: string
+        }
+        Update: {
+          amount?: number
+          collection_id?: string
+          created_at?: string
+          day?: string
+          id?: string
+          rent_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_day_settlements_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "agent_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_day_settlements_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_collection_unapplied"
+            referencedColumns: ["collection_id"]
+          },
+          {
+            foreignKeyName: "rent_day_settlements_obligation_fkey"
+            columns: ["day", "rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "agent_expected_day_plans"
+            referencedColumns: ["day", "rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_day_settlements_obligation_fkey"
+            columns: ["day", "rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_day_ledger"
+            referencedColumns: ["day", "rent_request_id"]
+          },
+        ]
+      }
       rent_history_records: {
         Row: {
           agent_ops_verified_at: string | null
@@ -44164,6 +44234,152 @@ export type Database = {
         }
         Relationships: []
       }
+      v_rent_collection_unapplied: {
+        Row: {
+          agent_id: string | null
+          applied_ugx: number | null
+          collected_ugx: number | null
+          collection_id: string | null
+          created_at: string | null
+          rent_request_id: string | null
+          unapplied_ugx: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+        ]
+      }
+      v_rent_day_ledger: {
+        Row: {
+          agent_id: string | null
+          day: string | null
+          expected_ugx: number | null
+          is_settled: boolean | null
+          remaining_ugx: number | null
+          rent_request_id: string | null
+          settled_ugx: number | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
+      v_rent_plan_arrears: {
+        Row: {
+          agent_id: string | null
+          arrears_ugx: number | null
+          billed_to_date_ugx: number | null
+          days_behind: number | null
+          days_billed: number | null
+          due_today_ugx: number | null
+          oldest_open_day: string | null
+          rent_request_id: string | null
+          settled_to_date_ugx: number | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
       v_rent_plan_schedule: {
         Row: {
           agent_id: string | null
@@ -44869,6 +45085,7 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_arrears_overview: { Args: { p_agent_id?: string }; Returns: Json }
       agent_can_view_trust: { Args: { _user_id: string }; Returns: boolean }
       agent_cancel_merchandise_order: {
         Args: { p_reason?: string; p_sale_id: string }
@@ -53265,8 +53482,18 @@ export type Database = {
         }
         Returns: string
       }
+      rent_apply_collections_to_days: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
+      rent_arrears_go_live: { Args: never; Returns: string }
+      rent_arrears_read_authorized: { Args: never; Returns: boolean }
       rent_pipeline_tenant_history: {
         Args: { p_exclude_request_id?: string; p_tenant_id: string }
+        Returns: Json
+      }
+      rent_plan_day_ledger: {
+        Args: { p_rent_request_id: string }
         Returns: Json
       }
       rent_plan_schedule_days: {
@@ -53292,6 +53519,7 @@ export type Database = {
         Args: { p_duration_days: number; p_registration_type: string }
         Returns: boolean
       }
+      rent_sweep_unapplied_collections: { Args: never; Returns: Json }
       reopen_deposit_for_repair: {
         Args: { p_deposit_id: string }
         Returns: Json
