@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -9,6 +9,9 @@ import {
   useBudgetDepartmentNotifications,
   type DeptNotification,
 } from './useBudgetDepartmentNotifications';
+import { useBudgetSubmissionGate } from '@/hooks/useBudgetSubmissionGate';
+import { departmentKeysForDashboard } from './departmentScope';
+
 
 /**
  * Department-level budget notice bell. A single notice exists per budget cycle
