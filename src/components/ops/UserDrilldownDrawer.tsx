@@ -42,9 +42,9 @@ import { ListingPhotoUploadDialog } from './ListingPhotoUploadDialog';
 import { ImagePlus } from 'lucide-react';
 import { ContactActions } from './ContactActions';
 import { LandlordEditCard } from './LandlordEditCard';
-import { RentFrequencyEditor } from './RentFrequencyEditor';
 import { LandlordChangeHistory } from './LandlordChangeHistory';
 import { TenantLandlordPayoutsEditor } from './TenantLandlordPayoutsEditor';
+import { PaymentPeriodControl } from './PaymentPeriodControl';
 import LandlordAgreementHistory from '@/components/landlord/agreement/LandlordAgreementHistory';
 
 type UserBrief = { id: string; full_name: string | null; phone: string | null };
@@ -1460,7 +1460,7 @@ function TenantPane({
     queryFn: async () => {
       const { data } = await supabase
         .from('rent_requests')
-        .select('id, rent_amount, daily_repayment, total_repayment, amount_repaid, status, agent_id, assigned_agent_id, landlord_id, created_at, repayment_frequency, repayment_starts_on, duration_days, registration_type')
+        .select('id, rent_amount, daily_repayment, total_repayment, amount_repaid, status, agent_id, assigned_agent_id, landlord_id, created_at, repayment_frequency, repayment_starts_on')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -1637,19 +1637,12 @@ function TenantPane({
         {!activeRr ? (
           <p className="text-xs text-muted-foreground">No rent requests on file.</p>
         ) : (
-          <>
-            <RentBalanceEditor
-              activeRr={activeRr}
-              balance={balance}
-              canEdit={isOps}
-              onSaved={() => qc.invalidateQueries({ queryKey: ['drilldown-tenant-rr', tenantId] })}
-            />
-            <RentFrequencyEditor
-              activeRr={activeRr}
-              canEdit={isOps}
-              onSaved={() => qc.invalidateQueries({ queryKey: ['drilldown-tenant-rr', tenantId] })}
-            />
-          </>
+          <RentBalanceEditor
+            activeRr={activeRr}
+            balance={balance}
+            canEdit={isOps}
+            onSaved={() => qc.invalidateQueries({ queryKey: ['drilldown-tenant-rr', tenantId] })}
+          />
         )}
         {activeRr && isOps && landlordPayment && landlordPayment.hasAllocation && Number(landlordPayment.allocPaid || 0) === 0 && (
           <LandlordFundingEditor
@@ -1726,14 +1719,29 @@ function TenantPane({
             onChange={(e) => setReassignReason(e.target.value)}
             className="h-8 text-sm"
           />
-          <Button
-            size="sm" className="w-full"
-            disabled={!reassignAgent || reassign.isPending}
-            onClick={() => reassign.mutate()}
-          >
-            {reassign.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-            {activeRr ? 'Link & reassign rent' : 'Link to agent'}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              size="sm" className="w-full sm:flex-1"
+              disabled={!reassignAgent || reassign.isPending}
+              onClick={() => reassign.mutate()}
+            >
+              {reassign.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              {activeRr ? 'Link & reassign rent' : 'Link to agent'}
+            </Button>
+            {activeRr && (
+              <PaymentPeriodControl
+                rentRequestId={activeRr.id}
+                frequency={activeRr.repayment_frequency ?? null}
+                dailyRepayment={activeRr.daily_repayment ?? null}
+                canEdit={isOps}
+                onSaved={() => {
+                  qc.invalidateQueries({ queryKey: ['drilldown-tenant-rr', tenantId] });
+                  qc.invalidateQueries({ queryKey: ['tenant-ops-agent-monitoring'] });
+                  qc.invalidateQueries({ queryKey: ['agent-capacity-map'] });
+                }}
+              />
+            )}
+          </div>
         </Card>
       )}
     </div>
