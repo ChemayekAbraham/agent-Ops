@@ -471,7 +471,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
           </div>
 
           <div className="overflow-hidden rounded-lg border border-border">
-            <div className="hidden grid-cols-[44px_minmax(200px,1.4fr)_80px_130px_minmax(160px,1.2fr)_120px_96px] bg-muted/70 text-[11px] font-semibold text-muted-foreground xl:grid">
+            <div className="hidden grid-cols-[44px_minmax(200px,1.4fr)_80px_130px_minmax(160px,1.2fr)_120px_120px] bg-muted/70 text-[11px] font-semibold text-muted-foreground xl:grid">
               <div className="border-r border-border px-3 py-3 text-center">#</div>
               <div className="border-r border-border px-3 py-3">Item / Description</div>
               <div className="border-r border-border px-3 py-3">Quantity</div>
@@ -481,7 +481,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
               <div className="px-3 py-3 text-center">Actions</div>
             </div>
             {lines.map((l, idx) => (
-              <div key={idx} className="grid gap-3 border-t border-border bg-card p-3 first:border-t-0 sm:grid-cols-2 xl:grid-cols-[44px_minmax(200px,1.4fr)_80px_130px_minmax(160px,1.2fr)_120px_96px] xl:gap-0 xl:p-0">
+              <div key={idx} className="grid gap-3 border-t border-border bg-card p-3 first:border-t-0 sm:grid-cols-2 xl:grid-cols-[44px_minmax(200px,1.4fr)_80px_130px_minmax(160px,1.2fr)_120px_120px] xl:gap-0 xl:p-0">
                   <div className="flex items-center justify-between sm:col-span-2 xl:col-span-1 xl:justify-center xl:border-r xl:border-border xl:px-3 xl:py-4">
                     <span className="text-xs font-semibold text-muted-foreground"><span className="xl:hidden">Item </span>{idx + 1}</span>
                     {!readOnly && lines.length > 1 && (
@@ -514,7 +514,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                   <div className="flex min-h-11 items-center rounded-lg bg-muted px-3 text-xs font-medium tabular-nums text-muted-foreground xl:m-2">
                     <span className="mr-1 xl:hidden">Total </span>{formatUGX((Number(l.quantity) || 0) * (Number(l.unit_amount) || 0))}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 sm:justify-end xl:flex-row xl:justify-center xl:px-2 xl:py-3">
+                  <div className="flex flex-row flex-nowrap items-center gap-2 sm:justify-end xl:justify-center xl:px-2 xl:py-3">
                     {!readOnly && (
                       <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-2 text-[11px] font-medium transition-colors hover:bg-muted" title={l.document_path ? 'Replace attachment' : 'Attach document'}>
                         {uploadingIdx === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
