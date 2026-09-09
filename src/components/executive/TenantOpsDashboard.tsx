@@ -147,21 +147,48 @@ export function TenantOpsDashboard({
       const fromIso = fromDate ? fromDate.toISOString() : null;
       const toIso = toDate ? toDate.toISOString() : null;
 
-      // 1. Pull tenant payments from the ledger (source of truth)
-      let ledgerQ = supabase
-        .from('general_ledger')
-        .select('user_id, amount, source_id, source_table, transaction_date, transaction_group_id')
-        .in('category', ['tenant_repayment', 'rent_repayment'])
-        .eq('direction', 'cash_in');
-      if (fromIso) ledgerQ = ledgerQ.gte('transaction_date', fromIso);
-      if (toIso) ledgerQ = ledgerQ.lte('transaction_date', toIso);
-      const { data: payments, error: payErr } = await ledgerQ;
-      if (payErr) throw payErr;
+      // 1. Pull tenant payments from the ledger (source of truth for direct
+      //    repayments) plus the agent-collection record (the canonical record
+      //    of field collections). Agent-collection ledger legs are dropped in
+      //    favour of the collection rows themselves so nothing is counted
+      //    twice and every day in the range is represented.
+      const ledgerLegs = await fetchAllPaged<any>(() => {
+        let q = supabase
+          .from('general_ledger')
+          .select('user_id, amount, source_id, source_table, transaction_date, transaction_group_id')
+          .in('category', ['tenant_repayment', 'rent_repayment'])
+          .eq('direction', 'cash_in')
+          .order('transaction_date', { ascending: false });
+        if (fromIso) q = q.gte('transaction_date', fromIso);
+        if (toIso) q = q.lte('transaction_date', toIso);
+        return q;
+      });
+      const fieldCollections = await fetchAllPaged<any>(() => {
+        let q = supabase
+          .from('agent_collections')
+          .select('id, tenant_id, agent_id, amount, created_at')
+          .order('created_at', { ascending: false });
+        if (fromIso) q = q.gte('created_at', fromIso);
+        if (toIso) q = q.lte('created_at', toIso);
+        return q;
+      });
+      const payments: any[] = [
+        ...ledgerLegs.filter((l: any) => l.source_table !== 'agent_collections'),
+        ...fieldCollections.map((c: any) => ({
+          user_id: c.tenant_id,
+          amount: Number(c.amount || 0),
+          source_id: c.id,
+          source_table: 'agent_collections',
+          transaction_date: c.created_at,
+          transaction_group_id: null,
+        })),
+      ];
 
-      if (!payments || payments.length === 0) {
+      if (payments.length === 0) {
         toast.error('No tenant payments found for the selected period');
         return;
       }
+
 
       // 1b. Resolve the TRUE tenant for each payment leg.
       //     The ledger leg's user_id often holds the AGENT (because the
