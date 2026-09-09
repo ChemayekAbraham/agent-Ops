@@ -56,7 +56,7 @@ export function CallCentreSmartphonePanel({
   ) => {
     setUpdatingStatus(status);
     try {
-      const { error } = await supabase.rpc('set_tenant_smartphone_status', {
+      const { error } = await (supabase.rpc as any)('set_tenant_smartphone_status', {
         p_tenant_id: tenantId,
         p_status: status,
         p_source: 'CALL_CENTER',
