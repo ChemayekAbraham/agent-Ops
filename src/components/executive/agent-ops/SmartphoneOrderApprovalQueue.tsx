@@ -888,8 +888,8 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                     </p>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="rounded-md bg-background/70 px-2 py-1.5">
-                        <p className="text-[10px] text-muted-foreground">Difference</p>
-                        <p className="text-xs font-semibold">{formatUGX(accessDifference)}</p>
+                        <p className="text-[10px] text-muted-foreground">Interest (33%)</p>
+                        <p className="text-xs font-semibold">{formatUGX(accessInterest)}</p>
                       </div>
                       <div className="rounded-md bg-background/70 px-2 py-1.5">
                         <p className="text-[10px] text-muted-foreground">Days</p>
@@ -902,9 +902,11 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                       {formatUGX(dailyDeduction)} is deducted from the agent&apos;s wallet each day for{' '}
-                      {repaymentDaysNumber || 0} days — {formatUGX(totalPayable)} in total. Difference ={' '}
-                      {formatUGX(officialAmountNumber)} − {formatUGX(phoneAmountNumber)}, spread over 30 days.
+                      {repaymentDaysNumber || 0} days — {formatUGX(totalPayable)} in total. That is{' '}
+                      {formatUGX(officialAmountNumber)} down payment + {formatUGX(accessInterest)} interest
+                      (33%).
                     </p>
+
                   </div>
                 </>
               )}
