@@ -78,6 +78,23 @@ interface Collection {
   tenant_id: string;
   amount: number | null;
   created_at: string;
+  /** Authoritative link to the rent plan the receipt was posted against. */
+  rent_request_id: string | null;
+}
+
+/** One recorded receipt, as already stored by the collection flow. */
+interface PaymentRecord {
+  id: string;
+  rent_request_id: string | null;
+  tenant_id: string;
+  agent_id: string;
+  amount: number | null;
+  created_at: string;
+  payment_method: string | null;
+  is_partial: boolean | null;
+  expected_amount: number | null;
+  momo_provider: string | null;
+  tracking_id: string | null;
 }
 
 interface AgentRow {
@@ -260,7 +277,7 @@ export function AgentMonitoring() {
       const activeRequests = requests.filter((request) => eligibleIds.has(request.id) && request.agent_id);
       const { data: collections, error: collectionsError } = await supabase
         .from('agent_collections')
-        .select('id, agent_id, tenant_id, amount, created_at')
+        .select('id, agent_id, tenant_id, amount, created_at, rent_request_id')
         .gte('created_at', bounds.from)
         .lt('created_at', bounds.to)
         .not('agent_id', 'is', null);
