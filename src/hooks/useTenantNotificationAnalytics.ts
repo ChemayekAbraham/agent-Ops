@@ -158,7 +158,7 @@ export function useTenantChannelPerformance(filters: ChannelPerformanceFilters) 
   return useQuery({
     queryKey: ['tenant-channel-performance', startDate, endDate, eventKey],
     queryFn: async (): Promise<TenantChannelPerformance> => {
-      const { data, error } = await supabase.rpc('get_tenant_channel_performance', {
+      const { data, error } = await (supabase as any).rpc('get_tenant_channel_performance', {
         p_start: startDate,
         p_end: endDate,
         p_event_key: eventKey,

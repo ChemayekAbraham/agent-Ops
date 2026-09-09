@@ -92,7 +92,7 @@ export function useMarkTenantInAppNotificationRead() {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { data, error } = await supabase.rpc('mark_in_app_notification_read', {
+      const { data, error } = await (supabase as any).rpc('mark_in_app_notification_read', {
         p_notification_id: notificationId,
       });
       if (error) throw error;
@@ -110,7 +110,7 @@ export function useDismissTenantInAppNotification() {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { data, error } = await supabase.rpc('dismiss_in_app_notification', {
+      const { data, error } = await (supabase as any).rpc('dismiss_in_app_notification', {
         p_notification_id: notificationId,
       });
       if (error) throw error;

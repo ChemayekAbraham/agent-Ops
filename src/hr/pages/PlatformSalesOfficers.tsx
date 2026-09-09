@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { startOfISOWeek } from 'date-fns';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { supabase } from '@/hr/api/client';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+
 
 interface PsoRow {
   staff_id: string;
@@ -134,6 +135,7 @@ interface OfficerSummary {
 }
 
 export default function PlatformSalesOfficersPage() {
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
 
   // The Kampala calendar date is state, not a one-off computation, so a screen
@@ -178,7 +180,28 @@ export default function PlatformSalesOfficersPage() {
     },
   });
 
+  // Commission lands the instant a promissory commission event is paid — no
+  // waiting for the 60s poll. Any change re-asks the RPC (which is the only
+  // permitted source of these figures) rather than patching numbers locally.
+  useEffect(() => {
+    const channel = supabase
+      .channel('pso-commission-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'promissory_commission_events' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['pso-funded-summary-officers'] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const fundedAsAt = fundedSummaries[0]?.as_at ?? null;
+
 
   const officers = useMemo<OfficerSummary[]>(() => {
     const fundedById = new Map(fundedSummaries.map((s) => [s.staff_id, s]));
