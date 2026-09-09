@@ -227,6 +227,72 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
 
 
 
+      <Dialog open={trackOpen} onOpenChange={setTrackOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Your rent request</DialogTitle>
+            <DialogDescription>
+              {latest ? `${formatUGX(Number(latest.rent_amount))} · sent ${format(new Date(latest.created_at), 'd MMM yyyy, HH:mm')}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          {latest && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {latest.service_centre_name && (
+                  <Badge variant="outline" className="text-[11px]">{latest.service_centre_name}</Badge>
+                )}
+                {latest.location_name && (
+                  <Badge variant="outline" className="text-[11px]">{latest.location_name}</Badge>
+                )}
+              </div>
+
+              <ol className="relative space-y-4 border-l border-border ml-2 pl-4">
+                {trackSteps.map((s, i) => {
+                  const done = !!s.at;
+                  const current = !done && i === doneCount;
+                  const declined = s.key === 'decided' && latest.status === 'declined';
+                  return (
+                    <li key={s.key} className="relative">
+                      <span
+                        className={`absolute -left-[22px] top-0.5 h-4 w-4 rounded-full flex items-center justify-center border-2 bg-background ${
+                          done ? (declined ? 'border-destructive' : 'border-success') : current ? 'border-primary' : 'border-border'
+                        }`}
+                      >
+                        {done ? (
+                          <CheckCircle2 className={`h-3 w-3 ${declined ? 'text-destructive' : 'text-success'}`} />
+                        ) : current ? (
+                          <Clock className="h-3 w-3 text-primary" />
+                        ) : null}
+                      </span>
+                      <p className={`text-sm font-medium ${done ? (declined ? 'text-destructive' : 'text-success') : current ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {s.label}
+                        {current && <span className="ml-2 text-[10px] uppercase tracking-wide">In progress</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{s.note}</p>
+                      {s.at && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {format(new Date(s.at), 'd MMM yyyy, HH:mm')} · {formatDistanceToNow(new Date(s.at), { addSuffix: true })}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+
+              <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                We SMS and notify you at every step. No need to call.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setTrackOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
