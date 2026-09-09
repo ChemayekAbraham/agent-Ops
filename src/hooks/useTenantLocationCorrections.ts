@@ -205,3 +205,38 @@ export function useCorrectTenantLocation() {
     },
   });
 }
+
+/**
+ * Active-tenant location metrics for the Tenant Ops corrections page.
+ *
+ * Reuses the system's existing definition of an active rent relationship —
+ * a rent request in `funded`, `disbursed` or `repaying` (the same status set
+ * used by Agent Monitoring and agent exposure) — and the same tenant
+ * population and official-village match rule as the corrections dashboard.
+ * Read-only: `tenant_location_correction_active_metrics(p_agent_id)`.
+ */
+export interface TenantLocationActiveMetrics {
+  total_tenants: number;
+  active_tenants: number;
+  active_corrected: number;
+  active_outstanding: number;
+  total_outstanding: number;
+  active_pct_corrected: number;
+  active_share_of_population: number;
+  active_share_of_outstanding: number;
+}
+
+export function useTenantLocationActiveMetrics(agentId?: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['tenant-location-active-metrics', agentId ?? 'all'],
+    enabled,
+    staleTime: 60_000,
+    queryFn: async (): Promise<TenantLocationActiveMetrics> => {
+      const { data, error } = await supabase.rpc('tenant_location_correction_active_metrics' as any, {
+        p_agent_id: agentId ?? null,
+      });
+      if (error) throw error;
+      return (data ?? {}) as unknown as TenantLocationActiveMetrics;
+    },
+  });
+}
