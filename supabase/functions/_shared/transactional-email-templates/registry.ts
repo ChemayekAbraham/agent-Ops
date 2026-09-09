@@ -107,4 +107,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'board-technology-memo': boardTechnologyMemoTemplate,
   'proxy-agent-onboarded': proxyAgentOnboardedTemplate,
   'proxy-daily-nudge': proxyDailyNudgeTemplate,
+  'smartphone-order-disbursed': smartphoneOrderDisbursedTemplate,
 }
