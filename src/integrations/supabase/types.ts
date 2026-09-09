@@ -6573,6 +6573,7 @@ export type Database = {
           created_at: string
           department_id: string
           reason: string | null
+          reviewer_department_id: string | null
           route: string
           updated_at: string
         }
@@ -6581,6 +6582,7 @@ export type Database = {
           created_at?: string
           department_id: string
           reason?: string | null
+          reviewer_department_id?: string | null
           route: string
           updated_at?: string
         }
@@ -6589,6 +6591,7 @@ export type Database = {
           created_at?: string
           department_id?: string
           reason?: string | null
+          reviewer_department_id?: string | null
           route?: string
           updated_at?: string
         }
@@ -6604,6 +6607,20 @@ export type Database = {
             foreignKeyName: "budget_department_routes_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: true
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "budget_department_routes_reviewer_department_id_fkey"
+            columns: ["reviewer_department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_department_routes_reviewer_department_id_fkey"
+            columns: ["reviewer_department_id"]
+            isOneToOne: false
             referencedRelation: "v_staff_requisition_budget_context"
             referencedColumns: ["department_id"]
           },
@@ -45764,6 +45781,10 @@ export type Database = {
         Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
+      budget_can_first_level_review: {
+        Args: { _department_id: string; _user_id: string }
+        Returns: boolean
+      }
       budget_coo_decide_line: {
         Args: {
           p_approved_amount: number
@@ -45858,6 +45879,10 @@ export type Database = {
         Args: { p_comment: string; p_decision: string; p_submission_id: string }
         Returns: Json
       }
+      budget_first_level_reviewer_dept: {
+        Args: { _department_id: string }
+        Returns: string
+      }
       budget_has_authority: { Args: { _fn: string }; Returns: boolean }
       budget_home_department_id: { Args: { _user_id: string }; Returns: string }
       budget_is_approver: { Args: never; Returns: boolean }
@@ -45873,6 +45898,10 @@ export type Database = {
       budget_log_event: {
         Args: { _event_type: string; _payload: Json; _submission_id: string }
         Returns: undefined
+      }
+      budget_may_first_level_act: {
+        Args: { _submission_id: string; _user_id: string }
+        Returns: boolean
       }
       budget_my_position_in_department: {
         Args: { _department_id: string }
