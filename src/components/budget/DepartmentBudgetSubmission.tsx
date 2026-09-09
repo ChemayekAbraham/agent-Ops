@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import {
   fetchLines, fetchSubmissions, uploadBudgetDocument, getBudgetDocumentUrl,
-  registerBudgetDocuments, isBudgetableAccount, fetchDepartmentRoute, BUDGET_ROUTE_LABEL,
+  registerBudgetDocuments, fetchDepartmentRoute, BUDGET_ROUTE_LABEL,
   useBudgetCycles, useBudgetReferenceData,
   type BudgetSubmission, type BudgetLine,
 } from '@/hooks/useDepartmentBudgets';
@@ -24,10 +24,8 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface DraftLine {
   description: string;
-  account_code: string;
   quantity: string;
   unit_amount: string;
-  period_month: string;
   justification: string;
   document_path: string;
   /** Original filename, kept for display only; never sent to the server. */
@@ -35,8 +33,8 @@ interface DraftLine {
 }
 
 const emptyLine = (): DraftLine => ({
-  description: '', account_code: '', quantity: '1', unit_amount: '',
-  period_month: '', justification: '', document_path: '', document_name: '',
+  description: '', quantity: '1', unit_amount: '',
+  justification: '', document_path: '', document_name: '',
 });
 
 const EDITABLE_STATUSES = ['draft'];
@@ -67,7 +65,6 @@ interface Props {
 export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }: Props = {}) {
   const { cycles, loading: cyclesLoading } = useBudgetCycles();
   const {
-    accounts,
     departments,
     myDepartments: allMyDepartments,
     loading: refLoading,
@@ -119,7 +116,6 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
   const [route, setRoute] = useState<'direct' | 'coo' | null>(null);
 
   const openCycles = useMemo(() => cycles.filter(c => c.status === 'open'), [cycles]);
-  const budgetableAccounts = useMemo(() => accounts.filter(isBudgetableAccount), [accounts]);
   const cycle = useMemo(() => cycles.find(c => c.id === cycleId), [cycles, cycleId]);
   const active = useMemo(() => submissions.find(s => s.id === activeId) ?? null, [submissions, activeId]);
   const selectedDepartment = useMemo(
@@ -205,10 +201,8 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     const rows: BudgetLine[] = await fetchLines(s.id);
     setLines(rows.length ? rows.map(r => ({
       description: r.description,
-      account_code: r.account_code ?? '',
       quantity: String(r.quantity ?? 1),
       unit_amount: String(r.unit_amount ?? 0),
-      period_month: r.period_month ?? '',
       justification: r.justification ?? '',
       document_path: r.document_path ?? '',
       document_name: r.document_path ? documentDisplayName(r.document_path) : '',
@@ -250,17 +244,17 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
   const persistDraft = async (): Promise<string | null> => {
     if (!cycleId || !departmentId) { toast.error('Pick a budget cycle and department'); return null; }
     const payload = lines
-      .filter(l => l.description.trim() && l.account_code)
+      .filter(l => l.description.trim())
       .map(l => ({
         description: l.description.trim(),
-        account_code: l.account_code,
+        account_code: null,
         quantity: Number(l.quantity) || 1,
         unit_amount: Number(l.unit_amount) || 0,
-        period_month: l.period_month || null,
+        period_month: null,
         justification: l.justification || null,
         document_path: l.document_path || null,
       }));
-    if (!payload.length) { toast.error('Add at least one line with a description and a budget category'); return null; }
+    if (!payload.length) { toast.error('Add at least one line with a description'); return null; }
     const { data, error } = await supabase.rpc('budget_save_draft', {
       p_submission_id: activeId,
       p_call_id: cycleId,
@@ -477,19 +471,17 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
           </div>
 
           <div className="overflow-hidden rounded-lg border border-border">
-            <div className="hidden grid-cols-[44px_minmax(150px,1.1fr)_minmax(190px,1.35fr)_80px_120px_140px_minmax(160px,1.2fr)_120px_96px] bg-muted/70 text-[11px] font-semibold text-muted-foreground xl:grid">
+            <div className="hidden grid-cols-[44px_minmax(200px,1.4fr)_80px_130px_minmax(160px,1.2fr)_120px_96px] bg-muted/70 text-[11px] font-semibold text-muted-foreground xl:grid">
               <div className="border-r border-border px-3 py-3 text-center">#</div>
               <div className="border-r border-border px-3 py-3">Item / Description</div>
-              <div className="border-r border-border px-3 py-3">Budget Category</div>
               <div className="border-r border-border px-3 py-3">Quantity</div>
               <div className="border-r border-border px-3 py-3">Unit Cost (UGX)</div>
-              <div className="border-r border-border px-3 py-3">Month</div>
               <div className="border-r border-border px-3 py-3">Justification</div>
               <div className="border-r border-border px-3 py-3">Total (UGX)</div>
               <div className="px-3 py-3 text-center">Actions</div>
             </div>
             {lines.map((l, idx) => (
-              <div key={idx} className="grid gap-3 border-t border-border bg-card p-3 first:border-t-0 sm:grid-cols-2 xl:grid-cols-[44px_minmax(150px,1.1fr)_minmax(190px,1.35fr)_80px_120px_140px_minmax(160px,1.2fr)_120px_96px] xl:gap-0 xl:p-0">
+              <div key={idx} className="grid gap-3 border-t border-border bg-card p-3 first:border-t-0 sm:grid-cols-2 xl:grid-cols-[44px_minmax(200px,1.4fr)_80px_130px_minmax(160px,1.2fr)_120px_96px] xl:gap-0 xl:p-0">
                   <div className="flex items-center justify-between sm:col-span-2 xl:col-span-1 xl:justify-center xl:border-r xl:border-border xl:px-3 xl:py-4">
                     <span className="text-xs font-semibold text-muted-foreground"><span className="xl:hidden">Item </span>{idx + 1}</span>
                     {!readOnly && lines.length > 1 && (
@@ -505,26 +497,6 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                       onChange={e => updateLine(idx, { description: e.target.value })} />
                   </div>
                   <div className="xl:border-r xl:border-border xl:p-2">
-                    <Label className="mb-1 block text-[11px] xl:hidden">Budget category (Chart of Accounts)</Label>
-                    <Select value={l.account_code} onValueChange={v => updateLine(idx, { account_code: v })} disabled={readOnly}>
-                      <SelectTrigger className="h-11 rounded-lg text-sm"><SelectValue placeholder="Select category" /></SelectTrigger>
-                      <SelectContent className="z-[100]">
-                        {budgetableAccounts.map(a => (
-                          <SelectItem key={a.code} value={a.code}>{a.code} — {a.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {/* An empty catalogue is a permissions problem, not an
-                        empty list. Say so rather than rendering a dropdown
-                        with nothing in it and no way to tell why. */}
-                    {!budgetableAccounts.length && !refLoading && (
-                      <p className="mt-1 text-[10px] text-destructive">
-                        No spending categories are available to your account, so this budget cannot be
-                        filed. Ask Finance to grant access to the chart of accounts.
-                      </p>
-                    )}
-                  </div>
-                  <div className="xl:border-r xl:border-border xl:p-2">
                       <Label className="mb-1 block text-[11px] xl:hidden">Quantity</Label>
                       <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" type="number" min="0" value={l.quantity} disabled={readOnly}
                         onChange={e => updateLine(idx, { quantity: e.target.value })} />
@@ -533,11 +505,6 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                       <Label className="mb-1 block text-[11px] xl:hidden">Unit cost (UGX)</Label>
                       <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" type="number" min="0" value={l.unit_amount} disabled={readOnly}
                         onChange={e => updateLine(idx, { unit_amount: e.target.value })} />
-                  </div>
-                  <div className="xl:border-r xl:border-border xl:p-2">
-                      <Label className="mb-1 block text-[11px] xl:hidden">Month</Label>
-                      <Input className="h-11 rounded-lg px-3 text-sm xl:mb-0" type="date" value={l.period_month} disabled={readOnly}
-                        onChange={e => updateLine(idx, { period_month: e.target.value })} />
                   </div>
                   <div className="xl:border-r xl:border-border xl:p-2">
                     <Label className="mb-1 block text-[11px] xl:hidden">Justification</Label>
@@ -568,7 +535,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                     )}
                   </div>
                   {l.document_path && (
-                    <span className="inline-flex min-w-0 items-center gap-1 rounded-lg border border-border bg-muted/40 py-1 pl-2 pr-1 text-[11px] sm:col-span-2 xl:col-span-9 xl:mx-2 xl:mb-2">
+                    <span className="inline-flex min-w-0 items-center gap-1 rounded-lg border border-border bg-muted/40 py-1 pl-2 pr-1 text-[11px] sm:col-span-2 xl:col-span-7 xl:mx-2 xl:mb-2">
                       <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       <button
                         type="button"
