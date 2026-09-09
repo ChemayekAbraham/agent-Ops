@@ -59,6 +59,7 @@ import {
   useTenantLocationCorrections,
   useTenantLocationDashboard,
   type TenantLocationCorrectionRow,
+  useTenantLocationActiveMetrics,
   type TenantLocationDashboardAgent,
 } from '@/hooks/useTenantLocationCorrections';
 import CorrectTenantLocationDialog from '@/components/location/CorrectTenantLocationDialog';
