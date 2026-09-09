@@ -846,7 +846,8 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
 
               <div className="space-y-1">
                 <Label className="text-xs">
-                  {approveStage === 'cfo' ? 'Amount to disburse (UGX)' : 'Access Amount (Total) — UGX'}
+                  {approveStage === 'cfo' ? 'Amount to disburse (UGX)' : 'Access Amount (down payment) — UGX'}
+
                 </Label>
                 <Input
                   type="number"
