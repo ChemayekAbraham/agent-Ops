@@ -283,8 +283,11 @@ export function SubmitGate({
           {archiveNotice}
         </div>
 
-        {/* Mobile: the submit control is pinned to the bottom of the viewport. */}
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background p-3 sm:static sm:border-0 sm:bg-transparent sm:p-0">
+        {/* Mobile: the submit control is pinned above the floating bottom nav. */}
+        <div
+          className="fixed inset-x-0 z-[60] border-t border-border bg-background p-3 sm:static sm:border-0 sm:bg-transparent sm:p-0"
+          style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))' }}
+        >
           <Button
             type="button"
             disabled={!canSubmit || busy}
