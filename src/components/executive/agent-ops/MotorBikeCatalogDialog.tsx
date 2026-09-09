@@ -360,6 +360,15 @@ export function MotorBikeCatalogDialog() {
             <DialogDescription className="text-xs">
               View and edit baseline prices of existing motor bikes, configure repayment schedules, and add new models.
             </DialogDescription>
+            {!addMode && !editItem && (
+              <Button
+                size="sm"
+                className="sm:hidden mt-2 w-full h-9 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
+                onClick={() => { resetForm(); setAddMode(true); }}
+              >
+                <Plus className="h-3.5 w-3.5" /> Add New Bike
+              </Button>
+            )}
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 text-xs overscroll-contain">
