@@ -482,6 +482,22 @@ export function TenantOpsDashboard({
     return new Map((data || []).map((p: any) => [p.id, p]));
   };
 
+  // Page through a query so a long date range is never silently truncated
+  // by the default row cap (which used to make wide ranges look like they
+  // only returned the most recent day).
+  const fetchAllPaged = async <T,>(build: () => any, pageSize = 1000): Promise<T[]> => {
+    const out: T[] = [];
+    for (let offset = 0; offset < 100_000; offset += pageSize) {
+      const { data, error } = await build().range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      const chunk = (data || []) as T[];
+      out.push(...chunk);
+      if (chunk.length < pageSize) break;
+    }
+    return out;
+  };
+
+
   const handleExtractApplied = async () => {
     setExtracting('applied');
     try {
