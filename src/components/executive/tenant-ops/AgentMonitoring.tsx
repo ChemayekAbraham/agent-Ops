@@ -3,16 +3,22 @@ import { useQuery } from '@tanstack/react-query';
 import { addDays, format, startOfDay, subDays } from 'date-fns';
 import {
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
   CalendarDays,
   ChevronRight,
   CircleAlert,
   CircleCheck,
   CircleDot,
+  Clock3,
+  FileText,
   History,
   Loader2,
   Phone,
   Search,
+  TrendingUp,
   Users,
+  Wallet,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -22,7 +28,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+
 import {
   Dialog,
   DialogContent,
@@ -196,34 +204,64 @@ const STATUS_LABEL: Record<CollectionStatus, string> = {
   none: 'Nothing due',
 };
 
-function StatusIndicator({ status }: { status: CollectionStatus }) {
-  if (status === 'none') {
-    return (
-      <Badge variant="outline" className="gap-1 text-muted-foreground">
-        <CircleDot className="h-3 w-3" /> {STATUS_LABEL.none}
-      </Badge>
-    );
-  }
-  if (status === 'full') {
-    return (
-      <Badge className="gap-1 bg-success text-success-foreground hover:bg-success/90">
-        <CircleCheck className="h-3 w-3" /> {STATUS_LABEL.full}
-      </Badge>
-    );
-  }
-  if (status === 'partial') {
-    return (
-      <Badge className="gap-1 bg-warning text-warning-foreground hover:bg-warning/90">
-        <CircleDot className="h-3 w-3" /> {STATUS_LABEL.partial}
-      </Badge>
-    );
-  }
+/**
+ * Presentation for the four collection states. The state itself still comes from
+ * `scheduleAwareStatus`; only the pill styling lives here, kept tonal so the
+ * table and the drawer read the same way.
+ */
+const STATUS_STYLE: Record<CollectionStatus, { className: string; Icon: typeof CircleDot }> = {
+  full: { className: 'border-success/40 bg-success/10 text-success', Icon: CircleCheck },
+  partial: { className: 'border-warning/40 bg-warning/10 text-warning', Icon: CircleDot },
+  critical: { className: 'border-destructive/40 bg-destructive/10 text-destructive', Icon: CircleAlert },
+  none: { className: 'border-border bg-muted/60 text-muted-foreground', Icon: CircleDot },
+};
+
+function StatusIndicator({ status, className }: { status: CollectionStatus; className?: string }) {
+  const { className: tone, Icon } = STATUS_STYLE[status];
   return (
-    <Badge variant="destructive" className="gap-1">
-      <CircleAlert className="h-3 w-3" /> {STATUS_LABEL.critical}
+    <Badge
+      variant="outline"
+      className={cn(
+        'w-fit shrink-0 gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold',
+        tone,
+        className,
+      )}
+    >
+      <Icon className="h-3 w-3 shrink-0" /> {STATUS_LABEL[status]}
     </Badge>
   );
 }
+
+/** Tenant Ops Home stat tile, reused so both pages scan identically. */
+function StatTile({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  icon: typeof Users;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-sm sm:p-3.5">
+      <div className="flex items-center gap-2">
+        <div className={cn('shrink-0 rounded-xl p-2', tone)}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <p className="min-w-0 break-words text-[10px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground line-clamp-2">
+          {label}
+        </p>
+      </div>
+      <p className="mt-2 break-words text-lg font-bold leading-none tabular-nums sm:text-xl">{value}</p>
+      <p className="mt-1 break-words text-[11px] leading-snug text-muted-foreground line-clamp-2">{hint}</p>
+    </div>
+  );
+}
+
 
 
 function formatStatus(status: string) {
@@ -316,16 +354,16 @@ function TenantPaymentHistory({
   const total = payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Label className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-          <History className="h-3 w-3" /> Recent payments
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <Label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <History className="h-3 w-3" /> Payment history
         </Label>
-        <span className="text-[10px] tabular-nums text-muted-foreground">
+        <span className="whitespace-nowrap text-[10px] font-medium tabular-nums text-muted-foreground">
           {payments.length} payment{payments.length === 1 ? '' : 's'} · {formatUGX(total)} received
         </span>
       </div>
-      <ul className="divide-y rounded-md border">
+      <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-muted/20">
         {visible.map((payment) => {
           const collector = payment.source === 'tenant'
             ? 'paid by the tenant'
@@ -334,32 +372,33 @@ function TenantPaymentHistory({
               : null;
           const method = (payment.payment_method || '').replace(/_/g, ' ');
           return (
-            <li key={payment.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2.5 py-1.5 text-[11px]">
-              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="font-medium tabular-nums">{format(new Date(payment.created_at), 'dd MMM yyyy')}</span>
-                <span className="text-muted-foreground tabular-nums">{format(new Date(payment.created_at), 'HH:mm')}</span>
+            <li key={payment.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2.5 py-2 text-[11px]">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="whitespace-nowrap font-semibold tabular-nums">{format(new Date(payment.created_at), 'dd MMM yyyy')}</span>
+                <span className="whitespace-nowrap tabular-nums text-muted-foreground">{format(new Date(payment.created_at), 'HH:mm')}</span>
                 {method && (
-                  <Badge variant="outline" className="px-1.5 py-0 text-[9px] uppercase tracking-wide text-muted-foreground">
+                  <Badge variant="outline" className="max-w-[160px] truncate rounded-full px-1.5 py-0 text-[9px] uppercase tracking-wide text-muted-foreground">
                     {payment.momo_provider ? `${method} · ${payment.momo_provider}` : method}
                   </Badge>
                 )}
                 {payment.is_partial && (
-                  <Badge variant="outline" className="border-warning/40 bg-warning/10 px-1.5 py-0 text-[9px] text-warning-foreground">
+                  <Badge variant="outline" className="whitespace-nowrap rounded-full border-warning/40 bg-warning/10 px-1.5 py-0 text-[9px] font-semibold text-warning">
                     Partial{payment.expected_amount ? ` of ${formatUGX(Number(payment.expected_amount))}` : ''}
                   </Badge>
                 )}
-                {collector && <span className="truncate text-muted-foreground">{collector}</span>}
+                {collector && <span className="min-w-0 truncate text-muted-foreground">{collector}</span>}
               </div>
-              <span className="font-semibold tabular-nums">{formatUGX(Number(payment.amount ?? 0))}</span>
+              <span className="whitespace-nowrap font-bold tabular-nums">{formatUGX(Number(payment.amount ?? 0))}</span>
             </li>
           );
         })}
       </ul>
       {payments.length > 5 && (
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setShowAll((value) => !value)}>
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] font-semibold text-primary hover:text-primary" onClick={() => setShowAll((value) => !value)}>
           {showAll ? 'Show less' : `Show full history (${payments.length})`}
         </Button>
       )}
+
     </div>
   );
 }
@@ -597,6 +636,12 @@ export function AgentMonitoring() {
     { expected: 0, collected: 0, dueCount: 0, tenantCount: 0, dailyCount: 0, weeklyCount: 0, arrears: 0, behindCount: 0, aheadCount: 0, nothingDue: 0 },
   ), [filteredAgents]);
 
+  /* Display-only readings of the same totals already shown in the cards. */
+  const coverage = totals.expected > 0 ? Math.min(100, Math.round((totals.collected / totals.expected) * 100)) : 0;
+  const shortfall = Math.max(0, totals.expected - totals.collected);
+
+
+
   const selectedAgentRows = useMemo(() => {
     if (!selectedAgent) return [];
     return selectedAgent.tenants.map((request) => ({
@@ -685,28 +730,54 @@ export function AgentMonitoring() {
   const renderAgentRow = (agent: AgentRow, compact = false) => {
     const rate = agent.expected > 0 ? Math.min(100, (agent.collected / agent.expected) * 100) : null;
     const callHref = agent.phone ? `tel:${agent.phone.replace(/[^\d+]/g, '')}` : null;
+    const status = collectionStatus(agent.expected, agent.collected);
 
     if (compact) {
       return (
-        <div key={agent.id} className="rounded-lg border p-3">
+        <div
+          key={agent.id}
+          className="rounded-2xl border border-border/60 bg-card p-3 shadow-sm transition-colors hover:border-primary/40"
+        >
           <button
             type="button"
-            className="flex w-full items-start justify-between gap-3 text-left"
+            className="flex w-full items-start justify-between gap-2 text-left"
             onClick={() => setSelectedAgent(agent)}
           >
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{agent.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{agent.phone || 'No phone number'} · {agent.tenantCount} tenants</p>
-              <p className="mt-1 break-words text-xs tabular-nums text-muted-foreground">
-                {formatUGX(agent.collected)} / {formatUGX(agent.expected)} · {rate === null ? '—' : `${rate.toFixed(1)}%`}
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="truncate text-sm font-bold leading-tight">{agent.name}</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {agent.phone || 'No phone number'} · {agent.tenantCount} tenant{agent.tenantCount === 1 ? '' : 's'}
               </p>
             </div>
-            <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           </button>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <StatusIndicator status={collectionStatus(agent.expected, agent.collected)} />
+
+          <div className="mt-2.5 grid grid-cols-3 gap-2 rounded-xl bg-muted/40 p-2 text-center">
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Expected</p>
+              <p className="truncate text-[11px] font-bold tabular-nums">{formatUGX(agent.expected)}</p>
+            </div>
+            <div className="min-w-0 border-x border-border/60">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Collected</p>
+              <p className="truncate text-[11px] font-bold tabular-nums">{formatUGX(agent.collected)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Rate</p>
+              <p className="truncate text-[11px] font-bold tabular-nums">{rate === null ? '—' : `${rate.toFixed(1)}%`}</p>
+            </div>
+          </div>
+
+          {rate !== null && <Progress value={rate} className="mt-2 h-1.5" />}
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <StatusIndicator status={status} />
+            {agent.arrears > 0 && (
+              <Badge variant="outline" className="whitespace-nowrap rounded-full border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+                {formatUGX(agent.arrears)} arrears
+              </Badge>
+            )}
             {callHref && (
-              <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+              <Button asChild size="sm" variant="outline" className="ml-auto h-8 gap-1.5 rounded-full text-xs">
                 <a href={callHref}><Phone className="h-3.5 w-3.5" /> Call</a>
               </Button>
             )}
@@ -717,105 +788,200 @@ export function AgentMonitoring() {
 
     return (
       <TableRow key={agent.id} className="cursor-pointer" onClick={() => setSelectedAgent(agent)}>
-        <TableCell>
-          <div className="min-w-[170px]">
-            <p className="font-semibold">{agent.name}</p>
-            <p className="text-xs text-muted-foreground">{agent.phone || 'No phone number'}</p>
+        <TableCell className="py-2.5">
+          <div className="min-w-[150px] max-w-[220px]">
+            <p className="truncate font-semibold leading-tight" title={agent.name}>{agent.name}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{agent.phone || 'No phone number'}</p>
           </div>
         </TableCell>
-        <TableCell className="text-right tabular-nums">
-          <span>{agent.tenantCount}</span>
+        <TableCell className="whitespace-nowrap py-2.5 text-right tabular-nums">
+          <span className="font-medium">{agent.tenantCount}</span>
           <span className="block text-[10px] text-muted-foreground">{agent.dailyCount}D / {agent.weeklyCount}W</span>
         </TableCell>
-        <TableCell className="text-right tabular-nums">{agent.dueCount}</TableCell>
-        <TableCell className="text-right tabular-nums">{formatUGX(agent.expected)}</TableCell>
-        <TableCell className="text-right tabular-nums">{formatUGX(agent.collected)}</TableCell>
-        <TableCell className="text-right tabular-nums">
-          {formatUGX(agent.arrears)}
+        <TableCell className="whitespace-nowrap py-2.5 text-right tabular-nums">{agent.dueCount}</TableCell>
+        <TableCell className="whitespace-nowrap py-2.5 text-right font-medium tabular-nums">{formatUGX(agent.expected)}</TableCell>
+        <TableCell className="whitespace-nowrap py-2.5 text-right font-medium tabular-nums">{formatUGX(agent.collected)}</TableCell>
+        <TableCell className="whitespace-nowrap py-2.5 text-right tabular-nums">
+          <span className={cn(agent.arrears > 0 && 'font-semibold text-destructive')}>{formatUGX(agent.arrears)}</span>
           <span className="block text-[10px] text-muted-foreground">{agent.behindCount} behind · {agent.aheadCount} ahead</span>
         </TableCell>
 
-        <TableCell className="text-right tabular-nums font-semibold">
-          {rate === null ? '—' : `${rate.toFixed(1)}%`}
+        <TableCell className="whitespace-nowrap py-2.5 text-right">
+          <span className="font-bold tabular-nums">{rate === null ? '—' : `${rate.toFixed(1)}%`}</span>
+          {rate !== null && <Progress value={rate} className="mt-1 h-1 w-14 sm:w-16" />}
         </TableCell>
-        <TableCell className="text-right tabular-nums">{agent.requestCount}</TableCell>
-        <TableCell><StatusIndicator status={collectionStatus(agent.expected, agent.collected)} /></TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1">
+        <TableCell className="whitespace-nowrap py-2.5 text-right tabular-nums">{agent.requestCount}</TableCell>
+        <TableCell className="py-2.5"><StatusIndicator status={status} /></TableCell>
+        <TableCell className="py-2.5 text-right">
+          <div className="flex items-center justify-end gap-0.5">
             {callHref && (
               <Button
                 asChild
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8"
+                className="h-8 w-8 shrink-0"
                 aria-label={`Call ${agent.name}`}
                 onClick={(event) => event.stopPropagation()}
               >
                 <a href={callHref}><Phone className="h-4 w-4" /></a>
               </Button>
             )}
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </div>
         </TableCell>
       </TableRow>
     );
+
   };
 
 
   const body = (
     <>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <Users className="h-4.5 w-4.5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold leading-tight">Agent Monitoring</h1>
-              <p className="text-[11px] text-muted-foreground">Daily expected collections and field performance</p>
-            </div>
+      {/* Header + day picker */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Users className="h-4.5 w-4.5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-bold tracking-tight sm:text-lg">Agent Monitoring</h2>
+            <p className="text-[11px] text-muted-foreground">
+              {format(day, 'EEEE, dd MMM yyyy')} · expected collections and field performance
+            </p>
           </div>
         </div>
-        <div className="flex w-full flex-wrap items-center gap-1 rounded-lg border p-1 sm:w-auto">
-          <Button variant="ghost" size="sm" onClick={() => setDay((value) => subDays(value, 1))} aria-label="Previous day">←</Button>
-          <div className="flex-1 min-w-[110px] text-center text-xs font-medium tabular-nums sm:flex-none sm:min-w-[128px]">{format(day, 'dd MMM yyyy')}</div>
-          <Button variant="ghost" size="sm" onClick={() => setDay((value) => addDays(value, 1))} aria-label="Next day">→</Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setDay(startOfDay(new Date()))}>
+        <div className="flex w-full items-center gap-1 rounded-xl border border-border/60 bg-card p-1 shadow-sm lg:w-auto">
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setDay((value) => subDays(value, 1))} aria-label="Previous day">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0 flex-1 text-center text-xs font-semibold tabular-nums sm:text-sm lg:min-w-[124px] lg:flex-none">
+            {format(day, 'dd MMM yyyy')}
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setDay((value) => addDays(value, 1))} aria-label="Next day">
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 rounded-lg text-xs" onClick={() => setDay(startOfDay(new Date()))}>
             <CalendarDays className="h-3.5 w-3.5" /> Today
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Agents monitored</p><p className="mt-1 text-xl font-bold tabular-nums">{filteredAgents.length}</p><p className="text-[10px] text-muted-foreground">{totals.nothingDue} with nothing due</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Due this day</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.dueCount}</p><p className="text-[10px] text-muted-foreground">of {totals.tenantCount} tenants</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Expected vs collected</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.collected)}</p><p className="text-[10px] text-muted-foreground">of {formatUGX(totals.expected)} due</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Total arrears</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.arrears)}</p><p className="text-[10px] text-muted-foreground">{totals.behindCount} tenants behind</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Paid ahead</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.aheadCount}</p><p className="text-[10px] text-muted-foreground">tenants covering future periods</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Daily vs weekly</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.dailyCount} / {totals.weeklyCount}</p><p className="text-[10px] text-muted-foreground">daily / weekly plans</p></CardContent></Card>
+      {/* Collection hero + KPI strip, matching Tenant Ops Home */}
+      <div className="grid items-start gap-3 xl:grid-cols-3">
+        <Card className="border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm xl:col-span-1">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <div className="rounded-xl bg-primary/15 p-2">
+                <Wallet className="h-4 w-4 text-primary" />
+              </div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Collected on this day
+              </p>
+            </div>
+            <p className="mt-3 break-words text-2xl font-bold leading-none tabular-nums">
+              {isLoading ? '—' : formatUGX(totals.collected)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">of {formatUGX(totals.expected)} expected</p>
+            <Progress value={coverage} className="mt-3 h-2" />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px]">
+              <span className="font-semibold text-foreground">{coverage}% covered</span>
+              <span className={cn('whitespace-nowrap font-semibold', shortfall > 0 ? 'text-destructive' : 'text-success')}>
+                {shortfall > 0 ? `${formatUGX(shortfall)} short` : 'Target met'}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-2 xl:col-span-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Day summary</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-5">
+            <StatTile
+              label="Agents monitored"
+              value={filteredAgents.length.toLocaleString('en-US')}
+              hint={`${totals.nothingDue} with nothing due`}
+              icon={Users}
+              tone="bg-primary/10 text-primary"
+            />
+            <StatTile
+              label="Due this day"
+              value={totals.dueCount.toLocaleString('en-US')}
+              hint={`of ${totals.tenantCount.toLocaleString('en-US')} tenants`}
+              icon={Clock3}
+              tone="bg-warning/10 text-warning"
+            />
+            <StatTile
+              label="Total arrears"
+              value={formatUGX(totals.arrears)}
+              hint={`${totals.behindCount} tenants behind`}
+              icon={AlertTriangle}
+              tone="bg-destructive/10 text-destructive"
+            />
+            <StatTile
+              label="Paid ahead"
+              value={totals.aheadCount.toLocaleString('en-US')}
+              hint="tenants covering future periods"
+              icon={TrendingUp}
+              tone="bg-success/10 text-success"
+            />
+            <StatTile
+              label="Daily vs weekly"
+              value={`${totals.dailyCount} / ${totals.weeklyCount}`}
+              hint="daily / weekly plans"
+              icon={CalendarDays}
+              tone="bg-muted text-muted-foreground"
+            />
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-base">Collection performance</CardTitle>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <div className="relative">
+      <Card className="border shadow-sm">
+        <CardHeader className="gap-3 space-y-0 px-3 pb-3 sm:px-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <FileText className="h-4 w-4 text-primary" />
+              Collection performance
+            </CardTitle>
+            <span className="whitespace-nowrap text-[11px] font-medium text-muted-foreground">
+              {filteredAgents.length} agent{filteredAgents.length === 1 ? '' : 's'} shown
+            </span>
+          </div>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative w-full lg:w-64">
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or phone" className="h-8 w-full pl-8 text-xs sm:w-56" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search agent or phone"
+                className="h-8 w-full rounded-lg pl-8 text-xs"
+              />
             </div>
-            <div className="flex flex-wrap gap-1" role="group" aria-label="Payment frequency filter">
-              {(['all', 'daily', 'weekly'] as const).map((value) => (
-                <Button key={value} variant={frequencyFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs capitalize" onClick={() => setFrequencyFilter(value)}>
-                  {value === 'all' ? 'All plans' : value}
-                </Button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-1" role="group" aria-label="Collection status filter">
-              {(['all', 'full', 'partial', 'critical', 'none'] as const).map((value) => (
-                <Button key={value} variant={statusFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs" onClick={() => setStatusFilter(value)}>
-                  {value === 'all' ? 'All' : STATUS_LABEL[value]}
-                </Button>
-              ))}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="flex flex-wrap gap-1 rounded-lg bg-muted/60 p-1" role="group" aria-label="Payment frequency filter">
+                {(['all', 'daily', 'weekly'] as const).map((value) => (
+                  <Button
+                    key={value}
+                    variant={frequencyFilter === value ? 'default' : 'ghost'}
+                    size="sm"
+                    className="h-7 rounded-md px-2.5 text-[11px] font-semibold capitalize"
+                    onClick={() => setFrequencyFilter(value)}
+                  >
+                    {value === 'all' ? 'All plans' : value}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1 rounded-lg bg-muted/60 p-1" role="group" aria-label="Collection status filter">
+                {(['all', 'full', 'partial', 'critical', 'none'] as const).map((value) => (
+                  <Button
+                    key={value}
+                    variant={statusFilter === value ? 'default' : 'ghost'}
+                    size="sm"
+                    className="h-7 rounded-md px-2.5 text-[11px] font-semibold"
+                    onClick={() => setStatusFilter(value)}
+                  >
+                    {value === 'all' ? 'All' : STATUS_LABEL[value]}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -829,73 +995,113 @@ export function AgentMonitoring() {
             <div className="flex flex-col items-center gap-2 p-10 text-center"><CircleAlert className="h-5 w-5 text-muted-foreground" /><p className="text-sm font-medium">No agents match this view</p><p className="text-xs text-muted-foreground">Try clearing the search or status filter.</p></div>
           ) : (
             <>
-              <div className="hidden overflow-x-auto md:block">
-                <Table>
-                  <TableHeader><TableRow><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Due</TableHead><TableHead className="text-right">Expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Arrears</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
+              <div className="hidden overflow-x-auto lg:block">
+                <Table className="min-w-[960px] [&_td]:px-2 [&_th]:px-2">
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide">Agent</TableHead>
+                      <TableHead className="whitespace-nowrap text-right text-[11px] font-semibold uppercase tracking-wide">Tenants</TableHead>
+                      <TableHead className="whitespace-nowrap text-right text-[11px] font-semibold uppercase tracking-wide">Due</TableHead>
+                      <TableHead className="whitespace-nowrap text-right text-[11px] font-semibold uppercase tracking-wide">Expected</TableHead>
+                      <TableHead className="whitespace-nowrap text-right text-[11px] font-semibold uppercase tracking-wide">Collected</TableHead>
+                      <TableHead className="whitespace-nowrap text-right text-[11px] font-semibold uppercase tracking-wide">Arrears</TableHead>
+                      <TableHead className="whitespace-nowrap text-right text-[11px] font-semibold uppercase tracking-wide">Collection %</TableHead>
+                      <TableHead className="whitespace-nowrap text-right text-[11px] font-semibold uppercase tracking-wide">Requests</TableHead>
+                      <TableHead className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide">Status</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>{filteredAgents.map((agent) => renderAgentRow(agent))}</TableBody>
                 </Table>
               </div>
-              <div className="space-y-2 p-3 md:hidden">{filteredAgents.map((agent) => renderAgentRow(agent, true))}</div>
+              <div className="grid gap-2 p-3 sm:grid-cols-2 lg:hidden">{filteredAgents.map((agent) => renderAgentRow(agent, true))}</div>
             </>
           )}
         </CardContent>
       </Card>
 
+
       <Dialog open={Boolean(selectedAgent)} onOpenChange={(open) => { if (!open) setSelectedAgent(null); }}>
-        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="break-words pr-6 text-base sm:text-lg">{selectedAgent?.name || 'Agent'} — collection details</DialogTitle>
-            <DialogDescription className="break-words">{selectedAgent?.phone || 'No phone number'} · {format(day, 'dd MMM yyyy')}</DialogDescription>
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-4xl overflow-y-auto p-4 sm:p-6">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="break-words pr-6 text-base font-bold sm:text-lg">
+              {selectedAgent?.name || 'Agent'} — collection details
+            </DialogTitle>
+            <DialogDescription className="break-words text-xs">
+              {selectedAgent?.phone || 'No phone number'} · {format(day, 'EEEE, dd MMM yyyy')}
+            </DialogDescription>
           </DialogHeader>
           {selectedAgent && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Tenants</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.tenantCount}</p></CardContent></Card>
-                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Expected</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.expected)}</p></CardContent></Card>
-                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Paid today</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.collected)}</p></CardContent></Card>
-                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Requests submitted</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.requestCount}</p></CardContent></Card>
+                {[
+                  { label: 'Tenants', value: String(selectedAgent.tenantCount) },
+                  { label: 'Expected', value: formatUGX(selectedAgent.expected) },
+                  { label: 'Paid this day', value: formatUGX(selectedAgent.collected) },
+                  { label: 'Requests submitted', value: String(selectedAgent.requestCount) },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-border/60 bg-muted/30 p-3">
+                    <p className="text-[10px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground">{item.label}</p>
+                    <p className="mt-1.5 break-words text-sm font-bold leading-none tabular-nums sm:text-base">{item.value}</p>
+                  </div>
+                ))}
               </div>
-              {selectedAgent.phone && (
-                <Button asChild variant="outline" size="sm" className="w-full gap-2 sm:w-auto">
-                  <a href={`tel:${selectedAgent.phone.replace(/[^\d+]/g, '')}`}>
-                    <Phone className="h-4 w-4" /> Call {selectedAgent.name}
-                  </a>
-                </Button>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusIndicator status={collectionStatus(selectedAgent.expected, selectedAgent.collected)} className="text-[11px]" />
+                {selectedAgent.arrears > 0 && (
+                  <Badge variant="outline" className="whitespace-nowrap rounded-full border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive">
+                    {formatUGX(selectedAgent.arrears)} arrears · {selectedAgent.behindCount} behind
+                  </Badge>
+                )}
+                {selectedAgent.phone && (
+                  <Button asChild variant="outline" size="sm" className="h-8 gap-2 rounded-full text-xs sm:ml-auto">
+                    <a href={`tel:${selectedAgent.phone.replace(/[^\d+]/g, '')}`}>
+                      <Phone className="h-3.5 w-3.5" /> <span className="truncate">Call {selectedAgent.name}</span>
+                    </a>
+                  </Button>
+                )}
+              </div>
               <Separator />
               <div className="space-y-2">
-                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Active tenants</h3><StatusIndicator status={collectionStatus(selectedAgent.expected, selectedAgent.collected)} /></div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold tracking-tight">Active tenants</h3>
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    {selectedAgentRows.length} plan{selectedAgentRows.length === 1 ? '' : 's'}
+                  </span>
+                </div>
                 {selectedAgentRows.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No active daily-collection tenants for this agent.</p> : (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {selectedAgentRows.map(({ request, tenant, collected, schedule }) => {
                       const unit = schedule.unit;
                       return (
-                        <div key={request.id} className="border p-3">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div key={request.id} className="rounded-2xl border border-border/60 bg-card p-3 shadow-sm sm:p-3.5">
+                          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0">
-                              <Button variant="link" className="h-auto p-0 text-left font-semibold" onClick={() => setSelectedTenant(request.tenant_id)}>{tenant?.full_name || 'Unknown tenant'}</Button>
-                              <p className="text-xs text-muted-foreground">
+                              <Button variant="link" className="h-auto max-w-full justify-start p-0 text-left text-sm font-bold" onClick={() => setSelectedTenant(request.tenant_id)}>
+                                <span className="truncate">{tenant?.full_name || 'Unknown tenant'}</span>
+                              </Button>
+                              <p className="text-[11px] text-muted-foreground">
                                 {tenant?.phone ? (
                                   <a href={`tel:${tenant.phone.replace(/[^\d+]/g, '')}`} className="underline underline-offset-2">{tenant.phone}</a>
                                 ) : 'No phone number'}{request.house_category ? ` · ${request.house_category}` : ''}
                               </p>
-                              <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}</p>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}</p>
                             </div>
                             <div className="flex flex-col items-start gap-1.5 sm:items-end">
-                              <div className="flex flex-wrap items-center gap-1.5">
+                              <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                                 <FrequencyTag schedule={schedule} />
                                 <StatusIndicator status={collectionStatus(schedule.expectedOnDay, collected)} />
                               </div>
                               <SchedulePositionTag schedule={schedule} />
                             </div>
                           </div>
-                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 lg:grid-cols-6">
-                            <div><Label className="text-[10px] text-muted-foreground">Scheduled / {unit}</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.periodAmount)}</p></div>
-                            <div><Label className="text-[10px] text-muted-foreground">Due this day</Label><p className="font-semibold tabular-nums">{schedule.expectedOnDay > 0 ? formatUGX(schedule.expectedOnDay) : 'Not due'}</p></div>
-                            <div><Label className="text-[10px] text-muted-foreground">Paid today</Label><p className="font-semibold tabular-nums">{formatUGX(collected)}</p></div>
-                            <div><Label className="text-[10px] text-muted-foreground">Arrears</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.arrears)}{schedule.periodsBehind > 0 ? ` · ${schedule.periodsBehind} ${unit}${schedule.periodsBehind === 1 ? '' : 's'}` : ''}</p></div>
-                            <div><Label className="text-[10px] text-muted-foreground">Paid ahead</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.aheadAmount)}{schedule.periodsAhead > 0 ? ` · ${schedule.periodsAhead} ${unit}${schedule.periodsAhead === 1 ? '' : 's'}` : ''}</p></div>
-                            <div><Label className="text-[10px] text-muted-foreground">Outstanding plan</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.outstandingPlan)}</p></div>
+                          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 rounded-xl bg-muted/30 p-2.5 text-xs sm:grid-cols-3 lg:grid-cols-6">
+                            <div className="min-w-0"><Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Scheduled / {unit}</Label><p className="break-words font-bold tabular-nums">{formatUGX(schedule.periodAmount)}</p></div>
+                            <div className="min-w-0"><Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Due this day</Label><p className="break-words font-bold tabular-nums">{schedule.expectedOnDay > 0 ? formatUGX(schedule.expectedOnDay) : 'Not due'}</p></div>
+                            <div className="min-w-0"><Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paid this day</Label><p className="break-words font-bold tabular-nums">{formatUGX(collected)}</p></div>
+                            <div className="min-w-0"><Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Arrears</Label><p className={cn('break-words font-bold tabular-nums', schedule.arrears > 0 && 'text-destructive')}>{formatUGX(schedule.arrears)}{schedule.periodsBehind > 0 ? ` · ${schedule.periodsBehind} ${unit}${schedule.periodsBehind === 1 ? '' : 's'}` : ''}</p></div>
+                            <div className="min-w-0"><Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paid ahead</Label><p className={cn('break-words font-bold tabular-nums', schedule.aheadAmount > 0 && 'text-success')}>{formatUGX(schedule.aheadAmount)}{schedule.periodsAhead > 0 ? ` · ${schedule.periodsAhead} ${unit}${schedule.periodsAhead === 1 ? '' : 's'}` : ''}</p></div>
+                            <div className="min-w-0"><Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Outstanding plan</Label><p className="break-words font-bold tabular-nums">{formatUGX(schedule.outstandingPlan)}</p></div>
                           </div>
                           <Separator className="my-3" />
                           <TenantPaymentHistory
@@ -913,6 +1119,7 @@ export function AgentMonitoring() {
               </div>
             </div>
           )}
+
         </DialogContent>
       </Dialog>
 
