@@ -767,8 +767,7 @@ export function StaffRequisitionQueue() {
           <DialogHeader>
             <DialogTitle>
               {actionType === 'approve' ? (reduceMode ? 'Reduce requested amount' : 'Approve requisition')
-                : actionType === 'reject' ? 'Decline requisition'
-                  : 'Send back for more information'}
+                : 'Decline requisition'}
             </DialogTitle>
             <DialogDescription>
               {active?.requisition_code} • {active?.title}
