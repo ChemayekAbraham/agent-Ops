@@ -119,7 +119,7 @@ export function PartnerSelfManagedCycleEnded({
                         <td align="left" style={{ verticalAlign: "middle" }}>
                           <Img src={logo_url} alt={`${company_name} Technologies Limited`} width="130" style={logoImg} />
                         </td>
-                        <td align="right" style={{ verticalAlign: "middle" }} className="hide-mobile" style={secureLabel}>
+                        <td align="right" className="hide-mobile" style={{ verticalAlign: "middle", ...secureLabel }}>
                           SELF-MANAGED CYCLE END
                         </td>
                       </tr></tbody>
@@ -226,7 +226,7 @@ export function PartnerSelfManagedCycleEnded({
                                     <td width="44" style={{ verticalAlign: "middle", paddingRight: '14px' }} >
                                       <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                         <tbody><tr>
-                                          <td align="center" style={{ verticalAlign: "middle" }} style={avatarCell}>
+                                          <td align="center" style={{ verticalAlign: "middle", ...avatarCell }}>
                                             <span style={avatarText}>{initials}</span>
                                           </td>
                                         </tr></tbody>

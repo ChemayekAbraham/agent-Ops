@@ -106,8 +106,8 @@ export function PartnershipMaturityNotice({
                           <td align="left" style={{ verticalAlign: "middle" }}>
                             <Img src={logo_url} alt={`${company_name} Technologies Limited`} width="130" style={{ display: 'block', maxWidth: '130px', height: 'auto' }} />
                           </td>
-                          <td align="right" style={{ verticalAlign: "middle" }} className="hide-mobile"
-                            style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                          <td align="right" className="hide-mobile"
+                            style={{ verticalAlign: "middle", fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
                             MATURITY NOTICE
                           </td>
                         </tr></tbody>
@@ -234,8 +234,8 @@ export function PartnershipMaturityNotice({
                                 <td width="62" style={{ verticalAlign: "top", paddingRight: '18px' }} className="circ-col" >
                                   <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                     <tbody><tr>
-                                      <td align="center" style={{ verticalAlign: "middle" }}
-                                        style={{ width: '44px', height: '44px', backgroundColor: '#7b19d4', backgroundImage: 'linear-gradient(135deg, #7b19d4 0%, #a855f7 100%)', borderRadius: '50%' }}>
+                                      <td align="center" 
+                                        style={{ verticalAlign: "middle", width: '44px', height: '44px', backgroundColor: '#7b19d4', backgroundImage: 'linear-gradient(135deg, #7b19d4 0%, #a855f7 100%)', borderRadius: '50%' }}>
                                         <span style={{ color: '#ffffff', fontSize: '17px', fontWeight: 800, lineHeight: '44px', display: 'block', width: '44px', textAlign: 'center' }}>1</span>
                                       </td>
                                     </tr></tbody>
@@ -278,8 +278,8 @@ export function PartnershipMaturityNotice({
                                 <td width="62" style={{ verticalAlign: "top", paddingRight: '18px' }} className="circ-col" >
                                   <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                     <tbody><tr>
-                                      <td align="center" style={{ verticalAlign: "middle" }}
-                                        style={{ width: '44px', height: '44px', backgroundColor: '#21C45D', backgroundImage: 'linear-gradient(135deg, #16a34a 0%, #21C45D 100%)', borderRadius: '50%' }}>
+                                      <td align="center" 
+                                        style={{ verticalAlign: "middle", width: '44px', height: '44px', backgroundColor: '#21C45D', backgroundImage: 'linear-gradient(135deg, #16a34a 0%, #21C45D 100%)', borderRadius: '50%' }}>
                                         <span style={{ color: '#ffffff', fontSize: '17px', fontWeight: 800, lineHeight: '44px', display: 'block', width: '44px', textAlign: 'center' }}>2</span>
                                       </td>
                                     </tr></tbody>

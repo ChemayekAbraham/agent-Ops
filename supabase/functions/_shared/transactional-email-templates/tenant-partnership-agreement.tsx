@@ -66,7 +66,7 @@ export function TenantPartnershipAgreement({
                         <td align="left" style={{ verticalAlign: "middle" }}>
                           <Img src={logo_url} alt={company_name} width="130" style={logoImg} />
                         </td>
-                        <td align="right" style={{ verticalAlign: "middle" }} className="hide-mobile" style={secureLabel}>
+                        <td align="right" className="hide-mobile" style={{ verticalAlign: "middle", ...secureLabel }}>
                           PARTNERSHIP AGREEMENT
                         </td>
                       </tr></tbody>
@@ -146,7 +146,7 @@ export function TenantPartnershipAgreement({
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td colSpan={2} style={{ verticalAlign: "top" }} style={statusRow}>
+                                  <td colSpan={2} style={{ verticalAlign: "top", ...statusRow }}>
                                     <Text style={docKey}>Counter-signature</Text>
                                     <Text style={statusPending}>Pending Welile execution</Text>
                                   </td>
@@ -165,7 +165,7 @@ export function TenantPartnershipAgreement({
                   <td align="center" className="padding-mobile" style={{ padding: '0 40px 30px 40px' }}>
                     <table border={0} cellSpacing={0} cellPadding={0} role="presentation">
                       <tbody><tr>
-                        <td align="center" style={ctaCell} style={{...ctaCell, backgroundColor: BRAND}}>
+                        <td align="center" style={{ ...ctaCell, backgroundColor: BRAND }}>
                           <a href={agreement_download_url} target="_blank" style={ctaLink}>
                             Download Your Agreement (PDF)
                           </a>
