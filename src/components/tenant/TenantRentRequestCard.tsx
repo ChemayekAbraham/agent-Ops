@@ -195,7 +195,21 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
 
           <div className="space-y-1.5 lg:space-y-2">
             {openRequest ? (
-              <p className="text-[10px] lg:text-sm text-foreground/70 leading-tight lg:leading-relaxed line-clamp-3 lg:line-clamp-4 break-words">{status?.note}</p>
+              <>
+                <div className="flex items-center gap-1">
+                  {trackSteps.map((s, i) => (
+                    <span
+                      key={s.key}
+                      className={`h-1.5 flex-1 rounded-full ${i < doneCount ? 'bg-success' : 'bg-success/20'}`}
+                    />
+                  ))}
+                </div>
+                <p className="text-[10px] lg:text-sm font-semibold text-success leading-tight">
+                  Step {Math.max(doneCount, 1)} of {trackSteps.length} · {status?.label}
+                </p>
+                <p className="text-[10px] lg:text-sm text-foreground/70 leading-tight lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">{status?.note}</p>
+                <p className="text-[10px] lg:text-xs font-medium text-success/90 underline">Track progress</p>
+              </>
             ) : (
               <p className="text-xs lg:text-sm text-foreground/70 leading-snug lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">
                 Request rent · agent verifies your house
