@@ -433,8 +433,11 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                                 No matched email transfers for this desk.
                               </p>
                             ) : (
-                              <div className="max-h-72 overflow-y-auto pr-1">
-                                {rows.map((m) => (
+                              <IncrementalList
+                                items={rows}
+                                label="transfers"
+                                className="max-h-72 overflow-y-auto pr-1"
+                                renderItem={(m: any) => (
                                   <MovementRow
                                     key={`${m.id}-${m.desk_id}`}
                                     direction={m.direction}
@@ -445,8 +448,8 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                                     note={m.snippet}
                                     tag={channelLabel(m.channel)}
                                   />
-                                ))}
-                              </div>
+                                )}
+                              />
                             )}
                           </div>
                         )}
@@ -491,8 +494,11 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                     No qualifying bank movements found in the extracted emails.
                   </p>
                 ) : (
-                  <div className="rounded-xl border border-border px-3 py-2">
-                    {(bayoRows ?? []).map((r) => (
+                  <IncrementalList
+                    items={bayoRows ?? []}
+                    label="movements"
+                    className="max-h-[32rem] overflow-y-auto rounded-xl border border-border px-3 py-2"
+                    renderItem={(r) => (
                       <MovementRow
                         key={r.id}
                         direction={r.direction}
@@ -503,8 +509,8 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                         note={r.note}
                         tag="Bank"
                       />
-                    ))}
-                  </div>
+                    )}
+                  />
                 )}
               </TabsContent>
 
@@ -534,11 +540,12 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                         {fmt(flagged?.total ?? 0)}
                       </p>
                     </div>
-                    <div className="max-h-[28rem] space-y-2 overflow-y-auto">
-                      {(flagged?.transfers ?? []).map((t) => (
-                        <FlaggedCard key={t.id} t={t} />
-                      ))}
-                    </div>
+                    <IncrementalList
+                      items={flagged?.transfers ?? []}
+                      label="flagged transfers"
+                      className="max-h-[28rem] space-y-2 overflow-y-auto"
+                      renderItem={(t) => <FlaggedCard key={t.id} t={t} />}
+                    />
 
                   </>
                 )}
