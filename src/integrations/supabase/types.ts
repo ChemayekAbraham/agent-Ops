@@ -52160,6 +52160,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_unregistered_recipient_transfers_summary: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       get_user_advance_reversal_available: {
         Args: { p_user_id: string }
         Returns: number
