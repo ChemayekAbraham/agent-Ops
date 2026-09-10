@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { AutoGrowTextarea } from '@/components/budget/AutoGrowTextarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Save, Send, Trash2, Upload, FileText, AlertTriangle, X } from 'lucide-react';
+import { Loader2, Plus, Send, Trash2, Upload, FileText, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -124,7 +124,6 @@ export default function DepartmentBudgetSubmission({
   const [title, setTitle] = useState('');
   const [purpose, setPurpose] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
-  const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
   const [route, setRoute] = useState<'direct' | 'coo' | null>(null);
@@ -229,13 +228,6 @@ export default function DepartmentBudgetSubmission({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSubmissionId, resumedDraftId, submissions]);
 
-
-  const startNew = () => {
-    setActiveId(null);
-    setTitle('');
-    setPurpose('');
-    setLines([emptyLine()]);
-  };
 
   const total = lines.reduce(
     (sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.unit_amount) || 0), 0,
