@@ -543,39 +543,10 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
 
                         {isOpen && (
                           <div className="border-t border-border bg-muted/20 px-3 py-2">
-                            <div className="mb-1 flex items-center justify-between">
-                              <p className="text-[11px] font-semibold">Every transfer on this desk</p>
-                              <Badge variant="outline" className="text-[10px]">
-                                {rows.length} movement(s)
-                              </Badge>
-                            </div>
-                            {movLoading ? (
-                              <div className="flex justify-center py-4">
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                              </div>
-                            ) : rows.length === 0 ? (
-                              <p className="py-3 text-[11px] text-muted-foreground">
-                                No matched email transfers for this desk.
-                              </p>
-                            ) : (
-                              <IncrementalList
-                                items={rows}
-                                label="transfers"
-                                className="max-h-72 overflow-y-auto pr-1"
-                                renderItem={(m: any) => (
-                                  <MovementRow
-                                    key={`${m.id}-${m.desk_id}`}
-                                    direction={m.direction}
-                                    amount={m.amount}
-                                    at={m.at}
-                                    party={m.counterparty}
-                                    reference={m.transaction_id}
-                                    note={m.snippet}
-                                    tag={channelLabel(m.channel)}
-                                  />
-                                )}
-                              />
-                            )}
+                            <DeskMovements
+                              deskId={a.desk_id}
+                              expectedCount={a.email_sent_count + a.email_returned_count}
+                            />
                           </div>
                         )}
                       </div>
