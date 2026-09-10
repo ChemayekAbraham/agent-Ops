@@ -39,6 +39,57 @@ const channelLabel = (c: string) =>
 
 const PAGE_SIZE = 25;
 
+/** Server-paged list: asks the database for the next cursor page on scroll. */
+function CursorPaged<T>({
+  items,
+  renderItem,
+  label,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+}: {
+  items: T[];
+  renderItem: (item: T, index: number) => React.ReactNode;
+  label: string;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: () => void;
+}) {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !hasNextPage) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isFetchingNextPage) fetchNextPage();
+      },
+      { rootMargin: '120px' },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  return (
+    <div>
+      {items.map((item, i) => renderItem(item, i))}
+      {hasNextPage && (
+        <div ref={sentinelRef} className="flex flex-col items-center gap-1 py-3">
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="rounded-md border border-border px-3 py-1 text-[11px] font-medium hover:bg-muted/50 disabled:opacity-60"
+          >
+            {isFetchingNextPage ? 'Loading…' : `Load more ${label}`}
+          </button>
+          <p className="text-[10px] text-muted-foreground">Loaded {items.length} so far</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Renders a slice of a long list and grows it as the reader reaches the end. */
 function Paged<T>({
   items,
