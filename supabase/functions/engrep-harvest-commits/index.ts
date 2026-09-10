@@ -237,6 +237,7 @@ Deno.serve(async (req) => {
           p_fence_path: fencePath,
           p_claimed_objects: claimedObjects,
           p_paths: paths,
+          p_committed_at: c?.commit?.author?.date ?? null,
         });
         if (ingErr) throw new Error(`ingest_row: ${ingErr.message}`);
         if (rowId) {
