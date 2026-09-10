@@ -12432,6 +12432,7 @@ export type Database = {
           claimed_objects: string[]
           claims_schema: boolean
           commit_subject: string
+          committed_at: string | null
           engineer_code: string | null
           engineer_id: string | null
           evidence_kind: string
@@ -12462,6 +12463,7 @@ export type Database = {
           claimed_objects?: string[]
           claims_schema?: boolean
           commit_subject: string
+          committed_at?: string | null
           engineer_code?: string | null
           engineer_id?: string | null
           evidence_kind: string
@@ -12492,6 +12494,7 @@ export type Database = {
           claimed_objects?: string[]
           claims_schema?: boolean
           commit_subject?: string
+          committed_at?: string | null
           engineer_code?: string | null
           engineer_id?: string | null
           evidence_kind?: string
@@ -49064,6 +49067,7 @@ export type Database = {
           p_claimed_objects?: string[]
           p_claims_schema?: boolean
           p_commit_subject: string
+          p_committed_at?: string
           p_engineer_code?: string
           p_evidence_ref: string
           p_fence_path?: string
@@ -49115,6 +49119,7 @@ export type Database = {
           p_claimed_objects?: string[]
           p_claims_schema?: boolean
           p_commit_subject: string
+          p_committed_at?: string
           p_engineer_code?: string
           p_evidence_ref: string
           p_fence_path?: string
