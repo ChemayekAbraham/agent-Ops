@@ -153,9 +153,10 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
            party: t.counterparty || extractParty(t.snippet) || String(t.match_reason ?? 'Bayo Mercy account activity'),
            reference: t.transaction_id ?? null,
            balanceAfter: null,
-           note: t.snippet ? String(t.snippet).slice(0, 180) : String(t.match_reason ?? 'Qualifying Bayo Mercy account alert'),
-           phone: null,
-         }));
+            note: t.snippet ? String(t.snippet).slice(0, 180) : String(t.match_reason ?? 'Qualifying Bayo Mercy account alert'),
+            phone: null,
+            category: t.direction === 'out' ? 'Money out' : 'Money in',
+          }));
        }
 
       const { data: tx, error } = await supabase
