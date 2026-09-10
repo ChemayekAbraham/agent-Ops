@@ -131,6 +131,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
             ? 'Verified cash deposit — marked as banked by Financial Ops'
             : 'Verified cash collected — awaiting banking',
           phone: people.get(c.user_id)?.phone ?? null,
+          category: purposeLabel(c.deposit_requests?.deposit_purpose),
         }));
       }
 
