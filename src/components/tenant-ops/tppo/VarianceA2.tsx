@@ -121,7 +121,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
   // "Still counting" only belongs on a period that has not closed yet. Once the
   // day is closed the RPC drops `provisional`, so the label disappears by itself.
-  const currentStillCounting = report?.provisional === true;
+  const currentStillCounting = report?.provisional === true && !currentIsClosed;
 
   const rows = [
     {
