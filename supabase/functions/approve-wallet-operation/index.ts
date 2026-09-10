@@ -468,15 +468,29 @@ Deno.serve(async (req) => {
 
         // If this is an agent rent payment for a tenant, update receivables
         if (op.category === 'rent_payment_for_tenant' && op.direction === 'cash_in' && op.user_id) {
-          // The cash_in direction means tenant wallet was credited — update their rent repayment
+          // The cash_in direction means tenant wallet was credited — update their rent repayment.
+          // Try the Treasury waterfall first; fall back to legacy repayment so a missing
+          // funding-side L7 credit never blocks the tenant's payment.
           try {
-            await adminClient.rpc("record_rent_request_repayment", {
+            const { error: waterfallErr } = await adminClient.rpc("record_rent_request_repayment_v2", {
               p_tenant_id: op.user_id,
               p_amount: op.amount,
+              p_source_table: 'pending_wallet_operations',
+              p_source_id: op.id,
             });
-            console.log(`[approve-wallet-op] Updated receivables for tenant ${op.user_id}, amount: ${op.amount}`);
-          } catch (rpcErr) {
-            console.error(`[approve-wallet-op] Failed to update receivables for ${op.id}:`, rpcErr);
+            if (waterfallErr) throw waterfallErr;
+            console.log(`[approve-wallet-op] Treasury waterfall recorded for tenant ${op.user_id}, amount: ${op.amount}`);
+          } catch (rpcErr: any) {
+            console.error(`[approve-wallet-op] Treasury waterfall failed for ${op.id}, falling back to legacy repayment:`, rpcErr?.message || rpcErr);
+            try {
+              await adminClient.rpc("record_rent_request_repayment", {
+                p_tenant_id: op.user_id,
+                p_amount: op.amount,
+              });
+              console.log(`[approve-wallet-op] Updated receivables for tenant ${op.user_id}, amount: ${op.amount}`);
+            } catch (fallbackErr: any) {
+              console.error(`[approve-wallet-op] Failed to update receivables for ${op.id}:`, fallbackErr?.message || fallbackErr);
+            }
           }
         }
 
@@ -513,10 +527,25 @@ Deno.serve(async (req) => {
                 if (availableBalance > 0) {
                   const repaymentAmount = Math.min(availableBalance, outstanding);
 
-                  const { error: repaymentErr } = await adminClient.rpc(
+                  // Try the Treasury waterfall first; fall back to legacy repayment so a
+                  // missing funding-side L7 credit never blocks the tenant's payment.
+                  let waterfallOk = false;
+                  try {
+                    const { error: waterfallErr } = await adminClient.rpc(
+                      "record_rent_request_repayment_v2",
+                      { p_tenant_id: op.user_id, p_amount: repaymentAmount, p_source_table: 'pending_wallet_operations', p_source_id: op.id }
+                    );
+                    if (waterfallErr) throw waterfallErr;
+                    waterfallOk = true;
+                    console.log(`[approve-wallet-op] Treasury waterfall recorded for tenant ${op.user_id}, amount: ${repaymentAmount}`);
+                  } catch (waterfallErr: any) {
+                    console.error(`[approve-wallet-op] Treasury waterfall failed for ${op.id}, falling back to legacy repayment:`, waterfallErr?.message || waterfallErr);
+                  }
+
+                  const { error: repaymentErr } = !waterfallOk ? await adminClient.rpc(
                     "record_rent_request_repayment",
                     { p_tenant_id: op.user_id, p_amount: repaymentAmount }
-                  );
+                  ) : { error: null };
 
                   if (!repaymentErr) {
                     const { error: rentLedgerErr } = await adminClient.rpc('create_ledger_transaction', {

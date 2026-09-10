@@ -409,17 +409,31 @@ Deno.serve(async (req) => {
         if (activeRentRequest.status === 'repaying') {
           await applyRepaymentForRepayingRequest(adminClient, targetUserId!, activeRentRequest as any, repaymentAmount);
         } else {
-          const { error: repaymentError } = await adminClient.rpc('record_rent_request_repayment', {
-            p_tenant_id: targetUserId,
-            p_amount: repaymentAmount,
-          });
+          // Try the Treasury waterfall first; fall back to legacy repayment so a
+          // missing funding-side L7 credit never blocks the tenant's payment.
+          try {
+            const { error: waterfallError } = await adminClient.rpc('record_rent_request_repayment_v2', {
+              p_tenant_id: targetUserId,
+              p_amount: repaymentAmount,
+              p_source_table: 'agent_deposits',
+              p_source_id: crypto.randomUUID(),
+            });
+            if (waterfallError) throw waterfallError;
+            console.log('[agent-deposit] Treasury waterfall recorded for rent request', activeRentRequest.id);
+          } catch (waterfallErr: any) {
+            console.error('[agent-deposit] Treasury waterfall failed, falling back to legacy repayment:', waterfallErr?.message || waterfallErr);
+            const { error: repaymentError } = await adminClient.rpc('record_rent_request_repayment', {
+              p_tenant_id: targetUserId,
+              p_amount: repaymentAmount,
+            });
 
-          if (repaymentError) {
-            console.error('[agent-deposit] Repayment RPC error:', repaymentError);
-            return new Response(
-              JSON.stringify({ error: 'Failed to reduce tenant rent balance' }),
-              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            if (repaymentError) {
+              console.error('[agent-deposit] Repayment RPC error:', repaymentError);
+              return new Response(
+                JSON.stringify({ error: 'Failed to reduce tenant rent balance' }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
           }
 
           const { data: verifiedRentRequest, error: verificationError } = await adminClient

@@ -448,9 +448,23 @@ Deno.serve(async (req) => {
           const newBalance = walletBalance - chargeAmount;
 
           if (charge.rent_request_id) {
-            await supabase.rpc("record_rent_request_repayment", {
-              p_tenant_id: charge.tenant_id, p_amount: chargeAmount,
-            });
+            // Try the Treasury waterfall first; fall back to legacy repayment so a
+            // missing funding-side L7 credit never blocks the tenant's payment.
+            try {
+              const { error: waterfallErr } = await supabase.rpc("record_rent_request_repayment_v2", {
+                p_tenant_id: charge.tenant_id,
+                p_amount: chargeAmount,
+                p_source_table: "subscription_charges",
+                p_source_id: charge.id,
+              });
+              if (waterfallErr) throw waterfallErr;
+              console.log(`[auto-charge-wallets] Treasury waterfall recorded for charge ${charge.id}`);
+            } catch (waterfallErr: any) {
+              console.error(`[auto-charge-wallets] Treasury waterfall failed for charge ${charge.id}, falling back to legacy repayment:`, waterfallErr?.message || waterfallErr);
+              await supabase.rpc("record_rent_request_repayment", {
+                p_tenant_id: charge.tenant_id, p_amount: chargeAmount,
+              });
+            }
             await supabase.rpc("credit_agent_rent_commission", {
               p_rent_request_id: charge.rent_request_id, p_repayment_amount: chargeAmount,
               p_tenant_id: charge.tenant_id,
