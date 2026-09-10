@@ -3,6 +3,7 @@ import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useCFO7DayCashFlow } from '@/hooks/useCFO7DayCashFlow';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import { useMerchantAgentMoneyOwed } from '@/hooks/useMerchantAgentMoneyOwed';
+import { MoneyWeCanUseBreakdown } from '@/components/cfo/MoneyWeCanUseBreakdown';
 import { MerchantAgentOwedSheet } from '@/components/cfo/MerchantAgentOwedSheet';
 
 import { useAuth } from '@/hooks/useAuth';
@@ -371,6 +372,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setActiveBreakdown('earnings')}
             />
           </div>
+
+          {/* Transaction-level reconciliation behind Money We Can Use. */}
+          <MoneyWeCanUseBreakdown />
 
           {/* Where that same cash sits — a split of "Money We Have", so it
               belongs directly beneath it rather than further down the page. */}
