@@ -52,7 +52,7 @@ export function AgentManagedPropertiesSheet({ open, onOpenChange, onRequestPayou
     setLoading(true);
     const { data } = await supabase
       .from('landlords')
-      .select('id, name, phone, mobile_money_number, property_address, description, number_of_rooms, number_of_houses, monthly_rent, rent_balance_due, rent_last_paid_at, rent_last_paid_amount, latitude, longitude, tenant_id')
+      .select('id, name, phone, mobile_money_number, bank_name, bank_branch, account_number, bank_account_name, property_address, description, number_of_rooms, number_of_houses, monthly_rent, rent_balance_due, rent_last_paid_at, rent_last_paid_amount, latitude, longitude, tenant_id')
       .eq('managed_by_agent_id', user.id)
       .eq('is_agent_managed', true);
 
