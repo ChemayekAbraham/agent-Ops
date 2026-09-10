@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
           {
             p_engineer_code: (eng as any).code,
             p_paths: paths,
-            p_day: vDay,
+            p_on: vDay,
           },
         );
         if (fenceErr) throw new Error(`check_fence: ${fenceErr.message}`);
