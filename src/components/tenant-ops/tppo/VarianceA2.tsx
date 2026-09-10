@@ -135,6 +135,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       rate: report?.collection_rate_pct ?? null,
       arrearsTarget: report?.arrears_target_ugx ?? null,
       current: true,
+      stillCounting: currentStillCounting,
       basisVersion: currentBasis,
     },
   ].map((row) => ({ ...row, differentBasis: row.basisVersion !== currentBasis }));
