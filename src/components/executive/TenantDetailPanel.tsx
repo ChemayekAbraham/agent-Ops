@@ -1050,7 +1050,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
                           <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', statusColor(displayStatus))}>
                             {displayStatus.replace(/_/g, ' ')}
                           </Badge>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
                             <span className="text-xs text-muted-foreground">
                               {format(new Date(req.created_at), 'dd MMM yyyy')}
                             </span>
@@ -1070,6 +1070,21 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
                                 <ArrowRightLeft className="h-3 w-3" />
                                 Transfer
                               </Button>
+                            )}
+                            {!isEditing && (
+                              <PaymentPeriodControl
+                                rentRequestId={req.id}
+                                frequency={(req as any).repayment_frequency ?? null}
+                                dailyRepayment={Number(req.daily_repayment ?? 0)}
+                                canEdit
+                                triggerClassName="h-6 px-2 text-[10px] gap-1 w-auto"
+                                compact
+                                onSaved={() => {
+                                  queryClient.invalidateQueries({ queryKey: ['tenant-detail', tenantId] });
+                                  queryClient.invalidateQueries({ queryKey: ['agent-monitoring'] });
+                                  queryClient.invalidateQueries({ queryKey: ['ops-tenants'] });
+                                }}
+                              />
                             )}
                             {!isEditing && (
                               <RepaymentPauseControl
