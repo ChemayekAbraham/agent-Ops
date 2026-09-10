@@ -98,7 +98,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
         // status 'verified', split by the Financial Ops cash location flag.
         const { data: cash, error } = await supabase
           .from('cash_deposit_verifications')
-          .select('id, amount, status, user_id, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit)')
+          .select('id, amount, status, user_id, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit, deposit_purpose)')
           .order('created_at', { ascending: false })
           .limit(1000);
         if (error) throw error;
