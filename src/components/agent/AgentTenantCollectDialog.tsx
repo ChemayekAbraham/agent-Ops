@@ -21,7 +21,14 @@ import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
 import AgentContactLocationGate from './AgentContactLocationGate';
 import { useRequireContactLocation } from '@/hooks/useRequireContactLocation';
 import { useAgentCollectContext, useInvalidateArrears } from '@/hooks/useAgentArrears';
-import { hasArrears, splitPayment, arrearsHeadline } from '@/lib/arrearsAllocation';
+import {
+  hasArrears,
+  splitPayment,
+  arrearsHeadline,
+  totalDueNow,
+  isPartialPayment,
+  paymentShortfall,
+} from '@/lib/arrearsAllocation';
 
 /**
  * Translate raw RPC / Postgres errors into something an agent can act on.
@@ -152,8 +159,13 @@ export function AgentTenantCollectDialog({
   // confirmation, no mandatory reason. The reason box stays as an optional note
   // so Operations still gets context in the Partial Collections view.
   const expected = Math.max(0, Number(collectCtx?.expected_today ?? 0));
-  const isPartial = expected > 0 && amount > 0 && amount < expected;
-  const shortfall = isPartial ? expected - amount : 0;
+  // Judged against EVERYTHING owed — the unpaid earlier days plus what is still
+  // open on today — capped at the outstanding balance, exactly as the server
+  // now stamps the receipt. Measuring against today alone reported a tenant
+  // five days behind as "paid in full" the moment one day's money arrived.
+  const totalDue = Math.min(totalDueNow(collectCtx), maxAllowable);
+  const isPartial = isPartialPayment(collectCtx, amount, maxAllowable);
+  const shortfall = paymentShortfall(collectCtx, amount, maxAllowable);
   const isValid = amount >= minAllowed && amount <= maxAllowable;
   // How the server will apply this payment: oldest unpaid days first, then
   // today, then ahead. Preview only — the RPC does the real allocation.
@@ -1109,7 +1121,7 @@ export function AgentTenantCollectDialog({
                       Short by {formatUGX(shortfall)} — this is a partial collection
                     </p>
                     <p className="text-muted-foreground">
-                      {tenant.full_name} is expected to pay {formatUGX(expected)}. You can still record this
+                      {tenant.full_name} owes {formatUGX(totalDue)} right now. You can still record this
                       amount — it will be tracked as a partial collection for Operations follow-up.
                     </p>
                   </div>

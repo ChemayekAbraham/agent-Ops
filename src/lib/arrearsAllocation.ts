@@ -79,6 +79,46 @@ export function hasArrears(ctx: CollectContext | null | undefined): boolean {
 }
 
 /**
+ * Everything the tenant owes right now — the unpaid earlier days plus what is
+ * still open on today. This, not `expected_today`, is what a payment is judged
+ * against.
+ *
+ * Mirrors `rent_plan_amount_due_now()` on the server, which stamps the same
+ * figure onto the receipt as `total_due_amount`. Callers should cap the result
+ * at the plan's outstanding balance, which the server also does and which is
+ * not carried in this context payload.
+ */
+export function totalDueNow(ctx: CollectContext | null | undefined): number {
+  return num(ctx?.arrears_ugx) + num(ctx?.due_today_ugx);
+}
+
+/**
+ * How far short of everything owed this payment falls.
+ *
+ * Measuring against today alone was defect D1: an agent collecting one full
+ * day's instalment from a tenant five days behind got a receipt stamped
+ * "no shortfall, not partial" while 19,068 was still owed.
+ */
+export function paymentShortfall(
+  ctx: CollectContext | null | undefined,
+  amount: number,
+  cap?: number,
+): number {
+  const due = cap === undefined ? totalDueNow(ctx) : Math.min(totalDueNow(ctx), num(cap));
+  return Math.max(0, due - num(amount));
+}
+
+/** True when the payment does not clear everything owed. See `paymentShortfall`. */
+export function isPartialPayment(
+  ctx: CollectContext | null | undefined,
+  amount: number,
+  cap?: number,
+): boolean {
+  const due = cap === undefined ? totalDueNow(ctx) : Math.min(totalDueNow(ctx), num(cap));
+  return due > 0 && num(amount) > 0 && num(amount) < due;
+}
+
+/**
  * Split the amount the agent typed the way the server will apply it.
  *
  * `arrears_ugx` and `due_today_ugx` are already net of everything settled, so
