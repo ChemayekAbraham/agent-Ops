@@ -569,12 +569,15 @@ export function AgentMonitoring() {
       })
       .filter((agent) => {
         if (frequencyFilter !== 'all' && agent.tenants.length === 0) return false;
-        if (!createdAfter) return true;
+        if (!createdAfter && !createdBefore) return true;
         const profile = profileMap.get(agent.id);
-        return !!profile?.created_at && new Date(profile.created_at) >= new Date(createdAfter);
+        if (!profile?.created_at) return false;
+        const added = new Date(profile.created_at);
+        if (createdAfter) return added >= new Date(createdAfter);
+        return added < new Date(createdBefore as string);
       })
       .sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
-  }, [collectionMap, createdAfter, data?.collections, data?.requests, data?.requestCounts, frequencyFilter, profileMap, scheduleMap]);
+  }, [collectionMap, createdAfter, createdBefore, data?.collections, data?.requests, data?.requestCounts, frequencyFilter, profileMap, scheduleMap]);
 
   const filteredAgents = useMemo(() => {
     const query = search.trim().toLowerCase();
