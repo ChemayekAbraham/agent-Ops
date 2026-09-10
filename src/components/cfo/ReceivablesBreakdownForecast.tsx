@@ -207,14 +207,15 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                           {cat.label}
                         </span>
                         <span className="block text-[9px] sm:text-[10px] text-muted-foreground">
-                          {cat.item_count} item{cat.item_count === 1 ? '' : 's'} · {share.toFixed(1)}%
+                          {productFilter === ALL_PRODUCTS ? cat.item_count : products.reduce((s, p) => s + p.item_count, 0)} item
+                          {(productFilter === ALL_PRODUCTS ? cat.item_count : products.reduce((s, p) => s + p.item_count, 0)) === 1 ? '' : 's'} · {share.toFixed(1)}%
                           of book
                         </span>
                       </span>
                     </span>
                     <span className="text-right shrink-0">
                       <span className="block text-xs sm:text-sm font-bold font-mono tabular-nums">
-                        {formatUGX(cat.outstanding)}
+                        {formatUGX(shownOutstanding)}
                       </span>
                       <Progress value={share} className="h-1 w-16 sm:w-24 mt-1" />
                     </span>
@@ -222,12 +223,12 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
 
                   {catOpen && (
                     <div className="px-2.5 pb-2.5 space-y-1.5">
-                      {cat.products.length === 0 && (
+                      {products.length === 0 && (
                         <p className="text-[10px] sm:text-xs text-muted-foreground py-1">
                           No open receivables in this category.
                         </p>
                       )}
-                      {cat.products.map((prod) => {
+                      {products.map((prod) => {
                         const prodKey = `${cat.key}:${prod.key}`;
                         const prodOpen = openProduct === prodKey;
                         return (
