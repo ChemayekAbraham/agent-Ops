@@ -215,6 +215,15 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
                     <Label className="text-xs">Account Number</Label>
                     <Input value={form.account_number || ''} onChange={e => setForm(f => ({ ...f, account_number: e.target.value }))} />
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Branch</Label>
+                    <Input value={form.bank_branch || ''} onChange={e => setForm(f => ({ ...f, bank_branch: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Bank Account Name</Label>
+                    <Input value={form.bank_account_name || ''} onChange={e => setForm(f => ({ ...f, bank_account_name: e.target.value }))} />
+                  </div>
+
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
