@@ -62,6 +62,9 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
   const [path, setPath] = useState<Crumb[]>([]);
   const [accountsFor, setAccountsFor] = useState<string | null>(null);
   const [openTenant, setOpenTenant] = useState<{ id: string; name: string | null } | null>(null);
+  const [assignTenant, setAssignTenant] = useState<TenantReceivableAccount | null>(null);
+  const qc = useQueryClient();
+
 
   const current = path[path.length - 1] ?? null;
   const level: TenantReceivablesLevel = current ? (NEXT_LEVEL[current.level] ?? 'village') : 'region';
