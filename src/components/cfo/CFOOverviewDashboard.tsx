@@ -150,7 +150,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const positionUnavailable = !!positionError;
   const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
-  const moneyWeCanUse = Math.max(0, totalCash - walletTotal);
+  const actualMoneyTotal = actualMoney?.total ?? 0;
+  const moneyWeCanUse = Math.max(0, actualMoneyTotal - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
