@@ -121,6 +121,36 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
           )}
         </div>
 
+        {/* Unplaced money: why, and how much */}
+        {(() => {
+          const unmappedRow = breakdown.data?.rows?.find((r) => r.label === UNMAPPED);
+          const unplaced = breakdown.data?.unmapped_amount ?? unmappedRow?.outstanding ?? 0;
+          if (!unplaced) return null;
+          return (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <p className="flex items-start gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {formatUGX(unplaced)} could not be placed on the map — these tenants have no village
+                    picked from the approved Uganda list, so their district and region are unknown.
+                  </span>
+                </p>
+                {unmappedRow && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 shrink-0 px-2 text-[10px]"
+                    onClick={() => setAccountsFor(accountsFor === UNMAPPED ? null : UNMAPPED)}
+                  >
+                    {accountsFor === UNMAPPED ? 'Hide' : 'Assign now'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Breadcrumbs */}
         <div className="flex flex-wrap items-center gap-1 text-[11px]">
           <Button
