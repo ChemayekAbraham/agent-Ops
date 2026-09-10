@@ -1757,6 +1757,7 @@ export type Database = {
         Row: {
           agent_id: string
           amount: number
+          arrears_amount: number | null
           client_ref: string | null
           collection_channel: string
           created_at: string
@@ -1782,12 +1783,14 @@ export type Database = {
           sms_sent_tenant: boolean | null
           tenant_id: string
           token_id: string | null
+          total_due_amount: number | null
           tracking_id: string | null
           visit_id: string | null
         }
         Insert: {
           agent_id: string
           amount: number
+          arrears_amount?: number | null
           client_ref?: string | null
           collection_channel?: string
           created_at?: string
@@ -1813,12 +1816,14 @@ export type Database = {
           sms_sent_tenant?: boolean | null
           tenant_id: string
           token_id?: string | null
+          total_due_amount?: number | null
           tracking_id?: string | null
           visit_id?: string | null
         }
         Update: {
           agent_id?: string
           amount?: number
+          arrears_amount?: number | null
           client_ref?: string | null
           collection_channel?: string
           created_at?: string
@@ -1844,6 +1849,7 @@ export type Database = {
           sms_sent_tenant?: boolean | null
           tenant_id?: string
           token_id?: string | null
+          total_due_amount?: number | null
           tracking_id?: string | null
           visit_id?: string | null
         }
@@ -55078,6 +55084,14 @@ export type Database = {
       rent_pipeline_tenant_history: {
         Args: { p_exclude_request_id?: string; p_tenant_id: string }
         Returns: Json
+      }
+      rent_plan_amount_due_now: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
+      rent_plan_arrears_ugx: {
+        Args: { p_rent_request_id: string }
+        Returns: number
       }
       rent_plan_collect_authorized: {
         Args: { p_rent_request_id: string }
