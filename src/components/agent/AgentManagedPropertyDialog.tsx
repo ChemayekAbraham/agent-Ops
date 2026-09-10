@@ -50,6 +50,12 @@ export function AgentManagedPropertyDialog({
   const [landlordName, setLandlordName] = useState('');
   const [landlordPhone, setLandlordPhone] = useState('');
   const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
+  // Optional bank details — additive, never required for registration
+  const [bankName, setBankName] = useState('');
+  const [bankBranch, setBankBranch] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+
 
   // Property details
   const [propertyAddress, setPropertyAddress] = useState('');
