@@ -234,7 +234,33 @@ export function AgentManagedPropertyDialog({
                   <Label className="text-xs flex items-center gap-1"><Phone className="h-3 w-3" /> Mobile Money Number (for payouts) *</Label>
                   <Input value={mobileMoneyNumber} onChange={(e) => setMobileMoneyNumber(e.target.value)} placeholder="0771234567" className="h-9" required />
                 </div>
+                <div className="space-y-2 rounded-lg border bg-muted/30 p-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <Banknote className="h-3 w-3 text-primary" />
+                    <span className="text-xs font-semibold">Bank Details</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground">optional</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bank Name</Label>
+                      <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. Stanbic Bank" className="h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Branch</Label>
+                      <Input value={bankBranch} onChange={(e) => setBankBranch(e.target.value)} placeholder="e.g. Kampala Road" className="h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bank Account Number</Label>
+                      <Input inputMode="numeric" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} placeholder="Account number" className="h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bank Account Name</Label>
+                      <Input value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} placeholder="Name on the account" className="h-9" />
+                    </div>
+                  </div>
+                </div>
               </div>
+
 
               {/* Property Details */}
               <div className="space-y-3">
