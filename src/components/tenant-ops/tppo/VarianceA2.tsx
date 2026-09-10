@@ -179,7 +179,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
       <div className={`mt-2 flex flex-wrap items-center gap-2 ${directionClass}`}>
         <DirectionIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-        <span className="text-xl font-semibold tabular-nums">{signedPct(rateDeltaPct)}</span>
+        <span className="text-xl font-semibold tabular-nums font-mono">{signedPct(rateDeltaPct)}</span>
         <span className="text-sm font-medium">{directionLabel}</span>
       </div>
 
@@ -188,18 +188,18 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
           {currentIsClosed ? (
             <>
               <span>{priorLabel}</span>
-              <span className="tabular-nums">{rateText(priorRate)}</span>
+              <span className="tabular-nums font-mono">{rateText(priorRate)}</span>
               <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <span>{currentLabel}</span>
-              <span className="tabular-nums">{rateText(currentRate)}</span>
+              <span className="tabular-nums font-mono">{rateText(currentRate)}</span>
             </>
           ) : (
             <>
               <span>{earlierLabel}</span>
-              <span className="tabular-nums">{rateText(earlierRate)}</span>
+              <span className="tabular-nums font-mono">{rateText(earlierRate)}</span>
               <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <span>{priorLabel}</span>
-              <span className="tabular-nums">{rateText(priorRate)}</span>
+              <span className="tabular-nums font-mono">{rateText(priorRate)}</span>
             </>
           )}
         </p>
@@ -233,19 +233,19 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
             <div className="mt-2 space-y-1 text-sm">
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Scheduled due (own period)</span>
-                <span className="shrink-0 tabular-nums">{money(row.scheduled)}</span>
+                <span className="shrink-0 tabular-nums font-mono">{money(row.scheduled)}</span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Collected</span>
-                <span className="shrink-0 tabular-nums">{money(row.collected)}</span>
+                <span className="shrink-0 tabular-nums font-mono">{money(row.collected)}</span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Arrears target</span>
-                <span className="shrink-0 tabular-nums">{money(row.arrearsTarget)}</span>
+                <span className="shrink-0 tabular-nums font-mono">{money(row.arrearsTarget)}</span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Rate</span>
-                <span className="shrink-0 tabular-nums">
+                <span className="shrink-0 tabular-nums font-mono">
                   {row.differentBasis ? '—' : rateText(row.rate)}
                 </span>
               </p>
@@ -260,26 +260,26 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
             <div className="mt-2 space-y-1 text-sm">
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Scheduled due (own period)</span>
-                <span className={`shrink-0 tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
+                <span className={`shrink-0 tabular-nums font-mono ${signedClass(report?.scheduled_delta_ugx)}`}>
                   {signedMoney(report?.scheduled_delta_ugx)}
                 </span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Collected</span>
-                <span className={`shrink-0 tabular-nums ${signedClass(report?.collected_delta_ugx)}`}>
+                <span className={`shrink-0 tabular-nums font-mono ${signedClass(report?.collected_delta_ugx)}`}>
                   {signedMoney(report?.collected_delta_ugx)}
                 </span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Arrears target</span>
-                <span className={`shrink-0 tabular-nums ${signedClass(arrearsTargetDelta)}`}>
+                <span className={`shrink-0 tabular-nums font-mono ${signedClass(arrearsTargetDelta)}`}>
                   {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
                 </span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Rate</span>
                 <span
-                  className={`shrink-0 tabular-nums ${
+                  className={`shrink-0 tabular-nums font-mono ${
                     anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
                   }`}
                 >
@@ -321,10 +321,10 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                     <span className="ml-2 text-xs text-primary">still counting</span>
                   )}
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums">{money(row.scheduled)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{money(row.collected)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{money(row.arrearsTarget)}</td>
-                <td className="py-2 text-right tabular-nums">
+                <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(row.scheduled)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(row.collected)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(row.arrearsTarget)}</td>
+                <td className="py-2 text-right tabular-nums font-mono">
                   {row.differentBasis ? '—' : rateText(row.rate)}
                 </td>
               </tr>
@@ -332,17 +332,17 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
             {(currentStillCounting || currentIsClosed) && (
               <tr className="font-medium">
                 <td className="py-2 pr-3">Increase / decrease</td>
-                <td className={`py-2 pr-3 text-right tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
+                <td className={`py-2 pr-3 text-right tabular-nums font-mono ${signedClass(report?.scheduled_delta_ugx)}`}>
                   {signedMoney(report?.scheduled_delta_ugx)}
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
+                <td className="py-2 pr-3 text-right tabular-nums font-mono text-muted-foreground">
                   —
                 </td>
-                <td className={`py-2 pr-3 text-right tabular-nums ${arrearsTargetDelta === null ? 'text-muted-foreground' : signedClass(arrearsTargetDelta)}`}>
+                <td className={`py-2 pr-3 text-right tabular-nums font-mono ${arrearsTargetDelta === null ? 'text-muted-foreground' : signedClass(arrearsTargetDelta)}`}>
                   {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
                 </td>
                 <td
-                  className={`py-2 text-right tabular-nums ${
+                  className={`py-2 text-right tabular-nums font-mono ${
                     anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
                   }`}
                 >
