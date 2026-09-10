@@ -195,6 +195,112 @@ function IncrementalList<T>({
 }
 
 
+/**
+ * Server-paged list: keeps a sentinel at the bottom and asks the database for
+ * the next cursor page as the user scrolls. Only the pages already fetched are
+ * ever held in memory.
+ */
+function CursorList<T>({
+  pages,
+  renderItem,
+  className,
+  label,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+}: {
+  pages: T[];
+  renderItem: (item: T, index: number) => React.ReactNode;
+  className?: string;
+  label: string;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: () => void;
+}) {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !hasNextPage) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isFetchingNextPage) fetchNextPage();
+      },
+      { rootMargin: '120px' },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  return (
+    <div className={className}>
+      {pages.map((item, i) => renderItem(item, i))}
+      {hasNextPage && (
+        <div ref={sentinelRef} className="flex flex-col items-center gap-1 py-3">
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="rounded-md border border-border px-3 py-1 text-[11px] font-medium hover:bg-muted/50 disabled:opacity-60"
+          >
+            {isFetchingNextPage ? 'Loading…' : `Load more ${label}`}
+          </button>
+          <p className="text-[10px] text-muted-foreground">Loaded {pages.length} so far</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Every transfer on one merchant desk, fetched a cursor page at a time. */
+function DeskMovements({ deskId, expectedCount }: { deskId: string; expectedCount: number }) {
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useMerchantAgentMovementsPage(deskId, true, PAGE_SIZE);
+  const rows: MerchantAgentMovement[] = (data?.pages ?? []).flat();
+
+  return (
+    <>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-[11px] font-semibold">Every transfer on this desk</p>
+        <Badge variant="outline" className="text-[10px]">
+          {rows.length}
+          {hasNextPage ? '+' : ''} of {expectedCount} movement(s)
+        </Badge>
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-4">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="py-3 text-[11px] text-muted-foreground">
+          No matched email transfers for this desk.
+        </p>
+      ) : (
+        <CursorList
+          pages={rows}
+          label="transfers"
+          className="max-h-72 overflow-y-auto pr-1"
+          hasNextPage={!!hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          fetchNextPage={fetchNextPage}
+          renderItem={(m) => (
+            <MovementRow
+              key={`${m.id}-${m.desk_id}`}
+              direction={m.direction}
+              amount={m.amount}
+              at={m.at}
+              party={m.counterparty}
+              reference={m.transaction_id}
+              note={m.snippet}
+              tag={channelLabel(m.channel)}
+            />
+          )}
+        />
+      )}
+    </>
+  );
+}
+
 function MovementRow({
   direction,
   amount,
