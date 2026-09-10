@@ -29,6 +29,26 @@ const typeConfig: Record<string, { icon: typeof Bell; color: string; bg: string 
   advance_arrears: { icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-500/10' },
 };
 
+/**
+ * Budget notices carry the cycle and department they were raised for
+ * (`budget_cycle_open`) or the submission itself, and /budgets reads those as
+ * the `cycle`, `department` and `submission` search params. Building the path
+ * here is what makes tapping the notice open the submission form already
+ * scoped to the department that owes the budget, rather than a bare list.
+ *
+ * `dashboard` is deliberately NOT set: that param locks the form to one hub's
+ * department allowlist, which would hide the department for a head whose HR
+ * posting sits elsewhere.
+ */
+function budgetSubmissionPath(meta: Record<string, unknown>): string {
+  const params = new URLSearchParams();
+  if (typeof meta.call_id === 'string') params.set('cycle', meta.call_id);
+  if (typeof meta.department_id === 'string') params.set('department', meta.department_id);
+  if (typeof meta.submission_id === 'string') params.set('submission', meta.submission_id);
+  const query = params.toString();
+  return query ? `/budgets?${query}` : '/budgets';
+}
+
 export function AgentNotificationBell({ userId }: { userId: string }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
@@ -86,6 +106,9 @@ export function AgentNotificationBell({ userId }: { userId: string }) {
     } else if (meta.kind === 'merchandise_recovery' || n.type === 'merchandise_recovery') {
       setOpen(false);
       navigate('/merchandise');
+    } else if (n.type === 'budget') {
+      setOpen(false);
+      navigate(budgetSubmissionPath(meta));
     }
   };
 
