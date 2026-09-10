@@ -10,18 +10,23 @@ export interface MerchantAgentOwedRow {
   email_sent_total: number;
   email_returned_total: number;
   paid_out_total: number;
+  /** Company money sitting in this desk's float bucket (wallet float_balance). */
+  float_balance: number;
   claimed_pending_total: number;
   claimed_pending_count: number;
+  /** Owed figure for this desk = float bucket balance. */
   still_held: number;
+  /** Email-derived sent-minus-returned trail, kept as supporting detail. */
+  email_still_held: number;
   email_sent_count: number;
   email_returned_count: number;
   last_sent_at: string | null;
 }
 
 export interface MerchantAgentMoneyOwed {
-  /** Money still sitting with merchant agents, from the extracted MTN/Airtel emails. */
+  /** Merchant float bucket: company money held in active merchant agents' float wallets. */
   merchantAgentTotal: number;
-  /** Bayo Mercy account balance from the same email extractor. */
+  /** Bayo Mercy account balance from the email extractor. */
   bayoMercyTotal: number;
   /** merchantAgentTotal + bayoMercyTotal */
   total: number;
@@ -30,12 +35,11 @@ export interface MerchantAgentMoneyOwed {
 }
 
 /**
- * Read-only reporting view of money that has left our provider lines and is now
- * held outside the platform: merchant agent float (matched from the extracted
- * MTN / Airtel emails) plus the Bayo Mercy account balance.
- *
- * Per agent: money emailed out to their number, less money they sent back, less
- * payouts they have already completed for us — floored at zero.
+ * Read-only reporting view of Money We Owe: the merchant float bucket (the
+ * float balance on each active merchant agent's wallet — the same figure the
+ * Financial Ops wallet-bucket board shows) plus the Bayo Mercy account
+ * balance. The email-derived sent-minus-returned trail stays beside each
+ * desk as supporting detail only.
  */
 export function useMerchantAgentMoneyOwed(enabled = true) {
   return useQuery({
@@ -59,10 +63,12 @@ export function useMerchantAgentMoneyOwed(enabled = true) {
           phone: a.phone ?? null,
           email_sent_total: Number(a.email_sent_total ?? 0),
           email_returned_total: Number(a.email_returned_total ?? 0),
+          float_balance: Number(a.float_balance ?? a.still_held ?? 0),
           paid_out_total: Number(a.paid_out_total ?? 0),
           claimed_pending_total: Number(a.claimed_pending_total ?? 0),
           claimed_pending_count: Number(a.claimed_pending_count ?? 0),
-          still_held: Number(a.still_held ?? 0),
+          still_held: Number(a.still_held ?? a.float_balance ?? 0),
+          email_still_held: Number(a.email_still_held ?? 0),
           email_sent_count: Number(a.email_sent_count ?? 0),
           email_returned_count: Number(a.email_returned_count ?? 0),
           last_sent_at: a.last_sent_at ?? null,
