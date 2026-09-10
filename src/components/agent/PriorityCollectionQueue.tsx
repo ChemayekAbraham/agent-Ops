@@ -14,6 +14,7 @@ import {
   hasDisbursementEvidence,
   type AllocationSettlement,
 } from '@/lib/collectibleRentRequests';
+import { describePlanSchedule, type PlanSchedule } from '@/lib/agentMonitoringSchedule';
 
 interface CollectionItem {
   rent_request_id: string;
@@ -30,6 +31,8 @@ interface CollectionItem {
   longitude?: number | null;
   risk_level: 'low' | 'medium' | 'high' | 'critical' | 'completed';
   agent_payment_status: AgentPaymentStatus;
+  /** Read-only schedule reading. Agents cannot change the payment period. */
+  schedule: PlanSchedule;
 }
 
 interface Props {
