@@ -656,7 +656,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
   iconBg: string;
   title: string;
   value: string;
-  items: { dot: string; label: string; value: string }[];
+  items: { dot: string; label: string; value: string; onSelect?: () => void }[];
   footer: string;
   footerTone: string;
   onClick?: () => void;
