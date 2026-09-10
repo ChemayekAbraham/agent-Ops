@@ -128,6 +128,26 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
 
   const locationLabel = path.map((c) => c.label).join(' › ');
 
+  const [exporting, setExporting] = useState<'csv' | 'pdf' | null>(null);
+
+  const runExport = async (kind: 'csv' | 'pdf') => {
+    if (exporting) return;
+    setExporting(kind);
+    const id = toast.loading('Gathering every region, district, town and village…');
+    try {
+      const data = await collectReceivablesByLocation(productKey, (label) =>
+        toast.loading(`Gathering ${label}`, { id })
+      );
+      if (kind === 'csv') downloadReceivablesCsv(data);
+      else await downloadReceivablesPdf(data);
+      toast.success(`Downloaded ${data.rows.length} lines · ${formatUGX(data.total)} owed`, { id });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not build the export.', { id });
+    } finally {
+      setExporting(null);
+    }
+  };
+
   return (
     <Card>
       <CardContent className="space-y-2 p-3 sm:p-4">
