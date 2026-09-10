@@ -263,11 +263,13 @@ export function ZoneALovableEdits({ windowId }: { windowId: string | null }) {
                   : '—'}
               </p>
               {flags.length > 0 && (
-                <p className="mt-1 text-xs font-medium text-destructive">
-                  {row.self_fix && !row.fenced_breach ? (
-                    <span className="text-muted-foreground">{flags.join(' · ')}</span>
-                  ) : (
-                    flags.join(' · ')
+                <p className="mt-1 text-xs font-medium">
+                  {row.fenced_breach && (
+                    <span className="text-destructive">fenced breach</span>
+                  )}
+                  {row.fenced_breach && row.self_fix && <span> · </span>}
+                  {row.self_fix && (
+                    <span className="text-muted-foreground">self-fix</span>
                   )}
                 </p>
               )}
