@@ -121,7 +121,13 @@ All six back to their pre-incident position, and every plan back to `repaying`:
 
 Isabirye Alex's plan had been flipped to `completed` by the bad collection; it was explicitly returned to `repaying`, since a plan cannot be complete while 73,000 is owed.
 
-All 16 receipts are annotated `[REVERSED: system correction - inverted ledger direction 2026-09-10]`, so every tile that sums collections now excludes them.
+All 16 receipts are annotated `[REVERSED: system correction - inverted ledger direction 2026-09-10]`.
+
+> **Correction, 2026-09-10 13:40 EAT.** This section originally continued *"so every tile that sums collections now excludes them"*. **That was wrong and was never checked.** Of the 97 database functions that read `agent_collections`, exactly **two** looked for that substring. The other 95 kept counting the reversed money, so Agent Ops > Overview showed Total Collected 7.19M against a real 1,203,462, listed Katongole as the top performer on 5.90M he never collected, and reported Pending Collections as 0 — hiding a genuine 3,495,377 shortfall.
+>
+> The reversal itself held throughout: no money moved twice, and Katongole's float is 178,700, exactly his real top-up. This was a reporting failure, not a ledger one — but it granted him **353,842.08 of extra borrowing limit** that has not been reversed (see below).
+>
+> Fixed by `20260910160000_reversed_collections_are_not_collections.sql`, which promotes the marker to a real `reversed_at` column. A substring in a free-text field is not a data model: nothing forced a reader to honour it, and nothing failed when they did not.
 
 ---
 
@@ -158,3 +164,13 @@ Today was its first live day (go-live 2026-09-10, both crons ran at 00:05 and 00
 3. **Two agents carry pre-existing negative withdrawable balances** (−679,212 and −1,109,284) unrelated to this incident. Worth a separate look.
 4. Saka Homi Melvin **withdrew 13,043 at 09:32**, after receiving wrongful commission. Small, but it left the building.
 5. The **uncapped `raw_today_pct`** gate loophole from the earlier report is unchanged: a large pre-payment still reads as thousands of percent and unlocks posting.
+6. **Credit limits were inflated by the phantom collections and have not been corrected.** `recalculate_credit_limit` raises an agent's borrowing limit by 6% of each collection, and it fired on every inverted one. Katongole's limit rose in ten steps between 07:29:39 and 07:37:30 EAT, from 792,853.52 to 1,146,695.60 — **+353,842.08, exactly 6% of the 5,897,368 he never collected**. Exposure across the three agents holding reversed rows is about **377,462**:
+
+   | Agent | Reversed | Inflation at 6% | Seen in the change log |
+   | --- | ---: | ---: | --- |
+   | Katongole James | 5,897,368 | **353,842.08** | 353,842.08 — exact match |
+   | Akampurira Onesmus | 300,000 | 18,000.00 | not in that window |
+   | Saka Homi Melvin | 93,668 | 5,620.08 | 12,020.16, incl. genuine collections |
+
+   Correcting a live limit changes what an agent can draw, so it needs an explicit decision rather than a silent adjustment.
+7. **93 functions still count reversed collections.** Three were fixed (`get_agent_ops_overview`, `get_agent_collections_command_center`, `get_agent_collections_coverage`). The ones that matter most among the rest all size money: `recalculate_credit_limit`, `get_agent_advance_potential`, `get_agent_advance_potential_for`, `get_agent_advance_limits`, `get_agent_advance_repayment_monitor`, `recompute_agent_earned_vouch`. On lifetime figures the distortion is large — Katongole's collections read 12,478,260 but are truly **6,580,892**, so **47% of his apparent record is phantom**.
