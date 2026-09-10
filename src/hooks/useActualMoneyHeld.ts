@@ -14,6 +14,20 @@ export interface ActualMoneyHeld {
   bankReconciliation: number;
   /** Sum of MTN + Airtel + cash at hand + banked cash. */
   total: number;
+  /** Number of verified banked deposits behind `bankedCash`. */
+  bankedCashCount: number;
+  /** When the banked-cash figure was computed (server time). */
+  bankedComputedAt: string | null;
+  /** Latest Financial Ops verification timestamp inside the banked set. */
+  bankedLastMovementAt: string | null;
+  /** Banked total recomputed straight from the Financial Ops verifications. */
+  finOpsBankedCash: number;
+  /** Movement count recomputed straight from the Financial Ops verifications. */
+  finOpsBankedCount: number;
+  /** finOpsBankedCash − bankedCash (0 when the two agree). */
+  bankedDifference: number;
+  /** True when the card figure matches Financial Ops to the shilling. */
+  bankedInSync: boolean;
 }
 
 /**
