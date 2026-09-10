@@ -66,6 +66,13 @@ export function isCustomerWalletLedgerEntryVisible(row: CustomerWalletLedgerRow)
 
 export function applyCustomerWalletLedgerFilters(query: any): any {
   return query
+    // Wallet scope only. A `platform` leg is the company's own bookkeeping — it
+    // carries the user's id purely for attribution, not because their balance
+    // moved. Showing one in a customer feed reads as money taken from them:
+    // agents were seeing `agent_commission_payable` ("Platform commission
+    // payout") listed as a deduction, the exact opposite of the commission
+    // being credited to them on the matching wallet leg.
+    .eq('ledger_scope', 'wallet')
     .neq('classification', 'admin_correction')
     .not('category', 'in', `(${INTERNAL_CATEGORIES.join(',')})`);
 }

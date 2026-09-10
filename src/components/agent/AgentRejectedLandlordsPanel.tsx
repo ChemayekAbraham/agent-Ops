@@ -28,6 +28,10 @@ interface LandlordEditFields {
   monthly_rent: string;
   mobile_money_number: string;
   mobile_money_name: string;
+  bank_name: string;
+  bank_branch: string;
+  account_number: string;
+  bank_account_name: string;
   caretaker_name: string;
   caretaker_phone: string;
 }
@@ -39,9 +43,14 @@ const EDIT_FIELDS: Array<{ key: keyof LandlordEditFields; label: string; type?: 
   { key: 'monthly_rent', label: 'Monthly rent (UGX)', type: 'number' },
   { key: 'mobile_money_number', label: 'MoMo number', type: 'tel' },
   { key: 'mobile_money_name', label: 'MoMo name' },
+  { key: 'bank_name', label: 'Bank name (optional)' },
+  { key: 'bank_branch', label: 'Branch (optional)' },
+  { key: 'account_number', label: 'Bank account number (optional)' },
+  { key: 'bank_account_name', label: 'Bank account name (optional)' },
   { key: 'caretaker_name', label: 'Caretaker name' },
   { key: 'caretaker_phone', label: 'Caretaker phone', type: 'tel' },
 ];
+
 
 /**
  * Surfaces landlord verification requests this agent raised that Ops rejected.
@@ -91,19 +100,25 @@ export function AgentRejectedLandlordsPanel() {
     setLoadingForm(true);
     const { data } = await supabase
       .from('landlords')
-      .select('name, phone, property_address, monthly_rent, mobile_money_number, mobile_money_name, caretaker_name, caretaker_phone')
+      .select('name, phone, property_address, monthly_rent, mobile_money_number, mobile_money_name, bank_name, bank_branch, account_number, bank_account_name, caretaker_name, caretaker_phone')
       .eq('id', req.landlord_id)
       .maybeSingle();
+    const row = data as any;
     setForm({
-      name: data?.name ?? req.landlord_name ?? '',
-      phone: data?.phone ?? req.landlord_phone ?? '',
-      property_address: data?.property_address ?? '',
-      monthly_rent: data?.monthly_rent != null ? String(data.monthly_rent) : '',
-      mobile_money_number: data?.mobile_money_number ?? '',
-      mobile_money_name: data?.mobile_money_name ?? '',
-      caretaker_name: data?.caretaker_name ?? '',
-      caretaker_phone: data?.caretaker_phone ?? '',
+      name: row?.name ?? req.landlord_name ?? '',
+      phone: row?.phone ?? req.landlord_phone ?? '',
+      property_address: row?.property_address ?? '',
+      monthly_rent: row?.monthly_rent != null ? String(row.monthly_rent) : '',
+      mobile_money_number: row?.mobile_money_number ?? '',
+      mobile_money_name: row?.mobile_money_name ?? '',
+      bank_name: row?.bank_name ?? '',
+      bank_branch: row?.bank_branch ?? '',
+      account_number: row?.account_number ?? '',
+      bank_account_name: row?.bank_account_name ?? '',
+      caretaker_name: row?.caretaker_name ?? '',
+      caretaker_phone: row?.caretaker_phone ?? '',
     });
+
     setLoadingForm(false);
   }, []);
 
@@ -155,9 +170,14 @@ export function AgentRejectedLandlordsPanel() {
           monthly_rent: form.monthly_rent.trim() ? Number(form.monthly_rent) : null,
           mobile_money_number: form.mobile_money_number.trim() || null,
           mobile_money_name: form.mobile_money_name.trim() || null,
+          bank_name: form.bank_name.trim() || null,
+          bank_branch: form.bank_branch.trim() || null,
+          account_number: form.account_number.trim() || null,
+          bank_account_name: form.bank_account_name.trim() || null,
           caretaker_name: form.caretaker_name.trim() || null,
           caretaker_phone: form.caretaker_phone.trim() || null,
-        })
+        } as any)
+
         .eq('id', req.landlord_id);
       if (llErr) throw llErr;
 

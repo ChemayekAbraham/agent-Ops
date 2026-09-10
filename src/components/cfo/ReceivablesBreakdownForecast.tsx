@@ -1,28 +1,63 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Filter,
   Layers,
   Loader2,
   TrendingUp,
+  X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
+import { TenantReceivablesLocationPanel } from '@/components/cfo/TenantReceivablesLocationPanel';
+
+const ALL_PRODUCTS = '__all__';
 
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [openProduct, setOpenProduct] = useState<string | null>(null);
+  const [productFilter, setProductFilter] = useState<string>(ALL_PRODUCTS);
   const total = useReceivablesTotal();
   const breakdown = useReceivablesBreakdown();
 
   const validation = breakdown.data?.validation;
+
+  /** Flat list of every product/service across categories, for the filter. */
+  const productOptions = useMemo(() => {
+    const cats = breakdown.data?.categories ?? [];
+    return cats.flatMap((cat) =>
+      cat.products.map((prod) => ({
+        value: `${cat.key}:${prod.key}`,
+        label: `${prod.label} — ${cat.label}`,
+        outstanding: prod.outstanding,
+      }))
+    );
+  }, [breakdown.data]);
+
+  const filteredTotal = useMemo(() => {
+    if (productFilter === ALL_PRODUCTS || !breakdown.data) return null;
+    const [catKey, prodKey] = productFilter.split(':');
+    const prod = breakdown.data.categories
+      .find((c) => c.key === catKey)
+      ?.products.find((p) => p.key === prodKey);
+    return prod?.outstanding ?? 0;
+  }, [productFilter, breakdown.data]);
 
   return (
     <div className="space-y-3 sm:space-y-4 max-w-full">
@@ -79,10 +114,53 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             </p>
             {breakdown.data && (
               <span className="text-[10px] sm:text-xs font-mono tabular-nums text-muted-foreground">
-                {formatUGX(breakdown.data.total)}
+                {formatUGX(filteredTotal ?? breakdown.data.total)}
               </span>
             )}
           </div>
+
+          {/* Product / service filter */}
+          {productOptions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Filter className="h-3 w-3 text-muted-foreground shrink-0" />
+              <Select
+                value={productFilter}
+                onValueChange={(v) => {
+                  setProductFilter(v);
+                  if (v !== ALL_PRODUCTS) {
+                    const catKey = v.split(':')[0];
+                    setOpenCategory(catKey);
+                    setOpenProduct(v);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 flex-1 text-xs">
+                  <SelectValue placeholder="All products & services" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_PRODUCTS} className="text-xs">
+                    All products &amp; services
+                  </SelectItem>
+                  {productOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-xs">
+                      {o.label} ({formatUGX(o.outstanding)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {productFilter !== ALL_PRODUCTS && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-[11px] shrink-0"
+                  onClick={() => setProductFilter(ALL_PRODUCTS)}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
 
           {breakdown.isLoading && (
             <div className="flex justify-center py-8">
@@ -91,10 +169,23 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           )}
 
           <div className="space-y-2">
-            {breakdown.data?.categories.map((cat) => {
+            {breakdown.data?.categories
+              .map((cat) => {
+                const products =
+                  productFilter === ALL_PRODUCTS
+                    ? cat.products
+                    : cat.products.filter((p) => `${cat.key}:${p.key}` === productFilter);
+                return { cat, products };
+              })
+              .filter(({ products }) => products.length > 0 || productFilter === ALL_PRODUCTS)
+              .map(({ cat, products }) => {
               const catOpen = openCategory === cat.key;
+              const shownOutstanding =
+                productFilter === ALL_PRODUCTS
+                  ? cat.outstanding
+                  : products.reduce((s, p) => s + p.outstanding, 0);
               const share =
-                breakdown.data.total > 0 ? (cat.outstanding / breakdown.data.total) * 100 : 0;
+                breakdown.data.total > 0 ? (shownOutstanding / breakdown.data.total) * 100 : 0;
               return (
                 <div
                   key={cat.key}
@@ -117,14 +208,15 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                           {cat.label}
                         </span>
                         <span className="block text-[9px] sm:text-[10px] text-muted-foreground">
-                          {cat.item_count} item{cat.item_count === 1 ? '' : 's'} · {share.toFixed(1)}%
+                          {productFilter === ALL_PRODUCTS ? cat.item_count : products.reduce((s, p) => s + p.item_count, 0)} item
+                          {(productFilter === ALL_PRODUCTS ? cat.item_count : products.reduce((s, p) => s + p.item_count, 0)) === 1 ? '' : 's'} · {share.toFixed(1)}%
                           of book
                         </span>
                       </span>
                     </span>
                     <span className="text-right shrink-0">
                       <span className="block text-xs sm:text-sm font-bold font-mono tabular-nums">
-                        {formatUGX(cat.outstanding)}
+                        {formatUGX(shownOutstanding)}
                       </span>
                       <Progress value={share} className="h-1 w-16 sm:w-24 mt-1" />
                     </span>
@@ -132,12 +224,12 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
 
                   {catOpen && (
                     <div className="px-2.5 pb-2.5 space-y-1.5">
-                      {cat.products.length === 0 && (
+                      {products.length === 0 && (
                         <p className="text-[10px] sm:text-xs text-muted-foreground py-1">
                           No open receivables in this category.
                         </p>
                       )}
-                      {cat.products.map((prod) => {
+                      {products.map((prod) => {
                         const prodKey = `${cat.key}:${prod.key}`;
                         const prodOpen = openProduct === prodKey;
                         return (
@@ -218,6 +310,15 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           </div>
         </CardContent>
       </Card>
+
+      {/* Tenant products & services: where the money is owed, down to the account */}
+      <TenantReceivablesLocationPanel
+        productKey={
+          productFilter !== ALL_PRODUCTS && productFilter.startsWith('tenant:')
+            ? productFilter.split(':')[1]
+            : null
+        }
+      />
 
       {/* Predictive, data-driven forecast */}
       <PredictiveReceivablesForecast />

@@ -65,6 +65,9 @@ export function isCustomerWalletLedgerEntryVisible(row: CustomerWalletLedgerRow)
 
 export function applyCustomerWalletLedgerFilters(query: any): any {
   return query
+    // Wallet scope only — a `platform` leg is company bookkeeping that merely
+    // carries the user's id for attribution. See customerWalletHistory.ts.
+    .eq("ledger_scope", "wallet")
     .neq("classification", "admin_correction")
     .not("category", "in", `(${INTERNAL_CATEGORIES.join(",")})`);
 }

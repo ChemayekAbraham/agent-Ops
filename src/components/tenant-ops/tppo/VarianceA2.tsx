@@ -64,11 +64,29 @@ function signedClass(value?: number | null): string {
  * The rate variance is computed here as the middle (prior) period rate minus the
  * earliest (earlier) period rate and expressed as a percentage change.
  */
+function todayKampalaIso(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
+}
+
 export function VarianceA2({ report, earlier }: VarianceA2Props) {
   const priorRate = report?.prior?.collection_rate_pct;
   const earlierRate = earlier?.collection_rate_pct;
-  const rateDeltaPct =
-    priorRate != null && earlierRate != null ? priorRate - earlierRate : null;
+  const currentRate = report?.collection_rate_pct ?? null;
+
+  // A period is closed once its end date is before today (Kampala), even if the
+  // snapshot's `provisional` flag has not dropped yet. For a closed day the
+  // variance is between that day and its previous day; for the present day the
+  // existing prior-vs-earlier logic is preserved.
+  const currentIsClosed =
+    !!report?.period_end && report.period_end < todayKampalaIso();
+
+  const rateDeltaPct = currentIsClosed
+    ? currentRate != null && priorRate != null
+      ? currentRate - priorRate
+      : null
+    : priorRate != null && earlierRate != null
+      ? priorRate - earlierRate
+      : null;
 
   const hasRateDelta = rateDeltaPct !== null && rateDeltaPct !== undefined;
   const direction = !hasRateDelta ? 'none' : rateDeltaPct! > 0 ? 'up' : rateDeltaPct! < 0 ? 'down' : 'flat';
@@ -83,13 +101,14 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
         ? 'text-destructive'
         : 'text-muted-foreground';
 
+  const comparisonTarget = currentIsClosed ? 'previous day' : 'earlier period';
   const directionLabel =
     direction === 'up'
-      ? 'up vs earlier period'
+      ? `up vs ${comparisonTarget}`
       : direction === 'down'
-        ? 'down vs earlier period'
+        ? `down vs ${comparisonTarget}`
         : direction === 'flat'
-          ? 'unchanged vs earlier period'
+          ? `unchanged vs ${comparisonTarget}`
           : 'no comparison available';
 
   const currentLabel = periodLabel(report?.period_start, report?.period_end);
@@ -100,38 +119,74 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
   // labels come from the RPC, so this shuffles by itself as each day closes.
   const currentBasis = basisVersionOf(report);
 
-  const rows = [
-    {
-      key: 'earlier',
-      label: earlierLabel,
-      scheduled: earlier?.scheduled_due_ugx ?? null,
-      collected: earlier?.collected_ugx ?? null,
-      rate: earlier?.collection_rate_pct ?? null,
-      arrearsTarget: earlier?.arrears_target_ugx ?? null,
-      current: false,
-      basisVersion: basisVersionOf(earlier),
-    },
-    {
-      key: 'prior',
-      label: priorLabel,
-      scheduled: report?.prior?.scheduled_due_ugx ?? null,
-      collected: report?.prior?.collected_ugx ?? null,
-      rate: report?.prior?.collection_rate_pct ?? null,
-      arrearsTarget: report?.prior?.arrears_target_ugx ?? null,
-      current: false,
-      basisVersion: basisVersionOf(report?.prior),
-    },
-    {
-      key: 'current',
-      label: currentLabel,
-      scheduled: report?.scheduled_due_ugx ?? null,
-      collected: report?.collected_ugx ?? null,
-      rate: report?.collection_rate_pct ?? null,
-      arrearsTarget: report?.arrears_target_ugx ?? null,
-      current: true,
-      basisVersion: currentBasis,
-    },
-  ].map((row) => ({ ...row, differentBasis: row.basisVersion !== currentBasis }));
+  // "Still counting" only belongs on a period that has not closed yet. Once the
+  // day is closed the RPC drops `provisional`, so the label disappears by itself.
+  const currentStillCounting = report?.provisional === true && !currentIsClosed;
+
+  // For a closed day the variance is between the day in question (current)
+  // and its previous day (prior), so the 3rd date row (earlier) is omitted.
+  const rows = (
+    currentIsClosed
+      ? [
+          {
+            key: 'prior',
+            label: priorLabel,
+            scheduled: report?.prior?.scheduled_due_ugx ?? null,
+            collected: report?.prior?.collected_ugx ?? null,
+            rate: report?.prior?.collection_rate_pct ?? null,
+            arrearsTarget: report?.prior?.arrears_target_ugx ?? null,
+            current: false,
+            stillCounting: false,
+            basisVersion: basisVersionOf(report?.prior),
+          },
+          {
+            key: 'current',
+            label: currentLabel,
+            scheduled: report?.scheduled_due_ugx ?? null,
+            collected: report?.collected_ugx ?? null,
+            rate: report?.collection_rate_pct ?? null,
+            arrearsTarget: report?.arrears_target_ugx ?? null,
+            current: true,
+            stillCounting: currentStillCounting,
+            basisVersion: currentBasis,
+          },
+        ]
+      : [
+          {
+            key: 'earlier',
+            label: earlierLabel,
+            scheduled: earlier?.scheduled_due_ugx ?? null,
+            collected: earlier?.collected_ugx ?? null,
+            rate: earlier?.collection_rate_pct ?? null,
+            arrearsTarget: earlier?.arrears_target_ugx ?? null,
+            current: false,
+            stillCounting: false,
+            basisVersion: basisVersionOf(earlier),
+          },
+          {
+            key: 'prior',
+            label: priorLabel,
+            scheduled: report?.prior?.scheduled_due_ugx ?? null,
+            collected: report?.prior?.collected_ugx ?? null,
+            rate: report?.prior?.collection_rate_pct ?? null,
+            arrearsTarget: report?.prior?.arrears_target_ugx ?? null,
+            current: false,
+            stillCounting: false,
+            basisVersion: basisVersionOf(report?.prior),
+          },
+          {
+            key: 'current',
+            label: currentLabel,
+            scheduled: report?.scheduled_due_ugx ?? null,
+            collected: report?.collected_ugx ?? null,
+            rate: report?.collection_rate_pct ?? null,
+            arrearsTarget: report?.arrears_target_ugx ?? null,
+            current: true,
+            stillCounting: currentStillCounting,
+            basisVersion: currentBasis,
+          },
+        ]
+  ).map((row) => ({ ...row, differentBasis: row.basisVersion !== currentBasis }));
 
   const anyDifferentBasis = rows.some((row) => row.differentBasis);
 
@@ -153,17 +208,29 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
       <div className={`mt-2 flex flex-wrap items-center gap-2 ${directionClass}`}>
         <DirectionIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-        <span className="text-xl font-semibold tabular-nums">{signedPct(rateDeltaPct)}</span>
+        <span className="text-xl font-semibold tabular-nums font-mono">{signedPct(rateDeltaPct)}</span>
         <span className="text-sm font-medium">{directionLabel}</span>
       </div>
 
       <div className="mt-3 space-y-1">
         <p className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-          <span>{earlierLabel}</span>
-          <span className="tabular-nums">{rateText(earlierRate)}</span>
-          <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span>{priorLabel}</span>
-          <span className="tabular-nums">{rateText(priorRate)}</span>
+          {currentIsClosed ? (
+            <>
+              <span>{priorLabel}</span>
+              <span className="tabular-nums font-mono">{rateText(priorRate)}</span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span>{currentLabel}</span>
+              <span className="tabular-nums font-mono">{rateText(currentRate)}</span>
+            </>
+          ) : (
+            <>
+              <span>{earlierLabel}</span>
+              <span className="tabular-nums font-mono">{rateText(earlierRate)}</span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span>{priorLabel}</span>
+              <span className="tabular-nums font-mono">{rateText(priorRate)}</span>
+            </>
+          )}
         </p>
         <p className="text-xs text-muted-foreground">each on its own period&apos;s schedule</p>
         {anyDifferentBasis && (
@@ -190,24 +257,24 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                   different basis
                 </Badge>
               )}
-              {row.current && <span className="font-medium normal-case text-primary">still counting</span>}
+              {row.stillCounting && <span className="font-medium normal-case text-primary">still counting</span>}
             </p>
             <div className="mt-2 space-y-1 text-sm">
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Scheduled due (own period)</span>
-                <span className="shrink-0 tabular-nums">{money(row.scheduled)}</span>
+                <span className="shrink-0 tabular-nums font-mono">{money(row.scheduled)}</span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Collected</span>
-                <span className="shrink-0 tabular-nums">{money(row.collected)}</span>
+                <span className="shrink-0 tabular-nums font-mono">{money(row.collected)}</span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Arrears target</span>
-                <span className="shrink-0 tabular-nums">{money(row.arrearsTarget)}</span>
+                <span className="shrink-0 tabular-nums font-mono">{money(row.arrearsTarget)}</span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Rate</span>
-                <span className="shrink-0 tabular-nums">
+                <span className="shrink-0 tabular-nums font-mono">
                   {row.differentBasis ? '—' : rateText(row.rate)}
                 </span>
               </p>
@@ -216,40 +283,42 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
         ))}
 
 
-        <div className="rounded-md border border-border p-3 font-medium">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
-          <div className="mt-2 space-y-1 text-sm">
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Scheduled due (own period)</span>
-              <span className={`shrink-0 tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
-                {signedMoney(report?.scheduled_delta_ugx)}
-              </span>
-            </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Collected</span>
-              <span className={`shrink-0 tabular-nums ${signedClass(report?.collected_delta_ugx)}`}>
-                {signedMoney(report?.collected_delta_ugx)}
-              </span>
-            </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Arrears target</span>
-              <span className={`shrink-0 tabular-nums ${signedClass(arrearsTargetDelta)}`}>
-                {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
-              </span>
-            </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Rate</span>
-              <span
-                className={`shrink-0 tabular-nums ${
-                  anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
-                }`}
-              >
-                {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
-              </span>
-            </p>
+        {(currentStillCounting || currentIsClosed) && (
+          <div className="rounded-md border border-border p-3 font-medium">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
+            <div className="mt-2 space-y-1 text-sm">
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Scheduled due (own period)</span>
+                <span className={`shrink-0 tabular-nums font-mono ${signedClass(report?.scheduled_delta_ugx)}`}>
+                  {signedMoney(report?.scheduled_delta_ugx)}
+                </span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Collected</span>
+                <span className={`shrink-0 tabular-nums font-mono ${signedClass(report?.collected_delta_ugx)}`}>
+                  {signedMoney(report?.collected_delta_ugx)}
+                </span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Arrears target</span>
+                <span className={`shrink-0 tabular-nums font-mono ${signedClass(arrearsTargetDelta)}`}>
+                  {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
+                </span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Rate</span>
+                <span
+                  className={`shrink-0 tabular-nums font-mono ${
+                    anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
+                  }`}
+                >
+                  {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
+                </span>
+              </p>
 
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="mt-4 hidden overflow-x-auto sm:block">
@@ -277,38 +346,40 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                       different basis
                     </Badge>
                   )}
-                  {row.current && (
+                  {row.stillCounting && (
                     <span className="ml-2 text-xs text-primary">still counting</span>
                   )}
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums">{money(row.scheduled)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{money(row.collected)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{money(row.arrearsTarget)}</td>
-                <td className="py-2 text-right tabular-nums">
+                <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(row.scheduled)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(row.collected)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(row.arrearsTarget)}</td>
+                <td className="py-2 text-right tabular-nums font-mono">
                   {row.differentBasis ? '—' : rateText(row.rate)}
                 </td>
               </tr>
             ))}
-            <tr className="font-medium">
-              <td className="py-2 pr-3">Increase / decrease</td>
-              <td className={`py-2 pr-3 text-right tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
-                {signedMoney(report?.scheduled_delta_ugx)}
-              </td>
-              <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
-                —
-              </td>
-              <td className={`py-2 pr-3 text-right tabular-nums ${arrearsTargetDelta === null ? 'text-muted-foreground' : signedClass(arrearsTargetDelta)}`}>
-                {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
-              </td>
-              <td
-                className={`py-2 text-right tabular-nums ${
-                  anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
-                }`}
-              >
-                {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
-              </td>
+            {(currentStillCounting || currentIsClosed) && (
+              <tr className="font-medium">
+                <td className="py-2 pr-3">Increase / decrease</td>
+                <td className={`py-2 pr-3 text-right tabular-nums font-mono ${signedClass(report?.scheduled_delta_ugx)}`}>
+                  {signedMoney(report?.scheduled_delta_ugx)}
+                </td>
+                <td className="py-2 pr-3 text-right tabular-nums font-mono text-muted-foreground">
+                  —
+                </td>
+                <td className={`py-2 pr-3 text-right tabular-nums font-mono ${arrearsTargetDelta === null ? 'text-muted-foreground' : signedClass(arrearsTargetDelta)}`}>
+                  {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
+                </td>
+                <td
+                  className={`py-2 text-right tabular-nums font-mono ${
+                    anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
+                  }`}
+                >
+                  {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
+                </td>
 
-            </tr>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

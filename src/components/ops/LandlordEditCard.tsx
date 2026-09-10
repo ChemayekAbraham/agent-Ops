@@ -38,7 +38,10 @@ const FIELDS: Array<{ key: string; label: string; type?: 'text' | 'number' | 'te
   { key: 'property_address', label: 'Property address' },
   { key: 'house_number', label: 'House number' },
   { key: 'bank_name', label: 'Bank name' },
+  { key: 'bank_branch', label: 'Bank branch' },
   { key: 'account_number', label: 'Bank account #' },
+  { key: 'bank_account_name', label: 'Bank account name' },
+
   { key: 'caretaker_name', label: 'Caretaker name' },
   { key: 'caretaker_phone', label: 'Caretaker phone' },
   { key: 'electricity_meter_number', label: 'Electricity meter #' },

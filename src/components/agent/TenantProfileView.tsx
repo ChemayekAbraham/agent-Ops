@@ -392,7 +392,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       const settled = await Promise.allSettled([
         supabase
           .from('rent_requests')
-          .select('id, rent_amount, total_repayment, amount_repaid, status, created_at, disbursed_at, duration_days, daily_repayment, registration_type, initial_outstanding_balance, outstanding_grace_days, landlord_id, lc1_id, house_category, tenant_no_smartphone, request_latitude, request_longitude, landlord:landlords(name, property_address, house_category, phone, village, sub_county, district), lc1:lc1_chairpersons(name, phone, village, verified)')
+          .select('id, rent_amount, total_repayment, amount_repaid, status, created_at, disbursed_at, funded_at, repayment_starts_on, duration_days, daily_repayment, registration_type, initial_outstanding_balance, outstanding_grace_days, landlord_id, lc1_id, house_category, tenant_no_smartphone, request_latitude, request_longitude, landlord:landlords(name, property_address, house_category, phone, village, sub_county, district), lc1:lc1_chairpersons(name, phone, village, verified)')
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false }),
         supabase
@@ -724,6 +724,21 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   };
 
   const progressPct = summary.totalFunded > 0 ? Math.min(100, Math.round((summary.totalRepaid / summary.totalFunded) * 100)) : 0;
+  // Repayment opens the day AFTER the landlord is paid — enforced in the
+  // database by rent_request_default_repayment_start, which stamps
+  // repayment_starts_on = funded_at + 1 day. Until then the collection RPC
+  // refuses with REPAYMENT_NOT_STARTED, so showing a live Pay button sends the
+  // agent to a tenant who cannot legally pay yet. Count it down instead.
+  const todayEAT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
+  const repaymentStartsOn: string | null =
+    (summary.activeRequest as { repayment_starts_on?: string | null } | undefined)?.repayment_starts_on ?? null;
+  const daysUntilStart =
+    repaymentStartsOn && repaymentStartsOn > todayEAT
+      ? Math.max(1, Math.round(
+          (Date.parse(`${repaymentStartsOn}T00:00:00Z`) - Date.parse(`${todayEAT}T00:00:00Z`)) / 86400000))
+      : 0;
+  const repaymentNotStarted = daysUntilStart > 0;
+
   const activePct = summary.activeRequest && summary.activeRequest.total_repayment > 0
     ? Math.min(100, Math.round((summary.activeRequest.amount_repaid / summary.activeRequest.total_repayment) * 100))
     : 0;
@@ -1810,15 +1825,33 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                     });
                     return;
                   }
+                  if (repaymentNotStarted) {
+                    sonnerToast.info(
+                      daysUntilStart === 1 ? "This tenant starts paying tomorrow" : `This tenant starts paying in ${daysUntilStart} days`,
+                      { description: `Rent was paid to the landlord, so repayment opens on ${repaymentStartsOn}. Collection is not open yet.` },
+                    );
+                    return;
+                  }
                   setCollectDialogOpen(true);
                 }}
+                disabled={repaymentNotStarted}
                 className="w-full gap-2 text-base h-14 font-bold rounded-xl shadow-lg active:scale-[0.97] transition-transform"
                 variant="success"
                 size="xl"
               >
                 {floatLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Banknote className="h-6 w-6" />}
-                {floatLoading ? 'Loading float...' : `Pay ${formatUGX(Math.min(summary.currentOutstanding, agentFloatBalance))}`}
+                {floatLoading
+                  ? 'Loading float...'
+                  : repaymentNotStarted
+                    ? (daysUntilStart === 1 ? 'Starts tomorrow' : `Starts in ${daysUntilStart} days`)
+                    : `Pay ${formatUGX(Math.min(summary.currentOutstanding, agentFloatBalance))}`}
               </Button>
+              {repaymentNotStarted && (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Rent has been paid to the landlord. This tenant&apos;s first payment is due on{' '}
+                  <strong>{repaymentStartsOn}</strong> — collection opens then.
+                </p>
+              )}
               {lastAllocation && (
                 <Button
                   onClick={() => setReverseDialogOpen(true)}

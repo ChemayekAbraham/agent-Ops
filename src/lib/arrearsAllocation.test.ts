@@ -4,6 +4,9 @@ import {
   splitPayment,
   arrearsHeadline,
   splitExplanation,
+  totalDueNow,
+  isPartialPayment,
+  paymentShortfall,
   type CollectContext,
 } from './arrearsAllocation';
 
@@ -174,5 +177,42 @@ describe('copy', () => {
     expect(splitExplanation(c, 300, ugx)).toBe(
       'UGX 300 of this payment goes to the older unpaid days first. Nothing is left for today, so today stays open.',
     );
+  });
+});
+
+describe('what a payment is judged against (D1)', () => {
+  it('counts the earlier unpaid days as well as today', () => {
+    expect(totalDueNow(ctx({ arrears_ugx: 19068, due_today_ugx: 4767 }))).toBe(23835);
+    // `expected_today` is the day's bill; `due_today_ugx` is what is still open
+    // on it. A day already settled owes nothing, whatever it was billed.
+    expect(totalDueNow(ctx({ expected_today: 4500, due_today_ugx: 0 }))).toBe(0);
+    expect(totalDueNow(null)).toBe(0);
+  });
+
+  it('calls a full day paid by a tenant five days behind a partial collection', () => {
+    // The reported defect: 4,767 collected, 4 days and 19,068 still owed, and
+    // the old test against today alone stamped it "not partial, no shortfall".
+    const behind = ctx({ days_behind: 5, arrears_ugx: 23835, due_today_ugx: 4767 });
+    expect(isPartialPayment(behind, 4767)).toBe(true);
+    expect(paymentShortfall(behind, 4767)).toBe(23835);
+  });
+
+  it('is not partial when the payment clears everything owed', () => {
+    const behind = ctx({ days_behind: 1, arrears_ugx: 4767, due_today_ugx: 4767 });
+    expect(isPartialPayment(behind, 9534)).toBe(false);
+    expect(paymentShortfall(behind, 9534)).toBe(0);
+    expect(paymentShortfall(behind, 50000)).toBe(0);
+  });
+
+  it('never reports more owed than the plan outstanding', () => {
+    const behind = ctx({ days_behind: 30, arrears_ugx: 143000, due_today_ugx: 0 });
+    expect(paymentShortfall(behind, 0, 88000)).toBe(88000);
+    expect(isPartialPayment(behind, 88000, 88000)).toBe(false);
+  });
+
+  it('stays quiet on a plan with nothing owed', () => {
+    const clear = ctx({ arrears_ugx: 0, due_today_ugx: 0 });
+    expect(isPartialPayment(clear, 5000)).toBe(false);
+    expect(paymentShortfall(clear, 0)).toBe(0);
   });
 });
