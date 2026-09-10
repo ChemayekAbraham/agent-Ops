@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useCFO7DayCashFlow } from '@/hooks/useCFO7DayCashFlow';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
+import { useMerchantAgentMoneyOwed } from '@/hooks/useMerchantAgentMoneyOwed';
+import { MerchantAgentOwedSheet } from '@/components/cfo/MerchantAgentOwedSheet';
 
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
@@ -67,6 +69,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
   const { data: actualMoney, isLoading: actualLoading } = useActualMoneyHeld();
+  const { data: merchantOwed } = useMerchantAgentMoneyOwed();
+  const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
 
 
@@ -151,6 +155,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
   const actualMoneyTotal = actualMoney?.total ?? 0;
+  // Money that has already left our provider lines and now sits with merchant
+  // agents or on the Bayo Mercy account, taken from the Financial Ops email
+  // extractor. The MTN / Airtel balances above already dropped when it moved,
+  // so this is shown as owed, never subtracted from "Money We Have" twice.
+  const merchantHeld = merchantOwed?.merchantAgentTotal ?? 0;
+  const bayoMercyHeld = merchantOwed?.bayoMercyTotal ?? 0;
+  const moneyWeOweTotal = walletTotal + merchantHeld + bayoMercyHeld;
   const moneyWeCanUse = Math.max(0, actualMoneyTotal - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
@@ -267,20 +278,30 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                 <p className="mt-2.5 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-lg px-2 py-1.5">
                   Real float on provider lines + verified cash + banked deposits
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setMerchantOwedOpen(true)}
+                  className="mt-1.5 w-full text-left text-[11px] text-orange-700 dark:text-orange-400 bg-orange-50/70 dark:bg-orange-950/30 rounded-lg px-2 py-1.5 hover:bg-orange-100/70 dark:hover:bg-orange-950/50 transition-colors"
+                >
+                  {fmt(merchantHeld + bayoMercyHeld)} has already left these lines to merchant agents
+                  and the Bayo Mercy account — it now shows under Money We Owe. Tap for the emails.
+                </button>
               </CardContent>
             </Card>
             <HeroCard
               icon={<Package className="h-5 w-5 text-orange-50" />}
               iconBg="bg-orange-500"
               title="Money We Owe"
-              value={fmt(walletTotal)}
+              value={fmt(moneyWeOweTotal)}
               items={[
                 { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
+                { dot: 'bg-orange-500', label: 'In Merchant Agent Hands', value: fmt(merchantHeld) },
+                { dot: 'bg-orange-500', label: 'Bayo Mercy Account', value: fmt(bayoMercyHeld) },
                 { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
               ]}
-              footer="Commitments not yet paid out"
+              footer="Wallets + money sitting outside the platform (tap for the emails behind it)"
               footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
-              onClick={() => setActiveBreakdown('wallets')}
+              onClick={() => setMerchantOwedOpen(true)}
             />
             <HeroCard
               icon={<BarChart3 className="h-5 w-5 text-blue-50" />}
@@ -516,6 +537,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         line={actualMoneyLine}
         onOpenChange={(open) => !open && setActualMoneyLine(null)}
       />
+      <MerchantAgentOwedSheet open={merchantOwedOpen} onOpenChange={setMerchantOwedOpen} />
       {/* ── FLOATING PAY FAB (mobile only) ── */}
       {onTabChange && (
         <button
