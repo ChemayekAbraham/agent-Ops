@@ -59,6 +59,18 @@ const BUDGET_REVIEWER_ROLES = ['cfo', 'ceo', 'super_admin', 'manager', 'financia
  * "Budget cycle is not open", ...) was replaced by a bare "Could not submit".
  * Read the reason off whatever shape arrives instead.
  */
+/**
+ * True when the refusal is about the record the form is holding rather than the
+ * budget itself: the submission has already left draft, or no longer exists.
+ * Those are recoverable by filing what is on screen as a fresh submission.
+ */
+function isStaleRecord(e: unknown): boolean {
+  const msg = serverMessage(e, '').toLowerCase();
+  return msg.includes('read-only in status')
+    || msg.includes('only draft budgets can be submitted')
+    || msg.includes('submission not found');
+}
+
 function serverMessage(e: unknown, fallback: string): string {
   if (typeof e === 'string' && e.trim()) return e.trim();
   const raw = e as { message?: unknown; details?: unknown; hint?: unknown } | null;
