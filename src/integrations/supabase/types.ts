@@ -50871,6 +50871,16 @@ export type Database = {
         Args: { p_desk_id?: string }
         Returns: Json
       }
+      get_merchant_agent_movements_page: {
+        Args: {
+          p_cursor_at?: string
+          p_cursor_desk_id?: string
+          p_cursor_id?: string
+          p_desk_id?: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
       get_merchant_float_email_movements: {
         Args: { p_days?: number }
         Returns: Json
@@ -52139,6 +52149,15 @@ export type Database = {
       get_trust_coverage_stats: { Args: never; Returns: Json }
       get_unregistered_recipient_transfers: {
         Args: { p_days?: number }
+        Returns: Json
+      }
+      get_unregistered_recipient_transfers_page: {
+        Args: {
+          p_cursor_at?: string
+          p_cursor_id?: string
+          p_days?: number
+          p_limit?: number
+        }
         Returns: Json
       }
       get_user_advance_reversal_available: {
