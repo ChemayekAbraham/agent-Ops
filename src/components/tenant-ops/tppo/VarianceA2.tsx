@@ -113,6 +113,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       rate: earlier?.collection_rate_pct ?? null,
       arrearsTarget: earlier?.arrears_target_ugx ?? null,
       current: false,
+      stillCounting: false,
       basisVersion: basisVersionOf(earlier),
     },
     {
