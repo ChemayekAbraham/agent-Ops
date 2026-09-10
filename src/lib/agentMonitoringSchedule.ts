@@ -144,7 +144,7 @@ export function describePlanSchedule(plan: SchedulePlanInput, referenceDay: Date
     ? 'due_today'
     : coveredByAdvance
       ? 'covered'
-      : weekly && periodsDue > 0 && arrears === 0 && !onScheduledDay
+      : weekly && periodsDue > 0 && arrears === 0 && !onScheduledDay && aheadAmount < periodAmount
         ? 'due_this_week'
         : 'not_due';
 
