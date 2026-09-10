@@ -28,6 +28,10 @@ interface LandlordEditFields {
   monthly_rent: string;
   mobile_money_number: string;
   mobile_money_name: string;
+  bank_name: string;
+  bank_branch: string;
+  account_number: string;
+  bank_account_name: string;
   caretaker_name: string;
   caretaker_phone: string;
 }
@@ -39,9 +43,14 @@ const EDIT_FIELDS: Array<{ key: keyof LandlordEditFields; label: string; type?: 
   { key: 'monthly_rent', label: 'Monthly rent (UGX)', type: 'number' },
   { key: 'mobile_money_number', label: 'MoMo number', type: 'tel' },
   { key: 'mobile_money_name', label: 'MoMo name' },
+  { key: 'bank_name', label: 'Bank name (optional)' },
+  { key: 'bank_branch', label: 'Branch (optional)' },
+  { key: 'account_number', label: 'Bank account number (optional)' },
+  { key: 'bank_account_name', label: 'Bank account name (optional)' },
   { key: 'caretaker_name', label: 'Caretaker name' },
   { key: 'caretaker_phone', label: 'Caretaker phone', type: 'tel' },
 ];
+
 
 /**
  * Surfaces landlord verification requests this agent raised that Ops rejected.
