@@ -361,19 +361,22 @@ export function MoneyWeCanUseBreakdown() {
               icon={<Smartphone className="h-4 w-4 text-orange-600" />}
               title="Counts toward Money We Owe · merchant agents"
               note="Every matched transfer out to a merchant agent number, and what they sent back."
-              total={`${merchantOut.length} out · ${merchantIn.length} back`}
+              total={`${merchantOut.length} out · ${merchantIn.length} back${merchantHasNext ? '+' : ''}`}
               totalTone="text-orange-600"
             >
               {merchantLoading ? (
                 <Spinner />
-              ) : (merchantMoves ?? []).length === 0 ? (
+              ) : merchantMoves.length === 0 ? (
                 <p className="py-3 text-[11px] text-muted-foreground">
                   No matched merchant agent transfers in the extracted emails.
                 </p>
               ) : (
                 <div className="max-h-80 overflow-y-auto pr-1">
-                  <Paged
-                    items={merchantMoves ?? []}
+                  <CursorPaged
+                    hasNextPage={!!merchantHasNext}
+                    isFetchingNextPage={merchantFetchingNext}
+                    fetchNextPage={merchantFetchNext}
+                    items={merchantMoves}
                     label="transfers"
                     renderItem={(m) => (
                       <Row
