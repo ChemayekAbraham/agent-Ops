@@ -100,19 +100,25 @@ export function AgentRejectedLandlordsPanel() {
     setLoadingForm(true);
     const { data } = await supabase
       .from('landlords')
-      .select('name, phone, property_address, monthly_rent, mobile_money_number, mobile_money_name, caretaker_name, caretaker_phone')
+      .select('name, phone, property_address, monthly_rent, mobile_money_number, mobile_money_name, bank_name, bank_branch, account_number, bank_account_name, caretaker_name, caretaker_phone')
       .eq('id', req.landlord_id)
       .maybeSingle();
+    const row = data as any;
     setForm({
-      name: data?.name ?? req.landlord_name ?? '',
-      phone: data?.phone ?? req.landlord_phone ?? '',
-      property_address: data?.property_address ?? '',
-      monthly_rent: data?.monthly_rent != null ? String(data.monthly_rent) : '',
-      mobile_money_number: data?.mobile_money_number ?? '',
-      mobile_money_name: data?.mobile_money_name ?? '',
-      caretaker_name: data?.caretaker_name ?? '',
-      caretaker_phone: data?.caretaker_phone ?? '',
+      name: row?.name ?? req.landlord_name ?? '',
+      phone: row?.phone ?? req.landlord_phone ?? '',
+      property_address: row?.property_address ?? '',
+      monthly_rent: row?.monthly_rent != null ? String(row.monthly_rent) : '',
+      mobile_money_number: row?.mobile_money_number ?? '',
+      mobile_money_name: row?.mobile_money_name ?? '',
+      bank_name: row?.bank_name ?? '',
+      bank_branch: row?.bank_branch ?? '',
+      account_number: row?.account_number ?? '',
+      bank_account_name: row?.bank_account_name ?? '',
+      caretaker_name: row?.caretaker_name ?? '',
+      caretaker_phone: row?.caretaker_phone ?? '',
     });
+
     setLoadingForm(false);
   }, []);
 
