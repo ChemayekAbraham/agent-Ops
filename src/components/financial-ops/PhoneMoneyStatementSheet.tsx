@@ -196,6 +196,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
           balanceAfter: t.balance != null ? Number(t.balance) : null,
           note: t.snippet ? String(t.snippet).slice(0, 180) : null,
           phone: linked?.phone ?? extractPhone(t.counterparty) ?? extractPhone(t.snippet),
+          category: t.direction === 'charge' ? 'Provider charge' : t.direction === 'out' ? 'Money out' : 'Money in',
         };
       });
     },
@@ -205,16 +206,38 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
   const isMobile = useIsMobile();
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<DirectionFilter>('all');
-  useEffect(() => { setPage(0); }, [line]);
-  useEffect(() => { setPage(0); }, [filter]);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [category, setCategory] = useState<string>('all');
+  useEffect(() => { setPage(0); setDateFrom(''); setDateTo(''); setCategory('all'); setFilter('all'); }, [line]);
+  useEffect(() => { setPage(0); }, [filter, dateFrom, dateTo, category]);
 
   const isInflow = (r: Row) => r.direction === 'in' || r.direction === 'cash';
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => set.add(r.category));
+    return Array.from(set).sort();
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
-    if (filter === 'all') return rows;
-    if (filter === 'in') return rows.filter(isInflow);
-    return rows.filter((r) => !isInflow(r));
-  }, [rows, filter]);
+    const fromMs = dateFrom ? dayStart(dateFrom) : null;
+    const toMs = dateTo ? dayEnd(dateTo) : null;
+    return rows.filter((r) => {
+      if (filter === 'in' && !isInflow(r)) return false;
+      if (filter === 'out' && isInflow(r)) return false;
+      if (category !== 'all' && r.category !== category) return false;
+      if (fromMs != null || toMs != null) {
+        const at = r.at ? new Date(r.at).getTime() : null;
+        if (at == null) return false;
+        if (fromMs != null && at < fromMs) return false;
+        if (toMs != null && at > toMs) return false;
+      }
+      return true;
+    });
+  }, [rows, filter, dateFrom, dateTo, category]);
+
+  const hasDrillFilters = dateFrom !== '' || dateTo !== '' || category !== 'all';
 
   const totals = useMemo(() => {
     let inflow = 0;
