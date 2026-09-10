@@ -20,7 +20,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 const PAGE_SIZE = 20;
 
-export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash' | 'bank';
+export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash' | 'bank' | 'banked_cash';
 
 interface Props {
   line: PhoneMoneyLine | null;
@@ -32,7 +32,9 @@ const TITLES: Record<PhoneMoneyLine, string> = {
   airtel_money: 'Airtel Money statement',
   cash: 'Cash at hand statement',
   bank: 'Money at Bank — Bayo Mercy account',
+  banked_cash: 'Cash marked as banked by Financial Ops',
 };
+
 
 interface Row {
   id: string;
