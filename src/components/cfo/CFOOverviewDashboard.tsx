@@ -336,12 +336,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money We Owe"
               value={fmt(moneyWeOweTotal)}
               items={[
-                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
-                { dot: 'bg-orange-500', label: 'In Merchant Agent Hands', value: fmt(merchantHeld) },
-                { dot: 'bg-orange-500', label: 'Bayo Mercy Account', value: fmt(bayoMercyHeld) },
-                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
+                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal), onSelect: () => setActiveBreakdown('wallets') },
+                { dot: 'bg-orange-500', label: 'Sent to Merchant Agents (still with them)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
+                { dot: 'bg-orange-500', label: 'Sent to Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
+                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities), onSelect: () => setActiveBreakdown('wallets') },
               ]}
-              footer="Wallets + money sitting outside the platform (tap for the emails behind it)"
+              footer="Wallets + money sent to merchant agents and the Bayo Mercy bank account (tap any figure for its sources)"
               footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
               onClick={() => setMerchantOwedOpen(true)}
             />
@@ -351,7 +351,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
               items={[
-                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
+                { dot: 'bg-blue-500', label: 'Money We Have', value: fmt(actualMoneyTotal), onSelect: () => setActualMoneyLine('mtn_momo') },
+                { dot: 'bg-blue-500', label: 'Less Withdrawable User Wallets', value: fmt(walletTotal), onSelect: () => setActiveBreakdown('wallets') },
+                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse), onSelect: () => setActiveBreakdown('earnings') },
               ]}
               footer="After obligations and restrictions"
               footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
@@ -368,11 +370,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money in Treasury / Platform"
               value={positionUnavailable ? '—' : fmt(outsideBankCash)}
               items={[
-                { dot: 'bg-indigo-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0) },
-                { dot: 'bg-indigo-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0) },
+                { dot: 'bg-indigo-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0), onSelect: () => setActiveBreakdown('cash') },
+                { dot: 'bg-indigo-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0), onSelect: () => setActiveBreakdown('cash') },
               ]}
               footer="Position view — part of Money We Have, not added to it"
               footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
+              onClick={() => setActiveBreakdown('cash')}
             />
             <HeroCard
               icon={<Landmark className="h-5 w-5 text-sky-50" />}
@@ -380,11 +383,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money in Bank (Position View)"
               value={positionUnavailable ? '—' : fmt(bankCash)}
               items={[
-                { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash) },
-                { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash) },
+                { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash), onSelect: () => setActualMoneyLine('banked_cash') },
+                { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash), onSelect: () => setActiveBreakdown('cash') },
               ]}
               footer="Balance-sheet position — comparison/reference to Cash at Bank above"
               footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
+              onClick={() => setActiveBreakdown('cash')}
             />
           </div>
         </Band>
@@ -652,7 +656,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
   iconBg: string;
   title: string;
   value: string;
-  items: { dot: string; label: string; value: string }[];
+  items: { dot: string; label: string; value: string; onSelect?: () => void }[];
   footer: string;
   footerTone: string;
   onClick?: () => void;
@@ -710,15 +714,33 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
 
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Where it comes from</p>
-            {items.map((it) => (
-              <div key={it.label} className="flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs">
-                <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
-                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
-                  <span className="truncate">{it.label}</span>
-                </span>
-                <span className="tabular-nums font-medium shrink-0 text-right text-foreground">{it.value}</span>
-              </div>
-            ))}
+            {items.map((it) =>
+              it.onSelect ? (
+                <button
+                  key={it.label}
+                  type="button"
+                  onClick={() => { setOpen(false); it.onSelect?.(); }}
+                  className="w-full flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs text-left rounded-md px-1 hover:bg-muted/50 transition-colors"
+                >
+                  <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
+                    <span className="truncate">{it.label}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    <span className="tabular-nums font-medium text-right text-foreground">{it.value}</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </span>
+                </button>
+              ) : (
+                <div key={it.label} className="flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs">
+                  <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
+                    <span className="truncate">{it.label}</span>
+                  </span>
+                  <span className="tabular-nums font-medium shrink-0 text-right text-foreground">{it.value}</span>
+                </div>
+              ),
+            )}
             {title !== 'Money We Have' && (
               <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
                 <span className="text-xs font-semibold">Total {title}</span>
