@@ -1,9 +1,31 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronRight, Loader2, MapPin, Pencil, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronRight,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+  MapPin,
+  Pencil,
+  Users,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
+import {
+  collectReceivablesByLocation,
+  downloadReceivablesCsv,
+  downloadReceivablesPdf,
+} from '@/lib/exportReceivablesByLocation';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   useTenantReceivableAccounts,
