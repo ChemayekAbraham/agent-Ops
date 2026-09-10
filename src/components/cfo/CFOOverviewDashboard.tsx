@@ -313,13 +313,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             <HeroCard
               icon={<Landmark className="h-5 w-5 text-sky-50" />}
               iconBg="bg-sky-500"
-              title="Money in Bank"
+              title="Money in Bank (Position View)"
               value={positionUnavailable ? '—' : fmt(bankCash)}
               items={[
                 { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash) },
                 { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash) },
               ]}
-              footer="Position view — part of Money We Have, not added to it"
+              footer="Balance-sheet position — comparison/reference to Cash at Bank above"
               footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
             />
           </div>
