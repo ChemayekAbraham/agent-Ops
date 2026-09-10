@@ -365,6 +365,46 @@ function TenantPaymentHistory({
 }
 
 
+/** Presentation-only summary tile: big scannable figure, quiet label, no overflow. */
+const STAT_ACCENT: Record<'neutral' | 'primary' | 'success' | 'danger' | 'info', string> = {
+  neutral: 'text-foreground',
+  primary: 'text-primary',
+  success: 'text-emerald-600 dark:text-emerald-400',
+  danger: 'text-destructive',
+  info: 'text-sky-600 dark:text-sky-400',
+};
+
+function StatCard({
+  label,
+  value,
+  hint,
+  accent = 'neutral',
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  accent?: keyof typeof STAT_ACCENT;
+}) {
+  return (
+    <Card className="overflow-hidden border-border/70 shadow-sm transition-shadow hover:shadow-md">
+      <CardContent className="flex h-full min-w-0 flex-col p-3 sm:p-4">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
+          {label}
+        </p>
+        <p
+          className={cn(
+            'mt-1.5 break-words text-lg font-bold leading-tight tabular-nums sm:text-xl',
+            STAT_ACCENT[accent],
+          )}
+        >
+          {value}
+        </p>
+        {hint && <p className="mt-1 break-words text-[10px] leading-snug text-muted-foreground sm:text-xs">{hint}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'before-aug-2026' | 'position';
 
 /** Same boundary for both cohort tabs — one date rule, read from the existing added date. */
