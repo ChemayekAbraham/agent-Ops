@@ -1,28 +1,62 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Filter,
   Layers,
   Loader2,
   TrendingUp,
+  X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
 
+const ALL_PRODUCTS = '__all__';
+
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [openProduct, setOpenProduct] = useState<string | null>(null);
+  const [productFilter, setProductFilter] = useState<string>(ALL_PRODUCTS);
   const total = useReceivablesTotal();
   const breakdown = useReceivablesBreakdown();
 
   const validation = breakdown.data?.validation;
+
+  /** Flat list of every product/service across categories, for the filter. */
+  const productOptions = useMemo(() => {
+    const cats = breakdown.data?.categories ?? [];
+    return cats.flatMap((cat) =>
+      cat.products.map((prod) => ({
+        value: `${cat.key}:${prod.key}`,
+        label: `${prod.label} — ${cat.label}`,
+        outstanding: prod.outstanding,
+      }))
+    );
+  }, [breakdown.data]);
+
+  const filteredTotal = useMemo(() => {
+    if (productFilter === ALL_PRODUCTS || !breakdown.data) return null;
+    const [catKey, prodKey] = productFilter.split(':');
+    const prod = breakdown.data.categories
+      .find((c) => c.key === catKey)
+      ?.products.find((p) => p.key === prodKey);
+    return prod?.outstanding ?? 0;
+  }, [productFilter, breakdown.data]);
 
   return (
     <div className="space-y-3 sm:space-y-4 max-w-full">
