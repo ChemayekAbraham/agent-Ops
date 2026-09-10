@@ -131,6 +131,11 @@ export function AgentManagedPropertyDialog({
         name: landlordName.trim(),
         phone: landlordPhone.trim(),
         mobile_money_number: mobileMoneyNumber.trim(),
+        bank_name: bankName.trim() || null,
+        bank_branch: bankBranch.trim() || null,
+        account_number: bankAccountNumber.trim() || null,
+        bank_account_name: bankAccountName.trim() || null,
+
         property_address: propertyAddress.trim(),
         description: description.trim() || null,
         number_of_rooms: numberOfRooms ? parseInt(numberOfRooms) : null,
