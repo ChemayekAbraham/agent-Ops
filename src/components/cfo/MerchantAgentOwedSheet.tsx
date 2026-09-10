@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -124,6 +124,72 @@ function FlaggedCard({ t }: { t: FlaggedTransfer }) {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+const PAGE_SIZE = 40;
+
+/**
+ * Renders only the first slice of a long list and grows it as the user reaches
+ * the bottom (infinite scroll), with a manual fallback button. Purely a
+ * presentation optimisation — the underlying data and totals are untouched.
+ */
+function IncrementalList<T>({
+  items,
+  renderItem,
+  className,
+  label,
+}: {
+  items: T[];
+  renderItem: (item: T, index: number) => React.ReactNode;
+  className?: string;
+  label: string;
+}) {
+  const [count, setCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const total = items.length;
+
+  useEffect(() => {
+    setCount(PAGE_SIZE);
+  }, [total]);
+
+  const showMore = useCallback(() => {
+    setCount((c) => Math.min(c + PAGE_SIZE, total));
+  }, [total]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || count >= total) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) showMore();
+      },
+      { rootMargin: '120px' },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [count, total, showMore]);
+
+  const visible = count >= total ? items : items.slice(0, count);
+
+  return (
+    <div className={className}>
+      {visible.map((item, i) => renderItem(item, i))}
+      {count < total && (
+        <div ref={sentinelRef} className="flex flex-col items-center gap-1 py-3">
+          <button
+            type="button"
+            onClick={showMore}
+            className="rounded-md border border-border px-3 py-1 text-[11px] font-medium hover:bg-muted/50"
+          >
+            Show more {label}
+          </button>
+          <p className="text-[10px] text-muted-foreground">
+            Showing {visible.length} of {total}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 
