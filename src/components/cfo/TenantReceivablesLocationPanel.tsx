@@ -156,11 +156,35 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
             <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             Where the money is owed — by {LEVEL_LABEL[level].toLowerCase()}
           </p>
-          {breakdown.data && (
-            <span className="font-mono text-[10px] tabular-nums text-muted-foreground sm:text-xs">
-              {formatUGX(breakdown.data.total)}
-            </span>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {breakdown.data && (
+              <span className="font-mono text-[10px] tabular-nums text-muted-foreground sm:text-xs">
+                {formatUGX(breakdown.data.total)}
+              </span>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]" disabled={!!exporting}>
+                  {exporting ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Download className="mr-1 h-3 w-3" />
+                  )}
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => runExport('csv')} className="text-xs">
+                  <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />
+                  Download CSV (spreadsheet)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => runExport('pdf')} className="text-xs">
+                  <FileText className="mr-2 h-3.5 w-3.5" />
+                  Download PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Unplaced money: why, and how much */}
