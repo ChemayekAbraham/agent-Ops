@@ -51,7 +51,7 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
     queryFn: async () => {
       const { data: requests } = await supabase
         .from('rent_requests')
-        .select('id, tenant_id, rent_amount, daily_repayment, amount_repaid, total_repayment, disbursed_at, status, request_latitude, request_longitude, agent_payment_status')
+        .select('id, tenant_id, rent_amount, daily_repayment, amount_repaid, total_repayment, disbursed_at, status, request_latitude, request_longitude, agent_payment_status, repayment_frequency, repayment_starts_on, created_at')
         .eq('agent_id', agentId)
         // Only tenants Welile has actually funded can owe anything. Pre-funding
         // statuses already carry total_repayment, so a status blacklist showed
