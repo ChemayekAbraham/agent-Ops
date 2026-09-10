@@ -255,7 +255,13 @@ const Spinner = () => (
 export function MoneyWeCanUseBreakdown() {
   const [open, setOpen] = useState(false);
   const { data: money, isLoading: moneyLoading } = useActualMoneyHeld();
-  const { data: merchantMoves, isLoading: merchantLoading } = useMerchantAgentMovements(open);
+  const {
+    data: merchantPages,
+    isLoading: merchantLoading,
+    hasNextPage: merchantHasNext,
+    isFetchingNextPage: merchantFetchingNext,
+    fetchNextPage: merchantFetchNext,
+  } = useMerchantAgentMovementsPage(null, open, PAGE_SIZE);
   const { data: bayoMoves, isLoading: bayoLoading } = useBayoMercyMovements(open);
   const { data: flagged, isLoading: flagLoading } = useUnregisteredRecipientTransfers(open);
 
