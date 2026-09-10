@@ -13,9 +13,10 @@ import {
 } from 'lucide-react';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import {
-  useMerchantAgentMovements,
   useBayoMercyMovements,
-  useUnregisteredRecipientTransfers,
+  useMerchantAgentMovementsPage,
+  useUnregisteredRecipientTransfersPage,
+  useUnregisteredRecipientTransfersSummary,
 } from '@/hooks/useMerchantAgentMovements';
 
 const fmt = (n: number) =>
@@ -37,6 +38,57 @@ const channelLabel = (c: string) =>
   c === 'mtn_momo' ? 'MTN' : c === 'airtel_money' ? 'Airtel' : c || 'Line';
 
 const PAGE_SIZE = 25;
+
+/** Server-paged list: asks the database for the next cursor page on scroll. */
+function CursorPaged<T>({
+  items,
+  renderItem,
+  label,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+}: {
+  items: T[];
+  renderItem: (item: T, index: number) => React.ReactNode;
+  label: string;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: () => void;
+}) {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !hasNextPage) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isFetchingNextPage) fetchNextPage();
+      },
+      { rootMargin: '120px' },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  return (
+    <div>
+      {items.map((item, i) => renderItem(item, i))}
+      {hasNextPage && (
+        <div ref={sentinelRef} className="flex flex-col items-center gap-1 py-3">
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="rounded-md border border-border px-3 py-1 text-[11px] font-medium hover:bg-muted/50 disabled:opacity-60"
+          >
+            {isFetchingNextPage ? 'Loading…' : `Load more ${label}`}
+          </button>
+          <p className="text-[10px] text-muted-foreground">Loaded {items.length} so far</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Renders a slice of a long list and grows it as the reader reaches the end. */
 function Paged<T>({
@@ -203,9 +255,22 @@ const Spinner = () => (
 export function MoneyWeCanUseBreakdown() {
   const [open, setOpen] = useState(false);
   const { data: money, isLoading: moneyLoading } = useActualMoneyHeld();
-  const { data: merchantMoves, isLoading: merchantLoading } = useMerchantAgentMovements(open);
+  const {
+    data: merchantPages,
+    isLoading: merchantLoading,
+    hasNextPage: merchantHasNext,
+    isFetchingNextPage: merchantFetchingNext,
+    fetchNextPage: merchantFetchNext,
+  } = useMerchantAgentMovementsPage(null, open, PAGE_SIZE);
   const { data: bayoMoves, isLoading: bayoLoading } = useBayoMercyMovements(open);
-  const { data: flagged, isLoading: flagLoading } = useUnregisteredRecipientTransfers(open);
+  const flaggedSummary = useUnregisteredRecipientTransfersSummary(open);
+  const {
+    data: flaggedPages,
+    isLoading: flagLoading,
+    hasNextPage: flagHasNext,
+    isFetchingNextPage: flagFetchingNext,
+    fetchNextPage: flagFetchNext,
+  } = useUnregisteredRecipientTransfersPage(open, 120, PAGE_SIZE);
 
   const haveLines = [
     {
@@ -230,8 +295,10 @@ export function MoneyWeCanUseBreakdown() {
     },
   ];
 
-  const merchantOut = (merchantMoves ?? []).filter((m) => m.direction === 'out');
-  const merchantIn = (merchantMoves ?? []).filter((m) => m.direction === 'in');
+  const merchantMoves = (merchantPages?.pages ?? []).flat();
+  const flaggedRows = (flaggedPages?.pages ?? []).flat();
+  const merchantOut = merchantMoves.filter((m) => m.direction === 'out');
+  const merchantIn = merchantMoves.filter((m) => m.direction === 'in');
 
   return (
     <Card className="border-border/60">
@@ -294,19 +361,22 @@ export function MoneyWeCanUseBreakdown() {
               icon={<Smartphone className="h-4 w-4 text-orange-600" />}
               title="Counts toward Money We Owe · merchant agents"
               note="Every matched transfer out to a merchant agent number, and what they sent back."
-              total={`${merchantOut.length} out · ${merchantIn.length} back`}
+              total={`${merchantOut.length} out · ${merchantIn.length} back${merchantHasNext ? '+' : ''}`}
               totalTone="text-orange-600"
             >
               {merchantLoading ? (
                 <Spinner />
-              ) : (merchantMoves ?? []).length === 0 ? (
+              ) : merchantMoves.length === 0 ? (
                 <p className="py-3 text-[11px] text-muted-foreground">
                   No matched merchant agent transfers in the extracted emails.
                 </p>
               ) : (
                 <div className="max-h-80 overflow-y-auto pr-1">
-                  <Paged
-                    items={merchantMoves ?? []}
+                  <CursorPaged
+                    hasNextPage={!!merchantHasNext}
+                    isFetchingNextPage={merchantFetchingNext}
+                    fetchNextPage={merchantFetchNext}
+                    items={merchantMoves}
                     label="transfers"
                     renderItem={(m) => (
                       <Row
@@ -364,19 +434,22 @@ export function MoneyWeCanUseBreakdown() {
               icon={<AlertTriangle className="h-4 w-4 text-amber-600" />}
               title="Excluded from both sides · flagged transfers"
               note="Money-out transfers whose receiver is not an active merchant agent. Review only."
-              total={fmt(flagged?.total ?? 0)}
+              total={fmt(flaggedSummary.data?.total ?? 0)}
               totalTone="text-amber-700 dark:text-amber-300"
             >
               {flagLoading ? (
                 <Spinner />
-              ) : (flagged?.transfers ?? []).length === 0 ? (
+              ) : flaggedRows.length === 0 ? (
                 <p className="py-3 text-[11px] text-muted-foreground">
                   Every money-out transfer went to a registered merchant agent.
                 </p>
               ) : (
                 <div className="max-h-80 overflow-y-auto pr-1">
-                  <Paged
-                    items={flagged?.transfers ?? []}
+                  <CursorPaged
+                    hasNextPage={!!flagHasNext}
+                    isFetchingNextPage={flagFetchingNext}
+                    fetchNextPage={flagFetchNext}
+                    items={flaggedRows}
                     label="flagged transfers"
                     renderItem={(t) => (
                       <div key={t.id} className="border-t border-border/60 py-2 first:border-t-0">

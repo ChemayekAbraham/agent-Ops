@@ -13,10 +13,12 @@ import {
 } from 'lucide-react';
 import { useMerchantAgentMoneyOwed } from '@/hooks/useMerchantAgentMoneyOwed';
 import {
-  useMerchantAgentMovements,
   useBayoMercyMovements,
-  useUnregisteredRecipientTransfers,
+  useMerchantAgentMovementsPage,
+  useUnregisteredRecipientTransfersPage,
+  useUnregisteredRecipientTransfersSummary,
   type FlaggedTransfer,
+  type MerchantAgentMovement,
 } from '@/hooks/useMerchantAgentMovements';
 
 
@@ -193,6 +195,112 @@ function IncrementalList<T>({
 }
 
 
+/**
+ * Server-paged list: keeps a sentinel at the bottom and asks the database for
+ * the next cursor page as the user scrolls. Only the pages already fetched are
+ * ever held in memory.
+ */
+function CursorList<T>({
+  pages,
+  renderItem,
+  className,
+  label,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+}: {
+  pages: T[];
+  renderItem: (item: T, index: number) => React.ReactNode;
+  className?: string;
+  label: string;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: () => void;
+}) {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !hasNextPage) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isFetchingNextPage) fetchNextPage();
+      },
+      { rootMargin: '120px' },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  return (
+    <div className={className}>
+      {pages.map((item, i) => renderItem(item, i))}
+      {hasNextPage && (
+        <div ref={sentinelRef} className="flex flex-col items-center gap-1 py-3">
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="rounded-md border border-border px-3 py-1 text-[11px] font-medium hover:bg-muted/50 disabled:opacity-60"
+          >
+            {isFetchingNextPage ? 'Loading…' : `Load more ${label}`}
+          </button>
+          <p className="text-[10px] text-muted-foreground">Loaded {pages.length} so far</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Every transfer on one merchant desk, fetched a cursor page at a time. */
+function DeskMovements({ deskId, expectedCount }: { deskId: string; expectedCount: number }) {
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useMerchantAgentMovementsPage(deskId, true, PAGE_SIZE);
+  const rows: MerchantAgentMovement[] = (data?.pages ?? []).flat();
+
+  return (
+    <>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-[11px] font-semibold">Every transfer on this desk</p>
+        <Badge variant="outline" className="text-[10px]">
+          {rows.length}
+          {hasNextPage ? '+' : ''} of {expectedCount} movement(s)
+        </Badge>
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-4">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="py-3 text-[11px] text-muted-foreground">
+          No matched email transfers for this desk.
+        </p>
+      ) : (
+        <CursorList
+          pages={rows}
+          label="transfers"
+          className="max-h-72 overflow-y-auto pr-1"
+          hasNextPage={!!hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          fetchNextPage={fetchNextPage}
+          renderItem={(m) => (
+            <MovementRow
+              key={`${m.id}-${m.desk_id}`}
+              direction={m.direction}
+              amount={m.amount}
+              at={m.at}
+              party={m.counterparty}
+              reference={m.transaction_id}
+              note={m.snippet}
+              tag={channelLabel(m.channel)}
+            />
+          )}
+        />
+      )}
+    </>
+  );
+}
+
 function MovementRow({
   direction,
   amount,
@@ -254,26 +362,28 @@ function MovementRow({
  */
 export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
   const { data, isLoading, error } = useMerchantAgentMoneyOwed(open);
-  const { data: movements, isLoading: movLoading } = useMerchantAgentMovements(open);
   const { data: bayoRows, isLoading: bayoLoading } = useBayoMercyMovements(open);
-  const { data: flagged, isLoading: flagLoading } = useUnregisteredRecipientTransfers(open);
+  const flaggedSummary = useUnregisteredRecipientTransfersSummary(open);
+  const {
+    data: flaggedPages,
+    isLoading: flagLoading,
+    hasNextPage: flagHasNext,
+    isFetchingNextPage: flagFetchingNext,
+    fetchNextPage: flagFetchNext,
+  } = useUnregisteredRecipientTransfersPage(open);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const agents = (data?.agents ?? []).filter((a) => a.still_held > 0 || a.email_sent_total > 0 || a.float_balance > 0);
 
-  const byDesk = useMemo(() => {
-    const map = new Map<string, typeof movements>();
-    (movements ?? []).forEach((m) => {
-      const list = (map.get(m.desk_id) ?? []) as any[];
-      list.push(m);
-      map.set(m.desk_id, list as any);
-    });
-    return map;
-  }, [movements]);
+  const flaggedRows: FlaggedTransfer[] = useMemo(
+    () => (flaggedPages?.pages ?? []).flat(),
+    [flaggedPages],
+  );
 
   const bayoIn = (bayoRows ?? []).filter((r) => r.direction === 'in').reduce((s, r) => s + r.amount, 0);
   const bayoOut = (bayoRows ?? []).filter((r) => r.direction === 'out').reduce((s, r) => s + r.amount, 0);
-  const flaggedCount = flagged?.transfers.length ?? 0;
+  const flaggedCount = flaggedSummary.data?.count ?? 0;
+  const flaggedTotal = flaggedSummary.data?.total ?? 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -326,7 +436,7 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
               <div className="flex items-start gap-2 rounded-xl border border-amber-500/50 bg-amber-50/70 p-3 dark:bg-amber-950/20">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                 <p className="text-[11px] text-amber-800 dark:text-amber-300">
-                  {flaggedCount} transfer(s) worth {fmt(flagged?.total ?? 0)} went to numbers that are not
+                  {flaggedCount} transfer(s) worth {fmt(flaggedTotal)} went to numbers that are not
                   registered merchant agents. They are not counted as owed — see the Flagged tab.
                 </p>
               </div>
@@ -362,7 +472,6 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                   </p>
                 ) : (
                   agents.map((a) => {
-                    const rows = (byDesk.get(a.desk_id) ?? []) as any[];
                     const isOpen = expanded === a.desk_id;
                     return (
                       <div key={a.desk_id} className="rounded-xl border border-border">
@@ -434,39 +543,10 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
 
                         {isOpen && (
                           <div className="border-t border-border bg-muted/20 px-3 py-2">
-                            <div className="mb-1 flex items-center justify-between">
-                              <p className="text-[11px] font-semibold">Every transfer on this desk</p>
-                              <Badge variant="outline" className="text-[10px]">
-                                {rows.length} movement(s)
-                              </Badge>
-                            </div>
-                            {movLoading ? (
-                              <div className="flex justify-center py-4">
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                              </div>
-                            ) : rows.length === 0 ? (
-                              <p className="py-3 text-[11px] text-muted-foreground">
-                                No matched email transfers for this desk.
-                              </p>
-                            ) : (
-                              <IncrementalList
-                                items={rows}
-                                label="transfers"
-                                className="max-h-72 overflow-y-auto pr-1"
-                                renderItem={(m: any) => (
-                                  <MovementRow
-                                    key={`${m.id}-${m.desk_id}`}
-                                    direction={m.direction}
-                                    amount={m.amount}
-                                    at={m.at}
-                                    party={m.counterparty}
-                                    reference={m.transaction_id}
-                                    note={m.snippet}
-                                    tag={channelLabel(m.channel)}
-                                  />
-                                )}
-                              />
-                            )}
+                            <DeskMovements
+                              deskId={a.desk_id}
+                              expectedCount={a.email_sent_count + a.email_returned_count}
+                            />
                           </div>
                         )}
                       </div>
@@ -544,7 +624,7 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                   <div className="flex justify-center py-6">
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   </div>
-                ) : flaggedCount === 0 ? (
+                ) : flaggedRows.length === 0 ? (
                   <p className="py-6 text-xs text-muted-foreground">
                     Every money-out transfer went to a registered merchant agent.
                   </p>
@@ -553,16 +633,21 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                     <div className="rounded-xl border border-amber-500/40 bg-amber-50/50 p-3 dark:bg-amber-950/20">
                       <p className="text-[10px] text-amber-800 dark:text-amber-300">Total flagged</p>
                       <p className="font-mono text-sm font-bold tabular-nums text-amber-800 dark:text-amber-300">
-                        {fmt(flagged?.total ?? 0)}
+                        {fmt(flaggedTotal)}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-amber-800/80 dark:text-amber-300/80">
+                        Showing {flaggedRows.length} of {flaggedCount} transfer(s)
                       </p>
                     </div>
-                    <IncrementalList
-                      items={flagged?.transfers ?? []}
+                    <CursorList
+                      pages={flaggedRows}
                       label="flagged transfers"
                       className="max-h-[28rem] space-y-2 overflow-y-auto"
+                      hasNextPage={!!flagHasNext}
+                      isFetchingNextPage={flagFetchingNext}
+                      fetchNextPage={flagFetchNext}
                       renderItem={(t) => <FlaggedCard key={t.id} t={t} />}
                     />
-
                   </>
                 )}
               </TabsContent>
