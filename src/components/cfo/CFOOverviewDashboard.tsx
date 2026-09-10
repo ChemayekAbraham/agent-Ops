@@ -12,7 +12,7 @@ import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
   ChevronRight, Info, CalendarDays, Download,
   PiggyBank, BarChart3, Package, ChevronDown,
-  Landmark, Vault, Banknote,
+  Landmark, Vault, Banknote, CheckCircle2, AlertTriangle,
 } from 'lucide-react';
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -278,6 +278,48 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                 <p className="mt-2.5 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-lg px-2 py-1.5">
                   Real float on provider lines + verified cash + banked deposits
                 </p>
+                {!actualLoading && actualMoney && (
+                  <button
+                    type="button"
+                    onClick={() => setActualMoneyLine('banked_cash')}
+                    className={`mt-1.5 w-full text-left text-[11px] rounded-lg px-2 py-1.5 transition-colors ${
+                      actualMoney.bankedInSync
+                        ? 'text-sky-700 dark:text-sky-400 bg-sky-50/70 dark:bg-sky-950/30 hover:bg-sky-100/70 dark:hover:bg-sky-950/50'
+                        : 'text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/30 hover:bg-amber-100/80 dark:hover:bg-amber-950/50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 font-medium">
+                      {actualMoney.bankedInSync ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span className="truncate">
+                        {actualMoney.bankedInSync
+                          ? 'Cash at Bank matches Financial Ops'
+                          : `Cash at Bank differs from Financial Ops by ${fmt(Math.abs(actualMoney.bankedDifference))}`}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 block text-[10px] opacity-90">
+                      {actualMoney.finOpsBankedCount} banked deposit(s) checked
+                      {actualMoney.bankedComputedAt
+                        ? ` · synced ${new Date(actualMoney.bankedComputedAt).toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            timeZone: 'Africa/Kampala',
+                          })} EAT`
+                        : ''}
+                      {actualMoney.bankedLastMovementAt
+                        ? ` · last banked ${new Date(actualMoney.bankedLastMovementAt).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            timeZone: 'Africa/Kampala',
+                          })}`
+                        : ''}
+                    </span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setMerchantOwedOpen(true)}
