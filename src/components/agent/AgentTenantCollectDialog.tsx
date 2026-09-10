@@ -199,15 +199,6 @@ export function AgentTenantCollectDialog({
     setLoading(true);
     setRpcError(null);
     const submittedAt = new Date().toISOString();
-    // Server-side idempotency reference for THIS payment attempt. Generated
-    // once here, so if the same attempt ever reaches the server twice — a
-    // network-layer retry, a double tap that slips past `disabled`, or the
-    // stall-then-reconcile path below — the server returns the original
-    // receipt instead of collecting the money again. A fresh attempt gets a
-    // fresh ref, so a tenant's legitimate second payment of the same amount
-    // on the same day is still accepted. Enforced by
-    // agent_collections_client_ref_key, not by this component's loading state.
-    const clientRef = crypto.randomUUID();
     // Progressive feedback so Chrome users on slow networks don't feel
     // the app has frozen. Two toasts at 4s and 10s, cancelled on resolve.
     const slowToast = setTimeout(() => {
@@ -240,7 +231,7 @@ export function AgentTenantCollectDialog({
           // Tracking only — partials are never blocked.
           p_partial_confirmed: true,
           p_partial_reason: isPartial ? partialReason.trim() || null : null,
-          p_client_ref: clientRef,
+
         });
       const STALL_MS = 45000;
       const raced = await Promise.race([

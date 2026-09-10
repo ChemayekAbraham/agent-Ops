@@ -352,13 +352,6 @@ Deno.serve(async (req) => {
       p_rent_request_id: body.rent_request_id,
       p_amount: amount,
       p_notes: combinedNotes,
-      // The draft_id is already this payment's unique identity, so hand it to
-      // the server as the idempotency reference too. The
-      // offline_collection_submissions pre-check above still short-circuits a
-      // replay before any money moves; this closes the narrow window where a
-      // retry arrives before that row is finalised, because
-      // agent_collections_client_ref_key then rejects the second collection.
-      p_client_ref: body.draft_id,
     });
 
     if (rpcErr || !(rpcData as { success?: boolean })?.success) {
