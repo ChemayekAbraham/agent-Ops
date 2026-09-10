@@ -366,12 +366,34 @@ export default function DepartmentBudgetSubmission({
     if (incompleteReason) { toast.error(incompleteReason); return; }
     setSubmitting(true);
     try {
-      const id = await persistDraft();
-      if (!id) return;
-      const { data, error } = await supabase.rpc('budget_submit_submission', { p_submission_id: id });
-      if (error) throw error;
-      const res = data as unknown as { is_late?: boolean };
-      toast.success(res?.is_late ? 'Submitted — flagged as late' : 'Budget submitted for CFO review');
+      // One attempt against the record the form is holding. Returns the outcome
+      // instead of throwing so a stale record can be retried cleanly.
+      const attempt = async (submissionId: string | null) => {
+        const id = await persistDraft(submissionId);
+        if (!id) return { ok: false as const, error: null as unknown };
+        const { data, error } = await supabase.rpc('budget_submit_submission', { p_submission_id: id });
+        if (error) return { ok: false as const, error };
+        return { ok: true as const, data: data as unknown as { is_late?: boolean } };
+      };
+
+      let res = await attempt(activeId);
+
+      // The form was still holding a record the database will no longer accept
+      // (it was already submitted, or was replaced by a new version elsewhere).
+      // That is a stale screen, not a rejected budget, so file what is on screen
+      // as a fresh submission instead of dead-ending the user.
+      if (!res.ok && activeId && isStaleRecord(res.error)) {
+        console.warn('[budget] stale draft, filing a fresh submission', res.error);
+        setActiveId(null);
+        res = await attempt(null);
+      }
+
+      if (!res.ok) {
+        if (res.error) throw res.error;
+        return;
+      }
+
+      toast.success(res.data?.is_late ? 'Submitted — flagged as late' : 'Budget submitted for CFO review');
       await loadSubmissions();
       // Re-derive the obligation from the database so the required-action gate
       // and the notification bell release without a reload.
