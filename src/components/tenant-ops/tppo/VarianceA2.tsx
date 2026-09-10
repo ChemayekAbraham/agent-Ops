@@ -254,7 +254,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
         ))}
 
 
-        {currentStillCounting && (
+        {(currentStillCounting || currentIsClosed) && (
           <div className="rounded-md border border-border p-3 font-medium">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
             <div className="mt-2 space-y-1 text-sm">
@@ -329,7 +329,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                 </td>
               </tr>
             ))}
-            {currentStillCounting && (
+            {(currentStillCounting || currentIsClosed) && (
               <tr className="font-medium">
                 <td className="py-2 pr-3">Increase / decrease</td>
                 <td className={`py-2 pr-3 text-right tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
