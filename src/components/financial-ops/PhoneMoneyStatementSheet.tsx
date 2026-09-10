@@ -48,9 +48,25 @@ interface Row {
   balanceAfter: number | null;
   note: string | null;
   phone: string | null;
+  /** Coarse grouping used by the category filter. */
+  category: string;
 }
 
 type DirectionFilter = 'all' | 'in' | 'out';
+
+function purposeLabel(purpose: string | null | undefined): string {
+  if (purpose === 'operational_float') return 'Agent float';
+  if (purpose === 'personal_deposit') return 'Personal deposit';
+  return 'Other deposit';
+}
+
+function dayStart(isoDate: string): number {
+  return new Date(`${isoDate}T00:00:00`).getTime();
+}
+
+function dayEnd(isoDate: string): number {
+  return new Date(`${isoDate}T23:59:59.999`).getTime();
+}
 
 /**
  * Detailed movement statement for one Actual Money line. Read-only: it simply
@@ -82,7 +98,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
         // status 'verified', split by the Financial Ops cash location flag.
         const { data: cash, error } = await supabase
           .from('cash_deposit_verifications')
-          .select('id, amount, status, user_id, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit)')
+          .select('id, amount, status, user_id, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit, deposit_purpose)')
           .order('created_at', { ascending: false })
           .limit(1000);
         if (error) throw error;
@@ -115,6 +131,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
             ? 'Verified cash deposit — marked as banked by Financial Ops'
             : 'Verified cash collected — awaiting banking',
           phone: people.get(c.user_id)?.phone ?? null,
+          category: purposeLabel(c.deposit_requests?.deposit_purpose),
         }));
       }
 
@@ -136,9 +153,10 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
            party: t.counterparty || extractParty(t.snippet) || String(t.match_reason ?? 'Bayo Mercy account activity'),
            reference: t.transaction_id ?? null,
            balanceAfter: null,
-           note: t.snippet ? String(t.snippet).slice(0, 180) : String(t.match_reason ?? 'Qualifying Bayo Mercy account alert'),
-           phone: null,
-         }));
+            note: t.snippet ? String(t.snippet).slice(0, 180) : String(t.match_reason ?? 'Qualifying Bayo Mercy account alert'),
+            phone: null,
+            category: t.direction === 'out' ? 'Money out' : 'Money in',
+          }));
        }
 
       const { data: tx, error } = await supabase
@@ -178,6 +196,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
           balanceAfter: t.balance != null ? Number(t.balance) : null,
           note: t.snippet ? String(t.snippet).slice(0, 180) : null,
           phone: linked?.phone ?? extractPhone(t.counterparty) ?? extractPhone(t.snippet),
+          category: t.direction === 'charge' ? 'Provider charge' : t.direction === 'out' ? 'Money out' : 'Money in',
         };
       });
     },
@@ -187,16 +206,38 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
   const isMobile = useIsMobile();
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<DirectionFilter>('all');
-  useEffect(() => { setPage(0); }, [line]);
-  useEffect(() => { setPage(0); }, [filter]);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [category, setCategory] = useState<string>('all');
+  useEffect(() => { setPage(0); setDateFrom(''); setDateTo(''); setCategory('all'); setFilter('all'); }, [line]);
+  useEffect(() => { setPage(0); }, [filter, dateFrom, dateTo, category]);
 
   const isInflow = (r: Row) => r.direction === 'in' || r.direction === 'cash';
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => set.add(r.category));
+    return Array.from(set).sort();
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
-    if (filter === 'all') return rows;
-    if (filter === 'in') return rows.filter(isInflow);
-    return rows.filter((r) => !isInflow(r));
-  }, [rows, filter]);
+    const fromMs = dateFrom ? dayStart(dateFrom) : null;
+    const toMs = dateTo ? dayEnd(dateTo) : null;
+    return rows.filter((r) => {
+      if (filter === 'in' && !isInflow(r)) return false;
+      if (filter === 'out' && isInflow(r)) return false;
+      if (category !== 'all' && r.category !== category) return false;
+      if (fromMs != null || toMs != null) {
+        const at = r.at ? new Date(r.at).getTime() : null;
+        if (at == null) return false;
+        if (fromMs != null && at < fromMs) return false;
+        if (toMs != null && at > toMs) return false;
+      }
+      return true;
+    });
+  }, [rows, filter, dateFrom, dateTo, category]);
+
+  const hasDrillFilters = dateFrom !== '' || dateTo !== '' || category !== 'all';
 
   const totals = useMemo(() => {
     let inflow = 0;
@@ -263,6 +304,57 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
             ))}
           </div>
 
+          <div className="flex flex-wrap items-end gap-2 pt-3">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">From</p>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="mt-0.5 h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">To</p>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="mt-0.5 h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              />
+            </div>
+            <div className="min-w-0 flex-1 sm:max-w-[180px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Category</p>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="mt-0.5 h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              >
+                <option value="all">All categories</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            {hasDrillFilters && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => { setDateFrom(''); setDateTo(''); setCategory('all'); }}
+                className="h-8 px-2 text-xs text-muted-foreground"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+          {hasDrillFilters && (
+            <p className="pt-1.5 text-[11px] text-muted-foreground">
+              {filteredRows.length} of {rows.length} movement(s) match
+            </p>
+          )}
+
           {accountRows.length > 0 && (
             <div className="mt-3 rounded-xl border border-border bg-muted/30 p-2.5">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -316,7 +408,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
           )}
           {!isLoading && rows.length > 0 && filteredRows.length === 0 && (
             <p className="p-8 text-center text-sm text-muted-foreground">
-              No {filter === 'in' ? 'money in' : 'money out'} movements match this filter.
+              No movements match the current filters.
             </p>
           )}
           {pageRows.map((r) => {
@@ -343,6 +435,9 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
                   {r.note && <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground break-words">{r.note}</p>}
                   {r.direction === 'charge' && (
                     <Badge variant="outline" className="mt-1 text-[10px]">Provider charge</Badge>
+                  )}
+                  {r.direction === 'cash' && r.category !== 'Other deposit' && (
+                    <Badge variant="outline" className="mt-1 text-[10px]">{r.category}</Badge>
                   )}
                   {r.phone && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
