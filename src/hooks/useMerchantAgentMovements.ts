@@ -129,9 +129,15 @@ export function useUnregisteredRecipientTransfers(enabled = true, days = 120) {
           snippet: t.snippet ?? null,
           recipient_phone: t.recipient_phone ?? null,
           profile_name: t.profile_name ?? null,
+          profile_email: t.profile_email ?? null,
           profile_id: t.profile_id ?? null,
+          reason: t.reason ?? null,
+          reason_code: t.reason_code ?? null,
+          merchant_match_status: t.merchant_match_status ?? null,
+          matched_desk_id: t.matched_desk_id ?? null,
         })),
       };
     },
   });
 }
+
