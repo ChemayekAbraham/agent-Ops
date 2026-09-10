@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ChevronRight, Loader2, MapPin, Users } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, ChevronRight, Loader2, MapPin, Pencil, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,10 +8,27 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   useTenantReceivableAccounts,
   useTenantReceivablesByLocation,
+  type TenantReceivableAccount,
   type TenantReceivablesLevel,
   type TenantReceivablesLocationRow,
 } from '@/hooks/useReceivables';
 import { TenantAccountMovementsSheet } from '@/components/cfo/TenantAccountMovementsSheet';
+import CorrectTenantLocationDialog from '@/components/location/CorrectTenantLocationDialog';
+
+const UNMAPPED = 'Unmapped';
+
+/** Plain-language reason an account's money could not be placed on the map. */
+function unplacedReason(acct: TenantReceivableAccount): string | null {
+  const districtKnown = acct.district && acct.district !== UNMAPPED;
+  const villageText = acct.village && acct.village !== UNMAPPED ? acct.village : null;
+  const townText = acct.town && acct.town !== UNMAPPED ? acct.town : null;
+  if (districtKnown) return null;
+  const typed = [villageText, townText].filter(Boolean).join(', ');
+  if (typed) {
+    return `Typed as “${typed}” — not matched to an approved district`;
+  }
+  return 'No location on record for this tenant';
+}
 
 interface Crumb {
   level: TenantReceivablesLevel;
