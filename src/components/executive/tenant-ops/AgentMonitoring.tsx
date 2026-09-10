@@ -771,35 +771,33 @@ export function AgentMonitoring() {
 
   const body = (
     <>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <Users className="h-4.5 w-4.5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold leading-tight">Agent Monitoring</h1>
-              <p className="text-[11px] text-muted-foreground">Daily expected collections and field performance</p>
-            </div>
+      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+            <Users className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold leading-tight tracking-tight sm:text-xl">Agent Monitoring</h1>
+            <p className="truncate text-xs text-muted-foreground">Daily expected collections and field performance</p>
           </div>
         </div>
-        <div className="flex w-full flex-wrap items-center gap-1 rounded-lg border p-1 sm:w-auto">
-          <Button variant="ghost" size="sm" onClick={() => setDay((value) => subDays(value, 1))} aria-label="Previous day">←</Button>
-          <div className="flex-1 min-w-[110px] text-center text-xs font-medium tabular-nums sm:flex-none sm:min-w-[128px]">{format(day, 'dd MMM yyyy')}</div>
-          <Button variant="ghost" size="sm" onClick={() => setDay((value) => addDays(value, 1))} aria-label="Next day">→</Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setDay(startOfDay(new Date()))}>
+        <div className="flex w-full items-center gap-1 rounded-xl border bg-muted/40 p-1 sm:w-auto">
+          <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={() => setDay((value) => subDays(value, 1))} aria-label="Previous day">←</Button>
+          <div className="min-w-0 flex-1 truncate text-center text-xs font-semibold tabular-nums sm:flex-none sm:min-w-[132px]">{format(day, 'dd MMM yyyy')}</div>
+          <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={() => setDay((value) => addDays(value, 1))} aria-label="Next day">→</Button>
+          <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => setDay(startOfDay(new Date()))}>
             <CalendarDays className="h-3.5 w-3.5" /> Today
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Agents monitored</p><p className="mt-1 text-xl font-bold tabular-nums">{filteredAgents.length}</p><p className="text-[10px] text-muted-foreground">{totals.nothingDue} with nothing due</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Due this day</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.dueCount}</p><p className="text-[10px] text-muted-foreground">of {totals.tenantCount} tenants</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Expected vs collected</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.collected)}</p><p className="text-[10px] text-muted-foreground">of {formatUGX(totals.expected)} due</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Total arrears</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.arrears)}</p><p className="text-[10px] text-muted-foreground">{totals.behindCount} tenants behind</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Paid ahead</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.aheadCount}</p><p className="text-[10px] text-muted-foreground">tenants covering future periods</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Daily vs weekly</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.dailyCount} / {totals.weeklyCount}</p><p className="text-[10px] text-muted-foreground">daily / weekly plans</p></CardContent></Card>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
+        <StatCard label="Agents monitored" value={String(filteredAgents.length)} hint={`${totals.nothingDue} with nothing due`} accent="neutral" />
+        <StatCard label="Due this day" value={String(totals.dueCount)} hint={`of ${totals.tenantCount} tenants`} accent="primary" />
+        <StatCard label="Collected today" value={formatUGX(totals.collected)} hint={`of ${formatUGX(totals.expected)} expected`} accent="success" />
+        <StatCard label="Total arrears" value={formatUGX(totals.arrears)} hint={`${totals.behindCount} tenants behind`} accent={totals.arrears > 0 ? 'danger' : 'neutral'} />
+        <StatCard label="Paid ahead" value={String(totals.aheadCount)} hint="tenants covering future periods" accent="info" />
+        <StatCard label="Daily / weekly" value={`${totals.dailyCount} / ${totals.weeklyCount}`} hint="plans by payment period" accent="neutral" />
       </div>
 
       <Card>
