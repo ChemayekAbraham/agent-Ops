@@ -542,10 +542,14 @@ Deno.serve(async (req) => {
                     console.error(`[approve-wallet-op] Treasury waterfall failed for ${op.id}, falling back to legacy repayment:`, waterfallErr?.message || waterfallErr);
                   }
 
-                  const { error: repaymentErr } = !waterfallOk ? await adminClient.rpc(
-                    "record_rent_request_repayment",
-                    { p_tenant_id: op.user_id, p_amount: repaymentAmount }
-                  ) : { error: null };
+                  let repaymentErr = null;
+                  if (!waterfallOk) {
+                    const { error: legacyErr } = await adminClient.rpc(
+                      "record_rent_request_repayment",
+                      { p_tenant_id: op.user_id, p_amount: repaymentAmount }
+                    );
+                    repaymentErr = legacyErr;
+                  }
 
                   if (!repaymentErr) {
                     const { error: rentLedgerErr } = await adminClient.rpc('create_ledger_transaction', {
