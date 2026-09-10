@@ -12107,6 +12107,58 @@ export type Database = {
           },
         ]
       }
+      engrep_adjudicators: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ended_on: string | null
+          id: string
+          note: string | null
+          staff_id: string
+          started_on: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          id?: string
+          note?: string | null
+          staff_id: string
+          started_on?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          id?: string
+          note?: string | null
+          staff_id?: string
+          started_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_adjudicators_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_adjudicators_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "engrep_adjudicators_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       engrep_catalog_snapshot: {
         Row: {
           captured_at: string
