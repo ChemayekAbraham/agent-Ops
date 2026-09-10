@@ -382,24 +382,12 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                         {fmt(flagged?.total ?? 0)}
                       </p>
                     </div>
-                    <div className="max-h-96 overflow-y-auto rounded-xl border border-border px-3 py-2">
+                    <div className="max-h-[28rem] space-y-2 overflow-y-auto">
                       {(flagged?.transfers ?? []).map((t) => (
-                        <MovementRow
-                          key={t.id}
-                          direction="out"
-                          amount={t.amount}
-                          at={t.at}
-                          party={
-                            t.profile_name
-                              ? `${t.profile_name} (not a merchant agent)`
-                              : t.counterparty || t.recipient_phone || 'Unknown recipient'
-                          }
-                          reference={t.transaction_id}
-                          note={t.snippet}
-                          tag={`${channelLabel(t.channel)}${t.recipient_phone ? ` · ${t.recipient_phone}` : ''}`}
-                        />
+                        <FlaggedCard key={t.id} t={t} />
                       ))}
                     </div>
+
                   </>
                 )}
               </TabsContent>
