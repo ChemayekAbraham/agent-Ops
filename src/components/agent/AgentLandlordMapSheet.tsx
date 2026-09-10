@@ -52,6 +52,10 @@ interface Landlord {
   desired_rent_from_welile: number | null;
   has_smartphone: boolean | null;
   mobile_money_name: string | null;
+  bank_name?: string | null;
+  bank_branch?: string | null;
+  account_number?: string | null;
+  bank_account_name?: string | null;
   created_at: string;
 }
 
@@ -84,12 +88,12 @@ export function AgentLandlordMapSheet({ open, onOpenChange }: AgentLandlordMapSh
     try {
       const { data, error } = await supabase
         .from('landlords')
-        .select('id, name, phone, property_address, latitude, longitude, verified, number_of_houses, desired_rent_from_welile, has_smartphone, mobile_money_name, created_at')
+        .select('id, name, phone, property_address, latitude, longitude, verified, number_of_houses, desired_rent_from_welile, has_smartphone, mobile_money_name, bank_name, bank_branch, account_number, bank_account_name, created_at')
         .eq('registered_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLandlords(data || []);
+      setLandlords((data || []) as any);
     } catch {
       toast.error('Failed to fetch landlords');
     } finally {
@@ -273,6 +277,11 @@ export function AgentLandlordMapSheet({ open, onOpenChange }: AgentLandlordMapSh
                           {l.mobile_money_name && (
                             <p className="text-[10px] text-muted-foreground mt-0.5">
                               <User className="h-2.5 w-2.5 inline mr-0.5" />MoMo: {l.mobile_money_name}
+                            </p>
+                          )}
+                          {(l.bank_name || l.account_number) && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 break-words">
+                              Bank: {[l.bank_name, l.bank_branch, l.account_number, l.bank_account_name].filter(Boolean).join(' • ')}
                             </p>
                           )}
                           <div className="flex items-center gap-2 mt-1 flex-wrap">

@@ -268,6 +268,12 @@ export default function LandlordRegistrationForm({
   // Mobile Money
   const [momoName, setMomoName] = useState('');
   const [momoNumber, setMomoNumber] = useState('');
+  // Optional bank details (additive — never required, never validated as a set)
+  const [bankName, setBankName] = useState('');
+  const [bankBranch, setBankBranch] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+
 
   // Utility meters
   const [nwscMeter, setNwscMeter] = useState('');
@@ -658,6 +664,11 @@ export default function LandlordRegistrationForm({
         location_captured_by: location ? user.id : null,
         mobile_money_name: momoName.trim() || null,
         mobile_money_number: momoNumberClean || null,
+        bank_name: bankName.trim() || null,
+        bank_branch: bankBranch.trim() || null,
+        account_number: bankAccountNumber.trim() || null,
+        bank_account_name: bankAccountName.trim() || null,
+
         water_meter_number: nwscMeter.trim() || null,
         electricity_meter_number: uedclMeter.trim() || null,
         number_of_houses: numberOfRentals ? parseInt(numberOfRentals) : null,
@@ -1440,6 +1451,55 @@ export default function LandlordRegistrationForm({
               </div>
             </div>
           </div>
+
+          {/* Bank Details (optional) — sits beside mobile money, never required */}
+          <div className="space-y-2 p-2.5 rounded-lg border bg-muted/30">
+            <div className="flex items-center gap-1.5">
+              <Wallet className="h-3 w-3 text-primary" />
+              <span className="text-xs font-semibold">Bank Details</span>
+              <span className="ml-auto text-[10px] font-normal text-muted-foreground">optional</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Bank Name</Label>
+                <Input
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="e.g. Stanbic Bank"
+                  className="h-12 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Branch</Label>
+                <Input
+                  value={bankBranch}
+                  onChange={(e) => setBankBranch(e.target.value)}
+                  placeholder="e.g. Kampala Road"
+                  className="h-12 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Bank Account Number</Label>
+                <Input
+                  inputMode="numeric"
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  placeholder="Account number"
+                  className="h-12 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Bank Account Name</Label>
+                <Input
+                  value={bankAccountName}
+                  onChange={(e) => setBankAccountName(e.target.value)}
+                  placeholder="Name on the account"
+                  className="h-12 text-base"
+                />
+              </div>
+            </div>
+          </div>
+
 
           {/* Utility Meters */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
