@@ -271,6 +271,23 @@ function SchedulePositionTag({ schedule }: { schedule: PlanSchedule }) {
       </Badge>
     );
   }
+  if (schedule.dueState === 'due_this_week') {
+    return (
+      <Badge variant="outline" className="w-fit gap-1 border-amber-300 bg-amber-50 px-1.5 py-0 text-[10px] font-medium text-amber-700">
+        Due this week
+        {schedule.nextDueDate
+          ? ` · ${format(new Date(`${schedule.nextDueDate}T00:00:00`), 'EEE dd MMM')}`
+          : ''}
+      </Badge>
+    );
+  }
+  if (schedule.dueState === 'due_today') {
+    return (
+      <Badge variant="outline" className="w-fit px-1.5 py-0 text-[10px] font-medium text-foreground">
+        Due today
+      </Badge>
+    );
+  }
   if (!schedule.dueOnDay) {
     return (
       <Badge variant="outline" className="w-fit px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
