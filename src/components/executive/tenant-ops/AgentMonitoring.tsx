@@ -763,26 +763,26 @@ export function AgentMonitoring() {
     }
 
     return (
-      <TableRow key={agent.id} className="cursor-pointer" onClick={() => setSelectedAgent(agent)}>
+      <TableRow key={agent.id} className="cursor-pointer transition-colors hover:bg-muted/40" onClick={() => setSelectedAgent(agent)}>
         <TableCell>
           <div className="min-w-[170px]">
-            <p className="font-semibold">{agent.name}</p>
+            <p className="font-semibold leading-tight">{agent.name}</p>
             <p className="text-xs text-muted-foreground">{agent.phone || 'No phone number'}</p>
           </div>
         </TableCell>
-        <TableCell className="text-right tabular-nums">
-          <span>{agent.tenantCount}</span>
+        <TableCell className="whitespace-nowrap text-right tabular-nums">
+          <span className="font-semibold">{agent.tenantCount}</span>
           <span className="block text-[10px] text-muted-foreground">{agent.dailyCount}D / {agent.weeklyCount}W</span>
         </TableCell>
-        <TableCell className="text-right tabular-nums">{agent.dueCount}</TableCell>
-        <TableCell className="text-right tabular-nums">{formatUGX(agent.expected)}</TableCell>
-        <TableCell className="text-right tabular-nums">{formatUGX(agent.collected)}</TableCell>
-        <TableCell className="text-right tabular-nums">
-          {formatUGX(agent.arrears)}
+        <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{agent.dueCount}</TableCell>
+        <TableCell className="whitespace-nowrap text-right tabular-nums">{formatUGX(agent.expected)}</TableCell>
+        <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{formatUGX(agent.collected)}</TableCell>
+        <TableCell className="whitespace-nowrap text-right tabular-nums">
+          <span className={cn('font-semibold', agent.arrears > 0 && 'text-destructive')}>{formatUGX(agent.arrears)}</span>
           <span className="block text-[10px] text-muted-foreground">{agent.behindCount} behind · {agent.aheadCount} ahead</span>
         </TableCell>
 
-        <TableCell className="text-right tabular-nums font-semibold">
+        <TableCell className="whitespace-nowrap text-right font-bold tabular-nums">
           {rate === null ? '—' : `${rate.toFixed(1)}%`}
         </TableCell>
         <TableCell className="text-right tabular-nums">{agent.requestCount}</TableCell>
