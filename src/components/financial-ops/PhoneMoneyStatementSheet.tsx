@@ -25,6 +25,8 @@ export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash' | 'bank' | 'ba
 interface Props {
   line: PhoneMoneyLine | null;
   onOpenChange: (open: boolean) => void;
+  /** Optional: lets the account breakdown switch the statement to another line. */
+  onSelectLine?: (line: PhoneMoneyLine) => void;
 }
 
 const TITLES: Record<PhoneMoneyLine, string> = {
