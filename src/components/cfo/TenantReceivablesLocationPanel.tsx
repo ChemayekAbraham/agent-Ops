@@ -337,6 +337,32 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
         locationLabel={locationLabel || null}
         onClose={() => setOpenTenant(null)}
       />
+
+      <CorrectTenantLocationDialog
+        open={!!assignTenant}
+        onOpenChange={(v) => !v && setAssignTenant(null)}
+        tenant={
+          assignTenant
+            ? {
+                id: assignTenant.tenant_id,
+                name: assignTenant.tenant,
+                phone: assignTenant.phone,
+                legacyLabel:
+                  [assignTenant.village, assignTenant.town, assignTenant.district]
+                    .filter((v) => v && v !== UNMAPPED)
+                    .join(', ') || 'No location on record',
+                districtHint:
+                  assignTenant.district && assignTenant.district !== UNMAPPED
+                    ? assignTenant.district
+                    : null,
+              }
+            : null
+        }
+        onCorrected={() => {
+          qc.invalidateQueries({ queryKey: ['tenant-receivables-location'] });
+          qc.invalidateQueries({ queryKey: ['tenant-receivables-accounts'] });
+        }}
+      />
     </Card>
   );
 }
