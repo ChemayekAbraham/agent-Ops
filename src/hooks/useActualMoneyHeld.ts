@@ -46,15 +46,17 @@ export function useActualMoneyHeld() {
       const mtn = Number(p.mtn_balance ?? 0);
       const airtel = Number(p.airtel_balance ?? 0);
       const cash = Number(c.cash_at_hand_total ?? 0);
-      const bank = Number(b.money_at_bank_total ?? 0);
+      // Real cash at bank = cash Financial Ops has marked as banked.
+      const bank = Number(b.banked_cash_reference ?? 0);
 
       return {
         mtn,
         airtel,
         cash,
         bank,
-        bankedCash: Number(b.banked_cash_reference ?? 0),
+        bankedCash: bank,
         bankedCashCount: Number(b.banked_cash_reference_count ?? 0),
+        bankLedger: Number(b.money_at_bank_total ?? 0),
         bankReceived: Number(b.extracted_received ?? 0),
         bankSent: Number(b.extracted_sent ?? 0),
         total: Number(p.total_float ?? mtn + airtel) + cash + bank,
