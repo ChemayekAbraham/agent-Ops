@@ -840,24 +840,24 @@ export function AgentMonitoring() {
         <StatCard label="Daily / weekly" value={`${totals.dailyCount} / ${totals.weeklyCount}`} hint="plans by payment period" accent="neutral" />
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-base">Collection performance</CardTitle>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <div className="relative">
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="flex flex-col gap-3 border-b bg-muted/30 pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-sm font-semibold tracking-tight sm:text-base">Collection performance</CardTitle>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="relative w-full sm:w-56">
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or phone" className="h-8 w-full pl-8 text-xs sm:w-56" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or phone" className="h-8 w-full bg-background pl-8 text-xs" />
             </div>
-            <div className="flex flex-wrap gap-1" role="group" aria-label="Payment frequency filter">
+            <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5" role="group" aria-label="Payment frequency filter">
               {(['all', 'daily', 'weekly'] as const).map((value) => (
-                <Button key={value} variant={frequencyFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs capitalize" onClick={() => setFrequencyFilter(value)}>
+                <Button key={value} variant={frequencyFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2.5 text-xs font-medium capitalize" onClick={() => setFrequencyFilter(value)}>
                   {value === 'all' ? 'All plans' : value}
                 </Button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-1" role="group" aria-label="Collection status filter">
+            <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5" role="group" aria-label="Collection status filter">
               {(['all', 'full', 'partial', 'critical', 'none'] as const).map((value) => (
-                <Button key={value} variant={statusFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs" onClick={() => setStatusFilter(value)}>
+                <Button key={value} variant={statusFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2.5 text-xs font-medium" onClick={() => setStatusFilter(value)}>
                   {value === 'all' ? 'All' : STATUS_LABEL[value]}
                 </Button>
               ))}
