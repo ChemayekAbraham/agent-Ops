@@ -13,6 +13,11 @@ interface ManagedProperty {
   name: string;
   phone: string;
   mobile_money_number: string | null;
+  bank_name?: string | null;
+  bank_branch?: string | null;
+  account_number?: string | null;
+  bank_account_name?: string | null;
+
   property_address: string;
   description: string | null;
   number_of_rooms: number | null;
