@@ -125,15 +125,16 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader className="text-left">
-          <SheetTitle className="text-base">Money sitting with other people</SheetTitle>
-          <SheetDescription className="text-xs">
-            Built from the extracted MTN, Airtel and bank emails in Financial Ops. Read-only.
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent side="right" className="h-full w-full max-w-none overflow-y-auto p-0 sm:max-w-none">
+        <div className="mx-auto h-full w-full max-w-7xl px-5 py-5">
+          <SheetHeader className="text-left">
+            <SheetTitle className="text-2xl">Money sitting with other people</SheetTitle>
+            <SheetDescription className="text-sm">
+              Built from the extracted MTN, Airtel and bank emails in Financial Ops. Read-only.
+            </SheetDescription>
+          </SheetHeader>
 
-        {isLoading ? (
+          {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
