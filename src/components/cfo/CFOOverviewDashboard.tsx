@@ -66,6 +66,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     todayCashFlow, isLoading
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
+  const { data: actualMoney, isLoading: actualLoading } = useActualMoneyHeld();
+  const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
 
 
   const handleExportCommissions = useCallback(async () => {
