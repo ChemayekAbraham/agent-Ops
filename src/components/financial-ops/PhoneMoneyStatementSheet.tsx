@@ -217,7 +217,9 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
         <SheetHeader className="p-4 sm:p-5 pb-3 border-b border-border shrink-0 text-left">
           <SheetTitle>{line ? TITLES[line] : 'Statement'}</SheetTitle>
           <SheetDescription className="text-xs sm:text-sm">
-             {line === 'bank'
+             {line === 'banked_cash'
+               ? 'Verified cash deposits explicitly marked as banked by Financial Ops.'
+               : line === 'bank'
                ? 'Bayo Mercy account balance: qualifying credits in less debits out.'
                : line === 'cash'
               ? 'Verified cash deposits collected by agents and not yet banked.'
