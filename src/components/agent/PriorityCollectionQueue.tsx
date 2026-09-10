@@ -250,10 +250,18 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
                   <p className="font-bold text-sm text-destructive shrink-0">{formatUGX(item.outstanding)}</p>
                 </div>
 
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <span>Daily: {formatUGX(item.daily_repayment)}</span>
+                <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>
+                    {item.schedule.weekly ? 'Weekly' : 'Daily'}: {formatUGX(item.schedule.periodAmount)}
+                  </span>
                   <span>•</span>
                   <span>Paid: {formatUGX(item.amount_repaid)}</span>
+                  {item.schedule.weekly && item.schedule.nextDueDate && (
+                    <>
+                      <span>•</span>
+                      <span>Next: {item.schedule.nextDueDate}</span>
+                    </>
+                  )}
                 </div>
 
                 <button
