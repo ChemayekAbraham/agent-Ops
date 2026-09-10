@@ -1,9 +1,11 @@
 /**
- * ENGREP — Engineering Contribution Report (page shell, P08).
+ * ENGREP — Engineering Contribution Report.
  *
- * Zones A, B, C and LOCK PERIOD are intentionally empty here; P09 to P12 fill them.
- * The route sits behind HRSignedInRoute, which checks authentication only — RLS and the
- * adjudicator check inside each RPC are the whole control.
+ * Renders the reporting-window summary, the DAILY / WEEKLY / MONTHLY toggle and four
+ * mounted zones: A Lovable edits, B external commits, C exceptions (continuous) and
+ * LOCK PERIOD. Presentation only — no score, point or payout is computed here.
+ * The route sits behind HRSignedInRoute, which checks authentication only; RLS on the
+ * engrep views plus the adjudicator check inside each RPC are the whole access control.
  */
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +23,7 @@ import { getLatestWindowSummary, isAdjudicator } from '@/hr/engrep/api';
 import type { EngrepGranularity } from '@/hr/engrep/types';
 import { useState } from 'react';
 
-const RESTRICTED_NOTE = 'Adjudication is restricted to the Lead Engineer.';
+const RESTRICTED_NOTE = 'Adjudication is restricted to the registered adjudicator.';
 
 const ZONES: Array<{ key: string; label: string; note?: string }> = [
   { key: 'a', label: 'A · LOVABLE EDITS' },
