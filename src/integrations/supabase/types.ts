@@ -12372,6 +12372,54 @@ export type Database = {
           },
         ]
       }
+      engrep_harvest_runs: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          id: string
+          outcome: string | null
+          started_at: string
+          stats: Json | null
+          window_id: string | null
+          zone: string
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          outcome?: string | null
+          started_at?: string
+          stats?: Json | null
+          window_id?: string | null
+          zone: string
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          outcome?: string | null
+          started_at?: string
+          stats?: Json | null
+          window_id?: string | null
+          zone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_harvest_runs_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_harvest_runs_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_rows: {
         Row: {
           adjudicated_at: string | null
@@ -49073,6 +49121,17 @@ export type Database = {
         Args: { p_window_id: string }
         Returns: undefined
       }
+      engrep_svc_run_finish: {
+        Args: {
+          p_error: string
+          p_outcome: string
+          p_run_id: string
+          p_stats: Json
+          p_window_id: string
+        }
+        Returns: undefined
+      }
+      engrep_svc_run_start: { Args: { p_zone: string }; Returns: string }
       enqueue_agent_capability_job: {
         Args: {
           _action: string
