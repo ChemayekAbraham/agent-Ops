@@ -92,8 +92,14 @@ export interface FlaggedTransfer {
   snippet: string | null;
   recipient_phone: string | null;
   profile_name: string | null;
+  profile_email: string | null;
   profile_id: string | null;
+  reason: string | null;
+  reason_code: string | null;
+  merchant_match_status: string | null;
+  matched_desk_id: string | null;
 }
+
 
 /**
  * Read-only flag: money-out mobile money email transfers whose recipient number
