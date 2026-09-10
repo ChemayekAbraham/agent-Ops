@@ -1,58 +1,35 @@
-# Fix "Could not submit" on the budget form
+# Catch-up: move already-recognised fees into Platform Treasury
 
-## What is confirmed so far
+## What was confirmed (read-only)
 
-- The budget cycle **5-day Budeget Cycle-september 2026** is open (deadline 11 Sep), and all
-  8 designated heads currently pass the server-side filing check.
-- Four budgets were filed successfully today (Agent Ops, Tenant Ops, Engineering & Product,
-  Interns), so the server path itself works.
-- The form's failure message is a **dead end**: when the server refuses a submission, the
-  form throws the server's reply, which is not a standard error object, so the screen always
-  falls back to the words "Could not submit" and the real reason (for example
-  "You can only budget for a department you are registered in", "Only draft budgets can be
-  submitted", or "Budget cycle is not open") is thrown away and never shown.
+- Every new-plan collection since the split went live records its registration and access fee portions. 37 fee-bearing splits exist, totalling UGX 1,581,197 of fees recognised.
+- The separate step that actually moves that fee cash out of agent custody into the Platform Treasury pool only began running on 10 Sep at 06:21 (Kampala 09:21). Since then it has fired on every fee-bearing collection: 17 movements, UGX 173,637.
+- 20 fee-bearing collections recorded before that time never got the Treasury movement. 10 of those were later reversed, so they owe Treasury nothing. The remaining 10 are valid and still missing the movement, worth UGX 41,262 of fees.
 
-So the visible symptom is one bug (no reason shown) hiding another (whatever the server is
-actually refusing for this user). Both get handled.
+So: recognition is correct throughout; the physical Treasury routing is correct from 10 Sep 06:21 onward, with a 10-collection gap before it.
 
-## What will be done
+## What to do
 
-1. **Show the real reason.** Make the submit failure display the server's own message,
-   including the extra detail and hint the server sends. If the server sends nothing at all,
-   show a clear "the server refused without a reason — please report this" line instead of a
-   bare "Could not submit". Log the full reply to the browser console so a failure can be
-   traced.
-2. **Stop silent attachment failures.** Attaching supporting documents currently ignores its
-   own failures; surface them instead of losing them.
-3. **Reproduce it live.** Sign in as one of the five heads who have not filed yet
-   (Human Resources, Landlord Ops, Marketing, Operations, Partner Ops), fill the form in
-   completely, press Submit, and read the now-visible reason.
-4. **Fix the named cause.** Based on step 3, apply the smallest correction that lets the head
-   through — most likely how the form resolves which department the budget is filed under.
-   If (and only if) the cause turns out to be a server rule that wrongly blocks a designated
-   head, I will come back for approval before touching any database rule.
+Run a one-off catch-up that posts the missing Treasury cash movement for exactly those 10 collections, using the same existing routine that runs live today — no new maths, no fee recalculation.
 
-## Out of scope / unchanged
+Rules the catch-up must obey:
 
-- No changes to budget amounts, totals, approval routing, the COO/CFO stages, statuses,
-  notifications, access rules, wallets, or the ledger.
-- No submissions deleted — budgets are never removed. Existing test budgets stay in the
-  review queue for the CFO to reject.
-- No database, policy, or security-finding changes unless step 4 proves one is required and
-  you approve it.
+- Use the fee amounts already stored on each collection's split. Never recompute a fee.
+- Skip any reversed collection.
+- Skip any collection that already has a Treasury movement (the routine is already idempotent — a second run posts nothing).
+- Cash custody only: the fee cash moves out of agent custody into the Treasury pool. Total cash across the business is unchanged, principal stays with the agent, and no wallet balance, commission, revenue entry, or tenant record is touched.
+
+Expected result: 10 new Treasury movements totalling UGX 41,262, after which every valid fee-bearing collection on the new plan has its fee cash in Treasury.
+
+## Verification after the run
+
+- Re-count fee-bearing splits vs Treasury movements — the only remaining gaps should be reversed collections.
+- Confirm the Treasury cash position rises by exactly UGX 41,262 and that agent float custody falls by the same amount.
+- Confirm no collection received a duplicate movement.
 
 ## Technical notes
 
-- `src/components/budget/DepartmentBudgetSubmission.tsx` — `submit()` catch block:
-  `e instanceof Error` is false for a Supabase `PostgrestError`, so every RPC rejection
-  collapses to the generic string. Replace with a helper that reads `message`/`details`/`hint`
-  off the rejection.
-- `src/hooks/useDepartmentBudgets.ts` — `registerBudgetDocuments()` discards the insert error.
-- Server rules verified read-only: `budget_save_draft`, `budget_submit_submission`,
-  `can_access_budget_submission`, `budget_can_file_for_department`; EXECUTE grants to
-  `authenticated` are present on all budget RPCs, so this is not a permissions gap.
-
-## Report back
-
-The exact server reason that was blocking submission, the fix applied, and a live confirmed
-submission from one of the five heads who had not yet filed (reference and status).
+- Catch-up calls `public.post_treasury_fee_cash_transfer(collection_id)` per eligible collection; it posts a balanced pair of platform legs (`agent_float_cash_offset` cash_out / `cash_receipt_in_transit` cash_in) via `create_ledger_transaction` with an exactly-once idempotency key.
+- Eligible set: `instalment_allocations` rows with `source_table = 'agent_collections'` and a positive registration + access component, whose collection is not reversed and which has no existing platform `cash_receipt_in_transit` cash_in leg for that `source_id`.
+- Delivered as a migration-run DO block (no new persistent function, no schema change, no policy change). Treasury Cash = A1 + A5, so this raises Treasury by the transferred amount while A1+A2+A5 stays constant.
+- No frontend changes; CFO Treasury figures read from the same ledger and pick this up automatically.
