@@ -664,6 +664,11 @@ export default function LandlordRegistrationForm({
         location_captured_by: location ? user.id : null,
         mobile_money_name: momoName.trim() || null,
         mobile_money_number: momoNumberClean || null,
+        bank_name: bankName.trim() || null,
+        bank_branch: bankBranch.trim() || null,
+        account_number: bankAccountNumber.trim() || null,
+        bank_account_name: bankAccountName.trim() || null,
+
         water_meter_number: nwscMeter.trim() || null,
         electricity_meter_number: uedclMeter.trim() || null,
         number_of_houses: numberOfRentals ? parseInt(numberOfRentals) : null,
