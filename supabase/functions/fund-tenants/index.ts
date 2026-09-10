@@ -155,15 +155,27 @@ Deno.serve(async (req) => {
       }
 
       // Update rent request status to funded
+      const fundedAt = new Date().toISOString();
       await adminClient
         .from("rent_requests")
         .update({
           status: "funded",
-          funded_at: new Date().toISOString(),
+          funded_at: fundedAt,
           supporter_id: user.id,
-          updated_at: new Date().toISOString(),
+          updated_at: fundedAt,
         })
         .eq("id", rr.id);
+
+      // === TREASURY FEE RECOGNITION (idempotent; non-fatal) ===
+      // Creates the L7 funding-side credit that later instalment waterfall drawdowns debit against.
+      const { error: treasuryErr } = await adminClient.rpc('recognise_funding_treasury', {
+        p_rent_request_id: rr.id,
+      });
+      if (treasuryErr) {
+        console.error('[fund-tenants] Treasury recognition failed (non-fatal):', treasuryErr.message);
+      } else {
+        console.log('[fund-tenants] Treasury recognition recorded for', rr.id);
+      }
 
       // Create auto-charge subscription for tenant wallet
       const totalRepayment = Number(rr.total_repayment) || fundAmount;
