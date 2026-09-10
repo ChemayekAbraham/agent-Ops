@@ -1,0 +1,1 @@
+SELECT public.pin_agent_expected_day((now() AT TIME ZONE 'Africa/Kampala')::date);
