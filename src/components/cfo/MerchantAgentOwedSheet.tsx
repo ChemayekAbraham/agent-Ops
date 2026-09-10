@@ -436,7 +436,7 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
               <div className="flex items-start gap-2 rounded-xl border border-amber-500/50 bg-amber-50/70 p-3 dark:bg-amber-950/20">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                 <p className="text-[11px] text-amber-800 dark:text-amber-300">
-                  {flaggedCount} transfer(s) worth {fmt(flagged?.total ?? 0)} went to numbers that are not
+                  {flaggedCount} transfer(s) worth {fmt(flaggedTotal)} went to numbers that are not
                   registered merchant agents. They are not counted as owed — see the Flagged tab.
                 </p>
               </div>
