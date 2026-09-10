@@ -12442,6 +12442,7 @@ export type Database = {
           id: string
           live_verified: string
           migration_bearing: boolean
+          paths: string[] | null
           self_fix: boolean
           self_fix_of: string | null
           source: string
@@ -12471,6 +12472,7 @@ export type Database = {
           id?: string
           live_verified?: string
           migration_bearing?: boolean
+          paths?: string[] | null
           self_fix?: boolean
           self_fix_of?: string | null
           source: string
@@ -12500,6 +12502,7 @@ export type Database = {
           id?: string
           live_verified?: string
           migration_bearing?: boolean
+          paths?: string[] | null
           self_fix?: boolean
           self_fix_of?: string | null
           source?: string
@@ -49066,6 +49069,7 @@ export type Database = {
           p_fence_path?: string
           p_fenced_breach?: boolean
           p_migration_bearing?: boolean
+          p_paths?: string[]
           p_self_fix?: boolean
           p_self_fix_of?: string
           p_source: string
@@ -49116,6 +49120,7 @@ export type Database = {
           p_fence_path?: string
           p_fenced_breach?: boolean
           p_migration_bearing?: boolean
+          p_paths?: string[]
           p_self_fix?: boolean
           p_self_fix_of?: string
           p_source: string
