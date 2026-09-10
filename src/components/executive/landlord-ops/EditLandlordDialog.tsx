@@ -58,12 +58,13 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
       try {
         const { data, error } = await supabase
           .from('landlords')
-          .select('id, name, phone, mobile_money_name, mobile_money_number, bank_name, account_number, monthly_rent, has_smartphone, number_of_houses, caretaker_name, caretaker_phone, tin, electricity_meter_number, water_meter_number, village, district, region, property_address')
+          .select('id, name, phone, mobile_money_name, mobile_money_number, bank_name, account_number, bank_branch, bank_account_name, monthly_rent, has_smartphone, number_of_houses, caretaker_name, caretaker_phone, tin, electricity_meter_number, water_meter_number, village, district, region, property_address')
           .eq('id', landlord.id)
           .single();
 
         if (error) throw error;
         if (data) {
+          const row = data as any;
           setForm({
             name: data.name || '',
             phone: data.phone || '',
@@ -71,6 +72,9 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
             mobile_money_number: data.mobile_money_number || '',
             bank_name: data.bank_name || '',
             account_number: data.account_number || '',
+            bank_branch: row.bank_branch || '',
+            bank_account_name: row.bank_account_name || '',
+
             monthly_rent: data.monthly_rent || '',
             has_smartphone: data.has_smartphone ?? false,
             number_of_houses: data.number_of_houses || '',
