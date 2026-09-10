@@ -22,10 +22,6 @@ interface Props {
   dailyRepayment: number | null;
   canEdit: boolean;
   onSaved?: () => void;
-  /** Styling for the trigger button so it can sit beside other row actions. */
-  triggerClassName?: string;
-  /** Shorter trigger label for tight action rows. */
-  compact?: boolean;
 }
 
 interface HistoryRow {
@@ -45,7 +41,7 @@ const fmtDate = (iso: string) =>
   });
 
 export function PaymentPeriodControl({
-  rentRequestId, frequency, dailyRepayment, canEdit, onSaved, triggerClassName, compact,
+  rentRequestId, frequency, dailyRepayment, canEdit, onSaved,
 }: Props) {
   const qc = useQueryClient();
   const current: Period = String(frequency ?? 'daily').toLowerCase() === 'weekly' ? 'weekly' : 'daily';
@@ -97,15 +93,9 @@ export function PaymentPeriodControl({
   return (
     <Dialog open={open} onOpenChange={openChange}>
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn('w-full sm:w-auto', triggerClassName)}
-          disabled={!canEdit}
-          title="Change payment period (daily or weekly)"
-        >
-          <CalendarClock className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5 mr-1.5'} />
-          {compact ? 'Payment period' : 'Change payment period'}
+        <Button variant="outline" size="sm" className="w-full sm:w-auto" disabled={!canEdit}>
+          <CalendarClock className="h-3.5 w-3.5 mr-1.5" />
+          Change payment period
         </Button>
       </DialogTrigger>
 

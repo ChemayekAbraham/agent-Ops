@@ -158,7 +158,7 @@ export function ZoneALovableEdits({ windowId }: { windowId: string | null }) {
         />
       </div>
 
-      <div className="hidden overflow-x-auto rounded-lg border sm:block">
+      <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
@@ -217,72 +217,6 @@ export function ZoneALovableEdits({ windowId }: { windowId: string | null }) {
             })}
           </tbody>
         </table>
-      </div>
-
-      {/* Below 640px the same rows render as cards; the adjudication controls are the
-          same AdjudicationCells component, so the mutation logic is not forked. */}
-      <div className="space-y-3 sm:hidden">
-        {rows.length === 0 && (
-          <p className="text-xs text-muted-foreground">
-            No Lovable edits recorded in this window.
-          </p>
-        )}
-        {rows.map((row) => {
-          const untagged = isUntagged(row);
-          const flags = [
-            row.fenced_breach ? 'fenced breach' : null,
-            row.self_fix ? 'self-fix' : null,
-          ].filter(Boolean) as string[];
-          return (
-            <div
-              key={row.id}
-              className={`rounded-lg border p-3 text-sm ${row.zeroed ? 'bg-muted/40 text-muted-foreground' : ''}`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                {untagged ? (
-                  <span className="font-semibold text-destructive" title="Untagged">
-                    —
-                  </span>
-                ) : (
-                  <span className="font-medium">{row.engineer_code}</span>
-                )}
-                <LiveCell value={row.live_verified} />
-              </div>
-              <p className="mt-1">
-                {row.commit_subject ?? '—'}
-                {untagged && (
-                  <span className="ml-2 text-xs font-medium text-destructive">scores zero</span>
-                )}
-                {row.zeroed && row.zero_reason && (
-                  <span className="ml-2 text-xs italic">{row.zero_reason}</span>
-                )}
-              </p>
-              <p className="mt-1 text-xs uppercase text-muted-foreground">
-                {(row.change_classes ?? []).length > 0
-                  ? (row.change_classes ?? []).join('·')
-                  : '—'}
-              </p>
-              {flags.length > 0 && (
-                <p className="mt-1 text-xs font-medium">
-                  {row.fenced_breach && (
-                    <span className="text-destructive">fenced breach</span>
-                  )}
-                  {row.fenced_breach && row.self_fix && <span> · </span>}
-                  {row.self_fix && (
-                    <span className="text-muted-foreground">self-fix</span>
-                  )}
-                </p>
-              )}
-              <table className="mt-2 w-full text-sm">
-                <tbody>
-                  <tr className="align-top">
-                    <AdjudicationCells row={row} windowId={windowId} />
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          );
-        })}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">

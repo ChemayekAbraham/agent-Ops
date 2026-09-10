@@ -482,34 +482,18 @@ export function AgentCollectionsCommandCenter() {
               <p className="text-xs text-muted-foreground">On their agreed schedule</p>
               <p className="text-sm font-semibold tabular-nums">{formatUGX(num(target.on_schedule_daily))}</p>
               <p className="text-[11px] text-muted-foreground">{num(target.on_schedule_plans)} tenants · still inside their term</p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Behind by <span className="font-semibold tabular-nums">{formatUGX(num(target.on_schedule_arrears))}</span>
-              </p>
             </div>
             <div className="rounded-md border px-3 py-2">
               <p className="text-xs text-muted-foreground">Past their agreed end date</p>
               <p className="text-sm font-semibold tabular-nums text-destructive">{formatUGX(num(target.past_term_daily))}</p>
               <p className="text-[11px] text-muted-foreground">{num(target.past_term_plans)} tenants · plan has run out, balance still owed</p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Still owed <span className="font-semibold tabular-nums text-destructive">{formatUGX(num(target.past_term_arrears))}</span>
-              </p>
             </div>
-          </div>
-          <div className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 mt-2">
-            <p className="text-xs text-muted-foreground">Total arrears owed</p>
-            <p className="text-lg font-bold tabular-nums">{formatUGX(num(target.arrears_to_date))}</p>
-            <p className="text-[11px] text-muted-foreground">
-              What tenants are behind by, across {num(target.collectible_plans)} plans. This is a balance owed, not a
-              target for today — and it is <span className="font-semibold">not</span> part of Expected.
-            </p>
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">
             Expected above is {formatUGX(num(target.scheduled_today))} — only what the agreed payment plans schedule for today,
-            across {num(target.scheduled_today_plans)} plans. The other two figures are different measures. The target adds the
-            daily rate of every tenant already in arrears, including those whose plan has passed its end date and schedules
-            nothing further. Total arrears owed is the accumulated balance behind those tenants, not a day's work. Use Expected
-            to judge plan performance, the target to set what the field teams chase, and arrears owed to size the recovery book.
-            Never add any of them together.
+            across {num(target.scheduled_today_plans)} plans. This target is a different measure: it adds the daily rate of every
+            tenant already in arrears, including those whose plan has passed its end date and schedules nothing further. Use
+            Expected to judge plan performance, and this figure to set what the field teams chase. Never add the two together.
           </p>
         </Card>
       )}

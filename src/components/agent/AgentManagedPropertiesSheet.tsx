@@ -13,11 +13,6 @@ interface ManagedProperty {
   name: string;
   phone: string;
   mobile_money_number: string | null;
-  bank_name?: string | null;
-  bank_branch?: string | null;
-  account_number?: string | null;
-  bank_account_name?: string | null;
-
   property_address: string;
   description: string | null;
   number_of_rooms: number | null;
@@ -52,7 +47,7 @@ export function AgentManagedPropertiesSheet({ open, onOpenChange, onRequestPayou
     setLoading(true);
     const { data } = await supabase
       .from('landlords')
-      .select('id, name, phone, mobile_money_number, bank_name, bank_branch, account_number, bank_account_name, property_address, description, number_of_rooms, number_of_houses, monthly_rent, rent_balance_due, rent_last_paid_at, rent_last_paid_amount, latitude, longitude, tenant_id')
+      .select('id, name, phone, mobile_money_number, property_address, description, number_of_rooms, number_of_houses, monthly_rent, rent_balance_due, rent_last_paid_at, rent_last_paid_amount, latitude, longitude, tenant_id')
       .eq('managed_by_agent_id', user.id)
       .eq('is_agent_managed', true);
 
@@ -120,22 +115,10 @@ export function AgentManagedPropertiesSheet({ open, onOpenChange, onRequestPayou
                   </div>
 
                   {/* Landlord info */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="font-medium text-foreground">For: {p.name}</span>
                     <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{p.phone}</span>
                   </div>
-
-                  {(p.bank_name || p.account_number || p.bank_branch || p.bank_account_name) && (
-                    <div className="rounded-lg bg-muted/40 p-2 text-[11px] text-muted-foreground space-y-0.5">
-                      <p className="font-medium text-foreground flex items-center gap-1">
-                        <Banknote className="h-3 w-3" /> Bank details
-                      </p>
-                      {p.bank_name && <p>Bank: {p.bank_name}{p.bank_branch ? ` — ${p.bank_branch}` : ''}</p>}
-                      {p.account_number && <p>Account: {p.account_number}</p>}
-                      {p.bank_account_name && <p>Account name: {p.bank_account_name}</p>}
-                    </div>
-                  )}
-
 
                   {/* Stats */}
                   <div className="grid grid-cols-3 gap-2 text-xs">

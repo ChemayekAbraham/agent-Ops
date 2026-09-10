@@ -114,8 +114,6 @@ import { AgentHubTabs, type AgentHubTab } from '@/components/agent/AgentHubTabs'
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
-import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
-import { AgentExpiredCyclesCard } from '@/components/agent/AgentExpiredCyclesCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
 import { ReceiptNumberCheckDialog } from '@/components/agent/ReceiptNumberCheckDialog';
 import { AgentPendingReceiptPanel } from '@/components/agent/AgentPendingReceiptPanel';
@@ -1580,11 +1578,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <AgentDailyCardEmailPrompt />
             <AgentCapacityShareInline />
             <AgentDeadTenantsBanner agentId={user.id} />
-            {/* Unpaid days to recover. Renders nothing when nobody is behind. */}
-            <AgentArrearsCard agentId={user.id} />
-            {/* Rent Plans past their end date that still owe. These carry no
-                pinned day, so they appear nowhere under today's target. */}
-            <AgentExpiredCyclesCard agentId={user.id} />
             <div
               className={cn(
                 "sticky z-10 -mx-4 px-3 sm:px-4 bg-background border-b border-border/40 overscroll-contain",

@@ -15,7 +15,6 @@ import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { Textarea } from '@/components/ui/textarea';
 import TenantAssignAgentDialog from '@/components/shared/TenantAssignAgentDialog';
 import { RepaymentPauseControl } from '@/components/ops/RepaymentPauseControl';
-import { PaymentPeriodControl } from '@/components/ops/PaymentPeriodControl';
 import { CallCentreSmartphonePanel } from './CallCentreSmartphonePanel';
 import {
   downloadRentCollectionReceiptPdf,
@@ -109,7 +108,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
     queryFn: async () => {
       const [profileRes, requestsRes, walletRes, collectionsRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name, phone, city, created_at, smartphone_status, smartphone_source').eq('id', tenantId).maybeSingle(),
-        supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, daily_repayment, repayment_frequency, duration_days, access_fee, request_fee, total_repayment, registration_type, created_at, landlord_id, agent_id, assigned_agent_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+        supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, daily_repayment, duration_days, access_fee, request_fee, total_repayment, registration_type, created_at, landlord_id, agent_id, assigned_agent_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
         supabase.from('wallet_transactions').select('id, amount, type, created_at, description').or(`sender_id.eq.${tenantId},recipient_id.eq.${tenantId}`).order('created_at', { ascending: false }).limit(10),
         supabase.from('agent_collections').select('id, amount, created_at, agent_id, payment_method, rent_request_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(200),
       ]);
@@ -1050,7 +1049,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
                           <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', statusColor(displayStatus))}>
                             {displayStatus.replace(/_/g, ' ')}
                           </Badge>
-                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <div className="flex items-center gap-1.5">
                             <span className="text-xs text-muted-foreground">
                               {format(new Date(req.created_at), 'dd MMM yyyy')}
                             </span>
@@ -1070,21 +1069,6 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
                                 <ArrowRightLeft className="h-3 w-3" />
                                 Transfer
                               </Button>
-                            )}
-                            {!isEditing && (
-                              <PaymentPeriodControl
-                                rentRequestId={req.id}
-                                frequency={(req as any).repayment_frequency ?? null}
-                                dailyRepayment={Number(req.daily_repayment ?? 0)}
-                                canEdit
-                                triggerClassName="h-6 px-2 text-[10px] gap-1 w-auto"
-                                compact
-                                onSaved={() => {
-                                  queryClient.invalidateQueries({ queryKey: ['tenant-detail', tenantId] });
-                                  queryClient.invalidateQueries({ queryKey: ['agent-monitoring'] });
-                                  queryClient.invalidateQueries({ queryKey: ['ops-tenants'] });
-                                }}
-                              />
                             )}
                             {!isEditing && (
                               <RepaymentPauseControl
@@ -1221,13 +1205,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
                                 Agent: <span className="font-normal text-muted-foreground">{req.agent_name}</span>
                               </span>
                               <span>Landlord: {req.landlord_name}</span>
-                              {req.daily_repayment && (
-                                String((req as any).repayment_frequency ?? 'daily').toLowerCase() === 'weekly' ? (
-                                  <span>Weekly: UGX {(Number(req.daily_repayment) * 7).toLocaleString()}</span>
-                                ) : (
-                                  <span>Daily: UGX {Number(req.daily_repayment).toLocaleString()}</span>
-                                )
-                              )}
+                              {req.daily_repayment && <span>Daily: UGX {Number(req.daily_repayment).toLocaleString()}</span>}
                               {req.duration_days && <span>{req.duration_days}d</span>}
                             </div>
                             {(() => {

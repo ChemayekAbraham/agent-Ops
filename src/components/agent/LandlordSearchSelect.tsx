@@ -52,11 +52,6 @@ interface LandlordSearchSelectProps {
    * (more results), higher = stricter. Used as the initial slider value.
    */
   similarityThreshold?: number;
-  /**
-   * When set, the search is scoped to landlords registered by this agent
-   * (landlords_directory.registered_by). Omit for a system-wide search.
-   */
-  registeredBy?: string | null;
 }
 
 /** Per-character highlight style for each match flavour. */
@@ -196,7 +191,6 @@ export function LandlordSearchSelect({
   onAddNew,
   inline = false,
   similarityThreshold = 0.2,
-  registeredBy = null,
 }: LandlordSearchSelectProps) {
   const [open, setOpen] = useState(false);
   // In inline mode the panel is permanently open (no trigger / popover).
@@ -327,7 +321,6 @@ export function LandlordSearchSelect({
           p_query: debounced,
           p_limit: 20,
           p_threshold: threshold,
-          p_registered_by: registeredBy,
         }).abortSignal(signal);
         if (error) throw error;
         if (!isAborted()) {
@@ -361,7 +354,7 @@ export function LandlordSearchSelect({
         setCancelledInfo({ query: debounced, at: Date.now() });
       }
     };
-  }, [debounced, panelOpen, threshold, registeredBy]);
+  }, [debounced, panelOpen, threshold]);
 
   // Keep the elapsed "…s ago" counter live while a cancellation note is shown.
   useEffect(() => {
@@ -669,9 +662,7 @@ export function LandlordSearchSelect({
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-destructive">No registered landlord found</p>
                   <p className="text-xs text-muted-foreground mt-1 leading-snug">
-                    {registeredBy
-                      ? 'Only landlords you registered appear here. Try a different spelling or phone number, or register this landlord first.'
-                      : 'Try a different spelling or phone number. Only landlords already registered in the system can be selected.'}
+                    Try a different spelling or phone number. Only landlords already registered in the system can be selected.
                   </p>
                   <div className="mt-2 space-y-1">
                     <p className="text-[11px] text-muted-foreground">

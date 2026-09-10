@@ -55,7 +55,7 @@ function FigureLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-dashed py-1.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium tabular-nums font-mono">{value}</span>
+      <span className="text-sm font-medium tabular-nums">{value}</span>
     </div>
   );
 }

@@ -14,7 +14,6 @@ import {
   hasDisbursementEvidence,
   type AllocationSettlement,
 } from '@/lib/collectibleRentRequests';
-import { describePlanSchedule, type PlanSchedule } from '@/lib/agentMonitoringSchedule';
 
 interface CollectionItem {
   rent_request_id: string;
@@ -31,8 +30,6 @@ interface CollectionItem {
   longitude?: number | null;
   risk_level: 'low' | 'medium' | 'high' | 'critical' | 'completed';
   agent_payment_status: AgentPaymentStatus;
-  /** Read-only schedule reading. Agents cannot change the payment period. */
-  schedule: PlanSchedule;
 }
 
 interface Props {
@@ -51,7 +48,7 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
     queryFn: async () => {
       const { data: requests } = await supabase
         .from('rent_requests')
-        .select('id, tenant_id, rent_amount, daily_repayment, amount_repaid, total_repayment, disbursed_at, status, request_latitude, request_longitude, agent_payment_status, repayment_frequency, repayment_starts_on, created_at')
+        .select('id, tenant_id, rent_amount, daily_repayment, amount_repaid, total_repayment, disbursed_at, status, request_latitude, request_longitude, agent_payment_status')
         .eq('agent_id', agentId)
         // Only tenants Welile has actually funded can owe anything. Pre-funding
         // statuses already carry total_repayment, so a status blacklist showed
@@ -90,28 +87,11 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
       const profileMap: Record<string, { name: string; phone: string }> = {};
       (profiles || []).forEach(p => { profileMap[p.id] = { name: p.full_name, phone: p.phone || '' }; });
 
-      const today = new Date();
       const items: CollectionItem[] = collectible.map(r => {
         const outstanding = (r.total_repayment || 0) - (r.amount_repaid || 0);
-        // Weekly plans owe one instalment per week, not per day. The shared
-        // schedule reading (the same one Tenant Ops uses) decides how far behind
-        // the tenant is; daily plans keep the original day count.
-        const schedule = describePlanSchedule(
-          {
-            daily_repayment: r.daily_repayment,
-            total_repayment: r.total_repayment,
-            amount_repaid: r.amount_repaid,
-            repayment_frequency: (r as any).repayment_frequency ?? null,
-            repayment_starts_on: (r as any).repayment_starts_on ?? null,
-            created_at: (r as any).created_at ?? (r.disbursed_at ?? today.toISOString()),
-          },
-          today,
-        );
-        const daysOverdue = schedule.weekly
-          ? (schedule.periodAmount > 0 ? Math.ceil(schedule.arrears / schedule.periodAmount) : 0) * 7
-          : r.disbursed_at
-            ? Math.max(0, differenceInDays(today, new Date(r.disbursed_at)) - Math.floor((r.amount_repaid || 0) / (r.daily_repayment || 1)))
-            : 0;
+        const daysOverdue = r.disbursed_at
+          ? Math.max(0, differenceInDays(new Date(), new Date(r.disbursed_at)) - Math.floor((r.amount_repaid || 0) / (r.daily_repayment || 1)))
+          : 0;
         const priorityScore = daysOverdue * outstanding;
         const actualOutstanding = Math.max(0, outstanding);
         const isCompleted = actualOutstanding === 0;
@@ -132,7 +112,6 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
           longitude: r.request_longitude,
           risk_level: risk,
           agent_payment_status: ((r as any).agent_payment_status ?? 'paying') as AgentPaymentStatus,
-          schedule,
         };
       }).sort((a, b) => {
         if (a.risk_level === 'completed' && b.risk_level !== 'completed') return 1;
@@ -221,47 +200,19 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-bold text-muted-foreground w-5 shrink-0">#{(page - 1) * PAGE_SIZE + idx + 1}</span>
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="font-semibold text-sm truncate">{item.tenant_name}</p>
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-full border px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide',
-                            item.schedule.weekly
-                              ? 'border-amber-300 bg-amber-50 text-amber-700'
-                              : 'border-blue-300 bg-blue-50 text-blue-700',
-                          )}
-                          title="Payment period is set by Tenant Ops"
-                        >
-                          {item.schedule.weekly ? 'Weekly' : 'Daily'}
-                        </span>
-                      </div>
+                      <p className="font-semibold text-sm truncate">{item.tenant_name}</p>
                       <p className={cn("text-[10px] font-medium", riskLabels[item.risk_level].color)}>
-                        {riskLabels[item.risk_level].text}
-                        {item.schedule.weekly
-                          ? item.schedule.dueState === 'due_this_week'
-                            ? ' • Due this week'
-                            : item.schedule.periodsBehind > 0
-                              ? ` • ${item.schedule.periodsBehind}w behind`
-                              : ' • Due today'
-                          : ` • ${item.days_overdue}d overdue`}
+                        {riskLabels[item.risk_level].text} • {item.days_overdue}d overdue
                       </p>
                     </div>
                   </div>
                   <p className="font-bold text-sm text-destructive shrink-0">{formatUGX(item.outstanding)}</p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                  <span>
-                    {item.schedule.weekly ? 'Weekly' : 'Daily'}: {formatUGX(item.schedule.periodAmount)}
-                  </span>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>Daily: {formatUGX(item.daily_repayment)}</span>
                   <span>•</span>
                   <span>Paid: {formatUGX(item.amount_repaid)}</span>
-                  {item.schedule.weekly && item.schedule.nextDueDate && (
-                    <>
-                      <span>•</span>
-                      <span>Next: {item.schedule.nextDueDate}</span>
-                    </>
-                  )}
                 </div>
 
                 <button

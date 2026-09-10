@@ -351,9 +351,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Submitted Reports', icon: FileText, id: 'submitted-reports', access: HR_ACCESS },
         { label: 'Report Archive', icon: Archive, id: 'report-archive', access: HR_ACCESS },
         { label: 'Platform Sales Officers', icon: Users, id: 'hr-pso-report', route: '/hr/reports/platform-sales-officers', access: HR_ACCESS },
-        { label: 'Engineering Contribution', icon: Code, id: 'hr-engineering-contribution', route: '/hr/engineering/contribution', access: HR_ACCESS },
-        { label: 'My Contribution', icon: ClipboardList, id: 'me-contribution', route: '/me/contribution', access: 'signed-in' },
-        { label: 'Portfolio Performance', icon: BarChart3, id: 'hr-portfolio-performance', route: '/hr/reports/tenant-portfolio-performance', access: HR_ACCESS },
       ],
     },
     {

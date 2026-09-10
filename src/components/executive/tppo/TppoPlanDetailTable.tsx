@@ -78,7 +78,7 @@ interface TppoPlanDetailReport {
 }
 
 const PAGE = 50;
-const moneyCell = 'text-right tabular-nums font-mono';
+const moneyCell = 'text-right tabular-nums';
 
 export function TppoPlanDetailTable({
   granularity,
@@ -211,8 +211,9 @@ export function TppoPlanDetailTable({
                 className={`h-4 w-4 text-muted-foreground transition-transform ${collapsed ? '-rotate-90' : ''}`}
               />
               <h3 className="text-sm font-semibold text-foreground">
-                {`Scheduled ${granularity === 'day' ? 'today' : 'this period'} — `}
-                <span className="tabular-nums font-mono">{formatUGX(data.totals.scheduled_total)}</span>
+                {`Scheduled ${granularity === 'day' ? 'today' : 'this period'} — ${formatUGX(
+                  data.totals.scheduled_total,
+                )}`}
               </h3>
             </button>
             <div className="flex items-center gap-2">
@@ -312,7 +313,7 @@ export function TppoPlanDetailTable({
                           {formatUGX(row.paid_in_period)}
                         </span>
                         {row.overpaid_in_period > 0 && (
-                          <Badge variant="outline" className="text-[10px] font-mono">
+                          <Badge variant="outline" className="text-[10px]">
                             {`+${formatUGX(row.overpaid_in_period)} over`}
                           </Badge>
                         )}
@@ -379,18 +380,18 @@ export function TppoPlanDetailTable({
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
                   <div>
                     <p className="text-[11px] text-muted-foreground">Scheduled</p>
-                    <p className="text-sm tabular-nums font-mono">{formatUGX(row.scheduled_in_period)}</p>
+                    <p className="text-sm tabular-nums">{formatUGX(row.scheduled_in_period)}</p>
                   </div>
                   <div>
                     <p className="text-[11px] text-muted-foreground">Paid</p>
-                    <p className="text-sm tabular-nums font-mono">
+                    <p className="text-sm tabular-nums">
                       {row.paid_in_period > 0 ? (
                         <span className="inline-flex flex-wrap items-center gap-1">
                           <span className={row.overpaid_in_period > 0 ? 'text-emerald-600' : ''}>
                             {formatUGX(row.paid_in_period)}
                           </span>
                           {row.overpaid_in_period > 0 && (
-                            <Badge variant="outline" className="text-[10px] font-mono">
+                            <Badge variant="outline" className="text-[10px]">
                               {`+${formatUGX(row.overpaid_in_period)} over`}
                             </Badge>
                           )}
@@ -402,7 +403,7 @@ export function TppoPlanDetailTable({
                   </div>
                   <div>
                     <p className="text-[11px] text-muted-foreground">Still due</p>
-                    <p className="text-sm tabular-nums font-mono">
+                    <p className="text-sm tabular-nums">
                       {row.scheduled_outstanding > 0 ? (
                         <span className="text-foreground">{formatUGX(row.scheduled_outstanding)}</span>
                       ) : (
@@ -412,7 +413,7 @@ export function TppoPlanDetailTable({
                   </div>
                   <div>
                     <p className="text-[11px] text-muted-foreground">Arrears</p>
-                    <p className="text-sm tabular-nums font-mono">
+                    <p className="text-sm tabular-nums">
                       <button
                         type="button"
                         onClick={() => setSelected({ id: row.rent_request_id, name: row.tenant_name })}
@@ -438,19 +439,19 @@ export function TppoPlanDetailTable({
               <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
                 <div>
                   <p className="text-[11px] text-muted-foreground">Scheduled</p>
-                  <p className="text-sm font-semibold tabular-nums font-mono">{formatUGX(shownTotals.scheduled)}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatUGX(shownTotals.scheduled)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-muted-foreground">Paid</p>
-                  <p className="text-sm font-semibold tabular-nums font-mono">{formatUGX(shownTotals.paid)}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatUGX(shownTotals.paid)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-muted-foreground">Still due</p>
-                  <p className="text-sm font-semibold tabular-nums font-mono">{formatUGX(shownTotals.outstanding)}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatUGX(shownTotals.outstanding)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-muted-foreground">Arrears</p>
-                  <p className={`text-sm font-semibold tabular-nums font-mono ${shownTotals.arrears > 0 ? 'text-destructive' : ''}`}>
+                  <p className={`text-sm font-semibold tabular-nums ${shownTotals.arrears > 0 ? 'text-destructive' : ''}`}>
                     {formatUGX(shownTotals.arrears)}
                   </p>
                 </div>
@@ -461,19 +462,15 @@ export function TppoPlanDetailTable({
           <p className="mt-2 text-[11px] text-muted-foreground">
             {`${agentFilter === 'all' ? '' : 'Across the whole period: '}${data.totals.plans_paid} of ${data.totals.plans} plans have paid ${
               data.granularity === 'day' ? 'today' : 'in this period'
-            } · `}
-            <span className="tabular-nums font-mono">{formatUGX(data.totals.paid_total)}</span>
-            {` received against `}
-            <span className="tabular-nums font-mono">{formatUGX(data.totals.scheduled_total)}</span>
-            {` scheduled · `}
-            <span className="tabular-nums font-mono">{formatUGX(data.totals.outstanding_total)}</span>
-            {` still due.`}
+            } · ${formatUGX(data.totals.paid_total)} received against ${formatUGX(
+              data.totals.scheduled_total,
+            )} scheduled · ${formatUGX(data.totals.outstanding_total)} still due.`}
           </p>
           {data.paid_outside_schedule > 0 && (
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {`A further `}
-              <span className="tabular-nums font-mono">{formatUGX(data.paid_outside_schedule)}</span>
-              {` was received from tenants with nothing scheduled in this period — payments against past arrears. Those plans are not listed above.`}
+              {`A further ${formatUGX(
+                data.paid_outside_schedule,
+              )} was received from tenants with nothing scheduled in this period — payments against past arrears. Those plans are not listed above.`}
             </p>
           )}
 
@@ -493,14 +490,10 @@ export function TppoPlanDetailTable({
 
           <div className="mt-2">
             <p className="text-sm font-medium">
-              {`Total collected ${granularity === 'day' ? 'today' : 'this period'} — `}
-              <span className="tabular-nums font-mono">{formatUGX(data.totals.collected_total)}</span>
+              {`Total collected ${granularity === 'day' ? 'today' : 'this period'} — ${formatUGX(data.totals.collected_total)}`}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              <span className="tabular-nums font-mono">{formatUGX(data.totals.paid_total)}</span>
-              {` against ${granularity === 'day' ? "today's" : "this period's"} schedule · `}
-              <span className="tabular-nums font-mono">{formatUGX(data.totals.arrears_paid_total)}</span>
-              {` against past arrears`}
+              {`${formatUGX(data.totals.paid_total)} against ${granularity === 'day' ? "today's" : "this period's"} schedule · ${formatUGX(data.totals.arrears_paid_total)} against past arrears`}
             </p>
           </div>
 
@@ -517,8 +510,7 @@ export function TppoPlanDetailTable({
                 />
                 <div>
                   <h3 className="text-sm font-semibold">
-                    {`Arrears settled ${granularity === 'day' ? 'today' : 'this period'} — `}
-                    <span className="tabular-nums font-mono">{formatUGX(data.totals.arrears_paid_total)}</span>
+                    {`Arrears settled ${granularity === 'day' ? 'today' : 'this period'} — ${formatUGX(data.totals.arrears_paid_total)}`}
                   </h3>
                   <p className="text-[11px] text-muted-foreground">
                     {`${data.totals.arrears_paid_plans} tenants · ${data.totals.arrears_paid_agents} agents · these plans had nothing scheduled, so the money went straight against what they already owed`}
@@ -607,11 +599,11 @@ export function TppoPlanDetailTable({
                         <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
                           <div>
                             <p className="text-[11px] text-muted-foreground">Paid</p>
-                            <p className="text-sm tabular-nums font-mono text-emerald-600">{formatUGX(row.paid_in_period)}</p>
+                            <p className="text-sm tabular-nums text-emerald-600">{formatUGX(row.paid_in_period)}</p>
                           </div>
                           <div>
                             <p className="text-[11px] text-muted-foreground">Arrears now</p>
-                            <p className="text-sm tabular-nums font-mono">
+                            <p className="text-sm tabular-nums">
                               {row.arrears > 0 ? (
                                 <span className="text-destructive">{formatUGX(row.arrears)}</span>
                               ) : (
@@ -621,11 +613,11 @@ export function TppoPlanDetailTable({
                           </div>
                           <div>
                             <p className="text-[11px] text-muted-foreground">Outstanding</p>
-                            <p className="text-sm tabular-nums font-mono">{formatUGX(row.outstanding)}</p>
+                            <p className="text-sm tabular-nums">{formatUGX(row.outstanding)}</p>
                           </div>
                           <div>
                             <p className="text-[11px] text-muted-foreground">Days past</p>
-                            <p className="text-sm tabular-nums font-mono">{row.days_past_term}</p>
+                            <p className="text-sm tabular-nums">{row.days_past_term}</p>
                           </div>
                         </div>
                       </div>
@@ -636,7 +628,7 @@ export function TppoPlanDetailTable({
                       <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
                         <div>
                           <p className="text-[11px] text-muted-foreground">Paid</p>
-                          <p className="text-sm font-semibold tabular-nums font-mono">
+                          <p className="text-sm font-semibold tabular-nums">
                             {formatUGX(data.totals.arrears_paid_total)}
                           </p>
                         </div>

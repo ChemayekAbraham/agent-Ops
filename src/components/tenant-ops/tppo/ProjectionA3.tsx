@@ -1,10 +1,7 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 import type { TppoGranularity } from './PeriodToggle';
 
 interface ProjectionPeriod {
@@ -39,7 +36,6 @@ const HORIZON_IN_WORDS: Record<TppoGranularity, string> = {
 };
 
 export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
-  const [open, setOpen] = useState(false);
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['tppo-projection-zone-a', granularity, anchor],
     queryFn: async (): Promise<ProjectionA3Report> => {
@@ -58,31 +54,16 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
 
   return (
     <section aria-label="A3 projection" className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-        className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
-      >
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Projection
         </h3>
-        <div className="flex items-center gap-2">
-          <p className="text-xs text-muted-foreground">
-            Read-only — scheduled on the agreed plans, no input, control or override
-          </p>
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-              open && 'rotate-180',
-            )}
-            aria-hidden="true"
-          />
-        </div>
-      </button>
+        <p className="text-xs text-muted-foreground">
+          Read-only — scheduled on the agreed plans, no input, control or override
+        </p>
+      </div>
 
-      {open ? (
-      isLoading ? (
+      {isLoading ? (
         <div className="mt-4 space-y-2">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-4 w-32" />
@@ -96,7 +77,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
         <div className="mt-4 space-y-4">
           <div className="space-y-1">
             {available ? (
-              <p className="text-3xl font-semibold tracking-tight tabular-nums font-mono">
+              <p className="text-3xl font-semibold tracking-tight tabular-nums">
                 {formatUGX(rowSum)}
               </p>
             ) : (
@@ -119,10 +100,10 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                 >
                   <span className="text-foreground">{period.label ?? '—'}</span>
                   <div className="flex items-baseline gap-4">
-                    <span className="shrink-0 tabular-nums font-mono text-muted-foreground">
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
                       {period.plans !== null && period.plans !== undefined ? period.plans : '—'}
                     </span>
-                    <span className="shrink-0 tabular-nums font-mono text-foreground">
+                    <span className="shrink-0 tabular-nums text-foreground">
                       {available && period.projected_ugx !== null && period.projected_ugx !== undefined
                         ? formatUGX(period.projected_ugx)
                         : '—'}
@@ -133,7 +114,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
             </div>
             <div className="mt-2 flex items-baseline justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-semibold">
               <span>Total</span>
-              <span className="shrink-0 tabular-nums font-mono">{available ? formatUGX(rowSum) : '—'}</span>
+              <span className="shrink-0 tabular-nums">{available ? formatUGX(rowSum) : '—'}</span>
             </div>
           </div>
 
@@ -153,10 +134,10 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                     <td className="py-2 pr-3 text-foreground">
                       {period.label ?? '—'}
                     </td>
-                    <td className="py-2 pr-3 text-right tabular-nums font-mono text-foreground">
+                    <td className="py-2 pr-3 text-right tabular-nums text-foreground">
                       {period.plans !== null && period.plans !== undefined ? period.plans : '—'}
                     </td>
-                    <td className="py-2 text-right tabular-nums font-mono text-foreground">
+                    <td className="py-2 text-right tabular-nums text-foreground">
                       {available && period.projected_ugx !== null && period.projected_ugx !== undefined
                         ? formatUGX(period.projected_ugx)
                         : '—'}
@@ -166,7 +147,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                 <tr className="font-semibold">
                   <td className="py-2 pr-3">Total</td>
                   <td className="py-2 pr-3" />
-                  <td className="py-2 text-right tabular-nums font-mono">
+                  <td className="py-2 text-right tabular-nums">
                     {available ? formatUGX(rowSum) : '—'}
                   </td>
                 </tr>
@@ -178,8 +159,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
             What the agreed payment plans fall due on each of these days. A tenant whose repayment starts later contributes only from their first due date, and weekly or monthly plans appear on their due dates rather than spread across every day. This is scheduled rent, not a prediction of what will be collected.
           </p>
         </div>
-      )
-      ) : null}
+      )}
     </section>
   );
 }

@@ -70,21 +70,24 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId('e2e-existing-tenant-notice-harness')).toBeVisible();
 });
 
-test('says the tenant is already in the system, with no balance or agent detail', async ({ page }) => {
+test('shows outstanding balance + previous agent and Renew works', async ({ page }) => {
   // Agent types the existing tenant's phone number.
   await page.getByTestId('tenant-phone-input').fill('0700000001');
 
-  // The notice states the fact only.
-  await expect(page.getByText(/already in the system/i)).toBeVisible();
+  // The notice reveals the already-registered tenant.
+  await expect(page.getByText(/already on Welile/i)).toBeVisible();
+  await expect(page.getByText(new RegExp(TENANT_NAME, 'i')).first()).toBeVisible();
 
-  // No balance, plan or previous-agent detail is revealed.
-  await expect(page.getByText(/Outstanding Balance/i)).toHaveCount(0);
-  await expect(page.getByText(/UGX\s*450,000/i)).toHaveCount(0);
-  await expect(page.getByText(/Previous agent:/i)).toHaveCount(0);
-  await expect(page.getByText(new RegExp(PREV_AGENT_NAME, 'i'))).toHaveCount(0);
+  // Outstanding balance is shown prominently (UGX 450,000).
+  await expect(page.getByText(/Outstanding Balance/i)).toBeVisible();
+  await expect(page.getByText(/UGX\s*450,000/i)).toBeVisible();
 
-  // Continuing the existing plan still works.
-  const renewBtn = page.getByRole('button', { name: /Continue their rent plan/i });
+  // Previous agent details are shown.
+  await expect(page.getByText(/Previous agent:/i)).toBeVisible();
+  await expect(page.getByText(new RegExp(PREV_AGENT_NAME, 'i')).first()).toBeVisible();
+
+  // Renew button is present and functional.
+  const renewBtn = page.getByRole('button', { name: /Renew/i });
   await expect(renewBtn).toBeVisible();
   await renewBtn.click();
 

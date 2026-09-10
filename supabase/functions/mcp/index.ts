@@ -179,7 +179,7 @@ function isCustomerWalletLedgerEntryVisible(row) {
   return true;
 }
 function applyCustomerWalletLedgerFilters(query) {
-  return query.eq("ledger_scope", "wallet").neq("classification", "admin_correction").not("category", "in", `(${INTERNAL_CATEGORIES.join(",")})`);
+  return query.neq("classification", "admin_correction").not("category", "in", `(${INTERNAL_CATEGORIES.join(",")})`);
 }
 
 // src/lib/mcp/tools/list-my-transactions.ts

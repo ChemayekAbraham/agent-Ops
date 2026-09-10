@@ -5,7 +5,6 @@ import { CollectionStreakCard } from './CollectionStreakCard';
 import { PriorityCollectionQueue } from './PriorityCollectionQueue';
 import { DailyRentExpectedCard } from './DailyRentExpectedCard';
 import { AgentArrearsCard } from './AgentArrearsCard';
-import { AgentExpiredCyclesCard } from './AgentExpiredCyclesCard';
 
 interface Props {
   agentId: string;
@@ -23,11 +22,6 @@ export function AgentActionInsights({ agentId, hideDailyRent }: Props) {
 
         {/* Unpaid days to recover. Renders nothing when nobody is behind. */}
         <AgentArrearsCard agentId={agentId} />
-
-        {/* Ended Rent Plans that still owe. These carry no pinned day, so they
-            appear nowhere under today's target. Renders nothing when there are
-            none. */}
-        <AgentExpiredCyclesCard agentId={agentId} />
 
 
         {/* Collection Streak */}

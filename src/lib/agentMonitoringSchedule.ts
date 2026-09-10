@@ -51,16 +51,6 @@ export interface PlanSchedule {
   expectedOnDay: number;
   /** Next scheduled payment date (ISO yyyy-MM-dd) for weekly plans. */
   nextDueDate: string | null;
-  /**
-   * How the reference day reads for this plan:
-   *  - 'due_today'     money is expected from the tenant today;
-   *  - 'due_this_week' weekly plan whose instalment day has not arrived yet;
-   *  - 'covered'       due, but already settled by earlier over-payment;
-   *  - 'not_due'       the schedule places nothing on this day.
-   */
-  dueState: 'due_today' | 'due_this_week' | 'covered' | 'not_due';
-  /** Whole days from the reference day to `nextDueDate` (weekly plans only). */
-  daysToNextDue: number | null;
   /** Remaining balance on the whole rent plan. */
   outstandingPlan: number;
 }
@@ -135,19 +125,6 @@ export function describePlanSchedule(plan: SchedulePlanInput, referenceDay: Date
     }
   }
 
-  const daysToNextDue = nextDueDate ? diffDays(fromIsoDate(nextDueDate), day) : null;
-
-  // A weekly tenant whose instalment day has not arrived yet reads as owing this
-  // week, not today. Nothing about the arrears arithmetic changes: the moment the
-  // instalment day arrives the plan is due today and any shortfall counts from it.
-  const dueState: PlanSchedule['dueState'] = expectedOnDay > 0
-    ? 'due_today'
-    : coveredByAdvance
-      ? 'covered'
-      : weekly && periodsDue > 0 && arrears === 0 && !onScheduledDay && aheadAmount < periodAmount
-        ? 'due_this_week'
-        : 'not_due';
-
   return {
     weekly,
     unit: weekly ? 'week' : 'day',
@@ -162,8 +139,6 @@ export function describePlanSchedule(plan: SchedulePlanInput, referenceDay: Date
     coveredByAdvance,
     expectedOnDay,
     nextDueDate,
-    dueState,
-    daysToNextDue,
     outstandingPlan,
   };
 }

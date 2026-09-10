@@ -59,11 +59,11 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
       </p>
 
       <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
-        <span className="break-words text-xl font-semibold tabular-nums font-mono text-foreground sm:text-2xl">
+        <span className="break-words text-xl font-semibold tabular-nums text-foreground sm:text-2xl">
           {collected === null ? '—' : formatUGX(collected)}
         </span>
 
-        <span className="text-lg font-medium tabular-nums font-mono text-foreground sm:text-xl">
+        <span className="text-lg font-medium tabular-nums text-foreground sm:text-xl">
           {hasRate ? `${rate.toFixed(1)}%` : '—'}
         </span>
 
@@ -98,7 +98,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 mt-3">
           <div className="rounded-md border px-3 py-2">
             <p className="text-[11px] text-muted-foreground">Due on agreed plans</p>
-            <p className="text-sm font-semibold tabular-nums font-mono">
+            <p className="text-sm font-semibold tabular-nums">
               {scheduled === null ? '—' : formatUGX(scheduled)}
             </p>
             <p className="text-[11px] text-muted-foreground">
@@ -106,15 +106,15 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
             </p>
           </div>
           {arrearsTarget !== null && arrearsTarget !== undefined ? (
-          <div className="rounded-md border px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">Arrears brought forward</p>
-            <p className="text-sm font-semibold tabular-nums font-mono text-destructive">
-              {formatUGX(arrearsTarget)}
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              {`${arrearsTargetCount ?? '—'} plans owing at the start of this period`}
-            </p>
-          </div>
+            <div className="rounded-md border px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">Arrears brought forward</p>
+              <p className="text-sm font-semibold tabular-nums text-destructive">
+                {formatUGX(arrearsTarget)}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {`${arrearsTargetCount ?? '—'} plans owing at the start of this period`}
+              </p>
+            </div>
           ) : (
             <p className="text-[11px] text-muted-foreground">
               Arrears brought forward not recorded for this period
@@ -123,15 +123,11 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         </div>
 
         <p className="text-xs">
-          {`Due plus arrears brought forward — `}
-          <span className="tabular-nums font-mono">
-            {totalFieldTarget === null || totalFieldTarget === undefined ? '—' : formatUGX(totalFieldTarget)}
-          </span>
+          {`Due plus arrears brought forward — ${totalFieldTarget === null || totalFieldTarget === undefined ? '—' : formatUGX(totalFieldTarget)}`}
         </p>
         {arrearsOutstanding !== null && arrearsOutstanding !== undefined && (
           <p className="text-[11px] text-muted-foreground">
-            {`Arrears outstanding to date — `}
-            <span className="tabular-nums font-mono">{formatUGX(arrearsOutstanding)}</span>
+            {`Arrears outstanding to date — ${formatUGX(arrearsOutstanding)}`}
           </p>
         )}
 
@@ -139,16 +135,11 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           Due on agreed plans is what each tenant's payment plan falls due in this period, at their own daily, weekly or monthly cadence. Arrears brought forward is what was already owed when the period opened. Arrears outstanding is what is owed now — if a tenant misses a payment today it lands here, and it becomes tomorrow's brought-forward figure.
         </p>
 
-        <p>
-          {threshold === null ? 'threshold —' : 'threshold '}
-          {threshold !== null && (
-            <span className="tabular-nums font-mono">{`${threshold.toFixed(1)}%`}</span>
-          )}
-        </p>
+        <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
         {report?.prior?.period_start && (
           <p>
             {`last closed period ${periodLabel(report.prior.period_start, report.prior.period_end)} — `}
-            <span className="tabular-nums font-mono text-foreground">
+            <span className="tabular-nums text-foreground">
               {priorRate === null ? '—' : `${priorRate.toFixed(1)}%`}
             </span>
           </p>
@@ -160,7 +151,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         <p>
           <span className="block text-foreground sm:inline">total rent recovered this period</span>
           <span className="hidden sm:inline">{' — '}</span>
-          <span className="block break-words tabular-nums font-mono sm:inline">
+          <span className="block break-words tabular-nums sm:inline">
             {collectedTotal === null ? '—' : formatUGX(collectedTotal)}
           </span>
         </p>
@@ -168,7 +159,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           <span className="block text-foreground sm:inline">of which counted in the rate</span>
           <span className="hidden sm:inline">{' — '}</span>
           <span className="block break-words sm:inline">
-            <span className="tabular-nums font-mono">{collected === null ? '—' : formatUGX(collected)}</span>
+            <span className="tabular-nums">{collected === null ? '—' : formatUGX(collected)}</span>
             {cohortCount !== null && ` across ${cohortCount} funded tenancies within term`}
           </span>
         </p>
@@ -176,7 +167,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           <span className="block text-foreground sm:inline">arrears recovered on completed terms</span>
           <span className="hidden sm:inline">{' — '}</span>
           <span className="block break-words sm:inline">
-            <span className="tabular-nums font-mono">
+            <span className="tabular-nums">
               {arrearsRecovered === null ? '—' : formatUGX(arrearsRecovered)}
             </span>
             {arrearsCount !== null && ` across ${arrearsCount} funded tenancies past term`}
@@ -187,7 +178,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
             <span className="block text-foreground sm:inline">unattributed</span>
             <span className="hidden sm:inline">{' — '}</span>
             <span className="block break-words sm:inline">
-              <span className="tabular-nums font-mono">{formatUGX(unallocated)}</span>
+              <span className="tabular-nums">{formatUGX(unallocated)}</span>
               <span className="ml-1">not matched to a funded tenancy</span>
             </span>
           </p>

@@ -1,10 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useCFO7DayCashFlow } from '@/hooks/useCFO7DayCashFlow';
-import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
-import { useMerchantAgentMoneyOwed } from '@/hooks/useMerchantAgentMoneyOwed';
-import { MoneyWeCanUseBreakdown } from '@/components/cfo/MoneyWeCanUseBreakdown';
-import { MerchantAgentOwedSheet } from '@/components/cfo/MerchantAgentOwedSheet';
 
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,7 +9,7 @@ import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
   ChevronRight, Info, CalendarDays, Download,
   PiggyBank, BarChart3, Package, ChevronDown,
-  Landmark, Vault, Banknote, CheckCircle2, AlertTriangle,
+  Landmark, Vault,
 } from 'lucide-react';
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -24,9 +20,6 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { KPIBreakdownSheet } from '@/components/cfo/KPIBreakdownSheet';
 import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
-import { PhoneMoneyStatementSheet, type PhoneMoneyLine } from '@/components/financial-ops/PhoneMoneyStatementSheet';
-import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
-import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
@@ -69,10 +62,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     todayCashFlow, isLoading
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
-  const { data: actualMoney, isLoading: actualLoading, dataUpdatedAt: actualUpdatedAt } = useActualMoneyHeld();
-  const { data: merchantOwed, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed();
-  const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
-  const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
 
 
   const handleExportCommissions = useCallback(async () => {
@@ -155,28 +144,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const positionUnavailable = !!positionError;
   const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
-  const actualMoneyTotal = actualMoney?.total ?? 0;
-  // Money that has already left our provider lines and now sits with merchant
-  // agents or on the Bayo Mercy account, taken from the Financial Ops email
-  // extractor. The MTN / Airtel balances above already dropped when it moved,
-  // so this is shown as owed, never subtracted from "Money We Have" twice.
-  const merchantHeld = merchantOwed?.merchantAgentTotal ?? 0;
-  const bayoMercyHeld = merchantOwed?.bayoMercyTotal ?? 0;
-  // Money We Owe is deliberately only the money sitting with other people:
-  // merchant agents and the Bayo Mercy account. Wallets and recorded
-  // liabilities keep their own cards elsewhere on this page.
-  const moneyWeOweTotal = merchantHeld + bayoMercyHeld;
-  // Money We Can Use = Money We Have − Money We Owe (money sitting with
-  // merchant agents and the Bayo Mercy account).
-  const moneyWeCanUse = Math.max(0, actualMoneyTotal - moneyWeOweTotal);
-  // Both sides refresh on their own timers; show the older of the two so the
-  // stamp never claims the card is fresher than its slowest input.
-  const canUseUpdatedAt = Math.min(actualUpdatedAt || 0, owedUpdatedAt || 0) || Date.now();
-  const canUseUpdatedLabel = new Date(canUseUpdatedAt).toLocaleTimeString('en-GB', {
-    timeZone: 'Africa/Kampala',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const moneyWeCanUse = Math.max(0, totalCash - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
@@ -246,116 +214,34 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           onToggle={() => toggleSection('position')}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card className="rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-600">
-                    <PiggyBank className="h-5 w-5 text-emerald-50" />
-                  </div>
-                </div>
-                <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">Money We Have</p>
-                <p className="mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight text-foreground">
-                  {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
-                </p>
-                <div className="mt-3 space-y-0.5">
-                  {[
-                    { label: 'MTN Money', amount: actualMoney?.mtn ?? 0, logo: mtnLogoAsset.url, line: 'mtn_momo' as const },
-                    { label: 'Airtel Money', amount: actualMoney?.airtel ?? 0, logo: airtelLogoAsset.url, line: 'airtel_money' as const },
-                    { label: 'Cash at Hand', amount: actualMoney?.cashAtHand ?? 0, icon: <Banknote className="h-3.5 w-3.5 text-emerald-600" />, line: 'cash' as const },
-                    { label: 'Cash at Bank', amount: actualMoney?.bankedCash ?? 0, icon: <Landmark className="h-3.5 w-3.5 text-sky-600" />, line: 'banked_cash' as const },
-                  ].map((row) => (
-                    <button
-                      key={row.line}
-                      type="button"
-                      onClick={() => setActualMoneyLine(row.line)}
-                      className="w-full flex items-center justify-between gap-2 rounded-lg px-2 py-2 text-left hover:bg-muted/50 transition-colors"
-                    >
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="h-6 w-6 rounded-md shrink-0 border border-border bg-background flex items-center justify-center overflow-hidden">
-                          {row.logo ? (
-                            <img src={row.logo} alt={row.label} className="w-full h-full object-contain" loading="lazy" />
-                          ) : (
-                            row.icon
-                          )}
-                        </span>
-                        <span className="text-xs text-muted-foreground truncate">{row.label}</span>
-                      </span>
-                      <span className="flex items-center gap-1.5 shrink-0">
-                        <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
-                          {actualLoading ? '—' : fmt(row.amount)}
-                        </span>
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-2.5 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-lg px-2 py-1.5">
-                  Real float on provider lines + verified cash + banked deposits
-                </p>
-                {!actualLoading && actualMoney && (
-                  <button
-                    type="button"
-                    onClick={() => setActualMoneyLine('banked_cash')}
-                    className={`mt-1.5 w-full text-left text-[11px] rounded-lg px-2 py-1.5 transition-colors ${
-                      actualMoney.bankedInSync
-                        ? 'text-sky-700 dark:text-sky-400 bg-sky-50/70 dark:bg-sky-950/30 hover:bg-sky-100/70 dark:hover:bg-sky-950/50'
-                        : 'text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/30 hover:bg-amber-100/80 dark:hover:bg-amber-950/50'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5 font-medium">
-                      {actualMoney.bankedInSync ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                      ) : (
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                      )}
-                      <span className="truncate">
-                        {actualMoney.bankedInSync
-                          ? 'Cash at Bank matches Financial Ops'
-                          : `Cash at Bank differs from Financial Ops by ${fmt(Math.abs(actualMoney.bankedDifference))}`}
-                      </span>
-                    </span>
-                    <span className="mt-0.5 block text-[10px] opacity-90">
-                      {actualMoney.finOpsBankedCount} banked deposit(s) checked
-                      {actualMoney.bankedComputedAt
-                        ? ` · synced ${new Date(actualMoney.bankedComputedAt).toLocaleTimeString('en-GB', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            timeZone: 'Africa/Kampala',
-                          })} EAT`
-                        : ''}
-                      {actualMoney.bankedLastMovementAt
-                        ? ` · last banked ${new Date(actualMoney.bankedLastMovementAt).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            timeZone: 'Africa/Kampala',
-                          })}`
-                        : ''}
-                    </span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setMerchantOwedOpen(true)}
-                  className="mt-1.5 w-full text-left text-[11px] text-orange-700 dark:text-orange-400 bg-orange-50/70 dark:bg-orange-950/30 rounded-lg px-2 py-1.5 hover:bg-orange-100/70 dark:hover:bg-orange-950/50 transition-colors"
-                >
-                  {fmt(merchantHeld + bayoMercyHeld)} sits in the merchant float bucket and the Bayo
-                  Mercy account — it shows under Money We Owe. Tap for the detail.
-                </button>
-              </CardContent>
-            </Card>
+            <HeroCard
+              icon={<PiggyBank className="h-5 w-5 text-emerald-50" />}
+              iconBg="bg-emerald-600"
+              title="Money We Have"
+              value={positionUnavailable ? '—' : fmt(totalCash)}
+              items={[
+                { dot: 'bg-emerald-500', label: 'Cash and Bank (A1)', value: fmt(bankCash) },
+                { dot: 'bg-emerald-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0) },
+                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0) },
+              ]}
+              footer={positionUnavailable
+                ? 'Could not load'
+                : 'Balance sheet cash — A1 + A2 + A5'}
+              footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
+              onClick={() => setActiveBreakdown('cash')}
+            />
             <HeroCard
               icon={<Package className="h-5 w-5 text-orange-50" />}
               iconBg="bg-orange-500"
               title="Money We Owe"
-              value={fmt(moneyWeOweTotal)}
+              value={fmt(walletTotal)}
               items={[
-                { dot: 'bg-orange-500', label: 'Merchant Float Bucket (held by merchant agents)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
-                { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
+                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
+                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
               ]}
-              footer="Merchant float bucket (wallet books) plus the Bayo Mercy account (tap any figure for every movement behind it)"
+              footer="Commitments not yet paid out"
               footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
-              onClick={() => setMerchantOwedOpen(true)}
+              onClick={() => setActiveBreakdown('wallets')}
             />
             <HeroCard
               icon={<BarChart3 className="h-5 w-5 text-blue-50" />}
@@ -363,18 +249,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
               items={[
-                { dot: 'bg-blue-500', label: 'Money We Have', value: fmt(actualMoneyTotal), onSelect: () => setActualMoneyLine('mtn_momo') },
-                { dot: 'bg-orange-500', label: 'Less Money We Owe', value: fmt(moneyWeOweTotal), onSelect: () => setMerchantOwedOpen(true) },
-                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse), onSelect: () => setActiveBreakdown('earnings') },
+                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
               ]}
-              footer={`Money We Have minus Money We Owe · updated ${canUseUpdatedLabel} Kampala time`}
+              footer="After obligations and restrictions"
               footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
               onClick={() => setActiveBreakdown('earnings')}
             />
           </div>
-
-          {/* Transaction-level reconciliation behind Money We Can Use. */}
-          <MoneyWeCanUseBreakdown />
 
           {/* Where that same cash sits — a split of "Money We Have", so it
               belongs directly beneath it rather than further down the page. */}
@@ -385,25 +266,23 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money in Treasury / Platform"
               value={positionUnavailable ? '—' : fmt(outsideBankCash)}
               items={[
-                { dot: 'bg-indigo-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0), onSelect: () => setActiveBreakdown('cash') },
-                { dot: 'bg-indigo-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0), onSelect: () => setActiveBreakdown('cash') },
+                { dot: 'bg-indigo-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0) },
+                { dot: 'bg-indigo-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0) },
               ]}
               footer="Position view — part of Money We Have, not added to it"
               footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
-              onClick={() => setActiveBreakdown('cash')}
             />
             <HeroCard
               icon={<Landmark className="h-5 w-5 text-sky-50" />}
               iconBg="bg-sky-500"
-              title="Money in Bank (Position View)"
+              title="Money in Bank"
               value={positionUnavailable ? '—' : fmt(bankCash)}
               items={[
-                { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash), onSelect: () => setActualMoneyLine('banked_cash') },
-                { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash), onSelect: () => setActiveBreakdown('cash') },
+                { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash) },
+                { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash) },
               ]}
-              footer="Balance-sheet position — comparison/reference to Cash at Bank above"
+              footer="Position view — part of Money We Have, not added to it"
               footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
-              onClick={() => setActiveBreakdown('cash')}
             />
           </div>
         </Band>
@@ -561,9 +440,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         title="Money We Can Use — Breakdown"
         total={moneyWeCanUse}
         items={[
-          { label: 'Money We Have (all cash lines)', value: actualMoneyTotal, icon: <ArrowDownRight className="h-4 w-4 text-emerald-500" /> },
-          { label: 'Less: merchant float bucket (held by merchant agents)', value: -merchantHeld, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
-          { label: 'Less: sent to Bayo Mercy bank account', value: -bayoMercyHeld, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
+          { label: 'Total Cash (Money We Have)', value: totalCash, icon: <ArrowDownRight className="h-4 w-4 text-emerald-500" /> },
+          { label: 'User Wallets (Money We Owe)', value: -walletTotal, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
         ]}
       />
       <KPIBreakdownSheet
@@ -595,12 +473,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         centered
         items={[]}
       />
-      <PhoneMoneyStatementSheet
-        line={actualMoneyLine}
-        onOpenChange={(open) => !open && setActualMoneyLine(null)}
-        onSelectLine={(next) => setActualMoneyLine(next)}
-      />
-      <MerchantAgentOwedSheet open={merchantOwedOpen} onOpenChange={setMerchantOwedOpen} />
       {/* ── FLOATING PAY FAB (mobile only) ── */}
       {onTabChange && (
         <button
@@ -672,7 +544,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
   iconBg: string;
   title: string;
   value: string;
-  items: { dot: string; label: string; value: string; onSelect?: () => void }[];
+  items: { dot: string; label: string; value: string }[];
   footer: string;
   footerTone: string;
   onClick?: () => void;
@@ -730,33 +602,15 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
 
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Where it comes from</p>
-            {items.map((it) =>
-              it.onSelect ? (
-                <button
-                  key={it.label}
-                  type="button"
-                  onClick={() => { setOpen(false); it.onSelect?.(); }}
-                  className="w-full flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs text-left rounded-md px-1 hover:bg-muted/50 transition-colors"
-                >
-                  <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
-                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
-                    <span className="truncate">{it.label}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 shrink-0">
-                    <span className="tabular-nums font-medium text-right text-foreground">{it.value}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </span>
-                </button>
-              ) : (
-                <div key={it.label} className="flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs">
-                  <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
-                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
-                    <span className="truncate">{it.label}</span>
-                  </span>
-                  <span className="tabular-nums font-medium shrink-0 text-right text-foreground">{it.value}</span>
-                </div>
-              ),
-            )}
+            {items.map((it) => (
+              <div key={it.label} className="flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs">
+                <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
+                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
+                  <span className="truncate">{it.label}</span>
+                </span>
+                <span className="tabular-nums font-medium shrink-0 text-right text-foreground">{it.value}</span>
+              </div>
+            ))}
             {title !== 'Money We Have' && (
               <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
                 <span className="text-xs font-semibold">Total {title}</span>
