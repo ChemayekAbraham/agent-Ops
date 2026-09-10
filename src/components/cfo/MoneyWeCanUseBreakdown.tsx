@@ -295,8 +295,10 @@ export function MoneyWeCanUseBreakdown() {
     },
   ];
 
-  const merchantOut = (merchantMoves ?? []).filter((m) => m.direction === 'out');
-  const merchantIn = (merchantMoves ?? []).filter((m) => m.direction === 'in');
+  const merchantMoves = (merchantPages?.pages ?? []).flat();
+  const flaggedRows = (flaggedPages?.pages ?? []).flat();
+  const merchantOut = merchantMoves.filter((m) => m.direction === 'out');
+  const merchantIn = merchantMoves.filter((m) => m.direction === 'in');
 
   return (
     <Card className="border-border/60">
