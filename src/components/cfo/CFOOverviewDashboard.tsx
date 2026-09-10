@@ -68,8 +68,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     todayCashFlow, isLoading
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
-  const { data: actualMoney, isLoading: actualLoading } = useActualMoneyHeld();
-  const { data: merchantOwed } = useMerchantAgentMoneyOwed();
+  const { data: actualMoney, isLoading: actualLoading, dataUpdatedAt: actualUpdatedAt } = useActualMoneyHeld();
+  const { data: merchantOwed, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed();
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
 
@@ -168,6 +168,14 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   // Money We Can Use = Money We Have − Money We Owe (money sitting with
   // merchant agents and the Bayo Mercy account).
   const moneyWeCanUse = Math.max(0, actualMoneyTotal - moneyWeOweTotal);
+  // Both sides refresh on their own timers; show the older of the two so the
+  // stamp never claims the card is fresher than its slowest input.
+  const canUseUpdatedAt = Math.min(actualUpdatedAt || 0, owedUpdatedAt || 0) || Date.now();
+  const canUseUpdatedLabel = new Date(canUseUpdatedAt).toLocaleTimeString('en-GB', {
+    timeZone: 'Africa/Kampala',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
@@ -358,7 +366,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                 { dot: 'bg-orange-500', label: 'Less Money We Owe', value: fmt(moneyWeOweTotal), onSelect: () => setMerchantOwedOpen(true) },
                 { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse), onSelect: () => setActiveBreakdown('earnings') },
               ]}
-              footer="Money We Have minus Money We Owe"
+              footer={`Money We Have minus Money We Owe · updated ${canUseUpdatedLabel} Kampala time`}
               footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
               onClick={() => setActiveBreakdown('earnings')}
             />
@@ -549,8 +557,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         title="Money We Can Use — Breakdown"
         total={moneyWeCanUse}
         items={[
-          { label: 'Total Cash (Money We Have)', value: actualMoneyTotal, icon: <ArrowDownRight className="h-4 w-4 text-emerald-500" /> },
-          { label: 'User Wallets (Money We Owe)', value: -walletTotal, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
+          { label: 'Money We Have (all cash lines)', value: actualMoneyTotal, icon: <ArrowDownRight className="h-4 w-4 text-emerald-500" /> },
+          { label: 'Less: sent to merchant agents (still with them)', value: -merchantHeld, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
+          { label: 'Less: sent to Bayo Mercy bank account', value: -bayoMercyHeld, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
         ]}
       />
       <KPIBreakdownSheet
