@@ -52,6 +52,34 @@ const documentDisplayName = (path: string) => {
  */
 const BUDGET_REVIEWER_ROLES = ['cfo', 'ceo', 'super_admin', 'manager', 'financial_ops'];
 
+/**
+ * Server refusals from PostgREST/RPC are plain objects, not Error instances, so
+ * `e instanceof Error` was false for every database rejection and the real
+ * reason ("You can only budget for a department you are registered in",
+ * "Budget cycle is not open", ...) was replaced by a bare "Could not submit".
+ * Read the reason off whatever shape arrives instead.
+ */
+/**
+ * True when the refusal is about the record the form is holding rather than the
+ * budget itself: the submission has already left draft, or no longer exists.
+ * Those are recoverable by filing what is on screen as a fresh submission.
+ */
+function isStaleRecord(e: unknown): boolean {
+  const msg = serverMessage(e, '').toLowerCase();
+  return msg.includes('read-only in status')
+    || msg.includes('only draft budgets can be submitted')
+    || msg.includes('submission not found');
+}
+
+function serverMessage(e: unknown, fallback: string): string {
+  if (typeof e === 'string' && e.trim()) return e.trim();
+  const raw = e as { message?: unknown; details?: unknown; hint?: unknown } | null;
+  const msg = [raw?.message, raw?.details, raw?.hint].find(
+    v => typeof v === 'string' && v.trim().length > 0,
+  ) as string | undefined;
+  return msg?.trim() || fallback;
+}
+
 interface Props {
   /** Dashboard the page was opened from (e.g. 'tenant-ops'); locks the form to that hub's department. */
   dashboard?: string;
@@ -281,7 +309,7 @@ export default function DepartmentBudgetSubmission({
    * the form is not yet valid (the reason is surfaced as a toast). Shared by
    * Save draft and Submit so what is on screen is always what gets persisted.
    */
-  const persistDraft = async (): Promise<string | null> => {
+  const persistDraft = async (submissionId: string | null = activeId): Promise<string | null> => {
     if (!cycleId || !departmentId) { toast.error('Pick a budget cycle and department'); return null; }
     const payload = lines
       .filter(l => l.description.trim())
@@ -296,7 +324,7 @@ export default function DepartmentBudgetSubmission({
       }));
     if (!payload.length) { toast.error('Add at least one line with a description'); return null; }
     const { data, error } = await supabase.rpc('budget_save_draft', {
-      p_submission_id: activeId,
+      p_submission_id: submissionId,
       p_call_id: cycleId,
       p_department_id: departmentId,
       p_title: title || null,
@@ -350,18 +378,45 @@ export default function DepartmentBudgetSubmission({
     if (incompleteReason) { toast.error(incompleteReason); return; }
     setSubmitting(true);
     try {
-      const id = await persistDraft();
-      if (!id) return;
-      const { data, error } = await supabase.rpc('budget_submit_submission', { p_submission_id: id });
-      if (error) throw error;
-      const res = data as unknown as { is_late?: boolean };
-      toast.success(res?.is_late ? 'Submitted — flagged as late' : 'Budget submitted for CFO review');
+      // One attempt against the record the form is holding. Returns the outcome
+      // instead of throwing so a stale record can be retried cleanly.
+      const attempt = async (submissionId: string | null) => {
+        const id = await persistDraft(submissionId);
+        if (!id) return { ok: false as const, error: null as unknown };
+        const { data, error } = await supabase.rpc('budget_submit_submission', { p_submission_id: id });
+        if (error) return { ok: false as const, error };
+        return { ok: true as const, data: data as unknown as { is_late?: boolean } };
+      };
+
+      let res = await attempt(activeId);
+
+      // The form was still holding a record the database will no longer accept
+      // (it was already submitted, or was replaced by a new version elsewhere).
+      // That is a stale screen, not a rejected budget, so file what is on screen
+      // as a fresh submission instead of dead-ending the user.
+      if (!res.ok && activeId && isStaleRecord(res.error)) {
+        console.warn('[budget] stale draft, filing a fresh submission', res.error);
+        setActiveId(null);
+        res = await attempt(null);
+      }
+
+      if (!res.ok) {
+        if (res.error) throw res.error;
+        return;
+      }
+
+      toast.success(res.data?.is_late ? 'Submitted — flagged as late' : 'Budget submitted for CFO review');
       await loadSubmissions();
       // Re-derive the obligation from the database so the required-action gate
       // and the notification bell release without a reload.
       refreshBudgetObligation();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not submit');
+      // Keep the full server reply for tracing, and show the user the actual
+      // reason rather than a dead-end message they cannot act on.
+      console.error('[budget] submit failed', e);
+      toast.error(
+        serverMessage(e, 'The server refused this budget without giving a reason. Please report this.'),
+      );
     } finally {
       setSubmitting(false);
     }

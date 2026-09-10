@@ -373,11 +373,15 @@ export async function registerBudgetDocuments(submissionId: string, paths: strin
   const known = new Set((existing ?? []).map(r => r.storage_path));
   const missing = wanted.filter(p => !known.has(p));
   if (!missing.length) return;
-  await supabase.from('budget_submission_documents').insert(
+  const { error } = await supabase.from('budget_submission_documents').insert(
     missing.map(p => ({
       submission_id: submissionId,
       storage_path: p,
       file_name: p.split('/').pop() ?? null,
     })),
   );
+  // The budget itself is already saved, so a registry failure must not abort the
+  // submission — but it must not be swallowed either, or an attachment silently
+  // never reaches the reviewer.
+  if (error) console.error('[budget] attachment registry failed', error);
 }
