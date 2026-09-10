@@ -259,32 +259,60 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
                       <p className="py-2 text-[11px] text-muted-foreground">No tenant accounts here.</p>
                     )}
                     <div className="max-h-72 overflow-y-auto">
-                      {accounts.data?.accounts.map((acct) => (
-                        <button
-                          key={acct.tenant_id}
-                          type="button"
-                          onClick={() => setOpenTenant({ id: acct.tenant_id, name: acct.tenant })}
-                          className="flex w-full items-center justify-between gap-2 border-b border-border/40 px-1 py-1.5 text-left last:border-0 hover:bg-muted/40"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-[11px] font-medium">
-                              {acct.tenant || 'Unnamed tenant'}
-                            </span>
-                            <span className="block text-[10px] text-muted-foreground">
-                              {[acct.village, acct.town, acct.district].filter(Boolean).join(' · ') || 'Location not set'}
-                              {acct.phone ? ` · ${acct.phone}` : ''}
-                            </span>
-                          </span>
-                          <span className="shrink-0 text-right">
-                            <span className="block font-mono text-[11px] font-semibold tabular-nums">
-                              {formatUGX(acct.outstanding)}
-                            </span>
-                            <span className="block text-[9px] text-muted-foreground">
-                              {acct.item_count} item{acct.item_count === 1 ? '' : 's'} · tap for movements
-                            </span>
-                          </span>
-                        </button>
-                      ))}
+                      {accounts.data?.accounts.map((acct) => {
+                        const reason = unplacedReason(acct);
+                        const placed = [acct.village, acct.town, acct.district]
+                          .filter((v) => v && v !== UNMAPPED)
+                          .join(' · ');
+                        return (
+                          <div
+                            key={acct.tenant_id}
+                            className="flex items-center justify-between gap-2 border-b border-border/40 px-1 py-1.5 last:border-0"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setOpenTenant({ id: acct.tenant_id, name: acct.tenant })}
+                              className="min-w-0 flex-1 text-left"
+                            >
+                              <span className="block truncate text-[11px] font-medium">
+                                {acct.tenant || 'Unnamed tenant'}
+                              </span>
+                              <span className="block text-[10px] text-muted-foreground">
+                                {placed || 'Location not set'}
+                                {acct.phone ? ` · ${acct.phone}` : ''}
+                              </span>
+                              {reason && (
+                                <span className="mt-0.5 block text-[10px] text-amber-700 dark:text-amber-400">
+                                  {reason}
+                                </span>
+                              )}
+                            </button>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setOpenTenant({ id: acct.tenant_id, name: acct.tenant })}
+                                className="text-right"
+                              >
+                                <span className="block font-mono text-[11px] font-semibold tabular-nums">
+                                  {formatUGX(acct.outstanding)}
+                                </span>
+                                <span className="block text-[9px] text-muted-foreground">
+                                  {acct.item_count} item{acct.item_count === 1 ? '' : 's'} · tap for movements
+                                </span>
+                              </button>
+                              <Button
+                                size="sm"
+                                variant={reason ? 'default' : 'ghost'}
+                                className="h-7 shrink-0 px-2 text-[10px]"
+                                onClick={() => setAssignTenant(acct)}
+                              >
+                                <Pencil className="mr-1 h-3 w-3" />
+                                {reason ? 'Assign' : 'Change'}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                     {accounts.data && accounts.data.tenant_count > accounts.data.accounts.length && (
                       <p className="text-[10px] text-muted-foreground">
