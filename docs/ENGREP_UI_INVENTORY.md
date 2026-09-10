@@ -104,7 +104,7 @@ The adjudicator screen additionally gates its controls on the database, `src/pag
 | Zone B table with band and basis controls | `src/components/hr/engrep/ZoneBExternalCommits.tsx` | 217 | `src/components/hr/engrep/ZoneBExternalCommits.tsx:217` (same `AdjudicationCells`) |
 | Zone C exceptions, claimed-but-not-live | `src/components/hr/engrep/ZoneCExceptions.tsx` | 196-220 | `src/components/hr/engrep/ZoneCExceptions.tsx:199` (`PANEL_1_HEADING`) |
 | Zone C exceptions, live-but-unclaimed | `src/components/hr/engrep/ZoneCExceptions.tsx` | 27, 223-270 | `src/components/hr/engrep/ZoneCExceptions.tsx:226` (`PANEL_2_HEADING`) |
-| Lock Period control | `src/components/hr/engrep/LockPeriodButton.tsx` | 89-98 | `src/components/hr/engrep/LockPeriodButton.tsx:96`; mounted `src/pages/hr/EngineeringContribution.tsx:141` |
+| Lock Period control | `src/components/hr/engrep/LockPeriodButton.tsx` | 89-98 | `src/components/hr/engrep/LockPeriodButton.tsx:96`; mounted `src/pages/hr/EngineeringContribution.tsx:140` |
 | stacked or card layout for viewports below 640px | — | — | ABSENT — no `sm:hidden` / `hidden sm:` / card fallback exists. Below 640px the tiles stack via `grid gap-3 sm:grid-cols-3` (`src/components/hr/engrep/ZoneALovableEdits.tsx:143`) and `grid gap-3 sm:grid-cols-2` (`src/components/hr/engrep/ZoneBExternalCommits.tsx:149`), but both tables remain `<table>` inside `overflow-x-auto` (`ZoneALovableEdits.tsx:161`, `ZoneBExternalCommits.tsx:173`) with no stacked/card variant. |
 
 ## 5. Data access
