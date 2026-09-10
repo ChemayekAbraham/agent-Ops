@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ChevronRight, Loader2, MapPin, Users } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, ChevronRight, Loader2, MapPin, Pencil, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,10 +8,27 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   useTenantReceivableAccounts,
   useTenantReceivablesByLocation,
+  type TenantReceivableAccount,
   type TenantReceivablesLevel,
   type TenantReceivablesLocationRow,
 } from '@/hooks/useReceivables';
 import { TenantAccountMovementsSheet } from '@/components/cfo/TenantAccountMovementsSheet';
+import CorrectTenantLocationDialog from '@/components/location/CorrectTenantLocationDialog';
+
+const UNMAPPED = 'Unmapped';
+
+/** Plain-language reason an account's money could not be placed on the map. */
+function unplacedReason(acct: TenantReceivableAccount): string | null {
+  const districtKnown = acct.district && acct.district !== UNMAPPED;
+  const villageText = acct.village && acct.village !== UNMAPPED ? acct.village : null;
+  const townText = acct.town && acct.town !== UNMAPPED ? acct.town : null;
+  if (districtKnown) return null;
+  const typed = [villageText, townText].filter(Boolean).join(', ');
+  if (typed) {
+    return `Typed as “${typed}” — not matched to an approved district`;
+  }
+  return 'No location on record for this tenant';
+}
 
 interface Crumb {
   level: TenantReceivablesLevel;
@@ -44,6 +62,9 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
   const [path, setPath] = useState<Crumb[]>([]);
   const [accountsFor, setAccountsFor] = useState<string | null>(null);
   const [openTenant, setOpenTenant] = useState<{ id: string; name: string | null } | null>(null);
+  const [assignTenant, setAssignTenant] = useState<TenantReceivableAccount | null>(null);
+  const qc = useQueryClient();
+
 
   const current = path[path.length - 1] ?? null;
   const level: TenantReceivablesLevel = current ? (NEXT_LEVEL[current.level] ?? 'village') : 'region';
@@ -100,6 +121,36 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
           )}
         </div>
 
+        {/* Unplaced money: why, and how much */}
+        {(() => {
+          const unmappedRow = breakdown.data?.rows?.find((r) => r.label === UNMAPPED);
+          const unplaced = breakdown.data?.unmapped_amount ?? unmappedRow?.outstanding ?? 0;
+          if (!unplaced) return null;
+          return (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <p className="flex items-start gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {formatUGX(unplaced)} could not be placed on the map — these tenants have no village
+                    picked from the approved Uganda list, so their district and region are unknown.
+                  </span>
+                </p>
+                {unmappedRow && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 shrink-0 px-2 text-[10px]"
+                    onClick={() => setAccountsFor(accountsFor === UNMAPPED ? null : UNMAPPED)}
+                  >
+                    {accountsFor === UNMAPPED ? 'Hide' : 'Assign now'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Breadcrumbs */}
         <div className="flex flex-wrap items-center gap-1 text-[11px]">
           <Button
@@ -145,9 +196,17 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
             const share =
               breakdown.data.total > 0 ? (row.outstanding / breakdown.data.total) * 100 : 0;
             const isOpen = accountsFor === row.label;
-            const canDrill = !!NEXT_LEVEL[level] && row.label !== 'Unmapped';
+            const isUnmapped = row.label === UNMAPPED;
+            const canDrill = !!NEXT_LEVEL[level] && !isUnmapped;
             return (
-              <div key={row.label} className="rounded-xl border border-border/60 bg-card">
+              <div
+                key={row.label}
+                className={
+                  isUnmapped
+                    ? 'rounded-xl border border-amber-500/40 bg-amber-500/5'
+                    : 'rounded-xl border border-border/60 bg-card'
+                }
+              >
                 <div className="flex items-center justify-between gap-2 px-3 py-2.5">
                   <button
                     type="button"
@@ -156,11 +215,17 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
                   >
                     {canDrill && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
                     <span className="min-w-0">
-                      <span className="block truncate text-xs font-medium sm:text-sm">{row.label}</span>
+                      <span className="block truncate text-xs font-medium sm:text-sm">
+                        {isUnmapped ? 'Unplaced — no approved location match' : row.label}
+                      </span>
                       <span className="block text-[9px] text-muted-foreground sm:text-[10px]">
                         {row.tenant_count} tenant{row.tenant_count === 1 ? '' : 's'} · {row.item_count} item
                         {row.item_count === 1 ? '' : 's'} · {share.toFixed(1)}%
-                        {row.fully_mapped ? '' : ' · partly unmapped'}
+                        {isUnmapped
+                          ? ' · open the accounts to assign each one a district'
+                          : row.fully_mapped
+                            ? ''
+                            : ' · partly unmapped'}
                       </span>
                     </span>
                   </button>
@@ -194,32 +259,60 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
                       <p className="py-2 text-[11px] text-muted-foreground">No tenant accounts here.</p>
                     )}
                     <div className="max-h-72 overflow-y-auto">
-                      {accounts.data?.accounts.map((acct) => (
-                        <button
-                          key={acct.tenant_id}
-                          type="button"
-                          onClick={() => setOpenTenant({ id: acct.tenant_id, name: acct.tenant })}
-                          className="flex w-full items-center justify-between gap-2 border-b border-border/40 px-1 py-1.5 text-left last:border-0 hover:bg-muted/40"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-[11px] font-medium">
-                              {acct.tenant || 'Unnamed tenant'}
-                            </span>
-                            <span className="block text-[10px] text-muted-foreground">
-                              {[acct.village, acct.town, acct.district].filter(Boolean).join(' · ') || 'Location not set'}
-                              {acct.phone ? ` · ${acct.phone}` : ''}
-                            </span>
-                          </span>
-                          <span className="shrink-0 text-right">
-                            <span className="block font-mono text-[11px] font-semibold tabular-nums">
-                              {formatUGX(acct.outstanding)}
-                            </span>
-                            <span className="block text-[9px] text-muted-foreground">
-                              {acct.item_count} item{acct.item_count === 1 ? '' : 's'} · tap for movements
-                            </span>
-                          </span>
-                        </button>
-                      ))}
+                      {accounts.data?.accounts.map((acct) => {
+                        const reason = unplacedReason(acct);
+                        const placed = [acct.village, acct.town, acct.district]
+                          .filter((v) => v && v !== UNMAPPED)
+                          .join(' · ');
+                        return (
+                          <div
+                            key={acct.tenant_id}
+                            className="flex items-center justify-between gap-2 border-b border-border/40 px-1 py-1.5 last:border-0"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setOpenTenant({ id: acct.tenant_id, name: acct.tenant })}
+                              className="min-w-0 flex-1 text-left"
+                            >
+                              <span className="block truncate text-[11px] font-medium">
+                                {acct.tenant || 'Unnamed tenant'}
+                              </span>
+                              <span className="block text-[10px] text-muted-foreground">
+                                {placed || 'Location not set'}
+                                {acct.phone ? ` · ${acct.phone}` : ''}
+                              </span>
+                              {reason && (
+                                <span className="mt-0.5 block text-[10px] text-amber-700 dark:text-amber-400">
+                                  {reason}
+                                </span>
+                              )}
+                            </button>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setOpenTenant({ id: acct.tenant_id, name: acct.tenant })}
+                                className="text-right"
+                              >
+                                <span className="block font-mono text-[11px] font-semibold tabular-nums">
+                                  {formatUGX(acct.outstanding)}
+                                </span>
+                                <span className="block text-[9px] text-muted-foreground">
+                                  {acct.item_count} item{acct.item_count === 1 ? '' : 's'} · tap for movements
+                                </span>
+                              </button>
+                              <Button
+                                size="sm"
+                                variant={reason ? 'default' : 'ghost'}
+                                className="h-7 shrink-0 px-2 text-[10px]"
+                                onClick={() => setAssignTenant(acct)}
+                              >
+                                <Pencil className="mr-1 h-3 w-3" />
+                                {reason ? 'Assign' : 'Change'}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                     {accounts.data && accounts.data.tenant_count > accounts.data.accounts.length && (
                       <p className="text-[10px] text-muted-foreground">
@@ -243,6 +336,32 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
         tenantName={openTenant?.name ?? null}
         locationLabel={locationLabel || null}
         onClose={() => setOpenTenant(null)}
+      />
+
+      <CorrectTenantLocationDialog
+        open={!!assignTenant}
+        onOpenChange={(v) => !v && setAssignTenant(null)}
+        tenant={
+          assignTenant
+            ? {
+                id: assignTenant.tenant_id,
+                name: assignTenant.tenant,
+                phone: assignTenant.phone,
+                legacyLabel:
+                  [assignTenant.village, assignTenant.town, assignTenant.district]
+                    .filter((v) => v && v !== UNMAPPED)
+                    .join(', ') || 'No location on record',
+                districtHint:
+                  assignTenant.district && assignTenant.district !== UNMAPPED
+                    ? assignTenant.district
+                    : null,
+              }
+            : null
+        }
+        onCorrected={() => {
+          qc.invalidateQueries({ queryKey: ['tenant-receivables-location'] });
+          qc.invalidateQueries({ queryKey: ['tenant-receivables-accounts'] });
+        }}
       />
     </Card>
   );
