@@ -114,6 +114,31 @@ export default function DepartmentBudgetSubmission({
     [myDepartments],
   );
 
+  /**
+   * Departments the signed-in user is the designated head of. A head is the
+   * person actually asked for the budget, so when their HR postings resolve to
+   * several departments this is the one the budget belongs under — without it
+   * the form silently picked whichever department came first, which is how a
+   * head could end up filing under (or being locked out by) another
+   * department's budget.
+   */
+  const [headDepartmentIds, setHeadDepartmentIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) return;
+      const { data } = await supabase
+        .from('budget_department_heads')
+        .select('department_id')
+        .eq('user_id', uid)
+        .eq('active', true);
+      if (!cancelled) setHeadDepartmentIds(new Set((data ?? []).map(r => r.department_id as string)));
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const [cycleId, setCycleId] = useState<string>(initialCycleId ?? '');
   const [departmentId, setDepartmentId] = useState<string>(initialDepartmentId ?? '');
   // Set once the requested draft has been opened, so a user edit is never
@@ -164,11 +189,13 @@ export default function DepartmentBudgetSubmission({
     if (initialDepartmentId && departmentId === initialDepartmentId) return;
     if (!selectableDepartments.length) { if (departmentId) setDepartmentId(''); return; }
     if (selectableDepartments.some(d => d.id === departmentId)) return;
-    // Own posting first — a reviewer who also carries a posting files under it
-    // rather than under an unrelated department.
+    // Department the user actually heads first — that is the budget they are
+    // being asked for. Then their own posting (a reviewer who also carries a
+    // posting files under it rather than under an unrelated department).
+    const headed = selectableDepartments.find(d => headDepartmentIds.has(d.id));
     const own = selectableDepartments.find(d => myDepartmentIds.has(d.id));
-    setDepartmentId((own ?? selectableDepartments[0]).id);
-  }, [departmentId, refLoading, selectableDepartments, myDepartmentIds, initialDepartmentId]);
+    setDepartmentId((headed ?? own ?? selectableDepartments[0]).id);
+  }, [departmentId, refLoading, selectableDepartments, myDepartmentIds, headDepartmentIds, initialDepartmentId]);
 
 
   useEffect(() => {
@@ -317,6 +344,10 @@ export default function DepartmentBudgetSubmission({
    * existing draft are captured in the same action.
    */
   const submit = async () => {
+    // The button stays pressable so it never reads as frozen: if something is
+    // still missing the user is told exactly what, rather than being left with
+    // a dead control.
+    if (incompleteReason) { toast.error(incompleteReason); return; }
     setSubmitting(true);
     try {
       const id = await persistDraft();
@@ -363,7 +394,23 @@ export default function DepartmentBudgetSubmission({
       <section className="border-b border-border/70 pb-5" aria-labelledby="budget-filing-title">
         <h2 id="budget-filing-title" className="sr-only">Filing details</h2>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
-          <span className="text-sm font-semibold text-foreground">{selectedDepartment?.name ?? '—'}</span>
+          {selectableDepartments.length > 1 ? (
+            // Some preparers are linked to more than one department. Showing the
+            // choice is what lets each department head file under their own
+            // department instead of whichever one resolved first.
+            <select
+              aria-label="Department this budget is filed under"
+              className="rounded-lg border border-border bg-card px-2 py-1 text-sm font-semibold text-foreground"
+              value={departmentId}
+              onChange={e => setDepartmentId(e.target.value)}
+            >
+              {selectableDepartments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-sm font-semibold text-foreground">{selectedDepartment?.name ?? '—'}</span>
+          )}
           {cycle && (
             <span>
               {cycle.title}{cycle.financial_year ? ` · ${cycle.financial_year}` : ''}
@@ -555,7 +602,7 @@ export default function DepartmentBudgetSubmission({
               <Button
                 size="sm"
                 onClick={submit}
-                disabled={submitting || !!incompleteReason}
+                disabled={submitting}
                 className="w-full rounded-lg text-xs sm:w-auto sm:self-end"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Submit for review
