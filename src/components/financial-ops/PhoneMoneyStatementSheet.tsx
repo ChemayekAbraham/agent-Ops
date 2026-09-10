@@ -408,7 +408,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
           )}
           {!isLoading && rows.length > 0 && filteredRows.length === 0 && (
             <p className="p-8 text-center text-sm text-muted-foreground">
-              No {filter === 'in' ? 'money in' : 'money out'} movements match this filter.
+              No movements match the current filters.
             </p>
           )}
           {pageRows.map((r) => {
