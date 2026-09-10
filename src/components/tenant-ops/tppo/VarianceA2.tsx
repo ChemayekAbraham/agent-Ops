@@ -101,13 +101,14 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
         ? 'text-destructive'
         : 'text-muted-foreground';
 
+  const comparisonTarget = currentIsClosed ? 'previous day' : 'earlier period';
   const directionLabel =
     direction === 'up'
-      ? 'up vs earlier period'
+      ? `up vs ${comparisonTarget}`
       : direction === 'down'
-        ? 'down vs earlier period'
+        ? `down vs ${comparisonTarget}`
         : direction === 'flat'
-          ? 'unchanged vs earlier period'
+          ? `unchanged vs ${comparisonTarget}`
           : 'no comparison available';
 
   const currentLabel = periodLabel(report?.period_start, report?.period_end);
