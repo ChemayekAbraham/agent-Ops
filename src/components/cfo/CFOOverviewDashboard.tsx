@@ -336,12 +336,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money We Owe"
               value={fmt(moneyWeOweTotal)}
               items={[
-                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
-                { dot: 'bg-orange-500', label: 'In Merchant Agent Hands', value: fmt(merchantHeld) },
-                { dot: 'bg-orange-500', label: 'Bayo Mercy Account', value: fmt(bayoMercyHeld) },
-                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
+                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal), onSelect: () => setActiveBreakdown('wallets') },
+                { dot: 'bg-orange-500', label: 'Sent to Merchant Agents (still with them)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
+                { dot: 'bg-orange-500', label: 'Sent to Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
+                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities), onSelect: () => setActiveBreakdown('wallets') },
               ]}
-              footer="Wallets + money sitting outside the platform (tap for the emails behind it)"
+              footer="Wallets + money sent to merchant agents and the Bayo Mercy bank account (tap any figure for its sources)"
               footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
               onClick={() => setMerchantOwedOpen(true)}
             />
@@ -351,7 +351,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
               items={[
-                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
+                { dot: 'bg-blue-500', label: 'Money We Have', value: fmt(actualMoneyTotal), onSelect: () => setActualMoneyLine('mtn_momo') },
+                { dot: 'bg-blue-500', label: 'Less Withdrawable User Wallets', value: fmt(walletTotal), onSelect: () => setActiveBreakdown('wallets') },
+                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse), onSelect: () => setActiveBreakdown('earnings') },
               ]}
               footer="After obligations and restrictions"
               footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
@@ -368,11 +370,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money in Treasury / Platform"
               value={positionUnavailable ? '—' : fmt(outsideBankCash)}
               items={[
-                { dot: 'bg-indigo-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0) },
-                { dot: 'bg-indigo-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0) },
+                { dot: 'bg-indigo-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0), onSelect: () => setActiveBreakdown('cash') },
+                { dot: 'bg-indigo-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0), onSelect: () => setActiveBreakdown('cash') },
               ]}
               footer="Position view — part of Money We Have, not added to it"
               footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
+              onClick={() => setActiveBreakdown('cash')}
             />
             <HeroCard
               icon={<Landmark className="h-5 w-5 text-sky-50" />}
@@ -380,11 +383,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money in Bank (Position View)"
               value={positionUnavailable ? '—' : fmt(bankCash)}
               items={[
-                { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash) },
-                { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash) },
+                { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash), onSelect: () => setActualMoneyLine('banked_cash') },
+                { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash), onSelect: () => setActiveBreakdown('cash') },
               ]}
               footer="Balance-sheet position — comparison/reference to Cash at Bank above"
               footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
+              onClick={() => setActiveBreakdown('cash')}
             />
           </div>
         </Band>
