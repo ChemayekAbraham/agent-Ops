@@ -51,6 +51,16 @@ export interface PlanSchedule {
   expectedOnDay: number;
   /** Next scheduled payment date (ISO yyyy-MM-dd) for weekly plans. */
   nextDueDate: string | null;
+  /**
+   * How the reference day reads for this plan:
+   *  - 'due_today'     money is expected from the tenant today;
+   *  - 'due_this_week' weekly plan whose instalment day has not arrived yet;
+   *  - 'covered'       due, but already settled by earlier over-payment;
+   *  - 'not_due'       the schedule places nothing on this day.
+   */
+  dueState: 'due_today' | 'due_this_week' | 'covered' | 'not_due';
+  /** Whole days from the reference day to `nextDueDate` (weekly plans only). */
+  daysToNextDue: number | null;
   /** Remaining balance on the whole rent plan. */
   outstandingPlan: number;
 }
