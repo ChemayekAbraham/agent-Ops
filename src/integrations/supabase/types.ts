@@ -54059,6 +54059,10 @@ export type Database = {
         }
         Returns: Json
       }
+      post_treasury_fee_cash_transfer: {
+        Args: { p_collection_id: string }
+        Returns: Json
+      }
       preview_business_advance_limit: {
         Args: {
           _avg_monthly_rent: number
