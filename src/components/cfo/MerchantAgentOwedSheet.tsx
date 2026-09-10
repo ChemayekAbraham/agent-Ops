@@ -390,11 +390,20 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                               />
                             </div>
                           </div>
-                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-5">
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-6">
                             <div>
-                              <span className="text-muted-foreground">Float bucket (owed)</span>
+                              <span className="text-muted-foreground">Float bucket</span>
                               <p className="font-mono font-semibold tabular-nums">{fmt(a.float_balance)}</p>
                               <span className="text-muted-foreground">wallet books</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Less claimed payouts</span>
+                              <p className="font-mono tabular-nums text-emerald-600">
+                                −{fmt(a.claim_reduction_total)}
+                              </p>
+                              <span className="text-muted-foreground">
+                                {a.claimed_pending_count} withdrawal(s) claimed
+                              </span>
                             </div>
                             <div>
                               <span className="text-muted-foreground">Sent to them</span>
