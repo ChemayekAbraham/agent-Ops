@@ -178,7 +178,8 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
             What the agreed payment plans fall due on each of these days. A tenant whose repayment starts later contributes only from their first due date, and weekly or monthly plans appear on their due dates rather than spread across every day. This is scheduled rent, not a prediction of what will be collected.
           </p>
         </div>
-      )}
+      )
+      ) : null}
     </section>
   );
 }
