@@ -100,6 +100,17 @@ Deno.serve(async (req) => {
 
     if (updateErr) throw new Error(`Failed to update request: ${updateErr.message}`)
 
+    // === TREASURY FEE RECOGNITION (idempotent; non-fatal) ===
+    // Creates the L7 funding-side credit that later instalment waterfall drawdowns debit against.
+    const { error: treasuryErr } = await serviceClient.rpc('recognise_funding_treasury', {
+      p_rent_request_id: rent_request_id,
+    });
+    if (treasuryErr) {
+      console.error('[disburse-rent-to-landlord] Treasury recognition failed (non-fatal):', treasuryErr.message);
+    } else {
+      console.log('[disburse-rent-to-landlord] Treasury recognition recorded for', rent_request_id);
+    }
+
     // Record in disbursement_records for CFO tracking
     await serviceClient.from('disbursement_records').insert({
       rent_request_id: rent_request_id,
