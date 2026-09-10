@@ -64,11 +64,29 @@ function signedClass(value?: number | null): string {
  * The rate variance is computed here as the middle (prior) period rate minus the
  * earliest (earlier) period rate and expressed as a percentage change.
  */
+function todayKampalaIso(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
+}
+
 export function VarianceA2({ report, earlier }: VarianceA2Props) {
   const priorRate = report?.prior?.collection_rate_pct;
   const earlierRate = earlier?.collection_rate_pct;
-  const rateDeltaPct =
-    priorRate != null && earlierRate != null ? priorRate - earlierRate : null;
+  const currentRate = report?.collection_rate_pct ?? null;
+
+  // A period is closed once its end date is before today (Kampala), even if the
+  // snapshot's `provisional` flag has not dropped yet. For a closed day the
+  // variance is between that day and its previous day; for the present day the
+  // existing prior-vs-earlier logic is preserved.
+  const currentIsClosed =
+    !!report?.period_end && report.period_end < todayKampalaIso();
+
+  const rateDeltaPct = currentIsClosed
+    ? currentRate != null && priorRate != null
+      ? currentRate - priorRate
+      : null
+    : priorRate != null && earlierRate != null
+      ? priorRate - earlierRate
+      : null;
 
   const hasRateDelta = rateDeltaPct !== null && rateDeltaPct !== undefined;
   const direction = !hasRateDelta ? 'none' : rateDeltaPct! > 0 ? 'up' : rateDeltaPct! < 0 ? 'down' : 'flat';
