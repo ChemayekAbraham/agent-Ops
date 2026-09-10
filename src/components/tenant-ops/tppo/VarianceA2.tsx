@@ -223,40 +223,42 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
         ))}
 
 
-        <div className="rounded-md border border-border p-3 font-medium">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
-          <div className="mt-2 space-y-1 text-sm">
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Scheduled due (own period)</span>
-              <span className={`shrink-0 tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
-                {signedMoney(report?.scheduled_delta_ugx)}
-              </span>
-            </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Collected</span>
-              <span className={`shrink-0 tabular-nums ${signedClass(report?.collected_delta_ugx)}`}>
-                {signedMoney(report?.collected_delta_ugx)}
-              </span>
-            </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Arrears target</span>
-              <span className={`shrink-0 tabular-nums ${signedClass(arrearsTargetDelta)}`}>
-                {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
-              </span>
-            </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Rate</span>
-              <span
-                className={`shrink-0 tabular-nums ${
-                  anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
-                }`}
-              >
-                {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
-              </span>
-            </p>
+        {currentStillCounting && (
+          <div className="rounded-md border border-border p-3 font-medium">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
+            <div className="mt-2 space-y-1 text-sm">
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Scheduled due (own period)</span>
+                <span className={`shrink-0 tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
+                  {signedMoney(report?.scheduled_delta_ugx)}
+                </span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Collected</span>
+                <span className={`shrink-0 tabular-nums ${signedClass(report?.collected_delta_ugx)}`}>
+                  {signedMoney(report?.collected_delta_ugx)}
+                </span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Arrears target</span>
+                <span className={`shrink-0 tabular-nums ${signedClass(arrearsTargetDelta)}`}>
+                  {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
+                </span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Rate</span>
+                <span
+                  className={`shrink-0 tabular-nums ${
+                    anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
+                  }`}
+                >
+                  {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
+                </span>
+              </p>
 
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="mt-4 hidden overflow-x-auto sm:block">
