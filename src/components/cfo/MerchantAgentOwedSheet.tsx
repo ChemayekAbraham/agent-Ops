@@ -624,7 +624,7 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                   <div className="flex justify-center py-6">
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   </div>
-                ) : flaggedCount === 0 ? (
+                ) : flaggedRows.length === 0 ? (
                   <p className="py-6 text-xs text-muted-foreground">
                     Every money-out transfer went to a registered merchant agent.
                   </p>
@@ -633,16 +633,21 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                     <div className="rounded-xl border border-amber-500/40 bg-amber-50/50 p-3 dark:bg-amber-950/20">
                       <p className="text-[10px] text-amber-800 dark:text-amber-300">Total flagged</p>
                       <p className="font-mono text-sm font-bold tabular-nums text-amber-800 dark:text-amber-300">
-                        {fmt(flagged?.total ?? 0)}
+                        {fmt(flaggedTotal)}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-amber-800/80 dark:text-amber-300/80">
+                        Showing {flaggedRows.length} of {flaggedCount} transfer(s)
                       </p>
                     </div>
-                    <IncrementalList
-                      items={flagged?.transfers ?? []}
+                    <CursorList
+                      pages={flaggedRows}
                       label="flagged transfers"
                       className="max-h-[28rem] space-y-2 overflow-y-auto"
+                      hasNextPage={!!flagHasNext}
+                      isFetchingNextPage={flagFetchingNext}
+                      fetchNextPage={flagFetchNext}
                       renderItem={(t) => <FlaggedCard key={t.id} t={t} />}
                     />
-
                   </>
                 )}
               </TabsContent>
