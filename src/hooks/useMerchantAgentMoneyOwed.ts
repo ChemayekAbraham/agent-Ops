@@ -14,7 +14,9 @@ export interface MerchantAgentOwedRow {
   float_balance: number;
   claimed_pending_total: number;
   claimed_pending_count: number;
-  /** Owed figure for this desk = float bucket balance. */
+  /** Amount deducted from the float bucket because the desk claimed those payouts. */
+  claim_reduction_total: number;
+  /** Owed figure for this desk = float bucket balance less claimed payouts. */
   still_held: number;
   /** Email-derived sent-minus-returned trail, kept as supporting detail. */
   email_still_held: number;
