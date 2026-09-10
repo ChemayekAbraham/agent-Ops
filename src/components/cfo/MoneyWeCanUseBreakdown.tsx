@@ -13,9 +13,10 @@ import {
 } from 'lucide-react';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import {
-  useMerchantAgentMovements,
   useBayoMercyMovements,
-  useUnregisteredRecipientTransfers,
+  useMerchantAgentMovementsPage,
+  useUnregisteredRecipientTransfersPage,
+  useUnregisteredRecipientTransfersSummary,
 } from '@/hooks/useMerchantAgentMovements';
 
 const fmt = (n: number) =>
