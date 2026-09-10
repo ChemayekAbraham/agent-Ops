@@ -1,7 +1,7 @@
 # Arrears defects D1, D2, D4 — the fixes
 
 Follow-up to [arrears-e2e-smalls-ronald-musana.md](./arrears-e2e-smalls-ronald-musana.md).
-Written 10 September 2026. **Code complete and verified; the four migrations are not yet applied to production.**
+Written 10 September 2026. **Applied to production and verified live on 10 September 2026, 13:37 EAT.**
 
 | | Defect | Decision | Status |
 | --- | --- | --- | --- |
@@ -188,9 +188,30 @@ Building the countdown is a small piece of work and mostly presentational (a bad
 
 The D1 migration patches the live definition in place rather than restating it, because `agent_allocate_tenant_payment` is deployed outside this repository — restating it would fight that deployment and could clobber the `p_client_ref` idempotency work. It is a no-op when already patched and **aborts rather than applying a partial patch**. Each anchor is a single line that is byte-identical in both the deployed definition and the checked-in migration, because the two differ in line wrapping around the `UPDATE`.
 
-## Not applied yet
+## Applied, and how
 
-The four migrations are written and verified but **have not been run against production** — direct DDL was refused in this session. They can go the normal route (push, and Lovable applies them), or be applied directly with permission. Until then the fixes live in the repository only: the D2 card will render nothing because its RPC does not exist yet, and the Performance card will show blank arrears lines until `agent_ops_collection_target` publishes them.
+**Lovable does not apply hand-written migration files pushed to GitHub.** The migration ledger's recent entries are all UUID-named - Lovable's own - and none of the eleven hand-written migrations from this work appear in it, including ones whose objects are demonstrably live (`rent_day_settlements`, `agent_collect_context`, the `float_cannot_rise` constraint). Those exist because they were applied directly. Pushing is how the code and the record of intent reach the repo; it is not how the schema changes.
+
+All four were therefore **applied directly to production** and verified:
+
+| Check | Result |
+| --- | --- |
+| A real collection through the live RPC (rolled back) | **balance advanced 4,000** - the guard trusted it, tenant credited |
+| Float direction on that collection | 195,300 -> 191,300 |
+| Receipt stamped | expected 4,767 · arrears 0 · total due 4,767 · short 767 · partial |
+| Rollback held | plan back to 55,000 repaid, 0 test receipts, 0 rows carrying the new columns |
+| `agent_expired_cycles` for a real agent | Arnold Oscar - 31 plans, 15,730,486, oldest ended 2026-05-15 |
+| Expired book: view vs ops card | **472 / 144,892,443 on both** |
+| `agent_ops_collection_target` as an ops user | 52,922,266 + 144,892,443 = **197,814,709** |
+| Expected vs the raw pin table | **4,698,839 / 224 = 4,698,839 / 224** |
+
+All four are idempotent, so re-running the files later is harmless. They are deliberately **not** inserted into `supabase_migrations.schema_migrations` - that ledger is Lovable's.
+
+### Expected moved, and it was not this change
+
+Baseline was 4,690,879 / 223; after applying it reads **4,698,839 / 224**. That is not drift. Three Lovable migrations (`20260910102152`, `102236`, `102320`) converted one tenant - Shakirah Nakimbugwe, plan `743d30e7...` - from weekly to daily, deleted her pins from today, and re-pinned today at her new daily rate of 7,960. The 224th pin is hers. Verified by reading those migrations, and by confirming the function's output equals the raw pin table exactly.
+
+The split figures moved slightly with it and with the day's collections: on-schedule 227 plans / 52,922,266, past-term 472 / 144,892,443. These are live numbers and will keep moving; what matters is that they reconcile.
 
 ## Noticed in passing, not fixed
 
