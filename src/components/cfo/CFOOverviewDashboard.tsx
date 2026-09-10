@@ -339,8 +339,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                   onClick={() => setMerchantOwedOpen(true)}
                   className="mt-1.5 w-full text-left text-[11px] text-orange-700 dark:text-orange-400 bg-orange-50/70 dark:bg-orange-950/30 rounded-lg px-2 py-1.5 hover:bg-orange-100/70 dark:hover:bg-orange-950/50 transition-colors"
                 >
-                  {fmt(merchantHeld + bayoMercyHeld)} has already left these lines to merchant agents
-                  and the Bayo Mercy account — it now shows under Money We Owe. Tap for the emails.
+                  {fmt(merchantHeld + bayoMercyHeld)} sits in the merchant float bucket and the Bayo
+                  Mercy account — it shows under Money We Owe. Tap for the detail.
                 </button>
               </CardContent>
             </Card>
@@ -350,10 +350,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money We Owe"
               value={fmt(moneyWeOweTotal)}
               items={[
-                { dot: 'bg-orange-500', label: 'Sent to Merchant Agents (still with them)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
-                { dot: 'bg-orange-500', label: 'Sent to Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
+                { dot: 'bg-orange-500', label: 'Merchant Float Bucket (held by merchant agents)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
+                { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
               ]}
-              footer="Only money sent to merchant agents and to Bayo Mercy (tap any figure for every transfer behind it)"
+              footer="Merchant float bucket (wallet books) plus the Bayo Mercy account (tap any figure for every movement behind it)"
               footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
               onClick={() => setMerchantOwedOpen(true)}
             />
@@ -562,7 +562,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         total={moneyWeCanUse}
         items={[
           { label: 'Money We Have (all cash lines)', value: actualMoneyTotal, icon: <ArrowDownRight className="h-4 w-4 text-emerald-500" /> },
-          { label: 'Less: sent to merchant agents (still with them)', value: -merchantHeld, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
+          { label: 'Less: merchant float bucket (held by merchant agents)', value: -merchantHeld, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
           { label: 'Less: sent to Bayo Mercy bank account', value: -bayoMercyHeld, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
         ]}
       />

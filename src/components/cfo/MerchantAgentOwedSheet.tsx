@@ -247,10 +247,10 @@ function MovementRow({
 }
 
 /**
- * Read-only drilldown behind the two Money We Owe lines: money sent to merchant
- * agents and money sent to the Bayo Mercy bank account, plus a flag list of
- * money-out transfers whose recipient is not a registered merchant agent.
- * Every figure comes from the Financial Ops email extractor; nothing is written.
+ * Read-only drilldown behind the two Money We Owe lines: the merchant float
+ * bucket (company money in each active merchant agent's float wallet) and the
+ * Bayo Mercy bank account, plus a flag list of money-out transfers whose
+ * recipient is not a registered merchant agent. Nothing is written.
  */
 export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
   const { data, isLoading, error } = useMerchantAgentMoneyOwed(open);
@@ -259,7 +259,7 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
   const { data: flagged, isLoading: flagLoading } = useUnregisteredRecipientTransfers(open);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const agents = (data?.agents ?? []).filter((a) => a.still_held > 0 || a.email_sent_total > 0);
+  const agents = (data?.agents ?? []).filter((a) => a.still_held > 0 || a.email_sent_total > 0 || a.float_balance > 0);
 
   const byDesk = useMemo(() => {
     const map = new Map<string, typeof movements>();
@@ -282,7 +282,8 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
           <SheetHeader className="text-left">
             <SheetTitle className="text-2xl">Money sitting with other people</SheetTitle>
             <SheetDescription className="text-sm">
-              Built from the extracted MTN, Airtel and bank emails in Financial Ops. Read-only.
+              Merchant float bucket from the wallet books, plus the Bayo Mercy account from the
+              extracted bank emails. Read-only.
             </SheetDescription>
           </SheetHeader>
 
@@ -298,7 +299,7 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
           <div className="mt-4 space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-border bg-muted/30 p-3">
-                <p className="text-[11px] text-muted-foreground">Sent to merchant agents</p>
+                <p className="text-[11px] text-muted-foreground">Merchant float bucket</p>
                 <p className="mt-1 font-mono text-sm font-bold tabular-nums">
                   {fmt(data?.merchantAgentTotal ?? 0)}
                 </p>
@@ -350,8 +351,9 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                   <p className="text-xs font-semibold">Merchant agents ({agents.length})</p>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Sent to their number in the emails, less what they sent back, less payouts they have
-                  already completed for us. Tap a desk to see every transfer.
+                  Each desk's figure is the company money in its float bucket (wallet books). The
+                  email trail underneath shows what was sent, returned and paid out. Tap a desk to
+                  see every transfer.
                 </p>
 
                 {agents.length === 0 ? (
@@ -388,7 +390,12 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                               />
                             </div>
                           </div>
-                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-5">
+                            <div>
+                              <span className="text-muted-foreground">Float bucket (owed)</span>
+                              <p className="font-mono font-semibold tabular-nums">{fmt(a.float_balance)}</p>
+                              <span className="text-muted-foreground">wallet books</span>
+                            </div>
                             <div>
                               <span className="text-muted-foreground">Sent to them</span>
                               <p className="font-mono tabular-nums">{fmt(a.email_sent_total)}</p>
@@ -407,10 +414,10 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                               <span className="text-muted-foreground">Last sent {day(a.last_sent_at)}</span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Claimed, not completed</span>
-                              <p className="font-mono tabular-nums">{fmt(a.claimed_pending_total)}</p>
+                              <span className="text-muted-foreground">Email trail still held</span>
+                              <p className="font-mono tabular-nums">{fmt(a.email_still_held)}</p>
                               <span className="text-muted-foreground">
-                                {a.claimed_pending_count} request(s)
+                                {a.claimed_pending_count} claimed, not completed
                               </span>
                             </div>
                           </div>
