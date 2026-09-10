@@ -67,6 +67,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
   const { data: actualMoney, isLoading: actualLoading } = useActualMoneyHeld();
+  const { data: merchantOwed } = useMerchantAgentMoneyOwed();
+  const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
 
 
