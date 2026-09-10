@@ -806,6 +806,7 @@ const TENANT_STATEMENT_CATEGORIES = [
   'rent_obligation',
   'rent_obligation_reversal',
   'tenant_repayment',
+  'tenant_repayment_collected',
   'rent_repayment',
   'rent_principal_collected',
 ] as const;
@@ -3504,7 +3505,7 @@ function AgentTenantsList({ agentId, onSelectTenant }: { agentId: string; onSele
           ? supabase.from('general_ledger')
               .select('user_id, category, direction, amount')
               .in('user_id', tenantIds)
-              .in('category', ['rent_obligation', 'tenant_repayment', 'rent_repayment'])
+              .in('category', ['rent_obligation', 'tenant_repayment', 'tenant_repayment_collected', 'rent_repayment'])
           : Promise.resolve({ data: [] as any[] }),
       ]);
       const tMap = new Map((tenants.data ?? []).map((t: any) => [t.id, t]));

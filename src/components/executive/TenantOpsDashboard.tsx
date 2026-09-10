@@ -156,8 +156,8 @@ export function TenantOpsDashboard({
         let q = supabase
           .from('general_ledger')
           .select('user_id, amount, source_id, source_table, transaction_date, transaction_group_id')
-          .in('category', ['tenant_repayment', 'rent_repayment'])
-          .eq('direction', 'cash_in')
+          .or('and(category.in.(tenant_repayment,rent_repayment),direction.eq.cash_in),'
+            + 'and(category.eq.tenant_repayment_collected,direction.eq.cash_out)')
           .order('transaction_date', { ascending: false });
         if (fromIso) q = q.gte('transaction_date', fromIso);
         if (toIso) q = q.lte('transaction_date', toIso);
@@ -290,7 +290,7 @@ export function TenantOpsDashboard({
           ? supabase.from('general_ledger')
               .select('user_id, category, direction, amount')
               .in('user_id', tenantIds)
-              .in('category', ['rent_obligation', 'tenant_repayment', 'rent_repayment'])
+              .in('category', ['rent_obligation', 'tenant_repayment', 'tenant_repayment_collected', 'rent_repayment'])
           : Promise.resolve({ data: [] as any[] }),
       ]);
       const tenantMap = new Map((tenantRes.data || []).map((p: any) => [p.id, p]));
@@ -836,8 +836,8 @@ export function TenantOpsDashboard({
       const ledger = await fetchAllPaged<any>(() => supabase
         .from('general_ledger')
         .select('user_id, amount, source_id, source_table, transaction_date, transaction_group_id')
-        .in('category', ['tenant_repayment', 'rent_repayment'])
-        .eq('direction', 'cash_in')
+        .or('and(category.in.(tenant_repayment,rent_repayment),direction.eq.cash_in),'
+          + 'and(category.eq.tenant_repayment_collected,direction.eq.cash_out)')
         .neq('classification', 'admin_correction')
         .gte('transaction_date', from.toISOString())
         .lte('transaction_date', to.toISOString())

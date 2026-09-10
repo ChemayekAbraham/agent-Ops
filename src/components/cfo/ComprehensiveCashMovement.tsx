@@ -199,6 +199,7 @@ const WALLET_FLOW_LABEL_OUT: Record<string, string> = {
   // Rent repaid from wallet
   rent_repayment: 'Rent repaid from wallet (→ company)',
   tenant_repayment: 'Rent repaid from wallet (→ company)',
+  tenant_repayment_collected: 'Rent collected by agent (→ company)',
   rent_payment_for_tenant: 'Rent payment for tenants (wallet → company)',
   // ROI reinvestment
   roi_reinvestment: 'ROI reinvestment (wallet → company)',
@@ -233,6 +234,7 @@ const WALLET_TO_COMPANY_GROUP_1 = new Set([
   'agent_float_used_for_rent',
   'rent_repayment',
   'tenant_repayment',
+  'tenant_repayment_collected',
 ]);
 const WALLET_TO_COMPANY_GROUP_2 = new Set([
   'partner_funding',
@@ -345,6 +347,7 @@ const ALWAYS_WALLET_TO_COMPANY = new Set<string>([
   'agent_float_used_for_rent',
   'rent_repayment',
   'tenant_repayment',
+  'tenant_repayment_collected',
   // Advance auto-recovery pulled straight from agent wallets (Group 3)
   'advance_recovery',
   'agent_repayment',

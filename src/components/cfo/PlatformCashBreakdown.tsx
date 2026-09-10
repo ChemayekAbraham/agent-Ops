@@ -59,6 +59,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   angel_pool_investment: 'Angel Pool Investments',
   angel_pool_commission: 'Angel Pool Commissions',
   tenant_repayment: 'Tenant Repayments (Wallets)',
+  tenant_repayment_collected: 'Tenant Repayments (Agent Collections)',
   agent_repayment: 'Agent Repayments (Field Collections)',
   rent_principal_collected: 'Rent Principal Collected',
   salary_advance_repayment: 'Salary Advance Repayments',

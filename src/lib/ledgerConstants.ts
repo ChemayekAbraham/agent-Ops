@@ -32,6 +32,7 @@ export const LOCKED_CATEGORIES = [
   // Cash in (real money entering)
   'wallet_deposit',
   'tenant_repayment',
+  'tenant_repayment_collected',
   'agent_repayment',
   'partner_funding',
   'share_capital',

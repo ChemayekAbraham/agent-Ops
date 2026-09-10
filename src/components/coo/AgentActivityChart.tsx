@@ -45,8 +45,8 @@ export function AgentActivityChart() {
         supabase
           .from('general_ledger')
           .select('transaction_date, amount')
-          .eq('category', 'tenant_repayment')
-          .eq('direction', 'cash_in')
+          .or('and(category.eq.tenant_repayment,direction.eq.cash_in),'
+            + 'and(category.eq.tenant_repayment_collected,direction.eq.cash_out)')
           .in('classification', ['production', 'legacy_real'])
           .gte('transaction_date', iso)
           .order('transaction_date', { ascending: true })

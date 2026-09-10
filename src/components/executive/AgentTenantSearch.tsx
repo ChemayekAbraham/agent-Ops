@@ -197,7 +197,7 @@ export function AgentTenantSearch() {
         Promise.all(batches.map(ids => supabase.from('general_ledger')
           .select('user_id, category, direction, amount')
           .in('user_id', ids)
-          .in('category', ['rent_obligation', 'tenant_repayment', 'rent_repayment'])))
+          .in('category', ['rent_obligation', 'tenant_repayment', 'tenant_repayment_collected', 'rent_repayment'])))
           .then(res => ({ data: res.flatMap(r => r.data || []) })),
       ]);
 

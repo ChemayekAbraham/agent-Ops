@@ -169,6 +169,7 @@ export const NON_PL_CATEGORIES = [
   'rent_disbursement',
   'rent_repayment',
   'tenant_repayment',
+  'tenant_repayment_collected',
   'agent_repayment',
   'rent_principal_collected',
   'rent_receivable_created',

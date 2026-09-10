@@ -62,6 +62,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   wallet_deposit: 'Wallet Deposit',
   deposit: 'Deposit',
   tenant_repayment: 'Tenant Repayment',
+  tenant_repayment_collected: 'Tenant Repayment (Agent Collection)',
   agent_repayment: 'Agent Repayment',
   partner_funding: 'Partner Funding',
   supporter_capital: 'Supporter Capital',
@@ -118,7 +119,7 @@ const labelFor = (cat: string) =>
 
 const FILTER_GROUPS: { label: string; value: string; categories: string[] | null }[] = [
   { label: 'All Movements', value: 'all', categories: null },
-  { label: 'Deposits & Funding', value: 'inflow', categories: ['wallet_deposit', 'deposit', 'partner_funding', 'supporter_capital', 'share_capital', 'tenant_repayment', 'agent_repayment'] },
+  { label: 'Deposits & Funding', value: 'inflow', categories: ['wallet_deposit', 'deposit', 'partner_funding', 'supporter_capital', 'share_capital', 'tenant_repayment', 'tenant_repayment_collected', 'agent_repayment'] },
   { label: 'Withdrawals', value: 'withdrawals', categories: ['wallet_withdrawal', 'proxy_partner_withdrawal', 'wallet_deduction'] },
   { label: 'ROI', value: 'roi', categories: ['roi_expense', 'roi_payout', 'roi_wallet_credit', 'roi_reinvestment'] },
   { label: 'Commissions', value: 'commissions', categories: ['agent_commission_earned', 'agent_commission', 'agent_commission_withdrawal', 'partner_commission'] },

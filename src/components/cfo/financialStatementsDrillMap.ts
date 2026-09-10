@@ -43,7 +43,10 @@ export const FS_DRILL_MAP: Record<string, DrillSpec> = {
   'R&D Expenses Paid':               { categories: ['research_development_expense'], scope: 'platform', direction: 'cash_out' },
 
   // ── Cash Flow: Rent Facilitation
-  'Rent Repayments Received':        { categories: ['rent_repayment', 'loan_repayment', 'tenant_repayment'], scope: 'platform', direction: 'cash_in' },
+  // `tenant_repayment_collected` (agent field collections, CR A3) posts cash_out
+  // while the legacy categories post cash_in, so no single direction pin fits.
+  // The drill dialog already sums cash_in and cash_out separately.
+  'Rent Repayments Received':        { categories: ['rent_repayment', 'loan_repayment', 'tenant_repayment', 'tenant_repayment_collected'], scope: 'platform' },
   'Rent Principal Collected':        { categories: ['rent_principal_collected'], direction: 'cash_in' },
   'Agent Repayments':                { categories: ['agent_repayment'], scope: 'platform', direction: 'cash_in' },
   'Rent Deployed to Landlords':      { categories: ['rent_disbursement'], direction: 'cash_out' },
