@@ -194,7 +194,21 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Both tenant and agent wallets have insufficient funds" }), { status: 400, headers: corsContentType });
     }
 
-    await supabase.rpc("record_rent_request_repayment", { p_tenant_id: rr.tenant_id, p_amount: totalCollected });
+    // Try the Treasury waterfall first; fall back to legacy repayment so a
+    // missing funding-side L7 credit never blocks the tenant's payment.
+    try {
+      const { error: waterfallErr } = await supabase.rpc("record_rent_request_repayment_v2", {
+        p_tenant_id: rr.tenant_id,
+        p_amount: totalCollected,
+        p_source_table: "manual_collect_rent",
+        p_source_id: crypto.randomUUID(),
+      });
+      if (waterfallErr) throw waterfallErr;
+      console.log('[manual-collect-rent] Treasury waterfall recorded for rent request', rent_request_id);
+    } catch (waterfallErr: any) {
+      console.error('[manual-collect-rent] Treasury waterfall failed, falling back to legacy repayment:', waterfallErr?.message || waterfallErr);
+      await supabase.rpc("record_rent_request_repayment", { p_tenant_id: rr.tenant_id, p_amount: totalCollected });
+    }
 
     const commission = Math.round(totalCollected * 0.10);
     if (commission > 0 && rr.agent_id) {

@@ -395,9 +395,22 @@ Deno.serve(async (req) => {
           });
 
           if (charge.rent_request_id) {
-            await supabase.rpc("record_rent_request_repayment", {
-              p_tenant_id: charge.tenant_id, p_amount: 0,
-            });
+            // Try the Treasury waterfall first (amount=0 is effectively a no-op allocation);
+            // fall back to legacy repayment so a missing funding-side L7 credit never blocks processing.
+            try {
+              const { error: waterfallErr } = await supabase.rpc("record_rent_request_repayment_v2", {
+                p_tenant_id: charge.tenant_id,
+                p_amount: 0,
+                p_source_table: "subscription_charges",
+                p_source_id: charge.id,
+              });
+              if (waterfallErr) throw waterfallErr;
+            } catch (waterfallErr: any) {
+              console.error(`[auto-charge-wallets] Treasury waterfall failed for charge ${charge.id} (zero amount), falling back:`, waterfallErr?.message || waterfallErr);
+              await supabase.rpc("record_rent_request_repayment", {
+                p_tenant_id: charge.tenant_id, p_amount: 0,
+              });
+            }
           }
 
           await supabase.from("notifications").insert({
