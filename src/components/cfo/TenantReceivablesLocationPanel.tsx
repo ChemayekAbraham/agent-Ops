@@ -196,9 +196,17 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
             const share =
               breakdown.data.total > 0 ? (row.outstanding / breakdown.data.total) * 100 : 0;
             const isOpen = accountsFor === row.label;
-            const canDrill = !!NEXT_LEVEL[level] && row.label !== 'Unmapped';
+            const isUnmapped = row.label === UNMAPPED;
+            const canDrill = !!NEXT_LEVEL[level] && !isUnmapped;
             return (
-              <div key={row.label} className="rounded-xl border border-border/60 bg-card">
+              <div
+                key={row.label}
+                className={
+                  isUnmapped
+                    ? 'rounded-xl border border-amber-500/40 bg-amber-500/5'
+                    : 'rounded-xl border border-border/60 bg-card'
+                }
+              >
                 <div className="flex items-center justify-between gap-2 px-3 py-2.5">
                   <button
                     type="button"
