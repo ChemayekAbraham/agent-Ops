@@ -48682,8 +48682,44 @@ export type Database = {
         Args: { p_granularity: string; p_period_start: string }
         Returns: string
       }
+      engrep_resolve_claim: {
+        Args: { p_day: string; p_names: string[] }
+        Returns: string[]
+      }
       engrep_set_liveness: {
         Args: { p_row_id: string; p_verdict: string }
+        Returns: undefined
+      }
+      engrep_svc_detect_unclaimed: {
+        Args: { p_window_id: string }
+        Returns: number
+      }
+      engrep_svc_ensure_window: {
+        Args: { p_day: string; p_granularity: string }
+        Returns: string
+      }
+      engrep_svc_ingest_row: {
+        Args: {
+          p_author_email?: string
+          p_change_classes?: string[]
+          p_claimed_objects?: string[]
+          p_claims_schema?: boolean
+          p_commit_subject: string
+          p_engineer_code?: string
+          p_evidence_ref: string
+          p_fence_path?: string
+          p_fenced_breach?: boolean
+          p_migration_bearing?: boolean
+          p_self_fix?: boolean
+          p_self_fix_of?: string
+          p_source: string
+          p_untagged?: boolean
+          p_window_id: string
+        }
+        Returns: string
+      }
+      engrep_svc_mark_harvested: {
+        Args: { p_window_id: string }
         Returns: undefined
       }
       enqueue_agent_capability_job: {
