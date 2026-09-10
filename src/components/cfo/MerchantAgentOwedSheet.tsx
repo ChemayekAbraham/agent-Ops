@@ -406,6 +406,7 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
             </Tabs>
           </div>
         )}
+        </div>
       </SheetContent>
     </Sheet>
   );
