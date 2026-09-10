@@ -10,6 +10,8 @@ export interface MerchantAgentOwedRow {
   email_sent_total: number;
   email_returned_total: number;
   paid_out_total: number;
+  claimed_pending_total: number;
+  claimed_pending_count: number;
   still_held: number;
   email_sent_count: number;
   email_returned_count: number;
@@ -58,6 +60,8 @@ export function useMerchantAgentMoneyOwed(enabled = true) {
           email_sent_total: Number(a.email_sent_total ?? 0),
           email_returned_total: Number(a.email_returned_total ?? 0),
           paid_out_total: Number(a.paid_out_total ?? 0),
+          claimed_pending_total: Number(a.claimed_pending_total ?? 0),
+          claimed_pending_count: Number(a.claimed_pending_count ?? 0),
           still_held: Number(a.still_held ?? 0),
           email_sent_count: Number(a.email_sent_count ?? 0),
           email_returned_count: Number(a.email_returned_count ?? 0),
