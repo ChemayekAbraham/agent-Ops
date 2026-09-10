@@ -13,10 +13,12 @@ import {
 } from 'lucide-react';
 import { useMerchantAgentMoneyOwed } from '@/hooks/useMerchantAgentMoneyOwed';
 import {
-  useMerchantAgentMovements,
   useBayoMercyMovements,
-  useUnregisteredRecipientTransfers,
+  useMerchantAgentMovementsPage,
+  useUnregisteredRecipientTransfersPage,
+  useUnregisteredRecipientTransfersSummary,
   type FlaggedTransfer,
+  type MerchantAgentMovement,
 } from '@/hooks/useMerchantAgentMovements';
 
 
