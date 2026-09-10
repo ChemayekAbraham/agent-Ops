@@ -58,12 +58,13 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
       try {
         const { data, error } = await supabase
           .from('landlords')
-          .select('id, name, phone, mobile_money_name, mobile_money_number, bank_name, account_number, monthly_rent, has_smartphone, number_of_houses, caretaker_name, caretaker_phone, tin, electricity_meter_number, water_meter_number, village, district, region, property_address')
+          .select('id, name, phone, mobile_money_name, mobile_money_number, bank_name, account_number, bank_branch, bank_account_name, monthly_rent, has_smartphone, number_of_houses, caretaker_name, caretaker_phone, tin, electricity_meter_number, water_meter_number, village, district, region, property_address')
           .eq('id', landlord.id)
           .single();
 
         if (error) throw error;
         if (data) {
+          const row = data as any;
           setForm({
             name: data.name || '',
             phone: data.phone || '',
@@ -71,6 +72,9 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
             mobile_money_number: data.mobile_money_number || '',
             bank_name: data.bank_name || '',
             account_number: data.account_number || '',
+            bank_branch: row.bank_branch || '',
+            bank_account_name: row.bank_account_name || '',
+
             monthly_rent: data.monthly_rent || '',
             has_smartphone: data.has_smartphone ?? false,
             number_of_houses: data.number_of_houses || '',
@@ -111,6 +115,9 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
         mobile_money_number: form.mobile_money_number?.trim() || null,
         bank_name: form.bank_name?.trim() || null,
         account_number: form.account_number?.trim() || null,
+        bank_branch: form.bank_branch?.trim() || null,
+        bank_account_name: form.bank_account_name?.trim() || null,
+
         monthly_rent: form.monthly_rent ? Number(form.monthly_rent) : null,
         has_smartphone: form.has_smartphone,
         number_of_houses: form.number_of_houses ? Number(form.number_of_houses) : null,
@@ -215,6 +222,15 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
                     <Label className="text-xs">Account Number</Label>
                     <Input value={form.account_number || ''} onChange={e => setForm(f => ({ ...f, account_number: e.target.value }))} />
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Branch</Label>
+                    <Input value={form.bank_branch || ''} onChange={e => setForm(f => ({ ...f, bank_branch: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Bank Account Name</Label>
+                    <Input value={form.bank_account_name || ''} onChange={e => setForm(f => ({ ...f, bank_account_name: e.target.value }))} />
+                  </div>
+
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">

@@ -105,6 +105,60 @@ export function useAgentArrears(agentId: string | null | undefined, enabled = tr
   });
 }
 
+/** One Rent Plan whose cycle has ended while a balance remains. */
+export interface AgentExpiredCyclePlan {
+  rent_request_id: string;
+  tenant_id: string | null;
+  tenant_name: string | null;
+  tenant_phone: string | null;
+  status: string | null;
+  term_ends_on: string | null;
+  days_overdue: number;
+  outstanding_ugx: number;
+  total_repayment: number;
+  amount_repaid: number;
+  last_payment_on: string | null;
+}
+
+export interface AgentExpiredCycles {
+  agent_id: string;
+  as_at: string;
+  totals: {
+    plans: number;
+    outstanding_ugx: number;
+    oldest_term_end: string | null;
+    max_days_overdue: number;
+  };
+  plans: AgentExpiredCyclePlan[];
+}
+
+export const agentExpiredCyclesKey = (agentId: string | null | undefined) =>
+  ['agent-expired-cycles', agentId] as const;
+
+/**
+ * Rent Plans past their end date that still owe.
+ *
+ * Deliberately a separate read from `useAgentArrears`. Once a plan's term has
+ * passed there are no more days to pin, so `agent_expected_collection` returns
+ * 0 and the arrears queue — floored at the go-live date — holds almost none of
+ * those days either. The truthful figure for an expired cycle is the plan's own
+ * outstanding balance, which is what `agent_expired_cycles` reports.
+ */
+export function useAgentExpiredCycles(agentId: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: agentExpiredCyclesKey(agentId),
+    enabled: Boolean(agentId) && enabled,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<AgentExpiredCycles | null> => {
+      const { data, error } = await rpc('agent_expired_cycles', {
+        p_agent_id: agentId,
+      });
+      if (error) throw error;
+      return (data as AgentExpiredCycles) ?? null;
+    },
+  });
+}
+
 /**
  * Call after a collection is recorded or reversed — both change which days are
  * settled, so every arrears surface must re-read rather than show a stale split.
@@ -114,11 +168,13 @@ export function useInvalidateArrears() {
   return (opts?: { rentRequestId?: string | null; agentId?: string | null }) => {
     queryClient.invalidateQueries({ queryKey: ['agent-collect-context'] });
     queryClient.invalidateQueries({ queryKey: ['agent-arrears-overview'] });
+    queryClient.invalidateQueries({ queryKey: ['agent-expired-cycles'] });
     if (opts?.rentRequestId) {
       queryClient.invalidateQueries({ queryKey: collectContextKey(opts.rentRequestId) });
     }
     if (opts?.agentId) {
       queryClient.invalidateQueries({ queryKey: agentArrearsKey(opts.agentId) });
+      queryClient.invalidateQueries({ queryKey: agentExpiredCyclesKey(opts.agentId) });
     }
   };
 }

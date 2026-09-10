@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { AutoGrowTextarea } from '@/components/budget/AutoGrowTextarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Save, Send, Trash2, Upload, FileText, AlertTriangle, X } from 'lucide-react';
+import { Loader2, Plus, Send, Trash2, Upload, FileText, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -124,7 +124,6 @@ export default function DepartmentBudgetSubmission({
   const [title, setTitle] = useState('');
   const [purpose, setPurpose] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
-  const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
   const [route, setRoute] = useState<'direct' | 'coo' | null>(null);
@@ -230,13 +229,6 @@ export default function DepartmentBudgetSubmission({
   }, [initialSubmissionId, resumedDraftId, submissions]);
 
 
-  const startNew = () => {
-    setActiveId(null);
-    setTitle('');
-    setPurpose('');
-    setLines([emptyLine()]);
-  };
-
   const total = lines.reduce(
     (sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.unit_amount) || 0), 0,
   );
@@ -291,19 +283,31 @@ export default function DepartmentBudgetSubmission({
     return newId;
   };
 
-  const saveDraft = async () => {
-    setSaving(true);
-    try {
-      const id = await persistDraft();
-      if (!id) return;
-      toast.success('Draft saved');
-      await loadSubmissions();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save draft');
-    } finally {
-      setSaving(false);
-    }
-  };
+  /**
+   * Plain-language reason the budget cannot be submitted yet, or null when the
+   * form is complete. Mirrors what persistDraft and budget_submit_submission
+   * require, so the button only enables when the submission will actually go
+   * through — the database stays the authority on every write.
+   */
+  const incompleteReason = useMemo((): string | null => {
+    if (!cycleId) return 'There is no open budget cycle to submit into yet.';
+    if (!departmentId) return 'Your department could not be resolved, so this budget cannot be filed.';
+    if (!title.trim()) return 'Add a title for this budget.';
+    if (!purpose.trim()) return 'Add the purpose of this budget.';
+    const filled = lines.filter(l =>
+      l.description.trim() || l.unit_amount.trim() || l.justification.trim(),
+    );
+    if (!filled.length) return 'Add at least one item with a description, quantity and unit cost.';
+    const incomplete = filled.some(l =>
+      !l.description.trim()
+      || !(Number(l.quantity) > 0)
+      || !(Number(l.unit_amount) > 0)
+      || !l.justification.trim(),
+    );
+    if (incomplete) return 'Every item needs a description, quantity, unit cost and justification.';
+    return null;
+  }, [cycleId, departmentId, title, purpose, lines]);
+
 
   /**
    * Submit straight from a filled-in form. The draft is written first because
@@ -546,22 +550,21 @@ export default function DepartmentBudgetSubmission({
             <span className="font-mono text-base font-bold tabular-nums text-foreground">{formatUGX(total)}</span>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-end">
-            <Button size="sm" variant="outline" className="rounded-lg text-xs sm:mr-auto"
-              onClick={startNew} disabled={!!pendingSubmission}>
-              <Plus className="h-3.5 w-3.5" /> New budget
-            </Button>
-            {!readOnly && (
-              <Button size="sm" onClick={saveDraft} disabled={saving} variant="outline" className="rounded-lg text-xs">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save draft
-              </Button>
-            )}
-            {!readOnly && (
-              <Button size="sm" onClick={submit} disabled={submitting || saving} className="rounded-lg text-xs">
+          {!readOnly && (
+            <div className="flex flex-col gap-2 border-t border-border pt-5">
+              <Button
+                size="sm"
+                onClick={submit}
+                disabled={submitting || !!incompleteReason}
+                className="w-full rounded-lg text-xs sm:w-auto sm:self-end"
+              >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Submit for review
               </Button>
-            )}
-          </div>
+              {incompleteReason && (
+                <p className="text-xs text-muted-foreground sm:text-right">{incompleteReason}</p>
+              )}
+            </div>
+          )}
           {readOnly && (
             <p className="text-xs text-muted-foreground">
               {pendingSubmission && activeId !== pendingSubmission.id
