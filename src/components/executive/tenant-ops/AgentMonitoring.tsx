@@ -380,7 +380,8 @@ export function AgentMonitoring() {
   const [selectedAgent, setSelectedAgent] = useState<AgentRow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
   const bounds = useMemo(() => dayBounds(day), [day]);
-  const createdAfter = tab === 'after-aug-2026' ? '2026-08-02T00:00:00+03:00' : undefined;
+  const createdAfter = tab === 'after-aug-2026' ? AUG_2026_BOUNDARY : undefined;
+  const createdBefore = tab === 'before-aug-2026' ? AUG_2026_BOUNDARY : undefined;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['tenant-ops-agent-monitoring', format(day, 'yyyy-MM-dd')],
