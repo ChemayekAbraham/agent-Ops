@@ -278,6 +278,14 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                 <p className="mt-2.5 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-lg px-2 py-1.5">
                   Real float on provider lines + verified cash + banked deposits
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setMerchantOwedOpen(true)}
+                  className="mt-1.5 w-full text-left text-[11px] text-orange-700 dark:text-orange-400 bg-orange-50/70 dark:bg-orange-950/30 rounded-lg px-2 py-1.5 hover:bg-orange-100/70 dark:hover:bg-orange-950/50 transition-colors"
+                >
+                  {fmt(merchantHeld + bayoMercyHeld)} has already left these lines to merchant agents
+                  and the Bayo Mercy account — it now shows under Money We Owe. Tap for the emails.
+                </button>
               </CardContent>
             </Card>
             <HeroCard
