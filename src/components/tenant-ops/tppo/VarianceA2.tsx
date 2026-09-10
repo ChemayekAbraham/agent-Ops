@@ -123,41 +123,70 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
   // day is closed the RPC drops `provisional`, so the label disappears by itself.
   const currentStillCounting = report?.provisional === true && !currentIsClosed;
 
-  const rows = [
-    {
-      key: 'earlier',
-      label: earlierLabel,
-      scheduled: earlier?.scheduled_due_ugx ?? null,
-      collected: earlier?.collected_ugx ?? null,
-      rate: earlier?.collection_rate_pct ?? null,
-      arrearsTarget: earlier?.arrears_target_ugx ?? null,
-      current: false,
-      stillCounting: false,
-      basisVersion: basisVersionOf(earlier),
-    },
-    {
-      key: 'prior',
-      label: priorLabel,
-      scheduled: report?.prior?.scheduled_due_ugx ?? null,
-      collected: report?.prior?.collected_ugx ?? null,
-      rate: report?.prior?.collection_rate_pct ?? null,
-      arrearsTarget: report?.prior?.arrears_target_ugx ?? null,
-      current: false,
-      stillCounting: false,
-      basisVersion: basisVersionOf(report?.prior),
-    },
-    {
-      key: 'current',
-      label: currentLabel,
-      scheduled: report?.scheduled_due_ugx ?? null,
-      collected: report?.collected_ugx ?? null,
-      rate: report?.collection_rate_pct ?? null,
-      arrearsTarget: report?.arrears_target_ugx ?? null,
-      current: true,
-      stillCounting: currentStillCounting,
-      basisVersion: currentBasis,
-    },
-  ].map((row) => ({ ...row, differentBasis: row.basisVersion !== currentBasis }));
+  // For a closed day the variance is between the day in question (current)
+  // and its previous day (prior), so the 3rd date row (earlier) is omitted.
+  const rows = (
+    currentIsClosed
+      ? [
+          {
+            key: 'prior',
+            label: priorLabel,
+            scheduled: report?.prior?.scheduled_due_ugx ?? null,
+            collected: report?.prior?.collected_ugx ?? null,
+            rate: report?.prior?.collection_rate_pct ?? null,
+            arrearsTarget: report?.prior?.arrears_target_ugx ?? null,
+            current: false,
+            stillCounting: false,
+            basisVersion: basisVersionOf(report?.prior),
+          },
+          {
+            key: 'current',
+            label: currentLabel,
+            scheduled: report?.scheduled_due_ugx ?? null,
+            collected: report?.collected_ugx ?? null,
+            rate: report?.collection_rate_pct ?? null,
+            arrearsTarget: report?.arrears_target_ugx ?? null,
+            current: true,
+            stillCounting: currentStillCounting,
+            basisVersion: currentBasis,
+          },
+        ]
+      : [
+          {
+            key: 'earlier',
+            label: earlierLabel,
+            scheduled: earlier?.scheduled_due_ugx ?? null,
+            collected: earlier?.collected_ugx ?? null,
+            rate: earlier?.collection_rate_pct ?? null,
+            arrearsTarget: earlier?.arrears_target_ugx ?? null,
+            current: false,
+            stillCounting: false,
+            basisVersion: basisVersionOf(earlier),
+          },
+          {
+            key: 'prior',
+            label: priorLabel,
+            scheduled: report?.prior?.scheduled_due_ugx ?? null,
+            collected: report?.prior?.collected_ugx ?? null,
+            rate: report?.prior?.collection_rate_pct ?? null,
+            arrearsTarget: report?.prior?.arrears_target_ugx ?? null,
+            current: false,
+            stillCounting: false,
+            basisVersion: basisVersionOf(report?.prior),
+          },
+          {
+            key: 'current',
+            label: currentLabel,
+            scheduled: report?.scheduled_due_ugx ?? null,
+            collected: report?.collected_ugx ?? null,
+            rate: report?.collection_rate_pct ?? null,
+            arrearsTarget: report?.arrears_target_ugx ?? null,
+            current: true,
+            stillCounting: currentStillCounting,
+            basisVersion: currentBasis,
+          },
+        ]
+  ).map((row) => ({ ...row, differentBasis: row.basisVersion !== currentBasis }));
 
   const anyDifferentBasis = rows.some((row) => row.differentBasis);
 
