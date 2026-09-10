@@ -12,7 +12,7 @@ import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
   ChevronRight, Info, CalendarDays, Download,
   PiggyBank, BarChart3, Package, ChevronDown,
-  Landmark, Vault, Banknote,
+  Landmark, Vault, Banknote, CheckCircle2, AlertTriangle,
 } from 'lucide-react';
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
