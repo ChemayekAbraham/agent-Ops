@@ -81,7 +81,8 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
         </div>
       </button>
 
-      {isLoading ? (
+      {open ? (
+      isLoading ? (
         <div className="mt-4 space-y-2">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-4 w-32" />
