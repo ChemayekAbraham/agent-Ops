@@ -263,7 +263,14 @@ export function MoneyWeCanUseBreakdown() {
     fetchNextPage: merchantFetchNext,
   } = useMerchantAgentMovementsPage(null, open, PAGE_SIZE);
   const { data: bayoMoves, isLoading: bayoLoading } = useBayoMercyMovements(open);
-  const { data: flagged, isLoading: flagLoading } = useUnregisteredRecipientTransfers(open);
+  const flaggedSummary = useUnregisteredRecipientTransfersSummary(open);
+  const {
+    data: flaggedPages,
+    isLoading: flagLoading,
+    hasNextPage: flagHasNext,
+    isFetchingNextPage: flagFetchingNext,
+    fetchNextPage: flagFetchNext,
+  } = useUnregisteredRecipientTransfersPage(open, 120, PAGE_SIZE);
 
   const haveLines = [
     {
