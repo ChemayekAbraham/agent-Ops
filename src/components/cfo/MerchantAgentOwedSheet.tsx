@@ -16,7 +16,9 @@ import {
   useMerchantAgentMovements,
   useBayoMercyMovements,
   useUnregisteredRecipientTransfers,
+  type FlaggedTransfer,
 } from '@/hooks/useMerchantAgentMovements';
+
 
 const fmt = (n: number) =>
   `${n < 0 ? '-' : ''}UGX ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.abs(n))}`;
