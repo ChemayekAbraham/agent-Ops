@@ -578,6 +578,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       <PhoneMoneyStatementSheet
         line={actualMoneyLine}
         onOpenChange={(open) => !open && setActualMoneyLine(null)}
+        onSelectLine={(next) => setActualMoneyLine(next)}
       />
       <MerchantAgentOwedSheet open={merchantOwedOpen} onOpenChange={setMerchantOwedOpen} />
       {/* ── FLOATING PAY FAB (mobile only) ── */}
