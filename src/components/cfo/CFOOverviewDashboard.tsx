@@ -273,14 +273,16 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<Package className="h-5 w-5 text-orange-50" />}
               iconBg="bg-orange-500"
               title="Money We Owe"
-              value={fmt(walletTotal)}
+              value={fmt(moneyWeOweTotal)}
               items={[
                 { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
+                { dot: 'bg-orange-500', label: 'In Merchant Agent Hands', value: fmt(merchantHeld) },
+                { dot: 'bg-orange-500', label: 'Bayo Mercy Account', value: fmt(bayoMercyHeld) },
                 { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
               ]}
-              footer="Commitments not yet paid out"
+              footer="Wallets + money sitting outside the platform (tap for the emails behind it)"
               footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
-              onClick={() => setActiveBreakdown('wallets')}
+              onClick={() => setMerchantOwedOpen(true)}
             />
             <HeroCard
               icon={<BarChart3 className="h-5 w-5 text-blue-50" />}
