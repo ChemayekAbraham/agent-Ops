@@ -298,26 +298,28 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                 </td>
               </tr>
             ))}
-            <tr className="font-medium">
-              <td className="py-2 pr-3">Increase / decrease</td>
-              <td className={`py-2 pr-3 text-right tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
-                {signedMoney(report?.scheduled_delta_ugx)}
-              </td>
-              <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
-                —
-              </td>
-              <td className={`py-2 pr-3 text-right tabular-nums ${arrearsTargetDelta === null ? 'text-muted-foreground' : signedClass(arrearsTargetDelta)}`}>
-                {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
-              </td>
-              <td
-                className={`py-2 text-right tabular-nums ${
-                  anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
-                }`}
-              >
-                {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
-              </td>
+            {currentStillCounting && (
+              <tr className="font-medium">
+                <td className="py-2 pr-3">Increase / decrease</td>
+                <td className={`py-2 pr-3 text-right tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
+                  {signedMoney(report?.scheduled_delta_ugx)}
+                </td>
+                <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
+                  —
+                </td>
+                <td className={`py-2 pr-3 text-right tabular-nums ${arrearsTargetDelta === null ? 'text-muted-foreground' : signedClass(arrearsTargetDelta)}`}>
+                  {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
+                </td>
+                <td
+                  className={`py-2 text-right tabular-nums ${
+                    anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
+                  }`}
+                >
+                  {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
+                </td>
 
-            </tr>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
