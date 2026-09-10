@@ -255,14 +255,14 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                   className="w-full text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-600">
-                      <PiggyBank className="h-5 w-5 text-emerald-50" />
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-emerald-600">
+                      <PiggyBank className="h-4 w-4 text-emerald-50" />
                     </div>
                     <span
-                      className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 shrink-0"
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-muted/60 shrink-0"
                       aria-hidden
                     >
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
                     </span>
                   </div>
                   <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">Money We Have</p>
@@ -388,7 +388,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               </CardContent>
             </Card>
             <HeroCard
-              icon={<Package className="h-5 w-5 text-orange-50" />}
+              icon={<Package className="h-4 w-4 text-orange-50" />}
               iconBg="bg-orange-500"
               title="Money We Owe"
               value={fmt(moneyWeOweTotal)}
@@ -401,7 +401,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setMerchantOwedOpen(true)}
             />
             <HeroCard
-              icon={<BarChart3 className="h-5 w-5 text-blue-50" />}
+              icon={<BarChart3 className="h-4 w-4 text-blue-50" />}
               iconBg="bg-blue-600"
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
@@ -423,7 +423,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               belongs directly beneath it rather than further down the page. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <HeroCard
-              icon={<Vault className="h-5 w-5 text-indigo-50" />}
+              icon={<Vault className="h-4 w-4 text-indigo-50" />}
               iconBg="bg-indigo-600"
               title="Money in Treasury / Platform"
               value={positionUnavailable ? '—' : fmt(outsideBankCash)}
@@ -436,7 +436,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setActiveBreakdown('cash')}
             />
             <HeroCard
-              icon={<Landmark className="h-5 w-5 text-sky-50" />}
+              icon={<Landmark className="h-4 w-4 text-sky-50" />}
               iconBg="bg-sky-500"
               title="Money in Bank (Position View)"
               value={positionUnavailable ? '—' : fmt(bankCash)}
@@ -735,12 +735,12 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
           className="w-full text-left p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="flex items-start justify-between gap-3">
-            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
             <span
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 shrink-0"
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-muted/60 shrink-0"
               aria-hidden
             >
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className="h-3 w-3 text-muted-foreground" />
             </span>
           </div>
 
