@@ -9,9 +9,14 @@ import {
   ChevronRight,
   ArrowUpRight,
   ArrowDownLeft,
+  AlertTriangle,
 } from 'lucide-react';
 import { useMerchantAgentMoneyOwed } from '@/hooks/useMerchantAgentMoneyOwed';
-import { useMerchantAgentMovements, useBayoMercyMovements } from '@/hooks/useMerchantAgentMovements';
+import {
+  useMerchantAgentMovements,
+  useBayoMercyMovements,
+  useUnregisteredRecipientTransfers,
+} from '@/hooks/useMerchantAgentMovements';
 
 const fmt = (n: number) =>
   `${n < 0 ? '-' : ''}UGX ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.abs(n))}`;
@@ -83,23 +88,23 @@ function MovementRow({
           {tag ? ` · ${tag}` : ''}
           {reference ? ` · Ref ${reference}` : ''}
         </p>
-        {note ? (
-          <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground/80">{note}</p>
-        ) : null}
+        {note ? <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground/80">{note}</p> : null}
       </div>
     </div>
   );
 }
 
 /**
- * Read-only drilldown behind the "Sent to Merchant Agents" and "Bayo Mercy bank
- * account" lines on the CFO Money We Owe card. Every figure and every movement
- * comes from the Financial Ops email extractor; nothing is written here.
+ * Read-only drilldown behind the two Money We Owe lines: money sent to merchant
+ * agents and money sent to the Bayo Mercy bank account, plus a flag list of
+ * money-out transfers whose recipient is not a registered merchant agent.
+ * Every figure comes from the Financial Ops email extractor; nothing is written.
  */
 export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
   const { data, isLoading, error } = useMerchantAgentMoneyOwed(open);
   const { data: movements, isLoading: movLoading } = useMerchantAgentMovements(open);
   const { data: bayoRows, isLoading: bayoLoading } = useBayoMercyMovements(open);
+  const { data: flagged, isLoading: flagLoading } = useUnregisteredRecipientTransfers(open);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const agents = (data?.agents ?? []).filter((a) => a.still_held > 0 || a.email_sent_total > 0);
@@ -107,7 +112,7 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
   const byDesk = useMemo(() => {
     const map = new Map<string, typeof movements>();
     (movements ?? []).forEach((m) => {
-      const list = map.get(m.desk_id) ?? [];
+      const list = (map.get(m.desk_id) ?? []) as any[];
       list.push(m);
       map.set(m.desk_id, list as any);
     });
@@ -116,12 +121,13 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
 
   const bayoIn = (bayoRows ?? []).filter((r) => r.direction === 'in').reduce((s, r) => s + r.amount, 0);
   const bayoOut = (bayoRows ?? []).filter((r) => r.direction === 'out').reduce((s, r) => s + r.amount, 0);
+  const flaggedCount = flagged?.transfers.length ?? 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader className="text-left">
-          <SheetTitle className="text-base">Money held outside the platform</SheetTitle>
+          <SheetTitle className="text-base">Money sitting with other people</SheetTitle>
           <SheetDescription className="text-xs">
             Built from the extracted MTN, Airtel and bank emails in Financial Ops. Read-only.
           </SheetDescription>
@@ -139,14 +145,14 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
           <div className="mt-4 space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-border bg-muted/30 p-3">
-                <p className="text-[11px] text-muted-foreground">In merchant agent hands</p>
+                <p className="text-[11px] text-muted-foreground">Sent to merchant agents</p>
                 <p className="mt-1 font-mono text-sm font-bold tabular-nums">
                   {fmt(data?.merchantAgentTotal ?? 0)}
                 </p>
                 <p className="mt-0.5 text-[10px] text-muted-foreground">{agents.length} desk(s)</p>
               </div>
               <div className="rounded-xl border border-border bg-muted/30 p-3">
-                <p className="text-[11px] text-muted-foreground">Bayo Mercy bank account</p>
+                <p className="text-[11px] text-muted-foreground">Sent to Bayo Mercy</p>
                 <p className="mt-1 font-mono text-sm font-bold tabular-nums">
                   {fmt(data?.bayoMercyTotal ?? 0)}
                 </p>
@@ -155,20 +161,33 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                 </p>
               </div>
               <div className="rounded-xl border border-orange-500/40 bg-orange-50/60 p-3 dark:bg-orange-950/20">
-                <p className="text-[11px] text-orange-700 dark:text-orange-400">Total held outside</p>
+                <p className="text-[11px] text-orange-700 dark:text-orange-400">Total we owe</p>
                 <p className="mt-1 font-mono text-sm font-bold tabular-nums text-orange-700 dark:text-orange-400">
                   {fmt(data?.total ?? 0)}
                 </p>
               </div>
             </div>
 
+            {flaggedCount > 0 && (
+              <div className="flex items-start gap-2 rounded-xl border border-amber-500/50 bg-amber-50/70 p-3 dark:bg-amber-950/20">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                  {flaggedCount} transfer(s) worth {fmt(flagged?.total ?? 0)} went to numbers that are not
+                  registered merchant agents. They are not counted as owed — see the Flagged tab.
+                </p>
+              </div>
+            )}
+
             <Tabs defaultValue="agents">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="agents" className="text-xs">
                   Merchant agents
                 </TabsTrigger>
                 <TabsTrigger value="bayo" className="text-xs">
-                  Bayo Mercy account
+                  Bayo Mercy
+                </TabsTrigger>
+                <TabsTrigger value="flagged" className="text-xs">
+                  Flagged{flaggedCount > 0 ? ` (${flaggedCount})` : ''}
                 </TabsTrigger>
               </TabsList>
 
@@ -296,15 +315,11 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-lg border border-border p-2">
                     <p className="text-[10px] text-muted-foreground">Money in</p>
-                    <p className="font-mono text-xs font-bold tabular-nums text-emerald-600">
-                      {fmt(bayoIn)}
-                    </p>
+                    <p className="font-mono text-xs font-bold tabular-nums text-emerald-600">{fmt(bayoIn)}</p>
                   </div>
                   <div className="rounded-lg border border-border p-2">
                     <p className="text-[10px] text-muted-foreground">Money out</p>
-                    <p className="font-mono text-xs font-bold tabular-nums text-orange-600">
-                      {fmt(bayoOut)}
-                    </p>
+                    <p className="font-mono text-xs font-bold tabular-nums text-orange-600">{fmt(bayoOut)}</p>
                   </div>
                   <div className="rounded-lg border border-border p-2">
                     <p className="text-[10px] text-muted-foreground">Still held</p>
@@ -333,10 +348,58 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                         party={r.counterparty}
                         reference={r.transaction_id}
                         note={r.note}
-                        tag={r.source === 'ledger' ? 'Financial Ops action' : 'Bank alert'}
+                        tag="Bank"
                       />
                     ))}
                   </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="flagged" className="mt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <p className="text-xs font-semibold">Sent to someone who is not a merchant agent</p>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Money-out transfers in the emails whose receiving number is not on any active merchant
+                  agent desk. Flagged for review only — they are not counted as money we owe.
+                </p>
+
+                {flagLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : flaggedCount === 0 ? (
+                  <p className="py-6 text-xs text-muted-foreground">
+                    Every money-out transfer went to a registered merchant agent.
+                  </p>
+                ) : (
+                  <>
+                    <div className="rounded-xl border border-amber-500/40 bg-amber-50/50 p-3 dark:bg-amber-950/20">
+                      <p className="text-[10px] text-amber-800 dark:text-amber-300">Total flagged</p>
+                      <p className="font-mono text-sm font-bold tabular-nums text-amber-800 dark:text-amber-300">
+                        {fmt(flagged?.total ?? 0)}
+                      </p>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto rounded-xl border border-border px-3 py-2">
+                      {(flagged?.transfers ?? []).map((t) => (
+                        <MovementRow
+                          key={t.id}
+                          direction="out"
+                          amount={t.amount}
+                          at={t.at}
+                          party={
+                            t.profile_name
+                              ? `${t.profile_name} (not a merchant agent)`
+                              : t.counterparty || t.recipient_phone || 'Unknown recipient'
+                          }
+                          reference={t.transaction_id}
+                          note={t.snippet}
+                          tag={`${channelLabel(t.channel)}${t.recipient_phone ? ` · ${t.recipient_phone}` : ''}`}
+                        />
+                      ))}
+                    </div>
+                  </>
                 )}
               </TabsContent>
             </Tabs>

@@ -16,7 +16,7 @@ export interface MerchantAgentMovement {
 }
 
 /**
- * Read-only, movement-level detail behind the merchant agent figures on the CFO
+ * Read-only movement-level detail behind the merchant agent figure on the CFO
  * Money We Owe card: every MTN / Airtel email transfer matched to an active
  * merchant desk phone. Nothing is written.
  */
@@ -56,7 +56,6 @@ export interface BayoMercyMovement {
   transaction_id: string | null;
   counterparty: string | null;
   note: string | null;
-  source: string | null;
 }
 
 /** Read-only movement detail behind the Bayo Mercy bank account figure. */
@@ -77,8 +76,56 @@ export function useBayoMercyMovements(enabled = true) {
         transaction_id: t.transaction_id ?? null,
         counterparty: t.counterparty ?? null,
         note: t.snippet ? String(t.snippet).slice(0, 200) : (t.subject ?? null),
-        source: t.movement_source ?? null,
       }));
+    },
+  });
+}
+
+export interface FlaggedTransfer {
+  id: string;
+  amount: number;
+  channel: string;
+  at: string | null;
+  transaction_id: string | null;
+  counterparty: string | null;
+  subject: string | null;
+  snippet: string | null;
+  recipient_phone: string | null;
+  profile_name: string | null;
+  profile_id: string | null;
+}
+
+/**
+ * Read-only flag: money-out mobile money email transfers whose recipient number
+ * is not on any active merchant agent desk.
+ */
+export function useUnregisteredRecipientTransfers(enabled = true, days = 120) {
+  return useQuery({
+    queryKey: ['cfo-unregistered-recipient-transfers', days],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<{ transfers: FlaggedTransfer[]; total: number }> => {
+      const { data, error } = await supabase.rpc('get_unregistered_recipient_transfers' as any, {
+        p_days: days,
+      } as any);
+      if (error) throw error;
+      const rows = ((data as any)?.transfers ?? []) as any[];
+      return {
+        total: Number((data as any)?.total ?? 0),
+        transfers: rows.map((t) => ({
+          id: String(t.id),
+          amount: Number(t.amount ?? 0),
+          channel: String(t.channel ?? ''),
+          at: t.at ?? null,
+          transaction_id: t.transaction_id ?? null,
+          counterparty: t.counterparty ?? null,
+          subject: t.subject ?? null,
+          snippet: t.snippet ?? null,
+          recipient_phone: t.recipient_phone ?? null,
+          profile_name: t.profile_name ?? null,
+          profile_id: t.profile_id ?? null,
+        })),
+      };
     },
   });
 }

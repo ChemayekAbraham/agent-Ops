@@ -161,7 +161,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   // so this is shown as owed, never subtracted from "Money We Have" twice.
   const merchantHeld = merchantOwed?.merchantAgentTotal ?? 0;
   const bayoMercyHeld = merchantOwed?.bayoMercyTotal ?? 0;
-  const moneyWeOweTotal = walletTotal + merchantHeld + bayoMercyHeld;
+  // Money We Owe is deliberately only the money sitting with other people:
+  // merchant agents and the Bayo Mercy account. Wallets and recorded
+  // liabilities keep their own cards elsewhere on this page.
+  const moneyWeOweTotal = merchantHeld + bayoMercyHeld;
   const moneyWeCanUse = Math.max(0, actualMoneyTotal - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
@@ -336,12 +339,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               title="Money We Owe"
               value={fmt(moneyWeOweTotal)}
               items={[
-                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal), onSelect: () => setActiveBreakdown('wallets') },
                 { dot: 'bg-orange-500', label: 'Sent to Merchant Agents (still with them)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
                 { dot: 'bg-orange-500', label: 'Sent to Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
-                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities), onSelect: () => setActiveBreakdown('wallets') },
               ]}
-              footer="Wallets + money sent to merchant agents and the Bayo Mercy bank account (tap any figure for its sources)"
+              footer="Only money sent to merchant agents and to Bayo Mercy (tap any figure for every transfer behind it)"
               footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
               onClick={() => setMerchantOwedOpen(true)}
             />
