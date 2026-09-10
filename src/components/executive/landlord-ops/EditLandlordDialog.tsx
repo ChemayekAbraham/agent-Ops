@@ -111,6 +111,9 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
         mobile_money_number: form.mobile_money_number?.trim() || null,
         bank_name: form.bank_name?.trim() || null,
         account_number: form.account_number?.trim() || null,
+        bank_branch: form.bank_branch?.trim() || null,
+        bank_account_name: form.bank_account_name?.trim() || null,
+
         monthly_rent: form.monthly_rent ? Number(form.monthly_rent) : null,
         has_smartphone: form.has_smartphone,
         number_of_houses: form.number_of_houses ? Number(form.number_of_houses) : null,
