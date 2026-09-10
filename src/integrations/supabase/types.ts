@@ -12238,6 +12238,47 @@ export type Database = {
           },
         ]
       }
+      engrep_fence_paths: {
+        Row: {
+          created_at: string
+          declared_by: string
+          declared_from: string
+          declared_to: string | null
+          engineer_id: string
+          id: string
+          note: string | null
+          path_pattern: string
+        }
+        Insert: {
+          created_at?: string
+          declared_by: string
+          declared_from?: string
+          declared_to?: string | null
+          engineer_id: string
+          id?: string
+          note?: string | null
+          path_pattern: string
+        }
+        Update: {
+          created_at?: string
+          declared_by?: string
+          declared_from?: string
+          declared_to?: string | null
+          engineer_id?: string
+          id?: string
+          note?: string | null
+          path_pattern?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_fence_paths_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_rows: {
         Row: {
           adjudicated_at: string | null
@@ -48602,6 +48643,10 @@ export type Database = {
           object_key: string
           object_kind: string
         }[]
+      }
+      engrep_check_fence: {
+        Args: { p_engineer_code: string; p_on: string; p_paths: string[] }
+        Returns: string
       }
       engrep_detect_unclaimed: {
         Args: { p_window_id: string }
