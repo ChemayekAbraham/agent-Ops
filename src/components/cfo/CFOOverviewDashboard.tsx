@@ -73,6 +73,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const { data: merchantOwed, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed();
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
+  const [positionCardExpanded, setPositionCardExpanded] = useState(false);
 
 
   const handleExportCommissions = useCallback(async () => {
