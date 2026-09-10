@@ -388,7 +388,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               </CardContent>
             </Card>
             <HeroCard
-              icon={<Package className="h-5 w-5 text-orange-50" />}
+              icon={<Package className="h-4 w-4 text-orange-50" />}
               iconBg="bg-orange-500"
               title="Money We Owe"
               value={fmt(moneyWeOweTotal)}
@@ -401,7 +401,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setMerchantOwedOpen(true)}
             />
             <HeroCard
-              icon={<BarChart3 className="h-5 w-5 text-blue-50" />}
+              icon={<BarChart3 className="h-4 w-4 text-blue-50" />}
               iconBg="bg-blue-600"
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
@@ -423,7 +423,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               belongs directly beneath it rather than further down the page. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <HeroCard
-              icon={<Vault className="h-5 w-5 text-indigo-50" />}
+              icon={<Vault className="h-4 w-4 text-indigo-50" />}
               iconBg="bg-indigo-600"
               title="Money in Treasury / Platform"
               value={positionUnavailable ? '—' : fmt(outsideBankCash)}
@@ -436,7 +436,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setActiveBreakdown('cash')}
             />
             <HeroCard
-              icon={<Landmark className="h-5 w-5 text-sky-50" />}
+              icon={<Landmark className="h-4 w-4 text-sky-50" />}
               iconBg="bg-sky-500"
               title="Money in Bank (Position View)"
               value={positionUnavailable ? '—' : fmt(bankCash)}
