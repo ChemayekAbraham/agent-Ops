@@ -546,22 +546,21 @@ export default function DepartmentBudgetSubmission({
             <span className="font-mono text-base font-bold tabular-nums text-foreground">{formatUGX(total)}</span>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-end">
-            <Button size="sm" variant="outline" className="rounded-lg text-xs sm:mr-auto"
-              onClick={startNew} disabled={!!pendingSubmission}>
-              <Plus className="h-3.5 w-3.5" /> New budget
-            </Button>
-            {!readOnly && (
-              <Button size="sm" onClick={saveDraft} disabled={saving} variant="outline" className="rounded-lg text-xs">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save draft
-              </Button>
-            )}
-            {!readOnly && (
-              <Button size="sm" onClick={submit} disabled={submitting || saving} className="rounded-lg text-xs">
+          {!readOnly && (
+            <div className="flex flex-col gap-2 border-t border-border pt-5">
+              <Button
+                size="sm"
+                onClick={submit}
+                disabled={submitting || !!incompleteReason}
+                className="w-full rounded-lg text-xs sm:w-auto sm:self-end"
+              >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Submit for review
               </Button>
-            )}
-          </div>
+              {incompleteReason && (
+                <p className="text-xs text-muted-foreground sm:text-right">{incompleteReason}</p>
+              )}
+            </div>
+          )}
           {readOnly && (
             <p className="text-xs text-muted-foreground">
               {pendingSubmission && activeId !== pendingSubmission.id
