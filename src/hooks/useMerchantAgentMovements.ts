@@ -167,7 +167,7 @@ export function useMerchantAgentMovementsPage(
 ) {
   return useInfiniteQuery({
     queryKey: ['cfo-merchant-agent-movements-page', deskId, pageSize],
-    enabled: enabled && !!deskId,
+    enabled,
     staleTime: 30_000,
     initialPageParam: null as MovementCursor | null,
     getNextPageParam: (lastPage: MerchantAgentMovement[]) => {
