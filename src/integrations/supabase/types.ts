@@ -51598,6 +51598,16 @@ export type Database = {
           tenant_phone: string
         }[]
       }
+      get_tenant_receivables_location_breakdown: {
+        Args: {
+          p_district_id?: number
+          p_level?: string
+          p_product_key?: string
+          p_region?: string
+          p_subcounty_id?: number
+        }
+        Returns: Json
+      }
       get_tenant_relocation_candidates: {
         Args: { p_limit?: number; p_offset?: number }
         Returns: {

@@ -444,3 +444,101 @@ export function useRecordForecastSnapshot() {
     },
   });
 }
+
+/* ---------------------------------------------------------------------------
+ * Tenant Products & Services: where the money is owed (approved Uganda
+ * location hierarchy — region -> district -> town/subcounty -> village).
+ * ------------------------------------------------------------------------- */
+
+export type TenantReceivablesLevel = 'region' | 'district' | 'subcounty' | 'village';
+
+export interface TenantReceivablesLocationProduct {
+  key: string;
+  label: string;
+  outstanding: number;
+  item_count: number;
+  tenant_count?: number;
+  scheduled_amount?: number;
+  projected_amount?: number;
+}
+
+export interface TenantReceivablesLocationItem {
+  item_id: string;
+  tenant: string | null;
+  product: string;
+  amount: number;
+  status: string | null;
+  village: string | null;
+  town: string | null;
+  district: string | null;
+}
+
+export interface TenantReceivablesLocationRow {
+  key: string;
+  label: string;
+  region: string | null;
+  district: string | null;
+  district_id: number | null;
+  subcounty_id: number | null;
+  outstanding: number;
+  item_count: number;
+  tenant_count: number;
+  scheduled_amount: number;
+  projected_amount: number;
+  fully_mapped: boolean;
+  products: TenantReceivablesLocationProduct[];
+  top_items: TenantReceivablesLocationItem[];
+}
+
+export interface TenantReceivablesLocationBreakdown {
+  currency: string;
+  as_at: string;
+  level: TenantReceivablesLevel;
+  total: number;
+  item_count: number;
+  tenant_count: number;
+  located_amount: number;
+  unmapped_amount: number;
+  products: TenantReceivablesLocationProduct[];
+  rows: TenantReceivablesLocationRow[];
+  source: string;
+}
+
+export interface TenantReceivablesLocationFilters {
+  level: TenantReceivablesLevel;
+  region?: string | null;
+  districtId?: number | null;
+  subcountyId?: number | null;
+  productKey?: string | null;
+}
+
+/**
+ * Tenant receivables grouped by the approved Uganda location hierarchy.
+ * Read-only: every figure comes from the same authoritative receivables
+ * definition used by the category totals.
+ */
+export function useTenantReceivablesByLocation(
+  filters: TenantReceivablesLocationFilters,
+  enabled = true
+) {
+  const { level, region = null, districtId = null, subcountyId = null, productKey = null } = filters;
+  return useQuery({
+    queryKey: ['tenant-receivables-location', level, region, districtId, subcountyId, productKey],
+    enabled,
+    queryFn: async (): Promise<TenantReceivablesLocationBreakdown> => {
+      const { data, error } = await (supabase.rpc as unknown as RpcFn)(
+        'get_tenant_receivables_location_breakdown',
+        {
+          p_level: level,
+          p_region: region,
+          p_district_id: districtId,
+          p_subcounty_id: subcountyId,
+          p_product_key: productKey,
+        }
+      );
+      if (error) throw error;
+      return data as TenantReceivablesLocationBreakdown;
+    },
+    staleTime: STALE_TIME,
+  });
+}
