@@ -90,11 +90,28 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
       const profileMap: Record<string, { name: string; phone: string }> = {};
       (profiles || []).forEach(p => { profileMap[p.id] = { name: p.full_name, phone: p.phone || '' }; });
 
+      const today = new Date();
       const items: CollectionItem[] = collectible.map(r => {
         const outstanding = (r.total_repayment || 0) - (r.amount_repaid || 0);
-        const daysOverdue = r.disbursed_at
-          ? Math.max(0, differenceInDays(new Date(), new Date(r.disbursed_at)) - Math.floor((r.amount_repaid || 0) / (r.daily_repayment || 1)))
-          : 0;
+        // Weekly plans owe one instalment per week, not per day. The shared
+        // schedule reading (the same one Tenant Ops uses) decides how far behind
+        // the tenant is; daily plans keep the original day count.
+        const schedule = describePlanSchedule(
+          {
+            daily_repayment: r.daily_repayment,
+            total_repayment: r.total_repayment,
+            amount_repaid: r.amount_repaid,
+            repayment_frequency: (r as any).repayment_frequency ?? null,
+            repayment_starts_on: (r as any).repayment_starts_on ?? null,
+            created_at: (r as any).created_at ?? (r.disbursed_at ?? today.toISOString()),
+          },
+          today,
+        );
+        const daysOverdue = schedule.weekly
+          ? schedule.periodsBehind * 7
+          : r.disbursed_at
+            ? Math.max(0, differenceInDays(today, new Date(r.disbursed_at)) - Math.floor((r.amount_repaid || 0) / (r.daily_repayment || 1)))
+            : 0;
         const priorityScore = daysOverdue * outstanding;
         const actualOutstanding = Math.max(0, outstanding);
         const isCompleted = actualOutstanding === 0;
