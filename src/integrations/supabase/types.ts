@@ -1929,6 +1929,13 @@ export type Database = {
             foreignKeyName: "agent_collections_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -3230,6 +3237,13 @@ export type Database = {
             foreignKeyName: "agent_float_withdrawals_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_float_withdrawals_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -3644,6 +3658,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_landlord_assignments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "agent_landlord_assignments_rent_request_id_fkey"
@@ -6151,6 +6172,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
@@ -9275,6 +9303,13 @@ export type Database = {
             foreignKeyName: "commission_accrual_ledger_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "commission_accrual_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -10241,6 +10276,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "default_recovery_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "default_recovery_ledger_rent_request_id_fkey"
@@ -12887,6 +12929,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_revenue_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "fee_revenue_ledger_rent_request_id_fkey"
@@ -18274,6 +18323,13 @@ export type Database = {
             foreignKeyName: "instalment_allocations_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -22644,6 +22700,13 @@ export type Database = {
             foreignKeyName: "location_requests_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "location_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -24875,6 +24938,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_collection_submissions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "offline_collection_submissions_rent_request_id_fkey"
@@ -29466,6 +29536,13 @@ export type Database = {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -32106,6 +32183,13 @@ export type Database = {
             foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -32356,6 +32440,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_repayment_pauses_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "rent_repayment_pauses_rent_request_id_fkey"
@@ -33237,6 +33328,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repayments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "repayments_rent_request_id_fkey"
@@ -36257,6 +36355,13 @@ export type Database = {
             foreignKeyName: "subscription_charges_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "subscription_charges_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -36411,6 +36516,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supporter_capital_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "supporter_capital_ledger_rent_request_id_fkey"
@@ -36703,6 +36815,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supporter_roi_payments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "supporter_roi_payments_rent_request_id_fkey"
@@ -37516,6 +37635,13 @@ export type Database = {
             foreignKeyName: "tenant_idle_states_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: true
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_idle_states_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -38225,6 +38351,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "tenant_reassignment_audit_rent_request_id_fkey"
@@ -43859,6 +43992,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cc_tenant_calling_population: {
+        Row: {
+          arrears_amount: number | null
+          outstanding: number | null
+          rent_request_id: string | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
       v_cfo_promissory_bookings: {
         Row: {
           agent_id: string | null
@@ -43922,6 +44064,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
@@ -45220,6 +45369,13 @@ export type Database = {
             foreignKeyName: "agent_collections_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_partner_self_fundable_plans"
             referencedColumns: ["rent_request_id"]
           },
@@ -45360,6 +45516,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rent_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
           },
           {
             foreignKeyName: "instalment_allocations_rent_request_id_fkey"
