@@ -25,6 +25,7 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
+import { TenantReceivablesLocationPanel } from '@/components/cfo/TenantReceivablesLocationPanel';
 
 const ALL_PRODUCTS = '__all__';
 
@@ -309,6 +310,15 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           </div>
         </CardContent>
       </Card>
+
+      {/* Tenant products & services: where the money is owed, down to the account */}
+      <TenantReceivablesLocationPanel
+        productKey={
+          productFilter !== ALL_PRODUCTS && productFilter.startsWith('tenant:')
+            ? productFilter.split(':')[1]
+            : null
+        }
+      />
 
       {/* Predictive, data-driven forecast */}
       <PredictiveReceivablesForecast />
