@@ -39,6 +39,7 @@ const HORIZON_IN_WORDS: Record<TppoGranularity, string> = {
 };
 
 export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
+  const [open, setOpen] = useState(false);
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['tppo-projection-zone-a', granularity, anchor],
     queryFn: async (): Promise<ProjectionA3Report> => {
