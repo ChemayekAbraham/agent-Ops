@@ -50864,6 +50864,10 @@ export type Database = {
         Returns: string
       }
       get_merchant_agent_money_owed: { Args: never; Returns: Json }
+      get_merchant_agent_movements: {
+        Args: { p_desk_id?: string }
+        Returns: Json
+      }
       get_merchant_float_email_movements: {
         Args: { p_days?: number }
         Returns: Json
@@ -52672,6 +52676,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      invoke_engrep_harvest_commits: { Args: never; Returns: undefined }
       invoke_hr_careers_acknowledge: { Args: never; Returns: undefined }
       is_active_cashout_agent: { Args: { _user_id: string }; Returns: boolean }
       is_agent_frozen: { Args: { p_agent_id: string }; Returns: boolean }
