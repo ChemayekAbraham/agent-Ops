@@ -96,7 +96,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
         <div className="mt-4 space-y-4">
           <div className="space-y-1">
             {available ? (
-              <p className="text-3xl font-semibold tracking-tight tabular-nums">
+              <p className="text-3xl font-semibold tracking-tight tabular-nums font-mono">
                 {formatUGX(rowSum)}
               </p>
             ) : (
@@ -119,10 +119,10 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                 >
                   <span className="text-foreground">{period.label ?? '—'}</span>
                   <div className="flex items-baseline gap-4">
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                    <span className="shrink-0 tabular-nums font-mono text-muted-foreground">
                       {period.plans !== null && period.plans !== undefined ? period.plans : '—'}
                     </span>
-                    <span className="shrink-0 tabular-nums text-foreground">
+                    <span className="shrink-0 tabular-nums font-mono text-foreground">
                       {available && period.projected_ugx !== null && period.projected_ugx !== undefined
                         ? formatUGX(period.projected_ugx)
                         : '—'}
@@ -133,7 +133,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
             </div>
             <div className="mt-2 flex items-baseline justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-semibold">
               <span>Total</span>
-              <span className="shrink-0 tabular-nums">{available ? formatUGX(rowSum) : '—'}</span>
+              <span className="shrink-0 tabular-nums font-mono">{available ? formatUGX(rowSum) : '—'}</span>
             </div>
           </div>
 
@@ -153,10 +153,10 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                     <td className="py-2 pr-3 text-foreground">
                       {period.label ?? '—'}
                     </td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-foreground">
+                    <td className="py-2 pr-3 text-right tabular-nums font-mono text-foreground">
                       {period.plans !== null && period.plans !== undefined ? period.plans : '—'}
                     </td>
-                    <td className="py-2 text-right tabular-nums text-foreground">
+                    <td className="py-2 text-right tabular-nums font-mono text-foreground">
                       {available && period.projected_ugx !== null && period.projected_ugx !== undefined
                         ? formatUGX(period.projected_ugx)
                         : '—'}
@@ -166,7 +166,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                 <tr className="font-semibold">
                   <td className="py-2 pr-3">Total</td>
                   <td className="py-2 pr-3" />
-                  <td className="py-2 text-right tabular-nums">
+                  <td className="py-2 text-right tabular-nums font-mono">
                     {available ? formatUGX(rowSum) : '—'}
                   </td>
                 </tr>

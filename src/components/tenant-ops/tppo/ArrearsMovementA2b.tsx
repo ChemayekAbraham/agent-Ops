@@ -98,7 +98,7 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
               Arrears movement
             </span>
             <span className="text-xs text-muted-foreground">—</span>
-            <span className="text-sm font-bold text-foreground tabular-nums">
+            <span className="text-sm font-bold text-foreground tabular-nums font-mono">
               {isPending || !current ? '…' : money(current.closing_arrears)}
             </span>
           </span>
@@ -108,11 +108,11 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
             ) : (
               <>
                 owed now ·{' '}
-                <span className={netClass(current.net_added_to_arrears)}>
+                <span className={`tabular-nums font-mono ${netClass(current.net_added_to_arrears)}`}>
                   {signedMoney(current.net_added_to_arrears)}
                 </span>{' '}
                 this {granularity === 'day' ? 'day' : granularity === 'week' ? 'week' : 'month'} ·{' '}
-                {money(current.cleared_by_payment)} cleared
+                <span className="tabular-nums font-mono">{money(current.cleared_by_payment)}</span> cleared
               </>
             )}
           </span>
@@ -168,12 +168,12 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
                             </span>
                           )}
                         </td>
-                        <td className="py-2 pr-3 text-right tabular-nums">{money(p.opening_arrears)}</td>
-                        <td className="py-2 pr-3 text-right tabular-nums">{money(p.accrued)}</td>
-                        <td className="py-2 pr-3 text-right tabular-nums">{money(p.prepaid_credit_absorbed)}</td>
-                        <td className="py-2 pr-3 text-right tabular-nums text-emerald-600">{money(p.cleared_by_payment)}</td>
-                        <td className="py-2 pr-3 text-right tabular-nums">{money(p.closing_arrears)}</td>
-                        <td className={`py-2 text-right tabular-nums ${netClass(p.net_added_to_arrears)}`}>
+                        <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(p.opening_arrears)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(p.accrued)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(p.prepaid_credit_absorbed)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums font-mono text-emerald-600">{money(p.cleared_by_payment)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(p.closing_arrears)}</td>
+                        <td className={`py-2 text-right tabular-nums font-mono ${netClass(p.net_added_to_arrears)}`}>
                           {signedMoney(p.net_added_to_arrears)}
                         </td>
                       </tr>
@@ -207,27 +207,27 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
                     <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
                       <div>
                         <p className="text-[11px] text-muted-foreground">Opening</p>
-                        <p className="text-sm tabular-nums">{money(p.opening_arrears)}</p>
+                        <p className="text-sm tabular-nums font-mono">{money(p.opening_arrears)}</p>
                       </div>
                       <div>
                         <p className="text-[11px] text-muted-foreground">Accrued</p>
-                        <p className="text-sm tabular-nums">{money(p.accrued)}</p>
+                        <p className="text-sm tabular-nums font-mono">{money(p.accrued)}</p>
                       </div>
                       <div>
                         <p className="text-[11px] text-muted-foreground">Credit used</p>
-                        <p className="text-sm tabular-nums">{money(p.prepaid_credit_absorbed)}</p>
+                        <p className="text-sm tabular-nums font-mono">{money(p.prepaid_credit_absorbed)}</p>
                       </div>
                       <div>
                         <p className="text-[11px] text-muted-foreground">Cleared</p>
-                        <p className="text-sm tabular-nums text-emerald-600">{money(p.cleared_by_payment)}</p>
+                        <p className="text-sm tabular-nums font-mono text-emerald-600">{money(p.cleared_by_payment)}</p>
                       </div>
                       <div>
                         <p className="text-[11px] text-muted-foreground">Closing</p>
-                        <p className="text-sm tabular-nums">{money(p.closing_arrears)}</p>
+                        <p className="text-sm tabular-nums font-mono">{money(p.closing_arrears)}</p>
                       </div>
                       <div>
                         <p className="text-[11px] text-muted-foreground">Net change</p>
-                        <p className={`text-sm tabular-nums ${netClass(p.net_added_to_arrears)}`}>
+                        <p className={`text-sm tabular-nums font-mono ${netClass(p.net_added_to_arrears)}`}>
                           {signedMoney(p.net_added_to_arrears)}
                         </p>
                       </div>
@@ -293,17 +293,17 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
 
                     <div className={`mt-2 flex flex-wrap items-center gap-2 ${dirClass}`}>
                       <DirIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                      <span className="text-xl font-semibold tabular-nums">{signedPct(headlinePct)}</span>
+                      <span className="text-xl font-semibold tabular-nums font-mono">{signedPct(headlinePct)}</span>
                       <span className="text-sm font-medium">{dirLabel}</span>
                     </div>
 
                     <div className="mt-3 space-y-1">
                       <p className="flex flex-wrap items-center gap-2 text-sm text-foreground">
                         <span>{prior.label}</span>
-                        <span className="tabular-nums">{money(prior.closing_arrears)}</span>
+                        <span className="tabular-nums font-mono">{money(prior.closing_arrears)}</span>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         <span>{cur.label}</span>
-                        <span className="tabular-nums">{money(cur.closing_arrears)}</span>
+                        <span className="tabular-nums font-mono">{money(cur.closing_arrears)}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">arrears only, each on its own period</p>
                     </div>
@@ -326,21 +326,21 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
                           <div className="mt-2 space-y-1 text-sm">
                             <p className="flex items-baseline justify-between gap-3">
                               <span className="text-muted-foreground">Owed at start</span>
-                              <span className="shrink-0 tabular-nums">{money(row.opening)}</span>
+                              <span className="shrink-0 tabular-nums font-mono">{money(row.opening)}</span>
                             </p>
                             <p className="flex items-baseline justify-between gap-3">
                               <span className="text-muted-foreground">Owed at close</span>
-                              <span className="shrink-0 tabular-nums">{money(row.closing)}</span>
+                              <span className="shrink-0 tabular-nums font-mono">{money(row.closing)}</span>
                             </p>
                             <p className="flex items-baseline justify-between gap-3">
                               <span className="text-muted-foreground">Net change</span>
-                              <span className={`shrink-0 tabular-nums ${netClass(row.net)}`}>
+                              <span className={`shrink-0 tabular-nums font-mono ${netClass(row.net)}`}>
                                 {signedMoney(row.net)}
                               </span>
                             </p>
                             <p className="flex items-baseline justify-between gap-3">
                               <span className="text-muted-foreground">Tenants owing</span>
-                              <span className="shrink-0 tabular-nums">{row.tenants}</span>
+                              <span className="shrink-0 tabular-nums font-mono">{row.tenants}</span>
                             </p>
                           </div>
                         </div>
@@ -353,25 +353,25 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
                         <div className="mt-2 space-y-1 text-sm">
                           <p className="flex items-baseline justify-between gap-3">
                             <span className="text-muted-foreground">Owed at start</span>
-                            <span className={`shrink-0 tabular-nums ${netClass(openingDelta)}`}>
+                            <span className={`shrink-0 tabular-nums font-mono ${netClass(openingDelta)}`}>
                               {signedMoney(openingDelta)}
                             </span>
                           </p>
                           <p className="flex items-baseline justify-between gap-3">
                             <span className="text-muted-foreground">Owed at close</span>
-                            <span className={`shrink-0 tabular-nums ${netClass(closingDelta)}`}>
+                            <span className={`shrink-0 tabular-nums font-mono ${netClass(closingDelta)}`}>
                               {signedMoney(closingDelta)}
                             </span>
                           </p>
                           <p className="flex items-baseline justify-between gap-3">
                             <span className="text-muted-foreground">Net change</span>
-                            <span className={`shrink-0 tabular-nums ${netClass(netDelta)}`}>
+                            <span className={`shrink-0 tabular-nums font-mono ${netClass(netDelta)}`}>
                               {signedMoney(netDelta)}
                             </span>
                           </p>
                           <p className="flex items-baseline justify-between gap-3">
                             <span className="text-muted-foreground">Tenants owing</span>
-                            <span className={`shrink-0 tabular-nums ${netClass(tenantsDelta)}`}>
+                            <span className={`shrink-0 tabular-nums font-mono ${netClass(tenantsDelta)}`}>
                               {tenantsDelta > 0 ? '+' : tenantsDelta < 0 ? '−' : ''}
                               {Math.abs(tenantsDelta)}
                             </span>
@@ -406,26 +406,26 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
                                   <span className="ml-2 text-xs text-primary">still counting</span>
                                 )}
                               </td>
-                              <td className="py-2 pr-3 text-right tabular-nums">{money(row.opening)}</td>
-                              <td className="py-2 pr-3 text-right tabular-nums">{money(row.closing)}</td>
-                              <td className={`py-2 pr-3 text-right tabular-nums ${netClass(row.net)}`}>
+                              <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(row.opening)}</td>
+                              <td className="py-2 pr-3 text-right tabular-nums font-mono">{money(row.closing)}</td>
+                              <td className={`py-2 pr-3 text-right tabular-nums font-mono ${netClass(row.net)}`}>
                                 {signedMoney(row.net)}
                               </td>
-                              <td className="py-2 text-right tabular-nums">{row.tenants}</td>
+                              <td className="py-2 text-right tabular-nums font-mono">{row.tenants}</td>
                             </tr>
                           ))}
                           <tr className="font-medium">
                             <td className="py-2 pr-3">Increase / decrease</td>
-                            <td className={`py-2 pr-3 text-right tabular-nums ${netClass(openingDelta)}`}>
+                            <td className={`py-2 pr-3 text-right tabular-nums font-mono ${netClass(openingDelta)}`}>
                               {signedMoney(openingDelta)}
                             </td>
-                            <td className={`py-2 pr-3 text-right tabular-nums ${netClass(closingDelta)}`}>
+                            <td className={`py-2 pr-3 text-right tabular-nums font-mono ${netClass(closingDelta)}`}>
                               {signedMoney(closingDelta)}
                             </td>
-                            <td className={`py-2 pr-3 text-right tabular-nums ${netClass(netDelta)}`}>
+                            <td className={`py-2 pr-3 text-right tabular-nums font-mono ${netClass(netDelta)}`}>
                               {signedMoney(netDelta)}
                             </td>
-                            <td className={`py-2 text-right tabular-nums ${netClass(tenantsDelta)}`}>
+                            <td className={`py-2 text-right tabular-nums font-mono ${netClass(tenantsDelta)}`}>
                               {tenantsDelta > 0 ? '+' : tenantsDelta < 0 ? '−' : ''}
                               {Math.abs(tenantsDelta)}
                             </td>
@@ -440,10 +440,11 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
               {current && (
                 <div className="rounded-md border p-3 mt-3">
                   <p className="text-sm text-foreground">
-                    Owed at the start of {current.label} — {money(current.opening_arrears)}
+                    Owed at the start of {current.label} —{' '}
+                    <span className="tabular-nums font-mono">{money(current.opening_arrears)}</span>
                   </p>
                   <p className="mt-2 text-sm text-foreground">
-                    Owed now — {money(current.closing_arrears)}
+                    Owed now — <span className="tabular-nums font-mono">{money(current.closing_arrears)}</span>
                     <span className="mt-0.5 block text-[11px] text-muted-foreground">
                       {current.plans_owing_close} tenants
                     </span>
@@ -452,7 +453,8 @@ export function ArrearsMovementA2b({ granularity, anchor }: ArrearsMovementA2bPr
                     {current.newly_in_arrears} tenants fell into arrears · {current.fully_cleared} cleared completely
                   </p>
                   <p className="mt-2 text-sm text-foreground">
-                    Rolls into the next period as its opening balance — {money(current.closing_arrears)}
+                    Rolls into the next period as its opening balance —{' '}
+                    <span className="tabular-nums font-mono">{money(current.closing_arrears)}</span>
                   </p>
                 </div>
               )}

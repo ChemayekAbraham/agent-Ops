@@ -334,7 +334,7 @@ export function WeeklyArrearsSheet({ anchor }: { anchor: string }) {
                         {row.values.map((v, i) => (
                           <td
                             key={columns[i].date}
-                            className={`py-2 pr-3 text-right tabular-nums ${columns[i].date === today ? 'bg-primary/5' : ''}`}
+                            className={`py-2 pr-3 text-right tabular-nums font-mono ${columns[i].date === today ? 'bg-primary/5' : ''}`}
                           >
                             {v}
                           </td>
@@ -370,7 +370,7 @@ export function WeeklyArrearsSheet({ anchor }: { anchor: string }) {
                           {row.values.map((v, i) => (
                             <td
                               key={columns[i].date}
-                              className="py-2 pr-3 text-right tabular-nums"
+                              className="py-2 pr-3 text-right tabular-nums font-mono"
                             >
                               {v}
                             </td>
