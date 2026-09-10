@@ -69,6 +69,7 @@ export function useMerchantAgentMoneyOwed(enabled = true) {
           paid_out_total: Number(a.paid_out_total ?? 0),
           claimed_pending_total: Number(a.claimed_pending_total ?? 0),
           claimed_pending_count: Number(a.claimed_pending_count ?? 0),
+          claim_reduction_total: Number(a.claim_reduction_total ?? 0),
           still_held: Number(a.still_held ?? a.float_balance ?? 0),
           email_still_held: Number(a.email_still_held ?? 0),
           email_sent_count: Number(a.email_sent_count ?? 0),
