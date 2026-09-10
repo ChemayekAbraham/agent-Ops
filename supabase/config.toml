@@ -225,6 +225,3 @@ verify_jwt = false
 
 [functions.staff-requisition-decide]
 verify_jwt = false
-
-[functions.engrep-harvest-commits]
-verify_jwt = false

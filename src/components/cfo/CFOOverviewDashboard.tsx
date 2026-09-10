@@ -28,8 +28,6 @@ import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilld
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
-import { ActualMoneyWeHaveCard } from '@/components/cfo/ActualMoneyWeHaveCard';
-
 
 
 
@@ -216,11 +214,22 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           onToggle={() => toggleSection('position')}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <ActualMoneyWeHaveCard
-              ledgerPosition={totalCash}
-              ledgerPositionUnavailable={positionUnavailable}
+            <HeroCard
+              icon={<PiggyBank className="h-5 w-5 text-emerald-50" />}
+              iconBg="bg-emerald-600"
+              title="Money We Have"
+              value={positionUnavailable ? '—' : fmt(totalCash)}
+              items={[
+                { dot: 'bg-emerald-500', label: 'Cash and Bank (A1)', value: fmt(bankCash) },
+                { dot: 'bg-emerald-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0) },
+                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0) },
+              ]}
+              footer={positionUnavailable
+                ? 'Could not load'
+                : 'Balance sheet cash — A1 + A2 + A5'}
+              footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
+              onClick={() => setActiveBreakdown('cash')}
             />
-
             <HeroCard
               icon={<Package className="h-5 w-5 text-orange-50" />}
               iconBg="bg-orange-500"
