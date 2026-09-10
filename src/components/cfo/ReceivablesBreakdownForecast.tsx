@@ -113,10 +113,53 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             </p>
             {breakdown.data && (
               <span className="text-[10px] sm:text-xs font-mono tabular-nums text-muted-foreground">
-                {formatUGX(breakdown.data.total)}
+                {formatUGX(filteredTotal ?? breakdown.data.total)}
               </span>
             )}
           </div>
+
+          {/* Product / service filter */}
+          {productOptions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Filter className="h-3 w-3 text-muted-foreground shrink-0" />
+              <Select
+                value={productFilter}
+                onValueChange={(v) => {
+                  setProductFilter(v);
+                  if (v !== ALL_PRODUCTS) {
+                    const catKey = v.split(':')[0];
+                    setOpenCategory(catKey);
+                    setOpenProduct(v);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 flex-1 text-xs">
+                  <SelectValue placeholder="All products & services" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_PRODUCTS} className="text-xs">
+                    All products &amp; services
+                  </SelectItem>
+                  {productOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-xs">
+                      {o.label} ({formatUGX(o.outstanding)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {productFilter !== ALL_PRODUCTS && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-[11px] shrink-0"
+                  onClick={() => setProductFilter(ALL_PRODUCTS)}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
 
           {breakdown.isLoading && (
             <div className="flex justify-center py-8">
@@ -125,10 +168,23 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           )}
 
           <div className="space-y-2">
-            {breakdown.data?.categories.map((cat) => {
+            {breakdown.data?.categories
+              .map((cat) => {
+                const products =
+                  productFilter === ALL_PRODUCTS
+                    ? cat.products
+                    : cat.products.filter((p) => `${cat.key}:${p.key}` === productFilter);
+                return { cat, products };
+              })
+              .filter(({ products }) => products.length > 0 || productFilter === ALL_PRODUCTS)
+              .map(({ cat, products }) => {
               const catOpen = openCategory === cat.key;
+              const shownOutstanding =
+                productFilter === ALL_PRODUCTS
+                  ? cat.outstanding
+                  : products.reduce((s, p) => s + p.outstanding, 0);
               const share =
-                breakdown.data.total > 0 ? (cat.outstanding / breakdown.data.total) * 100 : 0;
+                breakdown.data.total > 0 ? (shownOutstanding / breakdown.data.total) * 100 : 0;
               return (
                 <div
                   key={cat.key}
