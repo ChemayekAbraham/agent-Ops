@@ -472,7 +472,6 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                   </p>
                 ) : (
                   agents.map((a) => {
-                    const rows = (byDesk.get(a.desk_id) ?? []) as any[];
                     const isOpen = expanded === a.desk_id;
                     return (
                       <div key={a.desk_id} className="rounded-xl border border-border">
