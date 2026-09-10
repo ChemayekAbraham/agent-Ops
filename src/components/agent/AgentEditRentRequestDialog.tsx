@@ -698,7 +698,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
 
           <div className="space-y-1.5">
             <Label>Landlord</Label>
-            <LandlordSearchSelect value={landlord} onChange={setLandlord} />
+            <LandlordSearchSelect value={landlord} onChange={setLandlord} registeredBy={user?.id ?? null} />
           </div>
 
           {landlord && !hasSignedAgreement && (

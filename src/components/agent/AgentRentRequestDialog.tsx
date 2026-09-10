@@ -3756,6 +3756,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       key={landlordPickerKey}
                       value={selectedLandlord}
                       onChange={setSelectedLandlord}
+                      registeredBy={user?.id ?? null}
                     />
                     {selectedLandlord?.property_address && (
                       <p className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -4509,6 +4510,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                         value={selectedLandlord}
                         autoOpenSignal={landlordSearchOpenSignal}
                         inline
+                        registeredBy={user?.id ?? null}
                         onChange={(l) => {
                           if (l) applySelectedLandlord(l);
                         }}

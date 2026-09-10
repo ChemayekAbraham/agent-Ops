@@ -55424,7 +55424,12 @@ export type Database = {
         }[]
       }
       search_landlords_fuzzy: {
-        Args: { p_limit?: number; p_query?: string; p_threshold?: number }
+        Args: {
+          p_limit?: number
+          p_query?: string
+          p_registered_by?: string
+          p_threshold?: number
+        }
         Returns: {
           county: string
           district: string
