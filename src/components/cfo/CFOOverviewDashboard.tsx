@@ -220,22 +220,54 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           onToggle={() => toggleSection('position')}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <HeroCard
-              icon={<PiggyBank className="h-5 w-5 text-emerald-50" />}
-              iconBg="bg-emerald-600"
-              title="Money We Have"
-              value={positionUnavailable ? '—' : fmt(totalCash)}
-              items={[
-                { dot: 'bg-emerald-500', label: 'Cash and Bank (A1)', value: fmt(bankCash) },
-                { dot: 'bg-emerald-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0) },
-                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0) },
-              ]}
-              footer={positionUnavailable
-                ? 'Could not load'
-                : 'Balance sheet cash — A1 + A2 + A5'}
-              footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
-              onClick={() => setActiveBreakdown('cash')}
-            />
+            <Card className="rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-600">
+                    <PiggyBank className="h-5 w-5 text-emerald-50" />
+                  </div>
+                </div>
+                <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">Money We Have</p>
+                <p className="mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight text-foreground">
+                  {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
+                </p>
+                <div className="mt-3 space-y-0.5">
+                  {[
+                    { label: 'MTN Money', amount: actualMoney?.mtn ?? 0, logo: mtnLogoAsset.url, line: 'mtn_momo' as const },
+                    { label: 'Airtel Money', amount: actualMoney?.airtel ?? 0, logo: airtelLogoAsset.url, line: 'airtel_money' as const },
+                    { label: 'Cash at Hand', amount: actualMoney?.cashAtHand ?? 0, icon: <Banknote className="h-3.5 w-3.5 text-emerald-600" />, line: 'cash' as const },
+                    { label: 'Cash at Bank', amount: actualMoney?.bankedCash ?? 0, icon: <Landmark className="h-3.5 w-3.5 text-sky-600" />, line: 'banked_cash' as const },
+                  ].map((row) => (
+                    <button
+                      key={row.line}
+                      type="button"
+                      onClick={() => setActualMoneyLine(row.line)}
+                      className="w-full flex items-center justify-between gap-2 rounded-lg px-2 py-2 text-left hover:bg-muted/50 transition-colors"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="h-6 w-6 rounded-md shrink-0 border border-border bg-background flex items-center justify-center overflow-hidden">
+                          {row.logo ? (
+                            <img src={row.logo} alt={row.label} className="w-full h-full object-contain" loading="lazy" />
+                          ) : (
+                            row.icon
+                          )}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate">{row.label}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+                          {actualLoading ? '—' : fmt(row.amount)}
+                        </span>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2.5 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-lg px-2 py-1.5">
+                  Real float on provider lines + verified cash + banked deposits
+                </p>
+              </CardContent>
+            </Card>
             <HeroCard
               icon={<Package className="h-5 w-5 text-orange-50" />}
               iconBg="bg-orange-500"
