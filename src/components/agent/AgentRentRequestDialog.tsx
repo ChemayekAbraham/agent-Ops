@@ -4503,7 +4503,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     <div className="space-y-1.5">
                       <Label className="text-sm font-semibold">Select a registered landlord</Label>
                       <p className="text-xs text-muted-foreground leading-snug">
-                        Only landlords already registered in the system can be chosen. Search by name or phone.
+                        Only landlords you have registered can be chosen. Search by name or phone.
                       </p>
                       <LandlordSearchSelect
                         key={landlordPickerKey}

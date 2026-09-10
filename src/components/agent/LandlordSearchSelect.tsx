@@ -669,7 +669,9 @@ export function LandlordSearchSelect({
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-destructive">No registered landlord found</p>
                   <p className="text-xs text-muted-foreground mt-1 leading-snug">
-                    Try a different spelling or phone number. Only landlords already registered in the system can be selected.
+                    {registeredBy
+                      ? 'Only landlords you registered appear here. Try a different spelling or phone number, or register this landlord first.'
+                      : 'Try a different spelling or phone number. Only landlords already registered in the system can be selected.'}
                   </p>
                   <div className="mt-2 space-y-1">
                     <p className="text-[11px] text-muted-foreground">
