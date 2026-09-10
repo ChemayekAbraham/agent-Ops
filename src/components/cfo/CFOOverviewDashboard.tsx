@@ -557,8 +557,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         title="Money We Can Use — Breakdown"
         total={moneyWeCanUse}
         items={[
-          { label: 'Total Cash (Money We Have)', value: actualMoneyTotal, icon: <ArrowDownRight className="h-4 w-4 text-emerald-500" /> },
-          { label: 'User Wallets (Money We Owe)', value: -walletTotal, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
+          { label: 'Money We Have (all cash lines)', value: actualMoneyTotal, icon: <ArrowDownRight className="h-4 w-4 text-emerald-500" /> },
+          { label: 'Less: sent to merchant agents (still with them)', value: -merchantHeld, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
+          { label: 'Less: sent to Bayo Mercy bank account', value: -bayoMercyHeld, icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
         ]}
       />
       <KPIBreakdownSheet
