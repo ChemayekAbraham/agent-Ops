@@ -170,9 +170,14 @@ export function AgentRejectedLandlordsPanel() {
           monthly_rent: form.monthly_rent.trim() ? Number(form.monthly_rent) : null,
           mobile_money_number: form.mobile_money_number.trim() || null,
           mobile_money_name: form.mobile_money_name.trim() || null,
+          bank_name: form.bank_name.trim() || null,
+          bank_branch: form.bank_branch.trim() || null,
+          account_number: form.account_number.trim() || null,
+          bank_account_name: form.bank_account_name.trim() || null,
           caretaker_name: form.caretaker_name.trim() || null,
           caretaker_phone: form.caretaker_phone.trim() || null,
-        })
+        } as any)
+
         .eq('id', req.landlord_id);
       if (llErr) throw llErr;
 
