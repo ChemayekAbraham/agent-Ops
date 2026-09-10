@@ -412,3 +412,4 @@ export default function EngineeringContribution() {
   );
 }
 ```
+Attribution trailer check — 10 Sep 2026.
