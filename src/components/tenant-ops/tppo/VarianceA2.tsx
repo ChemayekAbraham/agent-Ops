@@ -197,7 +197,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                   different basis
                 </Badge>
               )}
-              {row.current && <span className="font-medium normal-case text-primary">still counting</span>}
+              {row.stillCounting && <span className="font-medium normal-case text-primary">still counting</span>}
             </p>
             <div className="mt-2 space-y-1 text-sm">
               <p className="flex items-baseline justify-between gap-3">
@@ -284,7 +284,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                       different basis
                     </Badge>
                   )}
-                  {row.current && (
+                  {row.stillCounting && (
                     <span className="ml-2 text-xs text-primary">still counting</span>
                   )}
                 </td>
