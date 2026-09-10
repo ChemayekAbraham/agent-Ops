@@ -9,6 +9,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
