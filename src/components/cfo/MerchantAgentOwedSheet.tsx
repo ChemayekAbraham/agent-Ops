@@ -128,6 +128,13 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                         <p className="font-mono tabular-nums">{fmt(a.paid_out_total)}</p>
                         <span className="text-muted-foreground">Last sent {day(a.last_sent_at)}</span>
                       </div>
+                      <div>
+                        <span className="text-muted-foreground">Claimed, not yet completed</span>
+                        <p className="font-mono tabular-nums">{fmt(a.claimed_pending_total)}</p>
+                        <span className="text-muted-foreground">
+                          {a.claimed_pending_count} request(s)
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))
