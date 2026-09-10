@@ -262,6 +262,47 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
               </Button>
             ))}
           </div>
+
+          {accountRows.length > 0 && (
+            <div className="mt-3 rounded-xl border border-border bg-muted/30 p-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Where the money sits — by account
+              </p>
+              <div className="mt-1.5 space-y-0.5">
+                {accountRows.map((a) => {
+                  const active = a.line === line;
+                  const share = held && held.total > 0 ? (a.amount / held.total) * 100 : 0;
+                  return (
+                    <button
+                      key={a.line}
+                      type="button"
+                      disabled={!onSelectLine}
+                      onClick={() => onSelectLine?.(a.line)}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left transition-colors',
+                        active ? 'bg-primary/10 ring-1 ring-primary/30' : onSelectLine ? 'hover:bg-muted/70' : '',
+                      )}
+                    >
+                      <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                        {a.label}
+                        {a.line === 'bank' ? '' : ` · ${share.toFixed(1)}%`}
+                      </span>
+                      <span className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-foreground">
+                        {formatUGX(a.amount)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {held && (
+                <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[10px] text-muted-foreground">
+                  Money We Have total{' '}
+                  <span className="font-mono font-semibold text-foreground">{formatUGX(held.total)}</span> · the Bayo
+                  Mercy bank account is a reference figure and is not added to the total.
+                </p>
+              )}
+            </div>
+          )}
         </SheetHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] divide-y divide-border">
