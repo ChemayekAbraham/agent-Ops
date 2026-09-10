@@ -14,6 +14,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
+import { TenantReceivablesLocationDrilldown } from '@/components/cfo/TenantReceivablesLocationDrilldown';
+
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
 
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
@@ -132,11 +134,13 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
 
                   {catOpen && (
                     <div className="px-2.5 pb-2.5 space-y-1.5">
+                      {cat.key === 'tenant' && <TenantReceivablesLocationDrilldown />}
                       {cat.products.length === 0 && (
                         <p className="text-[10px] sm:text-xs text-muted-foreground py-1">
                           No open receivables in this category.
                         </p>
                       )}
+
                       {cat.products.map((prod) => {
                         const prodKey = `${cat.key}:${prod.key}`;
                         const prodOpen = openProduct === prodKey;
