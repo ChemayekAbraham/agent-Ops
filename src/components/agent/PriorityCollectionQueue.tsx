@@ -108,7 +108,7 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
           today,
         );
         const daysOverdue = schedule.weekly
-          ? schedule.periodsBehind * 7
+          ? (schedule.periodAmount > 0 ? Math.ceil(schedule.arrears / schedule.periodAmount) : 0) * 7
           : r.disbursed_at
             ? Math.max(0, differenceInDays(today, new Date(r.disbursed_at)) - Math.floor((r.amount_repaid || 0) / (r.daily_repayment || 1)))
             : 0;
