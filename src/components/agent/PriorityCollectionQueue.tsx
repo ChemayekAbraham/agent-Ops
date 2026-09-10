@@ -221,9 +221,29 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-bold text-muted-foreground w-5 shrink-0">#{(page - 1) * PAGE_SIZE + idx + 1}</span>
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate">{item.tenant_name}</p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="font-semibold text-sm truncate">{item.tenant_name}</p>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full border px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide',
+                            item.schedule.weekly
+                              ? 'border-amber-300 bg-amber-50 text-amber-700'
+                              : 'border-blue-300 bg-blue-50 text-blue-700',
+                          )}
+                          title="Payment period is set by Tenant Ops"
+                        >
+                          {item.schedule.weekly ? 'Weekly' : 'Daily'}
+                        </span>
+                      </div>
                       <p className={cn("text-[10px] font-medium", riskLabels[item.risk_level].color)}>
-                        {riskLabels[item.risk_level].text} • {item.days_overdue}d overdue
+                        {riskLabels[item.risk_level].text}
+                        {item.schedule.weekly
+                          ? item.schedule.dueState === 'due_this_week'
+                            ? ' • Due this week'
+                            : item.schedule.periodsBehind > 0
+                              ? ` • ${item.schedule.periodsBehind}w behind`
+                              : ' • Due today'
+                          : ` • ${item.days_overdue}d overdue`}
                       </p>
                     </div>
                   </div>
