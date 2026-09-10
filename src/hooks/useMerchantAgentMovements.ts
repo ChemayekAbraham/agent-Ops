@@ -92,8 +92,14 @@ export interface FlaggedTransfer {
   snippet: string | null;
   recipient_phone: string | null;
   profile_name: string | null;
+  profile_email: string | null;
   profile_id: string | null;
+  reason: string | null;
+  reason_code: string | null;
+  merchant_match_status: string | null;
+  matched_desk_id: string | null;
 }
+
 
 /**
  * Read-only flag: money-out mobile money email transfers whose recipient number
@@ -123,9 +129,15 @@ export function useUnregisteredRecipientTransfers(enabled = true, days = 120) {
           snippet: t.snippet ?? null,
           recipient_phone: t.recipient_phone ?? null,
           profile_name: t.profile_name ?? null,
+          profile_email: t.profile_email ?? null,
           profile_id: t.profile_id ?? null,
+          reason: t.reason ?? null,
+          reason_code: t.reason_code ?? null,
+          merchant_match_status: t.merchant_match_status ?? null,
+          matched_desk_id: t.matched_desk_id ?? null,
         })),
       };
     },
   });
 }
+

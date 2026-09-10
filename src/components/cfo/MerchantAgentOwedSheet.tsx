@@ -16,7 +16,9 @@ import {
   useMerchantAgentMovements,
   useBayoMercyMovements,
   useUnregisteredRecipientTransfers,
+  type FlaggedTransfer,
 } from '@/hooks/useMerchantAgentMovements';
+
 
 const fmt = (n: number) =>
   `${n < 0 ? '-' : ''}UGX ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.abs(n))}`;
@@ -36,10 +38,94 @@ const day = (v: string | null) =>
 const channelLabel = (c: string) =>
   c === 'mtn_momo' ? 'MTN' : c === 'airtel_money' ? 'Airtel' : c || 'Line';
 
+const matchLabel = (s: string | null) =>
+  s === 'not_a_merchant_agent'
+    ? 'No merchant desk match'
+    : s === 'inactive_merchant_desk'
+      ? 'Inactive merchant desk'
+      : s === 'no_number_found'
+        ? 'Recipient number unreadable'
+        : 'Unmatched';
+
+function FlaggedCard({ t }: { t: FlaggedTransfer }) {
+  return (
+    <div className="rounded-xl border border-amber-500/40 bg-amber-50/40 p-3 dark:bg-amber-950/10">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold">
+            {t.profile_name || t.counterparty || t.recipient_phone || 'Unknown recipient'}
+          </p>
+          <p className="text-[10px] text-muted-foreground">{day(t.at)}</p>
+        </div>
+        <div className="text-right">
+          <p className="font-mono text-xs font-bold tabular-nums text-amber-800 dark:text-amber-300">
+            -{fmt(t.amount)}
+          </p>
+          <Badge variant="outline" className="mt-1 text-[9px]">
+            {channelLabel(t.channel)}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1">
+        <Badge variant="secondary" className="text-[9px]">
+          {matchLabel(t.merchant_match_status)}
+        </Badge>
+        {t.profile_id ? (
+          <Badge variant="outline" className="text-[9px]">
+            Registered user
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-[9px]">
+            Not a registered user
+          </Badge>
+        )}
+      </div>
+
+      <p className="mt-2 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
+        <span className="font-semibold">Why it was excluded: </span>
+        {t.reason || 'Could not be matched to an active merchant agent desk.'}
+      </p>
+
+      <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[10px] sm:grid-cols-2">
+        <div className="flex gap-1">
+          <dt className="text-muted-foreground">Phone</dt>
+          <dd className="truncate font-mono">{t.recipient_phone || '—'}</dd>
+        </div>
+        <div className="flex gap-1">
+          <dt className="text-muted-foreground">Email</dt>
+          <dd className="truncate font-mono">{t.profile_email || '—'}</dd>
+        </div>
+        <div className="flex gap-1">
+          <dt className="text-muted-foreground">User ID</dt>
+          <dd className="truncate font-mono">{t.profile_id || '—'}</dd>
+        </div>
+        <div className="flex gap-1">
+          <dt className="text-muted-foreground">Merchant desk ID</dt>
+          <dd className="truncate font-mono">{t.matched_desk_id || '—'}</dd>
+        </div>
+        <div className="flex gap-1">
+          <dt className="text-muted-foreground">Reference</dt>
+          <dd className="truncate font-mono">{t.transaction_id || '—'}</dd>
+        </div>
+        <div className="flex gap-1">
+          <dt className="text-muted-foreground">Code</dt>
+          <dd className="truncate font-mono">{t.reason_code || '—'}</dd>
+        </div>
+      </dl>
+
+      {t.snippet && (
+        <p className="mt-2 line-clamp-2 text-[10px] text-muted-foreground">{t.snippet}</p>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
 
 function MovementRow({
   direction,
@@ -382,24 +468,12 @@ export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
                         {fmt(flagged?.total ?? 0)}
                       </p>
                     </div>
-                    <div className="max-h-96 overflow-y-auto rounded-xl border border-border px-3 py-2">
+                    <div className="max-h-[28rem] space-y-2 overflow-y-auto">
                       {(flagged?.transfers ?? []).map((t) => (
-                        <MovementRow
-                          key={t.id}
-                          direction="out"
-                          amount={t.amount}
-                          at={t.at}
-                          party={
-                            t.profile_name
-                              ? `${t.profile_name} (not a merchant agent)`
-                              : t.counterparty || t.recipient_phone || 'Unknown recipient'
-                          }
-                          reference={t.transaction_id}
-                          note={t.snippet}
-                          tag={`${channelLabel(t.channel)}${t.recipient_phone ? ` · ${t.recipient_phone}` : ''}`}
-                        />
+                        <FlaggedCard key={t.id} t={t} />
                       ))}
                     </div>
+
                   </>
                 )}
               </TabsContent>
