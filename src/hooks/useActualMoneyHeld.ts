@@ -16,9 +16,11 @@ export interface ActualMoneyHeld {
   airtel: number;
   cash: number;
   bank: number;
-  /** Every verified cash deposit Financial Ops marked as banked (reference figure). */
+  /** Real cash at bank = every verified cash deposit Financial Ops marked as banked. */
   bankedCash: number;
   bankedCashCount: number;
+  /** Ledger-derived bank reconciliation figure (reference/comparison only). */
+  bankLedger: number;
   bankReceived: number;
   bankSent: number;
   total: number;
