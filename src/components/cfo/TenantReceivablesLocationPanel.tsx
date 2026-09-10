@@ -215,11 +215,17 @@ export function TenantReceivablesLocationPanel({ productKey = null }: { productK
                   >
                     {canDrill && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
                     <span className="min-w-0">
-                      <span className="block truncate text-xs font-medium sm:text-sm">{row.label}</span>
+                      <span className="block truncate text-xs font-medium sm:text-sm">
+                        {isUnmapped ? 'Unplaced — no approved location match' : row.label}
+                      </span>
                       <span className="block text-[9px] text-muted-foreground sm:text-[10px]">
                         {row.tenant_count} tenant{row.tenant_count === 1 ? '' : 's'} · {row.item_count} item
                         {row.item_count === 1 ? '' : 's'} · {share.toFixed(1)}%
-                        {row.fully_mapped ? '' : ' · partly unmapped'}
+                        {isUnmapped
+                          ? ' · open the accounts to assign each one a district'
+                          : row.fully_mapped
+                            ? ''
+                            : ' · partly unmapped'}
                       </span>
                     </span>
                   </button>
