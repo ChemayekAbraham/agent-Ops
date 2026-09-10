@@ -261,6 +261,17 @@ Deno.serve(async (req) => {
       })
       .eq("id", rr.id);
 
+    // === TREASURY FEE RECOGNITION (idempotent; non-fatal) ===
+    // Creates the L7 funding-side credit that later instalment waterfall drawdowns debit against.
+    const { error: treasuryErr } = await adminClient.rpc('recognise_funding_treasury', {
+      p_rent_request_id: rr.id,
+    });
+    if (treasuryErr) {
+      console.error('[fund-tenant-from-pool] Treasury recognition failed (non-fatal):', treasuryErr.message);
+    } else {
+      console.log('[fund-tenant-from-pool] Treasury recognition recorded for', rr.id);
+    }
+
     // Create auto-charge subscription
     const durationDays = rr.duration_days || 30;
     let frequency: string;
