@@ -78,6 +78,8 @@ export function AgentManagedPropertyDialog({
 
   const resetForm = () => {
     setLandlordName(''); setLandlordPhone(''); setMobileMoneyNumber('');
+    setBankName(''); setBankBranch(''); setBankAccountNumber(''); setBankAccountName('');
+
     setPropertyAddress(''); setDescription(''); setNumberOfRooms('');
     setNumberOfHouses(''); setMonthlyRent(''); setElectricityMeter('');
     setWaterMeter(''); setLatitude(null); setLongitude(null);
