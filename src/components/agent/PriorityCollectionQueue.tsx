@@ -132,6 +132,7 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
           longitude: r.request_longitude,
           risk_level: risk,
           agent_payment_status: ((r as any).agent_payment_status ?? 'paying') as AgentPaymentStatus,
+          schedule,
         };
       }).sort((a, b) => {
         if (a.risk_level === 'completed' && b.risk_level !== 'completed') return 1;
