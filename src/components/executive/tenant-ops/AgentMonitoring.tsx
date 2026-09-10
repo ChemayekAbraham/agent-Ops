@@ -365,7 +365,10 @@ function TenantPaymentHistory({
 }
 
 
-type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'position';
+type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'before-aug-2026' | 'position';
+
+/** Same boundary for both cohort tabs — one date rule, read from the existing added date. */
+const AUG_2026_BOUNDARY = '2026-08-02T00:00:00+03:00';
 
 export function AgentMonitoring() {
   const [tab, setTab] = useState<AgentMonitoringTab>('all');
