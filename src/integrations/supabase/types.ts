@@ -12444,6 +12444,8 @@ export type Database = {
           live_verified: string
           migration_bearing: boolean
           paths: string[] | null
+          recurrence_count: number
+          recurrence_kind: string | null
           self_fix: boolean
           self_fix_of: string | null
           source: string
@@ -12475,6 +12477,8 @@ export type Database = {
           live_verified?: string
           migration_bearing?: boolean
           paths?: string[] | null
+          recurrence_count?: number
+          recurrence_kind?: string | null
           self_fix?: boolean
           self_fix_of?: string | null
           source: string
@@ -12506,6 +12510,8 @@ export type Database = {
           live_verified?: string
           migration_bearing?: boolean
           paths?: string[] | null
+          recurrence_count?: number
+          recurrence_kind?: string | null
           self_fix?: boolean
           self_fix_of?: string | null
           source?: string
@@ -49137,6 +49143,10 @@ export type Database = {
       engrep_svc_mark_harvested: {
         Args: { p_window_id: string }
         Returns: undefined
+      }
+      engrep_svc_resolve_lineage: {
+        Args: { p_window_id: string }
+        Returns: number
       }
       engrep_svc_run_finish: {
         Args: {
