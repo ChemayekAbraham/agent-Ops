@@ -47,8 +47,10 @@ export function useMerchantAgentMoneyOwed(enabled = true) {
   return useQuery({
     queryKey: ['cfo-merchant-agent-money-owed'],
     enabled,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    // Same cadence as the Financial Ops wallet-bucket board, so the two screens
+    // never show different ages of the same merchant float figure.
+    staleTime: 15_000,
+    refetchInterval: 30_000,
     queryFn: async (): Promise<MerchantAgentMoneyOwed> => {
       const { data, error } = await supabase.rpc('get_merchant_agent_money_owed' as any);
       if (error) throw error;
