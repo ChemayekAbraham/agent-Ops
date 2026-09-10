@@ -167,7 +167,7 @@ export function StaffRequisitionQueue() {
   const [tab, setTab] = useState<TabKey>('inbox');
 
   const [active, setActive] = useState<StaffRequisition | null>(null);
-  const [actionType, setActionType] = useState<'approve' | 'reject' | 'return_info'>('approve');
+  const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
   const [reduceMode, setReduceMode] = useState(false);
   const [comment, setComment] = useState('');
   const [amountOverride, setAmountOverride] = useState('');
@@ -309,7 +309,7 @@ export function StaffRequisitionQueue() {
     [visible, page],
   );
 
-  const openAction = (row: StaffRequisition, type: 'approve' | 'reject' | 'return_info', reduce = false) => {
+  const openAction = (row: StaffRequisition, type: 'approve' | 'reject', reduce = false) => {
     setActive(row);
     setActionType(type);
     setReduceMode(reduce);
@@ -370,9 +370,7 @@ export function StaffRequisitionQueue() {
           ? (reduceMode
             ? `Approved at the reduced amount of ${formatUGX(amount)}`
             : 'Approved — the requisition moved forward')
-          : actionType === 'reject'
-            ? 'Requisition declined'
-            : 'Sent back to the requester',
+          : 'Requisition declined',
       );
       setActive(null);
       setComment('');
@@ -617,30 +615,27 @@ export function StaffRequisitionQueue() {
                       <td className="px-3 py-2"><StageBadge row={row} compact /></td>
                       <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{fmtDay(row.created_at)}</td>
                       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex flex-wrap justify-end gap-1">
+                        <div className="flex flex-nowrap justify-end gap-1">
                           {canReviewRow(row) && (
                             <>
-                              <Button size="sm" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'approve')}>Approve</Button>
-                              <Button size="sm" variant="secondary" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'approve', true)}>
+                              <Button size="sm" className="h-7 px-2 text-[11px] whitespace-nowrap" onClick={() => openAction(row, 'approve')}>Approve</Button>
+                              <Button size="sm" variant="secondary" className="h-7 px-2 text-[11px] whitespace-nowrap" onClick={() => openAction(row, 'approve', true)}>
                                 Reduce
                               </Button>
-                              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'return_info')}>
-                                Send back
-                              </Button>
-                              <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px]" onClick={() => openAction(row, 'reject')}>
+                              <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px] whitespace-nowrap" onClick={() => openAction(row, 'reject')}>
                                 Decline
                               </Button>
                             </>
                           )}
                           {canOwnReduce(row) && (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => openOwnReduce(row)}>
-                              <ArrowDownCircle className="mr-1 h-3 w-3" /> Reduce requested amount
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] whitespace-nowrap" onClick={() => openOwnReduce(row)}>
+                              <ArrowDownCircle className="mr-1 h-3 w-3" /> Reduce
                             </Button>
                           )}
                           {row.stage === 'approved' && row.wallet_credit_status !== 'credited' && (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={retrying === row.id} onClick={() => void retryCredit(row.id)}>
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] whitespace-nowrap" disabled={retrying === row.id} onClick={() => void retryCredit(row.id)}>
                               {retrying === row.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-1 h-3 w-3" />}
-                              Retry credit
+                              Retry
                             </Button>
                           )}
                           {!canReviewRow(row) && !canOwnReduce(row) && row.stage !== 'approved' && (
@@ -750,9 +745,6 @@ export function StaffRequisitionQueue() {
                     <Button size="sm" variant="secondary" onClick={() => { const r = detail; setDetail(null); openAction(r, 'approve', true); }}>
                       Reduce requested amount
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => { const r = detail; setDetail(null); openAction(r, 'return_info'); }}>
-                      Send back for info
-                    </Button>
                     <Button size="sm" variant="destructive" onClick={() => { const r = detail; setDetail(null); openAction(r, 'reject'); }}>Decline</Button>
                   </>
                 )}
@@ -773,8 +765,7 @@ export function StaffRequisitionQueue() {
           <DialogHeader>
             <DialogTitle>
               {actionType === 'approve' ? (reduceMode ? 'Reduce requested amount' : 'Approve requisition')
-                : actionType === 'reject' ? 'Decline requisition'
-                  : 'Send back for more information'}
+                : 'Decline requisition'}
             </DialogTitle>
             <DialogDescription>
               {active?.requisition_code} • {active?.title}

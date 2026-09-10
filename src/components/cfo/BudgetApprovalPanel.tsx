@@ -160,7 +160,7 @@ function Row({ label, a, b }: { label: string; a: number; b: number }) {
 function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudgetCycles>['cycles']; onCreated: () => Promise<void> }) {
   const [title, setTitle] = useState('');
   const [fy, setFy] = useState('');
-  const [periodType, setPeriodType] = useState('yearly');
+  const [periodType, setPeriodType] = useState('5days');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [deadline, setDeadline] = useState('');
@@ -252,7 +252,7 @@ function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudg
               <Select value={periodType} onValueChange={setPeriodType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent className="z-[100]">
-                  {['monthly', 'quarterly', 'yearly'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {['5days'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

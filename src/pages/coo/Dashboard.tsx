@@ -38,9 +38,10 @@ import { AgentNetworkBadge } from '@/components/executive/tenant-ops/AgentNetwor
 import {
   Activity, ClipboardList, Users, Wallet, BarChart3,
   FileText, Banknote, Handshake, UserCheck, UserPlus,
-  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck
+  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
 
 interface QuickNavItem {
   id: string;
@@ -70,6 +71,7 @@ const quickNavItems: QuickNavItem[] = [
   { id: 'advance-requests', label: 'Business Advances', icon: Banknote, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20', description: 'Business advances' },
   { id: 'service-centres', label: 'Service Centre Vetting', icon: Building2, color: 'bg-orange-500/10 text-orange-600 border-orange-500/20', description: 'Vet & activate' },
   { id: 'department-budgets', label: 'Department Budgets', icon: Wallet2, color: 'bg-teal-500/10 text-teal-600 border-teal-500/20', description: 'Approve to CFO' },
+  { id: 'bike-leases', label: 'Bike Leases', icon: Bike, color: 'bg-lime-500/10 text-lime-600 border-lime-500/20', description: 'Approve to CFO' },
   { id: 'scale-vision', label: 'At Scale (40M+)', icon: Globe2, color: 'bg-primary/10 text-primary border-primary/20', description: 'Hyperscale vision' },
 ];
 
@@ -116,6 +118,15 @@ export default function COODashboardPage() {
             {renderSectionHeader('Service Centre Vetting', Building2)}
             <p className="text-sm text-muted-foreground -mt-2">Vet service centres verified by Agent Ops. Your approval marks them active.</p>
             <COOServiceCentreVetting />
+          </div>
+        );
+      case 'bike-leases':
+        return (
+          <div className="space-y-3">
+            {isMobile && renderBackButton('Overview')}
+            {renderSectionHeader('Bike Lease Approvals', Bike)}
+            <p className="text-sm text-muted-foreground -mt-2">Bike applications verified by Agent Ops. Your approval forwards them to the CFO for disbursement into the agent wallet.</p>
+            <BikeLeaseApprovalQueue stage="coo" />
           </div>
         );
       case 'rent-approvals':

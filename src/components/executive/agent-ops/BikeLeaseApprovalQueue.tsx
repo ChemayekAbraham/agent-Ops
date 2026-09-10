@@ -49,6 +49,7 @@ interface BikeLeaseRow {
   order_status: string;
   rejection_reason: string | null;
   created_at: string;
+  ops_approved_at?: string | null;
   coo_approved_at: string | null;
   cfo_disbursed_at: string | null;
   lease_activated_at: string | null;
@@ -59,6 +60,7 @@ interface BikeLeaseRow {
 const STATUS_TONE: Record<string, string> = {
   submitted: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
   pending_approval: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+  ops_approved: 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30',
   coo_approved: 'bg-sky-500/15 text-sky-600 border-sky-500/30',
   approved: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
   completed: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
@@ -66,25 +68,49 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  submitted: 'Submitted — awaiting COO',
-  pending_approval: 'Submitted — awaiting COO',
+  submitted: 'Submitted — awaiting Agent Ops',
+  pending_approval: 'Submitted — awaiting Agent Ops',
+  ops_approved: 'Agent Ops verified — awaiting COO',
   coo_approved: 'COO approved — awaiting CFO',
-  approved: 'Bike disbursed & active lease',
+  approved: 'Funds disbursed & active lease',
   completed: 'Lease completed',
 };
 
+type Stage = 'ops' | 'coo' | 'cfo';
+
 const statusLabel = (s: string) => STATUS_LABEL[s] || s.replace(/_/g, ' ');
 const isPending = (s: string) => s === 'submitted' || s === 'pending_approval';
+const isAwaitingCoo = (s: string) => s === 'ops_approved';
 const isAwaitingCfo = (s: string) => s === 'coo_approved';
-const isOpen = (s: string) => isPending(s) || isAwaitingCfo(s);
+const isOpen = (s: string) => isPending(s) || isAwaitingCoo(s) || isAwaitingCfo(s);
+
+/** The step a row is currently waiting on. */
+const stageOf = (s: string): Stage => (isAwaitingCfo(s) ? 'cfo' : isAwaitingCoo(s) ? 'coo' : 'ops');
+
+const ACTION_LABEL: Record<Stage, string> = {
+  ops: 'Verify & send to COO',
+  coo: 'Approve & send to CFO',
+  cfo: 'Disburse to agent wallet',
+};
+
+const SHORT_ACTION_LABEL: Record<Stage, string> = {
+  ops: 'Verify',
+  coo: 'Approve',
+  cfo: 'Disburse',
+};
 
 /**
- * Agent Ops → Agent Products & Services → Agent Motor Bikes queue for the
- * Spiro electric bike lease: the COO approves the valuation and lease term
- * (no money moves), then the CFO releases the bike and activates the lease
- * recovery plan. Includes the payment recovery projection.
+ * Shared Spiro / motor bike lease queue used by three dashboards.
+ *
+ * The application route is Agent Ops verification → COO approval → CFO
+ * disbursement into the ordering agent's own wallet. Pass `stage` to show only
+ * the rows a dashboard is responsible for; Agent Ops sees every row and so
+ * tracks the status at every step.
  */
-export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: boolean } = {}) {
+export function BikeLeaseApprovalQueue({
+  pendingOnly = false,
+  stage: stageFilter,
+}: { pendingOnly?: boolean; stage?: Stage } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [approveTarget, setApproveTarget] = useState<BikeLeaseRow | null>(null);
@@ -109,8 +135,7 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
     queryClient.invalidateQueries({ queryKey: ['agent-products'] });
   };
 
-  const approveStage: 'coo' | 'cfo' =
-    approveTarget && isAwaitingCfo(approveTarget.order_status) ? 'cfo' : 'coo';
+  const approveStage: Stage = approveTarget ? stageOf(approveTarget.order_status) : 'ops';
 
   const openApprove = (o: BikeLeaseRow) => {
     setApproveTarget(o);
@@ -124,50 +149,31 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
   const perCredit = Math.round(valuationNum * rate);
   const monthly = valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
 
-  // Manager eligibility review: tenant portfolio + risk/compliance standing,
-  // read from the shared agent asset-programme eligibility check.
-  const { data: eligibility, isLoading: eligibilityLoading } = useQuery({
-    queryKey: ['bike-lease-eligibility', approveTarget?.customer_id],
-    enabled: !!approveTarget?.customer_id,
-    queryFn: async () => {
-      const { data, error } = await db.rpc('get_agent_smartphone_eligibility', {
-        p_user_id: approveTarget!.customer_id,
-      });
-      if (error) throw error;
-      return data as {
-        active_tenant_count: number;
-        required_active_tenants: number;
-        collected_30d: number;
-        has_national_id: boolean;
-        has_workplace_verification: boolean;
-        has_open_application: boolean;
-        eligible: boolean;
-      } | null;
-    },
-  });
-
-  const tenantCount = Number(eligibility?.active_tenant_count || 0);
-  const requiredTenants = Number(eligibility?.required_active_tenants || 3);
-  const meetsTenantThreshold = tenantCount >= requiredTenants;
-
-
-
   const approve = useMutation({
-    mutationFn: async ({ id, stage }: { id: string; stage: 'coo' | 'cfo' }) => {
-      const { data, error } = await db.rpc(
-        stage === 'cfo' ? 'cfo_disburse_bike_lease' : 'coo_approve_bike_lease',
+    mutationFn: async ({ id, stage }: { id: string; stage: Stage }) => {
+      const fn =
+        stage === 'cfo'
+          ? 'cfo_disburse_bike_lease'
+          : stage === 'coo'
+            ? 'coo_approve_bike_lease'
+            : 'agent_ops_verify_bike_lease';
+      const args =
         stage === 'cfo'
           ? { p_sale_id: id, p_valuation: valuationNum }
-          : { p_sale_id: id, p_valuation: valuationNum, p_lease_term_months: termNum },
-      );
+          : stage === 'coo'
+            ? { p_sale_id: id, p_valuation: valuationNum, p_lease_term_months: termNum }
+            : { p_sale_id: id };
+      const { data, error } = await db.rpc(fn, args);
       if (error) throw error;
       return { ...(data as any), stage };
     },
     onSuccess: (data: any) => {
       toast.success(
         data?.stage === 'cfo'
-          ? `Bike released at ${formatUGX(Number(data?.valuation || 0))}. Lease active — ${Math.round(Number(data?.daily_rate || 0.15) * 100)}% wallet recovery started.`
-          : `Approved at ${formatUGX(Number(data?.valuation || 0))} and forwarded to the CFO for bike release.`,
+          ? `Disbursed ${formatUGX(Number(data?.valuation || 0))} to the agent wallet. Lease active — ${Math.round(Number(data?.daily_rate || 0.15) * 100)}% wallet recovery started.`
+          : data?.stage === 'coo'
+            ? `Approved at ${formatUGX(Number(data?.valuation || 0))} and forwarded to the CFO for disbursement.`
+            : 'Verified by Agent Ops and forwarded to the COO for approval.',
       );
       setApproveTarget(null);
       invalidate();
@@ -189,10 +195,17 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
     onError: (e: any) => toast.error(e.message || 'Could not reject this application'),
   });
 
-  const scoped = useMemo(
-    () => (pendingOnly ? orders.filter((o) => isOpen(o.order_status)) : orders),
-    [orders, pendingOnly],
-  );
+  const scoped = useMemo(() => {
+    let rows = orders;
+    // A dashboard scoped to one step only ever sees the rows waiting on it,
+    // plus the rows it has already handled so officers can follow them through.
+    if (stageFilter === 'coo') {
+      rows = rows.filter((o) => isAwaitingCoo(o.order_status) || !!o.coo_approved_at);
+    } else if (stageFilter === 'cfo') {
+      rows = rows.filter((o) => isAwaitingCfo(o.order_status) || !!o.cfo_disbursed_at);
+    }
+    return pendingOnly ? rows.filter((o) => isOpen(o.order_status)) : rows;
+  }, [orders, pendingOnly, stageFilter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -205,6 +218,7 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
   }, [scoped, search]);
 
   const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
+  const cooCount = useMemo(() => orders.filter((o) => isAwaitingCoo(o.order_status)).length, [orders]);
   const cfoCount = useMemo(() => orders.filter((o) => isAwaitingCfo(o.order_status)).length, [orders]);
 
   const rowBusy = (id: string) =>
@@ -218,10 +232,17 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <Bike className="h-4 w-4 text-primary" />
             Spiro bike lease applications
-            {pendingCount > 0 && <Badge variant="secondary">{pendingCount} awaiting COO</Badge>}
-            {cfoCount > 0 && <Badge variant="secondary">{cfoCount} awaiting CFO</Badge>}
+            {(!stageFilter || stageFilter === 'ops') && pendingCount > 0 && (
+              <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>
+            )}
+            {(!stageFilter || stageFilter === 'coo') && cooCount > 0 && (
+              <Badge variant="secondary">{cooCount} awaiting COO</Badge>
+            )}
+            {(!stageFilter || stageFilter === 'cfo') && cfoCount > 0 && (
+              <Badge variant="secondary">{cfoCount} awaiting CFO</Badge>
+            )}
           </CardTitle>
-          <MotorBikeCatalogDialog />
+          {!stageFilter && <MotorBikeCatalogDialog />}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -292,7 +313,7 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
                             openApprove(o);
                           }}
                         >
-                          {isAwaitingCfo(o.order_status) ? 'Release & activate' : 'Approve & send to CFO'}
+                          {ACTION_LABEL[stageOf(o.order_status)]}
                         </Button>
                         <Button
                           size="sm"
@@ -386,7 +407,7 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
                                 ) : (
                                   <Check className="h-3.5 w-3.5" />
                                 )}
-                                <span className="ml-1">{isAwaitingCfo(o.order_status) ? 'Release' : 'Approve'}</span>
+                                <span className="ml-1">{SHORT_ACTION_LABEL[stageOf(o.order_status)]}</span>
                               </Button>
                               <Button
                                 size="sm"
@@ -421,12 +442,18 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
         <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md max-h-[90dvh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>
-              {approveStage === 'cfo' ? 'Release bike & activate lease' : 'COO approval — valuation & lease terms'}
+              {approveStage === 'cfo'
+                ? 'Disburse to the agent wallet & activate lease'
+                : approveStage === 'coo'
+                  ? 'COO approval — valuation & lease terms'
+                  : 'Agent Ops verification'}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {approveStage === 'cfo'
-                ? 'Releasing the bike activates the lease and starts wallet recovery. No cash is credited to the agent wallet.'
-                : 'COO approval moves no money — the file is forwarded to the CFO for bike release.'}
+                ? 'The money goes into the ordering agent’s own wallet and daily wallet recovery starts immediately.'
+                : approveStage === 'coo'
+                  ? 'COO approval moves no money — the file is forwarded to the CFO for disbursement.'
+                  : 'Verification moves no money — the file is forwarded to the COO for approval.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -443,86 +470,26 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
                 </div>
               </div>
 
-              {/* Eligibility review — tenant portfolio, risk & compliance (Smartphone T&C) */}
-              <div className="rounded-lg border bg-card px-3 py-2 space-y-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Agent eligibility review
-                </p>
-                {eligibilityLoading ? (
-                  <p className="text-xs text-muted-foreground">Checking eligibility…</p>
-                ) : !eligibility ? (
-                  <p className="text-xs text-muted-foreground">
-                    Eligibility details unavailable for this applicant.
-                  </p>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Tenant portfolio (active plans)</span>
-                      <span className="font-semibold flex items-center gap-1.5">
-                        {tenantCount} / {requiredTenants}
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] ${
-                            meetsTenantThreshold
-                              ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                              : 'bg-destructive/15 text-destructive border-destructive/30'
-                          }`}
-                        >
-                          {meetsTenantThreshold ? 'Meets threshold' : 'Below threshold'}
-                        </Badge>
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">National ID on file</span>
-                      <span className={eligibility.has_national_id ? 'font-semibold text-emerald-600' : 'font-semibold text-destructive'}>
-                        {eligibility.has_national_id ? 'Verified' : 'Missing'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Workplace verification</span>
-                      <span className={eligibility.has_workplace_verification ? 'font-semibold text-emerald-600' : 'font-semibold text-amber-600'}>
-                        {eligibility.has_workplace_verification ? 'Captured' : 'Not captured'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Collections (last 30 days)</span>
-                      <span className="font-semibold">{formatUGX(Number(eligibility.collected_30d || 0))}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Programme standing</span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${
-                          eligibility.eligible
-                            ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                            : 'bg-amber-500/15 text-amber-600 border-amber-500/30'
-                        }`}
-                      >
-                        {eligibility.eligible ? 'Eligible' : 'Review required'}
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground pt-1 border-t mt-1">
-                      Terms &amp; Conditions (as per the Smartphone programme): the agent must hold at
-                      least {requiredTenants} active tenant plans, a verified National ID and no other
-                      open application. Missed recovery days attract the standard penalty and the
-                      asset stays company property until the balance clears.
-                    </p>
-                  </>
-                )}
-              </div>
 
 
-              <div className="space-y-1">
-                <Label className="text-xs">Approved bike valuation (UGX)</Label>
-                <Input
-                  type="number"
-                  min={100000}
-                  step={50000}
-                  inputMode="numeric"
-                  value={approvedValuation}
-                  onChange={(e) => setApprovedValuation(e.target.value)}
-                />
-              </div>
+              {approveStage === 'ops' ? (
+                <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs flex justify-between">
+                  <span className="text-muted-foreground">Requested valuation</span>
+                  <span className="font-semibold">{formatUGX(valuationNum)}</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label className="text-xs">Approved bike valuation (UGX)</Label>
+                  <Input
+                    type="number"
+                    min={100000}
+                    step={50000}
+                    inputMode="numeric"
+                    value={approvedValuation}
+                    onChange={(e) => setApprovedValuation(e.target.value)}
+                  />
+                </div>
+              )}
 
               {approveStage === 'coo' && (
                 <div className="space-y-1">
@@ -573,7 +540,7 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
               onClick={() => approveTarget && approve.mutate({ id: approveTarget.id, stage: approveStage })}
             >
               {approve.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-              {approveStage === 'cfo' ? 'Release & activate lease' : 'Approve & send to CFO'}
+              {ACTION_LABEL[approveStage]}
             </Button>
           </DialogFooter>
         </DialogContent>

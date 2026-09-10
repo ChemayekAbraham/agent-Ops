@@ -15,6 +15,7 @@ import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { Textarea } from '@/components/ui/textarea';
 import TenantAssignAgentDialog from '@/components/shared/TenantAssignAgentDialog';
 import { RepaymentPauseControl } from '@/components/ops/RepaymentPauseControl';
+import { CallCentreSmartphonePanel } from './CallCentreSmartphonePanel';
 import {
   downloadRentCollectionReceiptPdf,
   downloadRentCollectionReceiptXlsx,
@@ -34,6 +35,16 @@ const statusColor = (s: string) => {
   };
   return m[s] || 'bg-muted';
 };
+
+interface TenantProfile {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  city: string | null;
+  created_at: string | null;
+  smartphone_status?: string | null;
+  smartphone_source?: string | null;
+}
 
 interface TenantDetailPanelProps {
   tenantId: string;
@@ -96,7 +107,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
     queryKey: ['tenant-detail', tenantId],
     queryFn: async () => {
       const [profileRes, requestsRes, walletRes, collectionsRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone, city, created_at').eq('id', tenantId).maybeSingle(),
+        supabase.from('profiles').select('id, full_name, phone, city, created_at, smartphone_status, smartphone_source').eq('id', tenantId).maybeSingle(),
         supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, daily_repayment, duration_days, access_fee, request_fee, total_repayment, registration_type, created_at, landlord_id, agent_id, assigned_agent_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
         supabase.from('wallet_transactions').select('id, amount, type, created_at, description').or(`sender_id.eq.${tenantId},recipient_id.eq.${tenantId}`).order('created_at', { ascending: false }).limit(10),
         supabase.from('agent_collections').select('id, amount, created_at, agent_id, payment_method, rent_request_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(200),
@@ -125,7 +136,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
       const landlordMap = new Map((landlordRes.data || []).map(l => [l.id, l]));
 
       return {
-        profile: profileRes.data,
+        profile: profileRes.data as unknown as TenantProfile | null,
         requests: (requestsRes.data || []).map(r => {
           const effectiveAgentId = r.assigned_agent_id || r.agent_id;
           return {
@@ -878,6 +889,14 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
               )}
             </CardContent>
           </Card>
+
+          {/* Call-Centre Smartphone Panel */}
+          <CallCentreSmartphonePanel
+            tenantId={tenantId}
+            smartphoneStatus={(profile as { smartphone_status?: string | null } | null)?.smartphone_status}
+            smartphoneSource={(profile as { smartphone_source?: string | null } | null)?.smartphone_source}
+            onRefetch={() => queryClient.invalidateQueries({ queryKey: ['tenant-detail', tenantId] })}
+          />
 
           {/* Summary KPIs */}
           <div className="grid grid-cols-3 gap-2">

@@ -1757,6 +1757,7 @@ export type Database = {
         Row: {
           agent_id: string
           amount: number
+          client_ref: string | null
           collection_channel: string
           created_at: string
           deposit_request_id: string | null
@@ -1787,6 +1788,7 @@ export type Database = {
         Insert: {
           agent_id: string
           amount: number
+          client_ref?: string | null
           collection_channel?: string
           created_at?: string
           deposit_request_id?: string | null
@@ -1817,6 +1819,7 @@ export type Database = {
         Update: {
           agent_id?: string
           amount?: number
+          client_ref?: string | null
           collection_channel?: string
           created_at?: string
           deposit_request_id?: string | null
@@ -9590,6 +9593,36 @@ export type Database = {
           },
         ]
       }
+      credit_limit_change_log: {
+        Row: {
+          changed_at: string
+          delta: number | null
+          id: string
+          new_total_limit: number
+          notified_at: string | null
+          old_total_limit: number | null
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          delta?: number | null
+          id?: string
+          new_total_limit: number
+          notified_at?: string | null
+          old_total_limit?: number | null
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          delta?: number | null
+          id?: string
+          new_total_limit?: number
+          notified_at?: string | null
+          old_total_limit?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       credit_limit_reconciliation_alerts: {
         Row: {
           bonus_drift: number
@@ -12930,6 +12963,13 @@ export type Database = {
             referencedRelation: "agent_collections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "field_collections_confirmed_collection_id_fkey"
+            columns: ["confirmed_collection_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_collection_unapplied"
+            referencedColumns: ["collection_id"]
+          },
         ]
       }
       field_deposit_batch_audit: {
@@ -13008,6 +13048,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "agent_collections"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_deposit_batch_items_agent_collection_id_fkey"
+            columns: ["agent_collection_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_collection_unapplied"
+            referencedColumns: ["collection_id"]
           },
           {
             foreignKeyName: "field_deposit_batch_items_allocation_id_fkey"
@@ -24501,10 +24548,16 @@ export type Database = {
       notifications: {
         Row: {
           created_at: string | null
+          dismissed_at: string | null
+          event_key: string | null
+          expires_at: string | null
           id: string
           is_read: boolean | null
+          link_path: string | null
           message: string
           metadata: Json | null
+          notification_log_id: string | null
+          read_at: string | null
           title: string
           type: string
           updated_at: string | null
@@ -24512,10 +24565,16 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          dismissed_at?: string | null
+          event_key?: string | null
+          expires_at?: string | null
           id?: string
           is_read?: boolean | null
+          link_path?: string | null
           message: string
           metadata?: Json | null
+          notification_log_id?: string | null
+          read_at?: string | null
           title: string
           type?: string
           updated_at?: string | null
@@ -24523,16 +24582,30 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          dismissed_at?: string | null
+          event_key?: string | null
+          expires_at?: string | null
           id?: string
           is_read?: boolean | null
+          link_path?: string | null
           message?: string
           metadata?: Json | null
+          notification_log_id?: string | null
+          read_at?: string | null
           title?: string
           type?: string
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_notification_log_id_fkey"
+            columns: ["notification_log_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_notification_log"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       oauth_funnel_events: {
         Row: {
@@ -26257,6 +26330,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_channels: {
+        Row: {
+          active: boolean
+          display_name: string
+          id: string
+          merchant_code: string
+          merchant_name: string | null
+          provider: string
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          display_name: string
+          id?: string
+          merchant_code: string
+          merchant_name?: string | null
+          provider: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          display_name?: string
+          id?: string
+          merchant_code?: string
+          merchant_name?: string | null
+          provider?: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       payment_tokens: {
         Row: {
@@ -28476,6 +28585,10 @@ export type Database = {
           country: string | null
           country_code: string | null
           created_at: string
+          dashboard_access_count: number
+          dashboard_activated: boolean
+          dashboard_first_access_at: string | null
+          dashboard_last_access_at: string | null
           deleted_at: string | null
           deleted_by: string | null
           deletion_reason: string | null
@@ -28535,6 +28648,9 @@ export type Database = {
           routing_preferences: Json
           seller_application_status: string | null
           signup_source: string | null
+          smartphone_source: string | null
+          smartphone_status: string
+          smartphone_verified_at: string | null
           sub_county: string | null
           tenant_details_updated_at: string | null
           tenant_electricity_meter: string | null
@@ -28570,6 +28686,10 @@ export type Database = {
           country?: string | null
           country_code?: string | null
           created_at?: string
+          dashboard_access_count?: number
+          dashboard_activated?: boolean
+          dashboard_first_access_at?: string | null
+          dashboard_last_access_at?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           deletion_reason?: string | null
@@ -28629,6 +28749,9 @@ export type Database = {
           routing_preferences?: Json
           seller_application_status?: string | null
           signup_source?: string | null
+          smartphone_source?: string | null
+          smartphone_status?: string
+          smartphone_verified_at?: string | null
           sub_county?: string | null
           tenant_details_updated_at?: string | null
           tenant_electricity_meter?: string | null
@@ -28664,6 +28787,10 @@ export type Database = {
           country?: string | null
           country_code?: string | null
           created_at?: string
+          dashboard_access_count?: number
+          dashboard_activated?: boolean
+          dashboard_first_access_at?: string | null
+          dashboard_last_access_at?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           deletion_reason?: string | null
@@ -28723,6 +28850,9 @@ export type Database = {
           routing_preferences?: Json
           seller_application_status?: string | null
           signup_source?: string | null
+          smartphone_source?: string | null
+          smartphone_status?: string
+          smartphone_verified_at?: string | null
           sub_county?: string | null
           tenant_details_updated_at?: string | null
           tenant_electricity_meter?: string | null
@@ -30764,27 +30894,39 @@ export type Database = {
       push_subscriptions: {
         Row: {
           auth: string
+          browser: string | null
           created_at: string
+          device_class: string | null
           endpoint: string
           id: string
+          last_seen_at: string | null
+          os: string | null
           p256dh: string
           updated_at: string
           user_id: string
         }
         Insert: {
           auth: string
+          browser?: string | null
           created_at?: string
+          device_class?: string | null
           endpoint: string
           id?: string
+          last_seen_at?: string | null
+          os?: string | null
           p256dh: string
           updated_at?: string
           user_id: string
         }
         Update: {
           auth?: string
+          browser?: string | null
           created_at?: string
+          device_class?: string | null
           endpoint?: string
           id?: string
+          last_seen_at?: string | null
+          os?: string | null
           p256dh?: string
           updated_at?: string
           user_id?: string
@@ -31759,6 +31901,158 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_day_settlements: {
+        Row: {
+          amount: number
+          collection_id: string
+          created_at: string
+          day: string
+          id: string
+          rent_request_id: string
+        }
+        Insert: {
+          amount: number
+          collection_id: string
+          created_at?: string
+          day: string
+          id?: string
+          rent_request_id: string
+        }
+        Update: {
+          amount?: number
+          collection_id?: string
+          created_at?: string
+          day?: string
+          id?: string
+          rent_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_day_settlements_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "agent_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_day_settlements_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_collection_unapplied"
+            referencedColumns: ["collection_id"]
+          },
+          {
+            foreignKeyName: "rent_day_settlements_obligation_fkey"
+            columns: ["day", "rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "agent_expected_day_plans"
+            referencedColumns: ["day", "rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_day_settlements_obligation_fkey"
+            columns: ["day", "rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_day_ledger"
+            referencedColumns: ["day", "rent_request_id"]
+          },
+        ]
+      }
+      rent_fee_collection_exceptions: {
+        Row: {
+          collection_id: string | null
+          created_at: string
+          detail: Json
+          id: string
+          payment_amount: number
+          reason: string
+          rent_request_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          source_table: string
+        }
+        Insert: {
+          collection_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          payment_amount: number
+          reason: string
+          rent_request_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source_table?: string
+        }
+        Update: {
+          collection_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          payment_amount?: number
+          reason?: string
+          rent_request_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+        ]
+      }
       rent_history_records: {
         Row: {
           agent_ops_verified_at: string | null
@@ -32264,6 +32558,7 @@ export type Database = {
           reopened_at: string | null
           reopened_by: string | null
           repayment_frequency: string
+          repayment_frequency_locked: boolean
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -32395,6 +32690,7 @@ export type Database = {
           reopened_at?: string | null
           reopened_by?: string | null
           repayment_frequency?: string
+          repayment_frequency_locked?: boolean
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -32526,6 +32822,7 @@ export type Database = {
           reopened_at?: string | null
           reopened_by?: string | null
           repayment_frequency?: string
+          repayment_frequency_locked?: boolean
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -36803,6 +37100,207 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_dashboard_access_log: {
+        Row: {
+          browser: string | null
+          counted_as_smartphone: boolean
+          device_class: string | null
+          id: string
+          ip_hash: string | null
+          link_id: string | null
+          opened_at: string
+          os: string | null
+          referrer: string | null
+          tenant_id: string
+          user_agent: string | null
+          was_first_access: boolean
+        }
+        Insert: {
+          browser?: string | null
+          counted_as_smartphone?: boolean
+          device_class?: string | null
+          id?: string
+          ip_hash?: string | null
+          link_id?: string | null
+          opened_at?: string
+          os?: string | null
+          referrer?: string | null
+          tenant_id: string
+          user_agent?: string | null
+          was_first_access?: boolean
+        }
+        Update: {
+          browser?: string | null
+          counted_as_smartphone?: boolean
+          device_class?: string | null
+          id?: string
+          ip_hash?: string | null
+          link_id?: string | null
+          opened_at?: string
+          os?: string | null
+          referrer?: string | null
+          tenant_id?: string
+          user_agent?: string | null
+          was_first_access?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_dashboard_access_log_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_access_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_access_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_access_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_access_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_access_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_access_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_access_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      tenant_dashboard_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          last_used_at: string | null
+          notification_log_id: string | null
+          purpose: string
+          revoked_at: string | null
+          tenant_id: string
+          token_hash: string
+          use_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          notification_log_id?: string | null
+          purpose?: string
+          revoked_at?: string | null
+          tenant_id: string
+          token_hash: string
+          use_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          notification_log_id?: string | null
+          purpose?: string
+          revoked_at?: string | null
+          tenant_id?: string
+          token_hash?: string
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_dashboard_links_notification_log_id_fkey"
+            columns: ["notification_log_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_notification_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_dashboard_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       tenant_documents: {
         Row: {
           bucket: string
@@ -37055,6 +37553,393 @@ export type Database = {
           tenant_phone?: string | null
           transaction_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      tenant_notification_channel_policy: {
+        Row: {
+          critical: boolean
+          event_key: string
+          in_app_enabled: boolean
+          push_enabled: boolean
+          push_preferred: boolean
+          sms_enabled: boolean
+          sms_fallback: boolean
+          updated_at: string
+        }
+        Insert: {
+          critical?: boolean
+          event_key: string
+          in_app_enabled?: boolean
+          push_enabled?: boolean
+          push_preferred?: boolean
+          sms_enabled?: boolean
+          sms_fallback?: boolean
+          updated_at?: string
+        }
+        Update: {
+          critical?: boolean
+          event_key?: string
+          in_app_enabled?: boolean
+          push_enabled?: boolean
+          push_preferred?: boolean
+          sms_enabled?: boolean
+          sms_fallback?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_notification_channel_policy_event_key_fkey"
+            columns: ["event_key"]
+            isOneToOne: true
+            referencedRelation: "tenant_notification_events"
+            referencedColumns: ["event_key"]
+          },
+        ]
+      }
+      tenant_notification_deliveries: {
+        Row: {
+          attempted_at: string
+          channel: string
+          created_at: string
+          delivered_at: string | null
+          error: string | null
+          error_code: string | null
+          failed_at: string | null
+          id: string
+          in_app_notification_id: string | null
+          notification_log_id: string
+          opened_at: string | null
+          provider: string | null
+          provider_message_id: string | null
+          push_subscription_id: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempted_at?: string
+          channel: string
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          error_code?: string | null
+          failed_at?: string | null
+          id?: string
+          in_app_notification_id?: string | null
+          notification_log_id: string
+          opened_at?: string | null
+          provider?: string | null
+          provider_message_id?: string | null
+          push_subscription_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempted_at?: string
+          channel?: string
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          error_code?: string | null
+          failed_at?: string | null
+          id?: string
+          in_app_notification_id?: string | null
+          notification_log_id?: string
+          opened_at?: string | null
+          provider?: string | null
+          provider_message_id?: string | null
+          push_subscription_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_notification_deliveries_in_app_notification_id_fkey"
+            columns: ["in_app_notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_deliveries_notification_log_id_fkey"
+            columns: ["notification_log_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_notification_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_deliveries_push_subscription_id_fkey"
+            columns: ["push_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "push_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_notification_events: {
+        Row: {
+          active: boolean
+          body_template: string | null
+          created_at: string
+          description: string | null
+          event_key: string
+          in_app_body_template: string | null
+          in_app_title_template: string | null
+          label: string
+          link_path: string | null
+          max_per_day: number | null
+          max_per_week: number | null
+          message_class: string
+          push_body_template: string | null
+          push_title_template: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          body_template?: string | null
+          created_at?: string
+          description?: string | null
+          event_key: string
+          in_app_body_template?: string | null
+          in_app_title_template?: string | null
+          label: string
+          link_path?: string | null
+          max_per_day?: number | null
+          max_per_week?: number | null
+          message_class: string
+          push_body_template?: string | null
+          push_title_template?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          body_template?: string | null
+          created_at?: string
+          description?: string | null
+          event_key?: string
+          in_app_body_template?: string | null
+          in_app_title_template?: string | null
+          label?: string
+          link_path?: string | null
+          max_per_day?: number | null
+          max_per_week?: number | null
+          message_class?: string
+          push_body_template?: string | null
+          push_title_template?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tenant_notification_log: {
+        Row: {
+          acted_at: string | null
+          action: string | null
+          action_reference_id: string | null
+          channel: string
+          created_at: string
+          episode_key: string | null
+          event_key: string
+          id: string
+          payload: Json
+          phone: string | null
+          provider: string | null
+          skip_reason: string | null
+          sms_log_id: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          acted_at?: string | null
+          action?: string | null
+          action_reference_id?: string | null
+          channel?: string
+          created_at?: string
+          episode_key?: string | null
+          event_key: string
+          id?: string
+          payload?: Json
+          phone?: string | null
+          provider?: string | null
+          skip_reason?: string | null
+          sms_log_id?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          acted_at?: string | null
+          action?: string | null
+          action_reference_id?: string | null
+          channel?: string
+          created_at?: string
+          episode_key?: string | null
+          event_key?: string
+          id?: string
+          payload?: Json
+          phone?: string | null
+          provider?: string | null
+          skip_reason?: string | null
+          sms_log_id?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_notification_log_event_key_fkey"
+            columns: ["event_key"]
+            isOneToOne: false
+            referencedRelation: "tenant_notification_events"
+            referencedColumns: ["event_key"]
+          },
+          {
+            foreignKeyName: "tenant_notification_log_sms_log_id_fkey"
+            columns: ["sms_log_id"]
+            isOneToOne: false
+            referencedRelation: "sms_delivery_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      tenant_notification_preferences: {
+        Row: {
+          marketing_push_opt_out: boolean
+          push_enabled: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          marketing_push_opt_out?: boolean
+          push_enabled?: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          marketing_push_opt_out?: boolean
+          push_enabled?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_notification_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_notification_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      tenant_notification_settings: {
+        Row: {
+          default_episode_window_days: number
+          id: number
+          marketing_max_per_week: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          default_episode_window_days?: number
+          id?: number
+          marketing_max_per_week?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          default_episode_window_days?: number
+          id?: number
+          marketing_max_per_week?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -44164,6 +45049,284 @@ export type Database = {
         }
         Relationships: []
       }
+      v_rent_collection_unapplied: {
+        Row: {
+          agent_id: string | null
+          applied_ugx: number | null
+          collected_ugx: number | null
+          collection_id: string | null
+          created_at: string | null
+          rent_request_id: string | null
+          unapplied_ugx: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+        ]
+      }
+      v_rent_day_ledger: {
+        Row: {
+          agent_id: string | null
+          day: string | null
+          expected_ugx: number | null
+          is_settled: boolean | null
+          remaining_ugx: number | null
+          rent_request_id: string | null
+          settled_ugx: number | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
+      v_rent_fee_collection_drilldown: {
+        Row: {
+          access_fee: number | null
+          access_fee_component: number | null
+          agent_id: string | null
+          agent_name: string | null
+          collected_at: string | null
+          collected_on: string | null
+          collection_channel: string | null
+          collection_id: string | null
+          fee_ledger_group: string | null
+          instalment_id: string | null
+          payment_amount: number | null
+          platform_treasury_fee_revenue: number | null
+          principal_component: number | null
+          registration_fee_billed: number | null
+          registration_fee_component: number | null
+          rent_amount: number | null
+          rent_request_id: string | null
+          source_table: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+          total_repayment: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+        ]
+      }
+      v_rent_plan_arrears: {
+        Row: {
+          agent_id: string | null
+          arrears_ugx: number | null
+          billed_to_date_ugx: number | null
+          days_behind: number | null
+          days_billed: number | null
+          due_today_ugx: number | null
+          oldest_open_day: string | null
+          rent_request_id: string | null
+          settled_to_date_ugx: number | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
       v_rent_plan_schedule: {
         Row: {
           agent_id: string | null
@@ -44851,6 +46014,7 @@ export type Database = {
         Args: {
           p_agent_id: string
           p_amount: number
+          p_client_ref?: string
           p_notes?: string
           p_partial_confirmed?: boolean
           p_partial_reason?: string
@@ -44863,12 +46027,14 @@ export type Database = {
         Args: {
           p_agent_id: string
           p_amount: number
+          p_client_ref?: string
           p_notes?: string
           p_rent_request_id: string
           p_tenant_id: string
         }
         Returns: Json
       }
+      agent_arrears_overview: { Args: { p_agent_id?: string }; Returns: Json }
       agent_can_view_trust: { Args: { _user_id: string }; Returns: boolean }
       agent_cancel_merchandise_order: {
         Args: { p_reason?: string; p_sale_id: string }
@@ -44889,6 +46055,10 @@ export type Database = {
           p_target_role: string
           p_village_id?: number
         }
+        Returns: Json
+      }
+      agent_collect_context: {
+        Args: { p_rent_request_id: string }
         Returns: Json
       }
       agent_create_promissory_note: {
@@ -45157,6 +46327,10 @@ export type Database = {
         Returns: undefined
       }
       agent_ops_tenants_owing: { Args: { p_as_of?: string }; Returns: Json }
+      agent_ops_verify_bike_lease: {
+        Args: { p_note?: string; p_sale_id: string }
+        Returns: Json
+      }
       agent_ops_whitelist_admin: {
         Args: { _user_id: string }
         Returns: boolean
@@ -45335,6 +46509,7 @@ export type Database = {
           reopened_at: string | null
           reopened_by: string | null
           repayment_frequency: string
+          repayment_frequency_locked: boolean
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -45596,6 +46771,10 @@ export type Database = {
         Args: { p_short_code: string; p_visitor_id?: string }
         Returns: Json
       }
+      attach_notification_to_dashboard_link: {
+        Args: { p_link_id: string; p_notification_log_id: string }
+        Returns: boolean
+      }
       attach_signup_attempt_user: {
         Args: { p_attempt_id: string; p_user_id: string }
         Returns: undefined
@@ -45609,6 +46788,10 @@ export type Database = {
           p_transaction_id?: string
           p_withdrawal_id: string
         }
+        Returns: Json
+      }
+      attribute_tenant_notification_actions: {
+        Args: { p_lookback_days?: number; p_merchant_window_hours?: number }
         Returns: Json
       }
       auth_user_ids_by_phone_last9: {
@@ -46091,6 +47274,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_ops_verify_bike_leases: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_override_advance_gates: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -46106,6 +47293,14 @@ export type Database = {
       can_review_smartphone_orders: {
         Args: { _user_id: string }
         Returns: boolean
+      }
+      can_send_tenant_notification: {
+        Args: {
+          p_episode_key?: string
+          p_event_key: string
+          p_tenant_id: string
+        }
+        Returns: Json
       }
       can_view_agent_data: {
         Args: { _target_agent_id: string; _viewer_id: string }
@@ -46866,6 +48061,19 @@ export type Database = {
           portfolio_id: string
         }[]
       }
+      create_tenant_in_app_notification: {
+        Args: {
+          p_body: string
+          p_event_key: string
+          p_expires_at?: string
+          p_link_path?: string
+          p_metadata?: Json
+          p_notification_log_id: string
+          p_tenant_id: string
+          p_title: string
+        }
+        Returns: string
+      }
       credit_agent_event_bonus: {
         Args: {
           p_agent_id: string
@@ -47279,6 +48487,10 @@ export type Database = {
           p_skip_reason?: string
         }
         Returns: Json
+      }
+      dismiss_in_app_notification: {
+        Args: { p_notification_id: string }
+        Returns: boolean
       }
       dispatch_portfolio_change_notice: { Args: never; Returns: undefined }
       dispatch_tenant_transfer_notice: {
@@ -48584,6 +49796,10 @@ export type Database = {
           user_id: string
           wallet_bucket: string
         }[]
+      }
+      get_cfo_rent_fee_collections: {
+        Args: { p_as_at?: string }
+        Returns: Json
       }
       get_cfo_weekly_report: { Args: { p_end?: string }; Returns: Json }
       get_chain_health_summary: {
@@ -49957,6 +51173,15 @@ export type Database = {
         }[]
       }
       get_supporter_pool_stats: { Args: never; Returns: Json }
+      get_tenant_active_push_subscriptions: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          auth: string
+          endpoint: string
+          id: string
+          p256dh: string
+        }[]
+      }
       get_tenant_behavior_segments: {
         Args: never
         Returns: {
@@ -49968,6 +51193,30 @@ export type Database = {
           total_overdue_amount: number
           total_with_requests: number
           warning_count: number
+        }[]
+      }
+      get_tenant_channel_performance: {
+        Args: { p_end?: string; p_event_key?: string; p_start?: string }
+        Returns: Json
+      }
+      get_tenant_consecutive_missed_days: {
+        Args: { p_as_of?: string; p_window_days?: number }
+        Returns: {
+          consecutive_missed_days: number
+          episode_key: string
+          run_end_date: string
+          run_start_date: string
+          tenant_id: string
+        }[]
+      }
+      get_tenant_dashboard_link_candidates: {
+        Args: { p_limit?: number; p_mode?: string }
+        Returns: {
+          dashboard_activated: boolean
+          smartphone_status: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
         }[]
       }
       get_tenant_details: { Args: { p_tenant_id: string }; Returns: Json }
@@ -49983,6 +51232,24 @@ export type Database = {
           public_url: string
           source_rent_request_id: string
           version: number
+        }[]
+      }
+      get_tenant_five_day_default_candidates: {
+        Args: {
+          p_as_of?: string
+          p_episode_start_on_or_after?: string
+          p_max_run?: number
+          p_min_run?: number
+          p_window_days?: number
+        }
+        Returns: {
+          consecutive_missed_days: number
+          episode_key: string
+          outstanding: number
+          run_start_date: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
         }[]
       }
       get_tenant_location_breakdown: {
@@ -50014,6 +51281,21 @@ export type Database = {
           vacant: number
         }[]
       }
+      get_tenant_merchant_code_candidates: {
+        Args: {
+          p_as_of?: string
+          p_max_days_since_last_payment?: number
+          p_require_prior_payment?: boolean
+        }
+        Returns: {
+          daily_expected: number
+          outstanding: number
+          remaining_today: number
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+        }[]
+      }
       get_tenant_missed_dates: {
         Args: { p_as_of?: string; p_window_days: number }
         Returns: {
@@ -50027,6 +51309,31 @@ export type Database = {
           missed_days: number
           tenant_id: string
         }[]
+      }
+      get_tenant_missed_obligation_candidates: {
+        Args: {
+          p_as_of?: string
+          p_max_days_since_last_payment?: number
+          p_require_prior_payment?: boolean
+        }
+        Returns: {
+          daily_expected: number
+          days_since_last_payment: number
+          last_pay_date: string
+          outstanding: number
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+        }[]
+      }
+      get_tenant_notification_performance: {
+        Args: {
+          p_district?: string
+          p_end?: string
+          p_event_key?: string
+          p_start?: string
+        }
+        Returns: Json
       }
       get_tenant_ops_acquisition: { Args: never; Returns: Json }
       get_tenant_ops_acquisition_range: {
@@ -50125,6 +51432,61 @@ export type Database = {
           total_tenants: number
         }[]
       }
+      get_tenant_payment_day_state: {
+        Args: { p_as_of?: string; p_tenant_ids?: string[] }
+        Returns: {
+          daily_expected: number
+          day_state: string
+          outstanding: number
+          paid_on_day: number
+          remaining_today: number
+          tenant_id: string
+        }[]
+      }
+      get_tenant_payment_notice_candidates: {
+        Args: { p_as_of?: string; p_since_minutes?: number }
+        Returns: {
+          daily_expected: number
+          day_state: string
+          last_payment_at: string
+          outstanding: number
+          paid_on_day: number
+          remaining_today: number
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+        }[]
+      }
+      get_tenant_push_migration_candidates: {
+        Args: { p_limit?: number }
+        Returns: {
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+        }[]
+      }
+      get_tenant_relocation_candidates: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          outstanding: number
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+        }[]
+      }
+      get_tenant_rent_limit_increase_candidates: {
+        Args: { p_max_age_hours?: number; p_min_delta?: number }
+        Returns: {
+          change_id: string
+          changed_at: string
+          delta: number
+          new_total_limit: number
+          old_total_limit: number
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+        }[]
+      }
       get_tenant_rent_summary: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -50156,6 +51518,10 @@ export type Database = {
           p_search?: string
           p_to?: string
         }
+        Returns: Json
+      }
+      get_tenant_smartphone_overview: {
+        Args: { p_agent_id?: string; p_district?: string }
         Returns: Json
       }
       get_tenant_transfer_history: {
@@ -50391,6 +51757,7 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      get_welile_account_reconciliation: { Args: never; Returns: Json }
       get_withdraw_context: { Args: { p_user_id: string }; Returns: Json }
       get_withdrawable_total: { Args: { p_user_id: string }; Returns: number }
       get_withdrawable_wallet_holders_by_recent_withdrawal: {
@@ -50912,6 +52279,16 @@ export type Database = {
         Args: { p_payout_id: string; p_processed_by?: string }
         Returns: Json
       }
+      issue_tenant_dashboard_link: {
+        Args: {
+          p_created_by?: string
+          p_purpose?: string
+          p_tenant_id: string
+          p_token_hash: string
+          p_ttl_days?: number
+        }
+        Returns: string
+      }
       landlord_agreement_actor_can_view: {
         Args: { p_landlord_id: string }
         Returns: boolean
@@ -51032,6 +52409,7 @@ export type Database = {
           lease_daily_rate: number
           lease_term_months: number
           model_type: string
+          ops_approved_at: string
           order_status: string
           payment_projection: number
           rejection_reason: string
@@ -51214,6 +52592,10 @@ export type Database = {
         Args: { _notification_id: string }
         Returns: undefined
       }
+      mark_credit_limit_change_notified: {
+        Args: { p_change_id: string }
+        Returns: boolean
+      }
       mark_deposit_bridge_delivered: {
         Args: { p_event_id: string; p_group_id: string; p_latency_ms?: number }
         Returns: undefined
@@ -51222,9 +52604,17 @@ export type Database = {
         Args: { p_error: string; p_event_id: string }
         Returns: undefined
       }
+      mark_in_app_notification_read: {
+        Args: { p_notification_id: string }
+        Returns: boolean
+      }
       mark_proxy_commission_completed: {
         Args: { p_id: string; p_note?: string }
         Returns: Json
+      }
+      mark_tenant_notification_action: {
+        Args: { p_action: string; p_event_key: string; p_tenant_id: string }
+        Returns: string
       }
       match_email_ledger_credits: {
         Args: { p_refs: string[] }
@@ -51663,6 +53053,21 @@ export type Database = {
           visible_scope: number
         }[]
       }
+      ops_landlord_change_history: {
+        Args: { p_landlord_id: string; p_limit?: number }
+        Returns: {
+          action_type: string
+          actor_id: string
+          actor_name: string
+          audit_id: string
+          changed_at: string
+          field_name: string
+          new_value: string
+          old_value: string
+          reason: string
+          record_id: string
+        }[]
+      }
       ops_landlord_funded_stats: {
         Args: { p_date_from?: string; p_date_to?: string; p_search?: string }
         Returns: Json
@@ -51851,6 +53256,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ops_rent_frequency_history: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          changed_at: string
+          changed_by: string
+          changed_by_name: string
+          id: string
+          new_frequency: string
+          old_frequency: string
+          reason: string
+          starts_on: string
+        }[]
+      }
       ops_resolve_agent_segment: {
         Args: {
           _district?: string
@@ -52016,6 +53434,15 @@ export type Database = {
           _agent_id: string
           _reason: string
           _tier: Database["public"]["Enums"]["agent_tier"]
+        }
+        Returns: Json
+      }
+      ops_set_rent_plan_frequency: {
+        Args: {
+          p_frequency: string
+          p_reason?: string
+          p_rent_request_id: string
+          p_starts_on?: string
         }
         Returns: Json
       }
@@ -52623,6 +54050,15 @@ export type Database = {
         }
         Returns: Json
       }
+      post_rent_fee_collection: {
+        Args: {
+          p_payment_amount: number
+          p_rent_request_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
       preview_business_advance_limit: {
         Args: {
           _avg_monthly_rent: number
@@ -52984,6 +54420,8 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_max_users?: number }
         Returns: Json
       }
+      reconcile_rent_fee_collections: { Args: never; Returns: Json }
+      reconcile_rent_fee_l7: { Args: never; Returns: Json }
       reconcile_wallet_cache_to_ledger: {
         Args: { p_reason?: string }
         Returns: Json
@@ -53064,6 +54502,17 @@ export type Database = {
         Args: { p_window_days?: number }
         Returns: string
       }
+      record_push_delivery: {
+        Args: {
+          p_error?: string
+          p_error_code?: string
+          p_notification_log_id: string
+          p_provider_message_id?: string
+          p_push_subscription_id: string
+          p_status: string
+        }
+        Returns: string
+      }
       record_receivables_forecast_snapshot: {
         Args: { p_granularity?: string; p_periods?: number }
         Returns: Json
@@ -53126,6 +54575,34 @@ export type Database = {
             }
             Returns: Json
           }
+      record_tenant_dashboard_access: {
+        Args: {
+          p_browser?: string
+          p_device_class?: string
+          p_ip_hash?: string
+          p_is_smartphone_evidence?: boolean
+          p_os?: string
+          p_referrer?: string
+          p_token_hash: string
+          p_user_agent?: string
+        }
+        Returns: Json
+      }
+      record_tenant_notification: {
+        Args: {
+          p_channel?: string
+          p_episode_key?: string
+          p_event_key: string
+          p_payload?: Json
+          p_phone?: string
+          p_provider?: string
+          p_skip_reason?: string
+          p_sms_log_id?: string
+          p_status?: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       record_withdrawal_settlement_state: {
         Args: { p_withdrawal_id: string }
         Returns: Json
@@ -53265,8 +54742,22 @@ export type Database = {
         }
         Returns: string
       }
+      rent_apply_collections_to_days: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
+      rent_arrears_go_live: { Args: never; Returns: string }
+      rent_arrears_read_authorized: { Args: never; Returns: boolean }
       rent_pipeline_tenant_history: {
         Args: { p_exclude_request_id?: string; p_tenant_id: string }
+        Returns: Json
+      }
+      rent_plan_collect_authorized: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
+      rent_plan_day_ledger: {
+        Args: { p_rent_request_id: string }
         Returns: Json
       }
       rent_plan_schedule_days: {
@@ -53292,6 +54783,7 @@ export type Database = {
         Args: { p_duration_days: number; p_registration_type: string }
         Returns: boolean
       }
+      rent_sweep_unapplied_collections: { Args: never; Returns: Json }
       reopen_deposit_for_repair: {
         Args: { p_deposit_id: string }
         Returns: Json
@@ -53846,6 +55338,10 @@ export type Database = {
         Args: { p_new_password: string; p_user_id: string }
         Returns: boolean
       }
+      set_tenant_smartphone_status: {
+        Args: { p_source?: string; p_status: string; p_tenant_id: string }
+        Returns: Json
+      }
       set_withdrawal_account: {
         Args: { p_name: string; p_number: string; p_provider: string }
         Returns: Json
@@ -54051,6 +55547,10 @@ export type Database = {
         Returns: number
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
+      tenant_location_correction_active_metrics: {
+        Args: { p_agent_id?: string }
+        Returns: Json
+      }
       tenant_location_correction_agents: {
         Args: { p_limit?: number; p_search?: string }
         Returns: {

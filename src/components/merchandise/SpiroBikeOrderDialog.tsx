@@ -181,8 +181,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
               <span className="font-bold">{formatUGX(schedule.daily)}</span>
             </div>
             <p className="text-[11px] text-muted-foreground pt-1">
-              Repayments are recovered from your wallet earnings —{' '}
-              {Math.round(BIKE_RECOVERY_RATE * 100)}% up to 4 times a day. Ownership transfers once
+              Repayments are recovered from your wallet earnings daily. Ownership transfers once
               the balance reaches zero.
             </p>
           </div>

@@ -281,6 +281,12 @@
     <priority>0.2</priority>
   </url>
   <url>
+    <loc>https://welilereceipts.com/house/y7ZDf4</loc>
+    <lastmod>2026-09-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://welilereceipts.com/house/UTQd6L</loc>
     <lastmod>2026-09-08</lastmod>
     <changefreq>weekly</changefreq>
@@ -510,12 +516,6 @@
   </url>
   <url>
     <loc>https://welilereceipts.com/house/g3vLDL</loc>
-    <lastmod>2026-09-02</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://welilereceipts.com/house/y7ZDf4</loc>
     <lastmod>2026-09-02</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

@@ -59,6 +59,7 @@ import {
   useTenantLocationCorrections,
   useTenantLocationDashboard,
   type TenantLocationCorrectionRow,
+  useTenantLocationActiveMetrics,
   type TenantLocationDashboardAgent,
 } from '@/hooks/useTenantLocationCorrections';
 import CorrectTenantLocationDialog from '@/components/location/CorrectTenantLocationDialog';
@@ -175,6 +176,18 @@ export function TenantLocationCorrectionsHub() {
   const correctionPct = pctOf(d?.corrected ?? 0, d?.required ?? 0);
   const outstandingPct = pctOf(d?.outstanding ?? 0, d?.required ?? 0);
   const populationPct = pctOf(d?.required ?? 0, d?.total_tenants ?? 0);
+
+  // Active tenants = existing system definition (rent request funded / disbursed / repaying).
+  const activeQ = useTenantLocationActiveMetrics(agentId);
+  const am = activeQ.data;
+  const activeLoading = activeQ.isLoading;
+  const activeOutstandingPct = pctOf(am?.active_outstanding ?? 0, am?.active_tenants ?? 0);
+  const activeSplit = am
+    ? [
+        { name: 'Correct location', value: am.active_corrected, fill: 'hsl(var(--primary))' },
+        { name: 'Requires correction', value: am.active_outstanding, fill: 'hsl(var(--destructive))' },
+      ]
+    : [];
 
   const trend = useMemo(() => {
     let cum = 0;
@@ -331,6 +344,108 @@ export function TenantLocationCorrectionsHub() {
         <KPICard title="Correction %" value={`${correctionPct}%`} icon={Percent} loading={loading} color="bg-emerald-500/10 text-emerald-600" />
         <KPICard title="Outstanding %" value={`${outstandingPct}%`} icon={Percent} loading={loading} color="bg-destructive/10 text-destructive" />
       </div>
+
+      {/* Active tenants — tenants with a live rent relationship (funded, disbursed or repaying) */}
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
+        <KPICard
+          title="Active tenants"
+          value={(am?.active_tenants ?? 0).toLocaleString()}
+          icon={Activity}
+          loading={activeLoading}
+          subtitle={`${am?.active_share_of_population ?? 0}% of all tenants`}
+        />
+        <KPICard
+          title="Active corrected"
+          value={(am?.active_corrected ?? 0).toLocaleString()}
+          icon={CheckCircle2}
+          loading={activeLoading}
+          color="bg-emerald-500/10 text-emerald-600"
+        />
+        <KPICard
+          title="Active outstanding"
+          value={(am?.active_outstanding ?? 0).toLocaleString()}
+          icon={AlertCircle}
+          loading={activeLoading}
+          color="bg-destructive/10 text-destructive"
+        />
+        <KPICard
+          title="Active correction %"
+          value={`${am?.active_pct_corrected ?? 0}%`}
+          icon={Percent}
+          loading={activeLoading}
+          color="bg-emerald-500/10 text-emerald-600"
+        />
+        <KPICard
+          title="Active share of outstanding"
+          value={`${am?.active_share_of_outstanding ?? 0}%`}
+          icon={Sigma}
+          loading={activeLoading}
+          color="bg-amber-500/10 text-amber-600"
+          subtitle="of all tenants still to fix"
+        />
+        <KPICard
+          title="Active tenants % of base"
+          value={`${am?.active_share_of_population ?? 0}%`}
+          icon={Users}
+          loading={activeLoading}
+        />
+      </div>
+
+      <Card>
+        <CardHeader className="p-3 pb-1">
+          <CardTitle className="flex items-center gap-2 text-xs font-bold">
+            <Activity className="h-4 w-4 text-primary" /> Active tenants — location status
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 p-3 pt-2 lg:grid-cols-[minmax(0,260px)_1fr] lg:items-center">
+          <div className="h-[220px]">
+            {activeLoading ? (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Loading…
+              </div>
+            ) : (am?.active_tenants ?? 0) === 0 ? (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No active tenants</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={activeSplit} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                    {activeSplit.map((s) => (
+                      <Cell key={s.name} fill={s.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2.5">
+              <span className="flex min-w-0 items-center gap-2 text-xs font-semibold">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-primary" /> Correct location
+              </span>
+              <span className="shrink-0 text-xs font-bold tabular-nums text-emerald-600">
+                {(am?.active_corrected ?? 0).toLocaleString()} · {am?.active_pct_corrected ?? 0}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2.5">
+              <span className="flex min-w-0 items-center gap-2 text-xs font-semibold">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" /> Still requiring correction
+              </span>
+              <span className="shrink-0 text-xs font-bold tabular-nums text-destructive">
+                {(am?.active_outstanding ?? 0).toLocaleString()} · {activeOutstandingPct}%
+              </span>
+            </div>
+            <Progress value={am?.active_pct_corrected ?? 0} className="h-2" />
+            <p className="text-[11px] text-muted-foreground">
+              {(am?.active_corrected ?? 0).toLocaleString()} of {(am?.active_tenants ?? 0).toLocaleString()} active tenants are
+              matched to the approved Uganda location list. Active tenants are {am?.active_share_of_population ?? 0}% of all
+              tenants and hold {am?.active_share_of_outstanding ?? 0}% of everything still to fix.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+
 
       <Card>
         <CardContent className="p-3 sm:p-4 space-y-1.5">

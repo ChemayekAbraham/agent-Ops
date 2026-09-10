@@ -6,9 +6,6 @@ import { Input } from '@/components/ui/input';
 import { AutoGrowTextarea } from '@/components/budget/AutoGrowTextarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { Loader2, Plus, Save, Send, Trash2, Upload, FileText, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -21,6 +18,7 @@ import {
 } from '@/hooks/useDepartmentBudgets';
 import { departmentKeysForDashboard } from './departmentScope';
 import { useAuth } from '@/hooks/useAuth';
+import { useBudgetSubmissionGate } from '@/hooks/useBudgetSubmissionGate';
 
 interface DraftLine {
   description: string;
@@ -59,10 +57,22 @@ interface Props {
   dashboard?: string;
   /** Explicit hr_departments.key allowlist; overrides `dashboard`. */
   departmentKeys?: string[];
+  /** Budget cycle to open on mount (used by the budget submission gate). */
+  initialCycleId?: string;
+  /** Department to open on mount (used by the budget submission gate). */
+  initialDepartmentId?: string;
+  /** Existing draft to resume, so the gate never starts a second submission. */
+  initialSubmissionId?: string;
 }
 
 /** Department-facing budget preparation and submission interface. */
-export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }: Props = {}) {
+export default function DepartmentBudgetSubmission({
+  dashboard,
+  departmentKeys,
+  initialCycleId,
+  initialDepartmentId,
+  initialSubmissionId,
+}: Props = {}) {
   const { cycles, loading: cyclesLoading } = useBudgetCycles();
   const {
     departments,
@@ -92,6 +102,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
    * widening it here would let a hub page file outside its own hub.
    */
   const { roles } = useAuth();
+  const { refresh: refreshBudgetObligation } = useBudgetSubmissionGate();
   const isReviewer = useMemo(
     () => (roles ?? []).some(r => BUDGET_REVIEWER_ROLES.includes(r as string)),
     [roles],
@@ -103,8 +114,11 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     [myDepartments],
   );
 
-  const [cycleId, setCycleId] = useState<string>('');
-  const [departmentId, setDepartmentId] = useState<string>('');
+  const [cycleId, setCycleId] = useState<string>(initialCycleId ?? '');
+  const [departmentId, setDepartmentId] = useState<string>(initialDepartmentId ?? '');
+  // Set once the requested draft has been opened, so a user edit is never
+  // overwritten by re-opening it.
+  const [resumedDraftId, setResumedDraftId] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<BudgetSubmission[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -141,27 +155,21 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     if (!cycleId && openCycles.length) setCycleId(openCycles[0].id);
   }, [openCycles, cycleId]);
   useEffect(() => {
-    // Never guess: the field prepopulates with the user's own (home) department
-    // only. When the home department cannot be resolved and more than one
-    // posting exists, the field stays empty so an alphabetically-first
-    // department is never silently pre-selected on the user's behalf.
+    // The department is no longer a choice on the form: a budget is always
+    // filed under the preparer's own posting. The value is resolved here so
+    // nothing has to be picked, and it is re-resolved whenever the postings
+    // load or change.
     if (refLoading) return;
-    // Filing on behalf of departments: never preselect. A reviewer's own HR
-    // posting is not the department they are usually budgeting for, and a
-    // prefilled field invites submitting under the wrong one.
-    if (filingOnBehalf) {
-      if (departmentId && !selectableDepartments.some(d => d.id === departmentId)) setDepartmentId('');
-      return;
-    }
-    if (!myDepartments.length) { if (departmentId) setDepartmentId(''); return; }
-    if (myDepartments.some(d => d.id === departmentId)) return;
-    // More than one posting: start on the "Select department" placeholder
-    // rather than defaulting to the home department. A prefilled department
-    // is easy to miss, and filing under the wrong one is the mistake this
-    // field exists to prevent. Only a single posting fills itself in, and
-    // that case renders as a fixed field with nothing to choose.
-    setDepartmentId(myDepartments.length === 1 ? myDepartments[0].id : '');
-  }, [myDepartments, departmentId, refLoading, filingOnBehalf, selectableDepartments]);
+    // Arrived from the budget submission gate with an explicit department: that
+    // is the department that is actually owed, so keep it.
+    if (initialDepartmentId && departmentId === initialDepartmentId) return;
+    if (!selectableDepartments.length) { if (departmentId) setDepartmentId(''); return; }
+    if (selectableDepartments.some(d => d.id === departmentId)) return;
+    // Own posting first — a reviewer who also carries a posting files under it
+    // rather than under an unrelated department.
+    const own = selectableDepartments.find(d => myDepartmentIds.has(d.id));
+    setDepartmentId((own ?? selectableDepartments[0]).id);
+  }, [departmentId, refLoading, selectableDepartments, myDepartmentIds, initialDepartmentId]);
 
 
   useEffect(() => {
@@ -208,6 +216,19 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
       document_name: r.document_path ? documentDisplayName(r.document_path) : '',
     })) : [emptyLine()]);
   };
+
+  // Arrived from the budget submission gate pointing at an existing draft:
+  // resume that draft instead of starting a second submission.
+  useEffect(() => {
+    if (!initialSubmissionId || resumedDraftId === initialSubmissionId) return;
+    const target = submissions.find(s => s.id === initialSubmissionId);
+    if (!target) return;
+    setResumedDraftId(initialSubmissionId);
+    void openSubmission(target);
+    // openSubmission is stable enough for this one-shot resume.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSubmissionId, resumedDraftId, submissions]);
+
 
   const startNew = () => {
     setActiveId(null);
@@ -301,6 +322,9 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
       const res = data as unknown as { is_late?: boolean };
       toast.success(res?.is_late ? 'Submitted — flagged as late' : 'Budget submitted for CFO review');
       await loadSubmissions();
+      // Re-derive the obligation from the database so the required-action gate
+      // and the notification bell release without a reload.
+      refreshBudgetObligation();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not submit');
     } finally {
@@ -329,85 +353,30 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
 
   return (
     <div className="space-y-5">
-      <section className="border-b border-border/70 pb-5" aria-labelledby="budget-context-title">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 id="budget-context-title" className="text-sm font-semibold text-foreground">Budget context</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Choose where this budget will be filed.</p>
-          </div>
+      {/* Where a budget is filed is not the preparer's decision: the cycle and
+          department are fixed by the open call and the preparer's own posting,
+          so this is a plain statement of record, not a set of choices. */}
+      <section className="border-b border-border/70 pb-5" aria-labelledby="budget-filing-title">
+        <h2 id="budget-filing-title" className="sr-only">Filing details</h2>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+          <span className="text-sm font-semibold text-foreground">{selectedDepartment?.name ?? '—'}</span>
+          {cycle && (
+            <span>
+              {cycle.title}{cycle.financial_year ? ` · ${cycle.financial_year}` : ''}
+            </span>
+          )}
           {route && <Badge variant="outline" className="font-normal">{BUDGET_ROUTE_LABEL[route]}</Badge>}
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label className="mb-1.5 block text-xs font-semibold">Budget cycle</Label>
-              <Select value={cycleId} onValueChange={setCycleId}>
-                <SelectTrigger className="h-11 rounded-lg bg-card"><SelectValue placeholder="Select cycle" /></SelectTrigger>
-                <SelectContent className="z-[100]">
-                  {cycles.map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.title}{c.financial_year ? ` · ${c.financial_year}` : ''}{c.status !== 'open' ? ' (closed)' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="mb-1.5 block text-xs font-semibold">Department</Label>
-              {selectableDepartments.length > 1 ? (
-                <Select value={departmentId} onValueChange={setDepartmentId}>
-                  <SelectTrigger className="h-11 rounded-lg bg-card"><SelectValue placeholder="Select department" /></SelectTrigger>
-                  <SelectContent className="z-[100]">
-                    {filingOnBehalf ? (
-                      /* Own postings first so a reviewer filing for their own
-                         department does not hunt through the full list. */
-                      <>
-                        {selectableDepartments.filter(d => myDepartmentIds.has(d.id)).map(d => (
-                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                        ))}
-                        {selectableDepartments.some(d => myDepartmentIds.has(d.id)) && (
-                          <div className="my-1 border-t border-border" role="separator" />
-                        )}
-                        {selectableDepartments.filter(d => !myDepartmentIds.has(d.id)).map(d => (
-                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                        ))}
-                      </>
-                    ) : (
-                      selectableDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)
-                    )}
-                  </SelectContent>
-                </Select>
-              ) : (
-                /* Single posting and not a reviewer: the department is fixed to
-                   the user's own so a budget can never be filed under another. */
-                <div
-                  className="flex h-11 items-center rounded-lg border border-input bg-card px-3 text-sm"
-                  aria-readonly="true"
-                >
-                  {selectedDepartment?.name ?? '—'}
-                </div>
-              )}
-              {selectableDepartments.length > 1 && !departmentId && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Pick the department this budget belongs to.
-                </p>
-              )}
-              {filingOnBehalf && selectedDepartment && !myDepartmentIds.has(selectedDepartment.id) && (
-                <p className="mt-1 text-[11px] text-amber-600">
-                  Filing on behalf of {selectedDepartment.name} — you are not posted to this department.
-                </p>
-              )}
-            </div>
-        </div>
-          {cycle?.instructions && (
-            <p className="mt-3 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">CFO instructions: </span>{cycle.instructions}
-            </p>
-          )}
-          {cycle?.deadline && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Deadline: {format(new Date(cycle.deadline), 'dd MMM yyyy, HH:mm')} — late submissions are accepted but flagged.
-            </p>
-          )}
+        {cycle?.instructions && (
+          <p className="mt-3 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">CFO instructions: </span>{cycle.instructions}
+          </p>
+        )}
+        {cycle?.deadline && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Deadline: {format(new Date(cycle.deadline), 'dd MMM yyyy, HH:mm')} — late submissions are accepted but flagged.
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="budget-submissions-title">

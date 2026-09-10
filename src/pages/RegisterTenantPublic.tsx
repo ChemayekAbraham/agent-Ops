@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { GuarantorConsentCheckbox } from '@/components/agent/GuarantorConsentCheckbox';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { addDays, format } from 'date-fns';
@@ -83,6 +84,7 @@ export default function RegisterTenantPublic() {
   const fullName = joinPersonName(tenantNameParts);
   const [phone, setPhone] = useState('');
   const [noSmartphone, setNoSmartphone] = useState(false);
+  const [smartphoneAnswer, setSmartphoneAnswer] = useState<'YES' | 'NO' | 'UNKNOWN' | null>(null);
   const [houseCategory, setHouseCategory] = useState('');
   const [landlordNameParts, setLandlordNameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
   const landlordName = joinPersonName(landlordNameParts);
@@ -222,6 +224,7 @@ export default function RegisterTenantPublic() {
           total_repayment: fees.totalRepayment,
           daily_repayment: fees.dailyRepayment,
           no_smartphone: noSmartphone,
+          smartphone_answer: smartphoneAnswer || undefined,
           house_category: houseCategory,
           landlord_name: landlordNameCheck.fullName,
           landlord_phone: landlordPhone,
@@ -472,9 +475,40 @@ export default function RegisterTenantPublic() {
         {/* B. Tenant Details */}
         <section id="sec-tenant" className="space-y-3 scroll-mt-32">
           <h2 className="text-sm font-semibold flex items-center gap-1.5"><User className="h-4 w-4" /> Tenant Details</h2>
-          <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-            <Label className="text-xs">Tenant has no smartphone</Label>
-            <Switch checked={noSmartphone} onCheckedChange={setNoSmartphone} />
+          <div className="space-y-2 p-3 rounded-xl bg-muted/40 border border-border/50">
+            <Label className="text-xs font-semibold text-foreground">
+              Does this tenant have access to a smartphone?
+            </Label>
+            <div className="space-y-1.5 pt-1">
+              {[
+                { value: 'YES' as const, label: 'Yes' },
+                { value: 'NO' as const, label: 'No' },
+                { value: 'UNKNOWN' as const, label: 'Unknown / Not sure' },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className={cn(
+                    'flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-colors border text-xs',
+                    smartphoneAnswer === opt.value
+                      ? 'border-primary bg-primary/10 text-foreground font-medium'
+                      : 'border-border/40 hover:bg-muted/60 text-muted-foreground',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="smartphone_access"
+                    value={opt.value}
+                    checked={smartphoneAnswer === opt.value}
+                    onChange={() => {
+                      setSmartphoneAnswer(opt.value);
+                      setNoSmartphone(opt.value === 'NO');
+                    }}
+                    className="h-3.5 w-3.5 text-primary accent-primary"
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <PersonNameFields idPrefix="tenant-public" value={tenantNameParts} onChange={setTenantNameParts} />
           <div className="space-y-2">

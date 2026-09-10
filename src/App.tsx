@@ -19,6 +19,7 @@ const lazy = lazyWithRetry;
 // Critical providers — loaded eagerly for instant auth/routing
 import { AuthProvider } from "@/hooks/useAuth";
 import AccountFrozenGate from "@/components/account/AccountFrozenGate";
+import BudgetSubmissionGate from "@/components/budget/BudgetSubmissionGate";
 import { CombinedSettingsProvider } from "@/hooks/useCombinedSettings";
 import { CurrencyProvider } from "@/hooks/useCurrency";
 import StalledLoaderWatchdog from "@/components/common/StalledLoaderWatchdog";
@@ -306,6 +307,8 @@ const PersonalHub = lazy(() => import('./pages/me/PersonalHub'));
 const MyDocuments = lazy(() => import('./pages/me/MyDocuments'));
 const MyRequisitions = lazy(() => import('./pages/me/Requisitions'));
 const HRContractsPage = lazy(() => import('./hr/pages/ContractsPage'));
+const TenantDashboardLandingPage = lazy(() => import('./pages/TenantDashboardLandingPage'));
+const TenantNotificationAnalyticsPage = lazy(() => import('./pages/tenant-ops/TenantNotificationAnalyticsPage'));
 
 // Detect iOS standalone mode for cache settings
 const isIOSStandalone = (() => {
@@ -376,7 +379,8 @@ function GlobalFloatingWidgets() {
   const location = useLocation();
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
-    location.pathname.startsWith('/receipt/');
+    location.pathname.startsWith('/receipt/') ||
+    location.pathname.startsWith('/t/');
   if (isReceiptRoute) return null;
   return (
     <>
@@ -395,7 +399,8 @@ function GlobalOnboardingGates() {
   const location = useLocation();
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
-    location.pathname.startsWith('/receipt/');
+    location.pathname.startsWith('/receipt/') ||
+    location.pathname.startsWith('/t/');
   if (isReceiptRoute) return null;
   return (
     <>
@@ -447,6 +452,7 @@ function AppRoutes() {
           <Route path="/resume-sms" element={<ResumeSms />} />
           <Route path="/r/:code" element={<ResolveRLink />} />
           <Route path="/s/:code" element={<TrackedRedirect />} />
+          <Route path="/t/:token" element={<TenantDashboardLandingPage />} />
           <Route path="/c/:slug/:code" element={<CampaignRedirect />} />
           <Route path="/c/:code" element={<CampaignRedirect />} />
           <Route path="/agent/campaigns" element={<AgentCampaignsPage />} />
@@ -729,6 +735,9 @@ function AppRoutes() {
           <Route path="/coo/reports/agent-ops"     element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOAgentOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/tenant-ops"    element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOTenantOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><TppoPortfolioPerformanceReport /></RoleGuard>} />
+          <Route path="/tenant-ops/notifications" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager', 'ceo', 'cmo', 'crm', 'cfo', 'operations', 'employee']}><TenantNotificationAnalyticsPage /></RoleGuard>} />
+          <Route path="/coo/reports/tenant-notifications" element={<Navigate to="/tenant-ops/notifications" replace />} />
+          <Route path="/admin/tenant-notification-analytics" element={<Navigate to="/tenant-ops/notifications" replace />} />
           <Route path="/coo/reports/financial-ops" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFinancialOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/system-overview" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOSystemOverviewReport /></RoleGuard>} />
           <Route path="/coo/funder-rent-plans" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFunderRentPlanVisibility /></RoleGuard>} />
@@ -911,7 +920,9 @@ const App = () => {
                       <DeferredProviders>
                         <MaintenanceBanner />
                           <AccountFrozenGate>
-                            <AppRoutes />
+                            <BudgetSubmissionGate>
+                              <AppRoutes />
+                            </BudgetSubmissionGate>
                           </AccountFrozenGate>
                         <MaintenanceLockScreen />
                         <AuthRecoveryPrompt />

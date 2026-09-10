@@ -109,13 +109,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   const openApprove = (o: SmartphoneOrderRow) => {
     setApproveTarget(o);
     const existing = Number(o.total_amount || 0);
-    // COO stage: Access Amount = phone amount + 33% markup, saved as the approved
-    // total price. CFO stage: the COO-approved amount is what gets disbursed.
-    if (isAwaitingCfo(o.order_status)) {
-      setOfficialAmount(existing > 0 ? String(Math.round(existing)) : '');
-    } else {
-      setOfficialAmount(existing > 0 ? String(Math.round(existing * 1.33)) : '');
-    }
+    // Welile funds the down payment only, so the Access Amount is exactly the
+    // down payment at both stages. Interest is charged on top of it.
+    setOfficialAmount(existing > 0 ? String(Math.round(existing)) : '');
     const days = Number(o.access_repayment_days || 0);
     setRepaymentDays(days > 0 ? String(days) : '30');
   };
@@ -130,13 +126,14 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   const officialProjection = Math.round(officialAmountNumber * 0.33);
 
   // Repayment maths shown to both the executive and (once saved) the agent:
-  // Difference = Access Amount (Total) − Phone Amount, spread over 30 days to get
-  // the daily wallet deduction, then multiplied by the chosen number of days.
+  // Access Amount = the down payment Welile releases. The agent repays that
+  // amount plus 33% interest, spread evenly over the chosen number of days.
   const phoneAmountNumber = Math.max(0, Math.round(Number(approveTarget?.total_amount || 0)));
-  const accessDifference = Math.max(0, officialAmountNumber - phoneAmountNumber);
-  const dailyDeduction = Math.round(accessDifference / 30);
+  const accessInterest = officialProjection;
+  const totalPayable = officialAmountNumber + accessInterest;
   const repaymentDaysNumber = Math.max(0, Math.round(Number(repaymentDays || 0) || 0));
-  const totalPayable = dailyDeduction * repaymentDaysNumber;
+  const dailyDeduction = repaymentDaysNumber > 0 ? Math.round(totalPayable / repaymentDaysNumber) : 0;
+
 
 
 
@@ -179,6 +176,36 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
     },
   });
 
+  // Fetch the agent's actual NIN from their profile so ops can see the number directly.
+  // Checks both profiles.national_id and proxy_agent_identity.nin and uses whichever is set.
+  const { data: agentProfile } = useQuery({
+    queryKey: ['smartphone-applicant-profile', detailsTarget?.customer_id],
+    enabled: !!detailsTarget?.customer_id,
+    queryFn: async () => {
+      const [profileRes, proxyRes] = await Promise.all([
+        db
+          .from('profiles')
+          .select('national_id, full_name, phone')
+          .eq('id', detailsTarget!.customer_id)
+          .maybeSingle(),
+        db
+          .from('proxy_agent_identity')
+          .select('nin')
+          .eq('agent_user_id', detailsTarget!.customer_id)
+          .maybeSingle(),
+      ]);
+      const nin =
+        (profileRes.data?.national_id && profileRes.data.national_id.trim()) ||
+        (proxyRes.data?.nin && proxyRes.data.nin.trim()) ||
+        null;
+      return {
+        national_id: nin,
+        full_name: profileRes.data?.full_name ?? null,
+        phone: profileRes.data?.phone ?? null,
+      } as { national_id: string | null; full_name: string | null; phone: string | null };
+    },
+  });
+
 
   const { data: orders = [], isLoading } = useQuery<SmartphoneOrderRow[]>({
     queryKey: ['smartphone-order-queue'],
@@ -216,11 +243,16 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
       if (error) throw error;
       return { ...(data as any), stage };
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: any, variables) => {
       if (data?.stage === 'cfo') {
         toast.success(
-          `${formatUGX(Number(data?.total_amount || 0))} disbursed to the agent's wallet float. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated.`,
+          `${formatUGX(Number(data?.total_amount || 0))} disbursed to the supplier's wallet. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated. The agent has been notified.`,
         );
+        // Fire-and-forget: tell the applying agent the down payment is with the
+        // supplier and share the supplier's contact for tracking.
+        void db.functions
+          .invoke('notify-smartphone-order-disbursed', { body: { sale_id: variables.id } })
+          .catch((e) => console.error('[SmartphoneOrderApprovalQueue] notify failed', e));
       } else {
         const daily = Number(data?.access_daily_amount || 0);
         toast.success(
@@ -543,7 +575,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                 formatUGX(total),
               ],
               ['Projection (33%)', formatUGX(projection)],
-              ['Access Amount (Total)', formatUGX(Math.round(total * 1.33))],
+              ['Access Amount (down payment)', formatUGX(total)],
               ['Amount paid', formatUGX(Number(detailsTarget.amount_paid || 0))],
 
               ['Outstanding', formatUGX(Number(detailsTarget.amount_outstanding || 0))],
@@ -684,11 +716,15 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                         </Badge>
                         <Badge
                           variant="outline"
-                          className={applicant.has_national_id
+                          className={agentProfile?.national_id || applicant.has_national_id
                             ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                            : 'bg-destructive/15 text-destructive border-destructive/30'}
+                            : 'bg-amber-500/15 text-amber-600 border-amber-500/30'}
                         >
-                          National ID {applicant.has_national_id ? 'verified' : 'missing'}
+                          {agentProfile?.national_id
+                            ? `✓ NIN: ${agentProfile.national_id}`
+                            : applicant.has_national_id
+                              ? '✓ National ID on profile'
+                              : '⏳ ID declared — verify on collection day'}
                         </Badge>
                         <Badge
                           variant="outline"
@@ -696,7 +732,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                             ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
                             : 'bg-amber-500/15 text-amber-600 border-amber-500/30'}
                         >
-                          Workplace {applicant.has_workplace_verification ? 'captured' : 'not captured'}
+                          {applicant.has_workplace_verification ? '✓ Workplace captured' : '⏳ Workplace photo — bring on collection day'}
                         </Badge>
                         <Badge
                           variant="outline"
@@ -810,8 +846,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
 
               <div className="space-y-1">
                 <Label className="text-xs">
-                  {approveStage === 'cfo' ? 'Amount to disburse (UGX)' : 'Access Amount (Total) — UGX'}
+                  {approveStage === 'cfo' ? 'Amount to disburse (UGX)' : 'Access Amount (down payment) — UGX'}
                 </Label>
+
                 <Input
                   type="number"
                   min={1000}
@@ -851,8 +888,8 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                     </p>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="rounded-md bg-background/70 px-2 py-1.5">
-                        <p className="text-[10px] text-muted-foreground">Difference</p>
-                        <p className="text-xs font-semibold">{formatUGX(accessDifference)}</p>
+                        <p className="text-[10px] text-muted-foreground">Interest (33%)</p>
+                        <p className="text-xs font-semibold">{formatUGX(accessInterest)}</p>
                       </div>
                       <div className="rounded-md bg-background/70 px-2 py-1.5">
                         <p className="text-[10px] text-muted-foreground">Days</p>
@@ -865,9 +902,11 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                       {formatUGX(dailyDeduction)} is deducted from the agent&apos;s wallet each day for{' '}
-                      {repaymentDaysNumber || 0} days — {formatUGX(totalPayable)} in total. Difference ={' '}
-                      {formatUGX(officialAmountNumber)} − {formatUGX(phoneAmountNumber)}, spread over 30 days.
+                      {repaymentDaysNumber || 0} days — {formatUGX(totalPayable)} in total. That is{' '}
+                      {formatUGX(officialAmountNumber)} down payment + {formatUGX(accessInterest)} interest
+                      (33%).
                     </p>
+
                   </div>
                 </>
               )}

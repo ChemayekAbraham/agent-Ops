@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { HandCoins, Loader2, MapPin, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Clock, HandCoins, Loader2, MapPin, ShieldCheck } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,12 +39,14 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const [trackOpen, setTrackOpen] = useState(false);
+
   const { data: latest } = useQuery({
     queryKey: ['tenant-rent-intake', userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenant_rent_intake_requests')
-        .select('id, status, rent_amount, service_centre_name, decline_reason, created_at')
+        .select('id, status, rent_amount, service_centre_name, decline_reason, created_at, claimed_at, visit_verified_at, decided_at, distance_km, location_name, rent_request_id')
         .eq('tenant_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -159,13 +162,29 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
 
   const status = openRequest ? STATUS_COPY[openRequest.status] : null;
 
+  const trackSteps = latest
+    ? [
+        { key: 'submitted', label: 'Request sent', at: latest.created_at, note: latest.service_centre_name ? `Routed to ${latest.service_centre_name}` : 'Routed to your nearest Service Centre' },
+        { key: 'claimed', label: 'Agent assigned', at: latest.claimed_at, note: 'An agent picked up your request' },
+        { key: 'visit_verified', label: 'House verified', at: latest.visit_verified_at, note: 'The agent visited and verified your house' },
+        {
+          key: 'decided',
+          label: latest.status === 'declined' ? 'Not approved' : 'Approved',
+          at: latest.decided_at,
+          note: latest.status === 'declined'
+            ? (latest.decline_reason || 'Your agent did not approve this request')
+            : 'Your agent will now raise your rent plan',
+        },
+      ]
+    : [];
+  const doneCount = trackSteps.filter((s) => !!s.at).length;
+
   return (
     <>
       <button
         type="button"
-        onClick={() => (openRequest ? undefined : setOpen(true))}
-        disabled={!!openRequest}
-        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation disabled:opacity-60 disabled:active:scale-100"
+        onClick={() => (openRequest ? setTrackOpen(true) : setOpen(true))}
+        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation"
       >
         <div className="flex flex-col justify-between h-full w-full gap-2 lg:gap-4">
           <div className="space-y-2 lg:space-y-3">
@@ -177,7 +196,21 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
 
           <div className="space-y-1.5 lg:space-y-2">
             {openRequest ? (
-              <p className="text-[10px] lg:text-sm text-foreground/70 leading-tight lg:leading-relaxed line-clamp-3 lg:line-clamp-4 break-words">{status?.note}</p>
+              <>
+                <div className="flex items-center gap-1">
+                  {trackSteps.map((s, i) => (
+                    <span
+                      key={s.key}
+                      className={`h-1.5 flex-1 rounded-full ${i < doneCount ? 'bg-success' : 'bg-success/20'}`}
+                    />
+                  ))}
+                </div>
+                <p className="text-[10px] lg:text-sm font-semibold text-success leading-tight">
+                  Step {Math.max(doneCount, 1)} of {trackSteps.length} · {status?.label}
+                </p>
+                <p className="text-[10px] lg:text-sm text-foreground/70 leading-tight lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">{status?.note}</p>
+                <p className="text-[10px] lg:text-xs font-medium text-success/90 underline">Track progress</p>
+              </>
             ) : (
               <p className="text-xs lg:text-sm text-foreground/70 leading-snug lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">
                 Request rent · agent verifies your house
@@ -194,6 +227,72 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
 
 
 
+
+      <Dialog open={trackOpen} onOpenChange={setTrackOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Your rent request</DialogTitle>
+            <DialogDescription>
+              {latest ? `${formatUGX(Number(latest.rent_amount))} · sent ${format(new Date(latest.created_at), 'd MMM yyyy, HH:mm')}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          {latest && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {latest.service_centre_name && (
+                  <Badge variant="outline" className="text-[11px]">{latest.service_centre_name}</Badge>
+                )}
+                {latest.location_name && (
+                  <Badge variant="outline" className="text-[11px]">{latest.location_name}</Badge>
+                )}
+              </div>
+
+              <ol className="relative space-y-4 border-l border-border ml-2 pl-4">
+                {trackSteps.map((s, i) => {
+                  const done = !!s.at;
+                  const current = !done && i === doneCount;
+                  const declined = s.key === 'decided' && latest.status === 'declined';
+                  return (
+                    <li key={s.key} className="relative">
+                      <span
+                        className={`absolute -left-[22px] top-0.5 h-4 w-4 rounded-full flex items-center justify-center border-2 bg-background ${
+                          done ? (declined ? 'border-destructive' : 'border-success') : current ? 'border-primary' : 'border-border'
+                        }`}
+                      >
+                        {done ? (
+                          <CheckCircle2 className={`h-3 w-3 ${declined ? 'text-destructive' : 'text-success'}`} />
+                        ) : current ? (
+                          <Clock className="h-3 w-3 text-primary" />
+                        ) : null}
+                      </span>
+                      <p className={`text-sm font-medium ${done ? (declined ? 'text-destructive' : 'text-success') : current ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {s.label}
+                        {current && <span className="ml-2 text-[10px] uppercase tracking-wide">In progress</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{s.note}</p>
+                      {s.at && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {format(new Date(s.at), 'd MMM yyyy, HH:mm')} · {formatDistanceToNow(new Date(s.at), { addSuffix: true })}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+
+              <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                We SMS and notify you at every step. No need to call.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setTrackOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">

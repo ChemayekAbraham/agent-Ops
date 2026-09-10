@@ -20,6 +20,14 @@ Measured system size at time of writing:
 
 > **How to read this.** Sections 1–3 are the mental model. Sections 4–7 are the financial core — read them before touching money code. Sections 8–11 are the object inventory. 12–18 are operational. 19 is the honest debt list. 21 is the glossary.
 
+> ⚠️ **The counts in the table above are stale.** Measured against production on 2026-09-09:
+> **641** tables, **1907** functions, **601** triggers, **1552** RLS policies, **71/6** views/matviews,
+> **33** enums, **151** cron jobs, **27** storage buckets, **342** edge functions. Two behavioural
+> drifts also matter: `get_user_available_balance` now reads `wallet_balances_projection` (not
+> `v_user_wallet_strict`, cf. §5.3), and `sweep-agent-advance-recovery` runs **daily at 16:50 UTC**,
+> not every 15 minutes (cf. §6.1, §10). See [`docs/HANDOVER/`](./docs/HANDOVER/) for the verified
+> figures, the regeneration SQL, and the operational survival manual.
+
 ---
 
 # 1. System Overview
