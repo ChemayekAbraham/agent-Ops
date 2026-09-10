@@ -165,7 +165,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   // merchant agents and the Bayo Mercy account. Wallets and recorded
   // liabilities keep their own cards elsewhere on this page.
   const moneyWeOweTotal = merchantHeld + bayoMercyHeld;
-  const moneyWeCanUse = Math.max(0, actualMoneyTotal - walletTotal);
+  // Money We Can Use = Money We Have − Money We Owe (money sitting with
+  // merchant agents and the Bayo Mercy account).
+  const moneyWeCanUse = Math.max(0, actualMoneyTotal - moneyWeOweTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
