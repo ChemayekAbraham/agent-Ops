@@ -58,14 +58,28 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
 
   return (
     <section aria-label="A3 projection" className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
+      >
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Projection
         </h3>
-        <p className="text-xs text-muted-foreground">
-          Read-only — scheduled on the agreed plans, no input, control or override
-        </p>
-      </div>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">
+            Read-only — scheduled on the agreed plans, no input, control or override
+          </p>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              open && 'rotate-180',
+            )}
+            aria-hidden="true"
+          />
+        </div>
+      </button>
 
       {isLoading ? (
         <div className="mt-4 space-y-2">
