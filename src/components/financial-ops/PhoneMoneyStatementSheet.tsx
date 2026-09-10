@@ -56,7 +56,21 @@ type DirectionFilter = 'all' | 'in' | 'out';
  * replays the provider SMS/emails (or verified cash deposits) that produced the
  * balance shown on the card, and resolves who the money came from / went to.
  */
-export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
+export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: Props) {
+  const { data: held } = useActualMoneyHeld(!!line);
+
+  /** Every configured money bucket, so the drilldown shows where each amount sits. */
+  const accountRows = useMemo(() => {
+    if (!held) return [];
+    return [
+      { line: 'mtn_momo' as PhoneMoneyLine, label: 'MTN Money', amount: held.mtn },
+      { line: 'airtel_money' as PhoneMoneyLine, label: 'Airtel Money', amount: held.airtel },
+      { line: 'cash' as PhoneMoneyLine, label: 'Cash at Hand (not yet banked)', amount: held.cashAtHand },
+      { line: 'banked_cash' as PhoneMoneyLine, label: 'Cash at Bank (Financial Ops banked)', amount: held.bankedCash },
+      { line: 'bank' as PhoneMoneyLine, label: 'Bayo Mercy bank account (reference)', amount: held.bankReconciliation },
+    ];
+  }, [held]);
+
   const { data, isLoading } = useQuery({
     queryKey: ['finops-phone-money-statement', line],
     enabled: !!line,
