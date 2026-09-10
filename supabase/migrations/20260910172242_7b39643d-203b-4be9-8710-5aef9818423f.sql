@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.enforce_deposit_requests_agent_immutable_fields() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_nfc_card_immutable_fields() FROM PUBLIC, anon, authenticated;
