@@ -135,6 +135,19 @@ export function describePlanSchedule(plan: SchedulePlanInput, referenceDay: Date
     }
   }
 
+  const daysToNextDue = nextDueDate ? diffDays(fromIsoDate(nextDueDate), day) : null;
+
+  // A weekly tenant whose instalment day has not arrived yet reads as owing this
+  // week, not today. Nothing about the arrears arithmetic changes: the moment the
+  // instalment day arrives the plan is due today and any shortfall counts from it.
+  const dueState: PlanSchedule['dueState'] = expectedOnDay > 0
+    ? 'due_today'
+    : coveredByAdvance
+      ? 'covered'
+      : weekly && periodsDue > 0 && arrears === 0 && !onScheduledDay
+        ? 'due_this_week'
+        : 'not_due';
+
   return {
     weekly,
     unit: weekly ? 'week' : 'day',
@@ -149,6 +162,8 @@ export function describePlanSchedule(plan: SchedulePlanInput, referenceDay: Date
     coveredByAdvance,
     expectedOnDay,
     nextDueDate,
+    dueState,
+    daysToNextDue,
     outstandingPlan,
   };
 }
