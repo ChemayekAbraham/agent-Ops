@@ -33,14 +33,14 @@ export function PayablesCardDrilldown() {
           className="w-full text-left p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="flex items-start justify-between gap-3">
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-rose-600">
-              <TrendingDown className="h-5 w-5 text-rose-50" />
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-rose-600">
+              <TrendingDown className="h-4 w-4 text-rose-50" />
             </div>
             <span
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 shrink-0"
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-muted/60 shrink-0"
               aria-hidden
             >
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className="h-3 w-3 text-muted-foreground" />
             </span>
           </div>
 
