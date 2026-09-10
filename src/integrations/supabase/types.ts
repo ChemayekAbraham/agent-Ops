@@ -1778,6 +1778,7 @@ export type Database = {
           payment_method: Database["public"]["Enums"]["collection_payment_method"]
           performance_weight: number
           rent_request_id: string | null
+          reversed_at: string | null
           shortfall_amount: number | null
           sms_sent_agent: boolean | null
           sms_sent_tenant: boolean | null
@@ -1811,6 +1812,7 @@ export type Database = {
           payment_method: Database["public"]["Enums"]["collection_payment_method"]
           performance_weight?: number
           rent_request_id?: string | null
+          reversed_at?: string | null
           shortfall_amount?: number | null
           sms_sent_agent?: boolean | null
           sms_sent_tenant?: boolean | null
@@ -1844,6 +1846,7 @@ export type Database = {
           payment_method?: Database["public"]["Enums"]["collection_payment_method"]
           performance_weight?: number
           rent_request_id?: string | null
+          reversed_at?: string | null
           shortfall_amount?: number | null
           sms_sent_agent?: boolean | null
           sms_sent_tenant?: boolean | null
