@@ -304,6 +304,57 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
             ))}
           </div>
 
+          <div className="flex flex-wrap items-end gap-2 pt-3">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">From</p>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="mt-0.5 h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">To</p>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="mt-0.5 h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              />
+            </div>
+            <div className="min-w-0 flex-1 sm:max-w-[180px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Category</p>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="mt-0.5 h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              >
+                <option value="all">All categories</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            {hasDrillFilters && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => { setDateFrom(''); setDateTo(''); setCategory('all'); }}
+                className="h-8 px-2 text-xs text-muted-foreground"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+          {hasDrillFilters && (
+            <p className="pt-1.5 text-[11px] text-muted-foreground">
+              {filteredRows.length} of {rows.length} movement(s) match
+            </p>
+          )}
+
           {accountRows.length > 0 && (
             <div className="mt-3 rounded-xl border border-border bg-muted/30 p-2.5">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
