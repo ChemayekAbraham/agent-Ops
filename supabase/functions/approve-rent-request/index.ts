@@ -182,6 +182,17 @@ Deno.serve(async (req) => {
 
       if (updateError) throw updateError;
 
+      // === TREASURY FEE RECOGNITION (idempotent; non-fatal) ===
+      // Creates the L7 funding-side credit that later instalment waterfall drawdowns debit against.
+      const { error: treasuryErr } = await adminClient.rpc('recognise_funding_treasury', {
+        p_rent_request_id: rent_request_id,
+      });
+      if (treasuryErr) {
+        console.error('[approve-rent-request] Treasury recognition failed (non-fatal):', treasuryErr.message);
+      } else {
+        console.log('[approve-rent-request] Treasury recognition recorded for', rent_request_id);
+      }
+
       // === AUTO-CREATE SUBSCRIPTION CHARGE ===
       // Re-derive from canonical formula in case the row predates the
       // enforce_rent_request_formula trigger. Trigger-protected rows already
