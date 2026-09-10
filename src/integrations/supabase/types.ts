@@ -20639,6 +20639,8 @@ export type Database = {
       landlords: {
         Row: {
           account_number: string | null
+          bank_account_name: string | null
+          bank_branch: string | null
           bank_name: string | null
           caretaker_name: string | null
           caretaker_phone: string | null
@@ -20712,6 +20714,8 @@ export type Database = {
         }
         Insert: {
           account_number?: string | null
+          bank_account_name?: string | null
+          bank_branch?: string | null
           bank_name?: string | null
           caretaker_name?: string | null
           caretaker_phone?: string | null
@@ -20785,6 +20789,8 @@ export type Database = {
         }
         Update: {
           account_number?: string | null
+          bank_account_name?: string | null
+          bank_branch?: string | null
           bank_name?: string | null
           caretaker_name?: string | null
           caretaker_phone?: string | null
