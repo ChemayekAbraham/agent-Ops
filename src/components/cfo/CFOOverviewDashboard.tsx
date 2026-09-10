@@ -161,7 +161,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   // so this is shown as owed, never subtracted from "Money We Have" twice.
   const merchantHeld = merchantOwed?.merchantAgentTotal ?? 0;
   const bayoMercyHeld = merchantOwed?.bayoMercyTotal ?? 0;
-  const moneyWeOweTotal = walletTotal + merchantHeld + bayoMercyHeld;
+  // Money We Owe is deliberately only the money sitting with other people:
+  // merchant agents and the Bayo Mercy account. Wallets and recorded
+  // liabilities keep their own cards elsewhere on this page.
+  const moneyWeOweTotal = merchantHeld + bayoMercyHeld;
   const moneyWeCanUse = Math.max(0, actualMoneyTotal - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
