@@ -436,6 +436,9 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
                   {r.direction === 'charge' && (
                     <Badge variant="outline" className="mt-1 text-[10px]">Provider charge</Badge>
                   )}
+                  {r.direction === 'cash' && r.category !== 'Other deposit' && (
+                    <Badge variant="outline" className="mt-1 text-[10px]">{r.category}</Badge>
+                  )}
                   {r.phone && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <Button
