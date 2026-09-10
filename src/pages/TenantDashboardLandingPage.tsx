@@ -9,6 +9,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { CountryCodeSelect } from '@/components/auth/CountryCodeSelect';
 import WelileLogo from '@/components/WelileLogo';
 import { setDeviceTrust } from '@/lib/deviceTrust';
+import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 import { toast } from 'sonner';
 import { Loader2, AlertCircle, Phone, ArrowLeft, LogIn, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -138,7 +139,7 @@ export default function TenantDashboardLandingPage() {
       });
 
       if (error || !data) {
-        toast.error(error?.message || data?.error || 'Verification failed. Please try again.');
+        toast.error(await extractEdgeFunctionError({ error, data }, 'Verification failed. Please try again.'));
         return;
       }
 
