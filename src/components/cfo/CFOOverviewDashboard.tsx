@@ -165,7 +165,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   // merchant agents and the Bayo Mercy account. Wallets and recorded
   // liabilities keep their own cards elsewhere on this page.
   const moneyWeOweTotal = merchantHeld + bayoMercyHeld;
-  const moneyWeCanUse = Math.max(0, actualMoneyTotal - walletTotal);
+  // Money We Can Use = Money We Have − Money We Owe (money sitting with
+  // merchant agents and the Bayo Mercy account).
+  const moneyWeCanUse = Math.max(0, actualMoneyTotal - moneyWeOweTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
@@ -353,10 +355,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               value={fmt(moneyWeCanUse)}
               items={[
                 { dot: 'bg-blue-500', label: 'Money We Have', value: fmt(actualMoneyTotal), onSelect: () => setActualMoneyLine('mtn_momo') },
-                { dot: 'bg-blue-500', label: 'Less Withdrawable User Wallets', value: fmt(walletTotal), onSelect: () => setActiveBreakdown('wallets') },
+                { dot: 'bg-orange-500', label: 'Less Money We Owe', value: fmt(moneyWeOweTotal), onSelect: () => setMerchantOwedOpen(true) },
                 { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse), onSelect: () => setActiveBreakdown('earnings') },
               ]}
-              footer="After obligations and restrictions"
+              footer="Money We Have minus Money We Owe"
               footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
               onClick={() => setActiveBreakdown('earnings')}
             />
