@@ -170,7 +170,7 @@ export function ZoneBExternalCommits({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="hidden overflow-x-auto rounded-lg border sm:block">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
@@ -219,6 +219,47 @@ export function ZoneBExternalCommits({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Below 640px the same rows render as cards; the adjudication controls are the
+          same AdjudicationCells component, so the mutation logic is not forked. */}
+      <div className="space-y-3 sm:hidden">
+        {rows.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            No external commits recorded in this window.
+          </p>
+        )}
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            className={`rounded-lg border p-3 text-sm ${row.zeroed ? 'bg-muted/40 text-muted-foreground' : ''}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              {row.engineer_code ? (
+                <span className="font-medium">{row.engineer_code}</span>
+              ) : (
+                <span className="text-xs">{row.author_email ?? '—'}</span>
+              )}
+              <LiveCell value={row.live_verified} />
+            </div>
+            <p className="mt-1">
+              {row.commit_subject ?? '—'}
+              {row.zeroed && row.zero_reason && (
+                <span className="ml-2 text-xs italic">{row.zero_reason}</span>
+              )}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              migration: {row.migration_bearing ? 'yes' : 'no'}
+            </p>
+            <table className="mt-2 w-full text-sm">
+              <tbody>
+                <tr className="align-top">
+                  <AdjudicationCells row={row} windowId={windowId} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
