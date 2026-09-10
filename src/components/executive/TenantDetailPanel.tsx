@@ -1221,7 +1221,13 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
                                 Agent: <span className="font-normal text-muted-foreground">{req.agent_name}</span>
                               </span>
                               <span>Landlord: {req.landlord_name}</span>
-                              {req.daily_repayment && <span>Daily: UGX {Number(req.daily_repayment).toLocaleString()}</span>}
+                              {req.daily_repayment && (
+                                String((req as any).repayment_frequency ?? 'daily').toLowerCase() === 'weekly' ? (
+                                  <span>Weekly: UGX {(Number(req.daily_repayment) * 7).toLocaleString()}</span>
+                                ) : (
+                                  <span>Daily: UGX {Number(req.daily_repayment).toLocaleString()}</span>
+                                )
+                              )}
                               {req.duration_days && <span>{req.duration_days}d</span>}
                             </div>
                             {(() => {

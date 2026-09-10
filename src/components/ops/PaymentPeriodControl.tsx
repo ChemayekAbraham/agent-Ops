@@ -22,6 +22,10 @@ interface Props {
   dailyRepayment: number | null;
   canEdit: boolean;
   onSaved?: () => void;
+  /** Styling for the trigger button so it can sit beside other row actions. */
+  triggerClassName?: string;
+  /** Shorter trigger label for tight action rows. */
+  compact?: boolean;
 }
 
 interface HistoryRow {
