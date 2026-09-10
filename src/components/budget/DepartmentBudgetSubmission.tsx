@@ -297,7 +297,7 @@ export default function DepartmentBudgetSubmission({
    * the form is not yet valid (the reason is surfaced as a toast). Shared by
    * Save draft and Submit so what is on screen is always what gets persisted.
    */
-  const persistDraft = async (): Promise<string | null> => {
+  const persistDraft = async (submissionId: string | null = activeId): Promise<string | null> => {
     if (!cycleId || !departmentId) { toast.error('Pick a budget cycle and department'); return null; }
     const payload = lines
       .filter(l => l.description.trim())
@@ -312,7 +312,7 @@ export default function DepartmentBudgetSubmission({
       }));
     if (!payload.length) { toast.error('Add at least one line with a description'); return null; }
     const { data, error } = await supabase.rpc('budget_save_draft', {
-      p_submission_id: activeId,
+      p_submission_id: submissionId,
       p_call_id: cycleId,
       p_department_id: departmentId,
       p_title: title || null,
