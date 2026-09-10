@@ -362,26 +362,28 @@ function MovementRow({
  */
 export function MerchantAgentOwedSheet({ open, onOpenChange }: Props) {
   const { data, isLoading, error } = useMerchantAgentMoneyOwed(open);
-  const { data: movements, isLoading: movLoading } = useMerchantAgentMovements(open);
   const { data: bayoRows, isLoading: bayoLoading } = useBayoMercyMovements(open);
-  const { data: flagged, isLoading: flagLoading } = useUnregisteredRecipientTransfers(open);
+  const flaggedSummary = useUnregisteredRecipientTransfersSummary(open);
+  const {
+    data: flaggedPages,
+    isLoading: flagLoading,
+    hasNextPage: flagHasNext,
+    isFetchingNextPage: flagFetchingNext,
+    fetchNextPage: flagFetchNext,
+  } = useUnregisteredRecipientTransfersPage(open);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const agents = (data?.agents ?? []).filter((a) => a.still_held > 0 || a.email_sent_total > 0 || a.float_balance > 0);
 
-  const byDesk = useMemo(() => {
-    const map = new Map<string, typeof movements>();
-    (movements ?? []).forEach((m) => {
-      const list = (map.get(m.desk_id) ?? []) as any[];
-      list.push(m);
-      map.set(m.desk_id, list as any);
-    });
-    return map;
-  }, [movements]);
+  const flaggedRows: FlaggedTransfer[] = useMemo(
+    () => (flaggedPages?.pages ?? []).flat(),
+    [flaggedPages],
+  );
 
   const bayoIn = (bayoRows ?? []).filter((r) => r.direction === 'in').reduce((s, r) => s + r.amount, 0);
   const bayoOut = (bayoRows ?? []).filter((r) => r.direction === 'out').reduce((s, r) => s + r.amount, 0);
-  const flaggedCount = flagged?.transfers.length ?? 0;
+  const flaggedCount = flaggedSummary.data?.count ?? 0;
+  const flaggedTotal = flaggedSummary.data?.total ?? 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
