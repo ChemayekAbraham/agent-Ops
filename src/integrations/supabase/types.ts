@@ -12107,6 +12107,58 @@ export type Database = {
           },
         ]
       }
+      engrep_adjudicators: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ended_on: string | null
+          id: string
+          note: string | null
+          staff_id: string
+          started_on: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          id?: string
+          note?: string | null
+          staff_id: string
+          started_on?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          id?: string
+          note?: string | null
+          staff_id?: string
+          started_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_adjudicators_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_adjudicators_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "engrep_adjudicators_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       engrep_catalog_snapshot: {
         Row: {
           captured_at: string
@@ -12183,6 +12235,47 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_pso_officers"
             referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      engrep_fence_paths: {
+        Row: {
+          created_at: string
+          declared_by: string
+          declared_from: string
+          declared_to: string | null
+          engineer_id: string
+          id: string
+          note: string | null
+          path_pattern: string
+        }
+        Insert: {
+          created_at?: string
+          declared_by: string
+          declared_from?: string
+          declared_to?: string | null
+          engineer_id: string
+          id?: string
+          note?: string | null
+          path_pattern: string
+        }
+        Update: {
+          created_at?: string
+          declared_by?: string
+          declared_from?: string
+          declared_to?: string | null
+          engineer_id?: string
+          id?: string
+          note?: string | null
+          path_pattern?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_fence_paths_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -48551,6 +48644,10 @@ export type Database = {
           object_kind: string
         }[]
       }
+      engrep_check_fence: {
+        Args: { p_engineer_code: string; p_on: string; p_paths: string[] }
+        Returns: string
+      }
       engrep_detect_unclaimed: {
         Args: { p_window_id: string }
         Returns: number
@@ -48585,8 +48682,44 @@ export type Database = {
         Args: { p_granularity: string; p_period_start: string }
         Returns: string
       }
+      engrep_resolve_claim: {
+        Args: { p_day: string; p_names: string[] }
+        Returns: string[]
+      }
       engrep_set_liveness: {
         Args: { p_row_id: string; p_verdict: string }
+        Returns: undefined
+      }
+      engrep_svc_detect_unclaimed: {
+        Args: { p_window_id: string }
+        Returns: number
+      }
+      engrep_svc_ensure_window: {
+        Args: { p_day: string; p_granularity: string }
+        Returns: string
+      }
+      engrep_svc_ingest_row: {
+        Args: {
+          p_author_email?: string
+          p_change_classes?: string[]
+          p_claimed_objects?: string[]
+          p_claims_schema?: boolean
+          p_commit_subject: string
+          p_engineer_code?: string
+          p_evidence_ref: string
+          p_fence_path?: string
+          p_fenced_breach?: boolean
+          p_migration_bearing?: boolean
+          p_self_fix?: boolean
+          p_self_fix_of?: string
+          p_source: string
+          p_untagged?: boolean
+          p_window_id: string
+        }
+        Returns: string
+      }
+      engrep_svc_mark_harvested: {
+        Args: { p_window_id: string }
         Returns: undefined
       }
       enqueue_agent_capability_job: {
@@ -51464,6 +51597,16 @@ export type Database = {
           tenant_name: string
           tenant_phone: string
         }[]
+      }
+      get_tenant_receivables_location_breakdown: {
+        Args: {
+          p_district_id?: number
+          p_level?: string
+          p_product_key?: string
+          p_region?: string
+          p_subcounty_id?: number
+        }
+        Returns: Json
       }
       get_tenant_relocation_candidates: {
         Args: { p_limit?: number; p_offset?: number }
