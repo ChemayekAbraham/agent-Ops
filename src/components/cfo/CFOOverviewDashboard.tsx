@@ -151,6 +151,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
   const actualMoneyTotal = actualMoney?.total ?? 0;
+  // Money that has already left our provider lines and now sits with merchant
+  // agents or on the Bayo Mercy account, taken from the Financial Ops email
+  // extractor. The MTN / Airtel balances above already dropped when it moved,
+  // so this is shown as owed, never subtracted from "Money We Have" twice.
+  const merchantHeld = merchantOwed?.merchantAgentTotal ?? 0;
+  const bayoMercyHeld = merchantOwed?.bayoMercyTotal ?? 0;
+  const moneyWeOweTotal = walletTotal + merchantHeld + bayoMercyHeld;
   const moneyWeCanUse = Math.max(0, actualMoneyTotal - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
