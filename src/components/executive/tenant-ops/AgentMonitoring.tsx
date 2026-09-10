@@ -977,11 +977,13 @@ export function AgentMonitoring() {
         <TabsList variant="pills" className="w-max">
           <TabsTrigger value="all" variant="pills" className="text-xs">All agents</TabsTrigger>
           <TabsTrigger value="after-aug-2026" variant="pills" className="text-xs">After 1 Aug 2026</TabsTrigger>
+          <TabsTrigger value="before-aug-2026" variant="pills" className="text-xs">Before 1 Aug 2026</TabsTrigger>
           <TabsTrigger value="position" variant="pills" className="text-xs">Expected vs paid</TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="all" className="space-y-4">{body}</TabsContent>
       <TabsContent value="after-aug-2026" className="space-y-4">{body}</TabsContent>
+      <TabsContent value="before-aug-2026" className="space-y-4">{body}</TabsContent>
       <TabsContent value="position" className="space-y-4"><AgentPaymentPosition /></TabsContent>
     </Tabs>
   );
