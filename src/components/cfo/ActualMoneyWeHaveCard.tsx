@@ -47,11 +47,11 @@ export function ActualMoneyWeHaveCard({ ledgerPosition, ledgerPositionUnavailabl
       hint: 'Verified cash collected by agents and not yet banked',
     },
     {
-      label: 'Money at bank',
-      amount: data?.bank ?? 0,
-      line: 'bank',
+      label: 'Cash at bank',
+      amount: data?.bankedCash ?? 0,
+      line: 'banked_cash',
       icon: <Landmark className="h-4 w-4 text-sky-600" />,
-      hint: 'Bank credits less debits since the reconciliation reset',
+      hint: `Real cash at bank — ${data?.bankedCashCount ?? 0} verified deposit(s) marked as banked by Financial Ops`,
     },
   ];
 
@@ -138,20 +138,20 @@ export function ActualMoneyWeHaveCard({ ledgerPosition, ledgerPositionUnavailabl
 
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Cash marked as banked by Financial Ops
+              Reference — ledger bank reconciliation
             </p>
             <button
               type="button"
-              onClick={() => setLine('banked_cash')}
-              className="w-full flex items-center gap-3 rounded-lg bg-sky-50/70 dark:bg-sky-950/30 px-3 py-2.5 text-left hover:bg-sky-100/70 dark:hover:bg-sky-950/50 transition-colors"
+              onClick={() => setLine('bank')}
+              className="w-full flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5 text-left hover:bg-muted/70 transition-colors"
             >
-              <Landmark className="h-4 w-4 text-sky-600 shrink-0" />
+              <Landmark className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="flex-1 min-w-0">
-                <span className="block text-xs font-semibold text-sky-700 dark:text-sky-400">
-                  {formatUGX(data?.bankedCash ?? 0)}
+                <span className="block text-xs font-semibold text-foreground">
+                  {formatUGX(data?.bankLedger ?? 0)}
                 </span>
                 <span className="block text-[10px] text-muted-foreground">
-                  {data?.bankedCashCount ?? 0} verified cash deposit(s) marked as banked — already inside the bank balance above, not added again
+                  Bank credits less debits since the reconciliation reset — shown for comparison only, not added to the total
                 </span>
               </span>
               <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
