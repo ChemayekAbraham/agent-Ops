@@ -51598,6 +51598,22 @@ export type Database = {
           tenant_phone: string
         }[]
       }
+      get_tenant_receivable_account_movements: {
+        Args: { p_limit?: number; p_tenant_id: string }
+        Returns: Json
+      }
+      get_tenant_receivables_location_accounts: {
+        Args: {
+          p_district_id?: number
+          p_group_label?: string
+          p_level?: string
+          p_limit?: number
+          p_product_key?: string
+          p_region?: string
+          p_subcounty_id?: number
+        }
+        Returns: Json
+      }
       get_tenant_receivables_location_breakdown: {
         Args: {
           p_district_id?: number
