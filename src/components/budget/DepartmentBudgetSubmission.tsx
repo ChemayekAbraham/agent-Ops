@@ -52,6 +52,22 @@ const documentDisplayName = (path: string) => {
  */
 const BUDGET_REVIEWER_ROLES = ['cfo', 'ceo', 'super_admin', 'manager', 'financial_ops'];
 
+/**
+ * Server refusals from PostgREST/RPC are plain objects, not Error instances, so
+ * `e instanceof Error` was false for every database rejection and the real
+ * reason ("You can only budget for a department you are registered in",
+ * "Budget cycle is not open", ...) was replaced by a bare "Could not submit".
+ * Read the reason off whatever shape arrives instead.
+ */
+function serverMessage(e: unknown, fallback: string): string {
+  if (typeof e === 'string' && e.trim()) return e.trim();
+  const raw = e as { message?: unknown; details?: unknown; hint?: unknown } | null;
+  const msg = [raw?.message, raw?.details, raw?.hint].find(
+    v => typeof v === 'string' && v.trim().length > 0,
+  ) as string | undefined;
+  return msg?.trim() || fallback;
+}
+
 interface Props {
   /** Dashboard the page was opened from (e.g. 'tenant-ops'); locks the form to that hub's department. */
   dashboard?: string;
@@ -361,7 +377,12 @@ export default function DepartmentBudgetSubmission({
       // and the notification bell release without a reload.
       refreshBudgetObligation();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not submit');
+      // Keep the full server reply for tracing, and show the user the actual
+      // reason rather than a dead-end message they cannot act on.
+      console.error('[budget] submit failed', e);
+      toast.error(
+        serverMessage(e, 'The server refused this budget without giving a reason. Please report this.'),
+      );
     } finally {
       setSubmitting(false);
     }
