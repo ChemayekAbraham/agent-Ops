@@ -100,6 +100,10 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
   // labels come from the RPC, so this shuffles by itself as each day closes.
   const currentBasis = basisVersionOf(report);
 
+  // "Still counting" only belongs on a period that has not closed yet. Once the
+  // day is closed the RPC drops `provisional`, so the label disappears by itself.
+  const currentStillCounting = report?.provisional === true;
+
   const rows = [
     {
       key: 'earlier',
@@ -109,6 +113,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       rate: earlier?.collection_rate_pct ?? null,
       arrearsTarget: earlier?.arrears_target_ugx ?? null,
       current: false,
+      stillCounting: false,
       basisVersion: basisVersionOf(earlier),
     },
     {
@@ -119,6 +124,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       rate: report?.prior?.collection_rate_pct ?? null,
       arrearsTarget: report?.prior?.arrears_target_ugx ?? null,
       current: false,
+      stillCounting: false,
       basisVersion: basisVersionOf(report?.prior),
     },
     {
@@ -129,6 +135,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       rate: report?.collection_rate_pct ?? null,
       arrearsTarget: report?.arrears_target_ugx ?? null,
       current: true,
+      stillCounting: currentStillCounting,
       basisVersion: currentBasis,
     },
   ].map((row) => ({ ...row, differentBasis: row.basisVersion !== currentBasis }));
@@ -190,7 +197,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                   different basis
                 </Badge>
               )}
-              {row.current && <span className="font-medium normal-case text-primary">still counting</span>}
+              {row.stillCounting && <span className="font-medium normal-case text-primary">still counting</span>}
             </p>
             <div className="mt-2 space-y-1 text-sm">
               <p className="flex items-baseline justify-between gap-3">
@@ -277,7 +284,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                       different basis
                     </Badge>
                   )}
-                  {row.current && (
+                  {row.stillCounting && (
                     <span className="ml-2 text-xs text-primary">still counting</span>
                   )}
                 </td>
