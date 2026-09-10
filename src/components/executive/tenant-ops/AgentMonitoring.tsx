@@ -365,7 +365,50 @@ function TenantPaymentHistory({
 }
 
 
-type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'position';
+/** Presentation-only summary tile: big scannable figure, quiet label, no overflow. */
+const STAT_ACCENT: Record<'neutral' | 'primary' | 'success' | 'danger' | 'info', string> = {
+  neutral: 'text-foreground',
+  primary: 'text-primary',
+  success: 'text-emerald-600 dark:text-emerald-400',
+  danger: 'text-destructive',
+  info: 'text-sky-600 dark:text-sky-400',
+};
+
+function StatCard({
+  label,
+  value,
+  hint,
+  accent = 'neutral',
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  accent?: keyof typeof STAT_ACCENT;
+}) {
+  return (
+    <Card className="overflow-hidden border-border/70 shadow-sm transition-shadow hover:shadow-md">
+      <CardContent className="flex h-full min-w-0 flex-col p-3 sm:p-4">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
+          {label}
+        </p>
+        <p
+          className={cn(
+            'mt-1.5 break-words text-lg font-bold leading-tight tabular-nums sm:text-xl',
+            STAT_ACCENT[accent],
+          )}
+        >
+          {value}
+        </p>
+        {hint && <p className="mt-1 break-words text-[10px] leading-snug text-muted-foreground sm:text-xs">{hint}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'before-aug-2026' | 'position';
+
+/** Same boundary for both cohort tabs — one date rule, read from the existing added date. */
+const AUG_2026_BOUNDARY = '2026-08-02T00:00:00+03:00';
 
 export function AgentMonitoring() {
   const [tab, setTab] = useState<AgentMonitoringTab>('all');
@@ -377,7 +420,8 @@ export function AgentMonitoring() {
   const [selectedAgent, setSelectedAgent] = useState<AgentRow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
   const bounds = useMemo(() => dayBounds(day), [day]);
-  const createdAfter = tab === 'after-aug-2026' ? '2026-08-02T00:00:00+03:00' : undefined;
+  const createdAfter = tab === 'after-aug-2026' ? AUG_2026_BOUNDARY : undefined;
+  const createdBefore = tab === 'before-aug-2026' ? AUG_2026_BOUNDARY : undefined;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['tenant-ops-agent-monitoring', format(day, 'yyyy-MM-dd')],
@@ -565,12 +609,15 @@ export function AgentMonitoring() {
       })
       .filter((agent) => {
         if (frequencyFilter !== 'all' && agent.tenants.length === 0) return false;
-        if (!createdAfter) return true;
+        if (!createdAfter && !createdBefore) return true;
         const profile = profileMap.get(agent.id);
-        return !!profile?.created_at && new Date(profile.created_at) >= new Date(createdAfter);
+        if (!profile?.created_at) return false;
+        const added = new Date(profile.created_at);
+        if (createdAfter) return added >= new Date(createdAfter);
+        return added < new Date(createdBefore as string);
       })
       .sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
-  }, [collectionMap, createdAfter, data?.collections, data?.requests, data?.requestCounts, frequencyFilter, profileMap, scheduleMap]);
+  }, [collectionMap, createdAfter, createdBefore, data?.collections, data?.requests, data?.requestCounts, frequencyFilter, profileMap, scheduleMap]);
 
   const filteredAgents = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -688,18 +735,25 @@ export function AgentMonitoring() {
 
     if (compact) {
       return (
-        <div key={agent.id} className="rounded-lg border p-3">
+        <div key={agent.id} className="rounded-xl border border-border/70 bg-card p-3 shadow-sm">
           <button
             type="button"
             className="flex w-full items-start justify-between gap-3 text-left"
             onClick={() => setSelectedAgent(agent)}
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{agent.name}</p>
+              <p className="truncate text-sm font-semibold leading-tight">{agent.name}</p>
               <p className="truncate text-xs text-muted-foreground">{agent.phone || 'No phone number'} · {agent.tenantCount} tenants</p>
-              <p className="mt-1 break-words text-xs tabular-nums text-muted-foreground">
-                {formatUGX(agent.collected)} / {formatUGX(agent.expected)} · {rate === null ? '—' : `${rate.toFixed(1)}%`}
-              </p>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <span className="text-base font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{formatUGX(agent.collected)}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">of {formatUGX(agent.expected)}</span>
+                <span className="text-xs font-semibold tabular-nums">· {rate === null ? '—' : `${rate.toFixed(1)}%`}</span>
+              </div>
+              {agent.arrears > 0 && (
+                <p className="mt-1 break-words text-xs font-medium tabular-nums text-destructive">
+                  Arrears {formatUGX(agent.arrears)} · {agent.behindCount} behind
+                </p>
+              )}
             </div>
             <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
           </button>
@@ -716,26 +770,26 @@ export function AgentMonitoring() {
     }
 
     return (
-      <TableRow key={agent.id} className="cursor-pointer" onClick={() => setSelectedAgent(agent)}>
+      <TableRow key={agent.id} className="cursor-pointer transition-colors hover:bg-muted/40" onClick={() => setSelectedAgent(agent)}>
         <TableCell>
           <div className="min-w-[170px]">
-            <p className="font-semibold">{agent.name}</p>
+            <p className="font-semibold leading-tight">{agent.name}</p>
             <p className="text-xs text-muted-foreground">{agent.phone || 'No phone number'}</p>
           </div>
         </TableCell>
-        <TableCell className="text-right tabular-nums">
-          <span>{agent.tenantCount}</span>
+        <TableCell className="whitespace-nowrap text-right tabular-nums">
+          <span className="font-semibold">{agent.tenantCount}</span>
           <span className="block text-[10px] text-muted-foreground">{agent.dailyCount}D / {agent.weeklyCount}W</span>
         </TableCell>
-        <TableCell className="text-right tabular-nums">{agent.dueCount}</TableCell>
-        <TableCell className="text-right tabular-nums">{formatUGX(agent.expected)}</TableCell>
-        <TableCell className="text-right tabular-nums">{formatUGX(agent.collected)}</TableCell>
-        <TableCell className="text-right tabular-nums">
-          {formatUGX(agent.arrears)}
+        <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{agent.dueCount}</TableCell>
+        <TableCell className="whitespace-nowrap text-right tabular-nums">{formatUGX(agent.expected)}</TableCell>
+        <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{formatUGX(agent.collected)}</TableCell>
+        <TableCell className="whitespace-nowrap text-right tabular-nums">
+          <span className={cn('font-semibold', agent.arrears > 0 && 'text-destructive')}>{formatUGX(agent.arrears)}</span>
           <span className="block text-[10px] text-muted-foreground">{agent.behindCount} behind · {agent.aheadCount} ahead</span>
         </TableCell>
 
-        <TableCell className="text-right tabular-nums font-semibold">
+        <TableCell className="whitespace-nowrap text-right font-bold tabular-nums">
           {rate === null ? '—' : `${rate.toFixed(1)}%`}
         </TableCell>
         <TableCell className="text-right tabular-nums">{agent.requestCount}</TableCell>
@@ -764,55 +818,53 @@ export function AgentMonitoring() {
 
   const body = (
     <>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <Users className="h-4.5 w-4.5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold leading-tight">Agent Monitoring</h1>
-              <p className="text-[11px] text-muted-foreground">Daily expected collections and field performance</p>
-            </div>
+      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+            <Users className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold leading-tight tracking-tight sm:text-xl">Agent Monitoring</h1>
+            <p className="truncate text-xs text-muted-foreground">Daily expected collections and field performance</p>
           </div>
         </div>
-        <div className="flex w-full flex-wrap items-center gap-1 rounded-lg border p-1 sm:w-auto">
-          <Button variant="ghost" size="sm" onClick={() => setDay((value) => subDays(value, 1))} aria-label="Previous day">←</Button>
-          <div className="flex-1 min-w-[110px] text-center text-xs font-medium tabular-nums sm:flex-none sm:min-w-[128px]">{format(day, 'dd MMM yyyy')}</div>
-          <Button variant="ghost" size="sm" onClick={() => setDay((value) => addDays(value, 1))} aria-label="Next day">→</Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setDay(startOfDay(new Date()))}>
+        <div className="flex w-full items-center gap-1 rounded-xl border bg-muted/40 p-1 sm:w-auto">
+          <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={() => setDay((value) => subDays(value, 1))} aria-label="Previous day">←</Button>
+          <div className="min-w-0 flex-1 truncate text-center text-xs font-semibold tabular-nums sm:flex-none sm:min-w-[132px]">{format(day, 'dd MMM yyyy')}</div>
+          <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={() => setDay((value) => addDays(value, 1))} aria-label="Next day">→</Button>
+          <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => setDay(startOfDay(new Date()))}>
             <CalendarDays className="h-3.5 w-3.5" /> Today
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Agents monitored</p><p className="mt-1 text-xl font-bold tabular-nums">{filteredAgents.length}</p><p className="text-[10px] text-muted-foreground">{totals.nothingDue} with nothing due</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Due this day</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.dueCount}</p><p className="text-[10px] text-muted-foreground">of {totals.tenantCount} tenants</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Expected vs collected</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.collected)}</p><p className="text-[10px] text-muted-foreground">of {formatUGX(totals.expected)} due</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Total arrears</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.arrears)}</p><p className="text-[10px] text-muted-foreground">{totals.behindCount} tenants behind</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Paid ahead</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.aheadCount}</p><p className="text-[10px] text-muted-foreground">tenants covering future periods</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Daily vs weekly</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.dailyCount} / {totals.weeklyCount}</p><p className="text-[10px] text-muted-foreground">daily / weekly plans</p></CardContent></Card>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
+        <StatCard label="Agents monitored" value={String(filteredAgents.length)} hint={`${totals.nothingDue} with nothing due`} accent="neutral" />
+        <StatCard label="Due this day" value={String(totals.dueCount)} hint={`of ${totals.tenantCount} tenants`} accent="primary" />
+        <StatCard label="Collected today" value={formatUGX(totals.collected)} hint={`of ${formatUGX(totals.expected)} expected`} accent="success" />
+        <StatCard label="Total arrears" value={formatUGX(totals.arrears)} hint={`${totals.behindCount} tenants behind`} accent={totals.arrears > 0 ? 'danger' : 'neutral'} />
+        <StatCard label="Paid ahead" value={String(totals.aheadCount)} hint="tenants covering future periods" accent="info" />
+        <StatCard label="Daily / weekly" value={`${totals.dailyCount} / ${totals.weeklyCount}`} hint="plans by payment period" accent="neutral" />
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-base">Collection performance</CardTitle>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <div className="relative">
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="flex flex-col gap-3 border-b bg-muted/30 pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-sm font-semibold tracking-tight sm:text-base">Collection performance</CardTitle>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="relative w-full sm:w-56">
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or phone" className="h-8 w-full pl-8 text-xs sm:w-56" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or phone" className="h-8 w-full bg-background pl-8 text-xs" />
             </div>
-            <div className="flex flex-wrap gap-1" role="group" aria-label="Payment frequency filter">
+            <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5" role="group" aria-label="Payment frequency filter">
               {(['all', 'daily', 'weekly'] as const).map((value) => (
-                <Button key={value} variant={frequencyFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs capitalize" onClick={() => setFrequencyFilter(value)}>
+                <Button key={value} variant={frequencyFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2.5 text-xs font-medium capitalize" onClick={() => setFrequencyFilter(value)}>
                   {value === 'all' ? 'All plans' : value}
                 </Button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-1" role="group" aria-label="Collection status filter">
+            <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5" role="group" aria-label="Collection status filter">
               {(['all', 'full', 'partial', 'critical', 'none'] as const).map((value) => (
-                <Button key={value} variant={statusFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs" onClick={() => setStatusFilter(value)}>
+                <Button key={value} variant={statusFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2.5 text-xs font-medium" onClick={() => setStatusFilter(value)}>
                   {value === 'all' ? 'All' : STATUS_LABEL[value]}
                 </Button>
               ))}
@@ -831,7 +883,7 @@ export function AgentMonitoring() {
             <>
               <div className="hidden overflow-x-auto md:block">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Due</TableHead><TableHead className="text-right">Expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Arrears</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
+                  <TableHeader className="[&_th]:whitespace-nowrap [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide"><TableRow className="bg-muted/20"><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Due</TableHead><TableHead className="text-right">Expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Arrears</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
                   <TableBody>{filteredAgents.map((agent) => renderAgentRow(agent))}</TableBody>
                 </Table>
               </div>
@@ -932,11 +984,13 @@ export function AgentMonitoring() {
         <TabsList variant="pills" className="w-max">
           <TabsTrigger value="all" variant="pills" className="text-xs">All agents</TabsTrigger>
           <TabsTrigger value="after-aug-2026" variant="pills" className="text-xs">After 1 Aug 2026</TabsTrigger>
+          <TabsTrigger value="before-aug-2026" variant="pills" className="text-xs">Before 1 Aug 2026</TabsTrigger>
           <TabsTrigger value="position" variant="pills" className="text-xs">Expected vs paid</TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="all" className="space-y-4">{body}</TabsContent>
       <TabsContent value="after-aug-2026" className="space-y-4">{body}</TabsContent>
+      <TabsContent value="before-aug-2026" className="space-y-4">{body}</TabsContent>
       <TabsContent value="position" className="space-y-4"><AgentPaymentPosition /></TabsContent>
     </Tabs>
   );
