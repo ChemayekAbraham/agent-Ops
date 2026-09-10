@@ -45,7 +45,7 @@ const fmtDate = (iso: string) =>
   });
 
 export function PaymentPeriodControl({
-  rentRequestId, frequency, dailyRepayment, canEdit, onSaved,
+  rentRequestId, frequency, dailyRepayment, canEdit, onSaved, triggerClassName, compact,
 }: Props) {
   const qc = useQueryClient();
   const current: Period = String(frequency ?? 'daily').toLowerCase() === 'weekly' ? 'weekly' : 'daily';
