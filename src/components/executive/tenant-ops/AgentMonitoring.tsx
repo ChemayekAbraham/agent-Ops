@@ -735,18 +735,25 @@ export function AgentMonitoring() {
 
     if (compact) {
       return (
-        <div key={agent.id} className="rounded-lg border p-3">
+        <div key={agent.id} className="rounded-xl border border-border/70 bg-card p-3 shadow-sm">
           <button
             type="button"
             className="flex w-full items-start justify-between gap-3 text-left"
             onClick={() => setSelectedAgent(agent)}
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{agent.name}</p>
+              <p className="truncate text-sm font-semibold leading-tight">{agent.name}</p>
               <p className="truncate text-xs text-muted-foreground">{agent.phone || 'No phone number'} · {agent.tenantCount} tenants</p>
-              <p className="mt-1 break-words text-xs tabular-nums text-muted-foreground">
-                {formatUGX(agent.collected)} / {formatUGX(agent.expected)} · {rate === null ? '—' : `${rate.toFixed(1)}%`}
-              </p>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <span className="text-base font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{formatUGX(agent.collected)}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">of {formatUGX(agent.expected)}</span>
+                <span className="text-xs font-semibold tabular-nums">· {rate === null ? '—' : `${rate.toFixed(1)}%`}</span>
+              </div>
+              {agent.arrears > 0 && (
+                <p className="mt-1 break-words text-xs font-medium tabular-nums text-destructive">
+                  Arrears {formatUGX(agent.arrears)} · {agent.behindCount} behind
+                </p>
+              )}
             </div>
             <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
           </button>
