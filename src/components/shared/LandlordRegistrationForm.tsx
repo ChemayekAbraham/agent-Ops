@@ -268,6 +268,12 @@ export default function LandlordRegistrationForm({
   // Mobile Money
   const [momoName, setMomoName] = useState('');
   const [momoNumber, setMomoNumber] = useState('');
+  // Optional bank details (additive — never required, never validated as a set)
+  const [bankName, setBankName] = useState('');
+  const [bankBranch, setBankBranch] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+
 
   // Utility meters
   const [nwscMeter, setNwscMeter] = useState('');
