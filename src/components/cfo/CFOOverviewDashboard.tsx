@@ -249,17 +249,22 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card className="rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden">
               <CardContent className="p-5">
-                <div className="w-full">
+                <button
+                  type="button"
+                  onClick={() => setMoneyWeHaveOpen(true)}
+                  className="w-full text-left group"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-600">
                       <PiggyBank className="h-5 w-5 text-emerald-50" />
                     </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-3 transition-transform group-hover:translate-x-0.5" />
                   </div>
                   <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">Money We Have</p>
                   <p className="mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight text-foreground">
                     {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
                   </p>
-                </div>
+                </button>
                 <>
                   <div className="mt-3 space-y-0.5">
                     {[
@@ -347,6 +352,121 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                     Mercy account — it shows under Money We Owe. Tap for the detail.
                   </button>
                 </>
+
+                <Dialog open={moneyWeHaveOpen} onOpenChange={setMoneyWeHaveOpen}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2.5 text-base">
+                        <span className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-emerald-600">
+                          <PiggyBank className="h-4 w-4 text-emerald-50" />
+                        </span>
+                        Money We Have
+                      </DialogTitle>
+                      <DialogDescription className="text-xs">
+                        Real float on provider lines + verified cash + banked deposits
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+                      <p className="text-[11px] font-medium text-muted-foreground">Money We Have</p>
+                      <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums tracking-tight text-foreground">
+                        {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Where it comes from</p>
+                      {[
+                        { label: 'MTN Money', amount: actualMoney?.mtn ?? 0, logo: mtnLogoAsset.url, line: 'mtn_momo' as const },
+                        { label: 'Airtel Money', amount: actualMoney?.airtel ?? 0, logo: airtelLogoAsset.url, line: 'airtel_money' as const },
+                        { label: 'Cash at Hand', amount: actualMoney?.cashAtHand ?? 0, icon: <Banknote className="h-4 w-4 text-emerald-600" />, line: 'cash' as const },
+                        { label: 'Cash at Bank', amount: actualMoney?.bankedCash ?? 0, icon: <Landmark className="h-4 w-4 text-sky-600" />, line: 'banked_cash' as const },
+                      ].map((row) => (
+                        <button
+                          key={row.line}
+                          type="button"
+                          onClick={() => { setMoneyWeHaveOpen(false); setActualMoneyLine(row.line); }}
+                          className="w-full flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs text-left rounded-md px-1 hover:bg-muted/50 transition-colors"
+                        >
+                          <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
+                            <span className="h-6 w-6 rounded-md shrink-0 border border-border bg-background flex items-center justify-center overflow-hidden">
+                              {row.logo ? (
+                                <img src={row.logo} alt={row.label} className="w-full h-full object-contain" loading="lazy" />
+                              ) : (
+                                row.icon
+                              )}
+                            </span>
+                            <span className="truncate">{row.label}</span>
+                          </span>
+                          <span className="flex items-center gap-1.5 shrink-0">
+                            <span className="tabular-nums font-medium text-right text-foreground">
+                              {actualLoading ? '—' : fmt(row.amount)}
+                            </span>
+                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                          </span>
+                        </button>
+                      ))}
+                      <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
+                        <span className="text-xs font-semibold">Total Money We Have</span>
+                        <span className="text-sm font-bold tabular-nums text-foreground">
+                          {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {!actualLoading && actualMoney && (
+                      <button
+                        type="button"
+                        onClick={() => { setMoneyWeHaveOpen(false); setActualMoneyLine('banked_cash'); }}
+                        className={`w-full text-left text-[11px] rounded-lg px-3 py-2 transition-colors ${
+                          actualMoney.bankedInSync
+                            ? 'text-sky-700 dark:text-sky-400 bg-sky-50/70 dark:bg-sky-950/30 hover:bg-sky-100/70 dark:hover:bg-sky-950/50'
+                            : 'text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/30 hover:bg-amber-100/80 dark:hover:bg-amber-950/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5 font-medium">
+                          {actualMoney.bankedInSync ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          )}
+                          <span className="truncate">
+                            {actualMoney.bankedInSync
+                              ? 'Cash at Bank matches Financial Ops'
+                              : `Cash at Bank differs from Financial Ops by ${fmt(Math.abs(actualMoney.bankedDifference))}`}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block text-[10px] opacity-90">
+                          {actualMoney.finOpsBankedCount} banked deposit(s) checked
+                          {actualMoney.bankedComputedAt
+                            ? ` · synced ${new Date(actualMoney.bankedComputedAt).toLocaleTimeString('en-GB', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                timeZone: 'Africa/Kampala',
+                              })} EAT`
+                            : ''}
+                          {actualMoney.bankedLastMovementAt
+                            ? ` · last banked ${new Date(actualMoney.bankedLastMovementAt).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                timeZone: 'Africa/Kampala',
+                              })}`
+                            : ''}
+                        </span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => { setMoneyWeHaveOpen(false); setMerchantOwedOpen(true); }}
+                      className="w-full text-left text-[11px] text-orange-700 dark:text-orange-400 bg-orange-50/70 dark:bg-orange-950/30 rounded-lg px-3 py-2 hover:bg-orange-100/70 dark:hover:bg-orange-950/50 transition-colors"
+                    >
+                      {fmt(merchantHeld + bayoMercyHeld)} sits in the merchant float bucket and the Bayo
+                      Mercy account — it shows under Money We Owe. Tap for the detail.
+                    </button>
+                  </DialogContent>
+                </Dialog>
               </CardContent>
             </Card>
             <HeroCard
