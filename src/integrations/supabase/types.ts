@@ -12424,6 +12424,7 @@ export type Database = {
         Row: {
           adjudicated_at: string | null
           adjudicated_by: string | null
+          attribution: string | null
           author_email: string | null
           band: Database["public"]["Enums"]["hr_difficulty_band"] | null
           basis: string | null
@@ -12452,6 +12453,7 @@ export type Database = {
         Insert: {
           adjudicated_at?: string | null
           adjudicated_by?: string | null
+          attribution?: string | null
           author_email?: string | null
           band?: Database["public"]["Enums"]["hr_difficulty_band"] | null
           basis?: string | null
@@ -12480,6 +12482,7 @@ export type Database = {
         Update: {
           adjudicated_at?: string | null
           adjudicated_by?: string | null
+          attribution?: string | null
           author_email?: string | null
           band?: Database["public"]["Enums"]["hr_difficulty_band"] | null
           basis?: string | null
@@ -49079,6 +49082,10 @@ export type Database = {
       }
       engrep_open_window: {
         Args: { p_granularity: string; p_period_start: string }
+        Returns: string
+      }
+      engrep_path_owner: {
+        Args: { p_on: string; p_paths: string[] }
         Returns: string
       }
       engrep_resolve_claim: {
