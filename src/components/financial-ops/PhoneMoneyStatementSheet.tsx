@@ -9,6 +9,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -25,6 +26,8 @@ export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash' | 'bank' | 'ba
 interface Props {
   line: PhoneMoneyLine | null;
   onOpenChange: (open: boolean) => void;
+  /** Optional: lets the account breakdown switch the statement to another line. */
+  onSelectLine?: (line: PhoneMoneyLine) => void;
 }
 
 const TITLES: Record<PhoneMoneyLine, string> = {
@@ -54,7 +57,21 @@ type DirectionFilter = 'all' | 'in' | 'out';
  * replays the provider SMS/emails (or verified cash deposits) that produced the
  * balance shown on the card, and resolves who the money came from / went to.
  */
-export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
+export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: Props) {
+  const { data: held } = useActualMoneyHeld(!!line);
+
+  /** Every configured money bucket, so the drilldown shows where each amount sits. */
+  const accountRows = useMemo(() => {
+    if (!held) return [];
+    return [
+      { line: 'mtn_momo' as PhoneMoneyLine, label: 'MTN Money', amount: held.mtn },
+      { line: 'airtel_money' as PhoneMoneyLine, label: 'Airtel Money', amount: held.airtel },
+      { line: 'cash' as PhoneMoneyLine, label: 'Cash at Hand (not yet banked)', amount: held.cashAtHand },
+      { line: 'banked_cash' as PhoneMoneyLine, label: 'Cash at Bank (Financial Ops banked)', amount: held.bankedCash },
+      { line: 'bank' as PhoneMoneyLine, label: 'Bayo Mercy bank account (reference)', amount: held.bankReconciliation },
+    ];
+  }, [held]);
+
   const { data, isLoading } = useQuery({
     queryKey: ['finops-phone-money-statement', line],
     enabled: !!line,
@@ -245,6 +262,47 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
               </Button>
             ))}
           </div>
+
+          {accountRows.length > 0 && (
+            <div className="mt-3 rounded-xl border border-border bg-muted/30 p-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Where the money sits — by account
+              </p>
+              <div className="mt-1.5 space-y-0.5">
+                {accountRows.map((a) => {
+                  const active = a.line === line;
+                  const share = held && held.total > 0 ? (a.amount / held.total) * 100 : 0;
+                  return (
+                    <button
+                      key={a.line}
+                      type="button"
+                      disabled={!onSelectLine}
+                      onClick={() => onSelectLine?.(a.line)}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left transition-colors',
+                        active ? 'bg-primary/10 ring-1 ring-primary/30' : onSelectLine ? 'hover:bg-muted/70' : '',
+                      )}
+                    >
+                      <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                        {a.label}
+                        {a.line === 'bank' ? '' : ` · ${share.toFixed(1)}%`}
+                      </span>
+                      <span className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-foreground">
+                        {formatUGX(a.amount)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {held && (
+                <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[10px] text-muted-foreground">
+                  Money We Have total{' '}
+                  <span className="font-mono font-semibold text-foreground">{formatUGX(held.total)}</span> · the Bayo
+                  Mercy bank account is a reference figure and is not added to the total.
+                </p>
+              )}
+            </div>
+          )}
         </SheetHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] divide-y divide-border">
