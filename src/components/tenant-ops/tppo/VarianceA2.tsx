@@ -185,11 +185,23 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
       <div className="mt-3 space-y-1">
         <p className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-          <span>{earlierLabel}</span>
-          <span className="tabular-nums">{rateText(earlierRate)}</span>
-          <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span>{priorLabel}</span>
-          <span className="tabular-nums">{rateText(priorRate)}</span>
+          {currentIsClosed ? (
+            <>
+              <span>{priorLabel}</span>
+              <span className="tabular-nums">{rateText(priorRate)}</span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span>{currentLabel}</span>
+              <span className="tabular-nums">{rateText(currentRate)}</span>
+            </>
+          ) : (
+            <>
+              <span>{earlierLabel}</span>
+              <span className="tabular-nums">{rateText(earlierRate)}</span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span>{priorLabel}</span>
+              <span className="tabular-nums">{rateText(priorRate)}</span>
+            </>
+          )}
         </p>
         <p className="text-xs text-muted-foreground">each on its own period&apos;s schedule</p>
         {anyDifferentBasis && (
