@@ -434,19 +434,22 @@ export function MoneyWeCanUseBreakdown() {
               icon={<AlertTriangle className="h-4 w-4 text-amber-600" />}
               title="Excluded from both sides · flagged transfers"
               note="Money-out transfers whose receiver is not an active merchant agent. Review only."
-              total={fmt(flagged?.total ?? 0)}
+              total={fmt(flaggedSummary.data?.total ?? 0)}
               totalTone="text-amber-700 dark:text-amber-300"
             >
               {flagLoading ? (
                 <Spinner />
-              ) : (flagged?.transfers ?? []).length === 0 ? (
+              ) : flaggedRows.length === 0 ? (
                 <p className="py-3 text-[11px] text-muted-foreground">
                   Every money-out transfer went to a registered merchant agent.
                 </p>
               ) : (
                 <div className="max-h-80 overflow-y-auto pr-1">
-                  <Paged
-                    items={flagged?.transfers ?? []}
+                  <CursorPaged
+                    hasNextPage={!!flagHasNext}
+                    isFetchingNextPage={flagFetchingNext}
+                    fetchNextPage={flagFetchNext}
+                    items={flaggedRows}
                     label="flagged transfers"
                     renderItem={(t) => (
                       <div key={t.id} className="border-t border-border/60 py-2 first:border-t-0">
