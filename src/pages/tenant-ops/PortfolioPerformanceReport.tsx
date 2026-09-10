@@ -419,6 +419,8 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
 
       <ArrearsMovementA2b granularity={granularity} anchor={anchor} />
 
+      <WeeklyArrearsSheet anchor={anchor} />
+
 
       <ProjectionA3 granularity={granularity} anchor={anchor} />
 
