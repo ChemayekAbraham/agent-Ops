@@ -97,9 +97,15 @@ export function PaymentPeriodControl({
   return (
     <Dialog open={open} onOpenChange={openChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full sm:w-auto" disabled={!canEdit}>
-          <CalendarClock className="h-3.5 w-3.5 mr-1.5" />
-          Change payment period
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn('w-full sm:w-auto', triggerClassName)}
+          disabled={!canEdit}
+          title="Change payment period (daily or weekly)"
+        >
+          <CalendarClock className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5 mr-1.5'} />
+          {compact ? 'Payment period' : 'Change payment period'}
         </Button>
       </DialogTrigger>
 
