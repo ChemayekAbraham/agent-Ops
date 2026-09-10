@@ -20,7 +20,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 const PAGE_SIZE = 20;
 
-export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash' | 'bank';
+export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash' | 'bank' | 'banked_cash';
 
 interface Props {
   line: PhoneMoneyLine | null;
@@ -32,6 +32,7 @@ const TITLES: Record<PhoneMoneyLine, string> = {
   airtel_money: 'Airtel Money statement',
   cash: 'Cash at hand statement',
   bank: 'Money at Bank — Bayo Mercy account',
+  banked_cash: 'Cash at Bank — Financial Ops banked deposits',
 };
 
 interface Row {
@@ -84,6 +85,32 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
           phone: people.get(c.user_id)?.phone ?? null,
         }));
       }
+
+       if (line === 'banked_cash') {
+         const { data: cash, error } = await supabase
+           .from('cash_deposit_verifications')
+           .select('id, amount, user_id, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit)')
+           .not('verified_at', 'is', null)
+           .order('verified_at', { ascending: false })
+           .limit(100);
+         if (error) throw error;
+         const rows = (cash ?? []).filter((c: any) => {
+           const loc = (c.deposit_requests?.purpose_audit?.cash_location ?? 'cash_at_hand') as string;
+           return loc === 'bank';
+         });
+         const people = await resolveNames(rows.map((c: any) => c.user_id));
+         return rows.map((c: any) => ({
+           id: c.id,
+           at: c.verified_at ?? c.created_at,
+           amount: Number(c.amount ?? 0),
+           direction: 'cash' as const,
+           party: people.get(c.user_id)?.name ?? 'Unknown depositor',
+           reference: c.deposit_request_id ? String(c.deposit_request_id).slice(0, 8) : null,
+           balanceAfter: null,
+           note: 'Verified cash deposit — marked as banked by Financial Ops',
+           phone: people.get(c.user_id)?.phone ?? null,
+         }));
+       }
 
        if (line === 'bank') {
          const { data: reconciliation, error } = await supabase.rpc('get_money_at_bank_reconciliation' as any);
@@ -190,7 +217,9 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
         <SheetHeader className="p-4 sm:p-5 pb-3 border-b border-border shrink-0 text-left">
           <SheetTitle>{line ? TITLES[line] : 'Statement'}</SheetTitle>
           <SheetDescription className="text-xs sm:text-sm">
-             {line === 'bank'
+             {line === 'banked_cash'
+               ? 'Verified cash deposits explicitly marked as banked by Financial Ops.'
+               : line === 'bank'
                ? 'Bayo Mercy account balance: qualifying credits in less debits out.'
                : line === 'cash'
               ? 'Verified cash deposits collected by agents and not yet banked.'
