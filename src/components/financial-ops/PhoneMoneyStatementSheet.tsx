@@ -48,9 +48,25 @@ interface Row {
   balanceAfter: number | null;
   note: string | null;
   phone: string | null;
+  /** Coarse grouping used by the category filter. */
+  category: string;
 }
 
 type DirectionFilter = 'all' | 'in' | 'out';
+
+function purposeLabel(purpose: string | null | undefined): string {
+  if (purpose === 'operational_float') return 'Agent float';
+  if (purpose === 'personal_deposit') return 'Personal deposit';
+  return 'Other deposit';
+}
+
+function dayStart(isoDate: string): number {
+  return new Date(`${isoDate}T00:00:00`).getTime();
+}
+
+function dayEnd(isoDate: string): number {
+  return new Date(`${isoDate}T23:59:59.999`).getTime();
+}
 
 /**
  * Detailed movement statement for one Actual Money line. Read-only: it simply
