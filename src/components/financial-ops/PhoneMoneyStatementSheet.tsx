@@ -61,7 +61,8 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
     enabled: !!line,
     staleTime: 15_000,
     queryFn: async (): Promise<Row[]> => {
-      if (line === 'cash') {
+      if (line === 'cash' || line === 'banked_cash') {
+        const wantBanked = line === 'banked_cash';
         const { data: cash, error } = await supabase
           .from('cash_deposit_verifications')
           .select('id, amount, user_id, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit)')
@@ -71,7 +72,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
         if (error) throw error;
         const rows = (cash ?? []).filter((c: any) => {
           const loc = (c.deposit_requests?.purpose_audit?.cash_location ?? 'cash_at_hand') as string;
-          return loc !== 'bank';
+          return wantBanked ? loc === 'bank' : loc !== 'bank';
         });
         const people = await resolveNames(rows.map((c: any) => c.user_id));
         return rows.map((c: any) => ({
@@ -82,10 +83,13 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
           party: people.get(c.user_id)?.name ?? 'Unknown depositor',
           reference: c.deposit_request_id ? String(c.deposit_request_id).slice(0, 8) : null,
           balanceAfter: null,
-          note: 'Verified cash collected — awaiting banking',
+          note: wantBanked
+            ? 'Verified cash — Financial Ops marked it as banked'
+            : 'Verified cash collected — awaiting banking',
           phone: people.get(c.user_id)?.phone ?? null,
         }));
       }
+
 
        if (line === 'bank') {
          const { data: reconciliation, error } = await supabase.rpc('get_money_at_bank_reconciliation' as any);
