@@ -291,19 +291,31 @@ export default function DepartmentBudgetSubmission({
     return newId;
   };
 
-  const saveDraft = async () => {
-    setSaving(true);
-    try {
-      const id = await persistDraft();
-      if (!id) return;
-      toast.success('Draft saved');
-      await loadSubmissions();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save draft');
-    } finally {
-      setSaving(false);
-    }
-  };
+  /**
+   * Plain-language reason the budget cannot be submitted yet, or null when the
+   * form is complete. Mirrors what persistDraft and budget_submit_submission
+   * require, so the button only enables when the submission will actually go
+   * through — the database stays the authority on every write.
+   */
+  const incompleteReason = useMemo((): string | null => {
+    if (!cycleId) return 'There is no open budget cycle to submit into yet.';
+    if (!departmentId) return 'Your department could not be resolved, so this budget cannot be filed.';
+    if (!title.trim()) return 'Add a title for this budget.';
+    if (!purpose.trim()) return 'Add the purpose of this budget.';
+    const filled = lines.filter(l =>
+      l.description.trim() || l.unit_amount.trim() || l.justification.trim(),
+    );
+    if (!filled.length) return 'Add at least one item with a description, quantity and unit cost.';
+    const incomplete = filled.some(l =>
+      !l.description.trim()
+      || !(Number(l.quantity) > 0)
+      || !(Number(l.unit_amount) > 0)
+      || !l.justification.trim(),
+    );
+    if (incomplete) return 'Every item needs a description, quantity, unit cost and justification.';
+    return null;
+  }, [cycleId, departmentId, title, purpose, lines]);
+
 
   /**
    * Submit straight from a filled-in form. The draft is written first because
