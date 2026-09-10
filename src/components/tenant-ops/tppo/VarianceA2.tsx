@@ -64,11 +64,29 @@ function signedClass(value?: number | null): string {
  * The rate variance is computed here as the middle (prior) period rate minus the
  * earliest (earlier) period rate and expressed as a percentage change.
  */
+function todayKampalaIso(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
+}
+
 export function VarianceA2({ report, earlier }: VarianceA2Props) {
   const priorRate = report?.prior?.collection_rate_pct;
   const earlierRate = earlier?.collection_rate_pct;
-  const rateDeltaPct =
-    priorRate != null && earlierRate != null ? priorRate - earlierRate : null;
+  const currentRate = report?.collection_rate_pct ?? null;
+
+  // A period is closed once its end date is before today (Kampala), even if the
+  // snapshot's `provisional` flag has not dropped yet. For a closed day the
+  // variance is between that day and its previous day; for the present day the
+  // existing prior-vs-earlier logic is preserved.
+  const currentIsClosed =
+    !!report?.period_end && report.period_end < todayKampalaIso();
+
+  const rateDeltaPct = currentIsClosed
+    ? currentRate != null && priorRate != null
+      ? currentRate - priorRate
+      : null
+    : priorRate != null && earlierRate != null
+      ? priorRate - earlierRate
+      : null;
 
   const hasRateDelta = rateDeltaPct !== null && rateDeltaPct !== undefined;
   const direction = !hasRateDelta ? 'none' : rateDeltaPct! > 0 ? 'up' : rateDeltaPct! < 0 ? 'down' : 'flat';
@@ -83,13 +101,14 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
         ? 'text-destructive'
         : 'text-muted-foreground';
 
+  const comparisonTarget = currentIsClosed ? 'previous day' : 'earlier period';
   const directionLabel =
     direction === 'up'
-      ? 'up vs earlier period'
+      ? `up vs ${comparisonTarget}`
       : direction === 'down'
-        ? 'down vs earlier period'
+        ? `down vs ${comparisonTarget}`
         : direction === 'flat'
-          ? 'unchanged vs earlier period'
+          ? `unchanged vs ${comparisonTarget}`
           : 'no comparison available';
 
   const currentLabel = periodLabel(report?.period_start, report?.period_end);
@@ -102,7 +121,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
   // "Still counting" only belongs on a period that has not closed yet. Once the
   // day is closed the RPC drops `provisional`, so the label disappears by itself.
-  const currentStillCounting = report?.provisional === true;
+  const currentStillCounting = report?.provisional === true && !currentIsClosed;
 
   const rows = [
     {
@@ -166,11 +185,23 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
       <div className="mt-3 space-y-1">
         <p className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-          <span>{earlierLabel}</span>
-          <span className="tabular-nums">{rateText(earlierRate)}</span>
-          <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span>{priorLabel}</span>
-          <span className="tabular-nums">{rateText(priorRate)}</span>
+          {currentIsClosed ? (
+            <>
+              <span>{priorLabel}</span>
+              <span className="tabular-nums">{rateText(priorRate)}</span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span>{currentLabel}</span>
+              <span className="tabular-nums">{rateText(currentRate)}</span>
+            </>
+          ) : (
+            <>
+              <span>{earlierLabel}</span>
+              <span className="tabular-nums">{rateText(earlierRate)}</span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span>{priorLabel}</span>
+              <span className="tabular-nums">{rateText(priorRate)}</span>
+            </>
+          )}
         </p>
         <p className="text-xs text-muted-foreground">each on its own period&apos;s schedule</p>
         {anyDifferentBasis && (
@@ -223,7 +254,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
         ))}
 
 
-        {currentStillCounting && (
+        {(currentStillCounting || currentIsClosed) && (
           <div className="rounded-md border border-border p-3 font-medium">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
             <div className="mt-2 space-y-1 text-sm">
@@ -298,7 +329,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                 </td>
               </tr>
             ))}
-            {currentStillCounting && (
+            {(currentStillCounting || currentIsClosed) && (
               <tr className="font-medium">
                 <td className="py-2 pr-3">Increase / decrease</td>
                 <td className={`py-2 pr-3 text-right tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
