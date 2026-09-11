@@ -680,7 +680,10 @@ export function TenantCallingCenter() {
         row={detailsRow}
         open={!!detailsRow}
         starting={dialer.starting || hub.reveal.isPending}
-        canCall={!!detailsRow && detailsRow.state !== 'engaged'}
+        /* A finished tenant (engaged/closed/etc.) can be called again from here.
+           Duplicate/concurrent protection is unchanged: the reveal path reuses any
+           open attempt and the dialer refuses while a call is starting. */
+        canCall={!!detailsRow}
         wipBlocked={hub.wipBlocked}
         onCall={callFromDetails}
         onClose={() => setDetailsRow(null)}
