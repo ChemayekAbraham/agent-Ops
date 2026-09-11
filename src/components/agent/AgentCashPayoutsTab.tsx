@@ -1086,18 +1086,23 @@ export function AgentCashPayoutsTab() {
       // Refresh so the lost-race row disappears from this agent's view immediately.
       invalidateQueue();
     },
-    onSettled: (_d, _e, vars) => {
+    onSettled: (_d, error, vars) => {
       const withdrawalId = vars?.id;
-      // Send the "merchant agent X is processing your withdrawal" SMS after the
-      // claim has committed. Fire-and-forget so telco hiccups never affect the UI.
+      // Send the "merchant agent X is processing your withdrawal" SMS only when
+      // the claim actually committed for THIS agent. On a failed/lost-race claim
+      // the withdrawal is not ours, and notifying would 409. Fire-and-forget so
+      // telco hiccups never affect the UI.
       if (withdrawalId) {
-        supabase.functions
-          .invoke('notify-withdrawal-claimed', { body: { withdrawal_id: withdrawalId } })
-          .catch((e) => console.warn('[claim] notify SMS failed', e));
+        if (!error) {
+          supabase.functions
+            .invoke('notify-withdrawal-claimed', { body: { withdrawal_id: withdrawalId } })
+            .catch((e) => console.warn('[claim] notify SMS failed', e));
+        }
         claimLockRef.current.delete(withdrawalId);
         setClaimingIds(new Set(claimLockRef.current));
       }
     },
+
   });
 
   // Complete withdrawal via edge function (ledger-backed)
