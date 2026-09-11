@@ -167,9 +167,10 @@ export async function optimizeImage(
   const img = await loadImage(file);
   const { width, height } = fitDimensions(img.width, img.height, maxWidth, maxHeight);
 
-  // Try WebP first, fall back to JPEG
-  const format = supportsWebP() ? 'image/webp' : 'image/jpeg';
-  const ext = format === 'image/webp' ? 'webp' : 'jpg';
+  // Caller may pin the output format (e.g. flows that only accept JPEG/PNG).
+  // Otherwise try WebP first and fall back to JPEG.
+  const format = forcedFormat ?? (supportsWebP() ? 'image/webp' : 'image/jpeg');
+  const ext = format === 'image/webp' ? 'webp' : format === 'image/png' ? 'png' : 'jpg';
 
   const blob = await canvasToBlob(img, width, height, format, quality);
 
