@@ -111,6 +111,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
       { key: 'reliability-hub', label: 'Repayment Reliability Score', icon: ShieldCheck, keywords: ['risk', 'score', 'recency'] },
       { key: 'location-corrections', label: 'Tenant Location Corrections', icon: MapPin, keywords: ['location', 'village', 'district', 'legacy', 'corrections', 'fix'] },
       { key: 'tenant-products-report', label: 'Tenant Products & Services', icon: FileText, keywords: ['products', 'services', 'report'] },
+      { key: 'portfolio-performance-hub', label: 'Portfolio Performance', icon: TrendingUp, keywords: ['portfolio', 'performance', 'expected', 'collected', 'arrears', 'closing arrears', 'collection rate'] },
     ],
   },
   {
