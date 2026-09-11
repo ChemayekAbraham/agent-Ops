@@ -90,7 +90,7 @@ export default function TenantsOnboarding() {
   const routeLocation = useLocation();
   // Where the visitor should land again once they have an account. Keeps any
   // query/hash they arrived with (e.g. a shared link carrying a village).
-  const returnTo = `${location.pathname}${location.search}${location.hash}`;
+  const returnTo = `${routeLocation.pathname}${routeLocation.search}${routeLocation.hash}`;
   const authHref = (signup: boolean) =>
     `/auth?redirect=${encodeURIComponent(returnTo)}${signup ? '&signup=1' : ''}`;
 
