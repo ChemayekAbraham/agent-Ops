@@ -2023,10 +2023,38 @@ Deno.serve(async (req) => {
         // Nearing-Payouts funds that live on the partner's ledger; the
         // agent's wallet cache routinely shows 0 even when the partner
         // is fully funded. Trust the ledger net.
-        ledgerAvailable = Math.max(
+        const rawLedgerAvailable = Math.max(
           0,
           Math.max(0, ledgerNet) - otherPendingHolds,
         );
+
+        // SAFETY NET (2026-09-11): the raw sum above has produced UGX 0 for
+        // agents the system's own canonical `get_user_available_balance()`
+        // RPC — the same function every non-proxy withdrawal trusts — proves
+        // are genuinely funded (e.g. agent net UGX 298M, 30 other pending
+        // holds totalling UGX 42.5M, yet this branch reported 0 instead of
+        // the correct ~UGX 255.8M). Rather than let an undiagnosed bug in
+        // this bespoke recomputation floor a real proxy payout to zero and
+        // hard-reject an already-paid withdrawal, cross-check against the
+        // strict RPC and never report LESS than what it says is available.
+        // The strict RPC nets pending holds (including this request), so add
+        // this request's amount back to compare on the same pre-hold basis.
+        let strictRpcAvailable = 0;
+        try {
+          const { data: strictVal, error: strictErr } = await admin.rpc(
+            "get_user_available_balance",
+            { p_user_id: fundingUserId },
+          );
+          if (strictErr) throw strictErr;
+          strictRpcAvailable = Math.max(0, Number(strictVal ?? 0) + Number(wr.amount || 0));
+        } catch (strictEx) {
+          console.warn(
+            "[approve-withdrawal] proxy strict-RPC cross-check failed (non-fatal):",
+            (strictEx as Error).message,
+          );
+        }
+
+        ledgerAvailable = Math.max(rawLedgerAvailable, strictRpcAvailable);
         // Allow the float-first debit path to also dip into withdrawable.
         partnerLinkedFloatAvailable = ledgerAvailable;
       } else {
