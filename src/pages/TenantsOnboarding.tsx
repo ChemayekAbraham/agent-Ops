@@ -562,6 +562,40 @@ export default function TenantsOnboarding() {
     }
   };
 
+  /* ------------------------------------------------- per-route head ------ */
+  const onboardingHead = (
+    <Helmet>
+      <title>Get Rent Support — Welile Tenant Onboarding</title>
+      <meta
+        name="description"
+        content="365 days, zero rent headaches. Request your Rent Plan on Welile — we pay your landlord upfront, you repay over time."
+      />
+      <meta property="og:title" content="Welile — 365 Days, Zero Rent Headaches" />
+      <meta
+        property="og:description"
+        content="Get 12 full months of guaranteed rent paid upfront. No late excuses, no endless follow-ups."
+      />
+      <meta property="og:type" content="website" />
+      <meta property="og:url" content="https://welileapp.com/tenants-onboarding" />
+      <meta
+        property="og:image"
+        content="https://welileapp.com/__l5e/assets-v1/ae57546a-af3d-4bef-9627-e4c1a20836ec/tenants-onboarding-og.jpg"
+      />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Welile — 365 Days, Zero Rent Headaches" />
+      <meta
+        name="twitter:description"
+        content="Get 12 full months of guaranteed rent paid upfront. No late excuses, no endless follow-ups."
+      />
+      <meta
+        name="twitter:image"
+        content="https://welileapp.com/__l5e/assets-v1/ae57546a-af3d-4bef-9627-e4c1a20836ec/tenants-onboarding-og.jpg"
+      />
+    </Helmet>
+  );
+
   /* --------------------------------------------------------- gate/auth --- */
   if (authLoading) {
     return (
