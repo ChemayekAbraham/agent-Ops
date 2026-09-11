@@ -43,6 +43,7 @@ deleted ledger row. **Never delete, never `UPDATE`, never "clean up" financial h
 | [`05-disaster-recovery.md`](./05-disaster-recovery.md) | Infrastructure is lost and you are rebuilding. |
 | [`06-live-state-verification.md`](./06-live-state-verification.md) | You do not trust this documentation (correct instinct). Regenerates every fact from the live catalog. |
 | [`07-tribal-knowledge.md`](./07-tribal-knowledge.md) | The traps that have already cost real money. Read this once, cover to cover, early. |
+| [`08-incident-2026-09-12-merchant-claim.md`](./08-incident-2026-09-12-merchant-claim.md) | A merchant says their claim failed, vanished, or "was taken by another agent". The worked incident: why a retry destroyed the claimer's own reservation, what was rebuilt, and what is **still** broken (the 45-minute stale release). |
 
 ---
 

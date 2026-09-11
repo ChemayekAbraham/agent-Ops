@@ -168,8 +168,12 @@ Check in order:
    `enforce_payouts_ui_flag_on_withdrawals`.
 3. Merchant liquidity. No merchant with float means nothing gets claimed.
    `notify-merchants-new-withdrawal`, `redispatch-withdrawals` (every minute),
-   `release-stale-claims`.
+   `release-stale-cashout-claims` (every 5 minutes).
 4. `detect-stale-withdrawal-holds` (every 6 h) and `monitor-bulk-payout-stuck` (15 min).
+5. **If merchants say they cannot claim** — the claim succeeds but "disappears", or they are told
+   another agent took it — that is a different failure. Read
+   [`08-incident-2026-09-12-merchant-claim.md`](./08-incident-2026-09-12-merchant-claim.md) and
+   query `withdrawal_claim_attempts`, which records every attempt with a result code.
 
 **Do not** approve a withdrawal outside `approve-withdrawal`.
 `enforce_withdrawal_ledger_match` exists because mismatched postings have happened before.
@@ -446,7 +450,23 @@ Retry it.
 
 ## N. One merchant is holding multiple claims / claimed withdrawals never come back to the queue
 
-Two independent causes, fixed together 2026-09-11:
+Three causes. Two were addressed 2026-09-11; the third — and worst — survived until 2026-09-12,
+and one half of the second is **still open**. Full worked incident:
+[`08-incident-2026-09-12-merchant-claim.md`](./08-incident-2026-09-12-merchant-claim.md).
+
+**Fastest diagnostic now:** `withdrawal_claim_attempts` records every claim attempt with a result
+code (`CLAIM_SUCCESS`, `CLAIM_ALREADY_OWNED_BY_SELF`, `CLAIM_ALREADY_OWNED_BY_OTHER`,
+`CLAIM_BLOCKED_ACTIVE_CLAIM`, `CLAIM_RESERVATION_FAILED`, …). Read it before asking the merchant
+what they saw.
+
+```sql
+SELECT a.created_at, p.full_name, a.result_code, a.error_code, a.idempotent,
+       a.race_lost, a.reservation_outcome, a.blocking_withdrawal_id
+FROM public.withdrawal_claim_attempts a
+LEFT JOIN public.profiles p ON p.id = a.agent_user_id
+ORDER BY a.created_at DESC LIMIT 50;
+```
+
 
 ```sql
 -- Is a merchant sitting on more than one open claim right now?
@@ -461,18 +481,45 @@ GROUP BY 1 HAVING count(*) > 1;
 SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'release-stale-cashout-claims';
 ```
 
-1. `claim_withdrawal_verified` enforces one active claim per merchant server-side (advisory lock +
-   blocking-claim lookup, before float reservation) as of
-   `drizzle/migrations/0006_merchant_one_active_claim_and_stale_release_cron.sql`. If the first
-   query above returns rows, that migration either wasn't applied or was reverted — check the live
-   function definition against the migration file, don't assume the file being present means it's
-   live.
-2. `release_stale_cashout_claims()` only clears claims with **zero settlement progress** (no
-   proof/code/TID/processing marker) — this is by design, not a bug, so don't expect it to touch
-   an in-flight payout. If the cron job is missing/inactive, re-run the migration; it's idempotent.
+1. **One active claim per merchant** is enforced server-side (advisory lock + blocking-claim lookup)
+   as of `drizzle/migrations/0006_merchant_one_active_claim_and_stale_release_cron.sql` and its twin
+   `supabase/migrations/20260911163000_...`. If the first query above returns rows, the migration
+   either wasn't applied or was reverted — check the live function definition, don't assume the file
+   being present means it's live.
+2. **The claim transaction was rebuilt on 2026-09-12**
+   (`supabase/migrations/20260912010000_canonical_merchant_claim.sql`). It now locks the withdrawal
+   row *before* touching money, treats a merchant re-claiming their **own** withdrawal as idempotent
+   success, and never lets a loser's attempt release the winner's reservation. Before that, a
+   merchant's own retry released their own float and answered "already claimed by another agent" —
+   every one of the 23 `claim_race_lost` rows in the preceding 24 hours was a self-retry, not a race.
+   Confirm it is live:
+   ```sql
+   SELECT position('CLAIM_ALREADY_OWNED_BY_SELF' in pg_get_functiondef(
+     'public.claim_withdrawal_verified(uuid,text,text)'::regprocedure)) > 0 AS canonical_claim_live;
+   ```
+3. `release_stale_cashout_claims()` only clears claims with **zero settlement progress** (no
+   proof/code/TID/processing marker) — that part is by design, so don't expect it to touch an
+   in-flight payout. If the cron job is missing/inactive, re-run the migration; it's idempotent.
+   **Still open (2026-09-12):** when it does release a claim it does **not** release the merchant's
+   float reservation and does **not** notify them — the payout simply vanishes from their screen and
+   their float stays locked until the 48-hour sweep. It took Emma Maiso's UGX 95,000 at 01:40 EAT and
+   left UGX 27,000 of her float held. The repair exists as
+   `supabase/migrations/20260911210000_stale_claim_release_frees_float_reservation.sql` and is **not
+   applied**. Check before assuming otherwise:
+   ```sql
+   SELECT position('release_merchant_float' in pg_get_functiondef(
+     'public.release_stale_cashout_claims()'::regprocedure)) > 0 AS stale_release_frees_float;
+   ```
+4. **A leftover reservation no longer follows the wrong merchant.** Claiming a row that still carries
+   another desk's stale reservation now releases it and reserves afresh for the claimant (attempt log
+   shows `orphan_released_then_reserved`). Previously the new claimer inherited it and the payout was
+   booked as the *other* merchant's own cash — the source of ~UGX 21.3M of misattributed receivables
+   in August.
 
-See [`07-tribal-knowledge.md` §20](./07-tribal-knowledge.md#20-the-one-claim-per-merchant-rule-only-existed-in-react-and-the-stale-claim-releaser-had-no-cron)
-for the full incident.
+See [`08-incident-2026-09-12-merchant-claim.md`](./08-incident-2026-09-12-merchant-claim.md) for the
+full worked incident, and
+[`07-tribal-knowledge.md` §20](./07-tribal-knowledge.md#20-the-one-claim-per-merchant-rule-only-existed-in-react-and-the-stale-claim-releaser-had-no-cron)
+for the earlier one.
 
 **Do not** manually force-release an agent's claim that's inside its normal in-flight window
 (check `dispatched_at` — recent claims are very likely legitimately being worked). Forcing a
