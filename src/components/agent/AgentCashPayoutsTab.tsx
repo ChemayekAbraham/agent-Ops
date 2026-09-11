@@ -575,7 +575,7 @@ export function AgentCashPayoutsTab() {
   // queue fence here, the server could refuse a second claim over a row this
   // list never showed (merchants saw "you have another transaction" with
   // nothing in "Claimed by you").
-  const { data: myActiveClaims = [] } = useQuery({
+  const { data: myActiveClaims = [], isError: myActiveClaimsError, refetch: refetchMyActiveClaims } = useQuery({
     queryKey: ['cashout-my-active-claims', isCashoutAgent?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -1097,6 +1097,19 @@ export function AgentCashPayoutsTab() {
     }
   }, [myActiveClaims]);
 
+  // Opening the page with a claim already open must land the merchant ON that
+  // claim — otherwise they scroll the queue, tap Claim and only meet a refusal.
+  const autoScrolledToClaim = useRef(false);
+  useEffect(() => {
+    if (autoScrolledToClaim.current || myActiveClaims.length === 0) return;
+    autoScrolledToClaim.current = true;
+    const t = window.setTimeout(
+      () => claimedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      350,
+    );
+    return () => window.clearTimeout(t);
+  }, [myActiveClaims.length]);
+
   // Claim a withdrawal request — ATOMIC: only succeeds if no one else has claimed it.
   // The `.is('assigned_cashout_agent_id', null)` guard makes the UPDATE a single-row
   // race-safe operation. If two agents click "Claim" at the same instant, only the
@@ -1416,6 +1429,27 @@ export function AgentCashPayoutsTab() {
             ))}
           </CardContent>
         </Card>
+      )}
+
+      {/* If the claimed-payout read itself failed, the merchant must still be told
+          a claim may be open — a blank space here is what makes "you already
+          claimed a payout" feel like a phantom. */}
+      {myActiveClaimsError && myActiveClaims.length === 0 && (
+        <div className="rounded-2xl border-2 border-amber-500/60 bg-amber-500/10 p-3 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-2 min-w-0">
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+              Could not load your claimed payout
+            </p>
+            <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+              You may still have a payout waiting for your confirmation. Tap reload before claiming
+              anything else.
+            </p>
+            <Button size="sm" variant="outline" className="h-9" onClick={() => refetchMyActiveClaims()}>
+              Reload my claimed payout
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Shared payout float — no float requests any more. Claim, pay, get reimbursed. */}
