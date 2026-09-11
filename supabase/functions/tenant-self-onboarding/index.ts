@@ -217,15 +217,21 @@ Deno.serve(async (req) => {
       .from("rent_requests").insert(insertPayload as any).select("id, rent_amount, duration_days, access_fee, request_fee, total_repayment, daily_repayment").single();
     if (rErr || !rentReq) return err(`Could not post your rent request: ${rErr?.message ?? "unknown"}`, 500);
 
-    /* ---- Photos --------------------------------------------------------- */
-    const uploadDataUrl = async (dataUrl: string, path: string): Promise<string | null> => {
+    /* ---- Photos & documents --------------------------------------------- */
+    /** Uploads a data URL into a bucket. Returns the storage path, or null. */
+    const uploadTo = async (bucket: string, dataUrl: string, path: string): Promise<string | null> => {
       const m = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
       if (!m) return null;
       const raw = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-      const { error: upErr } = await admin.storage.from("house-images")
+      const { error: upErr } = await admin.storage.from(bucket)
         .upload(path, raw, { contentType: `image/${m[1]}`, cacheControl: "86400", upsert: true });
-      if (upErr) { console.warn("[tenant-self-onboarding] upload failed", upErr.message); return null; }
-      return admin.storage.from("house-images").getPublicUrl(path).data.publicUrl;
+      if (upErr) { console.warn("[tenant-self-onboarding] upload failed", bucket, upErr.message); return null; }
+      return path;
+    };
+    /** Public bucket helper — returns the public URL. */
+    const uploadDataUrl = async (dataUrl: string, path: string): Promise<string | null> => {
+      const stored = await uploadTo("house-images", dataUrl, path);
+      return stored ? admin.storage.from("house-images").getPublicUrl(stored).data.publicUrl : null;
     };
 
     const houseUrls: string[] = [];
@@ -235,13 +241,18 @@ Deno.serve(async (req) => {
     }
     let tenantPhotoUrl: string | null = null;
     if (tenant_photo) tenantPhotoUrl = await uploadDataUrl(tenant_photo, `${userId}/${rentReq.id}/tenant.jpg`);
-    let idPhotoUrl: string | null = null;
-    if (id_photo) idPhotoUrl = await uploadDataUrl(id_photo, `${userId}/${rentReq.id}/national_id.jpg`);
+    // National ID and the LC1 letter are private documents.
+    let ninPhotoPath: string | null = null;
+    if (id_photo) ninPhotoPath = await uploadTo("tenant-ids", id_photo, `${userId}/${rentReq.id}/national_id.jpg`);
+    let lcLetterPath: string | null = null;
+    if (lc_letter) lcLetterPath = await uploadTo("lc-letters", lc_letter, `${userId}/${rentReq.id}/lc_letter.jpg`);
 
-    if (houseUrls.length || tenantPhotoUrl) {
+    if (houseUrls.length || tenantPhotoUrl || ninPhotoPath || lcLetterPath) {
       const patch: Record<string, unknown> = {};
       if (houseUrls.length) patch.house_image_urls = houseUrls;
       if (tenantPhotoUrl) patch.tenant_photo_url = tenantPhotoUrl;
+      if (ninPhotoPath) { patch.nin_photo_path = ninPhotoPath; patch.nin_photo_bucket = "tenant-ids"; }
+      if (lcLetterPath) { patch.lc_letter_path = lcLetterPath; patch.lc_letter_bucket = "lc-letters"; }
       await admin.from("rent_requests").update(patch).eq("id", rentReq.id);
     }
     if (tenantPhotoUrl) await admin.from("profiles").update({ avatar_url: tenantPhotoUrl }).eq("id", userId);
