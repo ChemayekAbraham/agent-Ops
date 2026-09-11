@@ -62,6 +62,7 @@ interface SmartphoneOrderRow {
 const STATUS_TONE: Record<string, string> = {
   pending_approval: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
   submitted: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+  ops_approved: 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30',
   coo_approved: 'bg-sky-500/15 text-sky-600 border-sky-500/30',
   approved: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
   completed: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
