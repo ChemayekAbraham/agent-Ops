@@ -3,11 +3,25 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
+import { execSync } from "child_process";
 
+// Which revision is this bundle? Exposed as window.__WELILE_BUILD__, the
+// <html data-build> attribute and /version.json so the preview and
+// welileapp.com can be compared directly instead of assumed to match.
+function resolveBuildCommit(env: Record<string, string>): string {
+  const fromEnv = env.VITE_BUILD_COMMIT || process.env.COMMIT_REF || process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
+  if (fromEnv) return fromEnv.slice(0, 12);
+  try {
+    return execSync("git rev-parse --short=12 HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  const buildInfo = { commit: resolveBuildCommit(env), builtAt: new Date().toISOString(), mode };
   const supabaseUrl = env.VITE_SUPABASE_URL || "https://wirntoujqoyjobfhyelc.supabase.co";
   const supabasePublishableKey = env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpcm50b3VqcW95am9iZmh5ZWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjE1MTYsImV4cCI6MjA4MjEzNzUxNn0.5-zxcRPVxvpxNiXhoo5VHpIuvbtuOLfiI3ph8jPIod8";
   const supabaseProjectId = env.VITE_SUPABASE_PROJECT_ID || "wirntoujqoyjobfhyelc";
@@ -16,6 +30,8 @@ export default defineConfig(({ mode }) => {
     define: {
       __APP_VERSION__: JSON.stringify('2026-05-31-safari-recovery-steps'),
       __CACHE_VERSION__: JSON.stringify('2026-05-31-safari-recovery-steps'),
+      __BUILD_COMMIT__: JSON.stringify(buildInfo.commit),
+      __BUILD_TIME__: JSON.stringify(buildInfo.builtAt),
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
       "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabasePublishableKey),
       "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(supabaseProjectId),
@@ -26,6 +42,19 @@ export default defineConfig(({ mode }) => {
   },
   plugins: [
     react(),
+    {
+      name: "welile-build-info",
+      configureServer(server) {
+        server.middlewares.use("/version.json", (_req, res) => {
+          res.setHeader("Content-Type", "application/json");
+          res.setHeader("Cache-Control", "no-store");
+          res.end(JSON.stringify(buildInfo));
+        });
+      },
+      generateBundle() {
+        this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify(buildInfo, null, 2) });
+      },
+    },
     mode === "development" && componentTagger(),
     mcpPlugin(),
     mcpPlugin({ mcpEntry: "src/lib/mcp-public/index.ts", functionName: "mcp-public" }),

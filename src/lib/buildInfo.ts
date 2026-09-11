@@ -1,0 +1,26 @@
+/**
+ * Which revision of the app is running. Set at build time by vite.config.ts
+ * (git commit + build timestamp) and served identically at /version.json, so
+ * "is welileapp.com running the code we tested in the preview?" is answered by
+ * comparing two identifiers instead of assuming.
+ *
+ * Inspect on any device: open the console and read `window.__WELILE_BUILD__`,
+ * or `document.documentElement.dataset.build`, or fetch /version.json.
+ */
+export const BUILD_INFO = Object.freeze({
+  commit: typeof __BUILD_COMMIT__ !== 'undefined' ? __BUILD_COMMIT__ : 'unknown',
+  builtAt: typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'unknown',
+  mode: import.meta.env.MODE,
+});
+
+export const BUILD_ID = `${BUILD_INFO.commit}@${BUILD_INFO.builtAt}`;
+
+export function exposeBuildInfo(): void {
+  try {
+    (window as unknown as { __WELILE_BUILD__?: typeof BUILD_INFO }).__WELILE_BUILD__ = BUILD_INFO;
+    document.documentElement.dataset.build = BUILD_ID;
+    console.info(`[welile] build ${BUILD_ID} (${BUILD_INFO.mode})`);
+  } catch {
+    // Diagnostics only — never affect boot.
+  }
+}

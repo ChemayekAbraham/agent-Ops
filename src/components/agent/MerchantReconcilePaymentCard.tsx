@@ -10,6 +10,7 @@ import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 
 import { MERCHANT_QUEUE_STATUSES } from '@/lib/merchantPayoutQueue';
+import { CLAIM_MESSAGES, outcomeFromClaimResponse, type ClaimRpcResponse } from '@/lib/merchantClaim';
 
 const CASHOUT_QUEUE_STATUSES = MERCHANT_QUEUE_STATUSES as unknown as string[];
 
@@ -82,7 +83,7 @@ export function MerchantReconcilePaymentCard({ agentId, cashoutAgentId, onDone }
       const ids = profs.map((p: any) => p.id);
       const { data: rows } = await supabase
         .from('withdrawal_requests')
-        .select('id, amount, status, payment_method, created_at, dispatched_at, user_id, transaction_id, assigned_cashout_agent_id')
+        .select('id, amount, status, payment_method, created_at, dispatched_at, user_id, transaction_id, assigned_cashout_agent_id, mobile_money_number, mobile_money_name')
         .in('user_id', ids)
         .in('status', CASHOUT_QUEUE_STATUSES)
         .is('transaction_id', null)
@@ -147,18 +148,20 @@ export function MerchantReconcilePaymentCard({ agentId, cashoutAgentId, onDone }
     setSubmitting(true);
     try {
       // If the row isn't claimed by this merchant yet, claim it first so
-      // approve-withdrawal accepts us as the settling merchant.
+      // approve-withdrawal accepts us as the settling merchant — through the
+      // one canonical claim transaction (float reservation, one-active-claim,
+      // idempotent retry), never a direct table write.
       if (chosen.assigned_cashout_agent_id !== cashoutAgentId) {
-        const { error: claimErr } = await supabase
-          .from('withdrawal_requests')
-          .update({
-            assigned_cashout_agent_id: cashoutAgentId,
-            dispatched_at: new Date().toISOString(),
-          } as any)
-          .eq('id', chosen.id)
-          .in('status', CASHOUT_QUEUE_STATUSES)
-          .is('transaction_id', null);
+        const { data: claimRes, error: claimErr } = await supabase.rpc('claim_withdrawal_verified', {
+          p_withdrawal_id: chosen.id,
+          p_momo_number: chosen.mobile_money_number ?? null,
+          p_momo_name: chosen.mobile_money_name ?? null,
+        });
         if (claimErr) throw new Error(claimErr.message || 'Could not claim this withdrawal.');
+        const claimed = outcomeFromClaimResponse(claimRes as unknown as ClaimRpcResponse);
+        if (claimed.kind !== 'claimed') {
+          throw new Error('message' in claimed ? claimed.message : CLAIM_MESSAGES.notClaimed);
+        }
       }
 
       const { data, error } = await supabase.functions.invoke('approve-withdrawal', {

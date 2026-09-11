@@ -12,6 +12,9 @@ import './lib/ephemeralGuard';
 import { loginTelemetry } from './lib/loginTelemetry';
 loginTelemetry.init();
 loginTelemetry.mark('app.boot');
+// Stamp the running revision (window.__WELILE_BUILD__, <html data-build>).
+import { exposeBuildInfo } from './lib/buildInfo';
+exposeBuildInfo();
 import { createRoot } from 'react-dom/client';
 
 const root = document.getElementById('root')!;
