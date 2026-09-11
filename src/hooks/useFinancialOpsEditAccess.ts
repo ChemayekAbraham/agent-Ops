@@ -9,7 +9,15 @@ import { useAuth } from '@/hooks/useAuth';
  */
 export function useFinancialOpsEditAccess() {
   const { roles } = useAuth();
-  const canEdit = Array.isArray(roles) && roles.includes('financial_ops' as any);
+  // Must mirror the RPC's own role gate exactly (see set_merchant_desk_float_to /
+  // finops_set_merchant_desk_float_to): cfo, financial_ops or super_admin. The
+  // database is the real enforcement point either way — this only controls
+  // whether the button renders.
+  const canEdit =
+    Array.isArray(roles) &&
+    (roles.includes('financial_ops' as any) ||
+      roles.includes('cfo' as any) ||
+      roles.includes('super_admin' as any));
   return {
     canEdit,
     readOnlyReason:
