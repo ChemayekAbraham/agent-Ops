@@ -493,7 +493,13 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
           </p>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {rejectedOnly ? 'No rejected applications.' : pendingOnly ? 'No applications awaiting approval.' : 'No smartphone orders yet.'}
+            {rejectedOnly
+              ? 'No rejected applications.'
+              : inProgressOnly
+                ? 'No applications awaiting COO or CFO.'
+                : pendingOnly
+                  ? 'No applications awaiting approval.'
+                  : 'No smartphone orders yet.'}
           </p>
         ) : (
           filtered.map((o) => {
