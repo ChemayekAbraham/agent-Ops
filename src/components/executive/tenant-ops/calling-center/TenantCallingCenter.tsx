@@ -473,7 +473,24 @@ export function TenantCallingCenter() {
                 <Badge variant="outline" className="text-[10px]">
                   {hub.total.toLocaleString()} rows
                 </Badge>
+                {hub.cycle && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px]"
+                    disabled={hub.syncQueue.isPending}
+                    onClick={() => hub.syncQueue.mutate()}
+                    title="Add tenants who became eligible after this cycle was opened"
+                  >
+                    {hub.syncQueue.isPending
+                      ? 'Syncing…'
+                      : hub.syncQueue.isSuccess
+                        ? `Synced · ${hub.syncQueue.data ?? 0} added`
+                        : 'Sync queue'}
+                  </Button>
+                )}
               </div>
+
             </CardHeader>
             <CardContent className="min-w-0 overflow-x-auto p-2 sm:p-3">
               {hub.error && (
