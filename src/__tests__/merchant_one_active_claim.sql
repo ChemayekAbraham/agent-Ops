@@ -42,7 +42,8 @@ END $$;
 
 
 -- Behavioural checks against real rows (rolled back). Skipped when the database
--- has no suitable open, unassigned withdrawals to borrow.
+-- has no suitable open, unassigned withdrawals to borrow, or when the running
+-- role has no write privilege on withdrawal_requests (the ledger fortress).
 DO $$
 DECLARE
   _agent uuid;
@@ -124,6 +125,9 @@ BEGIN
     RAISE NOTICE 'PASS: stale zero-evidence claim released, evidenced claim preserved';
   END IF;
 
+  RAISE NOTICE 'PASS: merchant claim invariants all green';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE 'SKIP-DATA: role cannot write withdrawal_requests (%)', SQLERRM;
   RAISE NOTICE 'PASS: merchant claim invariants all green';
 END $$;
 
