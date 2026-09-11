@@ -24,14 +24,6 @@ This project is being built by two agents in parallel. Stay in your lane so work
 - For treasury cash figures, `get_treasury_cash_position` (A1+A5) is the correct RPC — `get_treasury_snapshot` is superseded and can show malformed negative numbers that look like a deficit but aren't.
 - Absolute "set float to X" operations re-credit already-spent float — prefer delta/"add" operations for float adjustments unless you've confirmed the current spent amount.
 
-## Commands
-
-- `npm run dev` — start dev server (Vite)
-- `npm run build` — guarded production build (runs `guard:all`, builds, verifies dist)
-- `npm run lint` — ESLint
-- `npm run guard:all` — run all build-time guard scripts individually (see `scripts/`)
-- `npm run test:e2e` — Playwright e2e tests (`e2e/`)
-
 ## Git
 
 - Confirm the target remote before pushing — don't assume `origin`.
