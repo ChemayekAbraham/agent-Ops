@@ -83,6 +83,7 @@ const isPending = (s: string) => s === 'submitted' || s === 'pending_approval';
 const isAwaitingCoo = (s: string) => s === 'ops_approved';
 const isAwaitingCfo = (s: string) => s === 'coo_approved';
 const isOpen = (s: string) => isPending(s) || isAwaitingCoo(s) || isAwaitingCfo(s);
+const isApproved = (s: string) => s === 'approved' || s === 'completed';
 
 /** The step a row is currently waiting on. */
 const stageOf = (s: string): Stage => (isAwaitingCfo(s) ? 'cfo' : isAwaitingCoo(s) ? 'coo' : 'ops');
@@ -109,8 +110,9 @@ const SHORT_ACTION_LABEL: Record<Stage, string> = {
  */
 export function BikeLeaseApprovalQueue({
   pendingOnly = false,
+  approvedOnly = false,
   stage: stageFilter,
-}: { pendingOnly?: boolean; stage?: Stage } = {}) {
+}: { pendingOnly?: boolean; approvedOnly?: boolean; stage?: Stage } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [approveTarget, setApproveTarget] = useState<BikeLeaseRow | null>(null);
@@ -204,8 +206,11 @@ export function BikeLeaseApprovalQueue({
     } else if (stageFilter === 'cfo') {
       rows = rows.filter((o) => isAwaitingCfo(o.order_status) || !!o.cfo_disbursed_at);
     }
+    if (approvedOnly) {
+      return rows.filter((o) => isApproved(o.order_status));
+    }
     return pendingOnly ? rows.filter((o) => isOpen(o.order_status)) : rows;
-  }, [orders, pendingOnly, stageFilter]);
+  }, [orders, pendingOnly, approvedOnly, stageFilter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -220,6 +225,7 @@ export function BikeLeaseApprovalQueue({
   const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
   const cooCount = useMemo(() => orders.filter((o) => isAwaitingCoo(o.order_status)).length, [orders]);
   const cfoCount = useMemo(() => orders.filter((o) => isAwaitingCfo(o.order_status)).length, [orders]);
+  const approvedCount = useMemo(() => orders.filter((o) => isApproved(o.order_status)).length, [orders]);
 
   const rowBusy = (id: string) =>
     (approve.isPending && approve.variables?.id === id) ||
@@ -231,15 +237,29 @@ export function BikeLeaseApprovalQueue({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <Bike className="h-4 w-4 text-primary" />
-            Spiro bike lease applications
-            {(!stageFilter || stageFilter === 'ops') && pendingCount > 0 && (
-              <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>
-            )}
-            {(!stageFilter || stageFilter === 'coo') && cooCount > 0 && (
-              <Badge variant="secondary">{cooCount} awaiting COO</Badge>
-            )}
-            {(!stageFilter || stageFilter === 'cfo') && cfoCount > 0 && (
-              <Badge variant="secondary">{cfoCount} awaiting CFO</Badge>
+            {approvedOnly
+              ? 'Approved Spiro bike lease applications'
+              : pendingOnly
+                ? 'Pending Spiro bike lease applications'
+                : 'Spiro bike lease applications'}
+            {approvedOnly ? (
+              approvedCount > 0 && (
+                <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30">
+                  {approvedCount} approved
+                </Badge>
+              )
+            ) : (
+              <>
+                {(!stageFilter || stageFilter === 'ops') && pendingCount > 0 && (
+                  <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>
+                )}
+                {(!stageFilter || stageFilter === 'coo') && cooCount > 0 && (
+                  <Badge variant="secondary">{cooCount} awaiting COO</Badge>
+                )}
+                {(!stageFilter || stageFilter === 'cfo') && cfoCount > 0 && (
+                  <Badge variant="secondary">{cfoCount} awaiting CFO</Badge>
+                )}
+              </>
             )}
           </CardTitle>
           {!stageFilter && <MotorBikeCatalogDialog />}
@@ -257,7 +277,11 @@ export function BikeLeaseApprovalQueue({
           <p className="text-sm text-muted-foreground py-6 text-center">Loading applications…</p>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            No Spiro bike lease applications yet.
+            {approvedOnly
+              ? 'No approved bike lease applications yet.'
+              : pendingOnly
+                ? 'No bike lease applications awaiting review.'
+                : 'No Spiro bike lease applications yet.'}
           </p>
         ) : (
           <>
@@ -302,7 +326,7 @@ export function BikeLeaseApprovalQueue({
                     >
                       <Edit3 className="h-3.5 w-3.5" /> Edit Price
                     </Button>
-                    {isOpen(o.order_status) && (
+                    {isOpen(o.order_status) ? (
                       <>
                         <Button
                           size="sm"
@@ -328,6 +352,18 @@ export function BikeLeaseApprovalQueue({
                           <X className="h-3.5 w-3.5" />
                         </Button>
                       </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 flex-1 text-xs text-muted-foreground hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailTarget(o);
+                        }}
+                      >
+                        View Details
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -423,7 +459,17 @@ export function BikeLeaseApprovalQueue({
                               </Button>
                             </>
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs text-muted-foreground hover:text-primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDetailTarget(o);
+                              }}
+                            >
+                              Details
+                            </Button>
                           )}
                         </div>
                       </td>

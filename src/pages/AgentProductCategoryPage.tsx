@@ -149,14 +149,18 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
 }
 
 function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
-  const { data: pendingCount = 0 } = useQuery({
-    queryKey: ['bike-lease-pending-count'],
+  const { data: counts = { pending: 0, approved: 0 } } = useQuery({
+    queryKey: ['bike-lease-tab-counts'],
     queryFn: async () => {
       const { data, error } = await db.rpc('list_bike_lease_orders', { p_status: null });
       if (error) throw error;
-      return ((data || []) as { order_status: string }[]).filter((o) =>
-        [...PENDING_STATUSES, 'coo_approved'].includes(o.order_status),
-      ).length;
+      const rows = (data || []) as { order_status: string }[];
+      return {
+        pending: rows.filter((o) =>
+          [...PENDING_STATUSES, 'ops_approved', 'coo_approved'].includes(o.order_status),
+        ).length,
+        approved: rows.filter((o) => ['approved', 'completed'].includes(o.order_status)).length,
+      };
     },
   });
 
@@ -165,13 +169,25 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
       <TabsList className="flex-wrap h-auto max-w-full">
         <TabsTrigger value="applications" className="gap-2">
           Bike Lease Applications
-          {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
+          {counts.pending > 0 && <Badge variant="secondary">{counts.pending}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="approved" className="gap-2">
+          Approved Applications
+          {counts.approved > 0 && (
+            <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30">
+              {counts.approved}
+            </Badge>
+          )}
         </TabsTrigger>
         <TabsTrigger value="overview">Overview</TabsTrigger>
       </TabsList>
 
       <TabsContent value="applications" className="space-y-6 max-w-full">
-        <BikeLeaseApprovalQueue />
+        <BikeLeaseApprovalQueue pendingOnly />
+      </TabsContent>
+
+      <TabsContent value="approved" className="space-y-6 max-w-full">
+        <BikeLeaseApprovalQueue approvedOnly />
       </TabsContent>
 
       <TabsContent value="overview" className="space-y-6 max-w-full">
