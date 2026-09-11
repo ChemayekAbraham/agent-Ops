@@ -6,7 +6,7 @@ import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 import { execSync } from "child_process";
 
 // Which revision is this bundle? Exposed as window.__WELILE_BUILD__, the
-// <html data-build> attribute and /version.json so the preview and
+// <html data-build> attribute and /build-info.json so the preview and
 // welileapp.com can be compared directly instead of assumed to match.
 function resolveBuildCommit(env: Record<string, string>): string {
   const fromEnv = env.VITE_BUILD_COMMIT || process.env.COMMIT_REF || process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
@@ -45,14 +45,16 @@ export default defineConfig(({ mode }) => {
     {
       name: "welile-build-info",
       configureServer(server) {
-        server.middlewares.use("/version.json", (_req, res) => {
+        // NOT /version.json — that path is the app's existing cache /
+        // force-upgrade file ({version, min, force}) and must not be replaced.
+        server.middlewares.use("/build-info.json", (_req, res) => {
           res.setHeader("Content-Type", "application/json");
           res.setHeader("Cache-Control", "no-store");
           res.end(JSON.stringify(buildInfo));
         });
       },
       generateBundle() {
-        this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify(buildInfo, null, 2) });
+        this.emitFile({ type: "asset", fileName: "build-info.json", source: JSON.stringify(buildInfo, null, 2) });
       },
     },
     mode === "development" && componentTagger(),

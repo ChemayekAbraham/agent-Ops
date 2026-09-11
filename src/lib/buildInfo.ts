@@ -1,11 +1,13 @@
 /**
  * Which revision of the app is running. Set at build time by vite.config.ts
- * (git commit + build timestamp) and served identically at /version.json, so
+ * (git commit + build timestamp) and served identically at /build-info.json, so
  * "is welileapp.com running the code we tested in the preview?" is answered by
  * comparing two identifiers instead of assuming.
  *
  * Inspect on any device: open the console and read `window.__WELILE_BUILD__`,
- * or `document.documentElement.dataset.build`, or fetch /version.json.
+ * or `document.documentElement.dataset.build`, or fetch /build-info.json.
+ * (/version.json is a different, pre-existing file: the cache / force-upgrade
+ * gate. This plugin must never overwrite it.)
  */
 export const BUILD_INFO = Object.freeze({
   commit: typeof __BUILD_COMMIT__ !== 'undefined' ? __BUILD_COMMIT__ : 'unknown',
