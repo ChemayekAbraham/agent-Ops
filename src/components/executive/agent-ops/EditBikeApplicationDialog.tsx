@@ -92,9 +92,11 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
   const currentCostPrice = Math.round(currentValNum / (1 + currentFeePct / 100));
   const currentDays = currentTermNum * 30;
   const currentDailyPay = currentDays > 0 ? Math.ceil(currentValNum / currentDays) : 0;
+  const currentProfit = Math.max(0, currentValNum - currentCostPrice);
   const costPrice = Math.round(valuationNum / (1 + feePct / 100));
   const days = termNum * 30;
   const dailyPay = days > 0 ? Math.ceil(valuationNum / days) : 0;
+  const profit = Math.max(0, valuationNum - costPrice);
 
   // Real-time schedule calculation
   const schedule = useMemo(() => {
@@ -206,6 +208,12 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
               </span>
             </div>
             <div className="flex justify-between">
+              <span className="text-muted-foreground">Our Profit</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {formatUGX(currentProfit)}
+              </span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-muted-foreground">Est. Daily Pay</span>
               <span className="font-semibold text-foreground">
                 {formatUGX(currentDailyPay)}/day
@@ -302,6 +310,10 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
             <div className="flex justify-between">
               <span className="text-muted-foreground">Bike Cost Price</span>
               <span className="font-bold text-primary">{formatUGX(costPrice)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Our Profit ({feePct}%)</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatUGX(profit)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Estimated Daily Pay</span>
