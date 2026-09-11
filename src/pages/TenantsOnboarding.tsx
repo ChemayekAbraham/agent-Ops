@@ -30,6 +30,8 @@ import { optimizeImage } from '@/lib/imageOptimizer';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
 import { cn } from '@/lib/utils';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,6 +112,17 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 interface PhotoSlot { file: File; preview: string }
 
+interface PassportCheck {
+  checking: boolean;
+  verdict?: 'pass' | 'review' | 'fail';
+  is_face?: boolean;
+  score?: number | null;
+  sha256?: string | null;
+  failures?: { id: string; label: string; severity: string; advice: string }[];
+  error?: string;
+}
+
+
 async function toDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -140,6 +153,19 @@ export default function TenantsOnboarding() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ id: string } | null>(null);
 
+  /* Existing-application gate. A tenant who already has a request in progress
+     (or a live plan) must not fill this form again — it would put them through
+     vetting twice and could raise support twice on one plan. Matched on the
+     signed-in account plus any account sharing their phone number or email. */
+  const [gate, setGate] = useState<{
+    checking: boolean;
+    blocked: boolean;
+    stage?: 'under_review' | 'repaying' | 'none';
+    status?: string;
+    created_at?: string;
+    other_account?: boolean;
+  }>({ checking: true, blocked: false });
+
   /* Step 1 */
   const [earner, setEarner] = useState<EarnerType>('daily');
 
@@ -157,6 +183,11 @@ export default function TenantsOnboarding() {
   const [language, setLanguage] = useState('English');
   const [noSmartphone, setNoSmartphone] = useState(false);
   const [tenantPhoto, setTenantPhoto] = useState<PhotoSlot | null>(null);
+  /* Passport-photo quality verdict from the `verify-passport-photo` function.
+     Advisory only: a "review" verdict still lets the tenant continue, a human
+     looks at it later. Nothing here writes to the database. */
+  const [photoCheck, setPhotoCheck] = useState<PassportCheck | null>(null);
+
   const [idPhoto, setIdPhoto] = useState<PhotoSlot | null>(null);
   const [lcLetter, setLcLetter] = useState<PhotoSlot | null>(null);
   const [idCheck, setIdCheck] = useState<{
@@ -305,6 +336,30 @@ export default function TenantsOnboarding() {
     return () => { cancelled = true; };
   }, [user]);
 
+  /* Ask the server whether this person already has a request in progress. */
+  useEffect(() => {
+    if (!user) { setGate({ checking: false, blocked: false }); return; }
+    let cancelled = false;
+    setGate({ checking: true, blocked: false });
+    (async () => {
+      const { data, error } = await supabase.functions.invoke('tenant-self-onboarding', {
+        body: { action: 'application_status' },
+      });
+      if (cancelled) return;
+      if (error) { setGate({ checking: false, blocked: false }); return; }
+      const d = (data ?? {}) as Record<string, unknown>;
+      setGate({
+        checking: false,
+        blocked: d.blocked === true,
+        stage: d.stage as 'under_review' | 'repaying' | 'none' | undefined,
+        status: typeof d.status === 'string' ? d.status : undefined,
+        created_at: typeof d.created_at === 'string' ? d.created_at : undefined,
+        other_account: d.other_account === true,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
   /* Real identity check — existence only, never whose. */
   const checkTimer = useRef<number | null>(null);
   useEffect(() => {
@@ -346,7 +401,7 @@ export default function TenantsOnboarding() {
         format: type === 'image/png' ? 'image/png' : 'image/jpeg',
       });
       const slot: PhotoSlot = { file: opt.file, preview: opt.previewUrl };
-      if (target === 'tenant') setTenantPhoto(slot);
+      if (target === 'tenant') { setTenantPhoto(slot); void runPassportCheck(slot.file); }
       else if (target === 'id') setIdPhoto(slot);
       else if (target === 'lc_letter') setLcLetter(slot);
       else setHousePhotos((p) => [...p, slot].slice(0, 4));
@@ -354,6 +409,35 @@ export default function TenantsOnboarding() {
       toast.error('That photo could not be used. Try another one.');
     }
   };
+
+  /* Grade the passport photo. Read-only: the checker keeps nothing, and a poor
+     verdict never blocks the tenant — it only tells them what to fix. */
+  const runPassportCheck = async (file: File) => {
+    setPhotoCheck({ checking: true });
+    try {
+      const image_base64 = await toDataUrl(file);
+      const { data, error } = await invokeEdgeFunction<{
+        verdict?: 'pass' | 'review' | 'fail';
+        is_face?: boolean;
+        score?: number | null;
+        sha256?: string | null;
+        failures?: { id: string; label: string; severity: string; advice: string }[];
+      }>('verify-passport-photo', { body: { image_base64 }, silent: true });
+
+      if (error || !data) { setPhotoCheck({ checking: false, error: 'not_checked' }); return; }
+      setPhotoCheck({
+        checking: false,
+        verdict: data.verdict,
+        is_face: data.is_face,
+        score: data.score ?? null,
+        sha256: data.sha256 ?? null,
+        failures: data.failures ?? [],
+      });
+    } catch {
+      setPhotoCheck({ checking: false, error: 'not_checked' });
+    }
+  };
+
 
   /* ------------------------------------------------------- validation ---- */
   const stepError = (s: number): string | null => {
@@ -369,6 +453,11 @@ export default function TenantsOnboarding() {
       if (c.length < 10 || c.length > 14) return 'National ID must be 10 to 14 characters';
       if (ninTakenByOther) return 'This National ID is already registered to another account';
       if (!tenantPhoto) return 'Take your passport photo';
+      // Only a definite "no face found" blocks; a `review` verdict is advisory.
+      if (photoCheck && !photoCheck.checking && !photoCheck.error && photoCheck.is_face === false) {
+        return 'No face was found in your passport photo. Please retake it.';
+      }
+
       if (!idPhoto) return 'Take a photo of your National ID';
       return null;
     }
@@ -445,6 +534,9 @@ export default function TenantsOnboarding() {
           lc1_phone: lc1?.phone ?? '',
           tenant_note: note.trim() || null,
           tenant_photo: tenantB64,
+          // Links the stored photo to its recorded fingerprint + verdict.
+          tenant_photo_sha256: photoCheck?.sha256 ?? null,
+
           id_photo: idB64,
           lc_letter: lcLetterB64,
           house_photos: housesB64,
@@ -499,6 +591,61 @@ export default function TenantsOnboarding() {
             </p>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (gate.checking && !submitted) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-muted/30">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (gate.blocked && !submitted) {
+    const repaying = gate.stage === 'repaying';
+    const when = gate.created_at
+      ? new Date(gate.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      : null;
+    return (
+      <div className="min-h-screen bg-muted/30 px-4 py-10">
+        <div className="mx-auto max-w-md space-y-5">
+          <img src={welileLogo} alt="Welile" className="h-8" />
+          <Card>
+            <CardContent className="space-y-5 p-6 text-center">
+              <span className={cn(
+                'mx-auto grid h-16 w-16 place-items-center rounded-full',
+                repaying ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-amber-100 dark:bg-amber-900/40',
+              )}>
+                {repaying
+                  ? <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  : <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />}
+              </span>
+              <div>
+                <h1 className="text-2xl font-extrabold tracking-tight">
+                  {repaying ? 'You already have a Rent Plan' : 'Your request is under review'}
+                </h1>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {repaying
+                    ? 'Your rent has already been paid to your landlord and you are repaying that plan now. You can only ask for rent support again once this plan is fully paid off.'
+                    : `We already have your request${when ? ` from ${when}` : ''} and our team is checking your details. Please wait for us to come back to you — sending it again does not make it faster.`}
+                </p>
+                {gate.other_account && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    This request is held on an account using the same phone number or email as yours.
+                  </p>
+                )}
+              </div>
+              <Button className="w-full" onClick={() => navigate('/dashboard/tenant')}>
+                {repaying ? 'See my Rent Plan' : 'Track my request'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Questions? Call {SUPPORT_PHONE_DISPLAY} or email {SUPPORT_EMAIL}.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -994,11 +1141,38 @@ export default function TenantsOnboarding() {
                 </label>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <PhotoBox label="Passport photo" required hint="Clear face photo, no hat"
-                    slot={tenantPhoto} onPick={(f) => addPhoto(f, 'tenant')} onClear={() => setTenantPhoto(null)} />
+                  <div className="space-y-2">
+                    <PhotoBox label="Passport photo" required hint="Clear face photo, no hat"
+                      slot={tenantPhoto} onPick={(f) => addPhoto(f, 'tenant')}
+                      onClear={() => { setTenantPhoto(null); setPhotoCheck(null); }} />
+                    {photoCheck?.checking && (
+                      <Hint icon={Loader2} spin>Checking your photo…</Hint>
+                    )}
+                    {!photoCheck?.checking && photoCheck?.error && (
+                      <Hint icon={Info}>We could not check this photo now. You can still continue.</Hint>
+                    )}
+                    {!photoCheck?.checking && !photoCheck?.error && photoCheck?.is_face === false && (
+                      <Hint icon={AlertTriangle} tone="bad">No face was found in this photo. Please retake it.</Hint>
+                    )}
+                    {!photoCheck?.checking && !photoCheck?.error && photoCheck?.is_face && (
+                      <>
+                        {photoCheck.verdict === 'pass'
+                          ? <Hint icon={CheckCircle2} tone="ok">Good passport photo.</Hint>
+                          : <Hint icon={AlertTriangle} tone={photoCheck.verdict === 'fail' ? 'bad' : undefined}>
+                              {photoCheck.verdict === 'fail'
+                                ? 'This photo is not good enough. Please retake it.'
+                                : 'This photo may need a second look. You can retake it or continue.'}
+                            </Hint>}
+                        {(photoCheck.failures ?? []).slice(0, 3).map((f) => (
+                          <Hint key={f.id} icon={Info}>{f.advice || f.label}</Hint>
+                        ))}
+                      </>
+                    )}
+                  </div>
                   <PhotoBox label="National ID photo" required hint="Front of the card, all text readable"
                     slot={idPhoto} onPick={(f) => addPhoto(f, 'id')} onClear={() => setIdPhoto(null)} />
                 </div>
+
               </div>
             )}
 
@@ -1263,7 +1437,7 @@ export default function TenantsOnboarding() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
               {step < 6 ? (
-                <Button type="button" onClick={goNext}>
+                <Button type="button" onClick={goNext} disabled={!!stepError(step)}>
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (

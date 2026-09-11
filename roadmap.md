@@ -26,3 +26,5 @@
 - [ ] Send Money "General Payout Activity": add a custom filter (approver/recipient search + amount range).
 - [x] CFO Money We Owe drilldown: paginated/infinite-scroll transfer lists.
 - [x] CFO Money We Can Use: expandable transaction-level breakdown of Money We Have vs Money We Owe, incl. excluded flagged transfers.
+
+- [x] Assign self-onboarded Rent Requests to the authenticated tenant’s verified referring agent.

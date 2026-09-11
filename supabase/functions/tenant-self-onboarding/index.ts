@@ -1,13 +1,15 @@
 /**
- * Tenant self-onboarding — no agent, no service centre.
+ * Tenant self-onboarding — submitted directly by the tenant, with any saved
+ * referring agent assigned server-side; no service centre.
  *
  * Two actions:
  *  - identity_check : tells the tenant only whether a phone / National ID is
  *                     already on file. Never returns whose it is.
  *  - submit         : creates/reuses the landlord + LC1 chairperson, updates the
  *                     tenant profile, and posts ONE rent request into the normal
- *                     pipeline at status `pending` (agent_id NULL, no service
- *                     centre routing). Fee fields are passed as 0 — the DB
+ *                     pipeline at status `pending` (using the authenticated
+ *                     tenant's verified profile referrer when present, with no
+ *                     service centre routing). Fee fields are passed as 0 — the DB
  *                     trigger `enforce_rent_request_formula` is authoritative.
  *
  * No wallet or ledger writes happen here.
@@ -43,6 +45,9 @@ const OPEN_STATUSES = [
   "agent_verified", "landlord_ops_approved", "partner_ops_approved", "coo_approved",
   "funded", "disbursed", "repaying",
 ];
+
+// Stages where the plan is already live and money is moving.
+const REPAYING_STATUSES = ["funded", "disbursed", "repaying"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -88,6 +93,51 @@ Deno.serve(async (req) => {
       return ok(result);
     }
 
+    /* -------------------------------------------- application_status ------
+       Read-only gate for the self-onboarding form. Looks for an existing open
+       rent request belonging to this person — matched on their own user id AND
+       on any other profile carrying the same phone number or the same email —
+       so one household cannot be vetted or supported twice on one plan.
+       Returns nothing but the stage; no financial data, no other identities. */
+    if (action === "application_status") {
+      const { data: me } = await admin
+        .from("profiles").select("id, phone, email").eq("id", userId).maybeSingle();
+
+      const ids = new Set<string>([userId]);
+      const myPhone = last9(String((me as any)?.phone || ""));
+      const myEmail = String((me as any)?.email || authData.user.email || "").trim();
+
+      if (myPhone.length === 9) {
+        const { data } = await admin.from("profiles").select("id").ilike("phone", `%${myPhone}`).limit(20);
+        (data ?? []).forEach((r: any) => ids.add(r.id));
+      }
+      if (myEmail) {
+        const { data } = await admin.from("profiles").select("id").ilike("email", myEmail).limit(20);
+        (data ?? []).forEach((r: any) => ids.add(r.id));
+      }
+
+      const { data: rows } = await admin
+        .from("rent_requests")
+        .select("id, status, created_at, tenant_id")
+        .in("tenant_id", Array.from(ids))
+        .in("status", OPEN_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const open = rows ?? [];
+      if (open.length === 0) return ok({ blocked: false, stage: "none" });
+
+      const active = open.find((r: any) => REPAYING_STATUSES.includes(r.status)) ?? open[0];
+      const stage = REPAYING_STATUSES.includes(active.status) ? "repaying" : "under_review";
+      return ok({
+        blocked: true,
+        stage,
+        status: active.status,
+        created_at: active.created_at,
+        other_account: active.tenant_id !== userId,
+      });
+    }
+
     /* --------------------------------------------------------- submit ----- */
     if (action !== "submit") return err("Unknown action");
 
@@ -109,6 +159,10 @@ Deno.serve(async (req) => {
     const smartphone = body.no_smartphone === true ? "NO" : "YES";
     const house_photos = Array.isArray(body.house_photos) ? (body.house_photos as string[]) : [];
     const tenant_photo = typeof body.tenant_photo === "string" ? body.tenant_photo : null;
+    // SHA-256 returned by the passport-photo check, used to link the stored photo
+    // to its recorded fingerprint + verdict. Reference data only.
+    const tenant_photo_sha256 = typeof body.tenant_photo_sha256 === "string" ? body.tenant_photo_sha256 : null;
+
     const id_photo = typeof body.id_photo === "string" ? body.id_photo : null;
     const lc_letter = typeof body.lc_letter === "string" ? body.lc_letter : null;
     const tenant_note = String(body.tenant_note || "").trim().slice(0, 1000);
@@ -145,6 +199,36 @@ Deno.serve(async (req) => {
         .from("rent_requests").select("id, status").eq("tenant_id", userId).in("status", OPEN_STATUSES).limit(1);
       if (open && open.length > 0) {
         return err("You already have a rent request in progress. Track it from your dashboard.");
+      }
+    }
+
+    /* ---- Referring agent -------------------------------------------------
+       Attribution comes only from the authenticated tenant's saved profile.
+       Never trust an agent id supplied by the browser: it could be altered to
+       move a tenant into another agent's portfolio. A missing, self-referential,
+       frozen or disabled/non-agent referrer leaves the request unassigned. */
+    let referringAgentId: string | null = null;
+    const { data: tenantAttribution, error: attributionErr } = await admin
+      .from("profiles")
+      .select("referrer_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (attributionErr) return err(`Could not verify your referring agent: ${attributionErr.message}`, 500);
+
+    const candidateReferrerId = typeof tenantAttribution?.referrer_id === "string"
+      ? tenantAttribution.referrer_id
+      : null;
+    if (candidateReferrerId && candidateReferrerId !== userId) {
+      const [{ data: referrerProfile, error: referrerErr }, { data: agentRole, error: roleErr }] = await Promise.all([
+        admin.from("profiles").select("id, is_frozen").eq("id", candidateReferrerId).maybeSingle(),
+        admin.from("user_roles").select("id").eq("user_id", candidateReferrerId)
+          .eq("role", "agent").eq("enabled", true).limit(1).maybeSingle(),
+      ]);
+      if (referrerErr || roleErr) {
+        return err(`Could not verify your referring agent: ${referrerErr?.message ?? roleErr?.message ?? "unknown"}`, 500);
+      }
+      if (referrerProfile && referrerProfile.is_frozen !== true && agentRole) {
+        referringAgentId = candidateReferrerId;
       }
     }
 
@@ -277,10 +361,10 @@ Deno.serve(async (req) => {
     }
 
 
-    /* ---- The rent request itself (normal pipeline, no agent) -------------- */
+    /* ---- The rent request itself (normal pipeline) ------------------------ */
     const insertPayload: Record<string, unknown> = {
       tenant_id: userId,
-      agent_id: null,
+      agent_id: referringAgentId,
       landlord_id: landlordId,
       lc1_id: lc1Id,
       rent_amount,
@@ -324,6 +408,22 @@ Deno.serve(async (req) => {
     }
     if (tenantPhotoUrl) await admin.from("profiles").update({ avatar_url: tenantPhotoUrl }).eq("id", userId);
 
+    /* Link the stored passport photo to the fingerprint recorded when it was
+       checked, so hash + verdict + photo + request stay together. */
+    if (tenant_photo_sha256) {
+      const { error: fpErr } = await admin
+        .from("identity_photo_fingerprints")
+        .upsert({
+          user_id: userId,
+          sha256: tenant_photo_sha256,
+          source: "tenant_onboarding",
+          photo_url: tenantPhotoUrl,
+          rent_request_id: rentReq.id,
+        }, { onConflict: "user_id,sha256" });
+      if (fpErr) console.warn("[tenant-self-onboarding] fingerprint link failed", fpErr.message);
+    }
+
+
     /* ---- Event trail + trust signal ------------------------------------- */
     await admin.from("system_events").insert({
       event_type: "rent_request_created",
@@ -341,6 +441,7 @@ Deno.serve(async (req) => {
         national_id_photo: ninPhotoPath ? { bucket: "tenant-ids", path: ninPhotoPath } : null,
         lc_letter: lcLetterPath ? { bucket: "lc-letters", path: lcLetterPath } : null,
         tenant_note: tenant_note || null,
+         referring_agent_id: referringAgentId,
       },
     } as any).then(({ error }) => { if (error) console.warn("[tenant-self-onboarding] event failed", error.message); });
 
