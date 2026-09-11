@@ -13,7 +13,7 @@
  *    locked-category rejection all come back from the database as messages
  *    written to be read by staff; we surface them verbatim.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -789,6 +789,8 @@ export function useCcCallingHub(
     closeCycle,
     abandonCycle,
     completeFollowup,
+    syncQueue,
+
     refetch: invalidate,
   };
 }
