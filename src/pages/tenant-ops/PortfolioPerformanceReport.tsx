@@ -285,7 +285,7 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
 
 
   return (
-    <div className="w-full space-y-4 overflow-x-hidden pb-28 pt-1 sm:space-y-5">
+    <div className="w-full space-y-4 overflow-x-hidden pb-28 pt-1 sm:space-y-5 font-mono">
       <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3 min-w-0">
           <Button
