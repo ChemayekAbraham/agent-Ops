@@ -997,6 +997,9 @@ export interface MerchantDebtGroup {
    * desk's rows in `skipped`, so the UI must never present them as settleable by this actor.
    */
   isOwnDesk: boolean;
+}
+
+
 
 
 const DEBT_STATUS_PAYABLE = 'pending_reimbursement';
