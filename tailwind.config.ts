@@ -114,6 +114,11 @@ export default {
         'focus': '0 0 0 3px hsl(var(--primary) / 0.12)',
       },
       keyframes: {
+        /* Submit button: each reassurance line rises in from below. */
+        "submit-rise": {
+          from: { transform: "translateY(100%)", opacity: "0" },
+          to: { transform: "translateY(0)", opacity: "1" },
+        },
         "accordion-down": {
           from: { height: "0", opacity: "0" },
           to: { height: "var(--radix-accordion-content-height)", opacity: "1" },

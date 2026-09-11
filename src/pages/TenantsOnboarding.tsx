@@ -77,6 +77,9 @@ const EARNERS = [
   },
 ] as const;
 
+/** What the submit button says while it works, in order. */
+const SUBMIT_PHASES = ['Submitting…', 'Sending your request…', 'Uploading your photos…', 'Almost done…'] as const;
+
 /** Welile support, shown behind the header Help button. */
 const SUPPORT_EMAIL = 'info@welile.com';
 const SUPPORT_PHONE_DISPLAY = '+256 777 607640';
@@ -171,6 +174,9 @@ export default function TenantsOnboarding() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [addLandlordOpen, setAddLandlordOpen] = useState(false);
   const [declared, setDeclared] = useState(false);
+  /* Which reassurance line the submit button is showing. */
+  const [submitPhase, setSubmitPhase] = useState(0);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   /* Step 5 */
   const [landlord, setLandlord] = useState<LandlordOption | null>(null);
@@ -178,6 +184,15 @@ export default function TenantsOnboarding() {
   const [newLandlordPhone, setNewLandlordPhone] = useState('');
   const [lc1, setLc1] = useState<Lc1Selection | null>(null);
   const [note, setNote] = useState('');
+
+  /* Walk the submit button through its reassurance lines. Submission uploads
+     several photos over a Ugandan mobile connection and can genuinely take a
+     while; a frozen spinner reads as a hang. */
+  useEffect(() => {
+    if (!submitting) { setSubmitPhase(0); return; }
+    const t = setInterval(() => setSubmitPhase((n) => Math.min(n + 1, SUBMIT_PHASES.length - 1)), 2600);
+    return () => clearInterval(t);
+  }, [submitting]);
 
   /* ---------------------------------------------------------- draft save ---
      The form is six steps long and is filled on a phone, often on a bad
@@ -373,6 +388,7 @@ export default function TenantsOnboarding() {
       const e = stepError(s);
       if (e) { setStep(s); toast.error(e); return; }
     }
+    setSubmitError(null);
     setSubmitting(true);
     try {
       const [tenantB64, housesB64] = await Promise.all([
@@ -416,12 +432,7 @@ export default function TenantsOnboarding() {
         },
       });
 
-      if (error) {
-        const msg = (error as any)?.context?.body
-          ? String((error as any).context.body)
-          : error.message;
-        throw new Error(msg);
-      }
+      if (error) throw new Error(await readFunctionError(error));
       if ((data as any)?.error) throw new Error(String((data as any).error));
 
       setSubmitted({ id: String((data as any).rent_request_id) });
@@ -431,9 +442,9 @@ export default function TenantsOnboarding() {
       toast.success('Your rent request has been submitted for verification');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
-      let msg = e?.message || 'Something went wrong. Please try again.';
-      try { const parsed = JSON.parse(msg); if (parsed?.error) msg = parsed.error; } catch { /* plain text */ }
-      toast.error(msg);
+      const msg = humaniseSubmitError(e?.message);
+      toast.error('Could not submit your request', { description: msg, duration: 8000 });
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -474,32 +485,76 @@ export default function TenantsOnboarding() {
   }
 
   if (submitted) {
+    const ref = submitted.id.slice(0, 8).toUpperCase();
     return (
       <div className="min-h-screen bg-muted/30 px-4 py-10">
         <div className="mx-auto max-w-xl space-y-5">
           <img src={welileLogo} alt="Welile" className="h-8" />
+
           <Card>
-            <CardContent className="p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-full bg-primary/10">
-                  <CheckCircle2 className="h-6 w-6 text-primary" />
+            <CardContent className="space-y-5 p-6">
+              <div className="text-center">
+                <span className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
                 </span>
-                <div>
-                  <h1 className="text-lg font-bold">Request submitted</h1>
-                  <p className="text-sm text-muted-foreground">Reference {submitted.id.slice(0, 8).toUpperCase()}</p>
+                <span className="mb-2 inline-block rounded-full border bg-muted px-3 py-1 text-xs font-bold tabular-nums text-muted-foreground">
+                  Reference {ref}
+                </span>
+                <h1 className="text-2xl font-extrabold tracking-tight">Request sent</h1>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  We have everything we need from you for now, {firstName || 'there'}. Nothing is paid out yet —
+                  Welile will check your details and come back to you on {phone || 'your phone'}.
+                </p>
+              </div>
+
+              <div className="rounded-xl border bg-background p-4">
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Your Rent Plan
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ReviewItem label="Rent requested" value={formatUGX(rentAmount)} money />
+                  <ReviewItem label="Repayment period" value={`${durationDays} days`} />
+                  <ReviewItem label={`${periodLabel} payment`}
+                    value={`${formatUGX(perCycle)}/${earner === 'weekly' ? 'week' : 'day'}`} money />
+                  <ReviewItem label="Total to repay" value={calc ? formatUGX(calc.totalRepayment) : '—'} money />
                 </div>
               </div>
-              <div className="rounded-lg border bg-background p-4 text-sm space-y-2">
-                <Row label="Rent requested" value={formatUGX(rentAmount)} />
-                <Row label="Repayment period" value={`${durationDays} days`} />
-                <Row label={`${periodLabel} payment`} value={formatUGX(perCycle)} />
-                <Row label="Total to repay" value={calc ? formatUGX(calc.totalRepayment) : '—'} />
+
+              <div className="rounded-xl border bg-background p-4">
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  What happens next
+                </p>
+                <ol className="space-y-3">
+                  {[
+                    { t: 'Request received', d: 'Saved against your profile.', done: true },
+                    { t: 'Welile checks your details', d: 'Your ID, your home, your landlord and your LC1.', done: false },
+                    { t: 'Your landlord is paid', d: 'Once checks pass, rent goes straight to your landlord.', done: false },
+                    { t: 'You start repaying', d: `The day after your landlord is paid — ${formatUGX(perCycle)} per ${earner === 'weekly' ? 'week' : 'day'}.`, done: false },
+                  ].map((row, i) => (
+                    <li key={row.t} className="flex gap-3">
+                      <span className={cn(
+                        'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold',
+                        row.done
+                          ? 'bg-emerald-600 text-white'
+                          : 'border-2 border-border bg-muted text-muted-foreground',
+                      )}>
+                        {row.done ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[13.5px] font-bold text-foreground">{row.t}</span>
+                        <span className="block text-xs text-muted-foreground">{row.d}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Our team will now verify your details, your landlord and your LC1 chairperson. You will be contacted on
-                the phone number you gave. You can follow the progress from your dashboard.
+
+              <Button className="w-full" onClick={() => navigate('/dashboard/tenant')}>
+                Go to my dashboard
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Questions? Call {SUPPORT_PHONE_DISPLAY} or email {SUPPORT_EMAIL}.
               </p>
-              <Button className="w-full" onClick={() => navigate('/dashboard/tenant')}>Go to my dashboard</Button>
             </CardContent>
           </Card>
         </div>
@@ -1168,6 +1223,17 @@ export default function TenantsOnboarding() {
                     Tick the box above to submit your application.
                   </p>
                 )}
+
+                {/* A failure has to survive the toast — tenants miss those. */}
+                {submitError && (
+                  <div className="flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/5 p-3.5">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-destructive">Your request was not sent</p>
+                      <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">{submitError}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1182,9 +1248,19 @@ export default function TenantsOnboarding() {
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
-                <Button type="button" onClick={submit} disabled={submitting || !declared}>
-                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                  Submit rent request
+                <Button type="button" onClick={submit} disabled={submitting || !declared}
+                  className="relative min-w-[210px] overflow-hidden">
+                  {submitting ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" /> : <Check className="mr-2 h-4 w-4 shrink-0" />}
+                  {/* The label rises out of the button as each stage passes, so a
+                      slow upload reads as progress rather than a hang. */}
+                  <span className="relative block h-5 flex-1 overflow-hidden text-left">
+                    <span
+                      key={submitting ? submitPhase : -1}
+                      className="absolute inset-x-0 top-0 block animate-[submit-rise_360ms_cubic-bezier(0.4,0,0.2,1)] leading-5"
+                    >
+                      {submitting ? SUBMIT_PHASES[submitPhase] : 'Submit rent request'}
+                    </span>
+                  </span>
                 </Button>
               )}
             </div>
@@ -1247,6 +1323,60 @@ function KeyCell({ label, value, sub, highlight }: {
       <span className="block truncate text-[11px] text-muted-foreground">{sub}</span>
     </div>
   );
+}
+
+/**
+ * Pull the real message out of a Supabase Functions error.
+ *
+ * `FunctionsHttpError.context` is a Response, so `context.body` is a
+ * ReadableStream — stringifying it produced the literal "[object ReadableStream]"
+ * that tenants were being shown instead of the reason their request failed.
+ */
+async function readFunctionError(error: unknown): Promise<string> {
+  const ctx = (error as { context?: unknown })?.context;
+  if (ctx instanceof Response) {
+    try {
+      const text = await ctx.clone().text();
+      if (text) {
+        try {
+          const parsed = JSON.parse(text);
+          const inner = parsed?.error ?? parsed?.message;
+          if (typeof inner === 'string' && inner.trim()) return inner;
+        } catch { /* not JSON — the raw text is still better than nothing */ }
+        return text;
+      }
+    } catch { /* body already consumed or unreadable */ }
+  }
+  return (error as { message?: string })?.message || 'The request could not be sent.';
+}
+
+/** Turn a raw backend message into something a tenant can act on. */
+function humaniseSubmitError(raw?: string | null): string {
+  const msg = (raw || '').trim();
+  if (!msg) return 'Something went wrong. Please check your connection and try again.';
+
+  // Unwrap "Could not post your rent request: <reason>" style prefixes.
+  const reason = msg.includes(':') ? msg.slice(msg.indexOf(':') + 1).trim() || msg : msg;
+  const hay = `${msg} ${reason}`.toLowerCase();
+
+  if (hay.includes('passport photo')) {
+    return 'Your passport photo did not reach us. Go back to "About you", retake it, then submit again.';
+  }
+  if (hay.includes('national id is already registered')) {
+    return 'That National ID is already registered to another account. Check the number in "About you".';
+  }
+  if (hay.includes('phone number is already registered')) {
+    return 'That phone number is already registered to another account. Sign in with it instead.';
+  }
+  if (hay.includes('already have a rent request')) {
+    return 'You already have a rent request in progress. You can follow it from your dashboard.';
+  }
+  if (hay.includes('landlord')) return `Landlord details could not be saved. ${reason}`;
+  if (hay.includes('lc1')) return `LC1 chairperson details could not be saved. ${reason}`;
+  if (hay.includes('failed to fetch') || hay.includes('networkerror')) {
+    return 'We could not reach Welile. Check your internet connection and try again — your answers are saved.';
+  }
+  return reason;
 }
 
 /** One reviewable section: icon, title, an Edit link back to its step, and a
