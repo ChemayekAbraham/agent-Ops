@@ -89,11 +89,12 @@ const isAwaitingCfo = (s: string) => s === 'coo_approved';
 const isOpen = (s: string) => isPending(s) || isAwaitingCoo(s) || isAwaitingCfo(s);
 
 /**
- * Executive queue for agent smartphone applications — a two-stage flow:
- * stage 1 the COO approves the official amount and forwards the file to the
- * CFO (no money moves); stage 2 the CFO disburses the access amount into the
- * agent's wallet float, activates the order and starts the 33% recovery plan.
- * Rejecting at either stage requires a 10+ character reason.
+ * Executive queue for agent smartphone applications — a three-stage flow:
+ * stage 1 the Agent Operations Manager verifies the applicant and locks the
+ * access amount and repayment terms; stage 2 the COO confirms and forwards the
+ * file to the CFO (no money moves in either stage); stage 3 the CFO pays the
+ * assigned supplier directly and starts the 33% recovery plan on the agent.
+ * Rejecting at any stage requires a 10+ character reason.
  */
 export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly = false }: { pendingOnly?: boolean; rejectedOnly?: boolean } = {}) {
   const queryClient = useQueryClient();
