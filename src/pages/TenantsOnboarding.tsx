@@ -351,8 +351,14 @@ export default function TenantsOnboarding() {
               Create your account or sign in first — we save your request to your own profile so you can follow it.
             </p>
             <Button asChild className="w-full">
-              <Link to="/auth?redirect=/tenants-onboarding">Continue</Link>
+              <Link to={authHref(true)}>Create my account</Link>
             </Button>
+            <Button asChild variant="outline" className="w-full">
+              <Link to={authHref(false)}>I already have an account</Link>
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              We bring you straight back to this form afterwards.
+            </p>
           </CardContent>
         </Card>
       </div>
