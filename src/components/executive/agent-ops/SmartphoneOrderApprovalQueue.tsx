@@ -679,42 +679,55 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                 </p>
 
                 <div className="rounded-lg border p-3 space-y-2">
-                  <p className="text-xs font-semibold">Supplier</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold">Supplier</p>
+                    {!isAgentOpsActionable(detailsTarget.order_status) && (
+                      <Badge variant="outline" className="text-[10px]">Read-only</Badge>
+                    )}
+                  </div>
                   {detailsTarget.supplier_id ? (
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-medium truncate">
                         {detailsTarget.supplier_name || 'Registered supplier'}
                       </p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2"
-                        disabled={assignSupplier.isPending}
-                        onClick={() => assignSupplier.mutate({ id: detailsTarget.id, supplier: null })}
-                      >
-                        <X className="h-3.5 w-3.5 mr-1" /> Clear
-                      </Button>
+                      {isAgentOpsActionable(detailsTarget.order_status) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2"
+                          disabled={assignSupplier.isPending}
+                          onClick={() => assignSupplier.mutate({ id: detailsTarget.id, supplier: null })}
+                        >
+                          <X className="h-3.5 w-3.5 mr-1" /> Clear
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <p className="text-[11px] text-muted-foreground">
-                        No supplier assigned yet. Search a registered user to supply this device.
+                        {isAgentOpsActionable(detailsTarget.order_status)
+                          ? 'No supplier assigned yet. Search a registered user to supply this device.'
+                          : 'No supplier assigned yet. Supplier assignment is locked once the application has left Agent Ops.'}
                       </p>
-                      <SupplierPicker value={supplierDraft} onChange={setSupplierDraft} />
-                      <Button
-                        size="sm"
-                        className="h-8"
-                        disabled={!supplierDraft || assignSupplier.isPending}
-                        onClick={() =>
-                          supplierDraft && assignSupplier.mutate({ id: detailsTarget.id, supplier: supplierDraft })
-                        }
-                      >
-                        {assignSupplier.isPending ? (
-                          <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</>
-                        ) : (
-                          <><Check className="h-3.5 w-3.5 mr-1" /> Assign supplier</>
-                        )}
-                      </Button>
+                      {isAgentOpsActionable(detailsTarget.order_status) && (
+                        <>
+                          <SupplierPicker value={supplierDraft} onChange={setSupplierDraft} />
+                          <Button
+                            size="sm"
+                            className="h-8"
+                            disabled={!supplierDraft || assignSupplier.isPending}
+                            onClick={() =>
+                              supplierDraft && assignSupplier.mutate({ id: detailsTarget.id, supplier: supplierDraft })
+                            }
+                          >
+                            {assignSupplier.isPending ? (
+                              <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</>
+                            ) : (
+                              <><Check className="h-3.5 w-3.5 mr-1" /> Assign supplier</>
+                            )}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
