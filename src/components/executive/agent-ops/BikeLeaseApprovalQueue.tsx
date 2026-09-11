@@ -96,7 +96,8 @@ const getRowPricing = (row: BikeLeaseRow) => {
   const days = term * 30;
   const dailyPay = days > 0 ? Math.ceil(val / days) : 0;
   const perCredit = Math.round(val * (feePct / 100));
-  return { val, term, feePct, costPrice, dailyPay, perCredit };
+  const profit = Math.max(0, val - costPrice);
+  return { val, term, feePct, costPrice, dailyPay, perCredit, profit };
 };
 
 /** The step a row is currently waiting on. */
@@ -366,6 +367,10 @@ export function BikeLeaseApprovalQueue({
                         <span className="text-right font-semibold text-primary">
                           {formatUGX(getRowPricing(o).costPrice)}
                         </span>
+                        <span className="text-muted-foreground">Our profit</span>
+                        <span className="text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                          {formatUGX(getRowPricing(o).profit)}
+                        </span>
                         <span className="text-muted-foreground">Est. daily pay</span>
                         <span className="text-right font-semibold">
                           {formatUGX(getRowPricing(o).dailyPay)}/day
@@ -450,6 +455,7 @@ export function BikeLeaseApprovalQueue({
                     {isOpsDashboard ? (
                       <>
                         <th className="text-right py-2 pr-3 font-medium">Bike Cost Price</th>
+                        <th className="text-right py-2 pr-3 font-medium">Our Profit</th>
                         <th className="text-right py-2 pr-3 font-medium">Est. Daily Pay</th>
                       </>
                     ) : (
@@ -481,6 +487,9 @@ export function BikeLeaseApprovalQueue({
                           <>
                             <td className="py-2 pr-3 text-right font-semibold text-primary">
                               {formatUGX(pricing.costPrice)}
+                            </td>
+                            <td className="py-2 pr-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                              {formatUGX(pricing.profit)}
                             </td>
                             <td className="py-2 pr-3 text-right font-medium">
                               {formatUGX(pricing.dailyPay)}/day
@@ -667,6 +676,12 @@ export function BikeLeaseApprovalQueue({
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Monthly equivalent</span>
                   <span className="font-semibold">{formatUGX(monthly)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Our profit ({interestPct}%)</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    {formatUGX(Math.max(0, valuationNum - approveCostPrice))}
+                  </span>
                 </div>
                 {approveStage === 'ops' ? (
                   <div className="flex justify-between text-xs">
