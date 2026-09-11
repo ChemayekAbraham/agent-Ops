@@ -170,14 +170,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   // Money We Can Use = Money We Have − Money We Owe (money sitting with
   // merchant agents and the Bayo Mercy account).
   const moneyWeCanUse = Math.max(0, actualMoneyTotal - moneyWeOweTotal);
-  // Both sides refresh on their own timers; show the older of the two so the
-  // stamp never claims the card is fresher than its slowest input.
-  const canUseUpdatedAt = Math.min(actualUpdatedAt || 0, owedUpdatedAt || 0) || Date.now();
-  const canUseUpdatedLabel = new Date(canUseUpdatedAt).toLocaleTimeString('en-GB', {
-    timeZone: 'Africa/Kampala',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
