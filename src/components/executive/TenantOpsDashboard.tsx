@@ -18,6 +18,7 @@ import { TenantTransferAuditTrail } from './TenantTransferAuditTrail';
 import { TenantRentCollector } from './TenantRentCollector';
 import { AgentTenantSearch } from './AgentTenantSearch';
 import { TenantOverviewList } from './TenantOverviewList';
+import { TenantLocationsBrowser } from './tenant-ops/TenantLocationsBrowser';
 import { TenantDetailPanel } from './TenantDetailPanel';
 import { TenantRegistrationReview } from './TenantRegistrationReview';
 import { AgentAllocationReport } from './AgentAllocationReport';
@@ -73,7 +74,7 @@ import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gauge } from 'lucide-react';
 
-type ActiveView = 'overview' | 'pipeline' | 'pipeline-hub' | 'daily' | 'missed' | 'backlog-analysis' | 'behavior' | 'history' | 'all-requests' | 'link-agent' | 'transfer-audit' | 'collect-rent' | 'agent-tenants' | 'tenant-detail' | 'registration-review' | 'advance-requests' | 'agent-allocations' | 'daily-collections' | 'agent-monitoring' | 'landlord-float' | 'landlord-float-timeline' | 'location-browser' | 'tenant-location-browser' | 'global-verification' | 'welile-operations' | 'daily-repayments-report' | 'tenant-self-repayments' | 'agent-capacity-hub' | 'all-tenants-hub' | 'reports-hub' | 'tenant-products-report' | 'reliability-hub' | 'location-corrections';
+type ActiveView = 'overview' | 'pipeline' | 'pipeline-hub' | 'daily' | 'missed' | 'backlog-analysis' | 'behavior' | 'history' | 'all-requests' | 'link-agent' | 'transfer-audit' | 'collect-rent' | 'agent-tenants' | 'tenant-detail' | 'registration-review' | 'advance-requests' | 'agent-allocations' | 'daily-collections' | 'agent-monitoring' | 'landlord-float' | 'landlord-float-timeline' | 'location-browser' | 'tenant-location-browser' | 'global-verification' | 'welile-operations' | 'daily-repayments-report' | 'tenant-self-repayments' | 'agent-capacity-hub' | 'all-tenants-hub' | 'reports-hub' | 'tenant-products-report' | 'reliability-hub' | 'location-corrections' | 'tenant-locations-test';
 
 /** Public alias so the sidebar shell can type its nav keys against the exact
  *  same view union Classic already routes on. */
@@ -1645,6 +1646,8 @@ export function TenantOpsDashboard({
             }}
           />
         );
+      case 'tenant-locations-test':
+        return <TenantLocationsBrowser />;
       case 'tenant-products-report':
         return <TenantProductsServicesReport />;
       case 'reliability-hub':
@@ -1675,6 +1678,7 @@ export function TenantOpsDashboard({
     'pipeline-hub': 'Pipeline Status',
     'agent-capacity-hub': 'Agent Rent Capacity',
     'all-tenants-hub': 'All Tenants',
+    'tenant-locations-test': 'Tenant Locations',
     'daily-collections': 'Daily Collection Monitoring',
     'agent-monitoring': 'Agent Monitoring',
     'reports-hub': 'Reports & Exports',
@@ -1944,6 +1948,12 @@ export function TenantOpsDashboard({
                     { label: 'pending', value: toolCounts?.new_requests ?? pending },
                     { label: 'repaying', value: toolCounts?.repaying_plans ?? repaying },
                   ],
+                })}
+                {renderHubEntry({
+                  title: 'Tenant Locations',
+                  view: 'tenant-locations-test',
+                  icon: MapPin,
+                  description: 'Read-only test page: Region → District → County → Sub-county → Parish → Village → tenants, with an Unmapped group for legacy locations',
                 })}
                 {renderHubEntry({
                   title: 'Daily Collection Monitoring',
