@@ -606,7 +606,7 @@ export function AgentCashPayoutsTab() {
     queryKey: ['cashout-blocking-urgent-proxy'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('cashout_queue_view')
+        .from('withdrawal_requests')
         .select('id, amount, created_at, priority_level, status, processed_at, fin_ops_reference, assigned_cashout_agent_id')
         .eq('priority_level', 'urgent_proxy')
         .in('status', CASHOUT_QUEUE_STATUSES)
@@ -634,7 +634,7 @@ export function AgentCashPayoutsTab() {
     queryKey: ['cashout-blocking-urgent-landlord'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('cashout_queue_view')
+        .from('withdrawal_requests')
         .select('id, amount, created_at, reason, status, processed_at, fin_ops_reference, assigned_cashout_agent_id')
         .in('status', CASHOUT_QUEUE_STATUSES)
         .ilike('reason', 'Landlord float payout%')
@@ -659,7 +659,7 @@ export function AgentCashPayoutsTab() {
     queryKey: ['cashout-queue-available-total', isCashoutAgent?.id, categoryOrClause, channelProviderOrClause, frozenUserIds],
     queryFn: async () => {
       let q = supabase
-        .from('cashout_queue_view')
+        .from('withdrawal_requests')
         .select('id', { count: 'exact', head: true })
         .in('status', CASHOUT_QUEUE_STATUSES)
         .is('processed_at', null)
@@ -693,7 +693,7 @@ export function AgentCashPayoutsTab() {
       const proxyOnly = proxyPriorityEnforced && !!blockingUrgentProxy && !landlordOnly;
       const mk = (channel: 'all' | 'momo' | 'cash' | 'bank') => {
         let q = applyQueueFilters(
-          supabase.from('cashout_queue_view').select('id', { count: 'exact', head: true }),
+          supabase.from('withdrawal_requests').select('id', { count: 'exact', head: true }),
           { ...base, channel },
         );
         if (landlordOnly) q = q.ilike('reason', 'Landlord float payout%');
@@ -720,9 +720,7 @@ export function AgentCashPayoutsTab() {
         searchUserIds, searchTerm: debouncedSearch.trim(), categoryOrClause, channelProviderOrClause, frozenUserIds,
       };
       let q = applyQueueFilters(
-        // Unclaimed queue reads go through the masked view: payout account
-        // numbers/names stay hidden until the merchant claims the request.
-        supabase.from('cashout_queue_view').select('*', { count: 'exact' }),
+        supabase.from('withdrawal_requests').select('*', { count: 'exact' }),
         opts,
       );
       if (landlordPriorityEnforced && blockingUrgentLandlord) {

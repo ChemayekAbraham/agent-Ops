@@ -40,8 +40,8 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1789130765732,
-      "tag": "0005_mask_unclaimed_withdrawal_payout_pii",
+      "when": 1789131280697,
+      "tag": "0005_smartphone_three_stage_approval_terms",
       "breakpoints": true
     }
   ]

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
-import { Building2, ChevronLeft, ChevronRight, Download, Loader2, MapPinOff, RefreshCw, Search } from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight, Download, FileText, Loader2, MapPinOff, RefreshCw, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,9 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
-  emptyTpspFilters, useTpspProjection, useTpspProjectionFilters, useTpspProjectionRows,
-  type TpspFilters, type TpspGrain, type TpspOption,
+  emptyTpspFilters, fetchTpspProjectionRows, useTpspProjection, useTpspProjectionFilters,
+  useTpspProjectionRows, type TpspFilterOptions, type TpspFilters, type TpspGrain, type TpspOption,
 } from '@/hooks/useTpspProjection';
+import { downloadTpspProjectionPdf } from '@/lib/tpspProjectionPdf';
 
 const PAGE_SIZE = 25;
 const ugx = (n: unknown) => `UGX ${Math.round(Number(n) || 0).toLocaleString()}`;
@@ -28,6 +29,28 @@ const compact = (n: unknown) => {
 };
 
 const ALL = '__all__';
+const PDF_ROW_CAP = 2000;
+
+/** Resolve the filters in force into readable label lines for the PDF header/footer. */
+function describeFilters(f: TpspFilters, options?: TpspFilterOptions): string[] {
+  const label = (list: TpspOption[] | undefined, value: string | number | null) =>
+    value == null ? null : (list || []).find((o) => String(o.value) === String(value))?.label ?? String(value);
+  const parts: Array<[string, string | null]> = [
+    ['Region', label(options?.regions, f.region)],
+    ['District', label(options?.districts, f.districtId)],
+    ['County', label(options?.counties, f.countyId)],
+    ['Sub-county', label(options?.subcounties, f.subcountyId)],
+    ['Parish', label(options?.parishes, f.parishId)],
+    ['Village', label(options?.villages, f.villageId)],
+    ['Agent', label(options?.agents, f.agentId)],
+    ['Landlord', label(options?.landlords, f.landlordId)],
+    ['House', label(options?.houses, f.houseId)],
+  ];
+  const lines = parts.filter(([, v]) => !!v).map(([k, v]) => `${k}: ${v}`);
+  if (f.unmapped) lines.push('Unmapped locations only');
+  if (f.search.trim()) lines.push(`Search: "${f.search.trim()}"`);
+  return lines;
+}
 
 function OptionSelect({
   label, value, options, onChange, disabled,
@@ -77,6 +100,7 @@ export function TenantProductsProjections() {
   const [grain, setGrain] = useState<TpspGrain>('month');
   const [page, setPage] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const months = 12;
   const projectionQuery = useTpspProjection(filters, grain, months);
@@ -147,6 +171,27 @@ export function TenantProductsProjections() {
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!projection) return;
+    setExportingPdf(true);
+    try {
+      const detail = await fetchTpspProjectionRows(filters, months, PDF_ROW_CAP);
+      await downloadTpspProjectionPdf({
+        projection,
+        rows: detail.rows,
+        totalRows: detail.total,
+        rowCap: PDF_ROW_CAP,
+        filterLines: describeFilters(filters, options),
+        grain,
+      });
+      toast.success('Projection report exported');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'PDF export failed');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <Card className="border-purple-200">
@@ -183,6 +228,15 @@ export function TenantProductsProjections() {
               <Button size="sm" variant="outline" className="h-8 text-[11px]" disabled={exporting || !rowsQuery.data?.rows.length} onClick={() => void handleExport()}>
                 {exporting ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1 h-3.5 w-3.5" />}
                 CSV
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 text-[11px]"
+                disabled={exportingPdf || !projection}
+                onClick={() => void handleExportPdf()}
+              >
+                {exportingPdf ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <FileText className="mr-1 h-3.5 w-3.5" />}
+                Export PDF
               </Button>
             </div>
           </div>

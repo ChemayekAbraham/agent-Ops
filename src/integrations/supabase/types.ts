@@ -48349,7 +48349,13 @@ export type Database = {
         Returns: string
       }
       agent_ops_approve_smartphone_order: {
-        Args: { p_note?: string; p_sale_id: string }
+        Args: {
+          p_daily_deduction?: number
+          p_note?: string
+          p_repayment_days?: number
+          p_sale_id: string
+          p_total_amount?: number
+        }
         Returns: Json
       }
       agent_ops_assign_company_fleet_bike: {
@@ -49835,7 +49841,7 @@ export type Database = {
         Returns: Json
       }
       cfo_disburse_smartphone_order: {
-        Args: { p_note?: string; p_sale_id: string }
+        Args: { p_amount?: number; p_note?: string; p_sale_id: string }
         Returns: Json
       }
       cfo_promissory_bookings_report: {
@@ -50131,7 +50137,13 @@ export type Database = {
         Returns: Json
       }
       coo_approve_smartphone_order: {
-        Args: { p_note?: string; p_sale_id: string }
+        Args: {
+          p_daily_deduction?: number
+          p_note?: string
+          p_repayment_days?: number
+          p_sale_id: string
+          p_total_amount?: number
+        }
         Returns: Json
       }
       correct_tenant_location: {
@@ -57726,6 +57738,15 @@ export type Database = {
         }[]
       }
       slugify_district: { Args: { p_input: string }; Returns: string }
+      smartphone_apply_review_terms: {
+        Args: {
+          p_daily_deduction: number
+          p_repayment_days: number
+          p_sale_id: string
+          p_total_amount: number
+        }
+        Returns: undefined
+      }
       smartphone_leaderboard_ranks: {
         Args: never
         Returns: {
