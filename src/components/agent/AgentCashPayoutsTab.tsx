@@ -634,7 +634,7 @@ export function AgentCashPayoutsTab() {
     queryKey: ['cashout-blocking-urgent-landlord'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('withdrawal_requests')
+        .from('cashout_queue_view')
         .select('id, amount, created_at, reason, status, processed_at, fin_ops_reference, assigned_cashout_agent_id')
         .in('status', CASHOUT_QUEUE_STATUSES)
         .ilike('reason', 'Landlord float payout%')
