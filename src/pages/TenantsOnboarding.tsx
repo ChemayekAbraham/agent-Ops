@@ -688,6 +688,7 @@ export default function TenantsOnboarding() {
                   defaultRegion={location?.region ?? undefined}
                   defaultVillage={location?.village}
                   scopeDistrictName={location?.district ?? null}
+                  context="tenant"
                 />
 
                 <div className="grid gap-4 sm:grid-cols-2">
