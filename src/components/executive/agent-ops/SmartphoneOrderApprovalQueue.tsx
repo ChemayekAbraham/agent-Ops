@@ -823,7 +823,11 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                       onClick={() => openApprove(detailsTarget)}
                     >
                       <Check className="h-3.5 w-3.5 mr-1" />
-                      {isAwaitingCfo(detailsTarget.order_status) ? 'Disburse & activate' : 'Approve & send to CFO'}
+                      {isAwaitingCfo(detailsTarget.order_status)
+                        ? 'Pay supplier & activate'
+                        : isAwaitingCoo(detailsTarget.order_status)
+                          ? 'Approve & send to CFO'
+                          : 'Approve & send to COO'}
                     </Button>
 
                   </DialogFooter>
