@@ -578,20 +578,29 @@ export function AgentCashPayoutsTab() {
   const { data: myActiveClaims = [], isError: myActiveClaimsError, refetch: refetchMyActiveClaims } = useQuery({
     queryKey: ['cashout-my-active-claims', isCashoutAgent?.id],
     queryFn: async () => {
+      // Deliberately simple server filter (desk + open status + not processed).
+      // The settlement-reference test is done in JS: an `.or()` on an empty
+      // string is the kind of filter that can come back empty and leave the
+      // merchant staring at a queue with their claim nowhere on screen.
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select('*')
         .eq('assigned_cashout_agent_id', isCashoutAgent!.id)
         .in('status', MY_ACTIVE_CLAIM_STATUSES)
-        .is('processed_at', null)
-        .or('fin_ops_reference.is.null,fin_ops_reference.eq.')
-        .order('dispatched_at', { ascending: true });
+        .is('processed_at', null);
       if (error) throw error;
-      return attachProfiles(data || []);
+      const open = (data || [])
+        .filter((w: any) => String(w.fin_ops_reference ?? '').trim() === '')
+        .sort((a: any, b: any) =>
+          String(a.dispatched_at ?? '').localeCompare(String(b.dispatched_at ?? '')));
+      return attachProfiles(open);
     },
     enabled: !!isCashoutAgent?.id,
-    staleTime: 15_000,
+    staleTime: 5_000,
+    refetchInterval: 20_000,
     refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    retry: 2,
   });
 
   // Put one of THIS merchant's claims straight into "Claimed by you" (full row,
@@ -602,21 +611,41 @@ export function AgentCashPayoutsTab() {
   const pinMyClaim = async (withdrawalId: string) => {
     const deskId = isCashoutAgent?.id;
     if (!deskId || !withdrawalId) return;
-    const { data, error } = await supabase
+    let row: any = null;
+    const scoped = await supabase
       .from('withdrawal_requests')
       .select('*')
       .eq('id', withdrawalId)
       .eq('assigned_cashout_agent_id', deskId)
       .maybeSingle();
-    if (error || !data) return;
-    const [row] = await attachProfiles([data]);
+    row = scoped.data;
+    if (!row) {
+      // Fallback: read by id alone. Row-level security still only lets this
+      // merchant see a payout that is theirs, so this cannot leak another
+      // desk's customer — but it does survive a stale desk id in the client.
+      const byId = await supabase
+        .from('withdrawal_requests')
+        .select('*')
+        .eq('id', withdrawalId)
+        .maybeSingle();
+      row = byId.data;
+    }
+    if (!row) {
+      // Even the read failed: still refetch so the list has a chance to load,
+      // rather than silently leaving the merchant with nothing.
+      void refetchMyActiveClaims();
+      return;
+    }
+    const [withProfile] = await attachProfiles([row]);
     qc.setQueryData(['cashout-my-active-claims', deskId], (old: any) => {
       const list = Array.isArray(old) ? old : [];
-      return list.some((r: any) => r.id === row.id)
-        ? list.map((r: any) => (r.id === row.id ? row : r))
-        : [...list, row];
+      return list.some((r: any) => r.id === withProfile.id)
+        ? list.map((r: any) => (r.id === withProfile.id ? withProfile : r))
+        : [...list, withProfile];
     });
   };
+
+
 
   // Unfiltered count of all available (unclaimed/expired) requests — powers the
   // "action required" badge and live banner regardless of active filters.
