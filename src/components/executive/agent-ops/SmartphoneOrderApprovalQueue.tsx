@@ -842,7 +842,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                   <p className="text-[11px] text-destructive">Rejected: {detailsTarget.rejection_reason}</p>
                 )}
 
-                {isOpen(detailsTarget.order_status) && (
+                {isAgentOpsActionable(detailsTarget.order_status) ? (
                   <DialogFooter className="gap-2 sm:gap-2">
                     <Button
                       variant="outline"
@@ -854,15 +854,29 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                       disabled={approve.isPending}
                       onClick={() => openApprove(detailsTarget)}
                     >
-                      <Check className="h-3.5 w-3.5 mr-1" />
-                      {isAwaitingCfo(detailsTarget.order_status)
-                        ? 'Pay supplier & activate'
-                        : isAwaitingCoo(detailsTarget.order_status)
-                          ? 'Approve & send to CFO'
-                          : 'Approve & send to COO'}
+                      <Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to COO
                     </Button>
-
                   </DialogFooter>
+                ) : (
+                  <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium">Current progress</span>
+                      <Badge variant="outline" className={STATUS_TONE[detailsTarget.order_status] || ''}>
+                        {isAwaitingCfo(detailsTarget.order_status)
+                          ? 'Awaiting CFO Disbursement'
+                          : isAwaitingCoo(detailsTarget.order_status)
+                            ? 'Awaiting COO Approval'
+                            : statusLabel(detailsTarget.order_status)}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {isAwaitingCfo(detailsTarget.order_status)
+                        ? 'COO has approved this application. It is now with the CFO for supplier payment and cannot be modified in Agent Ops.'
+                        : isAwaitingCoo(detailsTarget.order_status)
+                          ? 'Agent Ops has approved this application. It is now with the COO for review and cannot be modified in Agent Ops.'
+                          : 'This application is no longer editable in Agent Ops.'}
+                    </p>
+                  </div>
                 )}
 
               </div>
