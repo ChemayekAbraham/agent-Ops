@@ -552,7 +552,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                   <p className="text-[11px] text-destructive">Rejected: {o.rejection_reason}</p>
                 )}
 
-                {isOpen(o.order_status) && (
+                {isAgentOpsActionable(o.order_status) ? (
                   <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
@@ -561,15 +561,10 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                     >
                       {approve.isPending && approve.variables?.id === o.id ? (
                         <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Processing…</>
-                      ) : isAwaitingCfo(o.order_status) ? (
-                        <><Check className="h-3.5 w-3.5 mr-1" /> Pay supplier &amp; activate</>
-                      ) : isAwaitingCoo(o.order_status) ? (
-                        <><Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to CFO</>
                       ) : (
                         <><Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to COO</>
                       )}
                     </Button>
-
 
                     <Button
                       size="sm"
@@ -583,6 +578,19 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                         <><X className="h-3.5 w-3.5 mr-1" /> Reject</>
                       )}
                     </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={STATUS_TONE[o.order_status] || ''}>
+                      {statusLabel(o.order_status)}
+                    </Badge>
+                    <span className="text-[11px] text-muted-foreground">
+                      {isAwaitingCoo(o.order_status)
+                        ? 'Awaiting COO review'
+                        : isAwaitingCfo(o.order_status)
+                          ? 'Awaiting CFO disbursement'
+                          : 'Read-only'}
+                    </span>
                   </div>
                 )}
 
