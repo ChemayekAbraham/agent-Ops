@@ -551,9 +551,11 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                       {approve.isPending && approve.variables?.id === o.id ? (
                         <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Processing…</>
                       ) : isAwaitingCfo(o.order_status) ? (
-                        <><Check className="h-3.5 w-3.5 mr-1" /> Disburse &amp; activate</>
-                      ) : (
+                        <><Check className="h-3.5 w-3.5 mr-1" /> Pay supplier &amp; activate</>
+                      ) : isAwaitingCoo(o.order_status) ? (
                         <><Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to CFO</>
+                      ) : (
+                        <><Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to COO</>
                       )}
                     </Button>
 
