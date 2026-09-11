@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowDownToLine, CheckCircle, XCircle, Loader2, RefreshCw,
-  Smartphone, Clock, Hand, Wallet, Briefcase, AlertTriangle,
+  Smartphone, Clock, Hand, Wallet, Briefcase, AlertTriangle, EyeOff, Eye,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -39,6 +39,7 @@ interface WithdrawalRequest {
   reason: string | null;
   created_at: string;
   fin_ops_reference: string | null;
+  hidden_from_merchant_queue?: boolean | null;
   assigned_cashout_agent_id: string | null;
   claimed_at: string | null;
   claimed_by: string | null;
@@ -530,6 +531,38 @@ export function FinOpsWithdrawalVerification() {
     }
   };
 
+  // FinOps-only visibility toggle — suppresses a withdrawal from the
+  // Merchant Agent payout queue (src/lib/merchantPayoutQueue.ts) without
+  // changing its status. Does not touch settlement state.
+  const handleToggleHiddenFromMerchantQueue = async (req: WithdrawalRequest) => {
+    if (!user) return;
+    const nextHidden = !req.hidden_from_merchant_queue;
+    setProcessing(req.id);
+    try {
+      const { error } = await supabase
+        .from('withdrawal_requests')
+        .update({
+          hidden_from_merchant_queue: nextHidden,
+          hidden_from_merchant_queue_at: nextHidden ? new Date().toISOString() : null,
+          hidden_from_merchant_queue_by: nextHidden ? user.id : null,
+        } as any)
+        .eq('id', req.id);
+      if (error) throw error;
+      setPendingRequests((prev) =>
+        prev.map((r) => (r.id === req.id ? { ...r, hidden_from_merchant_queue: nextHidden } : r)),
+      );
+      toast.success(
+        nextHidden
+          ? 'Hidden from the Merchant Agent payout queue.'
+          : 'Visible in the Merchant Agent payout queue again.',
+      );
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update merchant queue visibility');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   const getAgeBadge = (createdAt: string) => {
     const ms = Date.now() - new Date(createdAt).getTime();
     const minutes = Math.floor(ms / 60_000);
@@ -832,6 +865,15 @@ export function FinOpsWithdrawalVerification() {
 
         {renderBalanceStrip(req)}
 
+        {req.hidden_from_merchant_queue && (
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-700 dark:text-amber-300">
+            <EyeOff className="h-3.5 w-3.5 shrink-0" />
+            <p className="text-[11px] font-bold uppercase tracking-wide">
+              Hidden from Merchant Agent payout queue
+            </p>
+          </div>
+        )}
+
         {req.assigned_cashout_agent_id && (
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/40 text-orange-700 dark:text-orange-300">
             <Hand className="h-3.5 w-3.5 shrink-0" />
@@ -891,6 +933,24 @@ export function FinOpsWithdrawalVerification() {
             {ageBadge}
           </div>
           <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className={`h-8 text-xs ${req.hidden_from_merchant_queue ? 'text-amber-600 border-amber-500/40 bg-amber-500/10' : 'text-muted-foreground'}`}
+              onClick={() => handleToggleHiddenFromMerchantQueue(req)}
+              disabled={!!processing}
+              title={
+                req.hidden_from_merchant_queue
+                  ? 'Currently hidden from the Merchant Agent payout queue — click to make it visible again'
+                  : 'Hide this withdrawal from the Merchant Agent payout queue'
+              }
+            >
+              {req.hidden_from_merchant_queue ? (
+                <><EyeOff className="h-3 w-3 mr-1" />Hidden from queue</>
+              ) : (
+                <><Eye className="h-3 w-3 mr-1" />Hide from queue</>
+              )}
+            </Button>
             <Button
               size="sm"
               variant="outline"

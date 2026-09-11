@@ -7,6 +7,7 @@
  *   status IN (queue statuses)
  *   AND processed_at IS NULL
  *   AND fin_ops_reference IS NULL
+ *   AND hidden_from_merchant_queue IS NOT TRUE
  *
  * The database is the enforcing authority (the view plus the
  * `trg_enforce_settled_withdrawal_terminal` trigger, which refuses to move a
@@ -46,6 +47,7 @@ export interface MerchantQueueRowLike {
   status?: string | null;
   processed_at?: string | null;
   fin_ops_reference?: string | null;
+  hidden_from_merchant_queue?: boolean | null;
 }
 
 /** True only for rows that genuinely still need a merchant payout. */
@@ -57,6 +59,9 @@ export function isMerchantQueueActionable(row: MerchantQueueRowLike | null | und
   // processed timestamp exists, the cash already left and the row is closed.
   if (row.processed_at != null) return false;
   if (row.fin_ops_reference != null) return false;
+  // FinOps can manually suppress a row from the merchant queue (e.g. it's
+  // being handled through an alternate channel) without changing its status.
+  if (row.hidden_from_merchant_queue === true) return false;
   return true;
 }
 
@@ -73,5 +78,6 @@ export function applyMerchantQueueFence<T>(q: T): T {
   return (q as any)
     .in('status', MERCHANT_QUEUE_STATUSES as unknown as string[])
     .is('processed_at', null)
-    .is('fin_ops_reference', null) as T;
+    .is('fin_ops_reference', null)
+    .not('hidden_from_merchant_queue', 'is', true) as T;
 }
