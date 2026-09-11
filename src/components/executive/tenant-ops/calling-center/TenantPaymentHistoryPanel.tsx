@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Receipt, Wallet, AlertTriangle } from 'lucide-react';
-import { formatUGX } from '@/lib/currency';
+import { formatUGX } from '@/lib/rentCalculations';
 import { useCcTenantPaymentHistory, type CcTenantReceipt } from '@/hooks/useCcTenantPaymentHistory';
 
 const stamp = (iso: string) =>
