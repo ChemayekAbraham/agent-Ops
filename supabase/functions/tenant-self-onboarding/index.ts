@@ -328,6 +328,22 @@ Deno.serve(async (req) => {
     }
     if (tenantPhotoUrl) await admin.from("profiles").update({ avatar_url: tenantPhotoUrl }).eq("id", userId);
 
+    /* Link the stored passport photo to the fingerprint recorded when it was
+       checked, so hash + verdict + photo + request stay together. */
+    if (tenant_photo_sha256) {
+      const { error: fpErr } = await admin
+        .from("identity_photo_fingerprints")
+        .upsert({
+          user_id: userId,
+          sha256: tenant_photo_sha256,
+          source: "tenant_onboarding",
+          photo_url: tenantPhotoUrl,
+          rent_request_id: rentReq.id,
+        }, { onConflict: "user_id,sha256" });
+      if (fpErr) console.warn("[tenant-self-onboarding] fingerprint link failed", fpErr.message);
+    }
+
+
     /* ---- Event trail + trust signal ------------------------------------- */
     await admin.from("system_events").insert({
       event_type: "rent_request_created",
