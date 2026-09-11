@@ -692,6 +692,45 @@ export function useCcCallingHub(
     onSuccess: invalidate,
   });
 
+  /**
+   * Bring the open cycle up to date with the population it was opened on.
+   *
+   * The roster is a snapshot taken at open time, so anyone who became eligible
+   * afterwards had no row and was invisible to the queue and to search. This
+   * only ever INSERTS missing rows as `to_call`; existing rows, their state,
+   * attempts, notes and history are untouched, and the unique key on
+   * (cycle, subject) makes a duplicate impossible. Subjects who are no longer
+   * eligible keep their rows — nothing is removed.
+   */
+  const syncQueue = useMutation({
+    mutationFn: async (): Promise<number> => {
+      const { data, error } = await rpc('cc_topup_cycle', { p_subject_type: subjectType });
+      if (error) throw new Error(err(error));
+      return Number(data ?? 0);
+    },
+    onSuccess: (added) => {
+      if (added > 0) {
+        qc.invalidateQueries({ queryKey: ['cc-cycle-progress', cycleId] });
+        invalidate();
+      }
+    },
+  });
+
+  /**
+   * Run it once per cycle per session as the hub loads, so an operator never
+   * has to remember to. Failures are silent: a stale roster is a worse outcome
+   * than a missing badge, but it must never block the queue from rendering.
+   */
+  const syncedCycleRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!cycleId || syncedCycleRef.current === cycleId) return;
+    syncedCycleRef.current = cycleId;
+    syncQueue.mutate(undefined, { onError: () => undefined });
+    // syncQueue is a stable mutation object from react-query
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleId]);
+
+
   const counts = useMemo(() => {
     const c = countsQ.data ?? {};
     return {
