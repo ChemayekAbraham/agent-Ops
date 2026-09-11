@@ -720,7 +720,9 @@ export function AgentCashPayoutsTab() {
         searchUserIds, searchTerm: debouncedSearch.trim(), categoryOrClause, channelProviderOrClause, frozenUserIds,
       };
       let q = applyQueueFilters(
-        supabase.from('withdrawal_requests').select('*', { count: 'exact' }),
+        // Unclaimed queue reads go through the masked view: payout account
+        // numbers/names stay hidden until the merchant claims the request.
+        supabase.from('cashout_queue_view').select('*', { count: 'exact' }),
         opts,
       );
       if (landlordPriorityEnforced && blockingUrgentLandlord) {
