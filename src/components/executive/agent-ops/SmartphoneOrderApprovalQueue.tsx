@@ -395,8 +395,15 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   };
 
   const scoped = useMemo(
-    () => (rejectedOnly ? orders.filter((o) => o.order_status === 'rejected') : pendingOnly ? orders.filter((o) => isOpen(o.order_status)) : orders),
-    [orders, pendingOnly, rejectedOnly],
+    () =>
+      rejectedOnly
+        ? orders.filter((o) => o.order_status === 'rejected')
+        : inProgressOnly
+          ? orders.filter((o) => isAwaitingCoo(o.order_status) || isAwaitingCfo(o.order_status))
+          : pendingOnly
+            ? orders.filter((o) => isPending(o.order_status))
+            : orders,
+    [orders, pendingOnly, rejectedOnly, inProgressOnly],
   );
 
 
