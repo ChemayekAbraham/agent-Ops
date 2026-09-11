@@ -575,7 +575,7 @@ export function AgentCashPayoutsTab() {
   // queue fence here, the server could refuse a second claim over a row this
   // list never showed (merchants saw "you have another transaction" with
   // nothing in "Claimed by you").
-  const { data: myActiveClaims = [] } = useQuery({
+  const { data: myActiveClaims = [], isError: myActiveClaimsError, refetch: refetchMyActiveClaims } = useQuery({
     queryKey: ['cashout-my-active-claims', isCashoutAgent?.id],
     queryFn: async () => {
       const { data, error } = await supabase
