@@ -135,6 +135,26 @@ Deno.serve(async (req) => {
   const isFace = payload.is_face === true;
   const verdict = String(payload.verdict ?? payload.status ?? (isFace ? "review" : "fail"));
   const image = (payload.image ?? {}) as { sha256?: unknown; width?: unknown; height?: unknown };
+  const sha256 = typeof image.sha256 === "string" ? image.sha256 : null;
+
+  /* Keep the fingerprint + verdict beside the user, so the photo stays linked to
+     their identity over time. Reference data only — never blocks the response. */
+  if (sha256) {
+    const { error: fpErr } = await admin
+      .from("identity_photo_fingerprints")
+      .upsert({
+        user_id: authData.user.id,
+        sha256,
+        source: "tenant_onboarding",
+        verdict,
+        score: typeof payload.score === "number" ? payload.score : null,
+        is_face: isFace,
+        is_passport_photo: payload.is_passport_photo === true,
+        failures,
+        checked_at: new Date().toISOString(),
+      }, { onConflict: "user_id,sha256" });
+    if (fpErr) console.warn("[verify-passport-photo] fingerprint save failed", fpErr.message);
+  }
 
   return json({
     checked: true,
@@ -142,9 +162,10 @@ Deno.serve(async (req) => {
     is_passport_photo: payload.is_passport_photo === true,
     verdict, // "pass" | "review" | "fail"
     score: typeof payload.score === "number" ? payload.score : null,
-    sha256: typeof image.sha256 === "string" ? image.sha256 : null,
+    sha256,
     message: typeof payload.message === "string" ? payload.message : null,
     reason_code: typeof payload.error === "string" ? payload.error : null, // no_face | not_compliant | invalid_image
     failures,
   });
 });
+

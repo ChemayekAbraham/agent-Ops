@@ -109,6 +109,10 @@ Deno.serve(async (req) => {
     const smartphone = body.no_smartphone === true ? "NO" : "YES";
     const house_photos = Array.isArray(body.house_photos) ? (body.house_photos as string[]) : [];
     const tenant_photo = typeof body.tenant_photo === "string" ? body.tenant_photo : null;
+    // SHA-256 returned by the passport-photo check, used to link the stored photo
+    // to its recorded fingerprint + verdict. Reference data only.
+    const tenant_photo_sha256 = typeof body.tenant_photo_sha256 === "string" ? body.tenant_photo_sha256 : null;
+
     const id_photo = typeof body.id_photo === "string" ? body.id_photo : null;
     const lc_letter = typeof body.lc_letter === "string" ? body.lc_letter : null;
     const tenant_note = String(body.tenant_note || "").trim().slice(0, 1000);
@@ -323,6 +327,22 @@ Deno.serve(async (req) => {
       await admin.from("rent_requests").update(patch).eq("id", rentReq.id);
     }
     if (tenantPhotoUrl) await admin.from("profiles").update({ avatar_url: tenantPhotoUrl }).eq("id", userId);
+
+    /* Link the stored passport photo to the fingerprint recorded when it was
+       checked, so hash + verdict + photo + request stay together. */
+    if (tenant_photo_sha256) {
+      const { error: fpErr } = await admin
+        .from("identity_photo_fingerprints")
+        .upsert({
+          user_id: userId,
+          sha256: tenant_photo_sha256,
+          source: "tenant_onboarding",
+          photo_url: tenantPhotoUrl,
+          rent_request_id: rentReq.id,
+        }, { onConflict: "user_id,sha256" });
+      if (fpErr) console.warn("[tenant-self-onboarding] fingerprint link failed", fpErr.message);
+    }
+
 
     /* ---- Event trail + trust signal ------------------------------------- */
     await admin.from("system_events").insert({

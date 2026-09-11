@@ -18801,6 +18801,57 @@ export type Database = {
           },
         ]
       }
+      identity_photo_fingerprints: {
+        Row: {
+          checked_at: string
+          created_at: string
+          failures: Json
+          id: string
+          is_face: boolean | null
+          is_passport_photo: boolean | null
+          photo_url: string | null
+          rent_request_id: string | null
+          score: number | null
+          sha256: string
+          source: string
+          updated_at: string
+          user_id: string
+          verdict: string | null
+        }
+        Insert: {
+          checked_at?: string
+          created_at?: string
+          failures?: Json
+          id?: string
+          is_face?: boolean | null
+          is_passport_photo?: boolean | null
+          photo_url?: string | null
+          rent_request_id?: string | null
+          score?: number | null
+          sha256: string
+          source?: string
+          updated_at?: string
+          user_id: string
+          verdict?: string | null
+        }
+        Update: {
+          checked_at?: string
+          created_at?: string
+          failures?: Json
+          id?: string
+          is_face?: boolean | null
+          is_passport_photo?: boolean | null
+          photo_url?: string | null
+          rent_request_id?: string | null
+          score?: number | null
+          sha256?: string
+          source?: string
+          updated_at?: string
+          user_id?: string
+          verdict?: string | null
+        }
+        Relationships: []
+      }
       infrastructure_settings: {
         Row: {
           current_instance: string

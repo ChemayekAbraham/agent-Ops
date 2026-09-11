@@ -497,6 +497,9 @@ export default function TenantsOnboarding() {
           lc1_phone: lc1?.phone ?? '',
           tenant_note: note.trim() || null,
           tenant_photo: tenantB64,
+          // Links the stored photo to its recorded fingerprint + verdict.
+          tenant_photo_sha256: photoCheck?.sha256 ?? null,
+
           id_photo: idB64,
           lc_letter: lcLetterB64,
           house_photos: housesB64,
