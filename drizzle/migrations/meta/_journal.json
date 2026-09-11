@@ -43,6 +43,13 @@
       "when": 1789131280697,
       "tag": "0005_smartphone_three_stage_approval_terms",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789143422684,
+      "tag": "0006_merchant_one_active_claim_and_stale_release_cron",
+      "breakpoints": true
     }
   ]
 }
