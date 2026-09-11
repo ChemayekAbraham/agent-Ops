@@ -578,20 +578,29 @@ export function AgentCashPayoutsTab() {
   const { data: myActiveClaims = [], isError: myActiveClaimsError, refetch: refetchMyActiveClaims } = useQuery({
     queryKey: ['cashout-my-active-claims', isCashoutAgent?.id],
     queryFn: async () => {
+      // Deliberately simple server filter (desk + open status + not processed).
+      // The settlement-reference test is done in JS: an `.or()` on an empty
+      // string is the kind of filter that can come back empty and leave the
+      // merchant staring at a queue with their claim nowhere on screen.
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select('*')
         .eq('assigned_cashout_agent_id', isCashoutAgent!.id)
         .in('status', MY_ACTIVE_CLAIM_STATUSES)
-        .is('processed_at', null)
-        .or('fin_ops_reference.is.null,fin_ops_reference.eq.')
-        .order('dispatched_at', { ascending: true });
+        .is('processed_at', null);
       if (error) throw error;
-      return attachProfiles(data || []);
+      const open = (data || [])
+        .filter((w: any) => String(w.fin_ops_reference ?? '').trim() === '')
+        .sort((a: any, b: any) =>
+          String(a.dispatched_at ?? '').localeCompare(String(b.dispatched_at ?? '')));
+      return attachProfiles(open);
     },
     enabled: !!isCashoutAgent?.id,
-    staleTime: 15_000,
+    staleTime: 5_000,
+    refetchInterval: 20_000,
     refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    retry: 2,
   });
 
   // Put one of THIS merchant's claims straight into "Claimed by you" (full row,
@@ -602,21 +611,60 @@ export function AgentCashPayoutsTab() {
   const pinMyClaim = async (withdrawalId: string) => {
     const deskId = isCashoutAgent?.id;
     if (!deskId || !withdrawalId) return;
-    const { data, error } = await supabase
+    let row: any = null;
+    const scoped = await supabase
       .from('withdrawal_requests')
       .select('*')
       .eq('id', withdrawalId)
       .eq('assigned_cashout_agent_id', deskId)
       .maybeSingle();
-    if (error || !data) return;
-    const [row] = await attachProfiles([data]);
+    row = scoped.data;
+    if (!row) {
+      // Fallback: read by id alone. Row-level security still only lets this
+      // merchant see a payout that is theirs, so this cannot leak another
+      // desk's customer — but it does survive a stale desk id in the client.
+      const byId = await supabase
+        .from('withdrawal_requests')
+        .select('*')
+        .eq('id', withdrawalId)
+        .maybeSingle();
+      row = byId.data;
+    }
+    if (!row) {
+      // Even the read failed: still refetch so the list has a chance to load,
+      // rather than silently leaving the merchant with nothing.
+      void refetchMyActiveClaims();
+      return;
+    }
+    const [withProfile] = await attachProfiles([row]);
     qc.setQueryData(['cashout-my-active-claims', deskId], (old: any) => {
       const list = Array.isArray(old) ? old : [];
-      return list.some((r: any) => r.id === row.id)
-        ? list.map((r: any) => (r.id === row.id ? row : r))
-        : [...list, row];
+      return list.some((r: any) => r.id === withProfile.id)
+        ? list.map((r: any) => (r.id === withProfile.id ? withProfile : r))
+        : [...list, withProfile];
     });
   };
+
+  // A weak mobile connection can lose the successful RPC response after the
+  // database has already committed the claim. Before presenting any ambiguous
+  // network / already-claimed result as a failure, ask the database whether the
+  // row now belongs to this merchant desk. This is read-only reconciliation;
+  // the claim itself still happens only inside claim_withdrawal_verified.
+  const claimCommittedForThisDesk = async (withdrawalId: string) => {
+    const deskId = isCashoutAgent?.id;
+    if (!deskId) return false;
+    const { data, error } = await supabase
+      .from('withdrawal_requests')
+      .select('id')
+      .eq('id', withdrawalId)
+      .eq('assigned_cashout_agent_id', deskId)
+      .in('status', MY_ACTIVE_CLAIM_STATUSES)
+      .is('processed_at', null)
+      .maybeSingle();
+    return !error && data?.id === withdrawalId;
+  };
+
+
 
   // Unfiltered count of all available (unclaimed/expired) requests — powers the
   // "action required" badge and live banner regardless of active filters.
@@ -1120,28 +1168,58 @@ export function AgentCashPayoutsTab() {
       // Server-side enforcement: the verified RPC checks that the MoMo number
       // and registered screen name being claimed exactly match the withdrawal's
       // stored payout details, then performs the race-guarded claim atomically.
-      const { data, error } = await supabase.rpc('claim_withdrawal_verified', {
-        p_withdrawal_id: vars.id,
-        p_momo_number: vars.momoNumber ?? null,
-        p_momo_name: vars.momoName ?? null,
-      });
+      // Mobile networks can leave fetches pending indefinitely. Bound the wait so
+      // the button always unlocks; the follow-up refetch then reconciles whether
+      // the server committed before the connection was interrupted.
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 20_000);
+      let data: unknown;
+      let error: any;
+      try {
+        const response = await supabase
+          .rpc('claim_withdrawal_verified', {
+            p_withdrawal_id: vars.id,
+            p_momo_number: vars.momoNumber ?? null,
+            p_momo_name: vars.momoName ?? null,
+          })
+          .abortSignal(controller.signal);
+        data = response.data;
+        error = response.error;
+      } catch (requestError: any) {
+        if (await claimCommittedForThisDesk(vars.id)) return;
+        if (controller.signal.aborted) {
+          const timeoutError: any = new Error('The network did not confirm this claim. We are checking whether it completed.');
+          timeoutError.code = 'claim_timeout';
+          throw timeoutError;
+        }
+        throw requestError;
+      } finally {
+        window.clearTimeout(timeout);
+      }
       if (error) throw error;
       const result = data as any;
       if (!result || result.error) {
+        if (
+          (result?.error === 'already_claimed' || result?.error === 'active_claim_exists') &&
+          await claimCommittedForThisDesk(vars.id)
+        ) {
+          return;
+        }
         const err: any = new Error(result?.message || 'Unable to claim this withdrawal');
         err.code = result?.error ?? null;
         err.blockingWithdrawalId = result?.blocking_withdrawal_id ?? null;
         throw err;
       }
     },
-    onSuccess: async (_data, vars) => {
+    onSuccess: (_data, vars) => {
       toast.success('✅ Withdrawal claimed — proceed with payout');
       // Scroll up to "Claimed by you" as soon as it holds the claim.
       scrollToClaimed.current = true;
       // Pin the claimed row immediately rather than waiting on a list refetch
       // that can race the queue refresh — otherwise the row vanishes from the
       // queue with nothing in its place and the other Claim buttons stay live.
-      await pinMyClaim(vars.id);
+      // This follow-up read must never hold the claim button in its loading state.
+      void pinMyClaim(vars.id);
       invalidateQueue();
     },
     onError: (e: any) => {
@@ -1150,8 +1228,12 @@ export function AgentCashPayoutsTab() {
         toast.error('You already claimed a payout — it is pinned at the top. Finish it before claiming another.');
         scrollToClaimed.current = true;
         void pinMyClaim(e.blockingWithdrawalId);
+      } else if (e?.code === 'claim_timeout') {
+        toast.error('The connection timed out. Checking your claimed payouts now—do not claim another until the list refreshes.');
+        scrollToClaimed.current = true;
+        void refetchMyActiveClaims();
       } else {
-        toast.error(e.message);
+        toast.error(e?.message || 'The claim failed. Please try again.');
       }
       // Refresh so the lost-race row disappears from this agent's view immediately.
       invalidateQueue();
