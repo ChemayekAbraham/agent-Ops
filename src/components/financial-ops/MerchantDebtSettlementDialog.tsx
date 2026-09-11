@@ -151,7 +151,9 @@ export function MerchantDebtSettlementDialog({
   }, [open, focusAgentId]);
 
   const groups = useMemo(() => (data ?? []).filter((g) => g.payable > 0 || g.underReview > 0), [data]);
-  const payableGroups = groups.filter((g) => g.payable > 0);
+  // Separation of duties: the settlement RPC refuses a desk belonging to the signed-in
+  // actor, so their own desk can never be selected here — it would only come back skipped.
+  const payableGroups = groups.filter((g) => g.payable > 0 && !g.isOwnDesk);
   const payableTotal = payableGroups.reduce((s, g) => s + g.payable, 0);
   const reviewTotal = groups.reduce((s, g) => s + g.underReview, 0);
 
@@ -162,6 +164,7 @@ export function MerchantDebtSettlementDialog({
     if (chosen.length === payableGroups.length) setSelected({});
     else setSelected(Object.fromEntries(payableGroups.map((g) => [g.agentId, true])));
   };
+
 
   const download = async () => {
     const agents = (chosen.length ? chosen : payableGroups);
