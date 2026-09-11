@@ -659,7 +659,7 @@ export function AgentCashPayoutsTab() {
     queryKey: ['cashout-queue-available-total', isCashoutAgent?.id, categoryOrClause, channelProviderOrClause, frozenUserIds],
     queryFn: async () => {
       let q = supabase
-        .from('withdrawal_requests')
+        .from('cashout_queue_view')
         .select('id', { count: 'exact', head: true })
         .in('status', CASHOUT_QUEUE_STATUSES)
         .is('processed_at', null)
