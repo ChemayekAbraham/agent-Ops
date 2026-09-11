@@ -30,6 +30,8 @@ import { optimizeImage } from '@/lib/imageOptimizer';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
 import { cn } from '@/lib/utils';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,6 +112,17 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 interface PhotoSlot { file: File; preview: string }
 
+interface PassportCheck {
+  checking: boolean;
+  verdict?: 'pass' | 'review' | 'fail';
+  is_face?: boolean;
+  score?: number | null;
+  sha256?: string | null;
+  failures?: { id: string; label: string; severity: string; advice: string }[];
+  error?: string;
+}
+
+
 async function toDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -157,6 +170,11 @@ export default function TenantsOnboarding() {
   const [language, setLanguage] = useState('English');
   const [noSmartphone, setNoSmartphone] = useState(false);
   const [tenantPhoto, setTenantPhoto] = useState<PhotoSlot | null>(null);
+  /* Passport-photo quality verdict from the `verify-passport-photo` function.
+     Advisory only: a "review" verdict still lets the tenant continue, a human
+     looks at it later. Nothing here writes to the database. */
+  const [photoCheck, setPhotoCheck] = useState<PassportCheck | null>(null);
+
   const [idPhoto, setIdPhoto] = useState<PhotoSlot | null>(null);
   const [lcLetter, setLcLetter] = useState<PhotoSlot | null>(null);
   const [idCheck, setIdCheck] = useState<{
