@@ -48,6 +48,7 @@ interface SmartphoneOrderRow {
   order_status: string;
   rejection_reason: string | null;
   created_at: string;
+  ops_approved_at?: string | null;
   coo_approved_at?: string | null;
   cfo_disbursed_at?: string | null;
   disbursed_amount?: number | null;
