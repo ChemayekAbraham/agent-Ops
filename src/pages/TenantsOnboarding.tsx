@@ -153,6 +153,19 @@ export default function TenantsOnboarding() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ id: string } | null>(null);
 
+  /* Existing-application gate. A tenant who already has a request in progress
+     (or a live plan) must not fill this form again — it would put them through
+     vetting twice and could raise support twice on one plan. Matched on the
+     signed-in account plus any account sharing their phone number or email. */
+  const [gate, setGate] = useState<{
+    checking: boolean;
+    blocked: boolean;
+    stage?: 'under_review' | 'repaying' | 'none';
+    status?: string;
+    created_at?: string;
+    other_account?: boolean;
+  }>({ checking: true, blocked: false });
+
   /* Step 1 */
   const [earner, setEarner] = useState<EarnerType>('daily');
 
@@ -319,6 +332,30 @@ export default function TenantsOnboarding() {
       setNin((v) => v || String(data.national_id || ''));
       setOccupation((v) => v || String(data.occupation || ''));
       if (data.preferred_language) setLanguage(String(data.preferred_language));
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  /* Ask the server whether this person already has a request in progress. */
+  useEffect(() => {
+    if (!user) { setGate({ checking: false, blocked: false }); return; }
+    let cancelled = false;
+    setGate({ checking: true, blocked: false });
+    (async () => {
+      const { data, error } = await supabase.functions.invoke('tenant-self-onboarding', {
+        body: { action: 'application_status' },
+      });
+      if (cancelled) return;
+      if (error) { setGate({ checking: false, blocked: false }); return; }
+      const d = (data ?? {}) as Record<string, unknown>;
+      setGate({
+        checking: false,
+        blocked: d.blocked === true,
+        stage: d.stage as 'under_review' | 'repaying' | 'none' | undefined,
+        status: typeof d.status === 'string' ? d.status : undefined,
+        created_at: typeof d.created_at === 'string' ? d.created_at : undefined,
+        other_account: d.other_account === true,
+      });
     })();
     return () => { cancelled = true; };
   }, [user]);
@@ -554,6 +591,61 @@ export default function TenantsOnboarding() {
             </p>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (gate.checking && !submitted) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-muted/30">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (gate.blocked && !submitted) {
+    const repaying = gate.stage === 'repaying';
+    const when = gate.created_at
+      ? new Date(gate.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      : null;
+    return (
+      <div className="min-h-screen bg-muted/30 px-4 py-10">
+        <div className="mx-auto max-w-md space-y-5">
+          <img src={welileLogo} alt="Welile" className="h-8" />
+          <Card>
+            <CardContent className="space-y-5 p-6 text-center">
+              <span className={cn(
+                'mx-auto grid h-16 w-16 place-items-center rounded-full',
+                repaying ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-amber-100 dark:bg-amber-900/40',
+              )}>
+                {repaying
+                  ? <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  : <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />}
+              </span>
+              <div>
+                <h1 className="text-2xl font-extrabold tracking-tight">
+                  {repaying ? 'You already have a Rent Plan' : 'Your request is under review'}
+                </h1>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {repaying
+                    ? 'Your rent has already been paid to your landlord and you are repaying that plan now. You can only ask for rent support again once this plan is fully paid off.'
+                    : `We already have your request${when ? ` from ${when}` : ''} and our team is checking your details. Please wait for us to come back to you — sending it again does not make it faster.`}
+                </p>
+                {gate.other_account && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    This request is held on an account using the same phone number or email as yours.
+                  </p>
+                )}
+              </div>
+              <Button className="w-full" onClick={() => navigate('/dashboard/tenant')}>
+                {repaying ? 'See my Rent Plan' : 'Track my request'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Questions? Call {SUPPORT_PHONE_DISPLAY} or email {SUPPORT_EMAIL}.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
