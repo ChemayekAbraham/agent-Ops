@@ -94,7 +94,7 @@ function KpiTile({
   );
 }
 
-export function TenantProductsServicesReport() {
+function TenantProductsServicesDailyReport() {
   const { user } = useAuth();
   const today = useMemo(() => new Date(), []);
   const [from, setFrom] = useState<Date>(today);
