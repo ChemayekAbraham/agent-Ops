@@ -645,6 +645,25 @@ export function AgentCashPayoutsTab() {
     });
   };
 
+  // A weak mobile connection can lose the successful RPC response after the
+  // database has already committed the claim. Before presenting any ambiguous
+  // network / already-claimed result as a failure, ask the database whether the
+  // row now belongs to this merchant desk. This is read-only reconciliation;
+  // the claim itself still happens only inside claim_withdrawal_verified.
+  const claimCommittedForThisDesk = async (withdrawalId: string) => {
+    const deskId = isCashoutAgent?.id;
+    if (!deskId) return false;
+    const { data, error } = await supabase
+      .from('withdrawal_requests')
+      .select('id')
+      .eq('id', withdrawalId)
+      .eq('assigned_cashout_agent_id', deskId)
+      .in('status', MY_ACTIVE_CLAIM_STATUSES)
+      .is('processed_at', null)
+      .maybeSingle();
+    return !error && data?.id === withdrawalId;
+  };
+
 
 
   // Unfiltered count of all available (unclaimed/expired) requests — powers the
@@ -1166,6 +1185,7 @@ export function AgentCashPayoutsTab() {
         data = response.data;
         error = response.error;
       } catch (requestError: any) {
+        if (await claimCommittedForThisDesk(vars.id)) return;
         if (controller.signal.aborted) {
           const timeoutError: any = new Error('The network did not confirm this claim. We are checking whether it completed.');
           timeoutError.code = 'claim_timeout';
@@ -1178,6 +1198,12 @@ export function AgentCashPayoutsTab() {
       if (error) throw error;
       const result = data as any;
       if (!result || result.error) {
+        if (
+          (result?.error === 'already_claimed' || result?.error === 'active_claim_exists') &&
+          await claimCommittedForThisDesk(vars.id)
+        ) {
+          return;
+        }
         const err: any = new Error(result?.message || 'Unable to claim this withdrawal');
         err.code = result?.error ?? null;
         err.blockingWithdrawalId = result?.blocking_withdrawal_id ?? null;
