@@ -105,6 +105,8 @@ Deno.serve(async (req) => {
     const smartphone = body.no_smartphone === true ? "NO" : "YES";
     const house_photos = Array.isArray(body.house_photos) ? (body.house_photos as string[]) : [];
     const tenant_photo = typeof body.tenant_photo === "string" ? body.tenant_photo : null;
+    const id_photo = typeof body.id_photo === "string" ? body.id_photo : null;
+    const tenant_note = String(body.tenant_note || "").trim().slice(0, 1000);
 
     if (full_name.split(/\s+/).filter(Boolean).length < 2) return err("Enter your first and last name");
     if (!phone) return err("Enter a valid phone number");
