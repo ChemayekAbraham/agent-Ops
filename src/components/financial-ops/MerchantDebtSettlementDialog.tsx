@@ -407,7 +407,7 @@ export function MerchantDebtSettlementDialog({
                 <div className="flex items-start gap-3 p-3">
                   <Checkbox
                     checked={!!selected[g.agentId]}
-                    disabled={g.payable <= 0}
+                    disabled={g.payable <= 0 || g.isOwnDesk}
                     onCheckedChange={(v) =>
                       setSelected((s) => ({ ...s, [g.agentId]: !!v }))
                     }
@@ -424,12 +424,19 @@ export function MerchantDebtSettlementDialog({
                       {g.payableLines.length === 1 ? '' : 's'}
                       {g.oldestAt ? ` · oldest ${format(new Date(g.oldestAt), 'd MMM yyyy')}` : ''}
                     </p>
+                    {g.isOwnDesk && g.payable > 0 && (
+                      <p className="text-[10px] text-warning">
+                        This is your own desk — {formatUGX(g.payable)} is owed to you, and another
+                        finance approver must send it to your wallet.
+                      </p>
+                    )}
                     {g.underReview > 0 && (
                       <p className="text-[10px] text-warning">
                         {formatUGX(g.underReview)} across {g.reviewLines.length} claim
                         {g.reviewLines.length === 1 ? '' : 's'} the books do not support — excluded
                       </p>
                     )}
+
                   </button>
                   <div className="text-right shrink-0">
                     <p className="font-mono text-sm font-bold tabular-nums text-foreground">
