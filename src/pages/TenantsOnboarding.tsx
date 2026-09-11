@@ -336,6 +336,30 @@ export default function TenantsOnboarding() {
     return () => { cancelled = true; };
   }, [user]);
 
+  /* Ask the server whether this person already has a request in progress. */
+  useEffect(() => {
+    if (!user) { setGate({ checking: false, blocked: false }); return; }
+    let cancelled = false;
+    setGate({ checking: true, blocked: false });
+    (async () => {
+      const { data, error } = await supabase.functions.invoke('tenant-self-onboarding', {
+        body: { action: 'application_status' },
+      });
+      if (cancelled) return;
+      if (error) { setGate({ checking: false, blocked: false }); return; }
+      const d = (data ?? {}) as Record<string, unknown>;
+      setGate({
+        checking: false,
+        blocked: d.blocked === true,
+        stage: d.stage as 'under_review' | 'repaying' | 'none' | undefined,
+        status: typeof d.status === 'string' ? d.status : undefined,
+        created_at: typeof d.created_at === 'string' ? d.created_at : undefined,
+        other_account: d.other_account === true,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
   /* Real identity check — existence only, never whose. */
   const checkTimer = useRef<number | null>(null);
   useEffect(() => {
