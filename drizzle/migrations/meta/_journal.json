@@ -36,6 +36,13 @@
       "when": 1789129891101,
       "tag": "0004_tpsp_rent_projections_readonly",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789131280697,
+      "tag": "0005_smartphone_three_stage_approval_terms",
+      "breakpoints": true
     }
   ]
 }
