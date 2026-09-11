@@ -122,6 +122,11 @@ export const OPERATING_EXPENSE_CATEGORIES = [
   'interest_expense',
   'equipment_expense',
   'platform_loss_writeoff',
+  // X5 in the live ledger_account_map (debit_when 'cash_out', so a cash_out
+  // leg debits X5 - a genuine expense). Already reflected in the main P&L via
+  // the X5 expense line; classifying it here only stops the service/review
+  // layer falsely flagging a cost the bottom line already carries.
+  'merchant_oop_reimbursement',
   'tenant_default_charge',
   'debt_clearance',
 ];
@@ -197,6 +202,35 @@ export const NON_PL_CATEGORIES = [
   'orphan_reversal',
   'manager_credit',
   'cfo_direct_credit',
+  // Treasury cash routing - company cash moving between locations, never a
+  // revenue or expense event.
+  'cash_receipt_in_transit',              // A5 Cash in Transit
+  'cash_in_transit_banked',               // A5 Cash in Transit
+  'treasury_bank_deposit',                // A1 Cash and Bank Balances
+  'cash_at_bank_reclass',                 // A1 Cash and Bank Balances
+  'agent_float_assignment',               // A1 Cash and Bank Balances
+  'agent_float_cash_offset',              // A2 Cash at Hand - Float with Agents
+  // Custody liabilities and receivables.
+  'cash_custody_payable',                 // L1 Wallet Custody Payable
+  'agent_facilitated_capital_receivable', // A2 Cash at Hand - Float with Agents
+  'landlord_receivable_obligation',       // L4 Landlord Rent Payable
+  'landlord_receivable_collected',        // A6 Landlord Product Receivables
+  // Partner capital.
+  'partner_capital_cash_received',        // A1 Cash and Bank Balances
+  'partner_receivable_capital',           // L2 Partner Portfolios - Capital Held
+  // L7 deferred-fee liability control. NOT revenue despite the name: the
+  // recognised leg credits L7 (liability up when a plan is funded) and the
+  // drawdown leg debits L7 (liability released as the fee is earned). The
+  // revenue itself posts to R1 via access_fee_collected /
+  // registration_fee_collected, already classified above - treating either L7
+  // leg as revenue would double count the fee.
+  'treasury_fee_recognised',              // L7 Platform Treasury Control
+  'treasury_fee_drawdown',                // L7 Platform Treasury Control
+  // NOT LISTED - 'treasury_net_revenue'. It maps to R1 Platform Revenue, but
+  // with debit_when 'cash_in' its cash_in leg DEBITS R1, i.e. it reduces
+  // revenue: a BD-3 contra-revenue pricing subsidy (1 row, 940,292,
+  // 2026-09-07). It stays in the review queue pending an accounting and
+  // presentation decision; it is not a missing mapping.
 ];
 
 const revenueLookup = new Map<string, ServiceFamilyKey>();
