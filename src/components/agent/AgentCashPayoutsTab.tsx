@@ -693,7 +693,7 @@ export function AgentCashPayoutsTab() {
       const proxyOnly = proxyPriorityEnforced && !!blockingUrgentProxy && !landlordOnly;
       const mk = (channel: 'all' | 'momo' | 'cash' | 'bank') => {
         let q = applyQueueFilters(
-          supabase.from('withdrawal_requests').select('id', { count: 'exact', head: true }),
+          supabase.from('cashout_queue_view').select('id', { count: 'exact', head: true }),
           { ...base, channel },
         );
         if (landlordOnly) q = q.ilike('reason', 'Landlord float payout%');
