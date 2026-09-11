@@ -111,6 +111,7 @@ export function BikeLeaseDetailDialog({
   const costPrice = Math.round(valuationNum / (1 + feePct / 100));
   const days = termNum * 30;
   const dailyPay = days > 0 ? Math.ceil(valuationNum / days) : 0;
+  const profit = Math.max(0, valuationNum - costPrice);
 
   const isPending = order.order_status === 'submitted' || order.order_status === 'pending_approval';
   const isAwaitingCoo = order.order_status === 'ops_approved';
@@ -258,6 +259,12 @@ export function BikeLeaseDetailDialog({
                 <p className="text-xs sm:text-sm font-bold text-primary truncate">{feePct}%</p>
               </div>
 
+              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 truncate">Our Profit</p>
+                <p className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 truncate">
+                  {formatUGX(profit)}
+                </p>
+              </div>
 
               <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Amount Paid</p>
