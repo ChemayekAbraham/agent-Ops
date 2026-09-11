@@ -35,6 +35,22 @@ import {
 } from '@/lib/merchantDebtSettlementPdf';
 
 /**
+ * Plain-language wording for every reason `settle_merchant_out_of_pocket` can return in
+ * its `skipped` list. Collapsing these into one sentence hid a separation-of-duties block
+ * behind "already paid or not yet confirmed".
+ */
+const SKIP_REASON_LABELS: Record<string, string> = {
+  MERCHANT_OOP_SETTLEMENT_SELF_BLOCKED:
+    'this desk belongs to you — another finance approver must send it',
+  already_reimbursed: 'already paid back',
+  not_confirmed_yet: 'not confirmed yet',
+  estimated_telecom_charge_not_claimable: 'estimated sending fee — not claimable',
+  not_evidenced_by_books: 'the books do not show the desk was short',
+  partially_evidenced_only: 'only part of it is backed by the books',
+};
+
+
+/**
  * Drill-down for "Money we must send back to them".
  *
  * The board headline is a lifetime paid-out-minus-float differential and is
