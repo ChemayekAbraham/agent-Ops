@@ -18,6 +18,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Camera, Check, CircleDollarSign, Home, Loader2, MapPin,
   ShieldCheck, User, Wallet, CalendarDays, Info, Building2, CheckCircle2, AlertTriangle,
+  ChevronDown, HelpCircle, Mail, Phone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -38,6 +39,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -53,6 +55,30 @@ const STEPS = [
   { n: 5, name: 'Verification', sub: 'Landlord & LC1', icon: ShieldCheck },
   { n: 6, name: 'Review', sub: 'Confirm & submit', icon: Check },
 ] as const;
+
+/** Shared by the step 1 chooser and the step 2 context banner, so the label the
+ *  tenant picked is the label they keep seeing. */
+const EARNERS = [
+  {
+    key: 'daily' as EarnerType,
+    title: 'Daily income earner',
+    sub: 'Boda, market, salon, shop — pay a small amount every day',
+    banner: 'Pays back daily over 30-120 days',
+    icon: Wallet,
+  },
+  {
+    key: 'weekly' as EarnerType,
+    title: 'Weekly earner',
+    sub: 'Paid weekly — pay once a week',
+    banner: 'Pays back once a week',
+    icon: CalendarDays,
+  },
+] as const;
+
+/** Welile support, shown behind the header Help button. */
+const SUPPORT_EMAIL = 'info@welile.com';
+const SUPPORT_PHONE_DISPLAY = '+256 777 607640';
+const SUPPORT_PHONE_DIAL = '+256777607640';
 
 const HOUSE_TYPES = [
   { value: 'single-room', label: 'Single room' },
@@ -111,6 +137,7 @@ export default function TenantsOnboarding() {
   /* Step 2 */
   const [rentInput, setRentInput] = useState('');
   const [durationDays, setDurationDays] = useState(30);
+  const [feeOpen, setFeeOpen] = useState(false);
 
   /* Step 3 */
   const [firstName, setFirstName] = useState('');
@@ -136,6 +163,11 @@ export default function TenantsOnboarding() {
   const [housePhotos, setHousePhotos] = useState<PhotoSlot[]>([]);
   const { location: gps, loading: gpsLoading, error: gpsError, captureLocation } = useCaptureLocation();
 
+  /* Draft autosave — see the DRAFT_* helpers below. Photos are deliberately
+     excluded: they are large blobs and localStorage would blow its quota. */
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [helpOpen, setHelpOpen] = useState(false);
+
   /* Step 5 */
   const [landlord, setLandlord] = useState<LandlordOption | null>(null);
   const [newLandlordName, setNewLandlordName] = useState('');
@@ -143,11 +175,69 @@ export default function TenantsOnboarding() {
   const [lc1, setLc1] = useState<Lc1Selection | null>(null);
   const [note, setNote] = useState('');
 
+  /* ---------------------------------------------------------- draft save ---
+     The form is six steps long and is filled on a phone, often on a bad
+     connection. Persist the typed answers so a dropped tab does not cost the
+     tenant everything. Photos and GPS are not persisted — they are re-captured.
+     The header pill reports this honestly: it only says "Saved" once a write
+     has actually succeeded. */
+  const draftKey = user ? `welile_tenant_onboarding_draft_${user.id}` : null;
+
+  useEffect(() => {
+    if (!draftKey) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const d = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof d.earner === 'string') setEarner(d.earner as EarnerType);
+      if (typeof d.rentInput === 'string') setRentInput(d.rentInput);
+      if (typeof d.durationDays === 'number') setDurationDays(d.durationDays);
+      if (typeof d.firstName === 'string') setFirstName(d.firstName);
+      if (typeof d.lastName === 'string') setLastName(d.lastName);
+      if (typeof d.phone === 'string') setPhone(d.phone);
+      if (typeof d.nin === 'string') setNin(d.nin);
+      if (typeof d.occupation === 'string') setOccupation(d.occupation);
+      if (typeof d.language === 'string') setLanguage(d.language);
+      if (typeof d.noSmartphone === 'boolean') setNoSmartphone(d.noSmartphone);
+      if (typeof d.houseType === 'string') setHouseType(d.houseType);
+      if (typeof d.address === 'string') setAddress(d.address);
+      if (typeof d.newLandlordName === 'string') setNewLandlordName(d.newLandlordName);
+      if (typeof d.newLandlordPhone === 'string') setNewLandlordPhone(d.newLandlordPhone);
+      if (typeof d.note === 'string') setNote(d.note);
+      setSaveState('saved');
+    } catch { /* a corrupt or unavailable draft is not worth failing over */ }
+    // Restore once per user, on mount.
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey || submitted) return;
+    setSaveState('saving');
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          earner, rentInput, durationDays, firstName, lastName, phone, nin,
+          occupation, language, noSmartphone, houseType, address,
+          newLandlordName, newLandlordPhone, note,
+        }));
+        setSaveState('saved');
+      } catch {
+        /* Quota or private mode: say nothing rather than claim a save. */
+        setSaveState('idle');
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [draftKey, submitted, earner, rentInput, durationDays, firstName, lastName,
+      phone, nin, occupation, language, noSmartphone, houseType, address,
+      newLandlordName, newLandlordPhone, note]);
+
   const rentAmount = Number(rentInput.replace(/\D/g, '')) || 0;
   const calc = useMemo(
     () => (rentAmount >= MIN_RENT ? calculateRentRepayment(rentAmount, durationDays) : null),
     [rentAmount, durationDays],
   );
+  const activeEarner = EARNERS.find((e) => e.key === earner) ?? EARNERS[0];
+  /* Only complain once they have typed something — an empty field is not an error yet. */
+  const rentInvalid = rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT);
   const periodLabel = earner === 'weekly' ? 'Weekly' : 'Daily';
   const perCycle = useMemo(() => {
     if (!calc) return 0;
@@ -320,6 +410,9 @@ export default function TenantsOnboarding() {
       if ((data as any)?.error) throw new Error(String((data as any).error));
 
       setSubmitted({ id: String((data as any).rent_request_id) });
+      /* The draft has served its purpose — drop it so a returning tenant does
+         not reopen a stale copy of a request they already sent. */
+      if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
       toast.success('Your rent request has been submitted for verification');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
@@ -403,20 +496,95 @@ export default function TenantsOnboarding() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <img src={welileLogo} alt="Welile" className="h-7 w-auto" />
-          <Badge variant="secondary" className="font-medium">Tenant self-onboarding</Badge>
-        </div>
-        <div className="lg:hidden px-4 pb-3">
-          <div className="mb-1.5 flex items-center justify-between text-xs">
-            <span className="font-semibold text-primary">Step {step} of 6</span>
-            <span className="text-muted-foreground">{current.name}</span>
+      {/* Top bar — full-bleed, 56px on mobile / 64px from sm up, matching the
+          onboarding shell rather than the app's centred container. */}
+      <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-background px-3 sm:h-16 sm:px-8">
+        <div className="flex w-full min-w-0 items-center justify-between">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3.5">
+            <img src={welileLogo} alt="Welile" className="h-7 w-auto max-w-[100px] object-contain sm:h-[34px] sm:max-w-[130px]" />
+            <span className="hidden shrink-0 rounded-full bg-primary/10 px-2.5 py-[3px] text-[11.5px] font-bold uppercase tracking-wider text-primary md:inline-flex">
+              Rent Onboarding
+            </span>
           </div>
-          <Progress value={(step / 6) * 100} className="h-1.5" />
+
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3.5">
+            {saveState !== 'idle' && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11.5px] font-semibold text-muted-foreground sm:px-3">
+                <span className={cn(
+                  'h-[7px] w-[7px] shrink-0 rounded-full',
+                  saveState === 'saving' ? 'animate-pulse bg-amber-500' : 'bg-emerald-600',
+                )} />
+                {saveState === 'saving' ? 'Saving' : 'Saved'}
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border bg-background px-2.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary sm:px-3 sm:text-[12.5px]"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Help
+            </button>
+          </div>
         </div>
       </header>
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Need a hand?</DialogTitle>
+            <DialogDescription>
+              Talk to the Welile team. We can walk you through any step of this form.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <a
+              href={`tel:${SUPPORT_PHONE_DIAL}`}
+              className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:border-primary hover:bg-primary/5"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10">
+                <Phone className="h-[18px] w-[18px] text-primary" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Call us
+                </span>
+                <span className="block truncate text-sm font-bold tabular-nums text-foreground">
+                  {SUPPORT_PHONE_DISPLAY}
+                </span>
+              </span>
+            </a>
+
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:border-primary hover:bg-primary/5"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10">
+                <Mail className="h-[18px] w-[18px] text-primary" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Email us
+                </span>
+                <span className="block truncate text-sm font-bold text-foreground">{SUPPORT_EMAIL}</span>
+              </span>
+            </a>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Your answers are saved on this device as you type, so you can close this and come back.
+          </p>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile step progress, sticky directly under the bar. */}
+      <div className="sticky top-14 z-20 border-b bg-background px-4 py-2.5 lg:hidden">
+        <div className="mb-1.5 flex items-center justify-between text-[11.5px] font-bold">
+          <span className="uppercase tracking-wider text-primary">Step {step} of 6</span>
+          <span className="text-foreground">{current.name}</span>
+        </div>
+        <Progress value={(step / 6) * 100} className="h-1" />
+      </div>
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[260px_1fr]">
         {/* Step rail */}
@@ -468,10 +636,7 @@ export default function TenantsOnboarding() {
             {/* ---------------------------------------------------- step 1 */}
             {step === 1 && (
               <div className="grid gap-3 sm:grid-cols-2">
-                {([
-                  { key: 'daily' as EarnerType, title: 'Daily income earner', sub: 'Boda, market, salon, shop — pay a small amount every day', icon: Wallet },
-                  { key: 'weekly' as EarnerType, title: 'Weekly earner', sub: 'Paid weekly — pay once a week', icon: CalendarDays },
-                ]).map((o) => {
+                {EARNERS.map((o) => {
                   const Icon = o.icon;
                   const active = earner === o.key;
                   return (
@@ -492,49 +657,150 @@ export default function TenantsOnboarding() {
             {/* ---------------------------------------------------- step 2 */}
             {step === 2 && (
               <div className="space-y-5">
-                <div className="space-y-2">
-                  <Label>Monthly rent <span className="text-destructive">*</span></Label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">UGX</span>
-                    <Input
-                      inputMode="numeric"
-                      className="pl-12 text-base font-bold"
-                      placeholder="500,000"
-                      value={rentAmount ? rentAmount.toLocaleString() : ''}
-                      onChange={(e) => setRentInput(e.target.value)}
-                    />
+                {/* Which schedule they picked in step 1, with a way back. */}
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10">
+                      <activeEarner.icon className="h-[18px] w-[18px] text-primary" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13.5px] font-bold text-foreground">{activeEarner.title}</span>
+                      <span className="block truncate text-[11.5px] text-muted-foreground">{activeEarner.banner}</span>
+                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Allowed range: {formatUGX(MIN_RENT)} to {formatUGX(MAX_RENT)}
-                  </p>
+                  <Button type="button" variant="outline" size="sm"
+                    className="h-8 shrink-0 border-primary/30 px-3 text-xs font-bold text-primary hover:bg-primary hover:text-primary-foreground"
+                    onClick={() => goTo(1)}>
+                    Change
+                  </Button>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Repayment period <span className="text-destructive">*</span></Label>
-                  <Select value={String(durationDays)} onValueChange={(v) => setDurationDays(Number(v))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(earner === 'weekly' ? WEEKLY_PERIODS : DAILY_PERIODS).map((d) => (
-                        <SelectItem key={d} value={String(d)}>
-                          {d} days{earner === 'weekly' ? ` (${d / 7} weeks)` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {calc && (
-                  <div className="rounded-xl border bg-background p-4">
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <Stat label={`${periodLabel} payment`} value={formatUGX(perCycle)} highlight />
-                      <Stat label="Period" value={`${durationDays} days`} />
-                      <Stat label="Payment cycle" value={periodLabel} />
+                {/* Rent and period sit side by side on desktop, stacked on mobile. */}
+                <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+                  <div className="space-y-2">
+                    <Label className="text-[13.5px] font-semibold">
+                      Monthly rent <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-muted-foreground">
+                        UGX
+                      </span>
+                      <Input
+                        inputMode="numeric"
+                        aria-invalid={rentInvalid}
+                        className={cn(
+                          'h-12 pl-[58px] text-base font-extrabold tabular-nums',
+                          rentInvalid && 'border-destructive focus-visible:ring-destructive',
+                        )}
+                        placeholder="500,000"
+                        value={rentAmount ? rentAmount.toLocaleString() : ''}
+                        onChange={(e) => setRentInput(e.target.value)}
+                      />
                     </div>
-                    <div className="mt-4 space-y-1.5 border-t pt-3 text-sm">
-                      <Row label="Rent" value={formatUGX(calc.rentAmount)} />
-                      <Row label={`Access fee (${calc.accessFeeRate.toFixed(1)}%)`} value={formatUGX(calc.accessFee)} />
-                      <Row label="Registration fee" value={formatUGX(calc.requestFee)} />
-                      <Row label="Total to repay" value={formatUGX(calc.totalRepayment)} strong />
+                    {rentInvalid ? (
+                      <p className="flex items-center gap-1.5 text-[12.5px] font-bold text-destructive">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        Enter a rent between {formatUGX(MIN_RENT)} and {formatUGX(MAX_RENT)}.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Allowed range: {formatUGX(MIN_RENT)} to {formatUGX(MAX_RENT)}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[13.5px] font-semibold">
+                      Choose your repayment period <span className="text-destructive">*</span>
+                    </Label>
+                    <Select value={String(durationDays)} onValueChange={(v) => setDurationDays(Number(v))}>
+                      <SelectTrigger className="h-12 font-semibold"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(earner === 'weekly' ? WEEKLY_PERIODS : DAILY_PERIODS).map((d) => (
+                          <SelectItem key={d} value={String(d)}>
+                            {d} days{earner === 'weekly' ? ' (' + d / 7 + ' weeks)' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {earner === 'weekly'
+                        ? 'Weekly instalments over the selected period'
+                        : 'Daily micro-instalments over the selected period'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Estimated Repayment Plan */}
+                {calc && (
+                  <div className="rounded-2xl border bg-background p-5">
+                    <div className="mb-4 flex items-center gap-3 border-b pb-3.5">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10">
+                        <CalendarDays className="h-[18px] w-[18px] text-primary" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-extrabold text-foreground">Estimated Repayment Plan</span>
+                        <span className="block text-[11.5px] text-muted-foreground">
+                          Repayment breakdown for your selected schedule
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <KeyCell
+                        label="Repayment amount"
+                        value={formatUGX(perCycle)}
+                        sub={'Per ' + periodLabel.toLowerCase() + ' cycle'}
+                        highlight
+                      />
+                      <KeyCell
+                        label="Repayment period"
+                        value={durationDays + ' days'}
+                        sub="Total repayment duration"
+                      />
+                      <KeyCell
+                        label="Cycle/period"
+                        value={periodLabel}
+                        sub={earner === 'weekly' ? 'weekly instalments' : 'micro-instalments'}
+                      />
+                    </div>
+
+                    <div className="mt-4 border-t border-dashed pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setFeeOpen((v) => !v)}
+                        aria-expanded={feeOpen}
+                        className="inline-flex items-center gap-2 py-1 text-[12.5px] font-bold text-primary transition-colors hover:text-primary/80"
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                        View fee breakdown
+                        <ChevronDown className={cn('h-3 w-3 transition-transform', feeOpen && 'rotate-180')} />
+                      </button>
+
+                      {feeOpen && (
+                        <div className="mt-3 space-y-2 rounded-xl border bg-muted/40 px-4 py-3.5 text-[12.5px]">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">Base monthly rent (paid to your landlord)</span>
+                            <span className="shrink-0 font-bold tabular-nums">{formatUGX(calc.rentAmount)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">
+                              Platform access fee ({calc.accessFeeRate.toFixed(1)}%)
+                            </span>
+                            <span className="shrink-0 font-bold tabular-nums">{formatUGX(calc.accessFee)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">Registration &amp; one-time processing</span>
+                            <span className="shrink-0 font-bold tabular-nums">{formatUGX(calc.requestFee)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 border-t border-dashed pt-2">
+                            <span className="font-extrabold text-foreground">Total amount payable</span>
+                            <span className="shrink-0 text-sm font-extrabold tabular-nums text-primary">
+                              {formatUGX(calc.totalRepayment)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -797,16 +1063,29 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className={cn('text-sm font-mono', strong ? 'font-bold text-primary' : 'font-semibold')}>{value}</span>
+      <span className={cn('text-sm tabular-nums', strong ? 'font-bold text-primary' : 'font-semibold')}>{value}</span>
     </div>
   );
 }
 
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+/** One cell of the Estimated Repayment Plan grid: label, big value, caption.
+ *  Money uses the body font with tabular figures — never a mono face — so the
+ *  amounts sit in the same typeface as the rest of the page. */
+function KeyCell({ label, value, sub, highlight }: {
+  label: string; value: string; sub: string; highlight?: boolean;
+}) {
   return (
-    <div className={cn('rounded-lg border p-3', highlight && 'border-primary/40 bg-primary/5')}>
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={cn('mt-1 font-mono text-base font-bold', highlight && 'text-primary')}>{value}</p>
+    <div className="flex min-h-[98px] flex-col justify-between rounded-xl border bg-muted/40 p-3.5 transition-colors hover:border-primary/30 hover:bg-background">
+      <span className="block truncate text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span className={cn(
+        'my-1 block truncate text-lg font-extrabold leading-tight tabular-nums',
+        highlight ? 'text-primary' : 'text-foreground',
+      )}>
+        {value}
+      </span>
+      <span className="block truncate text-[11px] text-muted-foreground">{sub}</span>
     </div>
   );
 }
