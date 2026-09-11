@@ -48023,22 +48023,38 @@ export type Database = {
         Returns: undefined
       }
       cc_reveal_phone: { Args: { p_attempt_id: string }; Returns: string }
-      cc_state_counts: {
-        Args: {
-          p_filters?: Json
-          p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
-        }
-        Returns: {
-          row_count: number
-          state: Database["public"]["Enums"]["cc_row_state"]
-        }[]
-      }
+      cc_state_counts:
+        | {
+            Args: {
+              p_filters?: Json
+              p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
+            }
+            Returns: {
+              row_count: number
+              state: Database["public"]["Enums"]["cc_row_state"]
+            }[]
+          }
+        | {
+            Args: {
+              p_filters?: Json
+              p_search?: string
+              p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
+            }
+            Returns: {
+              row_count: number
+              state: Database["public"]["Enums"]["cc_row_state"]
+            }[]
+          }
       cc_task_department: {
         Args: {
           p_role: Database["public"]["Enums"]["app_role"]
           p_staff_id: string
         }
         Returns: string
+      }
+      cc_topup_cycle: {
+        Args: { p_subject_type: Database["public"]["Enums"]["cc_subject_type"] }
+        Returns: number
       }
       cc_void_attempt: {
         Args: { p_attempt_id: string; p_reason: string }
