@@ -606,7 +606,7 @@ export function AgentCashPayoutsTab() {
     queryKey: ['cashout-blocking-urgent-proxy'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('withdrawal_requests')
+        .from('cashout_queue_view')
         .select('id, amount, created_at, priority_level, status, processed_at, fin_ops_reference, assigned_cashout_agent_id')
         .eq('priority_level', 'urgent_proxy')
         .in('status', CASHOUT_QUEUE_STATUSES)
