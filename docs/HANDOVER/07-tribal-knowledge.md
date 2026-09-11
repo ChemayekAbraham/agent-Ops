@@ -317,7 +317,11 @@ WHERE schemaname = 'public' AND tablename = 'withdrawal_requests' ORDER BY cmd, 
 ```
 
 **Fixed 2026-09-11** — widened the policy to also allow `assigned_cashout_agent_id IS NULL`:
-see migration `20260911150000_allow_cashout_agents_view_unclaimed_withdrawals.sql`. Applying an
+see migration `20260911150000_allow_cashout_agents_view_unclaimed_withdrawals.sql`. That clause
+had no status filter and exposed ~4,190 historical unassigned withdrawals (575 with bank account
+numbers) to every merchant; `20260911190000_merchant_rls_unclaimed_rows_open_queue_only.sql`
+narrows it to exactly the queue fence (`applyMerchantQueueFence` / `v_merchant_payout_queue`).
+When widening RLS for a queue, copy the queue's own predicate — never just "unassigned". Applying an
 `ALTER POLICY` against a busy table can hit `40P01 deadlock detected` under live traffic — this
 is transient lock contention, not a bad statement; retry it.
 
@@ -342,7 +346,14 @@ is transient lock contention, not a bad statement; retry it.
   **not** check the CFO's category/channel permission matrix at all — only the MoMo
   number/name match. The permission matrix is enforced only in the frontend today. Any active
   cash-out agent can currently claim any withdrawal via a direct API call regardless of what the
-  CFO restricted them to. Not exploited in this incident; still open.
+  CFO restricted them to. Not exploited in this incident; **the matrix gap is still open** in both
+  `claim_withdrawal_verified` and `approve-withdrawal`.
+- Related and **closed 2026-09-11 (later the same day):** `approve-withdrawal`'s atomic claim was
+  a status compare-and-set with no ownership check, so any merchant could settle a payout another
+  merchant had claimed (and might be paying at that moment) — a double-payout path. A merchant who
+  is not `is_withdrawal_staff` is now refused with `CLAIMED_BY_ANOTHER_MERCHANT`, and the same
+  condition sits inside the compare-and-set. Measured before shipping: 924 desk-claimed
+  settlements in 14 days, 8 cross-desk, all by FinOps staff (who keep the override).
 
 **Do not** assume a `cashout_agents.config` change will restore visibility once you've confirmed
 it's correct — verify the actual RLS policy set for the querying role before spending more time

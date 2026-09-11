@@ -658,13 +658,13 @@ export function AgentCashPayoutsTab() {
   const { data: availableTotal = 0 } = useQuery({
     queryKey: ['cashout-queue-available-total', isCashoutAgent?.id, categoryOrClause, channelProviderOrClause, frozenUserIds],
     queryFn: async () => {
-      let q = supabase
-        .from('withdrawal_requests')
-        .select('id', { count: 'exact', head: true })
-        .in('status', CASHOUT_QUEUE_STATUSES)
-        .is('processed_at', null)
-        .is('fin_ops_reference', null)
-        .is('assigned_cashout_agent_id', null);
+      // Same shared fence as the list and the tab badges, so a row FinOps has
+      // hidden from the merchant queue is never counted here but missing there.
+      let q = applyMerchantQueueFence(
+        supabase
+          .from('withdrawal_requests')
+          .select('id', { count: 'exact', head: true }),
+      ).is('assigned_cashout_agent_id', null);
       if (categoryOrClause) q = q.or(categoryOrClause);
       if (channelProviderOrClause) q = q.or(channelProviderOrClause);
       if (frozenUserIds.length) {
