@@ -716,8 +716,8 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
   title: string;
   value: string;
   items: { dot: string; label: string; value: string; onSelect?: () => void }[];
-  footer: string;
-  footerTone: string;
+  footer?: string;
+  footerTone?: string;
   onClick?: () => void;
 }) {
   const [open, setOpen] = useState(false);
