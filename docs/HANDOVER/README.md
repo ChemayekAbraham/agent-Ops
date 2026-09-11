@@ -35,6 +35,7 @@ deleted ledger row. **Never delete, never `UPDATE`, never "clean up" financial h
 
 | Doc | Read it when |
 |---|---|
+| [`architecture-map.html`](./architecture-map.html) | **Interactive visual map** of platform topology, double-entry invariants, kill switches, runbooks, and recovery sequence. Open directly in any browser. |
 | [`01-ownership-and-access.md`](./01-ownership-and-access.md) | You need to get into an account, or you are auditing who holds the keys. **Contains gaps only the founder can fill — fill them.** |
 | [`02-danger-zones.md`](./02-danger-zones.md) | Before you run anything that writes. The catalogue of operations that lose money or data. |
 | [`03-money-invariants.md`](./03-money-invariants.md) | Before you touch the ledger, wallets, or any balance. The financial contract, with the real source. |
