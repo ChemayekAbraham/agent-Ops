@@ -11,11 +11,18 @@
  */
 export const BUILD_INFO = Object.freeze({
   commit: typeof __BUILD_COMMIT__ !== 'undefined' ? __BUILD_COMMIT__ : 'unknown',
+  /**
+   * Hash of the source tree this bundle was built from. The hosted build
+   * container has no .git, so `commit` can be "unknown" there — `source` is
+   * identical for identical code and is the reliable preview-vs-production
+   * comparison.
+   */
+  source: typeof __BUILD_SOURCE__ !== 'undefined' ? __BUILD_SOURCE__ : 'unknown',
   builtAt: typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'unknown',
   mode: import.meta.env.MODE,
 });
 
-export const BUILD_ID = `${BUILD_INFO.commit}@${BUILD_INFO.builtAt}`;
+export const BUILD_ID = `${BUILD_INFO.commit}/${BUILD_INFO.source}@${BUILD_INFO.builtAt}`;
 
 export function exposeBuildInfo(): void {
   try {

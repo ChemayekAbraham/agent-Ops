@@ -4,12 +4,15 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 import { execSync } from "child_process";
+import { createHash } from "node:crypto";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 
 // Which revision is this bundle? Exposed as window.__WELILE_BUILD__, the
 // <html data-build> attribute and /build-info.json so the preview and
 // welileapp.com can be compared directly instead of assumed to match.
 function resolveBuildCommit(env: Record<string, string>): string {
-  const fromEnv = env.VITE_BUILD_COMMIT || process.env.COMMIT_REF || process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
+  const fromEnv = env.VITE_BUILD_COMMIT || process.env.COMMIT_REF || process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA
+    || process.env.LOVABLE_COMMIT_SHA || process.env.SOURCE_VERSION || process.env.CF_PAGES_COMMIT_SHA;
   if (fromEnv) return fromEnv.slice(0, 12);
   try {
     return execSync("git rev-parse --short=12 HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim() || "unknown";
@@ -18,10 +21,49 @@ function resolveBuildCommit(env: Record<string, string>): string {
   }
 }
 
+/**
+ * Fingerprint of the shipped source itself. The hosted build container has no
+ * .git and no commit env var, so `commit` can read "unknown" there — but the
+ * same source always hashes the same, in the preview and on welileapp.com. It
+ * is what actually answers "is production running the code we tested?".
+ */
+function resolveSourceFingerprint(): string {
+  const roots = ["src", "index.html", "vite.config.ts", "package.json"];
+  // Paths are hashed relative to the project root and text files are read with
+  // newlines normalised: the Windows checkout (CRLF, C:\...) and the hosted
+  // Linux build (LF, /app/...) must hash identical source identically, or the
+  // fingerprint cannot be compared across them at all.
+  const TEXT = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".html", ".css", ".svg", ".md", ".txt"]);
+  const root = path.resolve(__dirname);
+  const hash = createHash("sha256");
+  const walk = (p: string) => {
+    const stat = statSync(p, { throwIfNoEntry: false });
+    if (!stat) return;
+    if (stat.isDirectory()) {
+      for (const entry of readdirSync(p).sort()) walk(path.join(p, entry));
+      return;
+    }
+    hash.update(path.relative(root, p).replace(/\\/g, "/"));
+    const bytes = readFileSync(p);
+    hash.update(TEXT.has(path.extname(p).toLowerCase()) ? bytes.toString("utf8").replace(/\r\n/g, "\n") : bytes);
+  };
+  try {
+    for (const r of roots) walk(path.resolve(root, r));
+    return hash.digest("hex").slice(0, 16);
+  } catch {
+    return "unknown";
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const buildInfo = { commit: resolveBuildCommit(env), builtAt: new Date().toISOString(), mode };
+  const buildInfo = {
+    commit: resolveBuildCommit(env),
+    source: resolveSourceFingerprint(),
+    builtAt: new Date().toISOString(),
+    mode,
+  };
   const supabaseUrl = env.VITE_SUPABASE_URL || "https://wirntoujqoyjobfhyelc.supabase.co";
   const supabasePublishableKey = env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpcm50b3VqcW95am9iZmh5ZWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjE1MTYsImV4cCI6MjA4MjEzNzUxNn0.5-zxcRPVxvpxNiXhoo5VHpIuvbtuOLfiI3ph8jPIod8";
   const supabaseProjectId = env.VITE_SUPABASE_PROJECT_ID || "wirntoujqoyjobfhyelc";
@@ -31,6 +73,7 @@ export default defineConfig(({ mode }) => {
       __APP_VERSION__: JSON.stringify('2026-05-31-safari-recovery-steps'),
       __CACHE_VERSION__: JSON.stringify('2026-05-31-safari-recovery-steps'),
       __BUILD_COMMIT__: JSON.stringify(buildInfo.commit),
+      __BUILD_SOURCE__: JSON.stringify(buildInfo.source),
       __BUILD_TIME__: JSON.stringify(buildInfo.builtAt),
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
       "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabasePublishableKey),
