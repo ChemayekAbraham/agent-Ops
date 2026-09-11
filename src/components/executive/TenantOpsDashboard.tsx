@@ -1648,7 +1648,16 @@ export function TenantOpsDashboard({
           />
         );
       case 'tenant-locations-test':
-        return <TenantLocationsBrowser />;
+        return (
+          <TenantLocationsBrowser
+            onSelectTenant={(id, name) => {
+              setSelectedTenant({ id, name });
+              setTenantDetailOrigin('tenant-locations-test');
+              setActiveView('tenant-detail');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        );
       case 'portfolio-performance-hub':
         return <TenantOpsPortfolioPerformance />;
       case 'tenant-products-report':
