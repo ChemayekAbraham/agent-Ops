@@ -273,7 +273,7 @@ Deno.serve(async (req) => {
     if (!tenantPhotoUrl) {
       // Stop here with a clear message rather than letting the DB trigger
       // reject the insert with a 500.
-      return err("Your passport photo is required. Please retake it and try again.", 400);
+      return err("Your passport photo is required as a JPG, JPEG or PNG image under 5 MB. Please retake it and try again.", 400);
     }
 
 
