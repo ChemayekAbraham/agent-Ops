@@ -225,3 +225,6 @@ verify_jwt = false
 
 [functions.staff-requisition-decide]
 verify_jwt = false
+
+[functions.tenant-self-onboarding]
+verify_jwt = false

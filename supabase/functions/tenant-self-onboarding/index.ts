@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       } else {
         const { data: created, error: lErr } = await admin
           .from("landlords")
-          .insert({ name: landlord_name, phone: landlord_phone, property_address, district, village })
+          .insert({ name: landlord_name, phone: landlord_phone, property_address, district, village, ug_village_id, registered_by: userId })
           .select("id").single();
         if (lErr || !created) return err(`Could not save the landlord: ${lErr?.message ?? "unknown"}`, 500);
         landlordId = created.id;
@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
       } else {
         const { data: created, error: cErr } = await admin
           .from("lc1_chairpersons")
-          .insert({ name: lc1_name, phone: lc1_phone, village, district })
+          .insert({ name: lc1_name, phone: lc1_phone, village, district, ug_village_id, registered_by: userId })
           .select("id").single();
         if (cErr || !created) return err(`Could not save the LC1 chairperson: ${cErr?.message ?? "unknown"}`, 500);
         lc1Id = created.id;
@@ -259,11 +259,14 @@ Deno.serve(async (req) => {
 
     if (gps_lat && gps_lng) {
       const { error: tErr } = await admin.rpc("capture_trust_signal", {
-        p_user_id: userId,
+        p_tenant_id: userId,
         p_signal_type: "location_shared",
+        p_venue_category: "home",
+        p_venue_name: village || null,
         p_latitude: gps_lat,
         p_longitude: gps_lng,
-        p_metadata: { source: "tenant_self_onboarding", rent_request_id: rentReq.id },
+        p_accuracy: typeof body.gps_accuracy === "number" ? body.gps_accuracy : null,
+        p_notes: `tenant_self_onboarding:${rentReq.id}`,
       } as any);
       if (tErr) console.warn("[tenant-self-onboarding] trust signal failed", tErr.message);
     }
