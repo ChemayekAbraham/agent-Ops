@@ -37,7 +37,12 @@ const STATUS_TABS: { value: TlbStatus; label: string }[] = [
 
 const PAGE_SIZE = 50;
 
-export function TenantLocationsBrowser() {
+interface TenantLocationsBrowserProps {
+  /** Opens the shared Tenant Ops tenant detail experience (same as All Tenants). */
+  onSelectTenant?: (tenantId: string, tenantName: string) => void;
+}
+
+export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowserProps = {}) {
   const [path, setPath] = useState<TlbPath>({});
   const [status, setStatus] = useState<TlbStatus>('all');
   const [searchInput, setSearchInput] = useState('');
