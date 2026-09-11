@@ -1089,6 +1089,8 @@ export function useMerchantSettlementDebts(enabled = true) {
             payableLines: [],
             reviewLines: [],
             oldestAt: null,
+            isOwnDesk: !!viewerId && viewerId === agentId,
+
           };
           groups.set(agentId, g);
         }
