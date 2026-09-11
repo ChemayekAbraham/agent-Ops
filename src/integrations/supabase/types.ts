@@ -33570,6 +33570,8 @@ export type Database = {
           manager_verified_at: string | null
           manager_verified_by: string | null
           next_roi_due_date: string | null
+          nin_photo_bucket: string | null
+          nin_photo_path: string | null
           number_of_payments: number | null
           outstanding_at_end: number | null
           outstanding_grace_days: number | null
@@ -33702,6 +33704,8 @@ export type Database = {
           manager_verified_at?: string | null
           manager_verified_by?: string | null
           next_roi_due_date?: string | null
+          nin_photo_bucket?: string | null
+          nin_photo_path?: string | null
           number_of_payments?: number | null
           outstanding_at_end?: number | null
           outstanding_grace_days?: number | null
@@ -33834,6 +33838,8 @@ export type Database = {
           manager_verified_at?: string | null
           manager_verified_by?: string | null
           next_roi_due_date?: string | null
+          nin_photo_bucket?: string | null
+          nin_photo_path?: string | null
           number_of_payments?: number | null
           outstanding_at_end?: number | null
           outstanding_grace_days?: number | null
@@ -48001,6 +48007,8 @@ export type Database = {
           manager_verified_at: string | null
           manager_verified_by: string | null
           next_roi_due_date: string | null
+          nin_photo_bucket: string | null
+          nin_photo_path: string | null
           number_of_payments: number | null
           outstanding_at_end: number | null
           outstanding_grace_days: number | null

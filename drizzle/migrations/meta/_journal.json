@@ -8,6 +8,13 @@
       "when": 1789118990166,
       "tag": "0000_tenant_locations_readonly_browser",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789122162329,
+      "tag": "0001_tenant_nin_photo_and_lc_letter_docs",
+      "breakpoints": true
     }
   ]
 }
