@@ -394,10 +394,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               value={fmt(moneyWeOweTotal)}
               items={[
                 { dot: 'bg-orange-500', label: 'Merchant Float Bucket (held by merchant agents)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
-                { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
+              { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
               ]}
-              footer="Merchant float bucket (wallet books) plus the Bayo Mercy account (tap any figure for every movement behind it)"
-              footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
               onClick={() => setMerchantOwedOpen(true)}
             />
             <HeroCard
