@@ -194,6 +194,68 @@ Deno.serve(async (req) => {
     const { error: pErr } = await admin.from("profiles").update(profilePatch).eq("id", userId);
     if (pErr) return err(`Could not save your details: ${pErr.message}`, 400);
 
+    /* ---- Photo uploads ---------------------------------------------------
+       These run BEFORE the insert on purpose. `enforce_rent_request_tenant_photo`
+       is a BEFORE INSERT trigger that rejects any rent request whose
+       tenant_photo_url is empty, falling back only to a photo from an EARLIER
+       request by the same tenant. A first-time tenant has no earlier request,
+       so inserting first and patching the photo in afterwards — which is what
+       this function used to do — failed 100% of the time with
+       "Tenant passport photo is required to submit a rent request", however
+       many photos the tenant had actually taken.
+
+       Storage paths are keyed on a generated folder id rather than the rent
+       request id, because that id does not exist yet. */
+    const assetFolder = crypto.randomUUID();
+
+    /** Uploads a data URL into a bucket. Returns the storage path, or null. */
+    const uploadTo = async (bucket: string, dataUrl: string, path: string): Promise<string | null> => {
+      // Accept any image data URL, including ones carrying extra parameters
+      // (e.g. `data:image/jpeg;charset=utf-8;base64,`) and subtypes with
+      // non-word characters (`image/svg+xml`). The old strict pattern silently
+      // returned null for those, which then tripped the tenant-photo trigger.
+      const m = dataUrl.match(/^data:([^;,]+)?;base64,([\s\S]+)$/);
+      if (!m) return null;
+      const contentType = m[1] && m[1].startsWith("image/") ? m[1] : "image/jpeg";
+      let raw: Uint8Array;
+      try {
+        raw = Uint8Array.from(atob(m[2].replace(/\s/g, "")), (c) => c.charCodeAt(0));
+      } catch {
+        console.warn("[tenant-self-onboarding] undecodable image payload", bucket);
+        return null;
+      }
+      if (raw.byteLength === 0) return null;
+      const { error: upErr } = await admin.storage.from(bucket)
+        .upload(path, raw, { contentType, cacheControl: "86400", upsert: true });
+      if (upErr) { console.warn("[tenant-self-onboarding] upload failed", bucket, upErr.message); return null; }
+      return path;
+    };
+    /** Public bucket helper — returns the public URL. */
+    const uploadDataUrl = async (dataUrl: string, path: string): Promise<string | null> => {
+      const stored = await uploadTo("house-images", dataUrl, path);
+      return stored ? admin.storage.from("house-images").getPublicUrl(stored).data.publicUrl : null;
+    };
+
+    let tenantPhotoUrl: string | null = null;
+    if (tenant_photo && tenant_photo.startsWith("data:")) {
+      tenantPhotoUrl = await uploadDataUrl(tenant_photo, `${userId}/${assetFolder}/tenant.jpg`);
+    } else if (tenant_photo && /^https?:\/\//.test(tenant_photo)) {
+      // Already-hosted photo (e.g. restored from a draft) — keep it as-is.
+      tenantPhotoUrl = tenant_photo;
+    }
+    if (!tenantPhotoUrl) {
+      // Last resort: an existing profile photo satisfies the same requirement.
+      const { data: prof } = await admin
+        .from("profiles").select("avatar_url").eq("id", userId).maybeSingle();
+      if (prof?.avatar_url) tenantPhotoUrl = prof.avatar_url as string;
+    }
+    if (!tenantPhotoUrl) {
+      // Stop here with a clear message rather than letting the DB trigger
+      // reject the insert with a 500.
+      return err("Your passport photo is required. Please retake it and try again.", 400);
+    }
+
+
     /* ---- The rent request itself (normal pipeline, no agent) -------------- */
     const insertPayload: Record<string, unknown> = {
       tenant_id: userId,
@@ -213,45 +275,28 @@ Deno.serve(async (req) => {
       preferred_language,
       tenant_no_smartphone: smartphone === "NO",
       registration_type: "normal",
+      // Present at INSERT so the tenant-photo trigger is satisfied.
+      tenant_photo_url: tenantPhotoUrl,
     };
     const { data: rentReq, error: rErr } = await admin
       .from("rent_requests").insert(insertPayload as any).select("id, rent_amount, duration_days, access_fee, request_fee, total_repayment, daily_repayment").single();
     if (rErr || !rentReq) return err(`Could not post your rent request: ${rErr?.message ?? "unknown"}`, 500);
 
-    /* ---- Photos & documents --------------------------------------------- */
-    /** Uploads a data URL into a bucket. Returns the storage path, or null. */
-    const uploadTo = async (bucket: string, dataUrl: string, path: string): Promise<string | null> => {
-      const m = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (!m) return null;
-      const raw = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-      const { error: upErr } = await admin.storage.from(bucket)
-        .upload(path, raw, { contentType: `image/${m[1]}`, cacheControl: "86400", upsert: true });
-      if (upErr) { console.warn("[tenant-self-onboarding] upload failed", bucket, upErr.message); return null; }
-      return path;
-    };
-    /** Public bucket helper — returns the public URL. */
-    const uploadDataUrl = async (dataUrl: string, path: string): Promise<string | null> => {
-      const stored = await uploadTo("house-images", dataUrl, path);
-      return stored ? admin.storage.from("house-images").getPublicUrl(stored).data.publicUrl : null;
-    };
-
+    /* ---- Remaining documents -------------------------------------------- */
     const houseUrls: string[] = [];
     for (let i = 0; i < Math.min(house_photos.length, 4); i++) {
-      const url = await uploadDataUrl(house_photos[i], `${userId}/${rentReq.id}/house_${i}.jpg`);
+      const url = await uploadDataUrl(house_photos[i], `${userId}/${assetFolder}/house_${i}.jpg`);
       if (url) houseUrls.push(url);
     }
-    let tenantPhotoUrl: string | null = null;
-    if (tenant_photo) tenantPhotoUrl = await uploadDataUrl(tenant_photo, `${userId}/${rentReq.id}/tenant.jpg`);
     // National ID and the LC1 letter are private documents.
     let ninPhotoPath: string | null = null;
-    if (id_photo) ninPhotoPath = await uploadTo("tenant-ids", id_photo, `${userId}/${rentReq.id}/national_id.jpg`);
+    if (id_photo) ninPhotoPath = await uploadTo("tenant-ids", id_photo, `${userId}/${assetFolder}/national_id.jpg`);
     let lcLetterPath: string | null = null;
-    if (lc_letter) lcLetterPath = await uploadTo("lc-letters", lc_letter, `${userId}/${rentReq.id}/lc_letter.jpg`);
+    if (lc_letter) lcLetterPath = await uploadTo("lc-letters", lc_letter, `${userId}/${assetFolder}/lc_letter.jpg`);
 
-    if (houseUrls.length || tenantPhotoUrl || ninPhotoPath || lcLetterPath) {
+    if (houseUrls.length || ninPhotoPath || lcLetterPath) {
       const patch: Record<string, unknown> = {};
       if (houseUrls.length) patch.house_image_urls = houseUrls;
-      if (tenantPhotoUrl) patch.tenant_photo_url = tenantPhotoUrl;
       if (ninPhotoPath) { patch.nin_photo_path = ninPhotoPath; patch.nin_photo_bucket = "tenant-ids"; }
       if (lcLetterPath) { patch.lc_letter_path = lcLetterPath; patch.lc_letter_bucket = "lc-letters"; }
       await admin.from("rent_requests").update(patch).eq("id", rentReq.id);
