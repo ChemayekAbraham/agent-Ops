@@ -70,20 +70,23 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending_approval: 'Awaiting COO',
-  submitted: 'Awaiting COO',
+  pending_approval: 'Awaiting Agent Ops',
+  submitted: 'Awaiting Agent Ops',
+  ops_approved: 'Awaiting COO',
   coo_approved: 'Awaiting CFO disbursement',
-  approved: 'Disbursed & active',
+  approved: 'Paid to supplier & active',
 };
 
 const statusLabel = (s: string) => STATUS_LABEL[s] || s.replace(/_/g, ' ');
 
-/** Stage 1 — application still needs the COO decision. */
+/** Stage 1 — application still needs the Agent Operations Manager's decision. */
 const isPending = (s: string) => s === 'pending_approval' || s === 'submitted';
-/** Stage 2 — COO approved, waiting for the CFO to release the funds. */
+/** Stage 2 — Agent Ops approved, waiting for the COO. */
+const isAwaitingCoo = (s: string) => s === 'ops_approved';
+/** Stage 3 — COO approved, waiting for the CFO to pay the supplier. */
 const isAwaitingCfo = (s: string) => s === 'coo_approved';
-/** Anything the executives still have to act on. */
-const isOpen = (s: string) => isPending(s) || isAwaitingCfo(s);
+/** Anything a reviewer still has to act on. */
+const isOpen = (s: string) => isPending(s) || isAwaitingCoo(s) || isAwaitingCfo(s);
 
 /**
  * Executive queue for agent smartphone applications — a two-stage flow:
