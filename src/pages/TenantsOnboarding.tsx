@@ -109,6 +109,7 @@ export default function TenantsOnboarding() {
   const [noSmartphone, setNoSmartphone] = useState(false);
   const [tenantPhoto, setTenantPhoto] = useState<PhotoSlot | null>(null);
   const [idPhoto, setIdPhoto] = useState<PhotoSlot | null>(null);
+  const [lcLetter, setLcLetter] = useState<PhotoSlot | null>(null);
   const [idCheck, setIdCheck] = useState<{
     checking: boolean;
     phone_known?: boolean; phone_is_you?: boolean;
@@ -189,12 +190,13 @@ export default function TenantsOnboarding() {
   const ninTakenByOther = idCheck.nin_known === true && idCheck.nin_is_you === false;
   const phoneTakenByOther = idCheck.phone_known === true && idCheck.phone_is_you === false;
 
-  const addPhoto = async (file: File, target: 'tenant' | 'id' | 'house') => {
+  const addPhoto = async (file: File, target: 'tenant' | 'id' | 'house' | 'lc_letter') => {
     try {
       const opt = await optimizeImage(file, { maxWidth: 1200, quality: 0.82 });
       const slot: PhotoSlot = { file: opt.file, preview: opt.previewUrl };
       if (target === 'tenant') setTenantPhoto(slot);
       else if (target === 'id') setIdPhoto(slot);
+      else if (target === 'lc_letter') setLcLetter(slot);
       else setHousePhotos((p) => [...p, slot].slice(0, 4));
     } catch {
       toast.error('That photo could not be used. Try another one.');
@@ -260,6 +262,7 @@ export default function TenantsOnboarding() {
         Promise.all(housePhotos.map((p) => toDataUrl(p.file))),
       ]);
       const idB64 = idPhoto ? await toDataUrl(idPhoto.file) : null;
+      const lcLetterB64 = lcLetter ? await toDataUrl(lcLetter.file) : null;
 
       const { data, error } = await supabase.functions.invoke('tenant-self-onboarding', {
         body: {
@@ -290,6 +293,7 @@ export default function TenantsOnboarding() {
           tenant_note: note.trim() || null,
           tenant_photo: tenantB64,
           id_photo: idB64,
+          lc_letter: lcLetterB64,
           house_photos: housesB64,
         },
       });
@@ -667,6 +671,16 @@ export default function TenantsOnboarding() {
                   scopeDistrictName={location?.district ?? null}
                 />
 
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <PhotoBox
+                    label="LC1 introduction letter"
+                    hint="Optional now — a photo of the letter stamped by your LC1 speeds up verification."
+                    slot={lcLetter}
+                    onPick={(f) => addPhoto(f, 'lc_letter')}
+                    onClear={() => setLcLetter(null)}
+                  />
+                </div>
+
                 <Field label="Anything else we should know?">
                   <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)}
                     placeholder="Optional — tell us anything that helps the verification team." />
@@ -700,6 +714,7 @@ export default function TenantsOnboarding() {
                 <Section title="Verification contacts">
                   <Row label="Landlord" value={landlord ? `${landlord.name} · ${landlord.phone}` : `${newLandlordName} · ${newLandlordPhone}`} />
                   <Row label="LC1 chairperson" value={lc1 ? `${lc1.name} · ${lc1.phone}` : '—'} />
+                  <Row label="LC1 letter" value={lcLetter ? 'Attached' : 'Not attached'} />
                 </Section>
                 <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
