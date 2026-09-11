@@ -119,21 +119,24 @@ export async function downloadTpspProjectionPdf(input: TpspPdfInput): Promise<vo
   });
   y += Math.ceil(tiles.length / perRow) * (tileH + 8) + 6;
 
-  const drawFooter = () => {
+  /** Stamped once at the end so the page count is final on every page. */
+  const stampFooters = () => {
     const pageCount = doc.getNumberOfPages();
-    const pageNumber = (doc.internal as any).getCurrentPageInfo().pageNumber;
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...MUTED);
-    doc.text(
-      doc.splitTextToSize(
-        `Welile · Rent projections (read-only, from recorded active plans) · ${scopeLine}`,
-        pageWidth - margin * 2 - 90,
-      )[0],
-      margin,
-      pageHeight - 18,
-    );
-    doc.text(`Page ${pageNumber} of ${pageCount}`, pageWidth - margin, pageHeight - 18, { align: 'right' });
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+      doc.setPage(pageNumber);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...MUTED);
+      doc.text(
+        doc.splitTextToSize(
+          `Welile · Rent projections (read-only, from recorded active plans) · ${scopeLine}`,
+          pageWidth - margin * 2 - 90,
+        )[0],
+        margin,
+        pageHeight - 18,
+      );
+      doc.text(`Page ${pageNumber} of ${pageCount}`, pageWidth - margin, pageHeight - 18, { align: 'right' });
+    }
   };
 
   const sectionTitle = (title: string, startY: number) => {
@@ -150,7 +153,6 @@ export async function downloadTpspProjectionPdf(input: TpspPdfInput): Promise<vo
     styles: { fontSize: 7.5, cellPadding: 4, overflow: 'linebreak' as const },
     headStyles: { fillColor: INK, textColor: 255, fontStyle: 'bold' as const, fontSize: 7.5 },
     alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
-    didDrawPage: drawFooter,
   };
 
   // ---------- Period table ----------
@@ -271,6 +273,6 @@ export async function downloadTpspProjectionPdf(input: TpspPdfInput): Promise<vo
     },
   });
 
-  drawFooter();
+  stampFooters();
   doc.save(`welile-rent-projections-${grain}-${projection.start_month}.pdf`);
 }
