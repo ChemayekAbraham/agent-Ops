@@ -2,6 +2,12 @@ import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { formatPhoneInternational, isUgandanPhone } from "./phone.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import {
+  buildWithdrawalReleasedSms,
+  ensureWithdrawalTrackingToken,
+  supabaseTrackingTokenStore,
+  withdrawalTrackingUrl,
+} from "../_shared/withdrawalTracking.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -238,13 +244,21 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Customer-facing SMS: never expose merchant agent identity or role.
-      const smsMsg =
-        `WELILE: Your withdrawal of UGX ${amount.toLocaleString()} is still being processed. ` +
-        `Your funds remain on hold and your money will arrive shortly.\n` +
-        `Track your transaction:\n` +
-        `https://welileapp.com/auth\n` +
-        `For assistance, contact Welile Support on 0748747134.`;
+      // Customer-facing SMS: never expose merchant agent identity or role, and
+      // never promise when the money arrives — the payout is unpaid and back in
+      // the queue. Link = this withdrawal's own tracking URL (was a shared
+      // https://welileapp.com/auth for everyone).
+      let trackingUrl: string | null = null;
+      try {
+        const token = await ensureWithdrawalTrackingToken(
+          supabaseTrackingTokenStore(admin),
+          (w as any).id,
+        );
+        trackingUrl = token ? withdrawalTrackingUrl(token) : null;
+      } catch (e) {
+        console.warn(`[notify-withdrawal-released] tracking link unavailable for ${(w as any).id}:`, e);
+      }
+      const smsMsg = buildWithdrawalReleasedSms(amount, trackingUrl);
 
       let sent = false;
       let smsAttempts = 0;

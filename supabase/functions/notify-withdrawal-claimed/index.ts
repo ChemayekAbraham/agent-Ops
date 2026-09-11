@@ -7,6 +7,12 @@ import {
   finalizeSmsDelivery,
   type SmsAttemptRecord,
 } from "../_shared/smsDeliveryLog.ts";
+import {
+  buildWithdrawalAssignedSms,
+  ensureWithdrawalTrackingToken,
+  supabaseTrackingTokenStore,
+  withdrawalTrackingUrl,
+} from "../_shared/withdrawalTracking.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -279,13 +285,18 @@ Deno.serve(async (req) => {
       ? formattedMomo
       : (profileValid ? profilePhone : (momoValid ? formattedMomo : ""));
 
-    // Customer-facing SMS: never expose merchant agent identity.
-    const smsMsg =
-      `WELILE: Your withdrawal of UGX ${amount.toLocaleString()} is being processed. ` +
-      `Your money will arrive shortly.\n` +
-      `Track your transaction:\n` +
-      `https://welileapp.com/ZQhyGb\n` +
-      `For assistance, contact Welile Support on 0748747134.`;
+    // Customer-facing SMS: an assignment acknowledgement only — a claim is not
+    // a payment, so it must not say the money was sent or will arrive shortly.
+    // The link is this withdrawal's own stable tracking URL (receipt_token →
+    // /r/:token), never a shared placeholder. Never expose merchant identity.
+    let trackingUrl: string | null = null;
+    try {
+      const token = await ensureWithdrawalTrackingToken(supabaseTrackingTokenStore(admin), w.id);
+      trackingUrl = token ? withdrawalTrackingUrl(token) : null;
+    } catch (e) {
+      console.warn(`[notify-withdrawal-claimed] tracking link unavailable for ${w.id}:`, e);
+    }
+    const smsMsg = buildWithdrawalAssignedSms(amount, trackingUrl);
 
     let sent = false;
     let smsAttempts = 0;
@@ -377,13 +388,14 @@ Deno.serve(async (req) => {
       await admin.from("notifications").insert({
         user_id: w.user_id,
         type: "info",
-        title: "Withdrawal is being processed",
+        title: "Withdrawal assigned for processing",
         message:
-          `Welile merchant agent ${merchantName}${merchantPhone ? ` (${merchantPhone})` : ""} is now processing your withdrawal ` +
-          `of UGX ${amount.toLocaleString()}. You'll be notified again once the payout is complete.`,
+          `Your withdrawal of UGX ${amount.toLocaleString()} has been assigned to Welile merchant agent ` +
+          `${merchantName}${merchantPhone ? ` (${merchantPhone})` : ""}. You'll be notified again once payment has been sent.`,
         metadata: {
           kind: "withdrawal_update",
           stage: "processing",
+          tracking_url: trackingUrl,
           withdrawal_id: w.id,
           amount,
           merchant_agent: merchantName,

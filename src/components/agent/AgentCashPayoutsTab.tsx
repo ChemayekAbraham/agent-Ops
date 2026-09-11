@@ -170,11 +170,11 @@ function applyQueueFilters(q: any, o: QueueFilterOpts) {
   // returned by the merchant queue, even if its status column were somehow
   // left in a queue state by a failed follow-up write.
   q = applyMerchantQueueFence(q);
-  // Available = unclaimed only. There is no time-based auto-release any more —
-  // a claim stays with whoever took it until they confirm it (telecom
-  // confirmation SMS can be delayed well past any fixed window) or a human
-  // (FinOps/CFO) manually releases it. Excludes rows currently claimed by
-  // anyone (including me — those live in "Claimed by you").
+  // Available = unclaimed only. A claim stays with whoever took it until they
+  // confirm it, a human (FinOps/CFO) releases it, or — server-side only — the
+  // `release-stale-cashout-claims` cron returns it after 45 minutes with ZERO
+  // settlement evidence. Excludes rows currently claimed by anyone (including
+  // me — those live in "Claimed by you").
   q = q.is('assigned_cashout_agent_id', null);
 
   // Authorized payout categories (CFO permission matrix). Only surface rows in
@@ -745,8 +745,9 @@ export function AgentCashPayoutsTab() {
   const { data: queuePage, isLoading: loadingAll, isFetching: fetchingQueue, isError: queueError, refetch: refetchQueue } = useQuery({
     queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id],
     queryFn: async () => {
-      // There is no time-based release any more: a claim only becomes available
-      // again when a human (FinOps/CFO) explicitly clears assigned_cashout_agent_id.
+      // A claim becomes available again only when a human (FinOps/CFO) clears
+      // it or the server's stale-claim cron releases it (45 minutes, zero
+      // settlement evidence). The client never releases claims.
       const searchUserIds = debouncedSearch.trim() ? await resolveSearchUserIds(debouncedSearch) : null;
       const opts: QueueFilterOpts = {
         status: queueStatus, merchant: queueMerchant,
@@ -1354,10 +1355,10 @@ export function AgentCashPayoutsTab() {
 
   // A merchant agent may only hold ONE claim at a time. While a claim is open the
   // whole queue is locked so they must finish it before taking another — there is
-  // no time-based release (telecom confirmation delays made a fixed window
-  // unreliable; a still-paying merchant's request must never be offered to a
-  // second merchant). The only way out is confirming with proof, or a human
-  // (FinOps/CFO) manually releasing the claim.
+  // the server's `release-stale-cashout-claims` cron returning an abandoned
+  // claim after 45 minutes — which it refuses to do once any processing or
+  // settlement evidence exists. The other ways out are confirming with proof or
+  // a human (FinOps/CFO) releasing it. The client never releases a claim.
   const hasActiveClaim = myActiveClaims.length > 0;
   const totalPages = Math.max(1, Math.ceil(pageCount / PAGE_SIZE));
   const rangeStart = pageCount === 0 ? 0 : page * PAGE_SIZE + 1;
@@ -1847,7 +1848,7 @@ export function AgentCashPayoutsTab() {
                 Queue locked — finish your current claim
               </p>
               <p className="text-xs text-amber-700/80 dark:text-amber-400/80">
-                Complete it before claiming another — there's no time limit. Tap to jump to it.
+                Complete it before claiming another. With no payout activity recorded it may return to the shared queue after 45 minutes. Tap to jump to it.
               </p>
             </div>
           </button>

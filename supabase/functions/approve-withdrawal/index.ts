@@ -9,6 +9,11 @@ import {
 import { sendWhatsApp } from "../_shared/whatsapp.ts";
 import { resolveOwnedRecipientEmail } from "../_shared/ownedRecipientEmail.ts";
 import {
+  ensureWithdrawalTrackingToken,
+  supabaseTrackingTokenStore,
+  withdrawalTrackingUrl,
+} from "../_shared/withdrawalTracking.ts";
+import {
   logSmsDelivery,
   reserveSmsIdempotency,
   finalizeSmsDelivery,
@@ -3634,19 +3639,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Same per-withdrawal token the claim SMS linked to, so "track" and
+    // "receipt" are one stable URL. The in-app /receipt/:id route is the last
+    // resort only — it is authenticated, but it puts the internal id in a link.
     let receiptToken: string | null = null;
     try {
-      const { data: rtRow } = await admin
-        .from("withdrawal_requests")
-        .select("receipt_token")
-        .eq("id", withdrawal_id)
-        .maybeSingle();
-      receiptToken = (rtRow as any)?.receipt_token ?? null;
+      receiptToken = await ensureWithdrawalTrackingToken(
+        supabaseTrackingTokenStore(admin),
+        withdrawal_id,
+      );
     } catch (e) {
       console.error("[approve-withdrawal] receipt token fetch failed (non-fatal):", e);
     }
     const receiptUrl = receiptToken
-      ? `https://welileapp.com/r/${receiptToken}`
+      ? withdrawalTrackingUrl(receiptToken)
       : `https://welileapp.com/receipt/${withdrawal_id}`;
 
     // Cashout agent 0.5% commission (when caller is an active cashout agent, including staff roles).
