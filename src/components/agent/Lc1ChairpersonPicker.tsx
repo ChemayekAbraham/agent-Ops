@@ -236,7 +236,7 @@ export function Lc1ChairpersonPicker({
 
           <Button type="button" variant="outline" className="h-9 text-xs w-full" onClick={startNew}>
             <UserPlus className="h-4 w-4 mr-1.5" />
-            Register a new LC1 chairperson (earn UGX 2,000)
+            Register a new LC1 chairperson{context === 'agent' ? ' (earn UGX 2,000)' : ''}
           </Button>
         </div>
       )}
