@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays, startOfMonth } from 'date-fns';
 import { toast } from 'sonner';
@@ -22,11 +22,16 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import {
   generateTenantProductsServicesPdf, pctChange, pctLabel, tpsUgx,
   type TpsReport, type TpsTenantRow,
 } from '@/lib/generateTenantProductsServicesPdf';
+
+const TenantProductsProjections = lazy(() =>
+  import('./TenantProductsProjections').then((m) => ({ default: m.TenantProductsProjections })),
+);
 
 const PAGE_SIZE = 25;
 const CHART_COLORS = ['#7c3aed', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#ec4899', '#14b8a6'];
@@ -94,7 +99,7 @@ function KpiTile({
   );
 }
 
-export function TenantProductsServicesReport() {
+function TenantProductsServicesDailyReport() {
   const { user } = useAuth();
   const today = useMemo(() => new Date(), []);
   const [from, setFrom] = useState<Date>(today);
@@ -640,6 +645,29 @@ export function TenantProductsServicesReport() {
         </>
       ) : null}
     </div>
+  );
+}
+
+export function TenantProductsServicesReport() {
+  const [tab, setTab] = useState<'daily' | 'projections'>('daily');
+
+  return (
+    <Tabs value={tab} onValueChange={(v) => setTab(v as 'daily' | 'projections')} className="space-y-3">
+      <TabsList className="h-8">
+        <TabsTrigger value="daily" className="h-7 text-[11px]">Daily Report</TabsTrigger>
+        <TabsTrigger value="projections" className="h-7 text-[11px]">Projections</TabsTrigger>
+      </TabsList>
+      <TabsContent value="daily" className="mt-0">
+        <TenantProductsServicesDailyReport />
+      </TabsContent>
+      <TabsContent value="projections" className="mt-0">
+        {tab === 'projections' && (
+          <Suspense fallback={<Skeleton className="h-[320px] rounded-xl" />}>
+            <TenantProductsProjections />
+          </Suspense>
+        )}
+      </TabsContent>
+    </Tabs>
   );
 }
 

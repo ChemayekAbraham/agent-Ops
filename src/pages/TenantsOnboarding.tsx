@@ -18,7 +18,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Camera, Check, CircleDollarSign, Home, Loader2, MapPin,
   ShieldCheck, User, Wallet, CalendarDays, Info, Building2, CheckCircle2, AlertTriangle,
-  ChevronDown, HelpCircle, Mail, Phone,
+  ChevronDown, HelpCircle, Mail, Phone, Clock, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -934,6 +934,52 @@ export default function TenantsOnboarding() {
                     onChange={setLandlord}
                     placeholder="Search your landlord by name or phone"
                   />
+                  {/* Confirmation of what was picked. Without this the only
+                      sign a landlord had been chosen was the form below
+                      disappearing, which reads as the page breaking. */}
+                  {landlord && (
+                    <div className={cn(
+                      'rounded-xl border p-4',
+                      landlord.verified
+                        ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30'
+                        : 'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30',
+                    )}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[15px] font-bold text-foreground">{landlord.name}</p>
+                          <p className="truncate text-[13px] tabular-nums text-muted-foreground">{landlord.phone}</p>
+                          {landlord.property_address && (
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">{landlord.property_address}</p>
+                          )}
+                        </div>
+                        <span className={cn(
+                          'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-[2px] text-[10px] font-bold uppercase tracking-wide',
+                          landlord.verified
+                            ? 'border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+                            : 'border-amber-400 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+                        )}>
+                          {landlord.verified
+                            ? <><Check className="h-3 w-3" /> Verified</>
+                            : <><Clock className="h-3 w-3" /> Pending verification</>}
+                        </span>
+                      </div>
+
+                      {!landlord.verified && (
+                        <p className="mt-2.5 text-[13px] leading-snug text-muted-foreground">
+                          This landlord still has to finish verification before your request can be approved.
+                          You can carry on and submit now.
+                        </p>
+                      )}
+
+                      <Button type="button" variant="outline" size="sm"
+                        className="mt-3 h-8 gap-1.5 bg-background px-3 text-xs font-bold"
+                        onClick={() => setLandlord(null)}>
+                        <X className="h-3.5 w-3.5" />
+                        Not my landlord
+                      </Button>
+                    </div>
+                  )}
+
                   {!landlord && (
                     <div className="rounded-lg border bg-muted/40 p-3 space-y-3">
                       <p className="text-xs text-muted-foreground">

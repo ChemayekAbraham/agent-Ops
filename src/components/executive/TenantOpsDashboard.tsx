@@ -122,6 +122,8 @@ export function TenantOpsDashboard({
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<{ id: string; name: string } | null>(null);
+  /** Where the currently open tenant detail was launched from, so Back returns there. */
+  const [tenantDetailOrigin, setTenantDetailOrigin] = useState<ActiveView | null>(null);
   const [overviewFilter, setOverviewFilter] = useState<string | undefined>(undefined);
   // Lifecycle group the Pipeline Status hub should open on when it is entered
   // from one of the Classic "Pipeline status" tiles.
@@ -1320,11 +1322,18 @@ export function TenantOpsDashboard({
   ];
 
   const goBack = () => {
-    setActiveView('overview');
+    if (tenantDetailOrigin) {
+      const origin = tenantDetailOrigin;
+      setTenantDetailOrigin(null);
+      setActiveView(origin);
+    } else {
+      setActiveView('overview');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const openHub = (view: ActiveView) => {
+    setTenantDetailOrigin(null);
     setActiveView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1648,7 +1657,16 @@ export function TenantOpsDashboard({
           />
         );
       case 'tenant-locations-test':
-        return <TenantLocationsBrowser />;
+        return (
+          <TenantLocationsBrowser
+            onSelectTenant={(id, name) => {
+              setSelectedTenant({ id, name });
+              setTenantDetailOrigin('tenant-locations-test');
+              setActiveView('tenant-detail');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        );
       case 'portfolio-performance-hub':
         return <TenantOpsPortfolioPerformance />;
       case 'tenant-products-report':

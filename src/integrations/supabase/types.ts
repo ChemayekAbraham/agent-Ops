@@ -2089,6 +2089,13 @@ export type Database = {
             referencedColumns: ["rent_request_id"]
           },
           {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
             foreignKeyName: "agent_collections_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -3481,6 +3488,13 @@ export type Database = {
             referencedColumns: ["rent_request_id"]
           },
           {
+            foreignKeyName: "agent_float_withdrawals_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
             foreignKeyName: "agent_float_withdrawals_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -3940,6 +3954,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_landlord_assignments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -4571,6 +4592,13 @@ export type Database = {
             columns: ["subcounty_id"]
             isOneToOne: false
             referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["subcounty_id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_subcounty_id_fkey"
+            columns: ["subcounty_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
             referencedColumns: ["subcounty_id"]
           },
           {
@@ -6552,6 +6580,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -9722,6 +9757,13 @@ export type Database = {
             referencedColumns: ["rent_request_id"]
           },
           {
+            foreignKeyName: "commission_accrual_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
             foreignKeyName: "commission_accrual_ledger_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -10719,6 +10761,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "default_recovery_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
           {
             foreignKeyName: "default_recovery_ledger_tenant_id_fkey"
@@ -13479,6 +13528,13 @@ export type Database = {
             referencedColumns: ["rent_request_id"]
           },
           {
+            foreignKeyName: "fee_revenue_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
             foreignKeyName: "fee_revenue_ledger_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -15433,6 +15489,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_property_base"
             referencedColumns: ["listing_id"]
           },
+          {
+            foreignKeyName: "house_questions_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
         ]
       }
       house_reviews: {
@@ -15486,6 +15549,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_property_base"
             referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "house_reviews_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
           },
         ]
       }
@@ -18909,6 +18979,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
           },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
         ]
       }
       internship_applications: {
@@ -21546,6 +21623,13 @@ export type Database = {
             referencedRelation: "v_tlb_tenant_base"
             referencedColumns: ["village_id"]
           },
+          {
+            foreignKeyName: "lc1_chairpersons_ug_village_id_fkey"
+            columns: ["ug_village_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["village_id"]
+          },
         ]
       }
       lc1_verification_requests: {
@@ -23226,6 +23310,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_property_base"
             referencedColumns: ["listing_id"]
           },
+          {
+            foreignKeyName: "listing_photos_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
         ]
       }
       loan_applications: {
@@ -23368,6 +23459,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "location_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -23519,6 +23617,13 @@ export type Database = {
             referencedColumns: ["parish_id"]
           },
           {
+            foreignKeyName: "managed_locations_ug_parish_id_fkey"
+            columns: ["ug_parish_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["parish_id"]
+          },
+          {
             foreignKeyName: "managed_locations_ug_subcounty_id_fkey"
             columns: ["ug_subcounty_id"]
             isOneToOne: false
@@ -23557,6 +23662,13 @@ export type Database = {
             foreignKeyName: "managed_locations_ug_subcounty_id_fkey"
             columns: ["ug_subcounty_id"]
             isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["subcounty_id"]
+          },
+          {
+            foreignKeyName: "managed_locations_ug_subcounty_id_fkey"
+            columns: ["ug_subcounty_id"]
+            isOneToOne: false
             referencedRelation: "vw_agent_ops_directory"
             referencedColumns: ["subcounty_id"]
           },
@@ -23579,6 +23691,13 @@ export type Database = {
             columns: ["ug_village_id"]
             isOneToOne: false
             referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["village_id"]
+          },
+          {
+            foreignKeyName: "managed_locations_ug_village_id_fkey"
+            columns: ["ug_village_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
             referencedColumns: ["village_id"]
           },
         ]
@@ -25661,6 +25780,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
           },
+          {
+            foreignKeyName: "offline_collection_submissions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
         ]
       }
       onboarding_targets: {
@@ -27157,6 +27283,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_property_base"
             referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
           },
           {
             foreignKeyName: "partner_supported_houses_portfolio_id_fkey"
@@ -30199,6 +30332,13 @@ export type Database = {
             referencedColumns: ["listing_id"]
           },
           {
+            foreignKeyName: "promissory_note_house_intents_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
+          {
             foreignKeyName: "promissory_note_house_intents_note_id_fkey"
             columns: ["note_id"]
             isOneToOne: false
@@ -30358,6 +30498,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -30780,6 +30927,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_property_base"
             referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "property_viewings_house_listing_id_fkey"
+            columns: ["house_listing_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
           },
           {
             foreignKeyName: "property_viewings_landlord_id_fkey"
@@ -33069,6 +33223,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
           },
+          {
+            foreignKeyName: "rent_fee_collection_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
         ]
       }
       rent_history_records: {
@@ -33337,6 +33498,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_repayment_pauses_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
           {
             foreignKeyName: "rent_repayment_pauses_subscription_id_fkey"
@@ -33969,6 +34137,13 @@ export type Database = {
             referencedColumns: ["listing_id"]
           },
           {
+            foreignKeyName: "rent_requests_house_listing_id_fkey"
+            columns: ["house_listing_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
+          {
             foreignKeyName: "rent_requests_landlord_id_fkey"
             columns: ["landlord_id"]
             isOneToOne: false
@@ -34259,6 +34434,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "repayments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -34795,6 +34977,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_property_base"
             referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "saved_houses_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
           },
         ]
       }
@@ -37310,6 +37499,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
           },
+          {
+            foreignKeyName: "subscription_charges_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
         ]
       }
       support_diagnostic_reports: {
@@ -37484,6 +37680,13 @@ export type Database = {
             referencedColumns: ["rent_request_id"]
           },
           {
+            foreignKeyName: "supporter_capital_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
             foreignKeyName: "supporter_capital_ledger_supporter_id_fkey"
             columns: ["supporter_id"]
             isOneToOne: false
@@ -37653,6 +37856,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_property_base"
             referencedColumns: ["listing_id"]
           },
+          {
+            foreignKeyName: "supporter_invites_house_listing_id_fkey"
+            columns: ["house_listing_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
         ]
       }
       supporter_referrals: {
@@ -37795,6 +38005,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "supporter_roi_payments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -38653,6 +38870,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
           },
+          {
+            foreignKeyName: "tenant_idle_states_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
         ]
       }
       tenant_inactive_reviews: {
@@ -39394,6 +39618,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -40604,6 +40835,13 @@ export type Database = {
             foreignKeyName: "ug_parishes_subcounty_id_fkey"
             columns: ["subcounty_id"]
             isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["subcounty_id"]
+          },
+          {
+            foreignKeyName: "ug_parishes_subcounty_id_fkey"
+            columns: ["subcounty_id"]
+            isOneToOne: false
             referencedRelation: "vw_agent_ops_directory"
             referencedColumns: ["subcounty_id"]
           },
@@ -40641,6 +40879,13 @@ export type Database = {
             columns: ["county_id"]
             isOneToOne: false
             referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["county_id"]
+          },
+          {
+            foreignKeyName: "ug_subcounties_county_id_fkey"
+            columns: ["county_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
             referencedColumns: ["county_id"]
           },
         ]
@@ -40684,6 +40929,13 @@ export type Database = {
             columns: ["parish_id"]
             isOneToOne: false
             referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["parish_id"]
+          },
+          {
+            foreignKeyName: "ug_villages_parish_id_fkey"
+            columns: ["parish_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
             referencedColumns: ["parish_id"]
           },
         ]
@@ -43527,6 +43779,9 @@ export type Database = {
           fin_ops_reference: string | null
           fin_ops_verified_at: string | null
           fin_ops_verified_by: string | null
+          hidden_from_merchant_queue: boolean
+          hidden_from_merchant_queue_at: string | null
+          hidden_from_merchant_queue_by: string | null
           id: string
           initiated_by: string | null
           intent_key: string | null
@@ -43597,6 +43852,9 @@ export type Database = {
           fin_ops_reference?: string | null
           fin_ops_verified_at?: string | null
           fin_ops_verified_by?: string | null
+          hidden_from_merchant_queue?: boolean
+          hidden_from_merchant_queue_at?: string | null
+          hidden_from_merchant_queue_by?: string | null
           id?: string
           initiated_by?: string | null
           intent_key?: string | null
@@ -43667,6 +43925,9 @@ export type Database = {
           fin_ops_reference?: string | null
           fin_ops_verified_at?: string | null
           fin_ops_verified_by?: string | null
+          hidden_from_merchant_queue?: boolean
+          hidden_from_merchant_queue_at?: string | null
+          hidden_from_merchant_queue_by?: string | null
           id?: string
           initiated_by?: string | null
           intent_key?: string | null
@@ -45290,6 +45551,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
           },
+          {
+            foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
         ]
       }
       v_crm_call_audience: {
@@ -46313,6 +46581,13 @@ export type Database = {
             referencedColumns: ["listing_id"]
           },
           {
+            foreignKeyName: "partner_supported_houses_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
+          {
             foreignKeyName: "partner_supported_houses_portfolio_id_fkey"
             columns: ["portfolio_id"]
             isOneToOne: false
@@ -46618,6 +46893,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
           },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
         ]
       }
       v_rent_day_ledger: {
@@ -46783,6 +47065,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -47151,6 +47440,13 @@ export type Database = {
             referencedRelation: "v_tenant_ops_property_base"
             referencedColumns: ["listing_id"]
           },
+          {
+            foreignKeyName: "rent_requests_house_listing_id_fkey"
+            columns: ["house_listing_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
         ]
       }
       v_tenant_self_repayments: {
@@ -47225,6 +47521,75 @@ export type Database = {
           village_name: string | null
         }
         Relationships: []
+      }
+      v_tpsp_projection_base: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          county_id: number | null
+          county_name: string | null
+          cycle_end_date: string | null
+          district_id: number | null
+          district_name: string | null
+          house_id: string | null
+          house_label: string | null
+          landlord_id: string | null
+          landlord_name: string | null
+          legacy_location: string | null
+          monthly_landlord_cost: number | null
+          monthly_tenant_rent: number | null
+          parish_id: number | null
+          parish_name: string | null
+          plan_id: string | null
+          plan_status: string | null
+          region: string | null
+          registration_type: string | null
+          subcounty_id: number | null
+          subcounty_name: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+          tenant_phone: string | null
+          unmapped: boolean | null
+          village_id: number | null
+          village_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_requests_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_requests_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_requests_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "rent_requests_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "rent_requests_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
       }
       v_unsettled_payouts: {
         Row: {
@@ -57438,6 +57803,78 @@ export type Database = {
       tppo_projection_zone_a: {
         Args: { p_as_at: string; p_granularity: string }
         Returns: Json
+      }
+      tpsp_projection: {
+        Args: {
+          p_agent_id?: string
+          p_county_id?: number
+          p_district_id?: number
+          p_grain?: string
+          p_house_id?: string
+          p_landlord_id?: string
+          p_months?: number
+          p_parish_id?: number
+          p_region?: string
+          p_search?: string
+          p_subcounty_id?: number
+          p_unmapped?: boolean
+          p_village_id?: number
+        }
+        Returns: Json
+      }
+      tpsp_projection_filters: {
+        Args: {
+          p_agent_id?: string
+          p_county_id?: number
+          p_district_id?: number
+          p_landlord_id?: string
+          p_parish_id?: number
+          p_region?: string
+          p_subcounty_id?: number
+          p_unmapped?: boolean
+          p_village_id?: number
+        }
+        Returns: Json
+      }
+      tpsp_projection_rows: {
+        Args: {
+          p_agent_id?: string
+          p_county_id?: number
+          p_district_id?: number
+          p_house_id?: string
+          p_landlord_id?: string
+          p_limit?: number
+          p_months?: number
+          p_offset?: number
+          p_parish_id?: number
+          p_region?: string
+          p_search?: string
+          p_subcounty_id?: number
+          p_unmapped?: boolean
+          p_village_id?: number
+        }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          cycle_end_date: string
+          horizon_margin: number
+          horizon_tenant_rent: number
+          house_id: string
+          house_label: string
+          landlord_id: string
+          landlord_name: string
+          location_label: string
+          monthly_landlord_cost: number
+          monthly_margin: number
+          monthly_tenant_rent: number
+          plan_id: string
+          plan_status: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_count: number
+          unmapped: boolean
+        }[]
       }
       treasury_waterfall_go_live: { Args: never; Returns: string }
       treasury_waterfall_go_live_at: { Args: never; Returns: string }
