@@ -236,9 +236,17 @@ async function emitEvent(admin: any, eventType: string, row: any) {
   } catch (_) { /* non-fatal */ }
 }
 
-/** In-app + SMS + email fan-out to everyone holding the reviewing role. */
+const EXEC_APPROVER_ROLES = new Set(["ceo", "cto", "cfo", "coo"]);
+
+/**
+ * In-app + SMS + email fan-out to everyone holding the reviewing role.
+ * Review notifications only ever reach the exec team (CEO/CTO/CFO/COO) —
+ * department-level approver roles (agent_ops, tenant_ops, hr, cmo, ...)
+ * still own the stage and can act on it, they just aren't pinged.
+ */
 // deno-lint-ignore no-explicit-any
 async function notifyApprovers(admin: any, approverRole: string, row: any, requesterName: string) {
+  if (!EXEC_APPROVER_ROLES.has(approverRole)) return;
   try {
     const { data: holders } = await admin
       .from("user_roles")

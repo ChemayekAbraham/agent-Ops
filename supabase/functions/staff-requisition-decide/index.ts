@@ -315,8 +315,11 @@ async function notifyRequester(admin: any, row: any, message: string) {
   } catch (_) { /* non-fatal */ }
 }
 
+const EXEC_APPROVER_ROLES = new Set(["ceo", "cto", "cfo", "coo"]);
+
 // deno-lint-ignore no-explicit-any
 async function notifyApprovers(admin: any, approverRole: string, row: any) {
+  if (!EXEC_APPROVER_ROLES.has(approverRole)) return;
   try {
     const { data: holders } = await admin
       .from("user_roles").select("user_id").eq("role", approverRole).eq("enabled", true).limit(20);
