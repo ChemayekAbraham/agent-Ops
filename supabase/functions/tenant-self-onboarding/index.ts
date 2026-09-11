@@ -258,6 +258,10 @@ Deno.serve(async (req) => {
         landlord_id: landlordId, lc1_id: lc1Id,
         gps: gps_lat && gps_lng ? { lat: gps_lat, lng: gps_lng } : null,
         house_photos: houseUrls.length,
+        house_photo_urls: houseUrls,
+        tenant_photo_url: tenantPhotoUrl,
+        national_id_photo_url: idPhotoUrl,
+        tenant_note: tenant_note || null,
       },
     } as any).then(({ error }) => { if (error) console.warn("[tenant-self-onboarding] event failed", error.message); });
 
