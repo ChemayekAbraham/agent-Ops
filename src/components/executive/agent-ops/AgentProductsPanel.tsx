@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -112,7 +112,7 @@ const CATEGORY_LABELS: Record<AgentProductCategory, string> = {
 };
 
 const CATEGORY_SUGGESTIONS: Record<AgentProductCategory, string[]> = {
-  motor_bike: ['Welile Spiro Bike'],
+  motor_bike: [FLEET_BIKE_OPTION],
   smart_phone: ['Welile Smartphone'],
   signage: ['Signage (Shop Board)', 'Banner / Poster'],
   boutique: ['Welile Jumper', 'Welile Jacket', 'Welile Polo', 'Welile T-Shirt', 'Welile Cap', 'Company ID', 'Umbrella', 'Branded Bag'],
@@ -552,7 +552,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1.5">
                 <Plus className="h-4 w-4" />
-                New entry
+                {category === 'motor_bike' ? 'Assign company bike' : 'New entry'}
               </Button>
             </DialogTrigger>
             <IssueProductDialog
@@ -1029,6 +1029,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
               <p className="p-6 text-sm text-muted-foreground text-center">
                 {showCompleted
                   ? 'No agents have fully cleared their balance yet.'
+                  : category === 'motor_bike'
+                  ? 'No company fleet bikes assigned yet. Use “Assign company bike” to assign one.'
                   : scopeLabel
                   ? `No ${scopeLabel.toLowerCase()} with an outstanding balance. Use “New entry” to record one.`
                   : 'No products with an outstanding balance. Use “New entry” to record one.'}
@@ -1137,9 +1139,10 @@ function IssueProductDialog({
   catalog, centres, onDone, category,
 }: { catalog: CatalogItem[]; centres: CentreItem[]; onDone: () => void; category?: AgentProductCategory }) {
   const isSmartphone = category === 'smart_phone';
+  const isMotorBike = category === 'motor_bike';
   const [agentTerm, setAgentTerm] = useState('');
   const [agent, setAgent] = useState<{ id: string; full_name: string } | null>(null);
-  const [itemName, setItemName] = useState('');
+  const [itemName, setItemName] = useState(isMotorBike ? FLEET_BIKE_OPTION : '');
   const [quantity, setQuantity] = useState('1');
   const [unitPrice, setUnitPrice] = useState('');
   const [unitCost, setUnitCost] = useState('');
@@ -1180,6 +1183,9 @@ function IssueProductDialog({
   });
 
   const productOptions = useMemo(() => {
+    if (isMotorBike) {
+      return [FLEET_BIKE_OPTION];
+    }
     if (isSmartphone && phoneCatalog) {
       return phoneCatalog.map((p) => `${p.brand} ${p.model_name}`);
     }
@@ -1187,12 +1193,12 @@ function IssueProductDialog({
     catalog.forEach((c) => names.add(c.item_name));
     const list = Array.from(names).sort();
     // Company-owned bikes are assigned, never sold — offered on bike/full scopes only.
-    if (!category || category === 'motor_bike') list.push(FLEET_BIKE_OPTION);
+    if (!category) list.push(FLEET_BIKE_OPTION);
     return list;
-  }, [catalog, category, phoneCatalog, isSmartphone]);
+  }, [catalog, category, phoneCatalog, isSmartphone, isMotorBike]);
 
   /** Company fleet bike: assignment only, no price, no wallet recovery. */
-  const isFleetBike = itemName === FLEET_BIKE_OPTION;
+  const isFleetBike = isMotorBike || itemName === FLEET_BIKE_OPTION;
 
   // Smartphones are issued at cost + 33% markup (Access Amount). Other products keep the legacy markup UI.
   const INTEREST_RATE = 0.33;
@@ -1263,7 +1269,12 @@ function IssueProductDialog({
   return (
     <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>Issue product to agent</DialogTitle>
+        <DialogTitle>{isMotorBike ? 'Assign company bike to agent' : 'Issue product to agent'}</DialogTitle>
+        <DialogDescription>
+          {isMotorBike
+            ? 'Assign an operational company-owned motorbike to an agent. Commercial bike leases are processed through Bike Lease Applications.'
+            : 'Issue merchandise or products to an agent with optional repayment terms.'}
+        </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
         <div className="space-y-1.5">
@@ -1294,53 +1305,66 @@ function IssueProductDialog({
           )}
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Product</Label>
-          <Select
-            value={itemName}
-            onValueChange={(v) => {
-              setItemName(v);
-              if (isSmartphone) {
-                const hit = phoneCatalog?.find((p) => `${p.brand} ${p.model_name}` === v);
-                if (hit) {
-                  const accessAmount = Math.round(Number(hit.default_amount || 0) * 1.33);
-                  setUnitCost(String(hit.default_amount ?? ''));
-                  setUnitPrice(String(accessAmount));
+        {isMotorBike ? (
+          <div className="space-y-1.5">
+            <Label>Product entry</Label>
+            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm">
+              <div className="space-y-0.5">
+                <span className="font-semibold text-foreground">Company Fleet Bike</span>
+                <span className="block text-xs text-muted-foreground">Operational assignment only · No wallet deductions or lease markup</span>
+              </div>
+              <Badge variant="secondary" className="text-[11px]">Company Asset</Badge>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label>Product</Label>
+            <Select
+              value={itemName}
+              onValueChange={(v) => {
+                setItemName(v);
+                if (isSmartphone) {
+                  const hit = phoneCatalog?.find((p) => `${p.brand} ${p.model_name}` === v);
+                  if (hit) {
+                    const accessAmount = Math.round(Number(hit.default_amount || 0) * 1.33);
+                    setUnitCost(String(hit.default_amount ?? ''));
+                    setUnitPrice(String(accessAmount));
+                  }
+                } else {
+                  const hit = catalog.find((c) => c.item_name === v);
+                  if (hit) {
+                    setUnitPrice(String(hit.unit_price ?? ''));
+                    setUnitCost(String(hit.unit_cost ?? ''));
+                  }
                 }
-              } else {
-                const hit = catalog.find((c) => c.item_name === v);
-                if (hit) {
-                  setUnitPrice(String(hit.unit_price ?? ''));
-                  setUnitCost(String(hit.unit_cost ?? ''));
-                }
-              }
-            }}
-          >
-            <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-            <SelectContent>
-              {productOptions.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+              <SelectContent>
+                {productOptions.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {isFleetBike && (
-          <div className="space-y-3 rounded-lg border border-border p-3">
+          <div className="space-y-3 rounded-lg border border-border p-3 bg-muted/20">
             <div className="space-y-1.5">
               <Label>Bike model / description</Label>
               <Input
                 value={fleetModel}
                 onChange={(e) => setFleetModel(e.target.value)}
-                placeholder="e.g. Spiro fleet bike"
+                placeholder="e.g. Spiro Commando, Spiro Ekoride, Mocoo"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label>Plate / registration</Label>
-                <Input value={plateNumber} onChange={(e) => setPlateNumber(e.target.value)} placeholder="Optional" />
+                <Input value={plateNumber} onChange={(e) => setPlateNumber(e.target.value)} placeholder="e.g. ULE 123X (optional)" />
               </div>
               <div className="space-y-1.5">
                 <Label>Serial / chassis number</Label>
-                <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="Optional" />
+                <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="e.g. CHS-98214 (optional)" />
               </div>
             </div>
           </div>
@@ -1365,7 +1389,7 @@ function IssueProductDialog({
 
         {!isSmartphone && (
           <div className="space-y-1.5">
-            <Label>Service center</Label>
+            <Label>{isFleetBike ? 'Service center (optional)' : 'Service center'}</Label>
             <Select value={centreId} onValueChange={setCentreId}>
               <SelectTrigger><SelectValue placeholder="Select service center" /></SelectTrigger>
               <SelectContent>
@@ -1406,8 +1430,8 @@ function IssueProductDialog({
         )}
 
         <div className="space-y-1.5">
-          <Label>Notes</Label>
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+          <Label>{isFleetBike ? 'Notes (optional)' : 'Notes'}</Label>
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={isFleetBike ? 'e.g. Operational field route assignment' : 'Optional'} />
         </div>
 
         {isFleetBike ? (
@@ -1468,7 +1492,7 @@ function IssueProductDialog({
       </div>
       <DialogFooter>
         <Button onClick={() => mutation.mutate()} disabled={!valid || mutation.isPending} className="w-full">
-          {mutation.isPending ? 'Recording…' : isFleetBike ? 'Assign company bike' : 'Record entry'}
+          {mutation.isPending ? (isFleetBike ? 'Assigning…' : 'Recording…') : isFleetBike ? 'Assign company bike' : 'Record entry'}
         </Button>
       </DialogFooter>
     </DialogContent>
