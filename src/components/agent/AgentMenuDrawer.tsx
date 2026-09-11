@@ -142,6 +142,7 @@ export function AgentMenuDrawer({
   onOpenRequisition,
   onAngelPoolFunding,
   onShareTenantForm,
+  onInviteTenant,
   onSharePartnerForm,
   onShareLandlordSignup,
   onCreatePromissoryNote,

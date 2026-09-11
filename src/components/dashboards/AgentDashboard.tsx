@@ -339,6 +339,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   }, []);
 
   const [subAgentLinkOpen, setSubAgentLinkOpen] = useState(false);
+  const [tenantInviteOpen, setTenantInviteOpen] = useState(false);
   const { isMerchantAgent: isMerchantAgentEarly } = useIsMerchantAgent();
   // Weekly Listing Mission promo dialog removed — campaign expired.
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
