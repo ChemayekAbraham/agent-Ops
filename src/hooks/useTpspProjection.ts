@@ -169,6 +169,28 @@ export function useTpspProjectionFilters(filters: TpspFilters) {
   });
 }
 
+/**
+ * One-off read of the filtered plan detail (used by the PDF export, which needs
+ * every matching plan rather than the visible page). Same RPC, larger window.
+ */
+export async function fetchTpspProjectionRows(
+  filters: TpspFilters,
+  months: number,
+  limit: number,
+): Promise<{ rows: TpspDetailRow[]; total: number }> {
+  const { data, error } = await supabase.rpc('tpsp_projection_rows', {
+    p_months: months,
+    p_house_id: filters.houseId,
+    p_search: filters.search.trim() || null,
+    p_limit: limit,
+    p_offset: 0,
+    ...locationArgs(filters),
+  });
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as TpspDetailRow[];
+  return { rows, total: Number(rows[0]?.total_count ?? 0) };
+}
+
 export function useTpspProjectionRows(
   filters: TpspFilters,
   months: number,
