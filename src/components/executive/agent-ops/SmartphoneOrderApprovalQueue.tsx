@@ -418,7 +418,10 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
               <Badge variant="outline" className={STATUS_TONE.rejected}>{scoped.length} rejected</Badge>
             ) : (
               <>
-                <Badge variant="secondary">{pendingCount} awaiting COO</Badge>
+                <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>
+                <Badge variant="outline" className={STATUS_TONE.ops_approved}>
+                  {awaitingCooCount} awaiting COO
+                </Badge>
                 <Badge variant="outline" className={STATUS_TONE.coo_approved}>
                   {awaitingCfoCount} awaiting CFO
                 </Badge>
