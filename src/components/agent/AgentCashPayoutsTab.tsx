@@ -1394,11 +1394,12 @@ export function AgentCashPayoutsTab() {
               </Badge>
             </CardTitle>
             <p className="text-xs text-amber-700/80 dark:text-amber-400/80 mt-1">
-              Finish this first — the queue stays locked until you confirm, with no time limit. Telecom
-              providers can take a while to send the confirmation message — if you've already sent the
-              money, wait for it and confirm with proof whenever it arrives; this claim is never taken
-              from you automatically or reassigned to anyone else.
+              Finish this first — the queue stays locked until you confirm. If you have already sent the
+              money, wait for the telecom confirmation and confirm here with proof. If no payout activity
+              is recorded at all, an abandoned claim may return to the shared queue after 45 minutes; once
+              processing or payment evidence exists it is never taken from you.
             </p>
+
           </CardHeader>
           <CardContent className="space-y-2.5">
             {myActiveClaims.map((w: any) => (
@@ -1927,6 +1928,49 @@ export function AgentCashPayoutsTab() {
             </p>
           )}
         </div>
+
+        {/* You already hold a claim — say so here, with a way to reach it, so a
+            merchant never just gets a red toast when they tap Claim. */}
+        {hasActiveClaim && (
+          <div className="rounded-2xl border-2 border-amber-500/60 bg-amber-500/10 p-3 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-2 min-w-0">
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+                You already have a payout in progress
+              </p>
+              <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                Pay {formatUGX(Number(myActiveClaims[0]?.amount || 0))} and confirm it with proof. You
+                cannot claim another payout until that one is finished.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9"
+                onClick={() => claimedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              >
+                Open my claimed payout
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Why the list looks short: priority mode hides everything else. */}
+        {!hasActiveClaim && (blockingUrgentLandlord || blockingUrgentProxy) && (
+          <div className="rounded-2xl border-2 border-violet-500/50 bg-violet-500/5 p-3 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-violet-600 shrink-0 mt-0.5" />
+            <div className="space-y-1 min-w-0">
+              <p className="text-sm font-bold text-violet-800 dark:text-violet-300">
+                {blockingUrgentLandlord ? 'Landlord payouts come first' : 'Proxy payouts come first'}
+              </p>
+              <p className="text-xs text-violet-800/80 dark:text-violet-300/80">
+                Only these priority payouts are shown right now. The other {Math.max(0, totalPending - pageCount)} waiting
+                payouts appear again as soon as the priority ones are paid.
+              </p>
+            </div>
+          </div>
+        )}
+
+
 
         <Tabs value={channelTab} onValueChange={(v) => setChannelTab(v as 'all' | 'momo' | 'cash' | 'bank')}>
         <TabsList className="w-full h-12 p-1">
