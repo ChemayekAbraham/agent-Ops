@@ -1148,11 +1148,33 @@ export function AgentCashPayoutsTab() {
       // Server-side enforcement: the verified RPC checks that the MoMo number
       // and registered screen name being claimed exactly match the withdrawal's
       // stored payout details, then performs the race-guarded claim atomically.
-      const { data, error } = await supabase.rpc('claim_withdrawal_verified', {
-        p_withdrawal_id: vars.id,
-        p_momo_number: vars.momoNumber ?? null,
-        p_momo_name: vars.momoName ?? null,
-      });
+      // Mobile networks can leave fetches pending indefinitely. Bound the wait so
+      // the button always unlocks; the follow-up refetch then reconciles whether
+      // the server committed before the connection was interrupted.
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 20_000);
+      let data: unknown;
+      let error: any;
+      try {
+        const response = await supabase
+          .rpc('claim_withdrawal_verified', {
+            p_withdrawal_id: vars.id,
+            p_momo_number: vars.momoNumber ?? null,
+            p_momo_name: vars.momoName ?? null,
+          })
+          .abortSignal(controller.signal);
+        data = response.data;
+        error = response.error;
+      } catch (requestError: any) {
+        if (controller.signal.aborted) {
+          const timeoutError: any = new Error('The network did not confirm this claim. We are checking whether it completed.');
+          timeoutError.code = 'claim_timeout';
+          throw timeoutError;
+        }
+        throw requestError;
+      } finally {
+        window.clearTimeout(timeout);
+      }
       if (error) throw error;
       const result = data as any;
       if (!result || result.error) {
@@ -1162,14 +1184,15 @@ export function AgentCashPayoutsTab() {
         throw err;
       }
     },
-    onSuccess: async (_data, vars) => {
+    onSuccess: (_data, vars) => {
       toast.success('✅ Withdrawal claimed — proceed with payout');
       // Scroll up to "Claimed by you" as soon as it holds the claim.
       scrollToClaimed.current = true;
       // Pin the claimed row immediately rather than waiting on a list refetch
       // that can race the queue refresh — otherwise the row vanishes from the
       // queue with nothing in its place and the other Claim buttons stay live.
-      await pinMyClaim(vars.id);
+      // This follow-up read must never hold the claim button in its loading state.
+      void pinMyClaim(vars.id);
       invalidateQueue();
     },
     onError: (e: any) => {
@@ -1178,8 +1201,12 @@ export function AgentCashPayoutsTab() {
         toast.error('You already claimed a payout — it is pinned at the top. Finish it before claiming another.');
         scrollToClaimed.current = true;
         void pinMyClaim(e.blockingWithdrawalId);
+      } else if (e?.code === 'claim_timeout') {
+        toast.error('The connection timed out. Checking your claimed payouts now—do not claim another until the list refreshes.');
+        scrollToClaimed.current = true;
+        void refetchMyActiveClaims();
       } else {
-        toast.error(e.message);
+        toast.error(e?.message || 'The claim failed. Please try again.');
       }
       // Refresh so the lost-race row disappears from this agent's view immediately.
       invalidateQueue();
