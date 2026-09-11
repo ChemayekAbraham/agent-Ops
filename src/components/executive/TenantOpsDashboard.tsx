@@ -1322,7 +1322,13 @@ export function TenantOpsDashboard({
   ];
 
   const goBack = () => {
-    setActiveView('overview');
+    if (tenantDetailOrigin) {
+      const origin = tenantDetailOrigin;
+      setTenantDetailOrigin(null);
+      setActiveView(origin);
+    } else {
+      setActiveView('overview');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
