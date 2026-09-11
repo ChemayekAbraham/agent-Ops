@@ -27,6 +27,10 @@ const err = (msg: string, status = 400) =>
 const last9 = (v: string) => v.replace(/\D/g, "").slice(-9);
 const cleanNin = (v: string) => v.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 
+// Photos: JPG/JPEG/PNG only, 5 MB max. Mirrors the client-side rule.
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png"];
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
 function validPhone(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const digits = v.replace(/\D/g, "");
