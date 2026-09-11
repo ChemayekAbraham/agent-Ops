@@ -44,6 +44,9 @@ const OPEN_STATUSES = [
   "funded", "disbursed", "repaying",
 ];
 
+// Stages where the plan is already live and money is moving.
+const REPAYING_STATUSES = ["funded", "disbursed", "repaying"];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
