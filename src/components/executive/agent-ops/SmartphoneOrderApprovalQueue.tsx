@@ -242,9 +242,17 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
       stage,
       daily,
       days,
-    }: { id: string; amount: number; stage: 'coo' | 'cfo'; daily?: number; days?: number }) => {
+    }: { id: string; amount: number; stage: 'ops' | 'coo' | 'cfo'; daily?: number; days?: number }) => {
+      // One RPC per stage. The two review stages carry the access amount and the
+      // repayment terms; the CFO stage carries only the amount released.
+      const fn =
+        stage === 'cfo'
+          ? 'cfo_disburse_smartphone_order'
+          : stage === 'coo'
+            ? 'coo_approve_smartphone_order'
+            : 'agent_ops_approve_smartphone_order';
       const { data, error } = await db.rpc(
-        stage === 'cfo' ? 'cfo_disburse_smartphone_order' : 'coo_approve_smartphone_order',
+        fn,
         stage === 'cfo'
           ? { p_sale_id: id, p_amount: amount }
           : {
@@ -260,7 +268,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
     onSuccess: (data: any, variables) => {
       if (data?.stage === 'cfo') {
         toast.success(
-          `${formatUGX(Number(data?.total_amount || 0))} disbursed to the supplier's wallet. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated. The agent has been notified.`,
+          `${formatUGX(Number(data?.total_amount || 0))} paid to the assigned supplier. ${formatUGX(Number(data?.payment_projection || 0))} (33%) recovery plan activated on the agent. The agent has been notified.`,
         );
         // Fire-and-forget: tell the applying agent the down payment is with the
         // supplier and share the supplier's contact for tracking.
@@ -269,8 +277,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
           .catch((e) => console.error('[SmartphoneOrderApprovalQueue] notify failed', e));
       } else {
         const daily = Number(data?.access_daily_amount || 0);
+        const nextStage = data?.stage === 'ops' ? 'the COO' : 'the CFO for supplier payment';
         toast.success(
-          `Approved at ${formatUGX(Number(data?.total_amount || 0))}${daily > 0 ? ` · ${formatUGX(daily)}/day for ${Number(data?.access_repayment_days || 0)} days` : ''} and forwarded to the CFO for disbursement.`,
+          `Approved at ${formatUGX(Number(data?.total_amount || 0))}${daily > 0 ? ` · ${formatUGX(daily)}/day for ${Number(data?.access_repayment_days || 0)} days` : ''} and forwarded to ${nextStage}.`,
         );
       }
       closeApprove();
