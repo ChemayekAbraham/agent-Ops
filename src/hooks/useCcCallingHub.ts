@@ -400,12 +400,19 @@ export function useCcCallingHub(
   });
 
   /* ---------------------------------------------------------- state counts */
+  /**
+   * Search-aware on purpose: the queue page only lists the active state, so a
+   * name that sits in another state used to return an empty list with no clue
+   * where it went. With the search applied here the tab badges say which state
+   * the match is in. With no search the counts are the plain per-state totals.
+   */
   const countsQ = useQuery({
-    queryKey: ['cc-state-counts', subjectType, filtersKey],
+    queryKey: ['cc-state-counts', subjectType, filtersKey, view.search],
     queryFn: async (): Promise<Record<string, number>> => {
       const { data, error } = await rpc('cc_state_counts', {
         p_subject_type: subjectType,
         p_filters: filtersArg,
+        p_search: view.search.trim() || null,
       });
       if (error) throw new Error(err(error));
 
@@ -417,6 +424,7 @@ export function useCcCallingHub(
     },
     staleTime: 15_000,
   });
+
 
   /* ------------------------------------------------------- open attempts */
   const openAttemptsQ = useQuery({
