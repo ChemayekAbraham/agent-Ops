@@ -73,8 +73,11 @@ const STATUS_LABEL: Record<string, string> = {
   pending_approval: 'Awaiting Agent Ops',
   submitted: 'Awaiting Agent Ops',
   ops_approved: 'Awaiting COO',
-  coo_approved: 'Awaiting CFO disbursement',
-  approved: 'Paid to supplier & active',
+  coo_approved: 'Awaiting CFO',
+  approved: 'Funded',
+  completed: 'Funded',
+  disbursed: 'Funded',
+  funded: 'Funded',
 };
 
 const statusLabel = (s: string) => STATUS_LABEL[s] || s.replace(/_/g, ' ');
@@ -119,6 +122,12 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
         : 'ops';
   /** Both review stages (Agent Ops, COO) record terms and move money nowhere. */
   const isReviewStage = approveStage !== 'cfo';
+  /**
+   * Agent Ops is the only stage that sets the terms. From the moment they
+   * approve, the amount and repayment period are locked (read-only) for the COO
+   * and the CFO — they confirm the file, they do not re-price it.
+   */
+  const termsLocked = approveStage !== 'ops';
 
   const openApprove = (o: SmartphoneOrderRow) => {
     setApproveTarget(o);
@@ -894,11 +903,18 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                   min={1000}
                   step={1000}
                   inputMode="numeric"
-                  autoFocus
+                  autoFocus={!termsLocked}
+                  readOnly={termsLocked}
+                  disabled={termsLocked}
                   placeholder="e.g. 1200000"
                   value={officialAmount}
                   onChange={(e) => setOfficialAmount(e.target.value)}
                 />
+                {termsLocked && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Locked by Agent Operations — read-only at this stage.
+                  </p>
+                )}
               </div>
 
               {isReviewStage && (
@@ -913,6 +929,8 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                       min={1}
                       step={1}
                       inputMode="numeric"
+                      readOnly={termsLocked}
+                      disabled={termsLocked}
                       placeholder="e.g. 30"
                       value={repaymentDays}
                       onChange={(e) => setRepaymentDays(e.target.value)}
