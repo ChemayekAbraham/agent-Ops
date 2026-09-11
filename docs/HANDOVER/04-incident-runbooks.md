@@ -121,6 +121,30 @@ Automatic repair jobs already running: `repair-wallet-cache-drift-15m`,
 `refresh-wallet-totals-cache` (3 min), `wallet-projection-drift` (15 min),
 `nightly-wallet-ledger-reconciliation` (02:15). Give them a cycle before intervening by hand.
 
+**If the above says the cache agrees with the ledger and the balance is still "wrong," the ledger
+itself may have double-charged the user** — this is not drift, and steps 1-4 above will not fix
+it. Read `general_ledger` chronologically for the user (wallet-scope legs only) instead of
+trusting any single cached figure:
+
+```sql
+SELECT transaction_date, amount, direction, category, description, source_table, source_id
+FROM public.general_ledger
+WHERE user_id = '<uuid>' AND ledger_scope = 'wallet'
+ORDER BY transaction_date ASC;
+```
+
+Sum it by hand. If the same real-world payout (same amount, same rough date) produced **two**
+`cash_out` legs — one usually a generic manual correction with `source_table` unrelated to what
+it was actually fixing — that is a duplicate debit, not drift. Fix with a step-5 CFO balanced
+correction (credit back the duplicated amount), not a cache reseed.
+
+**Worked example:** Fredrick Baliddawa, 2026-09-11 — wallet showed UGX 5,200,000 right after a
+fresh UGX 7,000,000 credit. A prior UGX 1,800,000 withdrawal had been debited twice: once by a
+manual CFO correction with no link back to the withdrawal, and again months later by the
+stale-withdrawal-hold sweep, which had no way to see the first one. See
+[`07-tribal-knowledge.md` §7](./07-tribal-knowledge.md#7-a-stale-withdrawal-reconciliation-job-can-double-debit-a-wallet-a-manual-correction-already-fixed)
+for the root cause and the fix applied to `cfo_reconcile_stale_withdrawal`.
+
 ---
 
 ## D. Withdrawals are stuck
@@ -306,3 +330,79 @@ If the agent is frozen they see the full-screen `AgentFrozenGate` banner — che
 `fraud_identity_blocks`. Unblocks are audited in `agent_eligibility_unblock_events`.
 
 **Do not** bypass the gate for one agent. It is the platform's main collections-discipline control.
+
+---
+
+## L. An agent's commission stops even though their advance shows "completed"
+
+Real incident, 2026-09-11: agent Okwakol Micheal's `agent_advances` rows both showed
+`status='completed'`, `outstanding_balance=0` — yet his rent-collection commission had dropped
+and he could not withdraw anything. Two independent causes were stacked. Check both.
+
+**1. A bogus `agent_subagents` parent is skimming 2% off every collection.**
+
+`agent_allocate_tenant_payment_internal` (agent-float rent collections) checks whether the
+collecting agent is a **verified sub-agent of someone else**. If so, and they are not in
+`agent_subagent_commission_whitelist`, it pays 8% instead of 10% and routes the other 2% to
+`parent_agent_id` as a "recruiter override."
+
+```sql
+SELECT id, parent_agent_id, sub_agent_id, status, source, created_at
+FROM public.agent_subagents WHERE sub_agent_id = '<agent_uuid>';
+```
+
+If `parent_agent_id` resolves to someone who isn't a real recruiting agent (check `profiles` —
+Okwakol's was one of his own tenants), the row is bad. Void it:
+
+```sql
+UPDATE public.agent_subagents
+SET status = 'rejected', rejection_reason = '<why>'
+WHERE id = '<row_id>';
+```
+
+**This can be wider than one agent.** The bad `parent_agent_id` in this incident was reused
+across 392 other `agent_subagents` rows via `source='admin_assignment'`. Before closing the
+ticket, check whether the same `parent_agent_id` appears elsewhere:
+
+```sql
+SELECT status, source, count(*) FROM public.agent_subagents
+WHERE parent_agent_id = '<the bad parent id>' GROUP BY 1, 2 ORDER BY 3 DESC;
+```
+
+**2. Their real `withdrawable` balance is negative and clamped to 0 on screen.**
+
+`agent_advances.status` tracks the *loan*. The wallet-side `agent_repayment` recovery is a
+separate running total that can lag behind it. A negative `withdrawable` bucket clamps to 0 in
+`wallet_strict_for_user`, `wallet_balances_projection`, and the dashboard — so the agent sees
+"0", never "owed 229,580". Check the raw, unclamped sum:
+
+```sql
+SELECT sum(CASE WHEN direction IN ('cash_in','credit') THEN amount ELSE -amount END) AS raw_withdrawable
+FROM public.general_ledger
+WHERE user_id = '<agent_uuid>' AND ledger_scope = 'wallet' AND wallet_bucket = 'withdrawable'
+  AND (classification IS NULL OR classification = 'production');
+```
+
+If it's negative, that's the real story, not the advance-status column.
+
+**How to correct both, once approved:**
+
+- Reversing an erroneous credit (clawing back from whoever wrongly received it): post it as
+  `classification='admin_correction'`, `category='system_balance_correction'`,
+  `direction='cash_out'` — this is the *only* admin-correction shape `wallet_strict_for_user`
+  actually counts.
+- Making the wronged agent whole: **do not** use `classification='admin_correction'` on the
+  credit leg — a `cash_in` tagged `admin_correction` is silently excluded from every balance
+  calculation, for any category. It will insert without error and change nothing. Use
+  `classification='production'`, category `agent_commission_earned`, explicit
+  `wallet_bucket='withdrawable'`, balanced against an `agent_commission_payable` /
+  `ledger_scope='platform'` leg on the same user — the same double-entry shape every other
+  commission payout already uses.
+- Both legs go through `create_ledger_transaction`, never a raw `INSERT` —
+  `trg_enforce_ledger_rpc_only` blocks anything else.
+
+See [`07-tribal-knowledge.md` §6](./07-tribal-knowledge.md#6-a-bad-agent_subagents-row-can-silently-skim-an-agents-commission--and-hundreds-of-agents-can-share-the-same-bad-row)
+for the full incident writeup, including the specific IDs and the corrected ledger group ids.
+
+**Do not** assume "advance completed" means the agent's commission path is clean. The two are
+tracked independently and can drift apart.
