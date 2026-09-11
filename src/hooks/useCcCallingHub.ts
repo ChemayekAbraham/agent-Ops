@@ -477,8 +477,14 @@ export function useCcCallingHub(
   /** Per-cycle work-in-progress cap, set by ops. Null until the cycle loads. */
   const wipLimit: number | null =
     typeof cycleQ.data?.wip_limit === 'number' ? cycleQ.data.wip_limit : null;
-  /** Never block while the limit is unknown — the DB guard refuses if needed. */
-  const wipBlocked = wipLimit != null && openCount >= wipLimit;
+  /**
+   * Holding calls with pending feedback no longer blocks opening another call.
+   * The open-attempt figure stays visible (and `wipLimit` stays readable for the
+   * configuration read-out), but it never gates dialling — matching the DB
+   * trigger, which no longer refuses on the open-attempt count either. Recording
+   * feedback is still required to move a roster row.
+   */
+  const wipBlocked = false;
 
 
   /* ------------------------------------------------------------ reference */
