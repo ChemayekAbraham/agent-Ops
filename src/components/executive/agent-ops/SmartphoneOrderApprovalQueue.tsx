@@ -110,7 +110,15 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const approveStage: 'coo' | 'cfo' = approveTarget && isAwaitingCfo(approveTarget.order_status) ? 'cfo' : 'coo';
+  const approveStage: 'ops' | 'coo' | 'cfo' = !approveTarget
+    ? 'ops'
+    : isAwaitingCfo(approveTarget.order_status)
+      ? 'cfo'
+      : isAwaitingCoo(approveTarget.order_status)
+        ? 'coo'
+        : 'ops';
+  /** Both review stages (Agent Ops, COO) record terms and move money nowhere. */
+  const isReviewStage = approveStage !== 'cfo';
 
   const openApprove = (o: SmartphoneOrderRow) => {
     setApproveTarget(o);
