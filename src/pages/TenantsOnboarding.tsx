@@ -104,6 +104,10 @@ const MAX_RENT = 10000000;
 
 const cleanNin = (v: string) => v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
+// Photos: JPG/JPEG/PNG only, 5 MB max. Mirrored server-side in tenant-self-onboarding.
+const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
 interface PhotoSlot { file: File; preview: string }
 
 async function toDataUrl(file: File): Promise<string> {
@@ -1475,7 +1479,7 @@ function PhotoPicker({ onPick }: { onPick: (f: File) => void }) {
       <span className="flex flex-col items-center gap-1">
         <Camera className="h-5 w-5" /> Add photo
       </span>
-      <input type="file" accept="image/*" capture="environment" className="hidden"
+      <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = ''; }} />
     </label>
   );
@@ -1500,7 +1504,7 @@ function PhotoBox({ label, required, hint, slot, onPick, onClear }: {
           <span className="flex flex-col items-center gap-1.5">
             <Camera className="h-6 w-6" /> Take photo
           </span>
-          <input type="file" accept="image/*" capture="environment" className="hidden"
+          <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = ''; }} />
         </label>
       )}
