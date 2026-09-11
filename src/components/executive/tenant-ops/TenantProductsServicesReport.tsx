@@ -643,4 +643,27 @@ function TenantProductsServicesDailyReport() {
   );
 }
 
+export function TenantProductsServicesReport() {
+  const [tab, setTab] = useState<'daily' | 'projections'>('daily');
+
+  return (
+    <Tabs value={tab} onValueChange={(v) => setTab(v as 'daily' | 'projections')} className="space-y-3">
+      <TabsList className="h-8">
+        <TabsTrigger value="daily" className="h-7 text-[11px]">Daily Report</TabsTrigger>
+        <TabsTrigger value="projections" className="h-7 text-[11px]">Projections</TabsTrigger>
+      </TabsList>
+      <TabsContent value="daily" className="mt-0">
+        <TenantProductsServicesDailyReport />
+      </TabsContent>
+      <TabsContent value="projections" className="mt-0">
+        {tab === 'projections' && (
+          <Suspense fallback={<Skeleton className="h-[320px] rounded-xl" />}>
+            <TenantProductsProjections />
+          </Suspense>
+        )}
+      </TabsContent>
+    </Tabs>
+  );
+}
+
 export default TenantProductsServicesReport;
