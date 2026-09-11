@@ -3259,6 +3259,62 @@ Deno.serve(async (req) => {
         } else {
           merchantFloatConsumed = merchantFloatForPrincipal;
           merchantTelecomCharge = merchantFloatForTelecom;
+
+          // The status flip to `completed` above fires trg_merchant_payout_float_guard,
+          // which may already have posted this payout's float debit under the SAME
+          // idempotency key. When it has, the call above returns the guard's group
+          // without writing our entries -- and before 2026-09-11 the guard posted
+          // principal only, so the telecom fee silently went uncharged on ~75% of
+          // payouts. Read back what the ledger actually holds instead of trusting
+          // intent, and post a missing fee under the dedicated telecom key (the
+          // pre-2026-08-30 key, so a replay of an old payout cannot double-charge).
+          try {
+            const { data: postedLegs, error: legsErr } = await admin
+              .from("general_ledger")
+              .select("reference_id, amount")
+              .in("reference_id", [
+                `${withdrawal_id}-merchant-float-consume`,
+                `${withdrawal_id}-merchant-telecom-charge`,
+              ])
+              .eq("ledger_scope", "wallet")
+              .eq("direction", "cash_out");
+            if (legsErr) throw legsErr;
+            const sumFor = (ref: string) =>
+              (postedLegs ?? [])
+                .filter((l: any) => l.reference_id === ref)
+                .reduce((s: number, l: any) => s + Number(l.amount ?? 0), 0);
+            let postedPrincipal = sumFor(`${withdrawal_id}-merchant-float-consume`);
+            let postedTelecom = sumFor(`${withdrawal_id}-merchant-telecom-charge`);
+
+            if (postedTelecom <= 0 && merchantFloatForTelecom > 0 && postedPrincipal > 0) {
+              const { error: telErr } = await admin.rpc("create_ledger_transaction", {
+                entries: floatEntries.filter(
+                  (e) => e.reference_id === `${withdrawal_id}-merchant-telecom-charge`,
+                ),
+                idempotency_key: `approve-withdrawal-merchant-telecom-charge-${withdrawal_id}`,
+              });
+              if (telErr) {
+                console.error("[approve-withdrawal] telecom fee catch-up post failed:", telErr);
+                await logSettlementGap(
+                  "merchant_telecom_charge",
+                  merchantFloatForTelecom,
+                  `telecom leg missing after float debit (key pre-empted) and catch-up post failed: ${String((telErr as any)?.message ?? telErr)}`,
+                );
+              } else {
+                postedTelecom = merchantFloatForTelecom;
+              }
+            }
+
+            merchantFloatConsumed = postedPrincipal;
+            merchantTelecomCharge = postedTelecom;
+            // Whatever float did not cover is what the merchant fronted; the
+            // out-of-pocket block below files it.
+            merchantPrincipalShortfall = Math.max(0, amount - postedPrincipal);
+            merchantTelecomShortfall = Math.max(0, merchantTelecomExpected - postedTelecom);
+          } catch (readbackErr) {
+            console.error("[approve-withdrawal] float leg read-back failed; keeping intended amounts:", readbackErr);
+          }
+
           try {
             await admin.rpc("refresh_wallet_projection_for", { p_user_id: user.id });
           } catch (refreshErr) {

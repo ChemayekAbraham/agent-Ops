@@ -421,6 +421,26 @@ These fail without raising. They are the hardest class of bug in this system.
 | A crashed `tsc` | Reports zero errors |
 | A scheduled payment to a non-existent `user_id` | Fails daily, alerts nobody (see trap 5) |
 | A manual wallet correction with no `source_id` back to what it's fixing | Invisible to any other job's duplicate-debit guard — can get re-charged later (see trap 7) |
+| Two writers sharing one `create_ledger_transaction` idempotency key | The second caller gets the first caller's group id back with **no error** and none of its own entries written (see "Telecom fee dropped" below) |
+
+### Telecom fee dropped when the float guard wins the idempotency key (fixed 2026-09-11)
+
+`approve-withdrawal` sets the withdrawal `completed` *before* it posts the merchant float debit.
+That status change fires `trg_merchant_payout_float_guard` → `ensure_merchant_payout_float_debit`,
+which posts the float debit under the same key approve-withdrawal uses
+(`approve-withdrawal-merchant-float-consume-<id>`). When the 2026-08-30 change moved the telecom
+leg under that key, every payout the guard reached first (~75%) lost its telecom fee: the
+edge function's combined call returned the guard's principal-only group as a "success". Measured
+2026-09-11: ~770 payouts since 2026-08-31, zero telecom legs, and every one of them flagged
+`unsettled`.
+
+Fixed in `20260911180000_merchant_guard_posts_telecom_and_settlement_classifier_fix.sql` (the guard
+now posts principal + telecom) and in `approve-withdrawal` (reads back the legs actually posted and
+catches up a missing fee under `approve-withdrawal-merchant-telecom-charge-<id>`). The historical
+~770 are **not** backfilled — a Finance decision, because later float "set to" adjustments may
+already have absorbed the fees. **Rule:** if a trigger and an edge function can both write the
+same money movement, either one must write *all* of it, or they must use different keys and each
+check for the other's legs.
 
 ---
 
