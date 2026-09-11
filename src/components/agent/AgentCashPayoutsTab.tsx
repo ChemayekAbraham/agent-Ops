@@ -545,16 +545,16 @@ export function AgentCashPayoutsTab() {
   const channelProviderOrClause = useMemo(() => buildChannelProviderOrClause(agentConfig), [agentConfig]);
   const authorizedCategoryLabels = useMemo(() => authorizedQueueCategoryLabels(agentConfig), [agentConfig]);
 
-  // Release ONLY this agent's own expired claims. Never touch another merchant's
-  // in-flight claim from the client — a browser-side race previously stripped
-  // active claims out from under the paying merchant, causing the same tenant's
-  // withdrawal to reappear in the queue and be paid twice. The server-side
-  // `release_stale_cashout_claims()` cron is the sole authority for releasing
-  // OTHER merchants' stale claims, and it now refuses to release rows that have
-  // any settlement progress (proof / code / transaction id / processing marker).
+  // Stale claims are released ONLY by the server: the `release-stale-cashout-claims`
+  // pg_cron job (every 5 minutes) runs `release_stale_cashout_claims()`, which
+  // refuses to release any row with settlement progress (proof / code /
+  // transaction id / processing marker). The client never releases a claim —
+  // a browser-side race previously stripped active claims out from under the
+  // paying merchant, causing the same withdrawal to be paid twice.
   // Frozen accounts must never appear in the payout queue. Fetched once and
   // reused by the counts, page, and available-total queries so a freeze makes
   // the withdrawal disappear everywhere at once.
+
   const { data: frozenUserIds = [] } = useQuery({
     queryKey: ['cashout-frozen-user-ids'],
     queryFn: resolveFrozenUserIds,
@@ -1029,8 +1029,13 @@ export function AgentCashPayoutsTab() {
     return () => { supabase.removeChannel(channel); };
   }, [isCashoutAgent, qc, user?.id]);
 
-  // Auto-release stale claims (>15min) — client-side ticker so the UI updates
-  // immediately even between cron runs. Refreshes the list every 30s while open.
+  // Queue REFRESH ticker only — this interval re-fetches queue state every 30s
+  // and never mutates anything. Releasing a stale claim is server-authoritative:
+  // the `release-stale-cashout-claims` pg_cron job (every 5 minutes) calls
+  // `release_stale_cashout_claims()`, which only returns a claim to the pool
+  // after 45 minutes with ZERO settlement progress. The client must never
+  // release another merchant's claim.
+
   useEffect(() => {
     if (!isCashoutAgent) return;
     const tick = setInterval(() => {
