@@ -151,6 +151,29 @@ export function TenantCallingCenter() {
   const dialer = useTenantCallCenterDialer(hub);
   const { auto } = dialer;
 
+  /**
+   * A searched tenant must be findable whatever status they are sitting in.
+   * The queue can only list one status at a time, so when the selected status
+   * holds no match but another one does, move to the status that actually has
+   * the tenant. Nothing about the row, its status or its history changes — this
+   * is navigation only.
+   */
+  useEffect(() => {
+    if (!debouncedSearch.trim()) return;
+    if ((hub.counts[queueState] ?? 0) > 0) return;
+    const hit = CALLING_TABS.find((t) => (hub.counts[t.key] ?? 0) > 0);
+    if (hit && hit.key !== queueState) setQueueState(hit.key);
+  }, [debouncedSearch, hub.counts, queueState]);
+
+  /** Where else the current search matches, so nothing looks missing. */
+  const otherMatches = useMemo(
+    () =>
+      debouncedSearch.trim()
+        ? CALLING_TABS.filter((t) => t.key !== queueState && (hub.counts[t.key] ?? 0) > 0)
+        : [],
+    [debouncedSearch, hub.counts, queueState],
+  );
+
   /** A live or settling call always belongs on the Live Call page. */
   useEffect(() => {
     if (dialer.current && (dialer.live || dialer.needsOutcome)) setTab('live');
@@ -318,7 +341,7 @@ export function TenantCallingCenter() {
               <KPICard
                 key={t.key}
                 title={t.label}
-                value={hub.counts[t.key]}
+                value={hub.totalCounts[t.key]}
                 icon={TAB_ICON[t.key] ?? Phone}
                 color={TAB_ACCENT[t.key] ?? 'bg-primary/10 text-primary'}
                 onClick={() => {
@@ -328,6 +351,11 @@ export function TenantCallingCenter() {
               />
             ))}
           </div>
+
+          <p className="px-1 text-[11px] text-muted-foreground">
+            Whole roster: {Object.values(hub.totalCounts).reduce((a, b) => a + b, 0).toLocaleString()} tenants in this
+            calling round. Tap a card to work that status.
+          </p>
 
           <Card className="overflow-hidden">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
@@ -452,6 +480,13 @@ export function TenantCallingCenter() {
             </div>
           </div>
 
+
+          {otherMatches.length > 0 && (
+            <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-2 text-[11px] font-semibold text-sky-700">
+              Also matching “{debouncedSearch.trim()}” under{' '}
+              {otherMatches.map((t) => `${t.label} (${hub.counts[t.key]})`).join(', ')} — switch Status to see them.
+            </p>
+          )}
 
           {hub.wipBlocked && (
             <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] font-semibold text-amber-700">

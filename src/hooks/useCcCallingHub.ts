@@ -426,6 +426,33 @@ export function useCcCallingHub(
   });
 
 
+  /**
+   * Search-free per-state totals for the roster. The overview stat cards must
+   * always describe the whole cycle population, so they can never be reduced by
+   * whatever an officer happens to be typing in the search box. Only fetched
+   * while a search is active — otherwise the plain counts already are the
+   * totals and a second round trip would buy nothing.
+   */
+  const searchActive = view.search.trim().length > 0;
+  const totalCountsQ = useQuery({
+    queryKey: ['cc-state-counts', subjectType, filtersKey, ''],
+    enabled: searchActive,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await rpc('cc_state_counts', {
+        p_subject_type: subjectType,
+        p_filters: filtersArg,
+        p_search: null,
+      });
+      if (error) throw new Error(err(error));
+      const out: Record<string, number> = {};
+      for (const r of (data ?? []) as Record<string, unknown>[]) {
+        out[String(r.state)] = Number(r.row_count ?? 0);
+      }
+      return out;
+    },
+    staleTime: 15_000,
+  });
+
   /* ------------------------------------------------------- open attempts */
   const openAttemptsQ = useQuery({
     queryKey: ['cc-open-attempts', user?.id],
@@ -731,16 +758,21 @@ export function useCcCallingHub(
   }, [cycleId]);
 
 
-  const counts = useMemo(() => {
-    const c = countsQ.data ?? {};
-    return {
-      to_call: c.to_call ?? 0,
-      engaged: c.engaged ?? 0,
-      unreachable: c.unreachable ?? 0,
-      parked: c.parked ?? 0,
-      callback: c.callback ?? 0,
-    };
-  }, [countsQ.data]);
+  const shape = (c: Record<string, number>) => ({
+    to_call: c.to_call ?? 0,
+    engaged: c.engaged ?? 0,
+    unreachable: c.unreachable ?? 0,
+    parked: c.parked ?? 0,
+    callback: c.callback ?? 0,
+  });
+
+  /** Search-aware: says which status a searched name is sitting in. */
+  const counts = useMemo(() => shape(countsQ.data ?? {}), [countsQ.data]);
+  /** Roster-wide, never narrowed by search — for the overview stat cards. */
+  const totalCounts = useMemo(
+    () => (searchActive ? shape(totalCountsQ.data ?? countsQ.data ?? {}) : shape(countsQ.data ?? {})),
+    [searchActive, totalCountsQ.data, countsQ.data],
+  );
 
   const total = queueQ.data?.total ?? 0;
   const pageFrom = total === 0 ? 0 : view.page * CC_PAGE_SIZE + 1;
@@ -751,6 +783,8 @@ export function useCcCallingHub(
     cycle: cycleQ.data ?? null,
     progress: progressQ.data ?? null,
     counts,
+    totalCounts,
+    searchActive,
     populations: populationsQ.data ?? [],
     sortOptions: sortOptionsQ.data ?? [],
     filterOptions: filterOptionsQ.data ?? [],
