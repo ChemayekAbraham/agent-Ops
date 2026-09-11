@@ -99,7 +99,8 @@ export default defineConfig(({ mode }) => {
       generateBundle() {
         this.emitFile({ type: "asset", fileName: "build-info.json", source: JSON.stringify(buildInfo, null, 2) });
       },
-    },
+    } satisfies Plugin,
+
     mode === "development" && componentTagger(),
     mcpPlugin(),
     mcpPlugin({ mcpEntry: "src/lib/mcp-public/index.ts", functionName: "mcp-public" }),
