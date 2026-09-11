@@ -30,6 +30,8 @@ import { optimizeImage } from '@/lib/imageOptimizer';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
 import { cn } from '@/lib/utils';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,6 +112,17 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 interface PhotoSlot { file: File; preview: string }
 
+interface PassportCheck {
+  checking: boolean;
+  verdict?: 'pass' | 'review' | 'fail';
+  is_face?: boolean;
+  score?: number | null;
+  sha256?: string | null;
+  failures?: { id: string; label: string; severity: string; advice: string }[];
+  error?: string;
+}
+
+
 async function toDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -157,6 +170,11 @@ export default function TenantsOnboarding() {
   const [language, setLanguage] = useState('English');
   const [noSmartphone, setNoSmartphone] = useState(false);
   const [tenantPhoto, setTenantPhoto] = useState<PhotoSlot | null>(null);
+  /* Passport-photo quality verdict from the `verify-passport-photo` function.
+     Advisory only: a "review" verdict still lets the tenant continue, a human
+     looks at it later. Nothing here writes to the database. */
+  const [photoCheck, setPhotoCheck] = useState<PassportCheck | null>(null);
+
   const [idPhoto, setIdPhoto] = useState<PhotoSlot | null>(null);
   const [lcLetter, setLcLetter] = useState<PhotoSlot | null>(null);
   const [idCheck, setIdCheck] = useState<{
@@ -346,7 +364,7 @@ export default function TenantsOnboarding() {
         format: type === 'image/png' ? 'image/png' : 'image/jpeg',
       });
       const slot: PhotoSlot = { file: opt.file, preview: opt.previewUrl };
-      if (target === 'tenant') setTenantPhoto(slot);
+      if (target === 'tenant') { setTenantPhoto(slot); void runPassportCheck(slot.file); }
       else if (target === 'id') setIdPhoto(slot);
       else if (target === 'lc_letter') setLcLetter(slot);
       else setHousePhotos((p) => [...p, slot].slice(0, 4));
@@ -354,6 +372,35 @@ export default function TenantsOnboarding() {
       toast.error('That photo could not be used. Try another one.');
     }
   };
+
+  /* Grade the passport photo. Read-only: the checker keeps nothing, and a poor
+     verdict never blocks the tenant — it only tells them what to fix. */
+  const runPassportCheck = async (file: File) => {
+    setPhotoCheck({ checking: true });
+    try {
+      const image_base64 = await toDataUrl(file);
+      const { data, error } = await invokeEdgeFunction<{
+        verdict?: 'pass' | 'review' | 'fail';
+        is_face?: boolean;
+        score?: number | null;
+        sha256?: string | null;
+        failures?: { id: string; label: string; severity: string; advice: string }[];
+      }>('verify-passport-photo', { body: { image_base64 }, silent: true });
+
+      if (error || !data) { setPhotoCheck({ checking: false, error: 'not_checked' }); return; }
+      setPhotoCheck({
+        checking: false,
+        verdict: data.verdict,
+        is_face: data.is_face,
+        score: data.score ?? null,
+        sha256: data.sha256 ?? null,
+        failures: data.failures ?? [],
+      });
+    } catch {
+      setPhotoCheck({ checking: false, error: 'not_checked' });
+    }
+  };
+
 
   /* ------------------------------------------------------- validation ---- */
   const stepError = (s: number): string | null => {
@@ -369,6 +416,11 @@ export default function TenantsOnboarding() {
       if (c.length < 10 || c.length > 14) return 'National ID must be 10 to 14 characters';
       if (ninTakenByOther) return 'This National ID is already registered to another account';
       if (!tenantPhoto) return 'Take your passport photo';
+      // Only a definite "no face found" blocks; a `review` verdict is advisory.
+      if (photoCheck && !photoCheck.checking && !photoCheck.error && photoCheck.is_face === false) {
+        return 'No face was found in your passport photo. Please retake it.';
+      }
+
       if (!idPhoto) return 'Take a photo of your National ID';
       return null;
     }
@@ -994,11 +1046,38 @@ export default function TenantsOnboarding() {
                 </label>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <PhotoBox label="Passport photo" required hint="Clear face photo, no hat"
-                    slot={tenantPhoto} onPick={(f) => addPhoto(f, 'tenant')} onClear={() => setTenantPhoto(null)} />
+                  <div className="space-y-2">
+                    <PhotoBox label="Passport photo" required hint="Clear face photo, no hat"
+                      slot={tenantPhoto} onPick={(f) => addPhoto(f, 'tenant')}
+                      onClear={() => { setTenantPhoto(null); setPhotoCheck(null); }} />
+                    {photoCheck?.checking && (
+                      <Hint icon={Loader2} spin>Checking your photo…</Hint>
+                    )}
+                    {!photoCheck?.checking && photoCheck?.error && (
+                      <Hint icon={Info}>We could not check this photo now. You can still continue.</Hint>
+                    )}
+                    {!photoCheck?.checking && !photoCheck?.error && photoCheck?.is_face === false && (
+                      <Hint icon={AlertTriangle} tone="bad">No face was found in this photo. Please retake it.</Hint>
+                    )}
+                    {!photoCheck?.checking && !photoCheck?.error && photoCheck?.is_face && (
+                      <>
+                        {photoCheck.verdict === 'pass'
+                          ? <Hint icon={CheckCircle2} tone="ok">Good passport photo.</Hint>
+                          : <Hint icon={AlertTriangle} tone={photoCheck.verdict === 'fail' ? 'bad' : undefined}>
+                              {photoCheck.verdict === 'fail'
+                                ? 'This photo is not good enough. Please retake it.'
+                                : 'This photo may need a second look. You can retake it or continue.'}
+                            </Hint>}
+                        {(photoCheck.failures ?? []).slice(0, 3).map((f) => (
+                          <Hint key={f.id} icon={Info}>{f.advice || f.label}</Hint>
+                        ))}
+                      </>
+                    )}
+                  </div>
                   <PhotoBox label="National ID photo" required hint="Front of the card, all text readable"
                     slot={idPhoto} onPick={(f) => addPhoto(f, 'id')} onClear={() => setIdPhoto(null)} />
                 </div>
+
               </div>
             )}
 
