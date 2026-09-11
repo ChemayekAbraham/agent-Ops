@@ -239,12 +239,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           onToggle={() => toggleSection('position')}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card className="rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden">
-              <CardContent className="p-5">
+            <Card className="rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden h-full">
+              <CardContent className="p-5 h-full flex flex-col">
                 <button
                   type="button"
                   onClick={() => setMoneyWeHaveOpen(true)}
-                  className="w-full text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex-1"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-emerald-600">
