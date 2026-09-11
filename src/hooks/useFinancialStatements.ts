@@ -141,6 +141,85 @@ export interface IncomeStatementData {
   ebitda: number;
   ebitdaMargin: number; // percentage
   operatingMargin: number; // percentage
+  /**
+   * Ties the assembled statement back to the R1/X1-X5 trial balance and
+   * surfaces anything unaccounted for, so a missing category cannot pass
+   * silently the way X4 and X5 did.
+   */
+  reconciliation: {
+    revenue: { statement: number; ledgerR1: number; difference: number };
+    expenses: {
+      statement: number;
+      ledgerX1toX5: number;
+      byAccount: { X1: number; X2: number; X3: number; X4: number; X5: number };
+      difference: number;
+    };
+    unclassified: { agentCommissionEarnedPlatform: number; note: string };
+    unexplainedExpenseDifference: number;
+  };
+  /**
+   * What the company earned and spent in the selected period, and whether that
+   * was a profit or a loss. Derived from account codes (R1 vs X1-X5) rather
+   * than category name lists, so it is complete by construction and moves with
+   * the selected period.
+   */
+  periodSummary: {
+    periodLabel: string;
+    startDate: string | null;
+    endDate: string | null;
+    earned: number;
+    spent: number;
+    spentExcludingUnclassified: number;
+    profitOrLoss: number;
+    profitOrLossExcludingUnclassified: number;
+    isProfit: boolean;
+    unclassifiedExcluded: number;
+    spentByAccount: { X1: number; X2: number; X3: number; X4: number; X5: number };
+  };
+  /**
+   * Reporting-only disclosure: fee revenue earned under the existing rule that
+   * never reached R1, because recognition is gated to plans funded on or after
+   * the treasury waterfall go-live date.
+   *
+   * AS-AT, NOT A PERIOD FLOW. The figure is a cumulative stock measured at the
+   * current date. It is not period-filtered and must never be presented inside
+   * a period column, because no complete timestamped all-channel repayment
+   * event source exists to period-attribute it (validated 2026-09-11:
+   * agent_collections covers 54.2% of repayment, agent_collections +
+   * repayments covers 75.5%, and 24.5% is recorded in no event table at all).
+   *
+   * This is NOT part of reported revenue and does NOT affect operating income,
+   * net profit/loss or periodSummary. Nothing is posted to the ledger for it.
+   */
+  unrecognisedEarnedFeeRevenue: {
+    /** Exact display label. Says "As at Current Date" on purpose. */
+    label: string;
+    /** When the figure was measured. It is a stock at this instant. */
+    asAtDate: string;
+    /** Hard marker: this figure is NOT period-aware. Always false. */
+    periodAware: false;
+    /** As-at stock, complete across every repayment channel. */
+    earnedToDate: number;
+    recognisedToDate: number;
+    notYetRecognisedToDate: number;
+    basis: string;
+    excludedFromProfitAndLoss: boolean;
+    /**
+     * NOT FOR DISPLAY. Incomplete agent-channel-only period diagnostic, kept
+     * for engineering comparison only. Sees 54.2% of repayment activity, so
+     * presenting it as a period figure would be false precision. It is
+     * deliberately nested and verbosely named so it cannot be bound to a
+     * statement line by accident.
+     */
+    internalIncompleteAgentChannelDiagnostic: {
+      doNotDisplay: true;
+      isIncomplete: true;
+      coverageNote: string;
+      agentChannelEarnedInPeriod: number;
+      r1RecognisedInPeriod: number;
+      agentChannelGapInPeriod: number;
+    };
+  };
 }
 
 export interface CashFlowData {
@@ -447,14 +526,45 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       const [
         walletsRes, rentRequestsRes, advancesRes,
         allTimePlatformRes, promissoryNotesRes, receivablesTotalRes,
+        accountMapRes, periodCollectionsRes, allTimeFeeRevenueRes,
       ] = await Promise.all([
         supabase.rpc('get_wallet_totals'),
-        supabase.from('rent_requests').select('id, rent_amount, access_fee, request_fee, status, tenant_id, agent_id, created_at').limit(10000),
+        // amount_repaid / total_repayment / funded_at added for the
+        // unrecognised-earned-fee disclosure: they give each plan's fee share
+        // and prove it was actually funded. Purely additive to the existing
+        // consumers of this row set.
+        supabase.from('rent_requests').select('id, rent_amount, access_fee, request_fee, status, tenant_id, agent_id, created_at, amount_repaid, total_repayment, funded_at').limit(10000),
         supabase.from('agent_advances').select('access_fee, access_fee_collected, access_fee_status, status').in('status', ['active', 'overdue']),
         supabase.rpc('get_platform_cash_summary'),
         supabase.from('promissory_notes').select('amount, total_collected, status').in('status', ['pending', 'activated']),
         // Single authoritative Total Receivables (server-side v_receivables_lines).
         supabase.rpc('get_receivables_total'),
+        // The account map is the authority on whether a leg is a debit or a
+        // credit (`debit_when`). Reading it here lets the statement compute true
+        // net movements instead of guessing a category's natural direction.
+        // 93 rows, read-only, RLS-gated to the same finance roles that may view
+        // these statements.
+        supabase.from('ledger_account_map')
+          .select('ledger_scope, category, wallet_bucket, account_code, debit_when'),
+        // Collections IN THE SELECTED PERIOD, for the unrecognised-earned-fee
+        // disclosure. Uses the same p_start/p_end bounds as the ledger sums, so
+        // the disclosure moves with the chosen period instead of being a
+        // single as-at snapshot. Read-only; no money is derived from this.
+        (() => {
+          let q = supabase.from('agent_collections').select('rent_request_id, amount');
+          if (startDate) q = q.gte('created_at', startDate.toISOString());
+          if (endDate) q = q.lte('created_at', endDate.toISOString());
+          return q.limit(50000);
+        })(),
+        // All-time R1 fee revenue, needed for the CUMULATIVE half of the
+        // disclosure (the period-scoped sums cannot answer an as-at question).
+        // Roughly 300 legs, so this stays cheap.
+        supabase.from('general_ledger')
+          .select('amount, direction')
+          .eq('ledger_scope', 'platform')
+          .in('category', ['access_fee_collected', 'registration_fee_collected'])
+          .in('classification', ['production', 'legacy_real'])
+          .limit(20000),
       ]);
 
       const walletTotalsData = walletsRes.data as any;
@@ -469,6 +579,16 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       const excludeSynthetic = (rows: any[]) => rows.filter(r => r.category !== 'opening_balance');
       const sumBy = (rows: any[], cats: string[]) =>
         excludeSynthetic(rows).filter(r => cats.includes(r.category)).reduce((s, r) => s + Number(r.amount), 0);
+      /**
+       * LEGACY, retained deliberately. Takes a gross one-directional sum and
+       * discards the offsetting side, so reversals never reduce a line.
+       *
+       * The Income Statement no longer uses this — it uses netByCategory below.
+       * The Cash Flow statement and the category drilldowns still do, so their
+       * figures are unchanged by this pass. Migrating them is a separate
+       * decision because cash flow legitimately cares about gross movement in
+       * each direction, not net.
+       */
       const sumWithDirectionFallback = (
         preferredRows: any[], fallbackRows: any[], categories: string[],
       ) => {
@@ -478,18 +598,82 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
         }, 0);
       };
 
+      /**
+       * (scope|category) -> account + debit_when, from ledger_account_map.
+       * Bucket-specific rows (five of them) are keyed with the bucket appended
+       * so they never shadow the general mapping for the same category.
+       */
+      const acctMap = new Map<string, { account: string; debitWhen: string }>();
+      for (const m of ((accountMapRes.data ?? []) as any[])) {
+        const key = m.wallet_bucket
+          ? `${m.ledger_scope}|${m.category}|${m.wallet_bucket}`
+          : `${m.ledger_scope}|${m.category}`;
+        acctMap.set(key, { account: m.account_code, debitWhen: m.debit_when });
+      }
+
+      /**
+       * True net movement for a set of categories in one scope.
+       *
+       * A leg counts positive when its direction equals the account map's
+       * `debit_when`, and negative otherwise — the same basis
+       * get_treasury_cash_position uses. This replaces
+       * sumWithDirectionFallback, which took a GROSS one-directional sum and
+       * discarded the offsetting side, so a reversal never reduced its line
+       * (registration fee revenue read 1,549,966 gross against a true net of
+       * 109,966; agent_commission_earned overstated by 5,630,000).
+       *
+       * `nature` flips the sign for credit-natured lines (revenue) so callers
+       * still receive a positive number for a normal balance. An unmapped
+       * category contributes nothing rather than a guessed direction.
+       */
+      const netByCategory = (
+        scope: 'platform' | 'wallet' | 'bridge',
+        categories: string[],
+        nature: 'debit' | 'credit',
+      ) => {
+        const inRows = scopedRows(scope, 'cash_in');
+        const outRows = scopedRows(scope, 'cash_out');
+        return categories.reduce((total, cat) => {
+          const debitWhen = acctMap.get(`${scope}|${cat}`)?.debitWhen;
+          if (!debitWhen) return total;
+          const drRows = debitWhen === 'cash_in' ? inRows : outRows;
+          const crRows = debitWhen === 'cash_in' ? outRows : inRows;
+          const net = sumBy(drRows, [cat]) - sumBy(crRows, [cat]);
+          return total + (nature === 'debit' ? net : -net);
+        }, 0);
+      };
+
+      /**
+       * Net debit balance of a whole account code, across every scope and
+       * every category mapped to it. Used only by the reconciliation block, to
+       * compare the assembled statement against the trial balance and surface
+       * any residual rather than let it pass silently.
+       */
+      const accountNet = (code: string) => {
+        let net = 0;
+        for (const [key, m] of acctMap) {
+          if (m.account !== code) continue;
+          const [scope, cat] = key.split('|');
+          if (scope !== 'platform' && scope !== 'wallet' && scope !== 'bridge') continue;
+          const drRows = scopedRows(scope, m.debitWhen === 'cash_in' ? 'cash_in' : 'cash_out');
+          const crRows = scopedRows(scope, m.debitWhen === 'cash_in' ? 'cash_out' : 'cash_in');
+          net += sumBy(drRows, [cat]) - sumBy(crRows, [cat]);
+        }
+        return net;
+      };
+
       // ══════════════════════════════════════════════════════════════
       // INCOME STATEMENT — Platform scope ONLY (earned revenue & costs)
       // ══════════════════════════════════════════════════════════════
-      const accessFees = sumWithDirectionFallback(platformIn, platformOut, ['tenant_access_fee', 'access_fee', 'access_fee_collected']);
-      const requestFees = sumWithDirectionFallback(platformIn, platformOut, ['tenant_request_fee', 'request_fee', 'registration_fee_collected']);
-      const otherServiceIncome = sumWithDirectionFallback(platformIn, platformOut, ['platform_service_income', 'landlord_platform_fee', 'management_fee']);
-      const platformRewards = sumWithDirectionFallback(platformOut, platformIn, ['supporter_platform_rewards', 'supporter_reward', 'investment_reward', 'roi_payout', 'roi_expense']);
+      const accessFees = netByCategory('platform', ['tenant_access_fee', 'access_fee', 'access_fee_collected'], 'credit');
+      const requestFees = netByCategory('platform', ['tenant_request_fee', 'request_fee', 'registration_fee_collected'], 'credit');
+      const otherServiceIncome = netByCategory('platform', ['platform_service_income', 'landlord_platform_fee', 'management_fee'], 'credit');
+      const platformRewards = netByCategory('platform', ['supporter_platform_rewards', 'supporter_reward', 'investment_reward', 'roi_payout', 'roi_expense'], 'debit');
       // Agent commissions = direct payouts only. `agent_commission_earned` (which
       // includes the auto-paid UGX 5,000 listing bonus) is reclassified below as
       // a TRANSACTION EXPENSE — it is a per-event platform cost of acquiring a
       // listing, not a revenue-share commission. It is NEVER counted as revenue.
-      const agentCommissions = sumWithDirectionFallback(platformOut, platformIn, ['agent_commission_payout', 'agent_commission', 'agent_payout', 'agent_approval_bonus']);
+      const agentCommissions = netByCategory('platform', ['agent_commission_payable', 'agent_commission_payout', 'agent_commission', 'agent_payout', 'agent_approval_bonus'], 'debit');
       // Referral & agent bonuses (production + legacy)
       const referralBonuses = sumBy(walletIn, ['referral_bonus']) + sumBy(platformOut, ['referral_bonus']);
       const agentBonuses = sumBy(walletIn, ['agent_bonus']) + sumBy(platformOut, ['agent_bonus']);
@@ -497,23 +681,31 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       // Transaction expenses = per-transaction platform costs. Includes listing
       // bonuses (posted under `agent_commission_earned` by credit-listing-bonus)
       // alongside the dedicated `transaction_platform_expenses` bucket.
-      const transactionExpenses = sumWithDirectionFallback(platformOut, platformIn, ['transaction_platform_expenses', 'agent_commission_earned']);
-      const generalOperating = sumWithDirectionFallback(platformOut, platformIn, ['operational_expenses', 'platform_expense']);
+      const transactionExpenses = netByCategory('platform', ['transaction_platform_expenses'], 'debit');
+      const generalOperating = netByCategory('platform', ['operational_expenses', 'platform_expense'], 'debit');
       // 'employee_advance' deliberately excluded: an advance to an employee is a
       // receivable, not payroll cost. Including it overstated payroll and
       // operating expenses, and understated assets, until the advance was
       // repaid.
-      const payrollExpenses = sumWithDirectionFallback(platformOut, platformIn, ['salary_payment', 'payroll_expense']);
-      const agentRequisitions = sumWithDirectionFallback(platformOut, platformIn, ['agent_requisition']);
-      const financialAgentExpenses = sumWithDirectionFallback(platformOut, platformIn, ['platform_expense_disbursement']);
+      const payrollExpenses = netByCategory('platform', ['salary_payment', 'payroll_expense'], 'debit');
+      const agentRequisitions = netByCategory('platform', ['agent_requisition'], 'debit');
+      const financialAgentExpenses = netByCategory('platform', ['platform_expense_disbursement'], 'debit');
 
       // ── GAAP Expense Categories (proper ledger categories) ──
-      const marketingExpenseCat = sumWithDirectionFallback(platformOut, platformIn, ['marketing_expense']);
-      const generalAdminCat = sumWithDirectionFallback(platformOut, platformIn, ['general_admin_expense']);
-      const researchDevCat = sumWithDirectionFallback(platformOut, platformIn, ['research_development_expense']);
-      const taxExpenseCat = sumWithDirectionFallback(platformOut, platformIn, ['tax_expense']);
-      const interestExpenseCat = sumWithDirectionFallback(platformOut, platformIn, ['interest_expense']);
-      const equipmentExpenseCat = sumWithDirectionFallback(platformOut, platformIn, ['equipment_expense']);
+      const marketingExpenseCat = netByCategory('platform', ['marketing_expense'], 'debit');
+      const generalAdminCat = netByCategory('platform', ['general_admin_expense'], 'debit');
+      const researchDevCat = netByCategory('platform', ['research_development_expense'], 'debit');
+      const taxExpenseCat = netByCategory('platform', ['tax_expense'], 'debit');
+      const interestExpenseCat = netByCategory('platform', ['interest_expense'], 'debit');
+      const equipmentExpenseCat = netByCategory('platform', ['equipment_expense'], 'debit');
+
+      // X4 / X5 -- two expense accounts the statement previously omitted
+      // entirely, because it was assembled from category name lists rather
+      // than from account codes. Both are real platform costs.
+      //   X4 platform_loss_writeoff      -- losses written off
+      //   X5 merchant_oop_reimbursement  -- merchant out-of-pocket reimbursed
+      const platformLossWriteoff = netByCategory('platform', ['platform_loss_writeoff'], 'debit');
+      const merchantOopReimbursement = netByCategory('platform', ['merchant_oop_reimbursement'], 'debit');
 
       // Legacy expenses captured (description-based for historical data)
       const legacyMarketingExpense = sumBy(walletOut, ['marketing_expense']) + sumBy(platformOut, ['marketing_expense']);
@@ -555,7 +747,13 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       // Gross Profit less that subtotal did not reproduce Operating Income.
       // Operating Income, Net Income and EBITDA are all unchanged by this: the
       // same three amounts are simply removed once here instead of twice.
-      const operatingExpensesTotal = totalMarketingExpense + totalGeneralAdmin + totalPayroll + totalRnD + agentRequisitions + financialAgentExpenses + transactionExpenses + tenantDefaultCharges + debtClearance;
+      // `transactionExpenses` is deliberately NOT included here. It is already
+      // a cost of revenue via totalServiceCosts -> grossProfit, and including
+      // it again made operatingIncome subtract the same amount twice, deepening
+      // the reported loss by its full value.
+      const operatingExpensesTotal = totalMarketingExpense + totalGeneralAdmin + totalPayroll + totalRnD + agentRequisitions + financialAgentExpenses + tenantDefaultCharges + debtClearance
+        // X4 and X5, previously missing from every total.
+        + platformLossWriteoff + merchantOopReimbursement;
 
       const advanceAccessFeesCollected = activeAdvances.reduce((s: number, a: any) => s + Number(a.access_fee_collected || 0), 0);
 
@@ -613,6 +811,233 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       const ebitda = operatingIncome + depreciation + amortization;
       const ebitdaMargin = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : 0;
       const operatingMargin = totalRevenue > 0 ? (operatingIncome / totalRevenue) * 100 : 0;
+
+      // ══════════════════════════════════════════════════════════════
+      // RECONCILIATION — statement vs trial balance
+      // ══════════════════════════════════════════════════════════════
+      // The statement is assembled from category name lists, so a category
+      // added to an expense account after those lists were written is silently
+      // invisible. That is exactly how X4 and X5 came to be omitted in full.
+      // This block compares the assembled figures against the R1/X1-X5 net
+      // balances and surfaces any residual instead of letting it pass.
+      //
+      // Each component is counted ONCE here. Note transactionExpenses appears
+      // in both totalServiceCosts and operatingExpensesTotal in the presented
+      // statement; that pre-existing overlap is out of scope for this pass and
+      // is deliberately not replicated in this total.
+      const statementExpensesTotal =
+        platformRewards + agentCommissions + totalIncentiveCosts + transactionExpenses
+        + totalMarketingExpense + totalGeneralAdmin + totalPayroll + totalRnD
+        + agentRequisitions + financialAgentExpenses + tenantDefaultCharges + debtClearance
+        + platformLossWriteoff + merchantOopReimbursement
+        + interestExpense + taxProvision + depreciation;
+
+      // R1 is credit-natured, so a negative net debit is positive revenue.
+      const ledgerRevenue = -accountNet('R1');
+      const ledgerX1 = accountNet('X1');
+      const ledgerX2 = accountNet('X2');
+      const ledgerX3 = accountNet('X3');
+      const ledgerX4 = accountNet('X4');
+      const ledgerX5 = accountNet('X5');
+      const ledgerExpensesTotal = ledgerX1 + ledgerX2 + ledgerX3 + ledgerX4 + ledgerX5;
+
+      // Excluded on purpose, pending an accounting decision. platform
+      // agent_commission_earned is a catch-all whose balance is ~94%
+      // cfo_direct_credit (CFO direct credits to agent wallets). It is NOT the
+      // rent commission -- that is agent_commission_payable, now counted in
+      // agentCommissions. Until its treatment is agreed it is reported here as
+      // unclassified rather than assigned to a P&L line.
+      const unclassifiedAgentCommissionEarned =
+        netByCategory('platform', ['agent_commission_earned'], 'debit');
+
+      const incomeStatementReconciliation = {
+        revenue: {
+          statement: totalRevenue,
+          ledgerR1: ledgerRevenue,
+          difference: ledgerRevenue - totalRevenue,
+        },
+        expenses: {
+          statement: statementExpensesTotal,
+          ledgerX1toX5: ledgerExpensesTotal,
+          byAccount: { X1: ledgerX1, X2: ledgerX2, X3: ledgerX3, X4: ledgerX4, X5: ledgerX5 },
+          difference: ledgerExpensesTotal - statementExpensesTotal,
+        },
+        unclassified: {
+          agentCommissionEarnedPlatform: unclassifiedAgentCommissionEarned,
+          note: 'platform.agent_commission_earned — ~94% cfo_direct_credit. Excluded from the '
+              + 'P&L pending an accounting decision; not the rent commission.',
+        },
+        /** Residual after allowing for the deliberately unclassified balance. */
+        unexplainedExpenseDifference:
+          ledgerExpensesTotal - statementExpensesTotal - unclassifiedAgentCommissionEarned,
+      };
+
+      // ══════════════════════════════════════════════════════════════
+      // DISCLOSURE — earned fee revenue not yet recognised in R1
+      // ══════════════════════════════════════════════════════════════
+      // REPORTING ONLY. Nothing here posts to the ledger, and this amount is
+      // deliberately NOT added to reported revenue, operating income or net
+      // profit/loss. It exists so the statement shows that fee revenue has
+      // been earned under the existing rule but never reached R1.
+      //
+      // AS-AT, NOT PERIOD-AWARE. The headline figure is a cumulative stock at
+      // the current date. It is NOT period-filtered, and the period selector
+      // must not change it. A period-attributed version is not derivable:
+      // validated against production on 2026-09-11, no single timestamped
+      // event source covers all repayment channels —
+      //   agent_collections              254,838,044 of 470,504,196  = 54.2%
+      //   + repayments (deduped)         355,447,175 of 470,504,196  = 75.5%
+      //   recorded in NO event table     115,057,021                 = 24.5%
+      // Only rent_requests.amount_repaid is complete, and it carries no event
+      // timestamp, so it can be measured as-at but never sliced by period.
+      //
+      // WHY IT EXISTS: post_rent_fee_collection only recognises fees for plans
+      // inside is_treasury_waterfall_scope(), which requires
+      // funded_at >= treasury_waterfall_go_live_at() (2026-09-08). Plans funded
+      // before that boundary collect cash and earn fees but post no revenue.
+      //
+      // HOW IT IS CALCULATED (as-at)
+      //   fee share of a plan = (access_fee + request_fee) / total_repayment
+      //   earned to date       = SUM(amount_repaid x that plan's share)
+      //   recognised to date   = all-time R1 access_fee_collected
+      //                          + registration_fee_collected
+      //   disclosure           = earned to date - recognised to date (floor 0)
+      //
+      // Both sides are all-time, so they are measured on the same basis.
+      //
+      // NO DOUBLE COUNT: all-time recognised R1 fee revenue is subtracted, so
+      // any plan already inside the waterfall contributes nothing here.
+      //
+      // POPULATION — deliberately narrow:
+      //   * included: funded plans with status 'completed' or 'repaying'
+      //   * EXCLUDED: never-funded plans (quotations on applications; ~382.4m
+      //     of priced fees with no contract, no receivable, never revenue)
+      //   * EXCLUDED: unearned receivable (fees on future instalments — they
+      //     become revenue only as the tenant pays)
+      //   * EXCLUDED: funded-then-terminated plans (~19.5m). Their treatment is
+      //     an open accounting decision and is NOT classified as a write-off
+      //     here.
+      const feeShareByPlan = new Map<string, number>();
+      for (const r of (rentRequests as any[])) {
+        const funded = !!r.funded_at;
+        const live = r.status === 'completed' || r.status === 'repaying';
+        const total = Number(r.total_repayment || 0);
+        const fees = Number(r.access_fee || 0) + Number(r.request_fee || 0);
+        if (!funded || !live || total <= 0 || fees <= 0) continue;
+        feeShareByPlan.set(r.id, fees / total);
+      }
+
+      const agentChannelEarnedFeeInPeriod = ((periodCollectionsRes.data ?? []) as any[])
+        .reduce((sum, c) => {
+          const share = feeShareByPlan.get(c.rent_request_id);
+          if (!share) return sum;                       // excluded population
+          return sum + Number(c.amount || 0) * share;
+        }, 0);
+
+      const r1RecognisedFeeInPeriod = netByCategory(
+        'platform', ['access_fee_collected', 'registration_fee_collected'], 'credit',
+      );
+
+      // THE AS-AT FIGURE. This is the only one reported.
+      //
+      // rent_requests.amount_repaid is the single complete record of repayment:
+      // every channel (agent collection, tenant self-pay, deposit settlement,
+      // auto-charge, manual collection) updates it. It carries no event
+      // timestamp, which is precisely why this figure is as-at and not a
+      // period flow.
+      //
+      // Verified as at 2026-09-11 against production:
+      //   earned to date       124,310,292
+      //   recognised in R1      12,172,288
+      //   not yet recognised   112,138,004
+      // Computed live rather than hardcoded, so it stays true as repayment
+      // continues; the numbers above are the validation reference point.
+      const cumulativeEarnedFee = (rentRequests as any[]).reduce((sum, r) => {
+        const share = feeShareByPlan.get(r.id);
+        if (!share) return sum;
+        return sum + Number(r.amount_repaid || 0) * share;
+      }, 0);
+
+      const cumulativeRecognisedFee = ((allTimeFeeRevenueRes.data ?? []) as any[])
+        .reduce((sum, g) => sum + (g.direction === 'cash_in'
+          ? Number(g.amount || 0) : -Number(g.amount || 0)), 0);
+
+      const unrecognisedEarnedFeeRevenue = {
+        label: 'Earned Fee Revenue Not Yet Recognised — As at Current Date',
+        asAtDate: new Date().toISOString(),
+        /** Literal false: this figure is a stock, never a period flow. */
+        periodAware: false as const,
+
+        earnedToDate: cumulativeEarnedFee,
+        recognisedToDate: cumulativeRecognisedFee,
+        notYetRecognisedToDate: Math.max(0, cumulativeEarnedFee - cumulativeRecognisedFee),
+
+        basis: 'AS-AT, NOT PERIOD-AWARE. Each plan\'s fee share = (access_fee + request_fee) / '
+             + 'total_repayment, applied to all-time cash repaid '
+             + '(rent_requests.amount_repaid, the only complete repayment record), for FUNDED '
+             + 'plans with status completed or repaying, less all-time fee revenue already '
+             + 'posted to R1. Excluded: never-funded quotations (no contract, no receivable), '
+             + 'unearned future instalments, and funded-then-terminated plans (treatment still '
+             + 'an open decision, NOT classified as a write-off). Informational only: excluded '
+             + 'from revenue, operating income, net operating income, net profit/loss and the '
+             + 'period summary.',
+        excludedFromProfitAndLoss: true,
+
+        // NOT FOR DISPLAY. Retained for engineering comparison only. This sees
+        // agent_collections alone = 54.2% of repayment activity, so exposing it
+        // as a period figure would assert precision the data does not support.
+        internalIncompleteAgentChannelDiagnostic: {
+          doNotDisplay: true as const,
+          isIncomplete: true as const,
+          coverageNote: 'INCOMPLETE — agent-channel only, ~54.2% of repayment activity. '
+             + 'Diagnostic only. NOT the authoritative Income Statement figure and NOT a '
+             + 'complete period flow: tenant self-pay, deposit settlement, auto-charge and '
+             + 'manual collection write no agent_collections row, and 24.5% of repayment is '
+             + 'recorded in no event table at all.',
+          agentChannelEarnedInPeriod: agentChannelEarnedFeeInPeriod,
+          r1RecognisedInPeriod: r1RecognisedFeeInPeriod,
+          agentChannelGapInPeriod: Math.max(
+            0, agentChannelEarnedFeeInPeriod - r1RecognisedFeeInPeriod,
+          ),
+        },
+      };
+
+      // ══════════════════════════════════════════════════════════════
+      // PERIOD SUMMARY — earned, spent, profit or loss
+      // ══════════════════════════════════════════════════════════════
+      // Answers the three questions directly: what did the company earn in
+      // this period, what did it spend, and did it make a profit or a loss.
+      //
+      // Driven by ACCOUNT CODE (R1 revenue, X1-X5 expense) rather than by
+      // category name lists, so it is complete by construction: a newly added
+      // category reaching an expense account is counted automatically and can
+      // never be silently omitted the way X4 and X5 were. It moves with the
+      // selected period because it reads the same period-filtered rows.
+      //
+      // `spentExcludingUnclassified` removes the platform
+      // agent_commission_earned catch-all (~94% cfo_direct_credit), which has
+      // no agreed P&L treatment yet, so the figure can be read either way.
+      const periodEarned = ledgerRevenue;
+      const periodSpent = ledgerExpensesTotal;
+      const periodSpentExclUnclassified = periodSpent - unclassifiedAgentCommissionEarned;
+      const periodProfitOrLoss = periodEarned - periodSpent;
+      const periodProfitOrLossExclUnclassified = periodEarned - periodSpentExclUnclassified;
+
+      const periodSummary = {
+        periodLabel: formatPeriodLabel(activeFilters),
+        startDate: startDate ? startDate.toISOString() : null,
+        endDate: endDate ? endDate.toISOString() : null,
+        earned: periodEarned,
+        spent: periodSpent,
+        spentExcludingUnclassified: periodSpentExclUnclassified,
+        profitOrLoss: periodProfitOrLoss,
+        profitOrLossExcludingUnclassified: periodProfitOrLossExclUnclassified,
+        isProfit: periodProfitOrLoss >= 0,
+        unclassifiedExcluded: unclassifiedAgentCommissionEarned,
+        spentByAccount: {
+          X1: ledgerX1, X2: ledgerX2, X3: ledgerX3, X4: ledgerX4, X5: ledgerX5,
+        },
+      };
 
       // ══════════════════════════════════════════════════════════════
       // CASH FLOW — All categories tracked
@@ -905,6 +1330,12 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
           ebitda,
           ebitdaMargin,
           operatingMargin,
+          reconciliation: incomeStatementReconciliation,
+          periodSummary,
+          // Disclosure only, and AS-AT rather than a period flow.
+          // Intentionally NOT folded into revenue.total, operatingIncome,
+          // netOperatingIncome, netProfit/loss or periodSummary.
+          unrecognisedEarnedFeeRevenue,
         },
         cashFlow: {
           period: formatPeriodLabel(activeFilters),
