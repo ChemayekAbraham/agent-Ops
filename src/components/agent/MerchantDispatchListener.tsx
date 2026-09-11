@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  CLAIM_MESSAGES, outcomeFromClaimResponse, outcomeFromRpcError, reconcileClaim, withClaimUpserted,
+  type ClaimOutcome, type ClaimRpcResponse, type ClaimStatusResponse,
+} from '@/lib/merchantClaim';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { useMerchantOnlineStatus } from '@/hooks/useMerchantOnlineStatus';
@@ -53,6 +58,7 @@ export function MerchantDispatchListener() {
   const { isMerchantAgent } = useIsMerchantAgent();
   const { isOnline } = useMerchantOnlineStatus();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   const [queue, setQueue] = useState<DispatchCard[]>([]);
   const [now, setNow] = useState(Date.now());
@@ -158,27 +164,59 @@ export function MerchantDispatchListener() {
 
   const handleAccept = useCallback(
     async (card: DispatchCard) => {
+      // accept_withdrawal_dispatch is a thin wrapper over the canonical claim
+      // transaction (claim_withdrawal_verified): same locking, float
+      // reservation, idempotency and response contract as the queue button.
+      const toastId = `dispatch-${card.withdrawalId}`;
       setBusy(true);
-      const { data, error } = await supabase.rpc('accept_withdrawal_dispatch', {
-        p_withdrawal_id: card.withdrawalId,
-      });
+      let outcome: ClaimOutcome;
+      try {
+        const { data, error } = await supabase.rpc('accept_withdrawal_dispatch', {
+          p_withdrawal_id: card.withdrawalId,
+        });
+        outcome = error
+          ? outcomeFromRpcError(error)
+          : outcomeFromClaimResponse(data as unknown as ClaimRpcResponse);
+      } catch {
+        outcome = { kind: 'ambiguous' };
+      }
+      if (outcome.kind === 'ambiguous') {
+        toast.loading(CLAIM_MESSAGES.checking, { id: toastId });
+        outcome = await reconcileClaim(async () => {
+          // Not in the generated types until they are regenerated after the migration.
+          const { data, error } = await supabase.rpc('get_withdrawal_claim_status' as never, { p_withdrawal_id: card.withdrawalId } as never);
+          if (error) throw error;
+          return (data as unknown as ClaimStatusResponse) ?? null;
+        });
+      }
       setBusy(false);
-      const res = data as Record<string, unknown> | null;
-      if (error || !res || res.ok !== true) {
-        const reason = res?.error;
-        if (reason === 'already_claimed' || reason === 'not_available') {
-          toast.info('This withdrawal was already claimed by another agent.');
-        } else {
-          toast.error('Could not claim this withdrawal. Please try again.');
+
+      if (outcome.kind === 'claimed') {
+        // Seed "Claimed by you" with the returned claim so the payouts page
+        // opens on it without waiting for a list read.
+        const claim = outcome.claim;
+        if (claim?.assigned_cashout_agent_id) {
+          qc.setQueryData(['cashout-my-active-claims', claim.assigned_cashout_agent_id], withClaimUpserted(claim));
         }
+        toast.success(outcome.idempotent ? CLAIM_MESSAGES.alreadyYours : 'Claimed! Complete the payout now.', { id: toastId });
         dismiss(card.withdrawalId);
+        navigate('/agent/cash-payouts');
         return;
       }
-      toast.success('Claimed! Complete the payout now.');
+      if (outcome.kind === 'blocked_active_claim' || outcome.kind === 'unconfirmed') {
+        // Either way the merchant must look at "Claimed by you" before anything else.
+        if (outcome.kind === 'unconfirmed') toast.warning(outcome.message, { id: toastId, duration: 20_000 });
+        else toast.error(outcome.message, { id: toastId });
+        dismiss(card.withdrawalId);
+        navigate('/agent/cash-payouts');
+        return;
+      }
+      const message = 'message' in outcome ? outcome.message : CLAIM_MESSAGES.notClaimed;
+      if (outcome.kind === 'rejected' && outcome.tone === 'info') toast.info(message, { id: toastId });
+      else toast.error(message, { id: toastId });
       dismiss(card.withdrawalId);
-      navigate('/agent/cash-payouts');
     },
-    [dismiss, navigate],
+    [dismiss, navigate, qc],
   );
 
   const handleIgnore = useCallback(

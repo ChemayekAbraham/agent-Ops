@@ -62,6 +62,11 @@ import {
   isMerchantQueueSettled,
   applyMerchantQueueFence,
 } from '@/lib/merchantPayoutQueue';
+import {
+  CLAIM_MESSAGES, outcomeFromClaimResponse, outcomeFromRpcError, reconcileClaim,
+  removeFromQueuePage, withClaimUpserted,
+  type ClaimOutcome, type ClaimRpcResponse, type ClaimStatusResponse, type ClaimedWithdrawal,
+} from '@/lib/merchantClaim';
 
 // Aligned with FinOps dashboard (FinOpsWithdrawalVerification) so pending counts
 // match across dashboards. Sourced from the shared fence module, which mirrors the
@@ -603,65 +608,49 @@ export function AgentCashPayoutsTab() {
     retry: 2,
   });
 
-  // Put one of THIS merchant's claims straight into "Claimed by you" (full row,
-  // so the customer details the queue hides are shown). Used right after a
-  // successful claim and when the server refuses a new claim because of an
-  // existing one — the merchant must never be told "you have a payout in
-  // progress" without that payout on screen. Never touches another desk's row.
-  const pinMyClaim = async (withdrawalId: string) => {
-    const deskId = isCashoutAgent?.id;
-    if (!deskId || !withdrawalId) return;
-    let row: any = null;
-    const scoped = await supabase
-      .from('withdrawal_requests')
-      .select('*')
-      .eq('id', withdrawalId)
-      .eq('assigned_cashout_agent_id', deskId)
-      .maybeSingle();
-    row = scoped.data;
-    if (!row) {
-      // Fallback: read by id alone. Row-level security still only lets this
-      // merchant see a payout that is theirs, so this cannot leak another
-      // desk's customer — but it does survive a stale desk id in the client.
-      const byId = await supabase
-        .from('withdrawal_requests')
-        .select('*')
-        .eq('id', withdrawalId)
-        .maybeSingle();
-      row = byId.data;
-    }
-    if (!row) {
-      // Even the read failed: still refetch so the list has a chance to load,
-      // rather than silently leaving the merchant with nothing.
-      void refetchMyActiveClaims();
-      return;
-    }
-    const [withProfile] = await attachProfiles([row]);
-    qc.setQueryData(['cashout-my-active-claims', deskId], (old: any) => {
-      const list = Array.isArray(old) ? old : [];
-      return list.some((r: any) => r.id === withProfile.id)
-        ? list.map((r: any) => (r.id === withProfile.id ? withProfile : r))
-        : [...list, withProfile];
-    });
+  // Show a claim the server returned: into "Claimed by you", out of the Pending
+  // Queue, straight from the returned object — no second read. The server has
+  // already committed it; these are cache writes only.
+  const showClaimNow = async (claim: ClaimedWithdrawal) => {
+    const deskId = isCashoutAgent?.id ?? claim.assigned_cashout_agent_id;
+    if (!deskId) return;
+    // A list fetch that started before the claim must not land on top of it
+    // and make the claim vanish again.
+    await Promise.all([
+      qc.cancelQueries({ queryKey: ['cashout-my-active-claims', deskId] }),
+      qc.cancelQueries({ queryKey: ['cashout-queue-page'] }),
+    ]);
+    qc.setQueryData(['cashout-my-active-claims', deskId], withClaimUpserted(claim));
+    qc.setQueriesData<{ rows?: Array<{ id: string }>; count?: number } | undefined>(
+      { queryKey: ['cashout-queue-page'] },
+      (old) => removeFromQueuePage(old, claim.id) ?? undefined,
+    );
   };
 
-  // A weak mobile connection can lose the successful RPC response after the
-  // database has already committed the claim. Before presenting any ambiguous
-  // network / already-claimed result as a failure, ask the database whether the
-  // row now belongs to this merchant desk. This is read-only reconciliation;
-  // the claim itself still happens only inside claim_withdrawal_verified.
-  const claimCommittedForThisDesk = async (withdrawalId: string) => {
-    const deskId = isCashoutAgent?.id;
-    if (!deskId) return false;
-    const { data, error } = await supabase
-      .from('withdrawal_requests')
-      .select('id')
-      .eq('id', withdrawalId)
-      .eq('assigned_cashout_agent_id', deskId)
-      .in('status', MY_ACTIVE_CLAIM_STATUSES)
-      .is('processed_at', null)
-      .maybeSingle();
-    return !error && data?.id === withdrawalId;
+  // "Who owns this withdrawal now?" from the server (get_withdrawal_claim_status).
+  // Answers `mine` with the full claim, `other` without revealing which desk.
+  const fetchClaimStatus = async (withdrawalId: string): Promise<ClaimStatusResponse | null> => {
+    // Not in the generated types until they are regenerated after the migration.
+    const { data, error } = await supabase.rpc('get_withdrawal_claim_status' as never, { p_withdrawal_id: withdrawalId } as never);
+    if (error) throw error;
+    return (data as unknown as ClaimStatusResponse) ?? null;
+  };
+
+  // Put one of THIS merchant's claims on screen by id — used when the server
+  // refuses a new claim because of an existing one: the merchant must never be
+  // told "you have a payout in progress" without that payout in front of them.
+  const pinMyClaim = async (withdrawalId: string) => {
+    if (!withdrawalId) return;
+    try {
+      const status = await fetchClaimStatus(withdrawalId);
+      if (status?.state === 'mine' && status.claim) {
+        await showClaimNow(status.claim);
+        return;
+      }
+    } catch {
+      // fall through to a list refetch rather than leaving nothing on screen
+    }
+    void refetchMyActiveClaims();
   };
 
 
@@ -1159,22 +1148,20 @@ export function AgentCashPayoutsTab() {
     return () => window.clearTimeout(t);
   }, [myActiveClaims.length]);
 
-  // Claim a withdrawal request — ATOMIC: only succeeds if no one else has claimed it.
-  // The `.is('assigned_cashout_agent_id', null)` guard makes the UPDATE a single-row
-  // race-safe operation. If two agents click "Claim" at the same instant, only the
-  // first transaction commits; the second matches 0 rows and we surface a clear error.
+  // Claim a withdrawal — ONE server transaction (claim_withdrawal_verified):
+  // lock the row, reserve float, assign, return the claimed payout. A retry of
+  // our own claim is an idempotent success. The mutation resolves to a
+  // ClaimOutcome for every answer, so no tap ends silently; a lost or
+  // unreadable response is reconciled with get_withdrawal_claim_status and is
+  // never reported as a failure.
   const claimWithdrawal = useMutation({
-    mutationFn: async (vars: { id: string; momoNumber?: string | null; momoName?: string | null }) => {
-      // Server-side enforcement: the verified RPC checks that the MoMo number
-      // and registered screen name being claimed exactly match the withdrawal's
-      // stored payout details, then performs the race-guarded claim atomically.
-      // Mobile networks can leave fetches pending indefinitely. Bound the wait so
-      // the button always unlocks; the follow-up refetch then reconciles whether
-      // the server committed before the connection was interrupted.
+    mutationFn: async (vars: { id: string; momoNumber?: string | null; momoName?: string | null }): Promise<ClaimOutcome> => {
+      // Mobile networks can leave fetches pending indefinitely. Bound the wait
+      // so the button always unlocks; a timeout is UNKNOWN, not a failure.
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 20_000);
-      let data: unknown;
-      let error: any;
+      let data: unknown = null;
+      let error: unknown = null;
       try {
         const response = await supabase
           .rpc('claim_withdrawal_verified', {
@@ -1185,67 +1172,68 @@ export function AgentCashPayoutsTab() {
           .abortSignal(controller.signal);
         data = response.data;
         error = response.error;
-      } catch (requestError: any) {
-        if (await claimCommittedForThisDesk(vars.id)) return;
-        if (controller.signal.aborted) {
-          const timeoutError: any = new Error('The network did not confirm this claim. We are checking whether it completed.');
-          timeoutError.code = 'claim_timeout';
-          throw timeoutError;
-        }
-        throw requestError;
+      } catch (requestError) {
+        error = requestError;
       } finally {
         window.clearTimeout(timeout);
       }
-      if (error) throw error;
-      const result = data as any;
-      if (!result || result.error) {
-        if (
-          (result?.error === 'already_claimed' || result?.error === 'active_claim_exists') &&
-          await claimCommittedForThisDesk(vars.id)
-        ) {
-          return;
-        }
-        const err: any = new Error(result?.message || 'Unable to claim this withdrawal');
-        err.code = result?.error ?? null;
-        err.blockingWithdrawalId = result?.blocking_withdrawal_id ?? null;
-        throw err;
+
+      let outcome: ClaimOutcome = error
+        ? outcomeFromRpcError(error, controller.signal.aborted)
+        : outcomeFromClaimResponse(data as ClaimRpcResponse);
+      if (outcome.kind === 'ambiguous') {
+        toast.loading(CLAIM_MESSAGES.checking, { id: `claim-${vars.id}` });
+        outcome = await reconcileClaim(() => fetchClaimStatus(vars.id));
       }
+      return outcome;
     },
-    onSuccess: (_data, vars) => {
-      toast.success('✅ Withdrawal claimed — proceed with payout');
-      // Scroll up to "Claimed by you" as soon as it holds the claim.
-      scrollToClaimed.current = true;
-      // Pin the claimed row immediately rather than waiting on a list refetch
-      // that can race the queue refresh — otherwise the row vanishes from the
-      // queue with nothing in its place and the other Claim buttons stay live.
-      // This follow-up read must never hold the claim button in its loading state.
-      void pinMyClaim(vars.id);
+    onSuccess: async (outcome, vars) => {
+      const toastId = `claim-${vars.id}`;
+      switch (outcome.kind) {
+        case 'claimed':
+          // First visible state: the claim itself, under "Claimed by you".
+          scrollToClaimed.current = true;
+          if (outcome.claim) await showClaimNow(outcome.claim);
+          else await pinMyClaim(vars.id);
+          toast.success(outcome.message, { id: toastId });
+          break;
+        case 'blocked_active_claim':
+          // The server knows which payout this merchant still holds — show it.
+          toast.error(outcome.message, { id: toastId });
+          scrollToClaimed.current = true;
+          if (outcome.blockingWithdrawalId) void pinMyClaim(outcome.blockingWithdrawalId);
+          break;
+        case 'unconfirmed':
+          toast.warning(outcome.message, { id: toastId, duration: 20_000 });
+          scrollToClaimed.current = true;
+          void refetchMyActiveClaims();
+          break;
+        case 'rejected':
+          if (outcome.tone === 'info') toast.info(outcome.message, { id: toastId });
+          else toast.error(outcome.message, { id: toastId });
+          break;
+        case 'not_claimed_retry':
+          toast.error(outcome.message, { id: toastId });
+          break;
+        case 'ambiguous':
+          toast.warning(CLAIM_MESSAGES.unconfirmed, { id: toastId, duration: 20_000 });
+          break;
+      }
+      // Background reconciliation only — the claim is already on screen.
       invalidateQueue();
     },
-    onError: (e: any) => {
-      if (e?.code === 'active_claim_exists' && e?.blockingWithdrawalId) {
-        // The server knows which payout this merchant still holds — show it.
-        toast.error('You already claimed a payout — it is pinned at the top. Finish it before claiming another.');
-        scrollToClaimed.current = true;
-        void pinMyClaim(e.blockingWithdrawalId);
-      } else if (e?.code === 'claim_timeout') {
-        toast.error('The connection timed out. Checking your claimed payouts now—do not claim another until the list refreshes.');
-        scrollToClaimed.current = true;
-        void refetchMyActiveClaims();
-      } else {
-        toast.error(e?.message || 'The claim failed. Please try again.');
-      }
-      // Refresh so the lost-race row disappears from this agent's view immediately.
+    onError: (e: unknown, vars) => {
+      toast.error((e instanceof Error && e.message) || CLAIM_MESSAGES.notClaimed, { id: `claim-${vars.id}` });
       invalidateQueue();
     },
-    onSettled: (_d, error, vars) => {
+    onSettled: (outcome, _error, vars) => {
       const withdrawalId = vars?.id;
       // Send the "merchant agent X is processing your withdrawal" SMS only when
       // the claim actually committed for THIS agent. On a failed/lost-race claim
       // the withdrawal is not ours, and notifying would 409. Fire-and-forget so
       // telco hiccups never affect the UI.
       if (withdrawalId) {
-        if (!error) {
+        if (outcome?.kind === 'claimed') {
           supabase.functions
             .invoke('notify-withdrawal-claimed', { body: { withdrawal_id: withdrawalId } })
             .catch((e) => console.warn('[claim] notify SMS failed', e));
