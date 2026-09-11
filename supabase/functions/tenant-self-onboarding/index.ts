@@ -216,7 +216,13 @@ Deno.serve(async (req) => {
       // returned null for those, which then tripped the tenant-photo trigger.
       const m = dataUrl.match(/^data:([^;,]+)?;base64,([\s\S]+)$/);
       if (!m) return null;
-      const contentType = m[1] && m[1].startsWith("image/") ? m[1] : "image/jpeg";
+      // Only JPG/JPEG/PNG are accepted, mirroring the client-side rule.
+      const declared = (m[1] ?? "").split(";")[0].toLowerCase();
+      if (!ALLOWED_IMAGE_TYPES.includes(declared)) {
+        console.warn("[tenant-self-onboarding] rejected image type", bucket, declared);
+        return null;
+      }
+      const contentType = declared === "image/jpg" ? "image/jpeg" : declared;
       let raw: Uint8Array;
       try {
         raw = Uint8Array.from(atob(m[2].replace(/\s/g, "")), (c) => c.charCodeAt(0));
@@ -225,6 +231,17 @@ Deno.serve(async (req) => {
         return null;
       }
       if (raw.byteLength === 0) return null;
+      if (raw.byteLength > MAX_IMAGE_BYTES) {
+        console.warn("[tenant-self-onboarding] image over size limit", bucket, raw.byteLength);
+        return null;
+      }
+      // Magic-byte check: JPEG starts FF D8 FF, PNG starts 89 50 4E 47.
+      const isJpeg = raw[0] === 0xff && raw[1] === 0xd8 && raw[2] === 0xff;
+      const isPng = raw[0] === 0x89 && raw[1] === 0x50 && raw[2] === 0x4e && raw[3] === 0x47;
+      if (!(isJpeg || isPng)) {
+        console.warn("[tenant-self-onboarding] image failed signature check", bucket);
+        return null;
+      }
       const { error: upErr } = await admin.storage.from(bucket)
         .upload(path, raw, { contentType, cacheControl: "86400", upsert: true });
       if (upErr) { console.warn("[tenant-self-onboarding] upload failed", bucket, upErr.message); return null; }
