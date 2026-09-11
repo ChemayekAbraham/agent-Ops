@@ -20,6 +20,7 @@ import type { CcCallingHub, CcRow } from '@/hooks/useCcCallingHub';
 import { CC_OUTCOME_LABEL } from '@/hooks/useCcCallHistory';
 import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
 import { TenantCallContextPanel } from './TenantCallContextPanel';
+import { TenantPaymentHistoryPanel } from './TenantPaymentHistoryPanel';
 
 const titleCase = (v?: string | null) => (v ? String(v).replace(/_/g, ' ') : null);
 
