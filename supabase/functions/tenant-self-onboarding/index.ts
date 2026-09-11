@@ -88,6 +88,51 @@ Deno.serve(async (req) => {
       return ok(result);
     }
 
+    /* -------------------------------------------- application_status ------
+       Read-only gate for the self-onboarding form. Looks for an existing open
+       rent request belonging to this person — matched on their own user id AND
+       on any other profile carrying the same phone number or the same email —
+       so one household cannot be vetted or supported twice on one plan.
+       Returns nothing but the stage; no financial data, no other identities. */
+    if (action === "application_status") {
+      const { data: me } = await admin
+        .from("profiles").select("id, phone, email").eq("id", userId).maybeSingle();
+
+      const ids = new Set<string>([userId]);
+      const myPhone = last9(String((me as any)?.phone || ""));
+      const myEmail = String((me as any)?.email || authData.user.email || "").trim();
+
+      if (myPhone.length === 9) {
+        const { data } = await admin.from("profiles").select("id").ilike("phone", `%${myPhone}`).limit(20);
+        (data ?? []).forEach((r: any) => ids.add(r.id));
+      }
+      if (myEmail) {
+        const { data } = await admin.from("profiles").select("id").ilike("email", myEmail).limit(20);
+        (data ?? []).forEach((r: any) => ids.add(r.id));
+      }
+
+      const { data: rows } = await admin
+        .from("rent_requests")
+        .select("id, status, created_at, tenant_id")
+        .in("tenant_id", Array.from(ids))
+        .in("status", OPEN_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const open = rows ?? [];
+      if (open.length === 0) return ok({ blocked: false, stage: "none" });
+
+      const active = open.find((r: any) => REPAYING_STATUSES.includes(r.status)) ?? open[0];
+      const stage = REPAYING_STATUSES.includes(active.status) ? "repaying" : "under_review";
+      return ok({
+        blocked: true,
+        stage,
+        status: active.status,
+        created_at: active.created_at,
+        other_account: active.tenant_id !== userId,
+      });
+    }
+
     /* --------------------------------------------------------- submit ----- */
     if (action !== "submit") return err("Unknown action");
 
