@@ -18,7 +18,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Camera, Check, CircleDollarSign, Home, Loader2, MapPin,
   ShieldCheck, User, Wallet, CalendarDays, Info, Building2, CheckCircle2, AlertTriangle,
-  ChevronDown, HelpCircle, Mail, Phone, Clock, X,
+  ChevronDown, HelpCircle, Mail, Phone, Clock, X, UserPlus, ShieldQuestion, Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -39,7 +39,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PhoneInput } from '@/components/ui/phone-input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -167,6 +169,8 @@ export default function TenantsOnboarding() {
      excluded: they are large blobs and localStorage would blow its quota. */
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [helpOpen, setHelpOpen] = useState(false);
+  const [addLandlordOpen, setAddLandlordOpen] = useState(false);
+  const [declared, setDeclared] = useState(false);
 
   /* Step 5 */
   const [landlord, setLandlord] = useState<LandlordOption | null>(null);
@@ -235,6 +239,17 @@ export default function TenantsOnboarding() {
     () => (rentAmount >= MIN_RENT ? calculateRentRepayment(rentAmount, durationDays) : null),
     [rentAmount, durationDays],
   );
+  /* A landlord the tenant typed in themselves. Held locally and created by the
+     submit RPC — inserting on "Save" would leave orphan landlord rows behind
+     every abandoned form. Either way they reach the landlord vetting pipeline. */
+  const newLandlordReady =
+    newLandlordName.trim().length >= 2 && validateUgandaPhone(newLandlordPhone).valid;
+  const chosenLandlord = landlord
+    ? { name: landlord.name, phone: landlord.phone, address: landlord.property_address, verified: !!landlord.verified, isNew: false }
+    : newLandlordReady
+      ? { name: newLandlordName.trim(), phone: newLandlordPhone, address: null, verified: false, isNew: true }
+      : null;
+
   const activeEarner = EARNERS.find((e) => e.key === earner) ?? EARNERS[0];
   /* Only complain once they have typed something — an empty field is not an error yet. */
   const rentInvalid = rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT);
@@ -574,6 +589,59 @@ export default function TenantsOnboarding() {
           <p className="text-xs text-muted-foreground">
             Your answers are saved on this device as you type, so you can close this and come back.
           </p>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addLandlordOpen} onOpenChange={setAddLandlordOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add your landlord</DialogTitle>
+            <DialogDescription>
+              Give us their name and number. Welile vets them separately — you do not have to wait
+              for that before you submit.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[13.5px] font-semibold">
+                Landlord full name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={newLandlordName}
+                onChange={(e) => setNewLandlordName(e.target.value)}
+                placeholder="e.g. Adam Ssembatya"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[13.5px] font-semibold">
+                Landlord phone <span className="text-destructive">*</span>
+              </Label>
+              <PhoneInput
+                value={newLandlordPhone}
+                onChange={(v) => setNewLandlordPhone(v)}
+                placeholder="0771234567"
+              />
+              {newLandlordPhone.trim().length > 0 && !validateUgandaPhone(newLandlordPhone).valid && (
+                <p className="flex items-center gap-1.5 text-[12.5px] font-bold text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Enter a valid Uganda phone number.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="secondary"
+              onClick={() => { setNewLandlordName(''); setNewLandlordPhone(''); setAddLandlordOpen(false); }}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={!newLandlordReady} onClick={() => setAddLandlordOpen(false)}>
+              Save landlord
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -928,68 +996,81 @@ export default function TenantsOnboarding() {
                   <Label className="flex items-center gap-1.5 text-sm font-semibold">
                     <Building2 className="h-4 w-4 text-primary" /> Your landlord <span className="text-destructive">*</span>
                   </Label>
-                  <LandlordSearchSelect
-                    inline
-                    value={landlord}
-                    onChange={setLandlord}
-                    placeholder="Search your landlord by name or phone"
-                  />
-                  {/* Confirmation of what was picked. Without this the only
-                      sign a landlord had been chosen was the form below
-                      disappearing, which reads as the page breaking. */}
-                  {landlord && (
-                    <div className={cn(
-                      'rounded-xl border p-4',
-                      landlord.verified
-                        ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30'
-                        : 'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30',
-                    )}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-[15px] font-bold text-foreground">{landlord.name}</p>
-                          <p className="truncate text-[13px] tabular-nums text-muted-foreground">{landlord.phone}</p>
-                          {landlord.property_address && (
-                            <p className="mt-0.5 truncate text-xs text-muted-foreground">{landlord.property_address}</p>
+                  {/* The search steps aside once someone is chosen — the panel
+                      below becomes the answer, and Change brings it back. */}
+                  {!chosenLandlord && (
+                    <LandlordSearchSelect
+                      inline
+                      value={landlord}
+                      onChange={setLandlord}
+                      placeholder="Search your landlord by name or phone"
+                    />
+                  )}
+                  {/* What was picked. Without this the only sign of a
+                      successful choice was the form below disappearing. */}
+                  {chosenLandlord && (
+                    <div className="overflow-hidden rounded-xl border bg-card">
+                      <div className="flex items-start gap-3 p-4">
+                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10">
+                          <Building2 className="h-5 w-5 text-primary" />
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="min-w-0 truncate text-[15px] font-bold leading-tight text-foreground">
+                              {chosenLandlord.name}
+                            </p>
+                            <span className={cn(
+                              'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[10px] font-bold uppercase tracking-wide',
+                              chosenLandlord.verified
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+                                : 'bg-primary/10 text-primary',
+                            )}>
+                              {chosenLandlord.verified
+                                ? <><Check className="h-3 w-3" /> Verified</>
+                                : <><ShieldQuestion className="h-3 w-3" /> {chosenLandlord.isNew ? 'New' : 'To be vetted'}</>}
+                            </span>
+                          </div>
+
+                          <p className="mt-1 flex items-center gap-1.5 text-[13px] tabular-nums text-muted-foreground">
+                            <Phone className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{chosenLandlord.phone}</span>
+                          </p>
+                          {chosenLandlord.address && (
+                            <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                              <MapPin className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{chosenLandlord.address}</span>
+                            </p>
                           )}
                         </div>
-                        <span className={cn(
-                          'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-[2px] text-[10px] font-bold uppercase tracking-wide',
-                          landlord.verified
-                            ? 'border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
-                            : 'border-amber-400 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
-                        )}>
-                          {landlord.verified
-                            ? <><Check className="h-3 w-3" /> Verified</>
-                            : <><Clock className="h-3 w-3" /> Pending verification</>}
-                        </span>
                       </div>
 
-                      {!landlord.verified && (
-                        <p className="mt-2.5 text-[13px] leading-snug text-muted-foreground">
-                          This landlord still has to finish verification before your request can be approved.
-                          You can carry on and submit now.
+                      <div className="flex items-center justify-between gap-3 border-t bg-muted/40 px-4 py-2.5">
+                        <p className="min-w-0 text-xs text-muted-foreground">
+                          {chosenLandlord.verified
+                            ? 'Verified by Welile — nothing more needed from you.'
+                            : 'Welile will check them. You can submit now.'}
                         </p>
-                      )}
-
-                      <Button type="button" variant="outline" size="sm"
-                        className="mt-3 h-8 gap-1.5 bg-background px-3 text-xs font-bold"
-                        onClick={() => setLandlord(null)}>
-                        <X className="h-3.5 w-3.5" />
-                        Not my landlord
-                      </Button>
+                        <Button type="button" variant="ghost" size="sm"
+                          className="h-7 shrink-0 gap-1 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setLandlord(null);
+                            setNewLandlordName('');
+                            setNewLandlordPhone('');
+                          }}>
+                          <X className="h-3.5 w-3.5" />
+                          Change
+                        </Button>
+                      </div>
                     </div>
                   )}
 
-                  {!landlord && (
-                    <div className="rounded-lg border bg-muted/40 p-3 space-y-3">
-                      <p className="text-xs text-muted-foreground">
-                        Not found? Enter their details and we will register and verify them.
-                      </p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Input value={newLandlordName} onChange={(e) => setNewLandlordName(e.target.value)} placeholder="Landlord full name" />
-                        <Input value={newLandlordPhone} onChange={(e) => setNewLandlordPhone(e.target.value)} placeholder="Landlord phone" inputMode="tel" />
-                      </div>
-                    </div>
+                  {!chosenLandlord && (
+                    <Button type="button" variant="outline" className="h-11 w-full gap-2 border-dashed"
+                      onClick={() => setAddLandlordOpen(true)}>
+                      <UserPlus className="h-4 w-4" />
+                      Landlord not listed? Add them
+                    </Button>
                   )}
                 </div>
 
@@ -1022,39 +1103,71 @@ export default function TenantsOnboarding() {
 
             {/* ---------------------------------------------------- step 6 */}
             {step === 6 && (
-              <div className="space-y-4">
-                <Section title="Rent plan">
-                  <Row label="Monthly rent" value={formatUGX(rentAmount)} />
-                  <Row label="Period" value={`${durationDays} days`} />
-                  <Row label={`${periodLabel} payment`} value={formatUGX(perCycle)} strong />
-                  <Row label="Total to repay" value={calc ? formatUGX(calc.totalRepayment) : '—'} />
-                </Section>
-                <Section title="You">
-                  <Row label="Name" value={`${firstName} ${lastName}`.trim()} />
-                  <Row label="Phone" value={phone} />
-                  <Row label="National ID" value={cleanNin(nin)} />
-                  <Row label="Work" value={occupation || '—'} />
-                  <Row label="Language" value={language} />
-                </Section>
-                <Section title="Home">
-                  <Row label="House type" value={HOUSE_TYPES.find((h) => h.value === houseType)?.label ?? houseType} />
-                  <Row label="Village" value={location?.fullPath ?? '—'} />
-                  <Row label="Address" value={address || '—'} />
-                  <Row label="GPS" value={gps ? `${gps.latitude.toFixed(5)}, ${gps.longitude.toFixed(5)}` : '—'} />
-                  <Row label="Photos" value={`${housePhotos.length} attached`} />
-                </Section>
-                <Section title="Verification contacts">
-                  <Row label="Landlord" value={landlord ? `${landlord.name} · ${landlord.phone}` : `${newLandlordName} · ${newLandlordPhone}`} />
-                  <Row label="LC1 chairperson" value={lc1 ? `${lc1.name} · ${lc1.phone}` : '—'} />
-                  <Row label="LC1 letter" value={lcLetter ? 'Attached' : 'Not attached'} />
-                </Section>
-                <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <span>
-                    By submitting you confirm these details are true. Welile will verify you, your landlord and your LC1
-                    chairperson before any rent is paid. Nothing is paid out at this step.
+              <div className="space-y-3.5">
+                <ReviewCard icon={CircleDollarSign} title="Income schedule & rent" onEdit={() => goTo(2)}>
+                  <ReviewItem label="Earner category" value={activeEarner.title} />
+                  <ReviewItem label="Monthly rent" value={formatUGX(rentAmount)} money />
+                  <ReviewItem label="Repayment period" value={`${durationDays} days`} />
+                  <ReviewItem label="Instalment amount"
+                    value={`${formatUGX(perCycle)}/${earner === 'weekly' ? 'week' : 'day'}`} money />
+                  <ReviewItem label="Total to repay" value={calc ? formatUGX(calc.totalRepayment) : '—'} money />
+                </ReviewCard>
+
+                <ReviewCard icon={User} title="About you" onEdit={() => goTo(3)}>
+                  <ReviewItem label="Full name" value={`${firstName} ${lastName}`.trim() || '—'} />
+                  <ReviewItem label="Phone number" value={phone || '—'} numeric />
+                  <ReviewItem label="National ID (NIN)" value={cleanNin(nin) || '—'} numeric />
+                  <ReviewItem label="Language" value={language} />
+                  <ReviewItem label="Passport photo" value={tenantPhoto ? 'Captured' : 'Missing'} ok={!!tenantPhoto} />
+                  <ReviewItem label="National ID photo" value={idPhoto ? 'Captured' : 'Missing'} ok={!!idPhoto} />
+                </ReviewCard>
+
+                <ReviewCard icon={Home} title="Your home" onEdit={() => goTo(4)}>
+                  <ReviewItem label="House type"
+                    value={HOUSE_TYPES.find((h) => h.value === houseType)?.label ?? houseType} />
+                  <ReviewItem label="Address" value={address || '—'} />
+                  <ReviewItem label="Village" value={location?.fullPath ?? '—'} />
+                  <ReviewItem
+                    label="Verification evidence"
+                    value={gps
+                      ? `GPS confirmed (${housePhotos.length} photo${housePhotos.length === 1 ? '' : 's'})`
+                      : `${housePhotos.length} photo${housePhotos.length === 1 ? '' : 's'}, no GPS`}
+                    ok={!!gps && housePhotos.length > 0}
+                  />
+                </ReviewCard>
+
+                <ReviewCard icon={ShieldCheck} title="Landlord & local verification" onEdit={() => goTo(5)}>
+                  <ReviewItem label="Landlord" value={chosenLandlord?.name ?? '—'} />
+                  <ReviewItem
+                    label="Landlord status"
+                    value={chosenLandlord
+                      ? (chosenLandlord.verified ? 'Verified' : chosenLandlord.isNew ? 'New — to be vetted' : 'To be vetted')
+                      : '—'}
+                    ok={!!chosenLandlord?.verified}
+                  />
+                  <ReviewItem label="LC1 chairperson" value={lc1?.name || '—'} />
+                  <ReviewItem label="LC1 phone" value={lc1?.phone || '—'} numeric />
+                  <ReviewItem label="LC1 letter" value={lcLetter ? 'Attached' : 'Not attached'} ok={!!lcLetter} />
+                </ReviewCard>
+
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/40 p-4">
+                  <Checkbox
+                    checked={declared}
+                    onCheckedChange={(v) => setDeclared(v === true)}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <span className="text-[13px] leading-relaxed text-muted-foreground">
+                    I confirm the information above is correct, and I understand my rent support application will be
+                    reviewed by Welile and an assigned agent. Nothing is paid out at this step.
                   </span>
-                </div>
+                </label>
+
+                {!declared && (
+                  <p className="flex items-center gap-1.5 text-[12.5px] font-bold text-destructive">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    Tick the box above to submit your application.
+                  </p>
+                )}
               </div>
             )}
 
@@ -1069,7 +1182,7 @@ export default function TenantsOnboarding() {
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
-                <Button type="button" onClick={submit} disabled={submitting}>
+                <Button type="button" onClick={submit} disabled={submitting || !declared}>
                   {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                   Submit rent request
                 </Button>
@@ -1136,11 +1249,50 @@ function KeyCell({ label, value, sub, highlight }: {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/** One reviewable section: icon, title, an Edit link back to its step, and a
+ *  two-column grid of answers — the template's summary-section-box. */
+function ReviewCard({ icon: Icon, title, onEdit, children }: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="rounded-xl border bg-background p-4">
-      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">{title}</p>
-      <div className="space-y-1.5">{children}</div>
+    <div className="rounded-xl border bg-card p-4 transition-colors hover:border-primary/30 sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-3 border-b pb-2.5">
+        <p className="flex min-w-0 items-center gap-2 text-[13.5px] font-bold text-foreground">
+          <Icon className="h-[15px] w-[15px] shrink-0 text-primary" />
+          <span className="truncate">{title}</span>
+        </p>
+        <button type="button" onClick={onEdit}
+          className="inline-flex shrink-0 items-center gap-1 text-[12.5px] font-bold text-primary hover:underline">
+          <Pencil className="h-3 w-3" />
+          Edit
+        </button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+    </div>
+  );
+}
+
+/** Label above value. `money` tints it primary, `numeric` gives tabular figures,
+ *  `ok` renders a captured/attached state in green (or red when missing). */
+function ReviewItem({ label, value, money, numeric, ok }: {
+  label: string; value: string; money?: boolean; numeric?: boolean; ok?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={cn(
+        'mt-0.5 truncate text-[13.5px] font-bold',
+        money && 'tabular-nums text-primary',
+        numeric && !money && 'tabular-nums',
+        ok === true && 'text-emerald-600 dark:text-emerald-400',
+        ok === false && 'text-destructive',
+        !money && ok === undefined && 'text-foreground',
+      )}>
+        {value}{ok === true ? ' ✓' : ''}
+      </span>
     </div>
   );
 }
