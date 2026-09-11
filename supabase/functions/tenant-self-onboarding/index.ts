@@ -109,6 +109,10 @@ Deno.serve(async (req) => {
     const smartphone = body.no_smartphone === true ? "NO" : "YES";
     const house_photos = Array.isArray(body.house_photos) ? (body.house_photos as string[]) : [];
     const tenant_photo = typeof body.tenant_photo === "string" ? body.tenant_photo : null;
+    // SHA-256 returned by the passport-photo check, used to link the stored photo
+    // to its recorded fingerprint + verdict. Reference data only.
+    const tenant_photo_sha256 = typeof body.tenant_photo_sha256 === "string" ? body.tenant_photo_sha256 : null;
+
     const id_photo = typeof body.id_photo === "string" ? body.id_photo : null;
     const lc_letter = typeof body.lc_letter === "string" ? body.lc_letter : null;
     const tenant_note = String(body.tenant_note || "").trim().slice(0, 1000);
