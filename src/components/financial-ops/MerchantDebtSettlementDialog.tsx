@@ -230,8 +230,21 @@ export function MerchantDebtSettlementDialog({
         );
       }
       if (result.skipped.length > 0) {
-        toast.warning(`${result.skipped.length} claim(s) could not be settled — already paid or not yet confirmed`);
+        // Show the real reason per claim instead of one catch-all sentence: a
+        // separation-of-duties block and an already-paid claim need different actions.
+        const counts = new Map<string, number>();
+        for (const s of result.skipped) {
+          const label = SKIP_REASON_LABELS[s.reason] ?? s.reason;
+          counts.set(label, (counts.get(label) ?? 0) + 1);
+        }
+        toast.warning(`${result.skipped.length} claim(s) could not be settled`, {
+          description: Array.from(counts.entries())
+            .map(([label, n]) => `${n} × ${label}`)
+            .join(' · '),
+          duration: 12_000,
+        });
       }
+
       if (settledCount === 0 && result.skipped.length === 0) {
         toast.error('Nothing was settled');
       }
