@@ -901,7 +901,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                 />
               </div>
 
-              {approveStage === 'coo' && (
+              {isReviewStage && (
                 <>
                   <div className="space-y-1">
                     <Label className="text-xs" htmlFor="smartphone-repayment-days">
@@ -957,14 +957,15 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                 <p className="text-[11px] text-muted-foreground">
                   {approveStage === 'cfo' ? (
                     <>
-                      {formatUGX(officialAmountNumber)} will be released into the agent&apos;s wallet float
-                      (company money, not withdrawable), the application becomes active and 33% wallet
-                      repayments begin.
+                      {formatUGX(officialAmountNumber)} is paid straight to the assigned supplier&apos;s
+                      account, the application becomes active and the 33% wallet repayments start on the
+                      applying agent.
                     </>
                   ) : (
                     <>
                       No money moves yet. The application is locked at {formatUGX(officialAmountNumber)} and
-                      forwarded to the CFO, who releases the funds and activates it.
+                      forwarded to {approveStage === 'ops' ? 'the COO' : 'the CFO'}, who
+                      {approveStage === 'ops' ? ' reviews it before the CFO pays the supplier.' : ' pays the assigned supplier and activates it.'}
                     </>
                   )}
                 </p>
@@ -982,7 +983,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                 approve.isPending ||
                 officialAmountNumber < 1000 ||
                 !approveTarget ||
-                (approveStage === 'coo' && repaymentDaysNumber < 1)
+                (isReviewStage && repaymentDaysNumber < 1)
               }
               onClick={() =>
                 approveTarget &&
@@ -990,8 +991,8 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                   id: approveTarget.id,
                   amount: officialAmountNumber,
                   stage: approveStage,
-                  daily: approveStage === 'coo' ? dailyDeduction : undefined,
-                  days: approveStage === 'coo' ? repaymentDaysNumber : undefined,
+                  daily: isReviewStage ? dailyDeduction : undefined,
+                  days: isReviewStage ? repaymentDaysNumber : undefined,
                 })
               }
             >
@@ -999,7 +1000,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
               {approve.isPending ? (
                 <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Processing…</>
               ) : approveStage === 'cfo' ? (
-                <><Check className="h-3.5 w-3.5 mr-1" /> Confirm disbursement</>
+                <><Check className="h-3.5 w-3.5 mr-1" /> Confirm supplier payment</>
               ) : (
                 <><Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; forward</>
               )}
