@@ -1,0 +1,300 @@
+/**
+ * Tenant self-onboarding — no agent, no service centre.
+ *
+ * Two actions:
+ *  - identity_check : tells the tenant only whether a phone / National ID is
+ *                     already on file. Never returns whose it is.
+ *  - submit         : creates/reuses the landlord + LC1 chairperson, updates the
+ *                     tenant profile, and posts ONE rent request into the normal
+ *                     pipeline at status `pending` (agent_id NULL, no service
+ *                     centre routing). Fee fields are passed as 0 — the DB
+ *                     trigger `enforce_rent_request_formula` is authoritative.
+ *
+ * No wallet or ledger writes happen here.
+ */
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const ok = (data: unknown) =>
+  new Response(JSON.stringify(data), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+const err = (msg: string, status = 400) =>
+  new Response(JSON.stringify({ error: msg }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+const last9 = (v: string) => v.replace(/\D/g, "").slice(-9);
+const cleanNin = (v: string) => v.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+
+function validPhone(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const digits = v.replace(/\D/g, "");
+  if (digits.length < 9 || digits.length > 15) return null;
+  return v.trim();
+}
+
+const OPEN_STATUSES = [
+  "pending", "service_center_review", "approved", "agent_ops_approved", "tenant_ops_approved",
+  "agent_verified", "landlord_ops_approved", "partner_ops_approved", "coo_approved",
+  "funded", "disbursed", "repaying",
+];
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  try {
+    const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
+    if (!token) return err("Sign in to continue", 401);
+    const { data: authData, error: authErr } = await admin.auth.getUser(token);
+    if (authErr || !authData?.user) return err("Sign in to continue", 401);
+    const userId = authData.user.id;
+
+    let body: Record<string, unknown>;
+    try { body = await req.json(); } catch { return err("Invalid request body"); }
+    const action = String(body.action || "");
+
+    /* ------------------------------------------------ identity_check ------ */
+    if (action === "identity_check") {
+      const result: Record<string, boolean> = {};
+      const phone = typeof body.phone === "string" ? body.phone : "";
+      const nin = typeof body.national_id === "string" ? body.national_id : "";
+
+      if (last9(phone).length === 9) {
+        const { data } = await admin.from("profiles").select("id").ilike("phone", `%${last9(phone)}`).limit(2);
+        const rows = data ?? [];
+        result.phone_known = rows.length > 0;
+        result.phone_is_you = rows.some((r: any) => r.id === userId);
+      }
+      if (cleanNin(nin).length >= 10) {
+        const c = cleanNin(nin);
+        const spaced = c.replace(/(.{4})/g, "$1 ").trim();
+        const { data } = await admin
+          .from("profiles").select("id, national_id")
+          .or(`national_id.ilike.${c}%,national_id.ilike.${spaced}%`).limit(10);
+        const match = (data ?? []).filter((r: any) => cleanNin(r.national_id || "") === c);
+        result.nin_known = match.length > 0;
+        result.nin_is_you = match.some((r: any) => r.id === userId);
+      }
+      return ok(result);
+    }
+
+    /* --------------------------------------------------------- submit ----- */
+    if (action !== "submit") return err("Unknown action");
+
+    const full_name = String(body.full_name || "").trim();
+    const phone = validPhone(body.phone);
+    const national_id = cleanNin(String(body.national_id || ""));
+    const occupation = String(body.occupation || "").trim() || null;
+    const preferred_language = typeof body.preferred_language === "string" ? body.preferred_language : null;
+    const rent_amount = Number(body.rent_amount) || 0;
+    const duration_days = Number(body.duration_days) || 0;
+    const repayment_frequency = body.repayment_frequency === "weekly" ? "weekly" : "daily";
+    const house_category = String(body.house_category || "single-room");
+    const property_address = String(body.property_address || "").trim();
+    const gps_lat = typeof body.gps_lat === "number" ? body.gps_lat : null;
+    const gps_lng = typeof body.gps_lng === "number" ? body.gps_lng : null;
+    const village = String(body.village || "").trim();
+    const district = String(body.district || "").trim();
+    const ug_village_id = typeof body.ug_village_id === "number" ? body.ug_village_id : null;
+    const smartphone = body.no_smartphone === true ? "NO" : "YES";
+    const house_photos = Array.isArray(body.house_photos) ? (body.house_photos as string[]) : [];
+    const tenant_photo = typeof body.tenant_photo === "string" ? body.tenant_photo : null;
+    const id_photo = typeof body.id_photo === "string" ? body.id_photo : null;
+    const lc_letter = typeof body.lc_letter === "string" ? body.lc_letter : null;
+    const tenant_note = String(body.tenant_note || "").trim().slice(0, 1000);
+
+    if (full_name.split(/\s+/).filter(Boolean).length < 2) return err("Enter your first and last name");
+    if (!phone) return err("Enter a valid phone number");
+    if (national_id.length < 10 || national_id.length > 14) return err("National ID must be 10–14 characters");
+    if (rent_amount < 50000) return err("Rent amount must be at least UGX 50,000");
+    if (!(duration_days === 30 || duration_days === 60 || duration_days === 90 || duration_days === 120 ||
+      (duration_days >= 7 && duration_days <= 364 && duration_days % 7 === 0))) return err("Choose a valid repayment period");
+    if (!property_address) return err("Enter your house address");
+    if (!village || !district) return err("Pick your official village");
+
+    // The National ID must not belong to somebody else.
+    {
+      const spaced = national_id.replace(/(.{4})/g, "$1 ").trim();
+      const { data } = await admin
+        .from("profiles").select("id, national_id")
+        .or(`national_id.ilike.${national_id}%,national_id.ilike.${spaced}%`).limit(20);
+      const conflict = (data ?? []).find((r: any) => cleanNin(r.national_id || "") === national_id && r.id !== userId);
+      if (conflict) return err("This National ID is already registered to another account. Please check the number.");
+    }
+    // The phone must not belong to somebody else either.
+    {
+      const { data } = await admin.from("profiles").select("id").ilike("phone", `%${last9(phone)}`).limit(5);
+      if ((data ?? []).some((r: any) => r.id !== userId)) {
+        return err("This phone number is already registered to another account. Sign in with it instead.");
+      }
+    }
+
+    // One open request at a time.
+    {
+      const { data: open } = await admin
+        .from("rent_requests").select("id, status").eq("tenant_id", userId).in("status", OPEN_STATUSES).limit(1);
+      if (open && open.length > 0) {
+        return err("You already have a rent request in progress. Track it from your dashboard.");
+      }
+    }
+
+    /* ---- Landlord: reuse the picked one, else match by phone, else create -- */
+    let landlordId = typeof body.landlord_id === "string" ? body.landlord_id : null;
+    const landlord_name = String(body.landlord_name || "").trim();
+    const landlord_phone = validPhone(body.landlord_phone);
+    if (!landlordId) {
+      if (!landlord_name || !landlord_phone) return err("Landlord name and phone are required");
+      const { data: existing } = await admin
+        .from("landlords").select("id").ilike("phone", `%${last9(landlord_phone)}`).limit(1).maybeSingle();
+      if (existing) {
+        landlordId = existing.id;
+      } else {
+        const { data: created, error: lErr } = await admin
+          .from("landlords")
+          .insert({ name: landlord_name, phone: landlord_phone, property_address, district, village, ug_village_id, registered_by: userId })
+          .select("id").single();
+        if (lErr || !created) return err(`Could not save the landlord: ${lErr?.message ?? "unknown"}`, 500);
+        landlordId = created.id;
+      }
+    }
+
+    /* ---- LC1 chairperson: reuse by id / phone, else create ---------------- */
+    let lc1Id = typeof body.lc1_id === "string" ? body.lc1_id : null;
+    const lc1_name = String(body.lc1_name || "").trim();
+    const lc1_phone = validPhone(body.lc1_phone);
+    if (!lc1Id) {
+      if (!lc1_name || !lc1_phone) return err("LC1 chairperson name and phone are required");
+      const { data: existing } = await admin
+        .from("lc1_chairpersons").select("id").ilike("phone", `%${last9(lc1_phone)}`)
+        .order("verified", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+      if (existing) {
+        lc1Id = existing.id;
+      } else {
+        const { data: created, error: cErr } = await admin
+          .from("lc1_chairpersons")
+          .insert({ name: lc1_name, phone: lc1_phone, village, district, ug_village_id, registered_by: userId })
+          .select("id").single();
+        if (cErr || !created) return err(`Could not save the LC1 chairperson: ${cErr?.message ?? "unknown"}`, 500);
+        lc1Id = created.id;
+      }
+    }
+
+    /* ---- Profile: keep the vetting details on the tenant record ---------- */
+    const profilePatch: Record<string, unknown> = {
+      full_name, phone, national_id, occupation, village, district,
+    };
+    if (preferred_language) profilePatch.preferred_language = preferred_language;
+    if (ug_village_id) profilePatch.ug_village_id = ug_village_id;
+    const { error: pErr } = await admin.from("profiles").update(profilePatch).eq("id", userId);
+    if (pErr) return err(`Could not save your details: ${pErr.message}`, 400);
+
+    /* ---- The rent request itself (normal pipeline, no agent) -------------- */
+    const insertPayload: Record<string, unknown> = {
+      tenant_id: userId,
+      agent_id: null,
+      landlord_id: landlordId,
+      lc1_id: lc1Id,
+      rent_amount,
+      duration_days,
+      repayment_frequency,
+      access_fee: 0, request_fee: 0, total_repayment: 0, daily_repayment: 0,
+      status: "pending",
+      house_category,
+      request_latitude: gps_lat,
+      request_longitude: gps_lng,
+      request_city: district || null,
+      request_country: "Uganda",
+      preferred_language,
+      tenant_no_smartphone: smartphone === "NO",
+      registration_type: "normal",
+    };
+    const { data: rentReq, error: rErr } = await admin
+      .from("rent_requests").insert(insertPayload as any).select("id, rent_amount, duration_days, access_fee, request_fee, total_repayment, daily_repayment").single();
+    if (rErr || !rentReq) return err(`Could not post your rent request: ${rErr?.message ?? "unknown"}`, 500);
+
+    /* ---- Photos & documents --------------------------------------------- */
+    /** Uploads a data URL into a bucket. Returns the storage path, or null. */
+    const uploadTo = async (bucket: string, dataUrl: string, path: string): Promise<string | null> => {
+      const m = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (!m) return null;
+      const raw = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+      const { error: upErr } = await admin.storage.from(bucket)
+        .upload(path, raw, { contentType: `image/${m[1]}`, cacheControl: "86400", upsert: true });
+      if (upErr) { console.warn("[tenant-self-onboarding] upload failed", bucket, upErr.message); return null; }
+      return path;
+    };
+    /** Public bucket helper — returns the public URL. */
+    const uploadDataUrl = async (dataUrl: string, path: string): Promise<string | null> => {
+      const stored = await uploadTo("house-images", dataUrl, path);
+      return stored ? admin.storage.from("house-images").getPublicUrl(stored).data.publicUrl : null;
+    };
+
+    const houseUrls: string[] = [];
+    for (let i = 0; i < Math.min(house_photos.length, 4); i++) {
+      const url = await uploadDataUrl(house_photos[i], `${userId}/${rentReq.id}/house_${i}.jpg`);
+      if (url) houseUrls.push(url);
+    }
+    let tenantPhotoUrl: string | null = null;
+    if (tenant_photo) tenantPhotoUrl = await uploadDataUrl(tenant_photo, `${userId}/${rentReq.id}/tenant.jpg`);
+    // National ID and the LC1 letter are private documents.
+    let ninPhotoPath: string | null = null;
+    if (id_photo) ninPhotoPath = await uploadTo("tenant-ids", id_photo, `${userId}/${rentReq.id}/national_id.jpg`);
+    let lcLetterPath: string | null = null;
+    if (lc_letter) lcLetterPath = await uploadTo("lc-letters", lc_letter, `${userId}/${rentReq.id}/lc_letter.jpg`);
+
+    if (houseUrls.length || tenantPhotoUrl || ninPhotoPath || lcLetterPath) {
+      const patch: Record<string, unknown> = {};
+      if (houseUrls.length) patch.house_image_urls = houseUrls;
+      if (tenantPhotoUrl) patch.tenant_photo_url = tenantPhotoUrl;
+      if (ninPhotoPath) { patch.nin_photo_path = ninPhotoPath; patch.nin_photo_bucket = "tenant-ids"; }
+      if (lcLetterPath) { patch.lc_letter_path = lcLetterPath; patch.lc_letter_bucket = "lc-letters"; }
+      await admin.from("rent_requests").update(patch).eq("id", rentReq.id);
+    }
+    if (tenantPhotoUrl) await admin.from("profiles").update({ avatar_url: tenantPhotoUrl }).eq("id", userId);
+
+    /* ---- Event trail + trust signal ------------------------------------- */
+    await admin.from("system_events").insert({
+      event_type: "rent_request_created",
+      user_id: userId,
+      metadata: {
+        source: "tenant_self_onboarding",
+        rent_request_id: rentReq.id,
+        rent_amount, duration_days, repayment_frequency,
+        village, district, ug_village_id,
+        landlord_id: landlordId, lc1_id: lc1Id,
+        gps: gps_lat && gps_lng ? { lat: gps_lat, lng: gps_lng } : null,
+        house_photos: houseUrls.length,
+        house_photo_urls: houseUrls,
+        tenant_photo_url: tenantPhotoUrl,
+        national_id_photo: ninPhotoPath ? { bucket: "tenant-ids", path: ninPhotoPath } : null,
+        lc_letter: lcLetterPath ? { bucket: "lc-letters", path: lcLetterPath } : null,
+        tenant_note: tenant_note || null,
+      },
+    } as any).then(({ error }) => { if (error) console.warn("[tenant-self-onboarding] event failed", error.message); });
+
+    if (gps_lat && gps_lng) {
+      const { error: tErr } = await admin.rpc("capture_trust_signal", {
+        p_tenant_id: userId,
+        p_signal_type: "location_shared",
+        p_venue_category: "home",
+        p_venue_name: village || null,
+        p_latitude: gps_lat,
+        p_longitude: gps_lng,
+        p_accuracy: typeof body.gps_accuracy === "number" ? body.gps_accuracy : null,
+        p_notes: `tenant_self_onboarding:${rentReq.id}`,
+      } as any);
+      if (tErr) console.warn("[tenant-self-onboarding] trust signal failed", tErr.message);
+    }
+
+    return ok({ success: true, rent_request_id: rentReq.id, request: rentReq });
+  } catch (e: any) {
+    console.error("[tenant-self-onboarding] unhandled", e?.message || e);
+    return err(`Service error: ${e?.message || "unknown"}`, 500);
+  }
+});

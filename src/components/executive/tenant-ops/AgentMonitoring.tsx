@@ -17,6 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
+import { unmatchedRepayments } from '@/lib/rentReceipts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -112,31 +113,7 @@ interface RepaymentRow {
   external_reference: string | null;
 }
 
-/**
- * `repayments` and `agent_collections` overlap: the agent collection flow writes
- * both legs for the same money. A repayment row is only an extra receipt when no
- * collection on the same plan carries the same amount within five minutes — the
- * same pairing the reconciliation reads use. Everything else is a tenant
- * self-payment (or another supported channel) that the agent never keyed in.
- */
-const MATCH_WINDOW_MS = 5 * 60 * 1000;
-
-function unmatchedRepayments(repayments: RepaymentRow[], collections: { rent_request_id: string | null; amount: number | null; created_at: string }[]) {
-  const byPlan = new Map<string, { amount: number; time: number }[]>();
-  collections.forEach((row) => {
-    if (!row.rent_request_id) return;
-    const list = byPlan.get(row.rent_request_id) ?? [];
-    list.push({ amount: Number(row.amount ?? 0), time: new Date(row.created_at).getTime() });
-    byPlan.set(row.rent_request_id, list);
-  });
-  return repayments.filter((row) => {
-    if (!row.rent_request_id) return false;
-    const candidates = byPlan.get(row.rent_request_id) ?? [];
-    const amount = Number(row.amount ?? 0);
-    const time = new Date(row.created_at).getTime();
-    return !candidates.some((c) => c.amount === amount && Math.abs(c.time - time) < MATCH_WINDOW_MS);
-  });
-}
+/** Shared receipt pairing rule — see `src/lib/rentReceipts.ts`. */
 
 
 interface AgentRow {

@@ -89,6 +89,7 @@ const GlobalInstallPrompt = optionalLazyWithRetry(() => import("@/components/Glo
 import Index from "./pages/Index";
 // Landing is only needed on /welcome — lazy load it
 const Landing = lazy(() => import("./pages/Landing"));
+const TenantsOnboarding = lazy(() => import("./pages/TenantsOnboarding"));
 const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
@@ -441,6 +442,7 @@ function AppRoutes() {
           <Route path="/oauth-funnel" element={<OAuthFunnel />} />
           <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/tenants-onboarding" element={<TenantsOnboarding />} />
           <Route path="/funder-onboarding" element={<FunderOnboarding />} />
           <Route path="/partner-onboarding" element={<PartnerOnboarding />} />
           <Route path="/partners/:partnerId/portfolios/:portfolioId/complete" element={<PortfolioCompletion />} />

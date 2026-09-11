@@ -58,6 +58,8 @@ interface Lc1ChairpersonPickerProps {
   scopeDistrictName?: string | null;
   /** Highlight missing required fields after a failed submit. */
   attempted?: boolean;
+  /** Hide agent reward copy when the tenant is registering themselves. */
+  context?: 'agent' | 'tenant';
 }
 
 const emptyNew = (region = '', district = '', village = ''): Lc1Selection => ({
@@ -83,6 +85,7 @@ export function Lc1ChairpersonPicker({
   defaultVillage = '',
   scopeDistrictName = null,
   attempted = false,
+  context = 'agent',
 }: Lc1ChairpersonPickerProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Lc1Hit[]>([]);
@@ -177,9 +180,15 @@ export function Lc1ChairpersonPicker({
       {!value && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Search the chairperson in the system first. If they're not there, register them and
-            earn <span className="font-semibold text-foreground">UGX 2,000</span> — paid in full
-            after Landlord Ops verifies the chairperson.
+            Search the chairperson in the system first. If they're not there, you can register them
+            {context === 'agent' ? (
+              <>
+                {' '}and earn <span className="font-semibold text-foreground">UGX 2,000</span> — paid in full
+                after Landlord Ops verifies the chairperson.
+              </>
+            ) : (
+              " so Welile can verify them."
+            )}
           </p>
           <div className="flex gap-2">
             <Input
@@ -227,7 +236,7 @@ export function Lc1ChairpersonPicker({
 
           <Button type="button" variant="outline" className="h-9 text-xs w-full" onClick={startNew}>
             <UserPlus className="h-4 w-4 mr-1.5" />
-            Register a new LC1 chairperson (earn UGX 2,000)
+            Register a new LC1 chairperson{context === 'agent' ? ' (earn UGX 2,000)' : ''}
           </Button>
         </div>
       )}
@@ -262,11 +271,13 @@ export function Lc1ChairpersonPicker({
             </Button>
           </div>
 
-          <div className="p-2 rounded-lg bg-chart-4/10 border border-chart-4/20 text-center">
-            <p className="text-xs text-chart-4 font-semibold">
-              💰 UGX 2,000 paid once Landlord Ops verifies (nothing paid upfront)
-            </p>
-          </div>
+          {context === 'agent' && (
+            <div className="p-2 rounded-lg bg-chart-4/10 border border-chart-4/20 text-center">
+              <p className="text-xs text-chart-4 font-semibold">
+                💰 UGX 2,000 paid once Landlord Ops verifies (nothing paid upfront)
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
