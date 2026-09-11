@@ -81,6 +81,7 @@ import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenter
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { ListRegisterEarnDialog } from '@/components/agent/ListRegisterEarnDialog';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
+import { TenantInviteLinkDialog } from '@/components/agent/TenantInviteLinkDialog';
 import SavedRentDraftsPanel from '@/components/agent/SavedRentDraftsPanel';
 import { useBusinessAdvanceCommissionListener } from '@/hooks/useBusinessAdvanceCommissionListener';
 import { useAgentUnblockToast } from '@/hooks/useAgentUnblockToast';
@@ -339,6 +340,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   }, []);
 
   const [subAgentLinkOpen, setSubAgentLinkOpen] = useState(false);
+  const [tenantInviteOpen, setTenantInviteOpen] = useState(false);
   const { isMerchantAgent: isMerchantAgentEarly } = useIsMerchantAgent();
   // Weekly Listing Mission promo dialog removed — campaign expired.
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
@@ -1776,6 +1778,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onDeposit={handleDeposit}
         onPostRentRequest={() => setRentRequestOpen(true)}
         onInviteSubAgent={handleInviteSubAgent}
+        onInviteTenant={() => { setMenuOpen(false); setTenantInviteOpen(true); }}
         onOpenEarningsRank={() => setEarningsRankOpen(true)}
         onManageProperty={() => { setMenuOpen(false); setManagedPropertyOpen(true); }}
         onViewManagedProperties={() => { setMenuOpen(false); setManagedPropertiesSheetOpen(true); }}
@@ -1933,6 +1936,12 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         open={subAgentLinkOpen}
         onOpenChange={setSubAgentLinkOpen}
       />
+      <LazyModal when={tenantInviteOpen}>
+      <TenantInviteLinkDialog
+        open={tenantInviteOpen}
+        onOpenChange={setTenantInviteOpen}
+      />
+      </LazyModal>
       <LazyModal when={rentRequestOpen}>
       <AgentRentRequestDialog 
         open={rentRequestOpen} 
