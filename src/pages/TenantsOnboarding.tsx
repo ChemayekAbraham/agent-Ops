@@ -87,6 +87,19 @@ async function toDataUrl(file: File): Promise<string> {
 export default function TenantsOnboarding() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Where the visitor should land again once they have an account. Keeps any
+  // query/hash they arrived with (e.g. a shared link carrying a village).
+  const returnTo = `${location.pathname}${location.search}${location.hash}`;
+  const authHref = (signup: boolean) =>
+    `/auth?redirect=${encodeURIComponent(returnTo)}${signup ? '&signup=1' : ''}`;
+
+  // Social sign-in loses the ?redirect during the provider round-trip; Auth
+  // recovers the intended path from this key.
+  useEffect(() => {
+    if (authLoading || user) return;
+    try { sessionStorage.setItem('welile_post_auth_redirect', returnTo); } catch { /* ignore */ }
+  }, [authLoading, user, returnTo]);
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
