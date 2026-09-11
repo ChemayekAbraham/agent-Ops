@@ -284,6 +284,72 @@ just because you are in it** — it will fight the other agent's next pass.
 
 ---
 
+## Withdrawal & payout traps
+
+### 19. An RLS policy, not the permission matrix, can make the Merchant Payout Queue empty for everyone
+
+**Incident, 2026-09-11:** merchant agents platform-wide reported "no pending withdrawals" on
+every tab (All/MoMo/Bank), including agents whose `cashout_agents.config` was fully open
+(all channels, all categories). The queue was genuinely non-empty — 14 pending bank payouts and
+~20 pending MoMo payouts existed, unclaimed — and the config-driven client filters
+(`buildQueueCategoryOrClause` / `buildChannelProviderOrClause` in `src/lib/cashoutAgentConfig.ts`)
+were verified correct by direct SQL. The queue was still empty for every agent.
+
+**Root cause:** the RLS `SELECT` policy on `withdrawal_requests`
+("Owners staff and assigned merchant agents can view withdrawals") only granted an active
+cash-out agent visibility into a row once it was **already** `assigned_cashout_agent_id` /
+`dispatch_claimed_by` / `processed_by` = themselves. A fresh, untouched, unclaimed row
+(`assigned_cashout_agent_id IS NULL`) matched none of those clauses for any regular agent, so
+Postgres silently returned zero rows before the client's category/channel filters even ran. No
+error surfaced — the UI's genuine-empty state ("No pending withdrawals") and an RLS-blocked
+empty result look identical to the client.
+
+**This is easy to misdiagnose as a permissions-matrix problem** because the symptom (agent can't
+see a withdrawal) is exactly what a missing category/channel grant also looks like, and because
+`query_database`-style tooling runs as a privileged role that bypasses RLS entirely — every
+"the data and config are correct" check done that way is blind to an RLS gap. If config/data
+checks all pass but the complaint persists across *multiple, differently-configured* agents
+(including ones with full permissions), suspect RLS next, not another config field:
+
+```sql
+SELECT policyname, cmd, qual FROM pg_policies
+WHERE schemaname = 'public' AND tablename = 'withdrawal_requests' ORDER BY cmd, policyname;
+```
+
+**Fixed 2026-09-11** — widened the policy to also allow `assigned_cashout_agent_id IS NULL`:
+see migration `20260911150000_allow_cashout_agents_view_unclaimed_withdrawals.sql`. Applying an
+`ALTER POLICY` against a busy table can hit `40P01 deadlock detected` under live traffic — this
+is transient lock contention, not a bad statement; retry it.
+
+**Two more bugs surfaced during the same incident, fixed or flagged separately:**
+
+- `src/components/payouts/ProoflessPayoutBlocker.tsx` compared `assigned_cashout_agent_id`
+  (a `cashout_agents.id`) against `user.id` — two different ID spaces that never match — so its
+  real "did I settle this" check silently fell back to `dispatch_claimed_by`, a field set the
+  instant a merchant accepts a push dispatch and **never cleared** when that claim later expires
+  and a different agent actually settles it. This wrongly blamed agents for other agents'
+  settlements. Fixed by matching on `processed_by` / the agent's own `cashout_agents.id` instead.
+- That same fix exposed a second, unresolved issue: the blocker's `fin_ops_verified_by`/
+  `fin_ops_approved_by` self-stamp exemption matches on ~99.8% of all self-settled payouts
+  platform-wide (5,196 of 5,206), because auto-approved payouts get stamped with the settling
+  merchant's own id as "verifier" by default. Practically, this means the proof-of-payment gate
+  has almost never fired on genuine unproven self-settlements — only on the misattribution bug
+  above. The blocker was **temporarily disabled** (early `return null` in the component) during
+  a rush-hour payout backlog rather than left to block everyone once the misattribution bug was
+  fixed and the self-stamp exemption started dominating. Re-enabling it needs a compliance policy
+  decision on whether self/auto-approved payouts should still require proof, not just a code fix.
+- `claim_withdrawal_verified` (the RPC that actually lets an agent claim a withdrawal) does
+  **not** check the CFO's category/channel permission matrix at all — only the MoMo
+  number/name match. The permission matrix is enforced only in the frontend today. Any active
+  cash-out agent can currently claim any withdrawal via a direct API call regardless of what the
+  CFO restricted them to. Not exploited in this incident; still open.
+
+**Do not** assume a `cashout_agents.config` change will restore visibility once you've confirmed
+it's correct — verify the actual RLS policy set for the querying role before spending more time
+on the permission matrix.
+
+---
+
 ## Architecture decisions that look wrong but are deliberate
 
 | Decision | Why |

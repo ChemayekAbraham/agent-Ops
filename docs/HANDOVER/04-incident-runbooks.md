@@ -406,3 +406,38 @@ for the full incident writeup, including the specific IDs and the corrected ledg
 
 **Do not** assume "advance completed" means the agent's commission path is clean. The two are
 tracked independently and can drift apart.
+
+---
+
+## M. The Merchant Payout Queue looks empty for every agent
+
+**Check RLS before the permission matrix.** If `cashout_agents.config` (channels/categories/
+banks) checks out correct for the complaining agent — or for *several differently-configured*
+agents at once — the config is probably not the problem.
+
+```sql
+SELECT policyname, cmd, qual FROM pg_policies
+WHERE schemaname = 'public' AND tablename = 'withdrawal_requests' ORDER BY cmd, policyname;
+```
+
+The `SELECT` policy must allow an active cash-out agent to see rows where
+`assigned_cashout_agent_id IS NULL` (unclaimed and up for grabs), not just rows already tied to
+them (`assigned_cashout_agent_id` / `dispatch_claimed_by` / `processed_by` = themselves). Without
+that clause, Postgres returns zero rows before any client-side channel/category filter runs —
+this looks identical to a genuinely empty queue and to a correctly-locked-down agent, so it is
+easy to chase the wrong fix for a long time.
+
+**Any tool that queries with a privileged/service role (including `query_database`-style admin
+tooling) bypasses RLS entirely** — "the data and config are correct" checked that way tells you
+nothing about what the agent's own session can actually see. Always cross-check the policy set,
+not just the row data.
+
+Fixed 2026-09-11 — see migration `20260911150000_allow_cashout_agents_view_unclaimed_withdrawals.sql`
+and [`07-tribal-knowledge.md` §19](./07-tribal-knowledge.md#19-an-rls-policy-not-the-permission-matrix-can-make-the-merchant-payout-queue-empty-for-everyone)
+for the full incident, including two related bugs it surfaced in the proof-of-payment blocker and
+a still-open gap where `claim_withdrawal_verified` doesn't enforce the permission matrix
+server-side.
+
+**Do not** run `ALTER POLICY` against this table without expecting `40P01 deadlock detected`
+under live traffic — it's transient lock contention from concurrent reads, not a bad statement.
+Retry it.
