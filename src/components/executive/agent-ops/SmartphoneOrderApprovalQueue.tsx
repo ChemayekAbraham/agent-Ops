@@ -101,7 +101,7 @@ const isAgentOpsActionable = (s: string) => s === 'pending_approval' || s === 's
  * assigned supplier directly and starts the 33% recovery plan on the agent.
  * Rejecting at any stage requires a 10+ character reason.
  */
-export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly = false }: { pendingOnly?: boolean; rejectedOnly?: boolean } = {}) {
+export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly = false, inProgressOnly = false }: { pendingOnly?: boolean; rejectedOnly?: boolean; inProgressOnly?: boolean } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [rejectTarget, setRejectTarget] = useState<SmartphoneOrderRow | null>(null);
