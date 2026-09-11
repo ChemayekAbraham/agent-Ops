@@ -81,6 +81,7 @@ import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenter
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { ListRegisterEarnDialog } from '@/components/agent/ListRegisterEarnDialog';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
+import { TenantInviteLinkDialog } from '@/components/agent/TenantInviteLinkDialog';
 import SavedRentDraftsPanel from '@/components/agent/SavedRentDraftsPanel';
 import { useBusinessAdvanceCommissionListener } from '@/hooks/useBusinessAdvanceCommissionListener';
 import { useAgentUnblockToast } from '@/hooks/useAgentUnblockToast';
@@ -1934,6 +1935,12 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         open={subAgentLinkOpen}
         onOpenChange={setSubAgentLinkOpen}
       />
+      <LazyModal when={tenantInviteOpen}>
+      <TenantInviteLinkDialog
+        open={tenantInviteOpen}
+        onOpenChange={setTenantInviteOpen}
+      />
+      </LazyModal>
       <LazyModal when={rentRequestOpen}>
       <AgentRentRequestDialog 
         open={rentRequestOpen} 
