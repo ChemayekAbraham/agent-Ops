@@ -235,6 +235,8 @@ Deno.serve(async (req) => {
     }
     let tenantPhotoUrl: string | null = null;
     if (tenant_photo) tenantPhotoUrl = await uploadDataUrl(tenant_photo, `${userId}/${rentReq.id}/tenant.jpg`);
+    let idPhotoUrl: string | null = null;
+    if (id_photo) idPhotoUrl = await uploadDataUrl(id_photo, `${userId}/${rentReq.id}/national_id.jpg`);
 
     if (houseUrls.length || tenantPhotoUrl) {
       const patch: Record<string, unknown> = {};
