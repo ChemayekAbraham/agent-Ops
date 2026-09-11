@@ -432,8 +432,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                 { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash), onSelect: () => setActualMoneyLine('banked_cash') },
                 { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash), onSelect: () => setActiveBreakdown('cash') },
               ]}
-              footer="Balance-sheet position — comparison/reference to Cash at Bank above"
-              footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
               onClick={() => setActiveBreakdown('cash')}
             />
           </div>
