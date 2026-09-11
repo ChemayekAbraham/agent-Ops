@@ -260,29 +260,53 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     staleTime: 30_000,
   });
 
+  const approvedBikeOrders = useMemo(() => {
+    if (category !== 'motor_bike' || isBikeOrdersLoading) return [];
+    return bikeOrders.filter((o) => ['approved', 'completed'].includes(o.order_status));
+  }, [category, bikeOrders, isBikeOrdersLoading]);
+
   const approvedBikeAgentIds = useMemo(() => {
     if (category !== 'motor_bike') return null;
     if (isBikeOrdersLoading) return null;
     const ids = new Set<string>();
     const names = new Set<string>();
-    bikeOrders
-      .filter((o) => ['approved', 'completed'].includes(o.order_status))
-      .forEach((o) => {
-        if (o.customer_id) ids.add(o.customer_id);
-        if (o.client_name) names.add(o.client_name.toLowerCase().trim());
-      });
+    approvedBikeOrders.forEach((o) => {
+      if (o.customer_id) ids.add(o.customer_id);
+      if (o.client_name) names.add(o.client_name.toLowerCase().trim());
+    });
     return { ids, names };
-  }, [category, bikeOrders, isBikeOrdersLoading]);
+  }, [category, approvedBikeOrders, isBikeOrdersLoading]);
 
   const rawRows = data?.rows ?? [];
   const allRows = useMemo(() => {
     if (category !== 'motor_bike' || !approvedBikeAgentIds) return rawRows;
-    return rawRows.filter((r) => {
-      const matchId = r.agent_id && approvedBikeAgentIds.ids.has(r.agent_id);
-      const matchName = r.full_name && approvedBikeAgentIds.names.has(r.full_name.toLowerCase().trim());
-      return Boolean(matchId || matchName);
-    });
-  }, [rawRows, category, approvedBikeAgentIds]);
+    return rawRows
+      .filter((r) => {
+        const matchId = r.agent_id && approvedBikeAgentIds.ids.has(r.agent_id);
+        const matchName = r.full_name && approvedBikeAgentIds.names.has(r.full_name.toLowerCase().trim());
+        return Boolean(matchId || matchName);
+      })
+      .map((r) => {
+        const matchingOrders = approvedBikeOrders.filter(
+          (b) =>
+            (b.customer_id && b.customer_id === r.agent_id) ||
+            (b.client_name && (r.full_name || '').toLowerCase().trim() === b.client_name.toLowerCase().trim()),
+        );
+        if (matchingOrders.length > 0) {
+          const totalVal = matchingOrders.reduce((sum, o) => sum + Number(o.valuation_amount || 0), 0);
+          const totalPaid = matchingOrders.reduce((sum, o) => sum + Number(o.amount_paid || 0), 0);
+          const totalOut = matchingOrders.reduce((sum, o) => sum + Number(o.amount_outstanding ?? o.valuation_amount ?? 0), 0);
+          return {
+            ...r,
+            items_held: matchingOrders.length,
+            held_amount: totalVal,
+            outstanding_amount: totalOut,
+            repaid_amount: totalPaid,
+          };
+        }
+        return r;
+      });
+  }, [rawRows, category, approvedBikeAgentIds, approvedBikeOrders]);
 
   const kpis = data?.kpis as AgentProductKpis | undefined;
   const effectiveKpis = useMemo(() => {
