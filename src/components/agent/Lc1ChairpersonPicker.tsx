@@ -85,6 +85,7 @@ export function Lc1ChairpersonPicker({
   defaultVillage = '',
   scopeDistrictName = null,
   attempted = false,
+  context = 'agent',
 }: Lc1ChairpersonPickerProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Lc1Hit[]>([]);
