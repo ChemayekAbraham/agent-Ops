@@ -600,6 +600,7 @@ export default function TenantsOnboarding() {
   if (authLoading) {
     return (
       <div className="min-h-screen grid place-items-center bg-muted/30">
+        {onboardingHead}
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
@@ -608,6 +609,7 @@ export default function TenantsOnboarding() {
   if (!user) {
     return (
       <div className="min-h-screen grid place-items-center bg-muted/30 px-4">
+        {onboardingHead}
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center space-y-4">
             <img src={welileLogo} alt="Welile" className="h-9 mx-auto" />
@@ -633,6 +635,7 @@ export default function TenantsOnboarding() {
   if (gate.checking && !submitted) {
     return (
       <div className="min-h-screen grid place-items-center bg-muted/30">
+        {onboardingHead}
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
@@ -645,6 +648,7 @@ export default function TenantsOnboarding() {
       : null;
     return (
       <div className="min-h-screen bg-muted/30 px-4 py-10">
+        {onboardingHead}
         <div className="mx-auto max-w-md space-y-5">
           <img src={welileLogo} alt="Welile" className="h-8" />
           <Card>
@@ -689,6 +693,7 @@ export default function TenantsOnboarding() {
     const ref = submitted.id.slice(0, 8).toUpperCase();
     return (
       <div className="min-h-screen bg-muted/30 px-4 py-10">
+        {onboardingHead}
         <div className="mx-auto max-w-xl space-y-5">
           <img src={welileLogo} alt="Welile" className="h-8" />
 
@@ -767,6 +772,7 @@ export default function TenantsOnboarding() {
 
   return (
     <div className="min-h-screen bg-muted/30">
+      {onboardingHead}
       {/* Top bar — full-bleed, 56px on mobile / 64px from sm up, matching the
           onboarding shell rather than the app's centred container. */}
       <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-background px-3 sm:h-16 sm:px-8">
