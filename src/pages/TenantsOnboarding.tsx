@@ -1249,15 +1249,16 @@ export default function TenantsOnboarding() {
                 </Button>
               ) : (
                 <Button type="button" onClick={submit} disabled={submitting || !declared}
-                  className="relative min-w-[210px] overflow-hidden">
-                  {submitting ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" /> : <Check className="mr-2 h-4 w-4 shrink-0" />}
-                  {/* The label rises out of the button as each stage passes, so a
-                      slow upload reads as progress rather than a hang. */}
-                  <span className="relative block h-5 flex-1 overflow-hidden text-left">
-                    <span
-                      key={submitting ? submitPhase : -1}
-                      className="absolute inset-x-0 top-0 block animate-[submit-rise_360ms_cubic-bezier(0.4,0,0.2,1)] leading-5"
-                    >
+                  className="min-w-[215px]">
+                  {submitting
+                    ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+                    : <Check className="mr-2 h-4 w-4 shrink-0" />}
+                  {/* Each stage rises into place, so a slow upload reads as
+                      progress rather than a hang. Clipping happens on the
+                      inline-block wrapper, which is sized by its own content —
+                      it can never collapse the label to zero height. */}
+                  <span className="inline-block overflow-hidden align-middle">
+                    <span key={submitting ? submitPhase : -1} className="inline-block animate-submit-rise">
                       {submitting ? SUBMIT_PHASES[submitPhase] : 'Submit rent request'}
                     </span>
                   </span>
