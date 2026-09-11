@@ -595,6 +595,61 @@ export default function TenantsOnboarding() {
     );
   }
 
+  if (gate.checking && !submitted) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-muted/30">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (gate.blocked && !submitted) {
+    const repaying = gate.stage === 'repaying';
+    const when = gate.created_at
+      ? new Date(gate.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      : null;
+    return (
+      <div className="min-h-screen bg-muted/30 px-4 py-10">
+        <div className="mx-auto max-w-md space-y-5">
+          <img src={welileLogo} alt="Welile" className="h-8" />
+          <Card>
+            <CardContent className="space-y-5 p-6 text-center">
+              <span className={cn(
+                'mx-auto grid h-16 w-16 place-items-center rounded-full',
+                repaying ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-amber-100 dark:bg-amber-900/40',
+              )}>
+                {repaying
+                  ? <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  : <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />}
+              </span>
+              <div>
+                <h1 className="text-2xl font-extrabold tracking-tight">
+                  {repaying ? 'You already have a Rent Plan' : 'Your request is under review'}
+                </h1>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {repaying
+                    ? 'Your rent has already been paid to your landlord and you are repaying that plan now. You can only ask for rent support again once this plan is fully paid off.'
+                    : `We already have your request${when ? ` from ${when}` : ''} and our team is checking your details. Please wait for us to come back to you — sending it again does not make it faster.`}
+                </p>
+                {gate.other_account && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    This request is held on an account using the same phone number or email as yours.
+                  </p>
+                )}
+              </div>
+              <Button className="w-full" onClick={() => navigate('/dashboard/tenant')}>
+                {repaying ? 'See my Rent Plan' : 'Track my request'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Questions? Call {SUPPORT_PHONE_DISPLAY} or email {SUPPORT_EMAIL}.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   if (submitted) {
     const ref = submitted.id.slice(0, 8).toUpperCase();
     return (
