@@ -416,6 +416,11 @@ export default function TenantsOnboarding() {
       if (c.length < 10 || c.length > 14) return 'National ID must be 10 to 14 characters';
       if (ninTakenByOther) return 'This National ID is already registered to another account';
       if (!tenantPhoto) return 'Take your passport photo';
+      // Only a definite "no face found" blocks; a `review` verdict is advisory.
+      if (photoCheck && !photoCheck.checking && !photoCheck.error && photoCheck.is_face === false) {
+        return 'No face was found in your passport photo. Please retake it.';
+      }
+
       if (!idPhoto) return 'Take a photo of your National ID';
       return null;
     }
