@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Loader2, Phone, Mail, MapPin } from 'lucide-react';
@@ -122,6 +123,27 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
   const agent = data?.agent;
   const totals = data?.totals;
 
+  // Only display actual items held (exclude rejected/cancelled applications)
+  const items = useMemo(() => {
+    return (data?.items ?? []).filter(
+      (it) => !['rejected', 'cancelled', 'declined'].includes((it.order_status || '').toLowerCase()),
+    );
+  }, [data?.items]);
+
+  // Only display valid active recovery plans matching actual active items
+  const plans = useMemo(() => {
+    return (data?.plans ?? []).filter((p) => {
+      const st = (p.status || '').toLowerCase();
+      if (['cancelled', 'terminated', 'inactive', 'rejected'].includes(st)) return false;
+      // Exclude zero-deduction duplicate/abandoned plans from rejected attempts
+      if (Number(p.daily_deduction_amount || 0) === 0 && Number(p.amount_recovered || 0) === 0) return false;
+      if (items.length > 0) {
+        const itemAmounts = new Set(items.map((it) => Number(it.amount || 0)));
+        if (!itemAmounts.has(Number(p.original_amount || 0))) return false;
+      }
+      return true;
+    });
+  }, [data?.plans, items]);
 
   return (
     <Dialog open={!!agentId} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -238,12 +260,12 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
 
               {/* Items held */}
               <section className="space-y-2">
-                <h3 className="text-sm font-semibold">Items ({data?.items.length ?? 0})</h3>
-                {(data?.items ?? []).length === 0 ? (
+                <h3 className="text-sm font-semibold">Items ({items.length})</h3>
+                {items.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No items recorded for this agent.</p>
                 ) : (
                   <div className="rounded-xl border border-border divide-y divide-border">
-                    {data?.items.map((it) => (
+                    {items.map((it) => (
                       <div key={it.sale_id} className="p-2.5 flex flex-wrap items-center gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">
@@ -272,12 +294,12 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
 
               {/* Recovery plans */}
               <section className="space-y-2">
-                <h3 className="text-sm font-semibold">Recovery plans ({data?.plans.length ?? 0})</h3>
-                {(data?.plans ?? []).length === 0 ? (
+                <h3 className="text-sm font-semibold">Recovery plans ({plans.length})</h3>
+                {plans.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No recovery plan attached.</p>
                 ) : (
                   <div className="rounded-xl border border-border divide-y divide-border">
-                    {data?.plans.map((p) => (
+                    {plans.map((p) => (
                       <div key={p.id} className="p-2.5 space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-medium truncate">{p.item_name || '—'}</p>

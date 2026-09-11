@@ -79,9 +79,22 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
 
   const valuationNum = Math.max(0, Math.round(Number(valuation) || 0));
   const termNum = Math.max(1, parseInt(term, 10) || 12);
-  const rate = Number(order?.lease_daily_rate || BIKE_RECOVERY_RATE);
+  const period = SPIRO_LEASE_PERIODS.find((p) => p.months === termNum);
+  const feePct = period?.feePct ?? (termNum <= 3 ? 33 : termNum <= 6 ? 36 : termNum <= 9 ? 39 : 42);
+  const rate = feePct / 100;
   const perCredit = Math.round(valuationNum * rate);
   const monthly = termNum > 0 ? Math.round(valuationNum / termNum) : 0;
+
+  const currentValNum = Number(order?.valuation_amount || 0);
+  const currentTermNum = Number(order?.lease_term_months || 12);
+  const currentPeriod = SPIRO_LEASE_PERIODS.find((p) => p.months === currentTermNum);
+  const currentFeePct = currentPeriod?.feePct ?? (currentTermNum <= 3 ? 33 : currentTermNum <= 6 ? 36 : currentTermNum <= 9 ? 39 : 42);
+  const currentCostPrice = Math.round(currentValNum / (1 + currentFeePct / 100));
+  const currentDays = currentTermNum * 30;
+  const currentDailyPay = currentDays > 0 ? Math.ceil(currentValNum / currentDays) : 0;
+  const costPrice = Math.round(valuationNum / (1 + feePct / 100));
+  const days = termNum * 30;
+  const dailyPay = days > 0 ? Math.ceil(valuationNum / days) : 0;
 
   // Real-time schedule calculation
   const schedule = useMemo(() => {
@@ -187,9 +200,15 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
               <span className="font-medium text-foreground">{order.client_phone || '—'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Current Valuation</span>
+              <span className="text-muted-foreground">Bike Cost Price</span>
               <span className="font-semibold text-primary">
-                {formatUGX(Number(order.valuation_amount || 0))}
+                {formatUGX(currentCostPrice)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Est. Daily Pay</span>
+              <span className="font-semibold text-foreground">
+                {formatUGX(currentDailyPay)}/day
               </span>
             </div>
           </div>
@@ -281,15 +300,23 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
               Updated Repayment Projection
             </p>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Valuation</span>
-              <span className="font-bold text-foreground">{formatUGX(valuationNum)}</span>
+              <span className="text-muted-foreground">Bike Cost Price</span>
+              <span className="font-bold text-primary">{formatUGX(costPrice)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Estimated Daily Pay</span>
+              <span className="font-semibold text-foreground">{formatUGX(dailyPay)}/day</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Estimated Monthly</span>
-              <span className="font-semibold text-foreground">{formatUGX(monthly)}</span>
+              <span className="font-semibold text-foreground">{formatUGX(monthly)}/mo</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Recovery per Credit (15%)</span>
+              <span className="text-muted-foreground">Access Fee ({termNum}m)</span>
+              <span className="font-semibold text-foreground">{feePct}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Recovery per Credit ({feePct}%)</span>
               <span className="font-semibold text-foreground">{formatUGX(perCredit)}</span>
             </div>
           </div>

@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
+import { SPIRO_LEASE_PERIODS } from '@/lib/spiroBikeLease';
 
 const db = supabase as any;
 
@@ -84,6 +85,7 @@ interface Props {
   onApprove?: (order: BikeLeaseDetailRow) => void;
   onReject?: (order: BikeLeaseDetailRow) => void;
   onEditPrice?: (order: BikeLeaseDetailRow) => void;
+  stage?: 'ops' | 'coo' | 'cfo';
 }
 
 export function BikeLeaseDetailDialog({
@@ -93,21 +95,36 @@ export function BikeLeaseDetailDialog({
   onApprove,
   onReject,
   onEditPrice,
+  stage,
 }: Props) {
   if (!order) return null;
 
+  const isOps = !stage || stage === 'ops';
+
   const valuationNum = Number(order.valuation_amount || 0);
   const termNum = Number(order.lease_term_months || 12);
-  const rate = Number(order.lease_daily_rate || 0.15);
+  const period = SPIRO_LEASE_PERIODS.find((p) => p.months === termNum);
+  const feePct = period?.feePct ?? (termNum <= 3 ? 33 : termNum <= 6 ? 36 : termNum <= 9 ? 39 : 42);
   const monthly = termNum > 0 && valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
-  const perCredit = Number(order.payment_projection || Math.round(valuationNum * rate));
   const outstanding = Number(order.amount_outstanding ?? valuationNum);
   const paid = Number(order.amount_paid || 0);
+  const costPrice = Math.round(valuationNum / (1 + feePct / 100));
+  const days = termNum * 30;
+  const dailyPay = days > 0 ? Math.ceil(valuationNum / days) : 0;
 
   const isPending = order.order_status === 'submitted' || order.order_status === 'pending_approval';
   const isAwaitingCoo = order.order_status === 'ops_approved';
   const isAwaitingCfo = order.order_status === 'coo_approved';
   const isOpen = isPending || isAwaitingCoo || isAwaitingCfo;
+
+  const canAct =
+    stage === 'ops'
+      ? isPending
+      : stage === 'coo'
+        ? isAwaitingCoo
+        : stage === 'cfo'
+          ? isAwaitingCfo
+          : isOpen;
 
 
   return (
@@ -209,11 +226,22 @@ export function BikeLeaseDetailDialog({
               </div>
 
               <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
-                <p className="text-[11px] font-medium text-muted-foreground truncate">Valuation Amount</p>
+                <p className="text-[11px] font-medium text-muted-foreground truncate">
+                  {isOps ? 'Bike Cost Price' : 'Valuation Amount'}
+                </p>
                 <p className="text-xs sm:text-sm font-bold text-primary truncate">
-                  {formatUGX(valuationNum)}
+                  {formatUGX(isOps ? costPrice : valuationNum)}
                 </p>
               </div>
+
+              {isOps && (
+                <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                  <p className="text-[11px] font-medium text-muted-foreground truncate">Estimated Daily Pay</p>
+                  <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                    {formatUGX(dailyPay)}/day
+                  </p>
+                </div>
+              )}
 
               <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Lease Term</p>
@@ -226,14 +254,10 @@ export function BikeLeaseDetailDialog({
               </div>
 
               <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
-                <p className="text-[11px] font-medium text-muted-foreground truncate">Recovery Rate</p>
-                <p className="text-xs sm:text-sm font-bold text-foreground truncate">{Math.round(rate * 100)}% / credit</p>
+                <p className="text-[11px] font-medium text-muted-foreground truncate">Interest Rate</p>
+                <p className="text-xs sm:text-sm font-bold text-primary truncate">{feePct}%</p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
-                <p className="text-[11px] font-medium text-muted-foreground truncate">Recovery / Credit</p>
-                <p className="text-xs sm:text-sm font-bold text-foreground truncate">{formatUGX(perCredit)}</p>
-              </div>
 
               <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Amount Paid</p>
@@ -328,7 +352,7 @@ export function BikeLeaseDetailDialog({
                 </Button>
               )}
 
-              {isOpen && onReject && (
+              {canAct && onReject && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -343,7 +367,7 @@ export function BikeLeaseDetailDialog({
               )}
             </div>
 
-            {isOpen && onApprove && (
+            {canAct && onApprove && (
               <Button
                 size="sm"
                 className="h-9 text-xs bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto justify-center font-semibold"

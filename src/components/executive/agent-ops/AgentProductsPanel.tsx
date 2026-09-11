@@ -249,7 +249,62 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
 
+  const { data: bikeOrders = [], isLoading: isBikeOrdersLoading } = useQuery<any[]>({
+    queryKey: ['bike-lease-queue'],
+    enabled: category === 'motor_bike',
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('list_bike_lease_orders' as any, { p_status: null });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    staleTime: 30_000,
+  });
+
+  const approvedBikeAgentIds = useMemo(() => {
+    if (category !== 'motor_bike') return null;
+    if (isBikeOrdersLoading) return null;
+    const ids = new Set<string>();
+    const names = new Set<string>();
+    bikeOrders
+      .filter((o) => ['approved', 'completed'].includes(o.order_status))
+      .forEach((o) => {
+        if (o.customer_id) ids.add(o.customer_id);
+        if (o.client_name) names.add(o.client_name.toLowerCase().trim());
+      });
+    return { ids, names };
+  }, [category, bikeOrders, isBikeOrdersLoading]);
+
+  const rawRows = data?.rows ?? [];
+  const allRows = useMemo(() => {
+    if (category !== 'motor_bike' || !approvedBikeAgentIds) return rawRows;
+    return rawRows.filter((r) => {
+      const matchId = r.agent_id && approvedBikeAgentIds.ids.has(r.agent_id);
+      const matchName = r.full_name && approvedBikeAgentIds.names.has(r.full_name.toLowerCase().trim());
+      return Boolean(matchId || matchName);
+    });
+  }, [rawRows, category, approvedBikeAgentIds]);
+
   const kpis = data?.kpis as AgentProductKpis | undefined;
+  const effectiveKpis = useMemo(() => {
+    if (!kpis) return undefined;
+    if (category !== 'motor_bike' || !approvedBikeAgentIds) return kpis;
+
+    const inFieldAgents = allRows.length;
+    const inFieldItems = allRows.reduce((sum, r) => sum + Number(r.items_held || 0), 0);
+    const inFieldAmount = allRows.reduce((sum, r) => sum + Number(r.held_amount || 0), 0);
+    const inFieldOutstanding = allRows.reduce((sum, r) => sum + Number(r.outstanding_amount || 0), 0);
+    const inFieldRepaid = allRows.reduce((sum, r) => sum + Number(r.repaid_amount || 0), 0);
+
+    return {
+      ...kpis,
+      in_field_agents: inFieldAgents,
+      in_field_items: inFieldItems,
+      in_field_amount: inFieldAmount,
+      in_field_outstanding: inFieldOutstanding,
+      in_field_repaid: inFieldRepaid,
+    };
+  }, [kpis, category, approvedBikeAgentIds, allRows]);
+
   const pendingApps = data?.pending ?? [];
   const breakdown = data?.breakdown ?? [];
   const activity = data?.activity ?? [];
@@ -258,7 +313,6 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   // KPI drill-down. The lists come straight from the same overview payload the
   // cards count, so a card and its sheet can never disagree.
   const [drill, setDrill] = useState<DrillKey | null>(null);
-  const allRows = data?.rows ?? [];
   const repaidRows = useMemo(
     () => allRows.filter((r) => Number(r.repaid_amount || 0) > 0)
       .sort((a, b) => Number(b.repaid_amount || 0) - Number(a.repaid_amount || 0)),
@@ -286,7 +340,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
   const rows = useMemo(() => {
-    const list = data?.rows ?? [];
+    const list = allRows;
 
     const term = search.trim().toLowerCase();
     return list.filter((r) => {
@@ -303,28 +357,28 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         names.includes(term)
       );
     });
-  }, [data?.rows, search, itemFilter, showCompleted, mode]);
+  }, [allRows, search, itemFilter, showCompleted, mode]);
 
   /** Service centre per agent, taken from the already-loaded issued rows — no extra round trip. */
   const centreByAgent = useMemo(() => {
     const map = new Map<string, string>();
-    (data?.rows ?? []).forEach((r) => {
+    allRows.forEach((r) => {
       if (r.agent_id && r.location_name) map.set(r.agent_id, r.location_name);
     });
     (data?.centres ?? []).forEach((c) => {
       if (c.agent_id && c.location_name && !map.has(c.agent_id)) map.set(c.agent_id, c.location_name);
     });
     return map;
-  }, [data?.rows, data?.centres]);
+  }, [allRows, data?.centres]);
 
   /** Item names offered in the dropdown — drawn from what actually exists in this category. */
   const itemOptions = useMemo(() => {
     const names = new Set<string>();
     breakdown.forEach((b) => b.label && names.add(b.label));
     pendingApps.forEach((p) => p.item_name && names.add(p.item_name));
-    (data?.rows ?? []).forEach((r) => (r.product_names || []).forEach((n) => n && names.add(n)));
+    allRows.forEach((r) => (r.product_names || []).forEach((n) => n && names.add(n)));
     return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [breakdown, pendingApps, data?.rows]);
+  }, [breakdown, pendingApps, allRows]);
 
   const filteredPending = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -342,10 +396,10 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
   const exportPdf = async () => {
-    if (!kpis) return;
+    if (!effectiveKpis) return;
     const { data: auth } = await supabase.auth.getUser();
     const actor = auth.user?.email || 'Agent Operations';
-    const blob = generateAgentProductsInFieldPdf({ kpis, rows, actor });
+    const blob = generateAgentProductsInFieldPdf({ kpis: effectiveKpis, rows, actor });
     const filename = `Agent_Products_In_Field_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
     archivePdfBlob(blob, { label: 'Agent Products & Services', filename, category: 'other' }).catch(() => {});
     const url = URL.createObjectURL(blob);
@@ -465,7 +519,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
           <RefreshCw className={isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           Refresh
         </Button>
-        <Button variant="outline" size="sm" onClick={exportPdf} disabled={!kpis} className="gap-1.5">
+        <Button variant="outline" size="sm" onClick={exportPdf} disabled={!effectiveKpis} className="gap-1.5">
           <Download className="h-4 w-4" />
           Export PDF
         </Button>
@@ -493,7 +547,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
       {showOverview && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {isLoading || !kpis ? (
+          {isLoading || (category === 'motor_bike' && isBikeOrdersLoading) || !effectiveKpis ? (
             Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
           ) : (
             <>
@@ -531,13 +585,13 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active Field Fleet</p>
-                      <p className="text-2xl font-bold tabular-nums">{kpis.in_field_agents ?? 0}</p>
+                      <p className="text-2xl font-bold tabular-nums">{effectiveKpis.in_field_agents ?? 0}</p>
                     </div>
                     <div className="rounded-lg bg-warning/10 p-2 text-warning">
                       <Users className="h-4 w-4" />
                     </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">{kpis.in_field_items ?? 0} item(s) issued</p>
+                  <p className="text-[11px] text-muted-foreground">{effectiveKpis.in_field_items ?? 0} item(s) issued</p>
                 </CardContent>
               </Card>
 
@@ -552,7 +606,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Financial Portfolio</p>
-                      <p className="text-lg font-bold tabular-nums">{formatUGX(Number(kpis.in_field_outstanding || 0))}</p>
+                      <p className="text-lg font-bold tabular-nums">{formatUGX(Number(effectiveKpis.in_field_outstanding || 0))}</p>
                     </div>
                     <div className="rounded-lg bg-success/10 p-2 text-success">
                       <Wallet className="h-4 w-4" />
@@ -561,10 +615,10 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-muted-foreground">Outstanding</span>
-                      <span className="font-medium">{formatUGX(Number(kpis.in_field_amount || 0))} total</span>
+                      <span className="font-medium">{formatUGX(Number(effectiveKpis.in_field_amount || 0))} total</span>
                     </div>
                     <Progress
-                      value={Number(kpis.in_field_amount || 0) > 0 ? Math.round(((Number(kpis.in_field_amount || 0) - Number(kpis.in_field_outstanding || 0)) / Number(kpis.in_field_amount || 0)) * 100) : 0}
+                      value={Number(effectiveKpis.in_field_amount || 0) > 0 ? Math.round(((Number(effectiveKpis.in_field_amount || 0) - Number(effectiveKpis.in_field_outstanding || 0)) / Number(effectiveKpis.in_field_amount || 0)) * 100) : 0}
                       className="h-1.5"
                     />
                   </div>
@@ -583,7 +637,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Repayment Recovery Rate</p>
                       <p className="text-2xl font-bold tabular-nums">
-                        {Number(kpis.in_field_amount || 0) > 0 ? Math.round((Number(kpis.in_field_repaid || 0) / Number(kpis.in_field_amount || 0)) * 100) : 0}%
+                        {Number(effectiveKpis.in_field_amount || 0) > 0 ? Math.round((Number(effectiveKpis.in_field_repaid || 0) / Number(effectiveKpis.in_field_amount || 0)) * 100) : 0}%
                       </p>
                     </div>
                     <div className="rounded-lg bg-info/10 p-2 text-info">
@@ -592,10 +646,10 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   </div>
                   <div className="space-y-1">
                     <Progress
-                      value={Number(kpis.in_field_amount || 0) > 0 ? Math.round((Number(kpis.in_field_repaid || 0) / Number(kpis.in_field_amount || 0)) * 100) : 0}
+                      value={Number(effectiveKpis.in_field_amount || 0) > 0 ? Math.round((Number(effectiveKpis.in_field_repaid || 0) / Number(effectiveKpis.in_field_amount || 0)) * 100) : 0}
                       className="h-1.5"
                     />
-                    <p className="text-[11px] text-muted-foreground">{formatUGX(Number(kpis.in_field_repaid || 0))} repaid</p>
+                    <p className="text-[11px] text-muted-foreground">{formatUGX(Number(effectiveKpis.in_field_repaid || 0))} repaid</p>
                   </div>
                 </CardContent>
               </Card>
@@ -611,7 +665,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Repaid</p>
-                      <p className="text-lg font-bold tabular-nums">{formatUGX(Number(kpis.in_field_repaid || 0))}</p>
+                      <p className="text-lg font-bold tabular-nums">{formatUGX(Number(effectiveKpis.in_field_repaid || 0))}</p>
                     </div>
                     <div className="rounded-lg bg-success/10 p-2 text-success">
                       <Check className="h-4 w-4" />

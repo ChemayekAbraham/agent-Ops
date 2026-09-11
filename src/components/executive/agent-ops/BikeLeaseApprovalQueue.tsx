@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import { LEASE_TERMS } from '@/components/merchandise/SpiroBikeOrderDialog';
+import { SPIRO_LEASE_PERIODS } from '@/lib/spiroBikeLease';
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
 import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
@@ -85,6 +86,19 @@ const isAwaitingCfo = (s: string) => s === 'coo_approved';
 const isOpen = (s: string) => isPending(s) || isAwaitingCoo(s) || isAwaitingCfo(s);
 const isApproved = (s: string) => s === 'approved' || s === 'completed';
 
+/** Computes cost price, daily payment and recovery per credit for a bike lease application */
+const getRowPricing = (row: BikeLeaseRow) => {
+  const val = Number(row.valuation_amount || 0);
+  const term = Number(row.lease_term_months || 12);
+  const period = SPIRO_LEASE_PERIODS.find((p) => p.months === term);
+  const feePct = period?.feePct ?? (term <= 3 ? 33 : term <= 6 ? 36 : term <= 9 ? 39 : 42);
+  const costPrice = Math.round(val / (1 + feePct / 100));
+  const days = term * 30;
+  const dailyPay = days > 0 ? Math.ceil(val / days) : 0;
+  const perCredit = Math.round(val * (feePct / 100));
+  return { val, term, feePct, costPrice, dailyPay, perCredit };
+};
+
 /** The step a row is currently waiting on. */
 const stageOf = (s: string): Stage => (isAwaitingCfo(s) ? 'cfo' : isAwaitingCoo(s) ? 'coo' : 'ops');
 
@@ -110,9 +124,15 @@ const SHORT_ACTION_LABEL: Record<Stage, string> = {
  */
 export function BikeLeaseApprovalQueue({
   pendingOnly = false,
+  awaitingExecOnly = false,
   approvedOnly = false,
   stage: stageFilter,
-}: { pendingOnly?: boolean; approvedOnly?: boolean; stage?: Stage } = {}) {
+}: {
+  pendingOnly?: boolean;
+  awaitingExecOnly?: boolean;
+  approvedOnly?: boolean;
+  stage?: Stage;
+} = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [approveTarget, setApproveTarget] = useState<BikeLeaseRow | null>(null);
@@ -137,9 +157,18 @@ export function BikeLeaseApprovalQueue({
     queryClient.invalidateQueries({ queryKey: ['agent-products'] });
   };
 
-  const approveStage: Stage = approveTarget ? stageOf(approveTarget.order_status) : 'ops';
+  const approveStage: Stage = stageFilter || (approveTarget ? stageOf(approveTarget.order_status) : 'ops');
+
+  const canActOnRow = (status: string) => {
+    if (!stageFilter) return isOpen(status);
+    if (stageFilter === 'ops') return isPending(status);
+    if (stageFilter === 'coo') return isAwaitingCoo(status);
+    if (stageFilter === 'cfo') return isAwaitingCfo(status);
+    return false;
+  };
 
   const openApprove = (o: BikeLeaseRow) => {
+    if (!canActOnRow(o.order_status)) return;
     setApproveTarget(o);
     setApprovedValuation(String(Math.round(Number(o.valuation_amount || 0))));
     setApprovedTerm(String(o.lease_term_months || 12));
@@ -147,9 +176,15 @@ export function BikeLeaseApprovalQueue({
 
   const valuationNum = Math.max(0, Math.round(Number(approvedValuation || 0) || 0));
   const termNum = Math.max(1, parseInt(approvedTerm, 10) || 12);
-  const rate = Number(approveTarget?.lease_daily_rate || 0.15);
+  const termPeriod = SPIRO_LEASE_PERIODS.find((p) => p.months === termNum);
+  const interestPct = termPeriod?.feePct ?? (termNum <= 3 ? 33 : termNum <= 6 ? 36 : termNum <= 9 ? 39 : 42);
+  const rate = interestPct / 100;
   const perCredit = Math.round(valuationNum * rate);
   const monthly = valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
+  const isOpsDashboard = stageFilter === 'ops' || !stageFilter;
+  const approveCostPrice = Math.round(valuationNum / (1 + interestPct / 100));
+  const approveDays = termNum * 30;
+  const approveDailyPay = approveDays > 0 ? Math.ceil(valuationNum / approveDays) : 0;
 
   const approve = useMutation({
     mutationFn: async ({ id, stage }: { id: string; stage: Stage }) => {
@@ -209,8 +244,17 @@ export function BikeLeaseApprovalQueue({
     if (approvedOnly) {
       return rows.filter((o) => isApproved(o.order_status));
     }
-    return pendingOnly ? rows.filter((o) => isOpen(o.order_status)) : rows;
-  }, [orders, pendingOnly, approvedOnly, stageFilter]);
+    if (awaitingExecOnly) {
+      return rows.filter((o) => isAwaitingCoo(o.order_status) || isAwaitingCfo(o.order_status));
+    }
+    if (pendingOnly) {
+      if (stageFilter === 'ops') {
+        return rows.filter((o) => isPending(o.order_status));
+      }
+      return rows.filter((o) => isOpen(o.order_status));
+    }
+    return rows;
+  }, [orders, pendingOnly, awaitingExecOnly, approvedOnly, stageFilter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -225,6 +269,7 @@ export function BikeLeaseApprovalQueue({
   const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
   const cooCount = useMemo(() => orders.filter((o) => isAwaitingCoo(o.order_status)).length, [orders]);
   const cfoCount = useMemo(() => orders.filter((o) => isAwaitingCfo(o.order_status)).length, [orders]);
+  const execCount = useMemo(() => cooCount + cfoCount, [cooCount, cfoCount]);
   const approvedCount = useMemo(() => orders.filter((o) => isApproved(o.order_status)).length, [orders]);
 
   const rowBusy = (id: string) =>
@@ -239,13 +284,21 @@ export function BikeLeaseApprovalQueue({
             <Bike className="h-4 w-4 text-primary" />
             {approvedOnly
               ? 'Approved Spiro bike lease applications'
-              : pendingOnly
-                ? 'Pending Spiro bike lease applications'
-                : 'Spiro bike lease applications'}
+              : awaitingExecOnly
+                ? 'Applications awaiting COO & CFO approval'
+                : pendingOnly
+                  ? 'Pending Spiro bike lease applications'
+                  : 'Spiro bike lease applications'}
             {approvedOnly ? (
               approvedCount > 0 && (
                 <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30">
                   {approvedCount} approved
+                </Badge>
+              )
+            ) : awaitingExecOnly ? (
+              execCount > 0 && (
+                <Badge variant="secondary" className="bg-sky-500/15 text-sky-600 border-sky-500/30">
+                  {execCount} in executive review
                 </Badge>
               )
             ) : (
@@ -279,9 +332,11 @@ export function BikeLeaseApprovalQueue({
           <p className="text-sm text-muted-foreground py-6 text-center">
             {approvedOnly
               ? 'No approved bike lease applications yet.'
-              : pendingOnly
-                ? 'No bike lease applications awaiting review.'
-                : 'No Spiro bike lease applications yet.'}
+              : awaitingExecOnly
+                ? 'No applications currently awaiting COO or CFO approval.'
+                : pendingOnly
+                  ? 'No bike lease applications awaiting review.'
+                  : 'No Spiro bike lease applications yet.'}
           </p>
         ) : (
           <>
@@ -305,12 +360,27 @@ export function BikeLeaseApprovalQueue({
                     </Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-1 text-[11px]">
-                    <span className="text-muted-foreground">Valuation</span>
-                    <span className="text-right font-semibold">{formatUGX(Number(o.valuation_amount || 0))}</span>
+                    {isOpsDashboard ? (
+                      <>
+                        <span className="text-muted-foreground">Bike cost price</span>
+                        <span className="text-right font-semibold text-primary">
+                          {formatUGX(getRowPricing(o).costPrice)}
+                        </span>
+                        <span className="text-muted-foreground">Est. daily pay</span>
+                        <span className="text-right font-semibold">
+                          {formatUGX(getRowPricing(o).dailyPay)}/day
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-muted-foreground">Valuation</span>
+                        <span className="text-right font-semibold">{formatUGX(Number(o.valuation_amount || 0))}</span>
+                      </>
+                    )}
                     <span className="text-muted-foreground">Lease term</span>
                     <span className="text-right font-semibold">{o.lease_term_months || 12} months</span>
                     <span className="text-muted-foreground">Recovery / credit</span>
-                    <span className="text-right font-semibold">{formatUGX(Number(o.payment_projection || 0))}</span>
+                    <span className="text-right font-semibold">{formatUGX(getRowPricing(o).perCredit)} ({getRowPricing(o).feePct}%)</span>
                     <span className="text-muted-foreground">Outstanding</span>
                     <span className="text-right font-semibold">{formatUGX(Number(o.amount_outstanding || 0))}</span>
                   </div>
@@ -326,7 +396,7 @@ export function BikeLeaseApprovalQueue({
                     >
                       <Edit3 className="h-3.5 w-3.5" /> Edit Price
                     </Button>
-                    {isOpen(o.order_status) ? (
+                    {canActOnRow(o.order_status) ? (
                       <>
                         <Button
                           size="sm"
@@ -337,7 +407,7 @@ export function BikeLeaseApprovalQueue({
                             openApprove(o);
                           }}
                         >
-                          {ACTION_LABEL[stageOf(o.order_status)]}
+                          {ACTION_LABEL[approveStage]}
                         </Button>
                         <Button
                           size="sm"
@@ -377,7 +447,14 @@ export function BikeLeaseApprovalQueue({
                   <tr className="border-b text-xs text-muted-foreground">
                     <th className="text-left py-2 pr-3 font-medium">Agent</th>
                     <th className="text-left py-2 pr-3 font-medium">Model</th>
-                    <th className="text-right py-2 pr-3 font-medium">Valuation</th>
+                    {isOpsDashboard ? (
+                      <>
+                        <th className="text-right py-2 pr-3 font-medium">Bike Cost Price</th>
+                        <th className="text-right py-2 pr-3 font-medium">Est. Daily Pay</th>
+                      </>
+                    ) : (
+                      <th className="text-right py-2 pr-3 font-medium">Valuation</th>
+                    )}
                     <th className="text-right py-2 pr-3 font-medium">Term</th>
                     <th className="text-right py-2 pr-3 font-medium">Recovery / credit</th>
                     <th className="text-right py-2 pr-3 font-medium">Outstanding</th>
@@ -387,23 +464,36 @@ export function BikeLeaseApprovalQueue({
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((o) => (
-                    <tr
-                      key={o.id}
-                      className="border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors group"
-                      onClick={() => setDetailTarget(o)}
-                    >
-                      <td className="py-2 pr-3">
-                        <p className="font-medium group-hover:text-primary transition-colors">{o.client_name || 'Agent'}</p>
-                        <p className="text-[11px] text-muted-foreground">{o.client_phone || '—'}</p>
-                      </td>
-                      <td className="py-2 pr-3">{o.model_type || 'Spiro bike'}</td>
-                      <td className="py-2 pr-3 text-right font-semibold">
-                        {formatUGX(Number(o.valuation_amount || 0))}
-                      </td>
-                      <td className="py-2 pr-3 text-right">{o.lease_term_months || 12}m</td>
-                      <td className="py-2 pr-3 text-right">{formatUGX(Number(o.payment_projection || 0))}</td>
-                      <td className="py-2 pr-3 text-right">{formatUGX(Number(o.amount_outstanding || 0))}</td>
+                  {filtered.map((o) => {
+                    const pricing = getRowPricing(o);
+                    return (
+                      <tr
+                        key={o.id}
+                        className="border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors group"
+                        onClick={() => setDetailTarget(o)}
+                      >
+                        <td className="py-2 pr-3">
+                          <p className="font-medium group-hover:text-primary transition-colors">{o.client_name || 'Agent'}</p>
+                          <p className="text-[11px] text-muted-foreground">{o.client_phone || '—'}</p>
+                        </td>
+                        <td className="py-2 pr-3">{o.model_type || 'Spiro bike'}</td>
+                        {isOpsDashboard ? (
+                          <>
+                            <td className="py-2 pr-3 text-right font-semibold text-primary">
+                              {formatUGX(pricing.costPrice)}
+                            </td>
+                            <td className="py-2 pr-3 text-right font-medium">
+                              {formatUGX(pricing.dailyPay)}/day
+                            </td>
+                          </>
+                        ) : (
+                          <td className="py-2 pr-3 text-right font-semibold">
+                            {formatUGX(Number(o.valuation_amount || 0))}
+                          </td>
+                        )}
+                        <td className="py-2 pr-3 text-right">{o.lease_term_months || 12}m</td>
+                        <td className="py-2 pr-3 text-right">{formatUGX(pricing.perCredit)} <span className="text-[10px] text-muted-foreground">({pricing.feePct}%)</span></td>
+                        <td className="py-2 pr-3 text-right">{formatUGX(Number(o.amount_outstanding || 0))}</td>
                       <td className="py-2 pr-3">
                         <Badge variant="outline" className={`text-[10px] ${STATUS_TONE[o.order_status] || ''}`}>
                           {statusLabel(o.order_status)}
@@ -427,7 +517,7 @@ export function BikeLeaseApprovalQueue({
                             <Edit3 className="h-3.5 w-3.5" />
                             <span className="hidden lg:inline">Edit</span>
                           </Button>
-                          {isOpen(o.order_status) ? (
+                          {canActOnRow(o.order_status) ? (
                             <>
                               <Button
                                 size="sm"
@@ -443,7 +533,7 @@ export function BikeLeaseApprovalQueue({
                                 ) : (
                                   <Check className="h-3.5 w-3.5" />
                                 )}
-                                <span className="ml-1">{SHORT_ACTION_LABEL[stageOf(o.order_status)]}</span>
+                                <span className="ml-1">{SHORT_ACTION_LABEL[approveStage]}</span>
                               </Button>
                               <Button
                                 size="sm"
@@ -474,7 +564,8 @@ export function BikeLeaseApprovalQueue({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -516,12 +607,16 @@ export function BikeLeaseApprovalQueue({
                 </div>
               </div>
 
-
-
               {approveStage === 'ops' ? (
-                <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs flex justify-between">
-                  <span className="text-muted-foreground">Requested valuation</span>
-                  <span className="font-semibold">{formatUGX(valuationNum)}</span>
+                <div className="space-y-1.5">
+                  <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs flex justify-between">
+                    <span className="text-muted-foreground">Bike cost price</span>
+                    <span className="font-semibold text-primary">{formatUGX(approveCostPrice)}</span>
+                  </div>
+                  <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs flex justify-between">
+                    <span className="text-muted-foreground">Est. daily pay</span>
+                    <span className="font-semibold">{formatUGX(approveDailyPay)}/day</span>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -541,7 +636,7 @@ export function BikeLeaseApprovalQueue({
                 <div className="space-y-1">
                   <Label className="text-xs">Lease term</Label>
                   <Select value={approvedTerm} onValueChange={setApprovedTerm}>
-                    <SelectTrigger className="h-9 text-sm">
+                    <SelectTrigger className="h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -560,6 +655,10 @@ export function BikeLeaseApprovalQueue({
                   Payment recovery projection
                 </p>
                 <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Interest rate ({termNum}m)</span>
+                  <span className="font-semibold text-primary">{interestPct}%</span>
+                </div>
+                <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Recovered per wallet credit</span>
                   <span className="font-semibold">
                     {formatUGX(perCredit)} ({Math.round(rate * 100)}%)
@@ -569,10 +668,17 @@ export function BikeLeaseApprovalQueue({
                   <span className="text-muted-foreground">Monthly equivalent</span>
                   <span className="font-semibold">{formatUGX(monthly)}</span>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Full recovery target</span>
-                  <span className="font-semibold">{formatUGX(valuationNum)} over {termNum} months</span>
-                </div>
+                {approveStage === 'ops' ? (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Estimated daily pay</span>
+                    <span className="font-semibold text-primary">{formatUGX(approveDailyPay)}/day</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Full recovery target</span>
+                    <span className="font-semibold">{formatUGX(valuationNum)} over {termNum} months</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -627,6 +733,7 @@ export function BikeLeaseApprovalQueue({
       <BikeLeaseDetailDialog
         order={detailTarget}
         open={!!detailTarget}
+        stage={stageFilter || 'ops'}
         onOpenChange={(v) => { if (!v) setDetailTarget(null); }}
         onApprove={(ord) => openApprove(ord)}
         onReject={(ord) => setRejectTarget(ord)}

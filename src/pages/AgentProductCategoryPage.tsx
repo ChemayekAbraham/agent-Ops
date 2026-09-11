@@ -149,27 +149,35 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
 }
 
 function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
-  const { data: counts = { pending: 0, approved: 0 } } = useQuery({
-    queryKey: ['bike-lease-tab-counts'],
+  const { data: counts = { pendingOps: 0, awaitingExec: 0, approved: 0 } } = useQuery({
+    queryKey: ['bike-lease-queue'],
     queryFn: async () => {
       const { data, error } = await db.rpc('list_bike_lease_orders', { p_status: null });
       if (error) throw error;
       const rows = (data || []) as { order_status: string }[];
       return {
-        pending: rows.filter((o) =>
-          [...PENDING_STATUSES, 'ops_approved', 'coo_approved'].includes(o.order_status),
-        ).length,
+        pendingOps: rows.filter((o) => PENDING_STATUSES.includes(o.order_status)).length,
+        awaitingExec: rows.filter((o) => ['ops_approved', 'coo_approved'].includes(o.order_status)).length,
         approved: rows.filter((o) => ['approved', 'completed'].includes(o.order_status)).length,
       };
     },
   });
 
   return (
-    <Tabs defaultValue="applications" className="space-y-4 max-w-full">
+    <Tabs defaultValue="overview" className="space-y-4 max-w-full">
       <TabsList className="flex-wrap h-auto max-w-full">
+        <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="applications" className="gap-2">
           Bike Lease Applications
-          {counts.pending > 0 && <Badge variant="secondary">{counts.pending}</Badge>}
+          {counts.pendingOps > 0 && <Badge variant="secondary">{counts.pendingOps}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="awaiting-exec" className="gap-2">
+          Awaiting COO &amp; CFO
+          {counts.awaitingExec > 0 && (
+            <Badge variant="secondary" className="bg-sky-500/15 text-sky-600 border-sky-500/30">
+              {counts.awaitingExec}
+            </Badge>
+          )}
         </TabsTrigger>
         <TabsTrigger value="approved" className="gap-2">
           Approved Applications
@@ -179,19 +187,22 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
             </Badge>
           )}
         </TabsTrigger>
-        <TabsTrigger value="overview">Overview</TabsTrigger>
       </TabsList>
-
-      <TabsContent value="applications" className="space-y-6 max-w-full">
-        <BikeLeaseApprovalQueue pendingOnly />
-      </TabsContent>
-
-      <TabsContent value="approved" className="space-y-6 max-w-full">
-        <BikeLeaseApprovalQueue approvedOnly />
-      </TabsContent>
 
       <TabsContent value="overview" className="space-y-6 max-w-full">
         <AgentProductsPanel category={category} />
+      </TabsContent>
+
+      <TabsContent value="applications" className="space-y-6 max-w-full">
+        <BikeLeaseApprovalQueue stage="ops" pendingOnly />
+      </TabsContent>
+
+      <TabsContent value="awaiting-exec" className="space-y-6 max-w-full">
+        <BikeLeaseApprovalQueue stage="ops" awaitingExecOnly />
+      </TabsContent>
+
+      <TabsContent value="approved" className="space-y-6 max-w-full">
+        <BikeLeaseApprovalQueue stage="ops" approvedOnly />
       </TabsContent>
     </Tabs>
   );
