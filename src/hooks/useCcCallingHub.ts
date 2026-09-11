@@ -13,7 +13,7 @@
  *    locked-category rejection all come back from the database as messages
  *    written to be read by staff; we surface them verbatim.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -400,12 +400,19 @@ export function useCcCallingHub(
   });
 
   /* ---------------------------------------------------------- state counts */
+  /**
+   * Search-aware on purpose: the queue page only lists the active state, so a
+   * name that sits in another state used to return an empty list with no clue
+   * where it went. With the search applied here the tab badges say which state
+   * the match is in. With no search the counts are the plain per-state totals.
+   */
   const countsQ = useQuery({
-    queryKey: ['cc-state-counts', subjectType, filtersKey],
+    queryKey: ['cc-state-counts', subjectType, filtersKey, view.search],
     queryFn: async (): Promise<Record<string, number>> => {
       const { data, error } = await rpc('cc_state_counts', {
         p_subject_type: subjectType,
         p_filters: filtersArg,
+        p_search: view.search.trim() || null,
       });
       if (error) throw new Error(err(error));
 
@@ -417,6 +424,7 @@ export function useCcCallingHub(
     },
     staleTime: 15_000,
   });
+
 
   /* ------------------------------------------------------- open attempts */
   const openAttemptsQ = useQuery({
@@ -684,6 +692,45 @@ export function useCcCallingHub(
     onSuccess: invalidate,
   });
 
+  /**
+   * Bring the open cycle up to date with the population it was opened on.
+   *
+   * The roster is a snapshot taken at open time, so anyone who became eligible
+   * afterwards had no row and was invisible to the queue and to search. This
+   * only ever INSERTS missing rows as `to_call`; existing rows, their state,
+   * attempts, notes and history are untouched, and the unique key on
+   * (cycle, subject) makes a duplicate impossible. Subjects who are no longer
+   * eligible keep their rows — nothing is removed.
+   */
+  const syncQueue = useMutation({
+    mutationFn: async (): Promise<number> => {
+      const { data, error } = await rpc('cc_topup_cycle', { p_subject_type: subjectType });
+      if (error) throw new Error(err(error));
+      return Number(data ?? 0);
+    },
+    onSuccess: (added) => {
+      if (added > 0) {
+        qc.invalidateQueries({ queryKey: ['cc-cycle-progress', cycleId] });
+        invalidate();
+      }
+    },
+  });
+
+  /**
+   * Run it once per cycle per session as the hub loads, so an operator never
+   * has to remember to. Failures are silent: a stale roster is a worse outcome
+   * than a missing badge, but it must never block the queue from rendering.
+   */
+  const syncedCycleRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!cycleId || syncedCycleRef.current === cycleId) return;
+    syncedCycleRef.current = cycleId;
+    syncQueue.mutate(undefined, { onError: () => undefined });
+    // syncQueue is a stable mutation object from react-query
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleId]);
+
+
   const counts = useMemo(() => {
     const c = countsQ.data ?? {};
     return {
@@ -742,6 +789,8 @@ export function useCcCallingHub(
     closeCycle,
     abandonCycle,
     completeFollowup,
+    syncQueue,
+
     refetch: invalidate,
   };
 }
