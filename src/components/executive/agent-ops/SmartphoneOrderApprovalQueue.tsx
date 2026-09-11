@@ -449,8 +449,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
         </div>
         {!rejectedOnly && (
           <p className="text-[11px] text-muted-foreground">
-            Stage 1 — COO approves the official amount and forwards to the CFO. Stage 2 — CFO releases the
-            amount into the agent's wallet float and activates the 33% recovery plan.
+            Stage 1 — Agent Ops verifies the applicant and locks the access amount and repayment terms.
+            Stage 2 — COO confirms and forwards to the CFO. Stage 3 — CFO pays the assigned supplier
+            directly and activates the 33% recovery plan on the agent.
           </p>
         )}
         <Input
