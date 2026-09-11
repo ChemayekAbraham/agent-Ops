@@ -43540,6 +43540,51 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_claim_attempts: {
+        Row: {
+          agent_user_id: string | null
+          blocking_withdrawal_id: string | null
+          created_at: string
+          desk_id: string | null
+          detail: string | null
+          error_code: string | null
+          id: string
+          idempotent: boolean
+          race_lost: boolean
+          reservation_outcome: string | null
+          result_code: string
+          withdrawal_id: string | null
+        }
+        Insert: {
+          agent_user_id?: string | null
+          blocking_withdrawal_id?: string | null
+          created_at?: string
+          desk_id?: string | null
+          detail?: string | null
+          error_code?: string | null
+          id?: string
+          idempotent?: boolean
+          race_lost?: boolean
+          reservation_outcome?: string | null
+          result_code: string
+          withdrawal_id?: string | null
+        }
+        Update: {
+          agent_user_id?: string | null
+          blocking_withdrawal_id?: string | null
+          created_at?: string
+          desk_id?: string | null
+          detail?: string | null
+          error_code?: string | null
+          id?: string
+          idempotent?: boolean
+          race_lost?: boolean
+          reservation_outcome?: string | null
+          result_code?: string
+          withdrawal_id?: string | null
+        }
+        Relationships: []
+      }
       withdrawal_hold_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -54176,6 +54221,10 @@ export type Database = {
           withdrawable_balance: number
         }[]
       }
+      get_withdrawal_claim_status: {
+        Args: { p_withdrawal_id: string }
+        Returns: Json
+      }
       get_withdrawal_history: {
         Args: { p_limit?: number; p_offset?: number; p_search?: string }
         Returns: {
@@ -55160,6 +55209,40 @@ export type Database = {
           revoked_by_name: string
           status: string
         }[]
+      }
+      merchant_claim_fail: {
+        Args: {
+          p_agent_user_id: string
+          p_blocking_withdrawal_id?: string
+          p_desk_id: string
+          p_detail?: string
+          p_error: string
+          p_message: string
+          p_race_lost?: boolean
+          p_reservation_outcome?: string
+          p_result_code: string
+          p_withdrawal_id: string
+        }
+        Returns: Json
+      }
+      merchant_claim_log: {
+        Args: {
+          p_agent_user_id: string
+          p_blocking_withdrawal_id?: string
+          p_desk_id: string
+          p_detail?: string
+          p_error_code?: string
+          p_idempotent?: boolean
+          p_race_lost?: boolean
+          p_reservation_outcome?: string
+          p_result_code: string
+          p_withdrawal_id: string
+        }
+        Returns: undefined
+      }
+      merchant_claim_payload: {
+        Args: { p_withdrawal_id: string }
+        Returns: Json
       }
       merchant_commission_eligibility: {
         Args: { p_withdrawal_id: string }
