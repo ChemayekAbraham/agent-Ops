@@ -1097,6 +1097,19 @@ export function AgentCashPayoutsTab() {
     }
   }, [myActiveClaims]);
 
+  // Opening the page with a claim already open must land the merchant ON that
+  // claim — otherwise they scroll the queue, tap Claim and only meet a refusal.
+  const autoScrolledToClaim = useRef(false);
+  useEffect(() => {
+    if (autoScrolledToClaim.current || myActiveClaims.length === 0) return;
+    autoScrolledToClaim.current = true;
+    const t = window.setTimeout(
+      () => claimedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      350,
+    );
+    return () => window.clearTimeout(t);
+  }, [myActiveClaims.length]);
+
   // Claim a withdrawal request — ATOMIC: only succeeds if no one else has claimed it.
   // The `.is('assigned_cashout_agent_id', null)` guard makes the UPDATE a single-row
   // race-safe operation. If two agents click "Claim" at the same instant, only the
