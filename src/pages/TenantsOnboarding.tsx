@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import welileLogo from '@/assets/welile-onboarding-logo.png.asset.json';
+import welileLogo from '@/assets/welile-logo.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCaptureLocation } from '@/hooks/useCaptureLocation';
@@ -328,7 +328,7 @@ export default function TenantsOnboarding() {
       <div className="min-h-screen grid place-items-center bg-muted/30 px-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center space-y-4">
-            <img src={welileLogo.url} alt="Welile" className="h-9 mx-auto" />
+            <img src={welileLogo} alt="Welile" className="h-9 mx-auto" />
             <h1 className="text-xl font-bold">Request rent support yourself</h1>
             <p className="text-sm text-muted-foreground">
               Create your account or sign in first — we save your request to your own profile so you can follow it.
@@ -346,7 +346,7 @@ export default function TenantsOnboarding() {
     return (
       <div className="min-h-screen bg-muted/30 px-4 py-10">
         <div className="mx-auto max-w-xl space-y-5">
-          <img src={welileLogo.url} alt="Welile" className="h-8" />
+          <img src={welileLogo} alt="Welile" className="h-8" />
           <Card>
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center gap-3">
@@ -383,7 +383,7 @@ export default function TenantsOnboarding() {
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <img src={welileLogo.url} alt="Welile" className="h-7 w-auto" />
+          <img src={welileLogo} alt="Welile" className="h-7 w-auto" />
           <Badge variant="secondary" className="font-medium">Tenant self-onboarding</Badge>
         </div>
         <div className="lg:hidden px-4 pb-3">
