@@ -210,11 +210,23 @@ Deno.serve(async (req) => {
 
     /** Uploads a data URL into a bucket. Returns the storage path, or null. */
     const uploadTo = async (bucket: string, dataUrl: string, path: string): Promise<string | null> => {
-      const m = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+      // Accept any image data URL, including ones carrying extra parameters
+      // (e.g. `data:image/jpeg;charset=utf-8;base64,`) and subtypes with
+      // non-word characters (`image/svg+xml`). The old strict pattern silently
+      // returned null for those, which then tripped the tenant-photo trigger.
+      const m = dataUrl.match(/^data:([^;,]+)?;base64,([\s\S]+)$/);
       if (!m) return null;
-      const raw = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+      const contentType = m[1] && m[1].startsWith("image/") ? m[1] : "image/jpeg";
+      let raw: Uint8Array;
+      try {
+        raw = Uint8Array.from(atob(m[2].replace(/\s/g, "")), (c) => c.charCodeAt(0));
+      } catch {
+        console.warn("[tenant-self-onboarding] undecodable image payload", bucket);
+        return null;
+      }
+      if (raw.byteLength === 0) return null;
       const { error: upErr } = await admin.storage.from(bucket)
-        .upload(path, raw, { contentType: `image/${m[1]}`, cacheControl: "86400", upsert: true });
+        .upload(path, raw, { contentType, cacheControl: "86400", upsert: true });
       if (upErr) { console.warn("[tenant-self-onboarding] upload failed", bucket, upErr.message); return null; }
       return path;
     };
@@ -225,12 +237,24 @@ Deno.serve(async (req) => {
     };
 
     let tenantPhotoUrl: string | null = null;
-    if (tenant_photo) {
+    if (tenant_photo && tenant_photo.startsWith("data:")) {
       tenantPhotoUrl = await uploadDataUrl(tenant_photo, `${userId}/${assetFolder}/tenant.jpg`);
-      if (!tenantPhotoUrl) {
-        return err("Your passport photo could not be uploaded. Please retake it and try again.", 400);
-      }
+    } else if (tenant_photo && /^https?:\/\//.test(tenant_photo)) {
+      // Already-hosted photo (e.g. restored from a draft) — keep it as-is.
+      tenantPhotoUrl = tenant_photo;
     }
+    if (!tenantPhotoUrl) {
+      // Last resort: an existing profile photo satisfies the same requirement.
+      const { data: prof } = await admin
+        .from("profiles").select("avatar_url").eq("id", userId).maybeSingle();
+      if (prof?.avatar_url) tenantPhotoUrl = prof.avatar_url as string;
+    }
+    if (!tenantPhotoUrl) {
+      // Stop here with a clear message rather than letting the DB trigger
+      // reject the insert with a 500.
+      return err("Your passport photo is required. Please retake it and try again.", 400);
+    }
+
 
     /* ---- The rent request itself (normal pipeline, no agent) -------------- */
     const insertPayload: Record<string, unknown> = {
