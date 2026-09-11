@@ -288,8 +288,17 @@ export function useTppoPortfolioMetrics({
       const last = built[built.length - 1];
       const scheduled = sum(built.map((c) => c.scheduled));
       const collectedScheduled = sum(built.map((c) => c.collectedScheduled));
-      const collectedArrears = sum(built.map((c) => c.clearedByPayment));
-      const added = sum(built.map((c) => c.accrued));
+      const totalCollected = sum(built.map((c) => c.collectedTotal));
+      // Collected in arrears = total collected − collected from scheduled.
+      const collectedArrears =
+        totalCollected === null && collectedScheduled === null
+          ? null
+          : (totalCollected ?? 0) - (collectedScheduled ?? 0);
+      // Added in arrears = amount scheduled − amount collected from scheduled.
+      const added =
+        scheduled === null && collectedScheduled === null
+          ? null
+          : (scheduled ?? 0) - (collectedScheduled ?? 0);
       const broughtForward = first?.openingArrears ?? null;
       const closing = last?.closingArrears ?? null;
       const expected =
