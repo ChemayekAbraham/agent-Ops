@@ -1333,6 +1333,7 @@ export function TenantOpsDashboard({
   };
 
   const openHub = (view: ActiveView) => {
+    setTenantDetailOrigin(null);
     setActiveView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
