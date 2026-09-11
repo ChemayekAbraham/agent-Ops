@@ -57,12 +57,15 @@ describe('Merchant payout queue fence', () => {
     const stub: any = {
       in: (...a: any[]) => (calls.push(['in', ...a]), stub),
       is: (...a: any[]) => (calls.push(['is', ...a]), stub),
+      not: (...a: any[]) => (calls.push(['not', ...a]), stub),
     };
     applyMerchantQueueFence(stub);
     expect(calls).toEqual([
       ['in', 'status', [...MERCHANT_QUEUE_STATUSES]],
       ['is', 'processed_at', null],
       ['is', 'fin_ops_reference', null],
+      ['not', 'hidden_from_merchant_queue', 'is', true],
     ]);
+
   });
 });

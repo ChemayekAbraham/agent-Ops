@@ -30,15 +30,16 @@ BEGIN
   ASSERT _release LIKE '%transaction_id%', 'transaction id safeguard removed';
   RAISE NOTICE 'PASS: stale release keeps 45-minute + zero-evidence safeguards';
 
+  -- Read through the health surface so the check works without cron schema rights.
   SELECT count(*) INTO _cron_count
-    FROM cron.job
-   WHERE jobname = 'release-stale-cashout-claims'
-     AND active
-     AND schedule = '*/5 * * * *'
-     AND command LIKE '%release_stale_cashout_claims%';
+    FROM public.cron_jobs_health() h
+   WHERE h.jobname = 'release-stale-cashout-claims'
+     AND h.active
+     AND h.schedule = '*/5 * * * *';
   ASSERT _cron_count = 1, 'release-stale-cashout-claims cron not registered every 5 minutes';
   RAISE NOTICE 'PASS: release-stale-cashout-claims cron registered every 5 minutes';
 END $$;
+
 
 -- Behavioural checks against real rows (rolled back). Skipped when the database
 -- has no suitable open, unassigned withdrawals to borrow.
