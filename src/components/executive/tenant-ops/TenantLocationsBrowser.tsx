@@ -263,7 +263,21 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
             ) : (
               <ul className="space-y-1.5">
                 {tenants.rows.map((t) => (
-                  <li key={t.tenant_id} className="rounded-lg border border-border bg-card p-3">
+                  <li
+                    key={t.tenant_id}
+                    className={`rounded-lg border border-border bg-card p-3 ${
+                      onSelectTenant ? 'cursor-pointer transition-colors hover:bg-accent/50' : ''
+                    }`}
+                    role={onSelectTenant ? 'button' : undefined}
+                    tabIndex={onSelectTenant ? 0 : undefined}
+                    onClick={onSelectTenant ? () => onSelectTenant(t.tenant_id, t.tenant_name) : undefined}
+                    onKeyDown={onSelectTenant ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelectTenant(t.tenant_id, t.tenant_name);
+                      }
+                    } : undefined}
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate flex items-center gap-1.5">
