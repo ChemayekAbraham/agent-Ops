@@ -153,6 +153,19 @@ export default function TenantsOnboarding() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ id: string } | null>(null);
 
+  /* Existing-application gate. A tenant who already has a request in progress
+     (or a live plan) must not fill this form again — it would put them through
+     vetting twice and could raise support twice on one plan. Matched on the
+     signed-in account plus any account sharing their phone number or email. */
+  const [gate, setGate] = useState<{
+    checking: boolean;
+    blocked: boolean;
+    stage?: 'under_review' | 'repaying' | 'none';
+    status?: string;
+    created_at?: string;
+    other_account?: boolean;
+  }>({ checking: true, blocked: false });
+
   /* Step 1 */
   const [earner, setEarner] = useState<EarnerType>('daily');
 
