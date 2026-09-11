@@ -431,12 +431,18 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <Smartphone className="h-4 w-4 text-primary" />
-            {rejectedOnly ? 'Rejected applications' : pendingOnly ? 'Pending applications' : 'Smartphone applications'}
+            {rejectedOnly
+              ? 'Rejected applications'
+              : inProgressOnly
+                ? 'Applications in progress'
+                : pendingOnly
+                  ? 'Pending applications'
+                  : 'Smartphone applications'}
             {rejectedOnly ? (
               <Badge variant="outline" className={STATUS_TONE.rejected}>{scoped.length} rejected</Badge>
             ) : (
               <>
-                <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>
+                {!inProgressOnly && <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>}
                 <Badge variant="outline" className={STATUS_TONE.ops_approved}>
                   {awaitingCooCount} awaiting COO
                 </Badge>
