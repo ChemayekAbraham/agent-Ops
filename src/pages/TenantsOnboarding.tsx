@@ -364,7 +364,7 @@ export default function TenantsOnboarding() {
         format: type === 'image/png' ? 'image/png' : 'image/jpeg',
       });
       const slot: PhotoSlot = { file: opt.file, preview: opt.previewUrl };
-      if (target === 'tenant') setTenantPhoto(slot);
+      if (target === 'tenant') { setTenantPhoto(slot); void runPassportCheck(slot.file); }
       else if (target === 'id') setIdPhoto(slot);
       else if (target === 'lc_letter') setLcLetter(slot);
       else setHousePhotos((p) => [...p, slot].slice(0, 4));
@@ -372,6 +372,35 @@ export default function TenantsOnboarding() {
       toast.error('That photo could not be used. Try another one.');
     }
   };
+
+  /* Grade the passport photo. Read-only: the checker keeps nothing, and a poor
+     verdict never blocks the tenant — it only tells them what to fix. */
+  const runPassportCheck = async (file: File) => {
+    setPhotoCheck({ checking: true });
+    try {
+      const image_base64 = await toDataUrl(file);
+      const { data, error } = await invokeEdgeFunction<{
+        verdict?: 'pass' | 'review' | 'fail';
+        is_face?: boolean;
+        score?: number | null;
+        sha256?: string | null;
+        failures?: { id: string; label: string; severity: string; advice: string }[];
+      }>('verify-passport-photo', { body: { image_base64 }, silent: true });
+
+      if (error || !data) { setPhotoCheck({ checking: false, error: 'not_checked' }); return; }
+      setPhotoCheck({
+        checking: false,
+        verdict: data.verdict,
+        is_face: data.is_face,
+        score: data.score ?? null,
+        sha256: data.sha256 ?? null,
+        failures: data.failures ?? [],
+      });
+    } catch {
+      setPhotoCheck({ checking: false, error: 'not_checked' });
+    }
+  };
+
 
   /* ------------------------------------------------------- validation ---- */
   const stepError = (s: number): string | null => {
