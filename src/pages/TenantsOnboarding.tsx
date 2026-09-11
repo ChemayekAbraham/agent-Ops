@@ -18,7 +18,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Camera, Check, CircleDollarSign, Home, Loader2, MapPin,
   ShieldCheck, User, Wallet, CalendarDays, Info, Building2, CheckCircle2, AlertTriangle,
-  ChevronDown, HelpCircle, Mail, Phone, Clock, X,
+  ChevronDown, HelpCircle, Mail, Phone, Clock, X, UserPlus, ShieldQuestion,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -39,7 +39,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -167,6 +168,7 @@ export default function TenantsOnboarding() {
      excluded: they are large blobs and localStorage would blow its quota. */
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [helpOpen, setHelpOpen] = useState(false);
+  const [addLandlordOpen, setAddLandlordOpen] = useState(false);
 
   /* Step 5 */
   const [landlord, setLandlord] = useState<LandlordOption | null>(null);
@@ -235,6 +237,17 @@ export default function TenantsOnboarding() {
     () => (rentAmount >= MIN_RENT ? calculateRentRepayment(rentAmount, durationDays) : null),
     [rentAmount, durationDays],
   );
+  /* A landlord the tenant typed in themselves. Held locally and created by the
+     submit RPC — inserting on "Save" would leave orphan landlord rows behind
+     every abandoned form. Either way they reach the landlord vetting pipeline. */
+  const newLandlordReady =
+    newLandlordName.trim().length >= 2 && validateUgandaPhone(newLandlordPhone).valid;
+  const chosenLandlord = landlord
+    ? { name: landlord.name, phone: landlord.phone, address: landlord.property_address, verified: !!landlord.verified, isNew: false }
+    : newLandlordReady
+      ? { name: newLandlordName.trim(), phone: newLandlordPhone, address: null, verified: false, isNew: true }
+      : null;
+
   const activeEarner = EARNERS.find((e) => e.key === earner) ?? EARNERS[0];
   /* Only complain once they have typed something — an empty field is not an error yet. */
   const rentInvalid = rentAmount > 0 && (rentAmount < MIN_RENT || rentAmount > MAX_RENT);
@@ -574,6 +587,59 @@ export default function TenantsOnboarding() {
           <p className="text-xs text-muted-foreground">
             Your answers are saved on this device as you type, so you can close this and come back.
           </p>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addLandlordOpen} onOpenChange={setAddLandlordOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add your landlord</DialogTitle>
+            <DialogDescription>
+              Give us their name and number. Welile vets them separately — you do not have to wait
+              for that before you submit.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[13.5px] font-semibold">
+                Landlord full name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={newLandlordName}
+                onChange={(e) => setNewLandlordName(e.target.value)}
+                placeholder="e.g. Adam Ssembatya"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[13.5px] font-semibold">
+                Landlord phone <span className="text-destructive">*</span>
+              </Label>
+              <PhoneInput
+                value={newLandlordPhone}
+                onChange={(v) => setNewLandlordPhone(v)}
+                placeholder="0771234567"
+              />
+              {newLandlordPhone.trim().length > 0 && !validateUgandaPhone(newLandlordPhone).valid && (
+                <p className="flex items-center gap-1.5 text-[12.5px] font-bold text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Enter a valid Uganda phone number.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="secondary"
+              onClick={() => { setNewLandlordName(''); setNewLandlordPhone(''); setAddLandlordOpen(false); }}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={!newLandlordReady} onClick={() => setAddLandlordOpen(false)}>
+              Save landlord
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -928,68 +994,81 @@ export default function TenantsOnboarding() {
                   <Label className="flex items-center gap-1.5 text-sm font-semibold">
                     <Building2 className="h-4 w-4 text-primary" /> Your landlord <span className="text-destructive">*</span>
                   </Label>
-                  <LandlordSearchSelect
-                    inline
-                    value={landlord}
-                    onChange={setLandlord}
-                    placeholder="Search your landlord by name or phone"
-                  />
-                  {/* Confirmation of what was picked. Without this the only
-                      sign a landlord had been chosen was the form below
-                      disappearing, which reads as the page breaking. */}
-                  {landlord && (
-                    <div className={cn(
-                      'rounded-xl border p-4',
-                      landlord.verified
-                        ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30'
-                        : 'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30',
-                    )}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-[15px] font-bold text-foreground">{landlord.name}</p>
-                          <p className="truncate text-[13px] tabular-nums text-muted-foreground">{landlord.phone}</p>
-                          {landlord.property_address && (
-                            <p className="mt-0.5 truncate text-xs text-muted-foreground">{landlord.property_address}</p>
+                  {/* The search steps aside once someone is chosen — the panel
+                      below becomes the answer, and Change brings it back. */}
+                  {!chosenLandlord && (
+                    <LandlordSearchSelect
+                      inline
+                      value={landlord}
+                      onChange={setLandlord}
+                      placeholder="Search your landlord by name or phone"
+                    />
+                  )}
+                  {/* What was picked. Without this the only sign of a
+                      successful choice was the form below disappearing. */}
+                  {chosenLandlord && (
+                    <div className="overflow-hidden rounded-xl border bg-card">
+                      <div className="flex items-start gap-3 p-4">
+                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10">
+                          <Building2 className="h-5 w-5 text-primary" />
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="min-w-0 truncate text-[15px] font-bold leading-tight text-foreground">
+                              {chosenLandlord.name}
+                            </p>
+                            <span className={cn(
+                              'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[10px] font-bold uppercase tracking-wide',
+                              chosenLandlord.verified
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+                                : 'bg-primary/10 text-primary',
+                            )}>
+                              {chosenLandlord.verified
+                                ? <><Check className="h-3 w-3" /> Verified</>
+                                : <><ShieldQuestion className="h-3 w-3" /> {chosenLandlord.isNew ? 'New' : 'To be vetted'}</>}
+                            </span>
+                          </div>
+
+                          <p className="mt-1 flex items-center gap-1.5 text-[13px] tabular-nums text-muted-foreground">
+                            <Phone className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{chosenLandlord.phone}</span>
+                          </p>
+                          {chosenLandlord.address && (
+                            <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                              <MapPin className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{chosenLandlord.address}</span>
+                            </p>
                           )}
                         </div>
-                        <span className={cn(
-                          'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-[2px] text-[10px] font-bold uppercase tracking-wide',
-                          landlord.verified
-                            ? 'border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
-                            : 'border-amber-400 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
-                        )}>
-                          {landlord.verified
-                            ? <><Check className="h-3 w-3" /> Verified</>
-                            : <><Clock className="h-3 w-3" /> Pending verification</>}
-                        </span>
                       </div>
 
-                      {!landlord.verified && (
-                        <p className="mt-2.5 text-[13px] leading-snug text-muted-foreground">
-                          This landlord still has to finish verification before your request can be approved.
-                          You can carry on and submit now.
+                      <div className="flex items-center justify-between gap-3 border-t bg-muted/40 px-4 py-2.5">
+                        <p className="min-w-0 text-xs text-muted-foreground">
+                          {chosenLandlord.verified
+                            ? 'Verified by Welile — nothing more needed from you.'
+                            : 'Welile will check them. You can submit now.'}
                         </p>
-                      )}
-
-                      <Button type="button" variant="outline" size="sm"
-                        className="mt-3 h-8 gap-1.5 bg-background px-3 text-xs font-bold"
-                        onClick={() => setLandlord(null)}>
-                        <X className="h-3.5 w-3.5" />
-                        Not my landlord
-                      </Button>
+                        <Button type="button" variant="ghost" size="sm"
+                          className="h-7 shrink-0 gap-1 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setLandlord(null);
+                            setNewLandlordName('');
+                            setNewLandlordPhone('');
+                          }}>
+                          <X className="h-3.5 w-3.5" />
+                          Change
+                        </Button>
+                      </div>
                     </div>
                   )}
 
-                  {!landlord && (
-                    <div className="rounded-lg border bg-muted/40 p-3 space-y-3">
-                      <p className="text-xs text-muted-foreground">
-                        Not found? Enter their details and we will register and verify them.
-                      </p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Input value={newLandlordName} onChange={(e) => setNewLandlordName(e.target.value)} placeholder="Landlord full name" />
-                        <Input value={newLandlordPhone} onChange={(e) => setNewLandlordPhone(e.target.value)} placeholder="Landlord phone" inputMode="tel" />
-                      </div>
-                    </div>
+                  {!chosenLandlord && (
+                    <Button type="button" variant="outline" className="h-11 w-full gap-2 border-dashed"
+                      onClick={() => setAddLandlordOpen(true)}>
+                      <UserPlus className="h-4 w-4" />
+                      Landlord not listed? Add them
+                    </Button>
                   )}
                 </div>
 
