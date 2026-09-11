@@ -67,14 +67,31 @@ export function ProoflessPayoutBlocker() {
     refetchInterval: 60_000,
     queryFn: async (): Promise<ProoflessRow[]> => {
       const me = user!.id;
+      // `assigned_cashout_agent_id` stores the cashout_agents.id row, not the
+      // user id — resolve it first so the settlement match below compares like
+      // with like (comparing it directly against `me` never matched anything).
+      const { data: myAgentRow } = await supabase
+        .from('cashout_agents')
+        .select('id')
+        .eq('agent_id', me)
+        .maybeSingle();
+      const myCashoutAgentId = myAgentRow?.id ?? null;
+
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select(
-          'id, user_id, amount, payout_method, mobile_money_provider, processed_at, created_at, payout_proof, assigned_cashout_agent_id, dispatch_claimed_by, agent_id, fin_ops_verified_by, fin_ops_approved_by',
+          'id, user_id, amount, payout_method, mobile_money_provider, processed_at, created_at, payout_proof, assigned_cashout_agent_id, processed_by, fin_ops_verified_by, fin_ops_approved_by',
         )
         // Settled by this user acting as the cash-out merchant — not merely
-        // processed/approved by them on someone else's payout.
-        .or(`assigned_cashout_agent_id.eq.${me},dispatch_claimed_by.eq.${me},agent_id.eq.${me}`)
+        // processed/approved by them on someone else's payout. `processed_by`
+        // is the authoritative "who actually settled this" stamp; a claim that
+        // was later released and settled by someone else must never count
+        // against the merchant who only accepted (and lost) the dispatch.
+        .or(
+          myCashoutAgentId
+            ? `assigned_cashout_agent_id.eq.${myCashoutAgentId},processed_by.eq.${me}`
+            : `processed_by.eq.${me}`,
+        )
         .eq('status', 'completed')
         .is('payout_proof_path', null)
         .order('processed_at', { ascending: false })
@@ -82,9 +99,10 @@ export function ProoflessPayoutBlocker() {
       if (error) throw error;
       const list = ((data as any[]) || []).filter((r) => {
         if (String(r.payout_proof ?? '').trim()) return false;
-        // Belt and braces: the merchant must genuinely be the payer.
+        // Belt and braces: the merchant must genuinely be the one who settled it.
         const isPayer =
-          r.assigned_cashout_agent_id === me || r.dispatch_claimed_by === me || r.agent_id === me;
+          (myCashoutAgentId && r.assigned_cashout_agent_id === myCashoutAgentId) ||
+          r.processed_by === me;
         if (!isPayer) return false;
         // Financial Ops / manager verification of a payout someone else paid is
         // not a merchant settlement, so it carries no proof obligation here.
@@ -143,6 +161,14 @@ export function ProoflessPayoutBlocker() {
     }
   }
 
+  // TEMPORARILY DISABLED at Josh's request during rush-hour partner ROI
+  // payouts (2026-09-11) — the underlying settlement-matching bug is fixed,
+  // but is_verified/is_approved self-stamping still exempts ~99.8% of
+  // self-settled payouts platform-wide, so this gate needs a compliance
+  // policy decision before it blocks merchants again. Re-enable by deleting
+  // this early return once that's settled.
+  return null;
+  // eslint-disable-next-line no-unreachable
   if (rows.length === 0) return null;
 
   const total = rows.reduce((s, r) => s + r.amount, 0);
