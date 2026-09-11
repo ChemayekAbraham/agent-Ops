@@ -1437,7 +1437,7 @@ export default function TenantsOnboarding() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
               {step < 6 ? (
-                <Button type="button" onClick={goNext}>
+                <Button type="button" onClick={goNext} disabled={!!stepError(step)}>
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
