@@ -991,7 +991,16 @@ export interface MerchantDebtGroup {
   payableLines: MerchantDebtLine[];
   reviewLines: MerchantDebtLine[];
   oldestAt: string | null;
+  /**
+   * True when the signed-in reviewer IS this merchant desk. `settle_merchant_out_of_pocket`
+   * refuses `agent_id = auth.uid()` (separation of duties) and returns every one of that
+   * desk's rows in `skipped`, so the UI must never present them as settleable by this actor.
+   */
+  isOwnDesk: boolean;
 }
+
+
+
 
 const DEBT_STATUS_PAYABLE = 'pending_reimbursement';
 const DEBT_STATUS_REVIEW = 'needs_review';
@@ -1018,6 +1027,13 @@ export function useMerchantSettlementDebts(enabled = true) {
         .limit(2000);
       if (error) throw error;
       const rows = (data ?? []) as any[];
+
+      // Separation of duties: the settlement RPC refuses to pay a desk that belongs
+      // to the signed-in actor, so resolve who is looking and flag their own desk.
+      const { data: authData } = await supabase.auth.getUser();
+      const viewerId = authData?.user?.id ? String(authData.user.id) : null;
+
+
 
       const ids = Array.from(new Set(rows.map((r) => r.agent_id).filter(Boolean).map(String)));
       const people = new Map<string, { name: string; phone: string | null }>();
@@ -1073,6 +1089,8 @@ export function useMerchantSettlementDebts(enabled = true) {
             payableLines: [],
             reviewLines: [],
             oldestAt: null,
+            isOwnDesk: !!viewerId && viewerId === agentId,
+
           };
           groups.set(agentId, g);
         }

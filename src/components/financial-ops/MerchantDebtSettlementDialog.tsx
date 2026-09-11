@@ -35,6 +35,22 @@ import {
 } from '@/lib/merchantDebtSettlementPdf';
 
 /**
+ * Plain-language wording for every reason `settle_merchant_out_of_pocket` can return in
+ * its `skipped` list. Collapsing these into one sentence hid a separation-of-duties block
+ * behind "already paid or not yet confirmed".
+ */
+const SKIP_REASON_LABELS: Record<string, string> = {
+  MERCHANT_OOP_SETTLEMENT_SELF_BLOCKED:
+    'this desk belongs to you — another finance approver must send it',
+  already_reimbursed: 'already paid back',
+  not_confirmed_yet: 'not confirmed yet',
+  estimated_telecom_charge_not_claimable: 'estimated sending fee — not claimable',
+  not_evidenced_by_books: 'the books do not show the desk was short',
+  partially_evidenced_only: 'only part of it is backed by the books',
+};
+
+
+/**
  * Drill-down for "Money we must send back to them".
  *
  * The board headline is a lifetime paid-out-minus-float differential and is
@@ -151,7 +167,9 @@ export function MerchantDebtSettlementDialog({
   }, [open, focusAgentId]);
 
   const groups = useMemo(() => (data ?? []).filter((g) => g.payable > 0 || g.underReview > 0), [data]);
-  const payableGroups = groups.filter((g) => g.payable > 0);
+  // Separation of duties: the settlement RPC refuses a desk belonging to the signed-in
+  // actor, so their own desk can never be selected here — it would only come back skipped.
+  const payableGroups = groups.filter((g) => g.payable > 0 && !g.isOwnDesk);
   const payableTotal = payableGroups.reduce((s, g) => s + g.payable, 0);
   const reviewTotal = groups.reduce((s, g) => s + g.underReview, 0);
 
@@ -162,6 +180,7 @@ export function MerchantDebtSettlementDialog({
     if (chosen.length === payableGroups.length) setSelected({});
     else setSelected(Object.fromEntries(payableGroups.map((g) => [g.agentId, true])));
   };
+
 
   const download = async () => {
     const agents = (chosen.length ? chosen : payableGroups);
@@ -227,8 +246,21 @@ export function MerchantDebtSettlementDialog({
         );
       }
       if (result.skipped.length > 0) {
-        toast.warning(`${result.skipped.length} claim(s) could not be settled — already paid or not yet confirmed`);
+        // Show the real reason per claim instead of one catch-all sentence: a
+        // separation-of-duties block and an already-paid claim need different actions.
+        const counts = new Map<string, number>();
+        for (const s of result.skipped) {
+          const label = SKIP_REASON_LABELS[s.reason] ?? s.reason;
+          counts.set(label, (counts.get(label) ?? 0) + 1);
+        }
+        toast.warning(`${result.skipped.length} claim(s) could not be settled`, {
+          description: Array.from(counts.entries())
+            .map(([label, n]) => `${n} × ${label}`)
+            .join(' · '),
+          duration: 12_000,
+        });
       }
+
       if (settledCount === 0 && result.skipped.length === 0) {
         toast.error('Nothing was settled');
       }
@@ -375,7 +407,7 @@ export function MerchantDebtSettlementDialog({
                 <div className="flex items-start gap-3 p-3">
                   <Checkbox
                     checked={!!selected[g.agentId]}
-                    disabled={g.payable <= 0}
+                    disabled={g.payable <= 0 || g.isOwnDesk}
                     onCheckedChange={(v) =>
                       setSelected((s) => ({ ...s, [g.agentId]: !!v }))
                     }
@@ -392,12 +424,19 @@ export function MerchantDebtSettlementDialog({
                       {g.payableLines.length === 1 ? '' : 's'}
                       {g.oldestAt ? ` · oldest ${format(new Date(g.oldestAt), 'd MMM yyyy')}` : ''}
                     </p>
+                    {g.isOwnDesk && g.payable > 0 && (
+                      <p className="text-[10px] text-warning">
+                        This is your own desk — {formatUGX(g.payable)} is owed to you, and another
+                        finance approver must send it to your wallet.
+                      </p>
+                    )}
                     {g.underReview > 0 && (
                       <p className="text-[10px] text-warning">
                         {formatUGX(g.underReview)} across {g.reviewLines.length} claim
                         {g.reviewLines.length === 1 ? '' : 's'} the books do not support — excluded
                       </p>
                     )}
+
                   </button>
                   <div className="text-right shrink-0">
                     <p className="font-mono text-sm font-bold tabular-nums text-foreground">
