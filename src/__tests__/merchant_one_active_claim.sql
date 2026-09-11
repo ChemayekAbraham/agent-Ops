@@ -49,10 +49,24 @@ DECLARE
   _agent uuid;
   _a uuid;
   _b uuid;
+  _c uuid;
+  _d uuid;
   _res jsonb;
   _released integer;
 BEGIN
-  SELECT id INTO _agent FROM public.cashout_agents WHERE is_active = true LIMIT 1;
+  -- Must be an agent with ZERO pre-existing active claims of their own, or
+  -- borrowing them below would collide with real in-flight work and the
+  -- blocking-id assertions would name the wrong (real) withdrawal.
+  SELECT a.id INTO _agent FROM public.cashout_agents a
+   WHERE a.is_active = true
+     AND NOT EXISTS (
+       SELECT 1 FROM public.withdrawal_requests w
+        WHERE w.assigned_cashout_agent_id = a.id
+          AND w.status IN ('pending','requested','manager_approved','cfo_approved','approved','fin_ops_approved')
+          AND w.processed_at IS NULL
+          AND COALESCE(w.fin_ops_reference, '') = ''
+     )
+   LIMIT 1;
 
   SELECT id INTO _a FROM public.withdrawal_requests
    WHERE assigned_cashout_agent_id IS NULL AND processed_at IS NULL
@@ -68,7 +82,7 @@ BEGIN
    ORDER BY created_at LIMIT 1;
 
   IF _agent IS NULL OR _a IS NULL OR _b IS NULL THEN
-    RAISE NOTICE 'SKIP-DATA: no cash-out agent or two open unassigned withdrawals available';
+    RAISE NOTICE 'SKIP-DATA: no claim-free cash-out agent or two open unassigned withdrawals available';
   ELSE
     PERFORM set_config('request.jwt.claims',
       json_build_object('sub', (SELECT agent_id::text FROM public.cashout_agents WHERE id = _agent))::text, true);
@@ -105,24 +119,44 @@ BEGIN
       'gate still blocking after previous claim closed';
     RAISE NOTICE 'PASS: merchant can claim again once the previous claim is closed';
 
-    -- Stale release: zero evidence + older than 45 minutes is released.
-    UPDATE public.withdrawal_requests
-       SET status = 'pending', processed_at = NULL, fin_ops_reference = NULL,
-           assigned_cashout_agent_id = _agent, dispatched_at = now() - interval '90 minutes',
-           processing_started_at = NULL, payout_proof = NULL, payout_code = NULL, transaction_id = NULL
-     WHERE id = _a;
-    -- Evidence-carrying stale claim must survive.
-    UPDATE public.withdrawal_requests
-       SET assigned_cashout_agent_id = _agent, dispatched_at = now() - interval '90 minutes',
-           processing_started_at = now() - interval '80 minutes'
-     WHERE id = _b;
+    -- Stale release needs two FRESH open rows: `_a` is now 'completed' above,
+    -- and the settled-withdrawal-is-terminal trigger correctly refuses to move
+    -- a settled row back to 'pending', so it can't be reused here.
+    SELECT id INTO _c FROM public.withdrawal_requests
+     WHERE assigned_cashout_agent_id IS NULL AND processed_at IS NULL
+       AND COALESCE(fin_ops_reference, '') = ''
+       AND status IN ('pending','requested','manager_approved','cfo_approved','approved','fin_ops_approved')
+       AND id NOT IN (_a, _b)
+     ORDER BY created_at LIMIT 1;
 
-    SELECT released_count INTO _released FROM public.release_stale_cashout_claims();
-    ASSERT (SELECT assigned_cashout_agent_id FROM public.withdrawal_requests WHERE id = _a) IS NULL,
-      'stale zero-evidence claim was not released';
-    ASSERT (SELECT assigned_cashout_agent_id FROM public.withdrawal_requests WHERE id = _b) = _agent,
-      'claim with settlement progress was wrongly released';
-    RAISE NOTICE 'PASS: stale zero-evidence claim released, evidenced claim preserved';
+    SELECT id INTO _d FROM public.withdrawal_requests
+     WHERE assigned_cashout_agent_id IS NULL AND processed_at IS NULL
+       AND COALESCE(fin_ops_reference, '') = ''
+       AND status IN ('pending','requested','manager_approved','cfo_approved','approved','fin_ops_approved')
+       AND id NOT IN (_a, _b, _c)
+     ORDER BY created_at LIMIT 1;
+
+    IF _c IS NULL OR _d IS NULL THEN
+      RAISE NOTICE 'SKIP-DATA: not enough spare open withdrawals for the stale-release check';
+    ELSE
+      -- Zero evidence + older than 45 minutes must be released.
+      UPDATE public.withdrawal_requests
+         SET assigned_cashout_agent_id = _agent, dispatched_at = now() - interval '90 minutes',
+             processing_started_at = NULL, payout_proof = NULL, payout_code = NULL, transaction_id = NULL
+       WHERE id = _c;
+      -- Evidence-carrying stale claim must survive.
+      UPDATE public.withdrawal_requests
+         SET assigned_cashout_agent_id = _agent, dispatched_at = now() - interval '90 minutes',
+             processing_started_at = now() - interval '80 minutes'
+       WHERE id = _d;
+
+      SELECT released_count INTO _released FROM public.release_stale_cashout_claims();
+      ASSERT (SELECT assigned_cashout_agent_id FROM public.withdrawal_requests WHERE id = _c) IS NULL,
+        'stale zero-evidence claim was not released';
+      ASSERT (SELECT assigned_cashout_agent_id FROM public.withdrawal_requests WHERE id = _d) = _agent,
+        'claim with settlement progress was wrongly released';
+      RAISE NOTICE 'PASS: stale zero-evidence claim released, evidenced claim preserved';
+    END IF;
   END IF;
 
   RAISE NOTICE 'PASS: merchant claim invariants all green';
