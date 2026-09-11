@@ -180,9 +180,15 @@ export function Lc1ChairpersonPicker({
       {!value && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Search the chairperson in the system first. If they're not there, register them and
-            earn <span className="font-semibold text-foreground">UGX 2,000</span> — paid in full
-            after Landlord Ops verifies the chairperson.
+            Search the chairperson in the system first. If they're not there, you can register them
+            {context === 'agent' ? (
+              <>
+                {' '}and earn <span className="font-semibold text-foreground">UGX 2,000</span> — paid in full
+                after Landlord Ops verifies the chairperson.
+              </>
+            ) : (
+              " so Welile can verify them."
+            )}
           </p>
           <div className="flex gap-2">
             <Input
