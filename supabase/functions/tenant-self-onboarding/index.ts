@@ -1,13 +1,15 @@
 /**
- * Tenant self-onboarding — no agent, no service centre.
+ * Tenant self-onboarding — submitted directly by the tenant, with any saved
+ * referring agent assigned server-side; no service centre.
  *
  * Two actions:
  *  - identity_check : tells the tenant only whether a phone / National ID is
  *                     already on file. Never returns whose it is.
  *  - submit         : creates/reuses the landlord + LC1 chairperson, updates the
  *                     tenant profile, and posts ONE rent request into the normal
- *                     pipeline at status `pending` (agent_id NULL, no service
- *                     centre routing). Fee fields are passed as 0 — the DB
+ *                     pipeline at status `pending` (using the authenticated
+ *                     tenant's verified profile referrer when present, with no
+ *                     service centre routing). Fee fields are passed as 0 — the DB
  *                     trigger `enforce_rent_request_formula` is authoritative.
  *
  * No wallet or ledger writes happen here.
@@ -200,6 +202,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    /* ---- Referring agent -------------------------------------------------
+       Attribution comes only from the authenticated tenant's saved profile.
+       Never trust an agent id supplied by the browser: it could be altered to
+       move a tenant into another agent's portfolio. A missing, self-referential,
+       frozen or disabled/non-agent referrer leaves the request unassigned. */
+    let referringAgentId: string | null = null;
+    const { data: tenantAttribution, error: attributionErr } = await admin
+      .from("profiles")
+      .select("referrer_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (attributionErr) return err(`Could not verify your referring agent: ${attributionErr.message}`, 500);
+
+    const candidateReferrerId = typeof tenantAttribution?.referrer_id === "string"
+      ? tenantAttribution.referrer_id
+      : null;
+    if (candidateReferrerId && candidateReferrerId !== userId) {
+      const [{ data: referrerProfile, error: referrerErr }, { data: agentRole, error: roleErr }] = await Promise.all([
+        admin.from("profiles").select("id, is_frozen").eq("id", candidateReferrerId).maybeSingle(),
+        admin.from("user_roles").select("id").eq("user_id", candidateReferrerId)
+          .eq("role", "agent").eq("enabled", true).limit(1).maybeSingle(),
+      ]);
+      if (referrerErr || roleErr) {
+        return err(`Could not verify your referring agent: ${referrerErr?.message ?? roleErr?.message ?? "unknown"}`, 500);
+      }
+      if (referrerProfile && referrerProfile.is_frozen !== true && agentRole) {
+        referringAgentId = candidateReferrerId;
+      }
+    }
+
     /* ---- Landlord: reuse the picked one, else match by phone, else create -- */
     let landlordId = typeof body.landlord_id === "string" ? body.landlord_id : null;
     const landlord_name = String(body.landlord_name || "").trim();
@@ -329,10 +361,10 @@ Deno.serve(async (req) => {
     }
 
 
-    /* ---- The rent request itself (normal pipeline, no agent) -------------- */
+    /* ---- The rent request itself (normal pipeline) ------------------------ */
     const insertPayload: Record<string, unknown> = {
       tenant_id: userId,
-      agent_id: null,
+      agent_id: referringAgentId,
       landlord_id: landlordId,
       lc1_id: lc1Id,
       rent_amount,
@@ -409,6 +441,7 @@ Deno.serve(async (req) => {
         national_id_photo: ninPhotoPath ? { bucket: "tenant-ids", path: ninPhotoPath } : null,
         lc_letter: lcLetterPath ? { bucket: "lc-letters", path: lcLetterPath } : null,
         tenant_note: tenant_note || null,
+         referring_agent_id: referringAgentId,
       },
     } as any).then(({ error }) => { if (error) console.warn("[tenant-self-onboarding] event failed", error.message); });
 
