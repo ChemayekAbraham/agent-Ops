@@ -90,6 +90,8 @@ const isAwaitingCoo = (s: string) => s === 'ops_approved';
 const isAwaitingCfo = (s: string) => s === 'coo_approved';
 /** Anything a reviewer still has to act on. */
 const isOpen = (s: string) => isPending(s) || isAwaitingCoo(s) || isAwaitingCfo(s);
+/** Only initial applications may be acted on inside the Agent Ops view. */
+const isAgentOpsActionable = (s: string) => s === 'pending_approval' || s === 'submitted';
 
 /**
  * Executive queue for agent smartphone applications — a three-stage flow:
