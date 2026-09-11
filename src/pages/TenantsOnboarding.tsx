@@ -324,8 +324,23 @@ export default function TenantsOnboarding() {
   const phoneTakenByOther = idCheck.phone_known === true && idCheck.phone_is_you === false;
 
   const addPhoto = async (file: File, target: 'tenant' | 'id' | 'house' | 'lc_letter') => {
+    const type = (file.type || '').toLowerCase();
+    const name = file.name.toLowerCase();
+    const typeOk = ALLOWED_PHOTO_TYPES.includes(type) || (!type && /\.(jpe?g|png)$/.test(name));
+    if (!typeOk) {
+      toast.error('Only JPG, JPEG or PNG photos are allowed.');
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast.error('That photo is larger than 5 MB. Please use a smaller one.');
+      return;
+    }
     try {
-      const opt = await optimizeImage(file, { maxWidth: 1200, quality: 0.82 });
+      const opt = await optimizeImage(file, {
+        maxWidth: 1200,
+        quality: 0.82,
+        format: type === 'image/png' ? 'image/png' : 'image/jpeg',
+      });
       const slot: PhotoSlot = { file: opt.file, preview: opt.previewUrl };
       if (target === 'tenant') setTenantPhoto(slot);
       else if (target === 'id') setIdPhoto(slot);
