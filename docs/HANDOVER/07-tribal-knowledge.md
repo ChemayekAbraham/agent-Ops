@@ -348,6 +348,46 @@ is transient lock contention, not a bad statement; retry it.
 it's correct — verify the actual RLS policy set for the querying role before spending more time
 on the permission matrix.
 
+### 20. The one-claim-per-merchant rule only existed in React, and the stale-claim releaser had no cron
+
+**Found and fixed 2026-09-11**, same day as trap #19, in the same merchant payout queue.
+
+**Root cause 1 — client-only enforcement.** The Pending Queue UI blocked a merchant from claiming
+a second withdrawal while one was already open (`AgentCashPayoutsTab.tsx`'s `myActiveClaims`
+check), but `claim_withdrawal_verified` itself only ever checked
+`WHERE assigned_cashout_agent_id IS NULL` — nothing in the RPC stopped a merchant from holding
+multiple simultaneous claims via a direct call, a race between two tabs, or any client that skips
+the React gate. The one-claim rule was UX, not a server invariant.
+
+**Root cause 2 — an orphaned releaser.** `release_stale_cashout_claims()` already existed to free
+a claim that's gone quiet, but **no cron job called it** — only `release-stale-merchant-float`
+was scheduled, which is a different function. A stale claim stayed `assigned_cashout_agent_id`-
+locked to one merchant forever; the 30-second client ticker only refetches, it doesn't release
+anything server-side. Combined with root cause 1, one merchant could accumulate several open
+claims and sit on the entire visible queue.
+
+**Fix** (`drizzle/migrations/0006_merchant_one_active_claim_and_stale_release_cron.sql`, live and
+verified against production 2026-09-11):
+- `claim_withdrawal_verified` now takes `pg_advisory_xact_lock(hashtext('cashout_claim:<agent
+  id>'))` before checking, then looks up any other open, unsettled claim already assigned to that
+  agent (canonical queue statuses, `processed_at`/`fin_ops_reference` both empty) and refuses with
+  `active_claim_exists` + `blocking_withdrawal_id` if one exists. The gate runs **before**
+  `reserve_merchant_float`, so a refused claim never leaves a dangling float reservation. The
+  original `UPDATE ... WHERE assigned_cashout_agent_id IS NULL` race guard, priority holds, fraud
+  checks and MoMo name/number verification are unchanged.
+- New cron `release-stale-cashout-claims` (`*/5 * * * *`) actually calls
+  `public.release_stale_cashout_claims()`. Registration is idempotent (unschedules any prior copy
+  by name before scheduling).
+- Live recovery ran `release_stale_cashout_claims()` once by hand to clear the backlog that had
+  built up before the cron existed; only rows with zero settlement progress (no proof/code/TID/
+  processing) were released — nothing with evidence was touched, and no wallet/ledger/settlement
+  row was written.
+
+**Do not** assume a client-side "one claim at a time" UI restriction is also true server-side —
+check whether the RPC actually enforces it before relying on it as a security or fairness
+boundary. **Do not** assume a "stale claim releaser" function being present means it runs — check
+`cron.job` for an active schedule calling it, not just that the function exists.
+
 ---
 
 ## Architecture decisions that look wrong but are deliberate

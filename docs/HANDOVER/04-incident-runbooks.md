@@ -441,3 +441,40 @@ server-side.
 **Do not** run `ALTER POLICY` against this table without expecting `40P01 deadlock detected`
 under live traffic — it's transient lock contention from concurrent reads, not a bad statement.
 Retry it.
+
+---
+
+## N. One merchant is holding multiple claims / claimed withdrawals never come back to the queue
+
+Two independent causes, fixed together 2026-09-11:
+
+```sql
+-- Is a merchant sitting on more than one open claim right now?
+SELECT assigned_cashout_agent_id, count(*)
+FROM public.withdrawal_requests
+WHERE assigned_cashout_agent_id IS NOT NULL
+  AND status IN ('pending','requested','manager_approved','cfo_approved','approved','fin_ops_approved')
+  AND processed_at IS NULL AND coalesce(fin_ops_reference,'') = ''
+GROUP BY 1 HAVING count(*) > 1;
+
+-- Is the stale-claim releaser actually scheduled?
+SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'release-stale-cashout-claims';
+```
+
+1. `claim_withdrawal_verified` enforces one active claim per merchant server-side (advisory lock +
+   blocking-claim lookup, before float reservation) as of
+   `drizzle/migrations/0006_merchant_one_active_claim_and_stale_release_cron.sql`. If the first
+   query above returns rows, that migration either wasn't applied or was reverted — check the live
+   function definition against the migration file, don't assume the file being present means it's
+   live.
+2. `release_stale_cashout_claims()` only clears claims with **zero settlement progress** (no
+   proof/code/TID/processing marker) — this is by design, not a bug, so don't expect it to touch
+   an in-flight payout. If the cron job is missing/inactive, re-run the migration; it's idempotent.
+
+See [`07-tribal-knowledge.md` §20](./07-tribal-knowledge.md#20-the-one-claim-per-merchant-rule-only-existed-in-react-and-the-stale-claim-releaser-had-no-cron)
+for the full incident.
+
+**Do not** manually force-release an agent's claim that's inside its normal in-flight window
+(check `dispatched_at` — recent claims are very likely legitimately being worked). Forcing a
+release on a claim that's actually mid-payout risks a double payout when the original claimant's
+confirmation lands after someone else has already been assigned the same withdrawal.
