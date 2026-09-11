@@ -27,4 +27,4 @@
 - [x] CFO Money We Owe drilldown: paginated/infinite-scroll transfer lists.
 - [x] CFO Money We Can Use: expandable transaction-level breakdown of Money We Have vs Money We Owe, incl. excluded flagged transfers.
 
-- [ ] Assign self-onboarded Rent Requests to the authenticated tenant’s verified referring agent.
+- [x] Assign self-onboarded Rent Requests to the authenticated tenant’s verified referring agent.
