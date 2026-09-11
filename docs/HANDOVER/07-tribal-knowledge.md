@@ -394,6 +394,22 @@ verified against production 2026-09-11):
   processing) were released — nothing with evidence was touched, and no wallet/ledger/settlement
   row was written.
 
+**Follow-up the same evening — whose reservation is it?** There is one
+`merchant_float_reservations` row per *withdrawal*, and three functions treated it as the caller's
+without checking: `claim_withdrawal_verified` released it on a lost race (freeing the **winner's**
+float — that is what `released_reason = 'claim_race_lost'` on a live claim means),
+`reserve_merchant_float` handed a live reservation to whoever asked next, and
+`release_stale_cashout_claims` returned the row to the pool but left the old reservation `reserved`
+and `dispatch_claimed_by` stamped. `classify_merchant_payout_funding` then owed the payout to the
+reservation holder instead of the merchant who settled it (and got the commission). Measured
+2026-09-11: 29 receivables / UGX ~21.3M `pending_reimbursement` booked to a merchant other than the
+settler, plus UGX 2,000,000 already reimbursed that way. Code fixed in
+`20260911200000_merchant_claim_reservation_ownership.sql` (the classifier now attributes to the
+settler and refuses to guess on a mismatch). **The 29 existing rows were deliberately left as they
+are (Josh, 2026-09-11)** — the classifier skips any withdrawal that already has a receivable on a
+mismatch, so the reconciler cron will not rewrite them. Do not "correct" them without Finance
+confirming who actually paid.
+
 **Do not** assume a client-side "one claim at a time" UI restriction is also true server-side —
 check whether the RPC actually enforces it before relying on it as a security or fairness
 boundary. **Do not** assume a "stale claim releaser" function being present means it runs — check
