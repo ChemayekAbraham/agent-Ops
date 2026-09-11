@@ -271,11 +271,13 @@ export function Lc1ChairpersonPicker({
             </Button>
           </div>
 
-          <div className="p-2 rounded-lg bg-chart-4/10 border border-chart-4/20 text-center">
-            <p className="text-xs text-chart-4 font-semibold">
-              💰 UGX 2,000 paid once Landlord Ops verifies (nothing paid upfront)
-            </p>
-          </div>
+          {context === 'agent' && (
+            <div className="p-2 rounded-lg bg-chart-4/10 border border-chart-4/20 text-center">
+              <p className="text-xs text-chart-4 font-semibold">
+                💰 UGX 2,000 paid once Landlord Ops verifies (nothing paid upfront)
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
