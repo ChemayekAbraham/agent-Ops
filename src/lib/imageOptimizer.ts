@@ -143,6 +143,7 @@ export async function optimizeImage(
     maxWidth = 1200,
     maxHeight = 1200,
     quality = 0.8,
+    format: forcedFormat,
   } = options;
 
   // Skip non-image files
