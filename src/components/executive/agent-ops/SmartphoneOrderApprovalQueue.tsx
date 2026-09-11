@@ -847,7 +847,11 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Check className="h-4 w-4 text-primary" />
-              {approveStage === 'cfo' ? 'Disburse & activate application' : 'COO approval — forward to CFO'}
+              {approveStage === 'cfo'
+                ? 'Pay supplier & activate application'
+                : approveStage === 'coo'
+                  ? 'COO approval — forward to CFO'
+                  : 'Agent Ops approval — forward to COO'}
             </DialogTitle>
           </DialogHeader>
 
