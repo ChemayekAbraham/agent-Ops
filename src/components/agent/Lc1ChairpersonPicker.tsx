@@ -58,6 +58,8 @@ interface Lc1ChairpersonPickerProps {
   scopeDistrictName?: string | null;
   /** Highlight missing required fields after a failed submit. */
   attempted?: boolean;
+  /** Hide agent reward copy when the tenant is registering themselves. */
+  context?: 'agent' | 'tenant';
 }
 
 const emptyNew = (region = '', district = '', village = ''): Lc1Selection => ({
