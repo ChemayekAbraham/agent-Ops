@@ -99,7 +99,7 @@ export default function AgentProductCategoryPage() {
 const PENDING_STATUSES = ['pending_approval', 'submitted'];
 
 function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
-  const { data: orderCounts = { pending: 0, rejected: 0 } } = useQuery({
+  const { data: orderCounts = { pending: 0, inProgress: 0, rejected: 0 } } = useQuery({
     queryKey: ['smartphone-order-counts'],
     queryFn: async () => {
       const { data, error } = await db.rpc('list_smartphone_orders', { p_status: null });
@@ -107,6 +107,7 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
       const rows = (data || []) as { order_status: string }[];
       return {
         pending: rows.filter((o) => PENDING_STATUSES.includes(o.order_status)).length,
+        inProgress: rows.filter((o) => ['ops_approved', 'coo_approved'].includes(o.order_status)).length,
         rejected: rows.filter((o) => o.order_status === 'rejected').length,
       };
     },
@@ -121,6 +122,14 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
           Pending Applications
           {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
         </TabsTrigger>
+        <TabsTrigger value="in-progress" className="gap-2">
+          In Progress
+          {orderCounts.inProgress > 0 && (
+            <Badge variant="secondary" className="bg-sky-500/15 text-sky-600 border-sky-500/30">
+              {orderCounts.inProgress}
+            </Badge>
+          )}
+        </TabsTrigger>
         <TabsTrigger value="issued">Issued Devices</TabsTrigger>
         <TabsTrigger value="rejected" className="gap-2">
           Rejected Applications
@@ -134,6 +143,10 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
 
       <TabsContent value="pending" className="space-y-6 max-w-full">
         <SmartphoneOrderApprovalQueue pendingOnly />
+      </TabsContent>
+
+      <TabsContent value="in-progress" className="space-y-6 max-w-full">
+        <SmartphoneOrderApprovalQueue inProgressOnly />
       </TabsContent>
 
       <TabsContent value="issued" className="space-y-6 max-w-full">
