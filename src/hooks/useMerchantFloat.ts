@@ -991,7 +991,13 @@ export interface MerchantDebtGroup {
   payableLines: MerchantDebtLine[];
   reviewLines: MerchantDebtLine[];
   oldestAt: string | null;
-}
+  /**
+   * True when the signed-in reviewer IS this merchant desk. `settle_merchant_out_of_pocket`
+   * refuses `agent_id = auth.uid()` (separation of duties) and returns every one of that
+   * desk's rows in `skipped`, so the UI must never present them as settleable by this actor.
+   */
+  isOwnDesk: boolean;
+
 
 const DEBT_STATUS_PAYABLE = 'pending_reimbursement';
 const DEBT_STATUS_REVIEW = 'needs_review';
