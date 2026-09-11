@@ -67,6 +67,9 @@ import {
 // match across dashboards. Sourced from the shared fence module, which mirrors the
 // database view `public.v_merchant_payout_queue` exactly.
 const CASHOUT_QUEUE_STATUSES = MERCHANT_QUEUE_STATUSES as unknown as string[];
+// Statuses `claim_withdrawal_verified` treats as an open claim (queue statuses
+// plus legacy 'approved'). Used only for "Claimed by you", never the shared queue.
+const MY_ACTIVE_CLAIM_STATUSES = [...CASHOUT_QUEUE_STATUSES, 'approved'];
 
 type PayoutChannel = 'momo' | 'cash' | 'bank';
 
@@ -565,6 +568,13 @@ export function AgentCashPayoutsTab() {
 
   // Requests this agent has claimed and still needs to confirm. Kept as its own
   // (small) query so it is never affected by the queue's filters or pagination.
+  //
+  // Must match the SERVER's "you already have a payout in progress" check in
+  // `claim_withdrawal_verified` exactly — it also counts legacy 'approved' rows
+  // and treats an empty-string payment reference as none. With the narrower
+  // queue fence here, the server could refuse a second claim over a row this
+  // list never showed (merchants saw "you have another transaction" with
+  // nothing in "Claimed by you").
   const { data: myActiveClaims = [] } = useQuery({
     queryKey: ['cashout-my-active-claims', isCashoutAgent?.id],
     queryFn: async () => {
@@ -572,9 +582,9 @@ export function AgentCashPayoutsTab() {
         .from('withdrawal_requests')
         .select('*')
         .eq('assigned_cashout_agent_id', isCashoutAgent!.id)
-        .in('status', CASHOUT_QUEUE_STATUSES)
+        .in('status', MY_ACTIVE_CLAIM_STATUSES)
         .is('processed_at', null)
-        .is('fin_ops_reference', null)
+        .or('fin_ops_reference.is.null,fin_ops_reference.eq.')
         .order('dispatched_at', { ascending: true });
       if (error) throw error;
       return attachProfiles(data || []);
@@ -583,6 +593,30 @@ export function AgentCashPayoutsTab() {
     staleTime: 15_000,
     refetchOnWindowFocus: true,
   });
+
+  // Put one of THIS merchant's claims straight into "Claimed by you" (full row,
+  // so the customer details the queue hides are shown). Used right after a
+  // successful claim and when the server refuses a new claim because of an
+  // existing one — the merchant must never be told "you have a payout in
+  // progress" without that payout on screen. Never touches another desk's row.
+  const pinMyClaim = async (withdrawalId: string) => {
+    const deskId = isCashoutAgent?.id;
+    if (!deskId || !withdrawalId) return;
+    const { data, error } = await supabase
+      .from('withdrawal_requests')
+      .select('*')
+      .eq('id', withdrawalId)
+      .eq('assigned_cashout_agent_id', deskId)
+      .maybeSingle();
+    if (error || !data) return;
+    const [row] = await attachProfiles([data]);
+    qc.setQueryData(['cashout-my-active-claims', deskId], (old: any) => {
+      const list = Array.isArray(old) ? old : [];
+      return list.some((r: any) => r.id === row.id)
+        ? list.map((r: any) => (r.id === row.id ? row : r))
+        : [...list, row];
+    });
+  };
 
   // Unfiltered count of all available (unclaimed/expired) requests — powers the
   // "action required" badge and live banner regardless of active filters.
@@ -1007,6 +1041,16 @@ export function AgentCashPayoutsTab() {
               ? old
               : { ...old, rows, count: Math.max(0, Number(old.count || 0) - 1) };
           });
+        }
+        // "Claimed by you" follows the server's claim definition, not the queue
+        // fence (a legacy 'approved' claim is still open), so evict only a claim
+        // that is genuinely closed.
+        const claimClosed =
+          !!newRow?.id &&
+          (newRow.processed_at != null ||
+            String(newRow.fin_ops_reference ?? '') !== '' ||
+            !MY_ACTIVE_CLAIM_STATUSES.includes(String(newRow.status ?? '')));
+        if (claimClosed) {
           qc.setQueriesData({ queryKey: ['cashout-my-active-claims'] }, (old: any) =>
             Array.isArray(old) ? old.filter((row: any) => row.id !== newRow.id) : old,
           );
@@ -1070,19 +1114,31 @@ export function AgentCashPayoutsTab() {
       if (error) throw error;
       const result = data as any;
       if (!result || result.error) {
-        throw new Error(result?.message || 'Unable to claim this withdrawal');
+        const err: any = new Error(result?.message || 'Unable to claim this withdrawal');
+        err.code = result?.error ?? null;
+        err.blockingWithdrawalId = result?.blocking_withdrawal_id ?? null;
+        throw err;
       }
     },
-    onSuccess: () => {
+    onSuccess: async (_data, vars) => {
       toast.success('✅ Withdrawal claimed — proceed with payout');
-      // Notify the requester (fire-and-forget) that a named merchant agent is
-      // now processing their withdrawal. Never blocks the claim flow.
-      invalidateQueue();
-      // Once the "Claimed by you" list refreshes, scroll up to reveal it.
+      // Scroll up to "Claimed by you" as soon as it holds the claim.
       scrollToClaimed.current = true;
+      // Pin the claimed row immediately rather than waiting on a list refetch
+      // that can race the queue refresh — otherwise the row vanishes from the
+      // queue with nothing in its place and the other Claim buttons stay live.
+      await pinMyClaim(vars.id);
+      invalidateQueue();
     },
     onError: (e: any) => {
-      toast.error(e.message);
+      if (e?.code === 'active_claim_exists' && e?.blockingWithdrawalId) {
+        // The server knows which payout this merchant still holds — show it.
+        toast.error('You already claimed a payout — it is pinned at the top. Finish it before claiming another.');
+        scrollToClaimed.current = true;
+        void pinMyClaim(e.blockingWithdrawalId);
+      } else {
+        toast.error(e.message);
+      }
       // Refresh so the lost-race row disappears from this agent's view immediately.
       invalidateQueue();
     },
