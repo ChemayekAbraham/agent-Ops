@@ -288,8 +288,17 @@ export function useTppoPortfolioMetrics({
       const last = built[built.length - 1];
       const scheduled = sum(built.map((c) => c.scheduled));
       const collectedScheduled = sum(built.map((c) => c.collectedScheduled));
-      const collectedArrears = sum(built.map((c) => c.clearedByPayment));
-      const added = sum(built.map((c) => c.accrued));
+      const totalCollected = sum(built.map((c) => c.collectedTotal));
+      // Collected in arrears = total collected − collected from scheduled.
+      const collectedArrears =
+        totalCollected === null && collectedScheduled === null
+          ? null
+          : (totalCollected ?? 0) - (collectedScheduled ?? 0);
+      // Added in arrears = amount scheduled − amount collected from scheduled.
+      const added =
+        scheduled === null && collectedScheduled === null
+          ? null
+          : (scheduled ?? 0) - (collectedScheduled ?? 0);
       const broughtForward = first?.openingArrears ?? null;
       const closing = last?.closingArrears ?? null;
       const expected =
@@ -299,7 +308,7 @@ export function useTppoPortfolioMetrics({
         expectedCollection: expected,
         scheduledDue: scheduled,
         arrearsBroughtForward: broughtForward,
-        totalCollected: sum(built.map((c) => c.collectedTotal)),
+        totalCollected,
         collectedFromScheduled: collectedScheduled,
         collectedInArrears: collectedArrears,
         addedInArrears: added,
@@ -365,8 +374,16 @@ export function useTppoPortfolioMetrics({
     const scheduled = num(zone?.scheduled_due_ugx);
     const collectedScheduled = num(zone?.collected_ugx);
     const collectedTotal = num(zone?.collected_total_ugx);
-    const collectedArrears = num(cur?.cleared_by_payment);
-    const added = num(cur?.accrued);
+    // Collected in arrears = total collected − collected from scheduled.
+    const collectedArrears =
+      collectedTotal === null && collectedScheduled === null
+        ? null
+        : (collectedTotal ?? 0) - (collectedScheduled ?? 0);
+    // Added in arrears = amount scheduled − amount collected from scheduled.
+    const added =
+      scheduled === null && collectedScheduled === null
+        ? null
+        : (scheduled ?? 0) - (collectedScheduled ?? 0);
     const broughtForward = num(zone?.arrears_target_ugx) ?? num(cur?.opening_arrears);
     const expected =
       num(zone?.total_field_target_ugx) ??
