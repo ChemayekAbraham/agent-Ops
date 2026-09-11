@@ -394,10 +394,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               value={fmt(moneyWeOweTotal)}
               items={[
                 { dot: 'bg-orange-500', label: 'Merchant Float Bucket (held by merchant agents)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
-                { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
+              { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
               ]}
-              footer="Merchant float bucket (wallet books) plus the Bayo Mercy account (tap any figure for every movement behind it)"
-              footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
               onClick={() => setMerchantOwedOpen(true)}
             />
             <HeroCard
@@ -716,8 +714,8 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
   title: string;
   value: string;
   items: { dot: string; label: string; value: string; onSelect?: () => void }[];
-  footer: string;
-  footerTone: string;
+  footer?: string;
+  footerTone?: string;
   onClick?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -750,7 +748,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
           >
             {value}
           </p>
-          <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p>
+          {footer ? <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p> : null}
         </button>
       </div>
 
@@ -808,7 +806,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
             )}
           </div>
 
-          {title !== 'Money We Have' && (
+          {title !== 'Money We Have' && footer && (
             <div className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] font-medium ${footerTone}`}>
               <span className="truncate">{footer}</span>
               <Info className="h-3 w-3 shrink-0 opacity-70" />
