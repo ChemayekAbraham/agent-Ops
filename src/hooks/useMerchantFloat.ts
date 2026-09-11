@@ -1028,6 +1028,13 @@ export function useMerchantSettlementDebts(enabled = true) {
       if (error) throw error;
       const rows = (data ?? []) as any[];
 
+      // Separation of duties: the settlement RPC refuses to pay a desk that belongs
+      // to the signed-in actor, so resolve who is looking and flag their own desk.
+      const { data: authData } = await supabase.auth.getUser();
+      const viewerId = authData?.user?.id ? String(authData.user.id) : null;
+
+
+
       const ids = Array.from(new Set(rows.map((r) => r.agent_id).filter(Boolean).map(String)));
       const people = new Map<string, { name: string; phone: string | null }>();
       if (ids.length) {
