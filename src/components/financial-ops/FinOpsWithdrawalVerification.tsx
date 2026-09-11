@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowDownToLine, CheckCircle, XCircle, Loader2, RefreshCw,
-  Smartphone, Clock, Hand, Wallet, Briefcase, AlertTriangle, EyeOff, Eye,
+  Smartphone, Clock, Hand, Wallet, Briefcase, AlertTriangle, EyeOff, Eye, Unlock,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -87,6 +87,50 @@ export function FinOpsWithdrawalVerification() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   
   const [activeTab, setActiveTab] = useState<ActiveTab>('pending');
+  const [releasingClaim, setReleasingClaim] = useState<string | null>(null);
+
+  // Release a merchant agent's claim on a withdrawal so it returns to the open queue.
+  const handleReleaseClaim = async (req: WithdrawalRequest) => {
+    setReleasingClaim(req.id);
+    try {
+      const { error } = await supabase
+        .from('withdrawal_requests')
+        .update({
+          assigned_cashout_agent_id: null,
+          claimed_by: null,
+          claimed_at: null,
+          dispatched_at: null,
+        } as any)
+        .eq('id', req.id);
+      if (error) throw error;
+
+      // Audit the release for traceability.
+      try {
+        await supabase.from('audit_logs').insert({
+          user_id: user!.id,
+          action_type: 'finops_claim_released',
+          table_name: 'withdrawal_requests',
+          record_id: req.id,
+          metadata: {
+            amount: Number(req.amount || 0),
+            released_agent_name: req.cashout_agent?.full_name || null,
+            released_agent_id: req.assigned_cashout_agent_id,
+            released_at: new Date().toISOString(),
+          },
+        });
+      } catch (auditErr) {
+        console.warn('[finops-release-claim] audit log failed', auditErr);
+      }
+
+      toast.success('Claim released — withdrawal returned to open queue');
+      fetchRequests();
+    } catch (e: any) {
+      console.error('[finops-release-claim]', e);
+      toast.error(e.message || 'Failed to release claim');
+    } finally {
+      setReleasingClaim(null);
+    }
+  };
 
   // Landlord float payouts are funded from the agent's dedicated landlord
   // float (deducted at disburse time) — NOT their personal/withdrawable wallet.
@@ -172,6 +216,7 @@ export function FinOpsWithdrawalVerification() {
     const userIds = [...new Set([
       ...data.map(r => r.user_id),
       ...data.map(r => r.claimed_by).filter(Boolean),
+      ...data.map(r => r.assigned_cashout_agent_id).filter(Boolean),
       ...data.map(proxyIdFor).filter(Boolean),
     ])];
     const { data: profiles } = await supabase
@@ -182,10 +227,14 @@ export function FinOpsWithdrawalVerification() {
     return data.map(r => {
       const proxyId = proxyIdFor(r);
       const proxyProfile = proxyId ? profileMap.get(proxyId) : null;
+      // Resolve the claiming agent: prefer claimed_by, fall back to assigned_cashout_agent_id
+      const claimantProfile = (r.claimed_by && profileMap.get(r.claimed_by))
+        || (r.assigned_cashout_agent_id && profileMap.get(r.assigned_cashout_agent_id))
+        || null;
       return {
         ...r,
         user: profileMap.get(r.user_id) || { full_name: 'Unknown', phone: '', avatar_url: null },
-        cashout_agent: r.claimed_by ? (profileMap.get(r.claimed_by) || null) : null,
+        cashout_agent: claimantProfile,
         proxy_agent: proxyProfile
           ? { id: proxyId, full_name: proxyProfile.full_name, phone: proxyProfile.phone, avatar_url: proxyProfile.avatar_url }
           : null,
@@ -887,6 +936,18 @@ export function FinOpsWithdrawalVerification() {
                 {req.claimed_at ? ` · claimed ${formatDistanceToNow(new Date(req.claimed_at), { addSuffix: true })}` : ''}
               </p>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-7 text-[11px] font-bold border-orange-500/50 text-orange-700 dark:text-orange-300 hover:bg-orange-500/20"
+              disabled={releasingClaim === req.id}
+              onClick={(e) => { e.stopPropagation(); handleReleaseClaim(req); }}
+            >
+              {releasingClaim === req.id
+                ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                : <Unlock className="h-3 w-3 mr-1" />}
+              Release Claim
+            </Button>
           </div>
         )}
 
