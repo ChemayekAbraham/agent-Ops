@@ -272,7 +272,8 @@ Deno.serve(async (req) => {
         house_photos: houseUrls.length,
         house_photo_urls: houseUrls,
         tenant_photo_url: tenantPhotoUrl,
-        national_id_photo_url: idPhotoUrl,
+        national_id_photo: ninPhotoPath ? { bucket: "tenant-ids", path: ninPhotoPath } : null,
+        lc_letter: lcLetterPath ? { bucket: "lc-letters", path: lcLetterPath } : null,
         tenant_note: tenant_note || null,
       },
     } as any).then(({ error }) => { if (error) console.warn("[tenant-self-onboarding] event failed", error.message); });
