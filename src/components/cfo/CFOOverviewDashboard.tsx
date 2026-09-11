@@ -806,7 +806,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
             )}
           </div>
 
-          {title !== 'Money We Have' && (
+          {title !== 'Money We Have' && footer && (
             <div className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] font-medium ${footerTone}`}>
               <span className="truncate">{footer}</span>
               <Info className="h-3 w-3 shrink-0 opacity-70" />
