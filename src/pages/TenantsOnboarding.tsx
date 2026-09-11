@@ -87,7 +87,7 @@ async function toDataUrl(file: File): Promise<string> {
 export default function TenantsOnboarding() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+  const routeLocation = useLocation();
   // Where the visitor should land again once they have an account. Keeps any
   // query/hash they arrived with (e.g. a shared link carrying a village).
   const returnTo = `${location.pathname}${location.search}${location.hash}`;
