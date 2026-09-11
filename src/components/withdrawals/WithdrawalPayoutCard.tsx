@@ -77,7 +77,10 @@ export function WithdrawalPayoutCard({
   const [proofUploading, setProofUploading] = useState(false);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [proofPath, setProofPath] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
+  // A merchant's active claim must reveal the customer and payment controls
+  // immediately. Requiring a second tap left some mobile users looking at the
+  // collapsed summary while the server correctly blocked another claim.
+  const [open, setOpen] = useState(isClaimed);
   // Specific, inline reason the LAST confirmation attempt was rejected by the
   // server (amount mismatch / TID mismatch / unreadable). Drives the retry
   // prompt so the agent knows exactly what to fix and can paste again.
@@ -91,6 +94,10 @@ export function WithdrawalPayoutCard({
   const [rejectNotes, setRejectNotes] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const qc = useQueryClient();
+
+  useEffect(() => {
+    if (isClaimed) setOpen(true);
+  }, [isClaimed, withdrawal.id]);
 
   // ── Reload-proof proof state ───────────────────────────────────────────────
   // On mobile, opening the camera/gallery frequently makes the browser discard
