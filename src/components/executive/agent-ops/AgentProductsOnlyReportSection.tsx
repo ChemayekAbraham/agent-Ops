@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
-import { FileDown, Loader2, CalendarIcon, ChevronDown, Package, ShieldCheck, Bike, Smartphone, ShoppingBag, Signpost, HandCoins, Users } from 'lucide-react';
+import { FileDown, Loader2, CalendarIcon, ChevronDown, Package } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,7 +18,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { formatUGX } from '@/lib/rentCalculations';
 import { generateAgentProductsOnlyPdf, type AgentProductsOnlyData } from '@/lib/agentProductsOnlyPdf';
 
 const toDateKey = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -370,30 +369,6 @@ export function AgentProductsOnlyReportSection({ className }: { className?: stri
     }
   };
 
-  const totalCalculatedOutstanding = useMemo(() => {
-    if (!reportData) return 0;
-    return (
-      reportData.bikes.outstanding +
-      reportData.phones.outstanding +
-      reportData.boutique.in_field_outstanding +
-      reportData.signages.in_field_outstanding +
-      reportData.advances.outstanding +
-      reportData.lendingAgents.outstanding
-    );
-  }, [reportData]);
-
-  const totalItemsCount = useMemo(() => {
-    if (!reportData) return 0;
-    return (
-      reportData.bikes.issued_total +
-      reportData.phones.issued_total +
-      reportData.boutique.in_field_items +
-      reportData.signages.in_field_items +
-      reportData.advances.active_count +
-      reportData.lendingAgents.active_loans_count
-    );
-  }, [reportData]);
-
   const activeRangePresetLabel = RANGE_PRESETS.find(([k]) => k === activeRangePreset)?.[1];
   const isLoading = apsQuery.isLoading || boutiqueQuery.isLoading;
 
@@ -417,34 +392,6 @@ export function AgentProductsOnlyReportSection({ className }: { className?: stri
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               Consolidated executive PDF report covering strictly the 6 lines: Motor Bikes, Smart Phones, Boutique, Signages, Agent Advances, and Lending Agents.
             </p>
-
-            {/* Quick Metrics preview */}
-            <div className="pt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Bike className="h-3.5 w-3.5 text-orange-500" />
-                <span className="font-semibold text-foreground">{reportData?.bikes.issued_total ?? '…'}</span> Bikes
-              </span>
-              <span className="text-muted-foreground/40">•</span>
-              <span className="flex items-center gap-1">
-                <Smartphone className="h-3.5 w-3.5 text-indigo-500" />
-                <span className="font-semibold text-foreground">{reportData?.phones.issued_total ?? '…'}</span> Phones
-              </span>
-              <span className="text-muted-foreground/40">•</span>
-              <span className="flex items-center gap-1">
-                <ShoppingBag className="h-3.5 w-3.5 text-rose-500" />
-                <span className="font-semibold text-foreground">{reportData?.boutique.in_field_items ?? '…'}</span> Boutique Items
-              </span>
-              <span className="text-muted-foreground/40">•</span>
-              <span className="flex items-center gap-1">
-                <HandCoins className="h-3.5 w-3.5 text-violet-500" />
-                <span className="font-semibold text-foreground">{reportData?.advances.active_count ?? '…'}</span> Advances
-              </span>
-              <span className="text-muted-foreground/40">•</span>
-              <span className="flex items-center gap-1">
-                <span className="text-muted-foreground">Outstanding:</span>
-                <span className="font-semibold text-foreground">{formatUGX(totalCalculatedOutstanding)}</span>
-              </span>
-            </div>
           </div>
 
           {/* Right / Controls & Action Button */}
