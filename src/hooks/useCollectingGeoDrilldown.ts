@@ -171,9 +171,11 @@ export function useCollectingGeoPage(
     offset?: number;
     enabled?: boolean;
     period?: CollectingGeoPeriod;
+    /** Force the grouping level instead of deriving it from the path (summary queries). */
+    level?: CollectingGeoLevel;
   } = {},
 ) {
-  const level = nextCollectingLevel(path);
+  const level = opts.level ?? nextCollectingLevel(path);
   const { search = '', limit = 25, offset = 0, enabled = true, period } = opts;
   const q = search.trim() || null;
   const from = period?.from || null;

@@ -241,6 +241,27 @@ export default function CollectingGeographyDrilldown({
     period,
   );
 
+  // Geography summary strip: totals by region (or by district once a region is
+  // selected). Hidden once the path reaches district level or deeper.
+  const summaryKey: keyof CollectingGeoPath | null = path.district
+    ? null
+    : path.region
+      ? 'district'
+      : 'region';
+  const summaryPath = useMemo<CollectingGeoPath>(() => {
+    const next: CollectingGeoPath = {};
+    if (path.country) next.country = path.country;
+    if (summaryKey === 'district' && path.region) next.region = path.region;
+    return next;
+  }, [path, summaryKey]);
+  const { data: summaryData, isLoading: summaryLoading } = useCollectingGeoPage(summaryPath, {
+    limit: 10,
+    period,
+    level: summaryKey ?? 'region',
+    enabled: summaryKey !== null,
+  });
+  const summaryRows = (summaryData?.rows ?? []) as CollectingGeoGroupRow[];
+
   const applySuggestion = (s: CollectingGeoSuggestion) => {
     const next: CollectingGeoPath = {};
     ORDER.forEach((k) => {
@@ -408,6 +429,59 @@ export default function CollectingGeographyDrilldown({
           </div>
         ))}
       </div>
+
+      {/* Geography summary: totals by region / district — tap a place to filter */}
+      {summaryKey && (
+        <div className="rounded-lg border border-border/60 bg-muted/10 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Summary by {LEVEL_OF_KEY[summaryKey].toLowerCase()} · tap to filter
+            </p>
+            {summaryLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          </div>
+          {summaryLoading ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-9 w-40" />
+              ))}
+            </div>
+          ) : summaryRows.length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              No {LEVEL_OF_KEY[summaryKey].toLowerCase()} totals match the current filters.
+            </p>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {summaryRows.map((r) => (
+                <button
+                  key={r.label}
+                  type="button"
+                  onClick={() => setLevelValue(summaryKey, r.label)}
+                  title={`Filter to ${r.label}`}
+                  className="group flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-left text-xs transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                  <span className="font-medium">{r.label}</span>
+                  {r.unmatched && (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700"
+                    >
+                      Unmapped
+                    </Badge>
+                  )}
+                  <span className="font-semibold tabular-nums text-primary">
+                    <ProjectionValue daily={r.daily_repayment} days={horizon.days} label={r.label} />
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {r.plans.toLocaleString()} plan{r.plans === 1 ? '' : 's'}
+                  </span>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground/50 transition group-hover:text-primary" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Collection period */}
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
