@@ -39,10 +39,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
-import CollectingGeographyDrilldown, {
-  HORIZONS as COLLECTING_HORIZONS,
-  DEFAULT_HORIZON,
-} from '@/components/landlord-ops/CollectingGeographyDrilldown';
+import CollectingGeographyDrilldown from '@/components/landlord-ops/CollectingGeographyDrilldown';
 
 import {
   useLandlordFloatOverview,
@@ -1729,8 +1726,6 @@ function ErrorDetails({ error }: { error: unknown }) {
 export default function LandlordFloat() {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordFloatOverview();
   const [tab, setTab] = useState('needed');
-  // Shared projection horizon between the Being collected tile and its drilldown.
-  const [collectingHorizonKey, setCollectingHorizonKey] = useState<string>(DEFAULT_HORIZON);
   const [drill, setDrill] = useState<DrillTarget | null>(null);
   const [showPaidAllTime, setShowPaidAllTime] = useState(false);
 
@@ -1806,59 +1801,40 @@ export default function LandlordFloat() {
           }
         />
         {(() => {
-          const horizon =
-            COLLECTING_HORIZONS.find((h) => h.key === collectingHorizonKey) ?? COLLECTING_HORIZONS[4];
+          const horizonDays = 365;
           const daily = collecting.rows.reduce((sum, r) => sum + (r.daily_repayment || 0), 0);
-          const projected = Math.round(daily * horizon.days);
+          const projected = Math.round(daily * horizonDays);
           const empty = collecting.expected.plans === 0;
           return (
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+            <button
+              type="button"
+              onClick={() => setTab('collecting')}
+              className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-left transition-colors hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <Banknote className="h-3.5 w-3.5" />
                 <span className="truncate">Being collected</span>
+                <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60" />
               </div>
-              <p className="mt-2 text-xl font-bold tabular-nums leading-tight">
-                {formatUGX(collecting.expected.expected)}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {formatUGX(collecting.paid_out.amount)} paid to landlords
-              </p>
               {empty ? (
                 <p className="mt-3 rounded-md border border-dashed border-border px-2 py-2 text-xs text-muted-foreground">
                   No live rent plans are being collected yet.
                 </p>
               ) : (
-                <div className="mt-3 space-y-1.5">
-                  <Select value={horizon.key} onValueChange={setCollectingHorizonKey}>
-                    <SelectTrigger className="h-8 w-full text-xs" aria-label="Projection period">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COLLECTING_HORIZONS.map((h) => (
-                        <SelectItem key={h.key} value={h.key}>
-                          {h.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                <>
+                  <p className="mt-2 text-xl font-bold tabular-nums leading-tight text-emerald-700 dark:text-emerald-400">
                     {formatUGX(projected)}
                   </p>
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    Projected {horizon.label.toLowerCase()} · {formatUGX(daily)} a day ×{' '}
-                    {horizon.days.toLocaleString()} days
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">Next 12 months projection</p>
+                  <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
+                    {formatUGX(daily)} a day × 365 days
                   </p>
-                </div>
+                </>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-3 w-full"
-                onClick={() => setTab('collecting')}
-              >
+              <span className="mt-3 flex w-full items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted/50">
                 Details <ChevronRight className="ml-1 h-3.5 w-3.5" />
-              </Button>
-            </div>
+              </span>
+            </button>
           );
         })()}
         <StatTile
@@ -2133,10 +2109,7 @@ export default function LandlordFloat() {
                 )}
               </div>
 
-              <CollectingGeographyDrilldown
-                horizonKey={collectingHorizonKey}
-                onHorizonChange={setCollectingHorizonKey}
-              />
+              <CollectingGeographyDrilldown />
 
               <TableShell>
 
