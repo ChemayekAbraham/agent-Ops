@@ -422,6 +422,14 @@ function DrillDownDialog({
             <p className="text-sm font-medium text-destructive">These records could not be loaded.</p>
             <ErrorDetails error={error} />
           </div>
+        ) : isPayouts ? (
+          <FilteredPayoutTable
+            key={`${target?.kind}-${target?.filterKey ?? 'all'}`}
+            columns={target?.columns ?? []}
+            rows={rows}
+            emptyText="No payout records found."
+            maxHeight="55vh"
+          />
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
