@@ -1809,7 +1809,7 @@ export default function LandlordFloat() {
           }
         />
         {(() => {
-          const horizonDays = 365;
+          const horizonDays = collectHorizon.days;
           const daily = collecting.rows.reduce((sum, r) => sum + (r.daily_repayment || 0), 0);
           const projected = Math.round(daily * horizonDays);
           const houses = collecting.rows.length;
@@ -1825,6 +1825,28 @@ export default function LandlordFloat() {
                 <span className="truncate">Being collected</span>
                 <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60" />
               </div>
+              {/* Selected projection horizon — always visible so the number below is unambiguous */}
+              <div
+                className="mt-2"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <Select value={collectHorizon.key} onValueChange={setCollectHorizonKey}>
+                  <SelectTrigger
+                    aria-label="Projection period"
+                    className="h-7 w-full gap-1 border-emerald-500/40 bg-background/80 px-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLLECT_HORIZONS.map((h) => (
+                      <SelectItem key={h.key} value={h.key}>
+                        {h.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {empty ? (
                 <p className="mt-3 rounded-md border border-dashed border-border px-2 py-2 text-xs text-muted-foreground">
                   No live rent plans are being collected yet.
@@ -1835,10 +1857,10 @@ export default function LandlordFloat() {
                     {formatUGX(projected)}
                   </p>
                   <p className="mt-1 text-xs font-medium text-muted-foreground">
-                    Next 12 months projection · {houses.toLocaleString()} house{houses === 1 ? '' : 's'}
+                    {collectHorizon.label} projection · {houses.toLocaleString()} house{houses === 1 ? '' : 's'}
                   </p>
                   <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
-                    {formatUGX(daily)} a day × 365 days
+                    {formatUGX(daily)} a day × {horizonDays.toLocaleString()} days
                   </p>
                 </>
               )}
@@ -2120,7 +2142,10 @@ export default function LandlordFloat() {
                 )}
               </div>
 
-              <CollectingGeographyDrilldown />
+              <CollectingGeographyDrilldown
+                horizonKey={collectHorizonKey}
+                onHorizonChange={setCollectHorizonKey}
+              />
 
               <TableShell>
 
