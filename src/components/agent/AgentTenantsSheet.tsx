@@ -359,11 +359,6 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
   const [sortDir, setSortDir] = useState<SortDir>(() => loadPrefs().sortDir ?? 'desc');
   const [propertyFilter, setPropertyFilter] = useState<string>(() => loadPrefs().propertyFilter ?? 'all');
   const [tenantBalances, setTenantBalances] = useState<Record<string, number>>({});
-  // Real debt that exists but is held out of `tenantBalances` because the
-  // landlord hasn't actually been paid yet (see get_agent_tenants_overview).
-  // Without this, a tenant whose landlord payout is stuck reads as balance=0
-  // and gets misclassified as "Paid up" even though nothing has been repaid.
-  const [tenantUnfunded, setTenantUnfunded] = useState<Record<string, number>>({});
   const [tenantDaily, setTenantDaily] = useState<Record<string, number>>({});
   const [tenantTotals, setTenantTotals] = useState<Record<string, { total: number; paid: number }>>({});
   const [tenantStatuses, setTenantStatuses] = useState<Record<string, Set<string>>>({});
@@ -669,7 +664,6 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       setTenants(tenantList);
 
       const balances: Record<string, number> = {};
-      const unfunded: Record<string, number> = {};
       const daily: Record<string, number> = {};
       const totals: Record<string, { total: number; paid: number }> = {};
       const statusMap: Record<string, Set<string>> = {};
@@ -680,7 +674,6 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
 
       rows.forEach((row) => {
         balances[row.id] = Number(row.balance || 0);
-        unfunded[row.id] = Number(row.unfunded_balance || 0);
         daily[row.id] = Number(row.daily || 0);
         totals[row.id] = {
           total: Number(row.total_repayment || 0),
@@ -709,7 +702,6 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       });
 
       setTenantBalances(balances);
-      setTenantUnfunded(unfunded);
       setTenantDaily(daily);
       setTenantTotals(totals);
       setTenantStatuses(statusMap);
@@ -982,9 +974,6 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       const s = tenantStatuses[t.id];
       if (!s || s.size === 0) return false;
       if ((tenantBalances[t.id] || 0) !== 0) return false;
-      // A tenant with money held back pending landlord payout is NOT paid up —
-      // they still owe it, the debt just isn't collectible yet.
-      if ((tenantUnfunded[t.id] || 0) > 0) return false;
       // Only tenants who actually had a funded plan can be "paid up".
       return s.has('funded') || s.has('disbursed') || s.has('repaying') || s.has('completed');
     }).length;
@@ -992,7 +981,7 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       return s + ((tenantBalances[tid] || 0) > 0 ? (v || 0) : 0);
     }, 0);
     return { totalOwing, owingCount, paidUpCount, total: tenants.length, dailyExpectation };
-  }, [tenants, tenantBalances, tenantUnfunded, tenantStatuses, tenantDaily]);
+  }, [tenants, tenantBalances, tenantStatuses, tenantDaily]);
 
   // ───── Today's collection status ─────
   // Drives the live header strip on My Tenants. All figures are scoped to

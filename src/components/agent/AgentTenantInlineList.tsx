@@ -35,10 +35,6 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
   const [notPayingIds, setNotPayingIds] = useState<Set<string>>(new Set());
   // Owing = repaying-only outstanding (landlord already paid via float disbursement).
   const [tenantBalances, setTenantBalances] = useState<Record<string, number>>({});
-  // Real debt held out of `tenantBalances` because the landlord hasn't
-  // actually been paid yet — without this a stuck landlord payout reads as
-  // balance=0 and misclassifies the tenant as "Paid up".
-  const [tenantUnfunded, setTenantUnfunded] = useState<Record<string, number>>({});
   const [tenantAvatars, setTenantAvatars] = useState<Record<string, string>>({});
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
   const fetchSeqRef = useRef(0);
@@ -63,7 +59,6 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
 
       const rows = (data || []) as any[];
       const balances: Record<string, number> = {};
-      const unfunded: Record<string, number> = {};
       const activeIds = new Set<string>();
       const completedIds = new Set<string>();
       const notPaying = new Set<string>();
@@ -84,7 +79,6 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
         // Outstanding across live plans (funded / disbursed / repaying) —
         // pre-funding / vetting rows never count.
         balances[row.id] = Number(row.balance || 0);
-        unfunded[row.id] = Number(row.unfunded_balance || 0);
         const flaggedNotPaying =
           paymentStates.length > 0 && !paymentStates.some((s) => s !== 'not_paying');
         if (flaggedNotPaying) notPaying.add(row.id);
@@ -92,7 +86,6 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
         if (!flaggedNotPaying && (isLive || isCompleted)) activeIds.add(row.id);
       });
       setTenantBalances(balances);
-      setTenantUnfunded(unfunded);
       setActiveTenantIds(activeIds);
       setCompletedTenantIds(completedIds);
       setNotPayingIds(notPaying);
@@ -331,7 +324,6 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
           <>
           {visible.map((tenant) => {
             const balance = tenantBalances[tenant.id] || 0;
-            const unfundedBalance = tenantUnfunded[tenant.id] || 0;
             const isNotPaying = notPayingIds.has(tenant.id);
             const hasDebt = balance > 0 && !isNotPaying;
             const isCompleted = !isNotPaying && balance <= 0 && completedTenantIds.has(tenant.id);
@@ -339,11 +331,6 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
             const isPendingReview = latest === 'pending';
             const isApproved = latest === 'approved';
             const isLiveRequest = latest === 'funded' || latest === 'disbursed' || latest === 'repaying';
-            // The plan is live and real money is owed, but it isn't
-            // collectible yet because the landlord hasn't actually been paid
-            // out — must not read as "Paid up"/"Completed" (nothing has been
-            // repaid) nor as "Repaying" (there's nothing to collect today).
-            const isAwaitingLandlordPayout = !isNotPaying && !hasDebt && isLiveRequest && unfundedBalance > 0;
             const statusBadge = isNotPaying
               ? { label: 'Not paying', cls: 'bg-amber-100 text-amber-700' }
               : isPendingReview
@@ -352,12 +339,10 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
                   ? { label: 'Approved', cls: 'bg-emerald-100 text-emerald-700' }
                   : hasDebt && isLiveRequest
                     ? { label: 'Repaying', cls: 'bg-rose-100 text-rose-700' }
-                    : isAwaitingLandlordPayout
-                      ? { label: 'Landlord not paid yet', cls: 'bg-amber-100 text-amber-700' }
-                      : isCompleted
-                        ? { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' }
-                        : { label: 'Paid up', cls: 'bg-emerald-100 text-emerald-700' };
-            const toneText = isNotPaying || isPendingReview || isAwaitingLandlordPayout
+                    : isCompleted
+                      ? { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' }
+                      : { label: 'Paid up', cls: 'bg-emerald-100 text-emerald-700' };
+            const toneText = isNotPaying || isPendingReview
               ? 'text-amber-600'
               : hasDebt && isLiveRequest
                 ? 'text-rose-600'
@@ -374,7 +359,7 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
               >
                 <div
                   className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 text-sm sm:text-base font-bold ${
-                    isNotPaying || isPendingReview || isAwaitingLandlordPayout
+                    isNotPaying || isPendingReview
                       ? 'bg-amber-100 text-amber-700'
                       : hasDebt && isLiveRequest
                         ? 'bg-rose-100 text-rose-700'
@@ -418,20 +403,10 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
                 </div>
                 <div className="text-right shrink-0 flex flex-col items-end min-w-0 max-w-[38%] sm:max-w-[40%]">
                   <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wide ${toneText}`}>
-                    {hasDebt && isLiveRequest
-                      ? 'Owing'
-                      : isNotPaying
-                        ? 'On hold'
-                        : isPendingReview
-                          ? 'Awaiting'
-                          : isApproved
-                            ? 'Approved'
-                            : isAwaitingLandlordPayout
-                              ? 'Not yet funded'
-                              : 'Cleared'}
+                    {hasDebt && isLiveRequest ? 'Owing' : isNotPaying ? 'On hold' : isPendingReview ? 'Awaiting' : isApproved ? 'Approved' : 'Cleared'}
                   </p>
                   <p className={`font-bold font-mono text-[11px] sm:text-sm ${toneText} truncate`}>
-                    {balance > 0 ? formatUGX(balance) : isAwaitingLandlordPayout ? formatUGX(unfundedBalance) : 'UGX 0'}
+                    {balance > 0 ? formatUGX(balance) : 'UGX 0'}
                   </p>
                 </div>
               </button>
