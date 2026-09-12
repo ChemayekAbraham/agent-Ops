@@ -22,6 +22,9 @@ interface CashDepositWalletConfirmationProps {
   receiptCode?: string
   depositedAt?: string
   referenceNumber?: string
+  supportPhone?: string
+  supportWhatsapp?: string
+  helpLink?: string
 }
 
 const ugx = (amount: number | null | undefined): string =>
