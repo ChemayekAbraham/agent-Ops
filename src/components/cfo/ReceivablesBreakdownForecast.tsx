@@ -170,6 +170,13 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
 
           <div className="space-y-2">
             {breakdown.data?.categories
+              .slice()
+              .sort((a, b) => {
+                const pinned = 'Tenant Products & Services';
+                if (a.label === pinned && b.label !== pinned) return -1;
+                if (b.label === pinned && a.label !== pinned) return 1;
+                return 0;
+              })
               .map((cat) => {
                 const products =
                   productFilter === ALL_PRODUCTS
