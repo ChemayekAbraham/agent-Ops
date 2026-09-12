@@ -182,6 +182,16 @@ function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, a
 }
 
 const PAGE_SIZE = 25;
+const GEO_PAGE_SIZE = 15;
+
+/** Sortable columns of the server-paged payout geography breakdown. */
+const GEO_COLUMNS: DrillColumn[] = [
+  { key: 'country', label: 'Country' },
+  { key: 'region', label: 'Region' },
+  { key: 'district', label: 'District' },
+  { key: 'payouts', label: 'Payouts', align: 'right' },
+  { key: 'amount', label: 'Amount paid', type: 'ugx' },
+];
 
 /** Free-text match across every displayed column value of a read-only row. */
 function matchesSearch(row: Record<string, any>, columns: DrillColumn[], query: string) {
