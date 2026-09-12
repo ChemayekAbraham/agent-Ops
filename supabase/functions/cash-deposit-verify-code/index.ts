@@ -12,6 +12,10 @@ import {
   normalizeCode,
   sha256Hex,
 } from "../_shared/cash-verification-core.ts";
+import {
+  resolveDepositorEmail,
+  sendCashDepositWalletConfirmationEmail,
+} from "../_shared/cashDepositCodeEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -304,7 +308,7 @@ Deno.serve(async (req) => {
     // ── Load the verification row (scoped to this user unless operator mode) ──
     let verQuery = admin
       .from("cash_deposit_verifications")
-      .select("id, deposit_request_id, user_id, amount, code_hash, attempts, max_attempts, status, expires_at")
+      .select("id, deposit_request_id, user_id, amount, code_hash, attempts, max_attempts, status, expires_at, emailed_to")
       .eq("deposit_request_id", depositId);
     if (!onBehalf) verQuery = verQuery.eq("user_id", user.id);
     const { data: ver, error: verErr } = await verQuery.maybeSingle();
@@ -536,6 +540,43 @@ Deno.serve(async (req) => {
     } catch (smsErr) {
       // Non-fatal: the money is already credited.
       console.error("[cash-verify-code] confirmation SMS failed", smsErr);
+    }
+
+    // ── Confirmation email after, and only after, successful wallet credit ──
+    // Prefer the address that received the code, then fall back to the saved
+    // account email. Email delivery remains non-fatal because money has moved.
+    try {
+      const email = await resolveDepositorEmail(admin, depositorId, (ver as any).emailed_to);
+      if (email) {
+        const { data: profile } = await admin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", depositorId)
+          .maybeSingle();
+        const result = await sendCashDepositWalletConfirmationEmail(admin, {
+          email,
+          amount: Number(ver.amount),
+          newBalance,
+          depositorName: (profile as any)?.full_name ?? null,
+          receiptCode: enteredCode,
+          depositRequestId: depositId,
+        });
+        await logEvent(admin, {
+          verification_id: ver.id,
+          deposit_request_id: depositId,
+          user_id: depositorId,
+          event_type: result.sent ? "confirmation_email_sent" : "confirmation_email_failed",
+          amount: Number(ver.amount),
+          detail: result.sent
+            ? "Wallet credit confirmation emailed to the depositor."
+            : "Wallet was credited, but the confirmation email was not accepted.",
+          metadata: { recipient_email: email, error: result.error },
+        });
+      } else {
+        console.warn("[cash-verify-code] no email on file for wallet confirmation");
+      }
+    } catch (emailErr) {
+      console.error("[cash-verify-code] wallet confirmation email failed", emailErr);
     }
 
     return json(200, {
