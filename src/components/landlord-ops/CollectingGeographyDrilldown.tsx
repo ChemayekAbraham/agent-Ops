@@ -137,6 +137,9 @@ export default function CollectingGeographyDrilldown() {
   const [to, setTo] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [debounced, setDebounced] = useState('');
+  const [horizonKey, setHorizonKey] = useState<string>(DEFAULT_HORIZON);
+
+  const horizon = HORIZONS.find((h) => h.key === horizonKey) ?? HORIZONS[4];
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 250);
