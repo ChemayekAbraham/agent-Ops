@@ -174,10 +174,186 @@ function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, a
   );
 }
 
+/** Kampala calendar day (YYYY-MM-DD) used for date-range comparison. */
+function payoutDay(value?: string | null) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString('en-CA', { timeZone: KAMPALA });
+}
+
+/**
+ * Client-side narrowing of read-only payout rows by paid date range and
+ * landlord. Only hides/shows rows already returned by the drill-down RPC —
+ * nothing is recalculated on the server and no record is changed.
+ */
+function filterPayoutRows(
+  rows: Record<string, any>[],
+  from: string,
+  to: string,
+  landlord: string | null,
+) {
+  return rows.filter((r) => {
+    if (landlord && r.landlord_name !== landlord) return false;
+    if (!from && !to) return true;
+    const day = payoutDay(r.disbursed_at);
+    if (!day) return false;
+    if (from && day < from) return false;
+    if (to && day > to) return false;
+    return true;
+  });
+}
+
+/**
+ * Payout drill-down table with date-range and landlord filters. Used by the
+ * inline all-time panel and the payout dialogs; the filtered subtotal is a
+ * sum of the visible rows only.
+ */
+function FilteredPayoutTable({
+  columns,
+  rows,
+  emptyText,
+  maxHeight = '50vh',
+  caption,
+}: {
+  columns: DrillColumn[];
+  rows: Record<string, any>[];
+  emptyText: string;
+  maxHeight?: string;
+  caption?: string;
+}) {
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [landlord, setLandlord] = useState<string | null>(null);
+
+  const landlords = useMemo(
+    () =>
+      [...new Set(rows.map((r) => r.landlord_name).filter(Boolean))].sort((a, b) =>
+        String(a).localeCompare(String(b)),
+      ) as string[],
+    [rows],
+  );
+
+  const filtered = useMemo(
+    () => filterPayoutRows(rows, from, to, landlord),
+    [rows, from, to, landlord],
+  );
+  const filteredTotal = filtered.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const isFiltered = !!from || !!to || !!landlord;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Paid from
+          </label>
+          <Input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="h-8 w-[150px] text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Paid to
+          </label>
+          <Input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="h-8 w-[150px] text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Landlord
+          </label>
+          <Select
+            value={landlord ?? 'all'}
+            onValueChange={(v) => setLandlord(v === 'all' ? null : v)}
+          >
+            <SelectTrigger className="h-8 w-[200px] text-sm">
+              <SelectValue placeholder="All landlords" />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">All landlords</SelectItem>
+              {landlords.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {isFiltered && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8"
+            onClick={() => {
+              setFrom('');
+              setTo('');
+              setLandlord(null);
+            }}
+          >
+            <FilterX className="mr-1.5 h-3.5 w-3.5" />
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className="text-muted-foreground">
+          {caption ? `${caption} · ` : ''}
+          {isFiltered
+            ? `${filtered.length.toLocaleString()} of ${rows.length.toLocaleString()} record${
+                rows.length === 1 ? '' : 's'
+              }`
+            : `${rows.length.toLocaleString()} record${rows.length === 1 ? '' : 's'}`}
+        </span>
+        <span className="font-semibold tabular-nums">{formatUGX(filteredTotal)}</span>
+      </div>
+
+      <div className="overflow-y-auto" style={{ maxHeight }}>
+        <TableShell>
+          <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+            <tr>
+              {columns.map((c) => (
+                <th
+                  key={c.key}
+                  className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
+                >
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td className={`${TD} text-muted-foreground`} colSpan={columns.length}>
+                  {isFiltered ? 'No records match these filters.' : emptyText}
+                </td>
+              </tr>
+            )}
+            {filtered.map((r, i) => (
+              <tr key={r.id ?? i} className="border-t border-border/50">
+                {columns.map((c) => (
+                  <DrillCell key={c.key} column={c} row={r} />
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </TableShell>
+      </div>
+    </div>
+  );
+}
+
 function PaidAllTimeDrillPanel() {
   const { data: fetched, isLoading, isError, error } = useLandlordFloatDrilldown('payouts_all', null);
   const rows = fetched ?? [];
-  const total = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 
   if (isLoading) {
     return (
@@ -198,46 +374,12 @@ function PaidAllTimeDrillPanel() {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span className="text-muted-foreground">
-          {rows.length.toLocaleString()} payout record{rows.length === 1 ? '' : 's'} behind the all-time total
-        </span>
-        <span className="font-semibold tabular-nums">{formatUGX(total)}</span>
-      </div>
-      <div className="max-h-[50vh] overflow-y-auto">
-        <TableShell>
-          <thead className="sticky top-0 bg-muted/60 backdrop-blur">
-            <tr>
-              {PAYOUT_ALL_COLUMNS.map((c) => (
-                <th
-                  key={c.key}
-                  className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
-                >
-                  {c.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td className={`${TD} text-muted-foreground`} colSpan={PAYOUT_ALL_COLUMNS.length}>
-                  No payout records found.
-                </td>
-              </tr>
-            )}
-            {rows.map((r, i) => (
-              <tr key={r.id ?? i} className="border-t border-border/50">
-                {PAYOUT_ALL_COLUMNS.map((c) => (
-                  <DrillCell key={c.key} column={c} row={r} />
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </TableShell>
-      </div>
-    </div>
+    <FilteredPayoutTable
+      columns={PAYOUT_ALL_COLUMNS}
+      rows={rows}
+      emptyText="No payout records found."
+      caption="Payout records behind the all-time total"
+    />
   );
 }
 
