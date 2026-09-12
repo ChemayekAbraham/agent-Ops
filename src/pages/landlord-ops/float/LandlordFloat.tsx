@@ -508,6 +508,115 @@ function PaidAllTimeDrillPanel() {
   );
 }
 
+/**
+ * Read-only drill-down table with free-text search and pagination. Rows come
+ * straight from the drill-down RPC; nothing is recalculated or changed.
+ */
+function SearchablePagedTable({
+  columns,
+  rows,
+}: {
+  columns: DrillColumn[];
+  rows: Record<string, any>[];
+}) {
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+
+  const filtered = useMemo(
+    () => rows.filter((r) => matchesSearch(r, columns, search)),
+    [rows, columns, search],
+  );
+  const total = useMemo(() => {
+    const col = columns.find((c) => c.type === 'ugx');
+    return col ? filtered.reduce((sum, r) => sum + (Number(r[col.key]) || 0), 0) : 0;
+  }, [filtered, columns]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    setPage(1);
+  }, [search, rows]);
+  const safePage = Math.min(page, pageCount);
+  const start = (safePage - 1) * PAGE_SIZE;
+  const visible = filtered.slice(start, start + PAGE_SIZE);
+  const isSearching = !!search.trim();
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <DrillSearch value={search} onChange={setSearch} placeholder="Search these records…" />
+          {isSearching && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8"
+              onClick={() => setSearch('')}
+            >
+              <FilterX className="mr-1.5 h-3.5 w-3.5" />
+              Clear
+            </Button>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-muted-foreground">
+            {isSearching
+              ? `${filtered.length.toLocaleString()} of ${rows.length.toLocaleString()} records`
+              : `${rows.length.toLocaleString()} record${rows.length === 1 ? '' : 's'}`}
+          </span>
+          {total > 0 && <span className="font-semibold tabular-nums">{formatUGX(total)}</span>}
+        </div>
+      </div>
+      <div className="max-h-[60vh] overflow-y-auto">
+        <TableShell>
+          <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+            <tr>
+              {columns.map((c) => (
+                <th
+                  key={c.key}
+                  className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
+                >
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td className={`${TD} text-muted-foreground`} colSpan={columns.length || 1}>
+                  {isSearching ? 'No records match your search.' : 'Nothing recorded here.'}
+                </td>
+              </tr>
+            )}
+            {visible.map((r, i) => (
+              <tr
+                key={String(r.id ?? r.rent_request_id ?? r.agent_id ?? start + i)}
+                className="border-t border-border/50"
+              >
+                {columns.map((c) => (
+                  <DrillCell key={c.key} column={c} row={r} />
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </TableShell>
+      </div>
+      <DrillPager
+        page={safePage}
+        pageCount={pageCount}
+        total={filtered.length}
+        from={filtered.length === 0 ? 0 : start + 1}
+        to={Math.min(start + PAGE_SIZE, filtered.length)}
+        onPage={setPage}
+      />
+      <p className="text-xs text-muted-foreground">
+        Read-only records, shown exactly as recorded. Up to 500 rows.
+      </p>
+    </>
+  );
+}
+
 function DrillDownDialog({
   target,
   onClose,
