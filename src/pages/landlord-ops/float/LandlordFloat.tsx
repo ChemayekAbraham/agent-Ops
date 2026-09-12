@@ -47,12 +47,14 @@ function StatTile({
   sub,
   icon: Icon,
   tone = 'default',
+  onClick,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon: typeof Home;
   tone?: 'default' | 'amber' | 'emerald' | 'sky';
+  onClick?: () => void;
 }) {
   const toneRing =
     tone === 'amber'
@@ -62,16 +64,31 @@ function StatTile({
         : tone === 'sky'
           ? 'border-sky-500/30 bg-sky-500/5'
           : 'border-border/60 bg-card';
-  return (
-    <div className={`rounded-xl border p-4 ${toneRing}`}>
+  const inner = (
+    <>
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         <span className="truncate">{label}</span>
+        {onClick && <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60" />}
       </div>
       <p className="mt-2 text-xl font-bold tabular-nums leading-tight">{value}</p>
       {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`rounded-xl border p-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${toneRing}`}
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return <div className={`rounded-xl border p-4 ${toneRing}`}>{inner}</div>;
 }
 
 function TableShell({ children }: { children: React.ReactNode }) {
@@ -84,6 +101,142 @@ function TableShell({ children }: { children: React.ReactNode }) {
 
 const TH = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap';
 const TD = 'px-3 py-2 align-middle whitespace-nowrap';
+
+/** One column of a drill-down table. */
+interface DrillColumn {
+  key: string;
+  label: string;
+  type?: 'text' | 'ugx' | 'date' | 'badge';
+  align?: 'left' | 'right';
+}
+
+interface DrillTarget {
+  title: string;
+  description?: string;
+  columns: DrillColumn[];
+  /** Rows already loaded by the overview RPC. */
+  rows?: Record<string, any>[];
+  /** Or fetch the underlying rows from the drill-down RPC. */
+  kind?: LandlordFloatDrilldownKind;
+  filterKey?: string | null;
+}
+
+function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, any> }) {
+  const raw = row[column.key];
+  if (column.type === 'ugx') {
+    return (
+      <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(Number(raw) || 0)}</td>
+    );
+  }
+  if (column.type === 'date') {
+    return <td className={TD}>{fmtDateTime(raw)}</td>;
+  }
+  if (column.type === 'badge') {
+    return (
+      <td className={TD}>
+        {raw ? (
+          <Badge variant="outline" className="text-[10px]">
+            {String(raw).replace(/_/g, ' ')}
+          </Badge>
+        ) : (
+          '—'
+        )}
+      </td>
+    );
+  }
+  return (
+    <td className={`${TD} ${column.align === 'right' ? 'text-right tabular-nums' : ''}`}>
+      {raw === null || raw === undefined || raw === '' ? '—' : String(raw)}
+    </td>
+  );
+}
+
+function DrillDownDialog({
+  target,
+  onClose,
+}: {
+  target: DrillTarget | null;
+  onClose: () => void;
+}) {
+  const { data: fetched, isLoading, isError, error } = useLandlordFloatDrilldown(
+    target?.rows ? null : (target?.kind ?? null),
+    target?.filterKey ?? null,
+  );
+  const rows = target?.rows ?? fetched ?? [];
+  const total = rows.reduce((sum, r) => {
+    const col = target?.columns.find((c) => c.type === 'ugx');
+    return sum + (col ? Number(r[col.key]) || 0 : 0);
+  }, 0);
+
+  return (
+    <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle className="text-base">{target?.title}</DialogTitle>
+          {target?.description && (
+            <DialogDescription>{target.description}</DialogDescription>
+          )}
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-2 py-4">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        ) : isError ? (
+          <p className="py-6 text-sm text-destructive">
+            {(error as Error)?.message || 'These records could not be loaded.'}
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {rows.length.toLocaleString()} record{rows.length === 1 ? '' : 's'}
+              </span>
+              {total > 0 && <span className="font-semibold tabular-nums">{formatUGX(total)}</span>}
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto">
+              <TableShell>
+                <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+                  <tr>
+                    {target?.columns.map((c) => (
+                      <th
+                        key={c.key}
+                        className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && (
+                    <tr>
+                      <td className={`${TD} text-muted-foreground`} colSpan={target?.columns.length || 1}>
+                        Nothing recorded here.
+                      </td>
+                    </tr>
+                  )}
+                  {rows.map((r, i) => (
+                    <tr key={String(r.id ?? r.rent_request_id ?? r.agent_id ?? i)} className="border-t border-border/50">
+                      {target?.columns.map((c) => (
+                        <DrillCell key={c.key} column={c} row={r} />
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </TableShell>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Read-only records, shown exactly as recorded. Up to 500 rows.
+            </p>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function LandlordFloat() {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordFloatOverview();
