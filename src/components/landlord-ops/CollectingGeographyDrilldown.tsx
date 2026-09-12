@@ -32,6 +32,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import LocationMapPreview from '@/components/shared/LocationMapPreview';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
@@ -95,6 +101,50 @@ function fmtDate(v: string | null) {
     month: 'short',
     year: 'numeric',
   });
+}
+
+const PROJECTION_EXPLANATION =
+  'Projected collection is calculated as the recorded daily expected amount multiplied by the number of days in the selected horizon. It is a straight projection — it does not stop at the outstanding balance or assume any missed day.';
+
+function ProjectionValue({
+  daily,
+  days,
+  label,
+}: {
+  daily: number;
+  days: number;
+  label?: string;
+}) {
+  const amount = Math.round(daily * days);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="cursor-help">{formatUGX(amount)}</span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        <p className="text-xs font-medium">{label ? `${label} projection` : 'Projected collection'}</p>
+        <p className="text-xs text-muted-foreground">
+          {formatUGX(daily)} a day × {days.toLocaleString()} days = {formatUGX(amount)}
+        </p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ProjectionLabel({ label, sublabel }: { label: string; sublabel?: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="block cursor-help">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-primary">{label}</span>
+          {sublabel && <span className="block text-xs text-muted-foreground">{sublabel}</span>}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        <p className="text-xs">{PROJECTION_EXPLANATION}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -216,6 +266,7 @@ export default function CollectingGeographyDrilldown() {
   const houseRows = level === 'houses' ? ((data?.rows ?? []) as CollectingGeoHouseRow[]) : [];
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="space-y-3 rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -268,17 +319,23 @@ export default function CollectingGeographyDrilldown() {
       <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-primary">
-              Projected collection · {horizon.label.toLowerCase()}
-            </p>
+            <ProjectionLabel
+              label={`Projected collection · ${horizon.label.toLowerCase()}`}
+              sublabel={
+                <>
+                  {formatUGX(totals?.daily_repayment ?? 0)} a day across{' '}
+                  {(totals?.plans ?? 0).toLocaleString()} live rent plan{(totals?.plans ?? 0) === 1 ? '' : 's'} ×{' '}
+                  {horizon.days.toLocaleString()} days
+                  {trail.length > 0 ? ` · ${trail[trail.length - 1].value}` : ' · everywhere'}
+                </>
+              }
+            />
             <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">
-              {formatUGX(Math.round((totals?.daily_repayment ?? 0) * horizon.days))}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formatUGX(totals?.daily_repayment ?? 0)} a day across{' '}
-              {(totals?.plans ?? 0).toLocaleString()} live rent plan{(totals?.plans ?? 0) === 1 ? '' : 's'} ×{' '}
-              {horizon.days.toLocaleString()} days
-              {trail.length > 0 ? ` · ${trail[trail.length - 1].value}` : ' · everywhere'}
+              <ProjectionValue
+                daily={totals?.daily_repayment ?? 0}
+                days={horizon.days}
+                label={horizon.label}
+              />
             </p>
           </div>
           <div className="flex flex-col gap-1">
@@ -462,7 +519,14 @@ export default function CollectingGeographyDrilldown() {
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Outstanding</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Daily</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-primary">
-                  {horizon.label}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">{horizon.label}</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-xs">{PROJECTION_EXPLANATION}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </th>
                 <th className="w-8" />
               </tr>
@@ -519,7 +583,7 @@ export default function CollectingGeographyDrilldown() {
                   <td className="px-3 py-2 text-right font-medium tabular-nums">{formatUGX(r.outstanding)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{formatUGX(r.daily_repayment)}</td>
                   <td className="px-3 py-2 text-right font-semibold tabular-nums text-primary">
-                    {formatUGX(Math.round(r.daily_repayment * horizon.days))}
+                    <ProjectionValue daily={r.daily_repayment} days={horizon.days} label={r.label} />
                   </td>
                   <td className="px-2 py-2 text-muted-foreground">
                     <ChevronRight className="h-4 w-4" />
@@ -577,12 +641,16 @@ export default function CollectingGeographyDrilldown() {
                   <Field label="Outstanding" value={formatUGX(h.outstanding)} />
                 </div>
                 <div className="rounded-md border border-primary/25 bg-primary/5 px-2.5 py-2">
-                  <p className="text-[11px] uppercase tracking-wide text-primary">{horizon.label}</p>
+                  <ProjectionLabel
+                    label={horizon.label}
+                    sublabel={`${formatUGX(h.daily_repayment)} a day × ${horizon.days.toLocaleString()} days`}
+                  />
                   <p className="text-sm font-semibold tabular-nums">
-                    {formatUGX(Math.round(h.daily_repayment * horizon.days))}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {formatUGX(h.daily_repayment)} a day × {horizon.days.toLocaleString()} days
+                    <ProjectionValue
+                      daily={h.daily_repayment}
+                      days={horizon.days}
+                      label={h.house_title || 'This house'}
+                    />
                   </p>
                 </div>
               </div>
@@ -682,15 +750,17 @@ export default function CollectingGeographyDrilldown() {
               </div>
 
               <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-primary">
-                  Projected collection from this house
-                </p>
+                <ProjectionLabel label="Projected collection from this house" />
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
                   {HORIZONS.map((h) => (
                     <div key={h.key} className="min-w-0">
                       <p className="text-[11px] text-muted-foreground">{h.label}</p>
                       <p className="truncate text-sm font-semibold tabular-nums">
-                        {formatUGX(Math.round(openHouse.daily_repayment * h.days))}
+                        <ProjectionValue
+                          daily={openHouse.daily_repayment}
+                          days={h.days}
+                          label={h.label}
+                        />
                       </p>
                     </div>
                   ))}
@@ -742,5 +812,6 @@ export default function CollectingGeographyDrilldown() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }
