@@ -148,6 +148,13 @@
       "when": 1789216693713,
       "tag": "0020_landlord_float_paid_all_time",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789216911401,
+      "tag": "0021_landlord_float_remove_collecting_cap",
+      "breakpoints": true
     }
   ]
 }
