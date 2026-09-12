@@ -28,3 +28,4 @@
 - [x] CFO Money We Can Use: expandable transaction-level breakdown of Money We Have vs Money We Owe, incl. excluded flagged transfers.
 
 - [x] Assign self-onboarded Rent Requests to the authenticated tenant’s verified referring agent.
+- [x] Cash Deposit Codes: show the latest SMS/email code-delivery channel in the list and details.
