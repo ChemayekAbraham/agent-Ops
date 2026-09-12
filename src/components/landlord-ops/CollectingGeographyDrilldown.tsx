@@ -73,6 +73,19 @@ const HORIZONS = [
 
 const DEFAULT_HORIZON = '12m';
 
+/** Persisted (presentation-only) preference for the projection horizon. */
+const HORIZON_STORAGE_KEY = 'landlord-float:collecting-geo:horizon';
+
+const readStoredHorizon = (): string => {
+  try {
+    const saved = window.localStorage.getItem(HORIZON_STORAGE_KEY);
+    if (saved && HORIZONS.some((h) => h.key === saved)) return saved;
+  } catch {
+    // storage unavailable (private mode) — fall back to the default
+  }
+  return DEFAULT_HORIZON;
+};
+
 const ORDER: Array<keyof CollectingGeoPath> = [
   'country',
   'region',
