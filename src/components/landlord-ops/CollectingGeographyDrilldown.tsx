@@ -215,7 +215,12 @@ export default function CollectingGeographyDrilldown({
   const [to, setTo] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [debounced, setDebounced] = useState('');
-  const [horizonKey, setHorizonKey] = useState<string>(DEFAULT_HORIZON);
+  const [localHorizonKey, setLocalHorizonKey] = useState<string>(DEFAULT_HORIZON);
+  const horizonKey = controlledHorizonKey ?? localHorizonKey;
+  const setHorizonKey = (key: string) => {
+    if (onHorizonChange) onHorizonChange(key);
+    else setLocalHorizonKey(key);
+  };
 
   const horizon = HORIZONS.find((h) => h.key === horizonKey) ?? HORIZONS[4];
 
