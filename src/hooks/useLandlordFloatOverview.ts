@@ -30,6 +30,7 @@ export interface LandlordFloatOverview {
   };
   collecting: {
     paid_out: { payouts: number; amount: number };
+    paid_all_time: { payouts: number; amount: number };
     expected: { plans: number; expected: number; collected: number; contracted: number };
     rows: Array<{
       rent_request_id: string;
@@ -71,6 +72,7 @@ export type LandlordFloatDrilldownKind =
   | 'empty_houses'
   | 'needed_district'
   | 'payouts'
+  | 'payouts_all'
   | 'portfolios'
   | 'attached_houses';
 
