@@ -548,11 +548,13 @@ Deno.serve(async (req) => {
     try {
       const email = await resolveDepositorEmail(admin, depositorId, (ver as any).emailed_to);
       if (email) {
-        const { data: profile } = await admin
-          .from("profiles")
-          .select("full_name")
-          .eq("id", depositorId)
-          .maybeSingle();
+        const [{ data: profile }, { data: depositRequest }] = await Promise.all([
+          admin.from("profiles").select("full_name").eq("id", depositorId).maybeSingle(),
+          admin.from("deposit_requests").select("transaction_date, approved_at").eq("id", depositId).maybeSingle(),
+        ]);
+        const depositedAt = (depositRequest as any)?.transaction_date ||
+          (depositRequest as any)?.approved_at || new Date().toISOString();
+        const referenceNumber = `DEP-${depositId.slice(0, 8).toUpperCase()}`;
         const result = await sendCashDepositWalletConfirmationEmail(admin, {
           email,
           amount: Number(ver.amount),
@@ -560,6 +562,8 @@ Deno.serve(async (req) => {
           depositorName: (profile as any)?.full_name ?? null,
           receiptCode: enteredCode,
           depositRequestId: depositId,
+          depositedAt,
+          referenceNumber,
         });
         await logEvent(admin, {
           verification_id: ver.id,
@@ -570,7 +574,7 @@ Deno.serve(async (req) => {
           detail: result.sent
             ? "Wallet credit confirmation emailed to the depositor."
             : "Wallet was credited, but the confirmation email was not accepted.",
-          metadata: { recipient_email: email, error: result.error },
+          metadata: { recipient_email: email, reference_number: referenceNumber, error: result.error },
         });
       } else {
         console.warn("[cash-verify-code] no email on file for wallet confirmation");

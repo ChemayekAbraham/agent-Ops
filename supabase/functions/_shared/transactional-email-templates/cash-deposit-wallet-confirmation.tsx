@@ -19,7 +19,8 @@ interface CashDepositWalletConfirmationProps {
   newBalanceUgx?: number | null
   depositorName?: string
   receiptCode?: string
-  creditedAt?: string
+  depositedAt?: string
+  referenceNumber?: string
 }
 
 const ugx = (amount: number | null | undefined): string =>
@@ -32,9 +33,10 @@ export function CashDepositWalletConfirmationEmail({
   newBalanceUgx = null,
   depositorName = 'there',
   receiptCode = '',
-  creditedAt = new Date().toISOString(),
+  depositedAt = new Date().toISOString(),
+  referenceNumber = '',
 }: CashDepositWalletConfirmationProps) {
-  const creditedWhen = new Date(creditedAt).toLocaleString('en-UG', {
+  const depositedWhen = new Date(depositedAt).toLocaleString('en-UG', {
     timeZone: 'Africa/Kampala',
     day: '2-digit',
     month: 'long',
@@ -68,6 +70,14 @@ export function CashDepositWalletConfirmationEmail({
             </Section>
 
             <Hr style={divider} />
+            {referenceNumber ? (
+              <>
+                <Text style={detailLabel}>REFERENCE NUMBER</Text>
+                <Text style={detailValue}>{referenceNumber}</Text>
+              </>
+            ) : null}
+            <Text style={detailLabel}>DEPOSIT DATE &amp; TIME</Text>
+            <Text style={detailValue}>{depositedWhen} EAT</Text>
             {newBalanceUgx !== null ? (
               <>
                 <Text style={detailLabel}>AVAILABLE WALLET BALANCE</Text>
@@ -80,9 +90,6 @@ export function CashDepositWalletConfirmationEmail({
                 <Text style={detailValue}>{receiptCode}</Text>
               </>
             ) : null}
-            <Text style={detailLabel}>CONFIRMED</Text>
-            <Text style={detailValue}>{creditedWhen} EAT</Text>
-
             <Hr style={divider} />
             <Text style={muted}>
               You can sign in to Welile to view your updated Wallet balance and transaction history.
@@ -171,6 +178,7 @@ export const template = {
     newBalanceUgx: 5125000,
     depositorName: 'Benjamin',
     receiptCode: '4821',
-    creditedAt: new Date().toISOString(),
+    depositedAt: new Date().toISOString(),
+    referenceNumber: 'DEP-5A7C91E2',
   },
 } satisfies TemplateEntry
