@@ -34,6 +34,8 @@ import {
   useLandlordFloatDrilldown,
   useLandlordFloatNeededGeo,
   type LandlordFloatDrilldownKind,
+  type LandlordFloatNeededGeoRow,
+
 } from '@/hooks/useLandlordFloatOverview';
 
 const KAMPALA = 'Africa/Kampala';
