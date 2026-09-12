@@ -108,6 +108,13 @@ Deno.serve(async (req) => {
     }
     const cashLocation = String(body?.cash_location) === "bank" ? "bank" : "cash_at_hand";
     const cashLocationLabel = cashLocation === "bank" ? "Deposited on bank" : "Cash at hand";
+    // Email is an ALTERNATIVE delivery channel for the same code. It never
+    // credits anything — the depositor still has to enter the code in the app.
+    const wantsEmail = body?.send_email === true;
+    const emailOverride = normalizeEmail(body?.email);
+    if (body?.email !== undefined && body?.email !== null && String(body.email).trim() !== "" && !emailOverride) {
+      return json(400, { error: "invalid_email", message: "Enter a valid email address" });
+    }
 
     // ── Resolve the depositor by phone ──
     const candidates = [phone9, `0${phone9}`, `256${phone9}`, `+256${phone9}`];
