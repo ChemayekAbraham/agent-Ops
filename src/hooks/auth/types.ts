@@ -8,6 +8,8 @@ export interface AuthContextType {
   role: AppRole | null;
   roles: AppRole[];
   loading: boolean;
+  /** True once the role list reflects a definitive database answer. */
+  rolesResolved: boolean;
   signUp: (email: string, password: string, fullName: string, phone: string, role: AppRole) => Promise<{ data?: { user: User | null; session: Session | null } | null; error: Error | null }>;
   signUpWithoutRole: (email: string, password: string, fullName: string, phone: string, referrerId?: string, intendedRole?: string, signupSource?: string) => Promise<{ data?: { user: User | null; session: Session | null } | null; error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;

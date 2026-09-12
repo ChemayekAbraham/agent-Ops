@@ -79,6 +79,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<AppRole[]>(initialRoles);
   const rolesRef = useRef<AppRole[]>(initialRoles);
   const [loading, setLoading] = useState(true);
+  // Whether the role list reflects a definitive database answer. A transient
+  // failure right after sign-in leaves this false, and routing must NOT treat
+  // an unresolved empty list as "this account has no dashboard role".
+  const [rolesResolved, setRolesResolved] = useState(false);
 
   // Keep ref in sync with state
   const setRolesWithRef = (newRoles: AppRole[]) => {
@@ -111,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(fresh);
         setUser(fresh.user);
         setCachedSession(fresh.user.id, fresh.user.email || '', fresh.expires_at || 0);
-        fetchUserRoles(fresh.user.id, role, setRolesWithRef, setRole).catch(() => { /* ignore */ });
+        fetchUserRoles(fresh.user.id, role, setRolesWithRef, setRole, setRolesResolved).catch(() => { /* ignore */ });
       }).catch(() => { /* ignore */ });
     };
     window.addEventListener(STALE_SESSION_EVENTS.rehydrated, onRehydrated as EventListener);
@@ -198,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // the user stays logged in but no data ever loads.
             const uid = session.user.id;
             setTimeout(() => {
-              fetchUserRoles(uid, role, setRolesWithRef, setRole);
+              fetchUserRoles(uid, role, setRolesWithRef, setRole, setRolesResolved);
             }, 0);
           }
 
@@ -256,6 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           rolesFetched = false;
           setRole(null);
           setRolesWithRef([]);
+          setRolesResolved(true);
           clearSessionCache();
           // If the sign-out was triggered by an expired/invalid token (not by
           // the user tapping "Sign out" — which navigates via ops.signOutUser),
@@ -289,7 +294,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         rolesFetched = true;
         lt.setUserId(cachedSession.userId);
         lt.mark('auth.roles.early_fetch.start', { userId: cachedSession.userId });
-        earlyRoleFetch = fetchUserRoles(cachedSession.userId, role, setRolesWithRef, setRole);
+        earlyRoleFetch = fetchUserRoles(cachedSession.userId, role, setRolesWithRef, setRole, setRolesResolved).then(() => {});
         earlyRoleFetch.finally(() => lt.mark('auth.roles.early_fetch.end'));
       }
 
@@ -336,7 +341,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else {
               rolesFetched = true;
               const stopRoles = lt.start('auth.roles.fetch', { userId: session.user.id });
-              const rolePromise = fetchUserRoles(session.user.id, role, setRolesWithRef, setRole);
+              const rolePromise = fetchUserRoles(session.user.id, role, setRolesWithRef, setRole, setRolesResolved);
               const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 5000));
               await Promise.race([rolePromise, timeoutPromise]);
               stopRoles();
@@ -446,7 +451,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user, session, role, roles, loading,
+        user, session, role, roles, loading, rolesResolved,
         signUp: ops.signUp,
         signUpWithoutRole: ops.signUpWithoutRole,
         signIn: ops.signIn,
