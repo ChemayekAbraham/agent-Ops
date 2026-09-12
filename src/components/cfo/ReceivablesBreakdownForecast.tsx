@@ -134,7 +134,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                   if (v !== ALL_PRODUCTS) {
                     const catKey = v.split(':')[0];
                     setOpenCategory(catKey);
-                    setOpenProduct(v);
                     const opt = productOptions.find((o) => o.value === v);
                     if (opt?.catLabel === TENANT_CATEGORY_LABEL) {
                       setTenantModalOpen(true);
