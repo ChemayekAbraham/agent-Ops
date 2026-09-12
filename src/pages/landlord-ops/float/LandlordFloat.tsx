@@ -13,8 +13,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
-import { useLandlordFloatOverview } from '@/hooks/useLandlordFloatOverview';
+import {
+  useLandlordFloatOverview,
+  useLandlordFloatDrilldown,
+  type LandlordFloatDrilldownKind,
+} from '@/hooks/useLandlordFloatOverview';
 
 const KAMPALA = 'Africa/Kampala';
 
