@@ -7,7 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type ProjectionGranularity = 'day' | 'week' | 'month' | 'quarter';
+export type ProjectionGranularity = 'day' | 'week' | 'month' | 'quarter' | 'year';
 export type ProjectionQuality = 'high' | 'medium' | 'low';
 
 export interface ProjectionHistoryPoint {
