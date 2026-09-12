@@ -613,12 +613,13 @@ function NeededByLocation({
             <th className={`${TH} text-right`}>Empty houses</th>
             <th className={`${TH} text-right`}>Awaiting funding</th>
             <th className={`${TH} text-right`}>Total needed</th>
+            <th className={`${TH} text-right`}>Action</th>
           </tr>
         </thead>
         <tbody>
           {filtered.length === 0 && (
             <tr>
-              <td className={`${TD} text-muted-foreground`} colSpan={5}>
+              <td className={`${TD} text-muted-foreground`} colSpan={6}>
                 No float need recorded for this selection.
               </td>
             </tr>
@@ -655,12 +656,31 @@ function NeededByLocation({
                 {r.waiting_houses.toLocaleString()} · {formatUGX(r.waiting_amount)}
               </td>
               <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(r.amount)}</td>
+              <td className={`${TD} text-right`}>
+                {r.country === 'Unmapped' && r.district !== 'Unspecified' ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMapping(r.district);
+                    }}
+                  >
+                    <MapPin className="mr-1.5 h-3 w-3" /> Map district
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </td>
             </tr>
           ))}
-
         </tbody>
       </TableShell>
+
+      <MapDistrictDialog recordedText={mapping} onClose={() => setMapping(null)} />
     </div>
+
   );
 }
 
