@@ -170,10 +170,8 @@ Deno.serve(async (req) => {
       deposit_request_id: depositId,
       user_id: user.id,
       amount,
+      // Only the hash is stored: the code is never kept in readable form.
       code_hash: codeHash,
-      // Stored so Financial Ops can read the code back to the depositor from
-      // the role-gated Cash Deposit Codes panel. Verification still hashes.
-      code_plain: code,
       emailed_to: VERIFIER_EMAIL,
       status: "awaiting_code",
     } as any).select("id, max_attempts, expires_at").single();

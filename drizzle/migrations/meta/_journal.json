@@ -169,6 +169,13 @@
       "when": 1789218253280,
       "tag": "0023_landlord_ops_payouts_page",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789218685120,
+      "tag": "0024_cash_deposit_code_no_plaintext",
+      "breakpoints": true
     }
   ]
 }

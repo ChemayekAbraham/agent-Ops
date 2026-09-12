@@ -140,8 +140,9 @@ Deno.serve(async (req) => {
     const { error: upErr } = await admin
       .from("cash_deposit_verifications")
       .update({
+        // Only the hash is stored: the code is never kept in readable form.
         code_hash: codeHash,
-        code_plain: code,
+        code_plain: null,
         status: "awaiting_code",
         attempts: 0,
         expires_at: expiresAt,
