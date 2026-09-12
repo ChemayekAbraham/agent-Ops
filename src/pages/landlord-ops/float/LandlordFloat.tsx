@@ -34,6 +34,8 @@ import {
   useLandlordFloatDrilldown,
   useLandlordFloatNeededGeo,
   type LandlordFloatDrilldownKind,
+  type LandlordFloatNeededGeoRow,
+
 } from '@/hooks/useLandlordFloatOverview';
 
 const KAMPALA = 'Africa/Kampala';
@@ -347,8 +349,9 @@ const ATTACHED_COLUMNS: DrillColumn[] = [
 function NeededByLocation({
   onOpenDistrict,
 }: {
-  onOpenDistrict: (district: string) => void;
+  onOpenDistrict: (row: LandlordFloatNeededGeoRow) => void;
 }) {
+
   const { data, isLoading, isError, error, refetch } = useLandlordFloatNeededGeo();
   const [country, setCountry] = useState<string | null>(null);
   const [region, setRegion] = useState<string | null>(null);
@@ -472,15 +475,24 @@ function NeededByLocation({
               className="border-t border-border/50 cursor-pointer hover:bg-muted/40"
               tabIndex={0}
               role="button"
-              onClick={() => onOpenDistrict(r.district)}
+              onClick={() => onOpenDistrict(r)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  onOpenDistrict(r.district);
+                  onOpenDistrict(r);
                 }
               }}
             >
-              <td className={TD}>{r.district}</td>
+              <td className={TD}>
+                <span className="inline-flex items-center gap-2">
+                  {r.district}
+                  {r.country === 'Unmapped' && (
+                    <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">
+                      Unmapped
+                    </Badge>
+                  )}
+                </span>
+              </td>
               <td className={`${TD} text-muted-foreground`}>{r.region}</td>
               <td className={`${TD} text-right tabular-nums`}>
                 {r.empty_houses.toLocaleString()} · {formatUGX(r.empty_amount)}
@@ -491,6 +503,7 @@ function NeededByLocation({
               <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(r.amount)}</td>
             </tr>
           ))}
+
         </tbody>
       </TableShell>
     </div>
@@ -720,17 +733,23 @@ export default function LandlordFloat() {
                   Unmapped with their original spelling.
                 </p>
                 <NeededByLocation
-                  onOpenDistrict={(district) =>
+                  onOpenDistrict={(row) =>
                     setDrill({
-                      title: `Float needed in ${district}`,
+                      title:
+                        row.country === 'Unmapped'
+                          ? `Unmatched location "${row.district}"`
+                          : `Float needed in ${row.district}`,
                       description:
-                        'Empty listed houses and tenants still awaiting funding in this district.',
+                        row.country === 'Unmapped'
+                          ? `These houses and tenants were recorded with the location "${row.district}", which matches no approved district. The spelling is shown exactly as recorded and nothing has been changed.`
+                          : 'Empty listed houses and tenants still awaiting funding in this district.',
                       columns: NEEDED_DISTRICT_COLUMNS,
                       kind: 'needed_district',
-                      filterKey: district,
+                      filterKey: row.district,
                     })
                   }
                 />
+
               </div>
 
               <div className="space-y-2">
