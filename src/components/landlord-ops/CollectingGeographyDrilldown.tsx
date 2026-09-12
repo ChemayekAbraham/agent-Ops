@@ -750,15 +750,17 @@ export default function CollectingGeographyDrilldown() {
               </div>
 
               <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-primary">
-                  Projected collection from this house
-                </p>
+                <ProjectionLabel label="Projected collection from this house" />
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
                   {HORIZONS.map((h) => (
                     <div key={h.key} className="min-w-0">
                       <p className="text-[11px] text-muted-foreground">{h.label}</p>
                       <p className="truncate text-sm font-semibold tabular-nums">
-                        {formatUGX(Math.round(openHouse.daily_repayment * h.days))}
+                        <ProjectionValue
+                          daily={openHouse.daily_repayment}
+                          days={h.days}
+                          label={h.label}
+                        />
                       </p>
                     </div>
                   ))}
