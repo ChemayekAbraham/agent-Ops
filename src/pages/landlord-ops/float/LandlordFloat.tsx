@@ -1901,14 +1901,7 @@ export default function LandlordFloat() {
           paidOut={collecting.paid_out.amount}
           horizon={collectingHorizon}
           onHorizonChange={setCollectingHorizon}
-          onDetails={() =>
-            setDrill({
-              title: 'Live rent plans still being collected',
-              description: 'Tenants in funded houses, their landlords and what is still outstanding.',
-              columns: COLLECTING_COLUMNS,
-              rows: collecting.rows,
-            })
-          }
+          onDetails={() => setTab('collecting')}
         />
         <StatTile
           label="With agents"
