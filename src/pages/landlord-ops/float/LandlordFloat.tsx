@@ -380,6 +380,10 @@ function ServerPayoutTable({
     setPage(1);
   }, [from, to, search, scope, agentId, country, region, district]);
 
+  useEffect(() => {
+    setGeoPage(1);
+  }, [from, to, search, scope, agentId, country, region, district]);
+
   const { data, isLoading, isFetching, isError, error } = useLandlordPayoutsPage({
     scope,
     search,
@@ -395,8 +399,8 @@ function ServerPayoutTable({
     district,
   });
 
-  // Same payout population, grouped through the approved country -> region ->
-  // district hierarchy. Read-only; nothing is recomputed in the browser.
+  // Filter option lists: the same payout population grouped through the approved
+  // country -> region -> district hierarchy. One small aggregate read.
   const geoQuery = useLandlordPayoutsGeo({
     scope,
     search,
@@ -405,6 +409,23 @@ function ServerPayoutTable({
     agentId: agentId ?? null,
   });
   const geoRows = geoQuery.data ?? [];
+
+  // The visible breakdown table: grouped, filtered, sorted, counted and paged on
+  // the server, so it stays fast at any payout volume. Read-only.
+  const geoPageQuery = useLandlordPayoutsGeoPage({
+    scope,
+    search,
+    from,
+    to,
+    agentId: agentId ?? null,
+    country,
+    region,
+    district,
+    page: geoPage,
+    pageSize: GEO_PAGE_SIZE,
+    sort: geoSort,
+    dir: geoDir,
+  });
 
   const countries = useMemo(
     () => Array.from(new Set(geoRows.map((r) => r.country))).sort(),
@@ -429,19 +450,10 @@ function ServerPayoutTable({
     [geoRows, country, region],
   );
 
-  // District-level totals for the current geography selection, biggest first.
-  const geoBreakdown = useMemo(
-    () =>
-      geoRows
-        .filter(
-          (r) =>
-            (!country || r.country === country) &&
-            (!region || r.region === region) &&
-            (!district || r.district === district),
-        )
-        .sort((a, b) => b.amount - a.amount),
-    [geoRows, country, region, district],
-  );
+  const geoBreakdown = geoPageQuery.data?.rows ?? [];
+  const geoTotalRows = geoPageQuery.data?.total_count ?? 0;
+  const geoPageCount = Math.max(1, Math.ceil(geoTotalRows / GEO_PAGE_SIZE));
+  const geoStart = (geoPage - 1) * GEO_PAGE_SIZE;
 
   const rows = data?.rows ?? [];
   const total = data?.total_count ?? 0;
