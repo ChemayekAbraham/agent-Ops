@@ -118,6 +118,9 @@ export async function sendCashDepositWalletConfirmationEmail(
     depositedAt: string;
     referenceNumber: string;
     receiptDownloadUrl?: string | null;
+    facilitatedRentVolume?: number | null;
+    platformServiceFees?: number | null;
+    transactionExpenses?: number | null;
   },
 ): Promise<CashDepositEmailResult> {
   const {
@@ -130,6 +133,9 @@ export async function sendCashDepositWalletConfirmationEmail(
     depositedAt,
     referenceNumber,
     receiptDownloadUrl = null,
+    facilitatedRentVolume = null,
+    platformServiceFees = null,
+    transactionExpenses = null,
   } = params;
 
   try {
@@ -148,6 +154,9 @@ export async function sendCashDepositWalletConfirmationEmail(
           depositedAt,
           referenceNumber,
           receiptDownloadUrl,
+          facilitatedRentVolume,
+          platformServiceFees,
+          transactionExpenses,
         },
       },
     });
