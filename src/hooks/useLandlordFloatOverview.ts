@@ -66,6 +66,36 @@ export interface LandlordFloatOverview {
   };
 }
 
+export type LandlordFloatDrilldownKind =
+  | 'empty_houses'
+  | 'payouts'
+  | 'portfolios'
+  | 'attached_houses';
+
+/**
+ * Read-only drill-down rows behind a Landlord Float total. One SECURITY DEFINER
+ * RPC (`landlord_ops_float_drilldown`) does all the reading; nothing is written
+ * and no figure is recomputed on the client.
+ */
+export function useLandlordFloatDrilldown(
+  kind: LandlordFloatDrilldownKind | null,
+  key?: string | null,
+) {
+  return useQuery({
+    queryKey: ['landlord-ops-float-drilldown', kind, key ?? null],
+    enabled: !!kind,
+    staleTime: 60_000,
+    queryFn: async (): Promise<Record<string, any>[]> => {
+      const { data, error } = await (supabase as any).rpc('landlord_ops_float_drilldown', {
+        p_kind: kind,
+        p_key: key ?? null,
+      });
+      if (error) throw error;
+      return ((data as any)?.rows ?? []) as Record<string, any>[];
+    },
+  });
+}
+
 export function useLandlordFloatOverview() {
   return useQuery({
     queryKey: ['landlord-ops-float-overview'],

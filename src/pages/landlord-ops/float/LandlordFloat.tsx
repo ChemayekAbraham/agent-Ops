@@ -7,14 +7,26 @@ import {
   AlertTriangle,
   Loader2,
   RefreshCw,
+  ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
-import { useLandlordFloatOverview } from '@/hooks/useLandlordFloatOverview';
+import {
+  useLandlordFloatOverview,
+  useLandlordFloatDrilldown,
+  type LandlordFloatDrilldownKind,
+} from '@/hooks/useLandlordFloatOverview';
 
 const KAMPALA = 'Africa/Kampala';
 
@@ -36,12 +48,14 @@ function StatTile({
   sub,
   icon: Icon,
   tone = 'default',
+  onClick,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon: typeof Home;
   tone?: 'default' | 'amber' | 'emerald' | 'sky';
+  onClick?: () => void;
 }) {
   const toneRing =
     tone === 'amber'
@@ -51,16 +65,31 @@ function StatTile({
         : tone === 'sky'
           ? 'border-sky-500/30 bg-sky-500/5'
           : 'border-border/60 bg-card';
-  return (
-    <div className={`rounded-xl border p-4 ${toneRing}`}>
+  const inner = (
+    <>
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         <span className="truncate">{label}</span>
+        {onClick && <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60" />}
       </div>
       <p className="mt-2 text-xl font-bold tabular-nums leading-tight">{value}</p>
       {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`rounded-xl border p-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${toneRing}`}
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return <div className={`rounded-xl border p-4 ${toneRing}`}>{inner}</div>;
 }
 
 function TableShell({ children }: { children: React.ReactNode }) {
@@ -74,9 +103,220 @@ function TableShell({ children }: { children: React.ReactNode }) {
 const TH = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap';
 const TD = 'px-3 py-2 align-middle whitespace-nowrap';
 
+/** One column of a drill-down table. */
+interface DrillColumn {
+  key: string;
+  label: string;
+  type?: 'text' | 'ugx' | 'date' | 'badge';
+  align?: 'left' | 'right';
+}
+
+interface DrillTarget {
+  title: string;
+  description?: string;
+  columns: DrillColumn[];
+  /** Rows already loaded by the overview RPC. */
+  rows?: Record<string, any>[];
+  /** Or fetch the underlying rows from the drill-down RPC. */
+  kind?: LandlordFloatDrilldownKind;
+  filterKey?: string | null;
+}
+
+function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, any> }) {
+  const raw = row[column.key];
+  if (column.type === 'ugx') {
+    return (
+      <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(Number(raw) || 0)}</td>
+    );
+  }
+  if (column.type === 'date') {
+    return <td className={TD}>{fmtDateTime(raw)}</td>;
+  }
+  if (column.type === 'badge') {
+    return (
+      <td className={TD}>
+        {raw ? (
+          <Badge variant="outline" className="text-[10px]">
+            {String(raw).replace(/_/g, ' ')}
+          </Badge>
+        ) : (
+          '—'
+        )}
+      </td>
+    );
+  }
+  return (
+    <td className={`${TD} ${column.align === 'right' ? 'text-right tabular-nums' : ''}`}>
+      {raw === null || raw === undefined || raw === '' ? '—' : String(raw)}
+    </td>
+  );
+}
+
+function DrillDownDialog({
+  target,
+  onClose,
+}: {
+  target: DrillTarget | null;
+  onClose: () => void;
+}) {
+  const { data: fetched, isLoading, isError, error } = useLandlordFloatDrilldown(
+    target?.rows ? null : (target?.kind ?? null),
+    target?.filterKey ?? null,
+  );
+  const rows = target?.rows ?? fetched ?? [];
+  const total = rows.reduce((sum, r) => {
+    const col = target?.columns.find((c) => c.type === 'ugx');
+    return sum + (col ? Number(r[col.key]) || 0 : 0);
+  }, 0);
+
+  return (
+    <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle className="text-base">{target?.title}</DialogTitle>
+          {target?.description && (
+            <DialogDescription>{target.description}</DialogDescription>
+          )}
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-2 py-4">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        ) : isError ? (
+          <p className="py-6 text-sm text-destructive">
+            {(error as Error)?.message || 'These records could not be loaded.'}
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {rows.length.toLocaleString()} record{rows.length === 1 ? '' : 's'}
+              </span>
+              {total > 0 && <span className="font-semibold tabular-nums">{formatUGX(total)}</span>}
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto">
+              <TableShell>
+                <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+                  <tr>
+                    {target?.columns.map((c) => (
+                      <th
+                        key={c.key}
+                        className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && (
+                    <tr>
+                      <td className={`${TD} text-muted-foreground`} colSpan={target?.columns.length || 1}>
+                        Nothing recorded here.
+                      </td>
+                    </tr>
+                  )}
+                  {rows.map((r, i) => (
+                    <tr key={String(r.id ?? r.rent_request_id ?? r.agent_id ?? i)} className="border-t border-border/50">
+                      {target?.columns.map((c) => (
+                        <DrillCell key={c.key} column={c} row={r} />
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </TableShell>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Read-only records, shown exactly as recorded. Up to 500 rows.
+            </p>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const EMPTY_HOUSE_COLUMNS: DrillColumn[] = [
+  { key: 'title', label: 'House' },
+  { key: 'district', label: 'District' },
+  { key: 'sub_county', label: 'Sub-county' },
+  { key: 'village', label: 'Village' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'agent_name', label: 'Listing agent' },
+  { key: 'amount', label: 'Monthly rent', type: 'ugx' },
+  { key: 'created_at', label: 'Listed', type: 'date' },
+];
+
+const WAITING_COLUMNS: DrillColumn[] = [
+  { key: 'tenant_name', label: 'Tenant' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'district', label: 'District' },
+  { key: 'status', label: 'Stage', type: 'badge' },
+  { key: 'amount', label: 'Rent needed', type: 'ugx' },
+  { key: 'created_at', label: 'Requested', type: 'date' },
+];
+
+const PAYOUT_COLUMNS: DrillColumn[] = [
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'tenant_name', label: 'Tenant' },
+  { key: 'agent_name', label: 'Agent' },
+  { key: 'provider', label: 'Channel' },
+  { key: 'reference', label: 'Reference' },
+  { key: 'amount', label: 'Amount', type: 'ugx' },
+  { key: 'disbursed_at', label: 'Paid', type: 'date' },
+];
+
+const COLLECTING_COLUMNS: DrillColumn[] = [
+  { key: 'tenant_name', label: 'Tenant' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'status', label: 'Status', type: 'badge' },
+  { key: 'contracted', label: 'Expected total', type: 'ugx' },
+  { key: 'collected', label: 'Collected', type: 'ugx' },
+  { key: 'outstanding', label: 'Outstanding', type: 'ugx' },
+  { key: 'funded_at', label: 'Funded', type: 'date' },
+];
+
+const AGENT_COLUMNS: DrillColumn[] = [
+  { key: 'agent_name', label: 'Agent' },
+  { key: 'agent_phone', label: 'Phone' },
+  { key: 'region', label: 'Region' },
+  { key: 'balance', label: 'Float held', type: 'ugx' },
+  { key: 'total_funded', label: 'Funded', type: 'ugx' },
+  { key: 'total_paid_out', label: 'Paid out', type: 'ugx' },
+  { key: 'updated_at', label: 'Last movement', type: 'date' },
+];
+
+const PORTFOLIO_COLUMNS: DrillColumn[] = [
+  { key: 'portfolio_code', label: 'Portfolio' },
+  { key: 'partner_name', label: 'Funder' },
+  { key: 'partner_phone', label: 'Phone' },
+  { key: 'status', label: 'Status', type: 'badge' },
+  { key: 'duration_months', label: 'Months', align: 'right' },
+  { key: 'amount', label: 'Capital', type: 'ugx' },
+  { key: 'created_at', label: 'Created', type: 'date' },
+];
+
+const ATTACHED_COLUMNS: DrillColumn[] = [
+  { key: 'partner_name', label: 'Funder' },
+  { key: 'house_title', label: 'House' },
+  { key: 'district', label: 'District' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'status', label: 'Status', type: 'badge' },
+  { key: 'amount', label: 'Principal', type: 'ugx' },
+  { key: 'supported_at', label: 'Attached', type: 'date' },
+];
+
 export default function LandlordFloat() {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordFloatOverview();
   const [tab, setTab] = useState('needed');
+  const [drill, setDrill] = useState<DrillTarget | null>(null);
 
   if (isLoading) {
     return (
@@ -142,6 +382,14 @@ export default function LandlordFloat() {
           sub={`${needed.total_houses.toLocaleString()} houses`}
           icon={Home}
           tone="amber"
+          onClick={() =>
+            setDrill({
+              title: 'Empty listed houses needing landlord float',
+              description: 'Every listed house that is still empty, with its landlord and listing agent.',
+              columns: EMPTY_HOUSE_COLUMNS,
+              kind: 'empty_houses',
+            })
+          }
         />
         <StatTile
           label="Being collected"
@@ -149,6 +397,14 @@ export default function LandlordFloat() {
           sub={`${formatUGX(collecting.paid_out.amount)} paid to landlords`}
           icon={Banknote}
           tone="emerald"
+          onClick={() =>
+            setDrill({
+              title: 'Live rent plans still being collected',
+              description: 'Tenants in funded houses, their landlords and what is still outstanding.',
+              columns: COLLECTING_COLUMNS,
+              rows: collecting.rows,
+            })
+          }
         />
         <StatTile
           label="With agents"
@@ -156,12 +412,28 @@ export default function LandlordFloat() {
           sub={`${with_agents.summary.agents.toLocaleString()} agents holding float`}
           icon={Users}
           tone="sky"
+          onClick={() =>
+            setDrill({
+              title: 'Agents holding landlord float',
+              description: 'Every agent with landlord float still in hand.',
+              columns: AGENT_COLUMNS,
+              rows: with_agents.rows,
+            })
+          }
         />
         <StatTile
           label="No tenant attached"
           value={formatUGX(no_tenant.unattached)}
           sub={`${no_tenant.portfolios.toLocaleString()} funder portfolios`}
           icon={Wallet}
+          onClick={() =>
+            setDrill({
+              title: 'Funder portfolios',
+              description: 'Live funder capital recorded in Partnership Ops.',
+              columns: PORTFOLIO_COLUMNS,
+              kind: 'portfolios',
+            })
+          }
         />
       </div>
 
@@ -190,6 +462,14 @@ export default function LandlordFloat() {
                   value={formatUGX(needed.empty_houses.amount)}
                   sub={`${needed.empty_houses.houses.toLocaleString()} houses`}
                   icon={Home}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Empty listed houses',
+                      description: 'House, landlord, listing agent and monthly rent.',
+                      columns: EMPTY_HOUSE_COLUMNS,
+                      kind: 'empty_houses',
+                    })
+                  }
                 />
                 <StatTile
                   label="Tenant in, awaiting funding"
@@ -197,6 +477,14 @@ export default function LandlordFloat() {
                   sub={`${needed.waiting_funding.houses.toLocaleString()} requests`}
                   icon={Home}
                   tone="amber"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Tenants waiting for funding',
+                      description: 'Rent requests with a tenant already in the house.',
+                      columns: WAITING_COLUMNS,
+                      rows: needed.waiting_rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Total float needed"
@@ -228,7 +516,33 @@ export default function LandlordFloat() {
                       </tr>
                     )}
                     {needed.by_district.map((r) => (
-                      <tr key={r.district} className="border-t border-border/50">
+                      <tr
+                        key={r.district}
+                        className="border-t border-border/50 cursor-pointer hover:bg-muted/40"
+                        tabIndex={0}
+                        role="button"
+                        onClick={() =>
+                          setDrill({
+                            title: `Empty houses in ${r.district}`,
+                            description: 'Houses, landlords and listing agents in this district.',
+                            columns: EMPTY_HOUSE_COLUMNS,
+                            kind: 'empty_houses',
+                            filterKey: r.district,
+                          })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setDrill({
+                              title: `Empty houses in ${r.district}`,
+                              description: 'Houses, landlords and listing agents in this district.',
+                              columns: EMPTY_HOUSE_COLUMNS,
+                              kind: 'empty_houses',
+                              filterKey: r.district,
+                            });
+                          }
+                        }}
+                      >
                         <td className={TD}>{r.district}</td>
                         <td className={`${TD} text-right tabular-nums`}>{r.houses.toLocaleString()}</td>
                         <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(r.amount)}</td>
@@ -299,24 +613,54 @@ export default function LandlordFloat() {
                   value={formatUGX(collecting.paid_out.amount)}
                   sub={`${collecting.paid_out.payouts.toLocaleString()} completed payouts`}
                   icon={Banknote}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Completed landlord payouts',
+                      description: 'Each payment made to a landlord, with channel and reference.',
+                      columns: PAYOUT_COLUMNS,
+                      kind: 'payouts',
+                    })
+                  }
                 />
                 <StatTile
                   label="Contracted from tenants"
                   value={formatUGX(collecting.expected.contracted)}
                   sub={`${collecting.expected.plans.toLocaleString()} live rent plans`}
                   icon={Home}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Live rent plans',
+                      description: 'Every tenant and landlord behind the contracted total.',
+                      columns: COLLECTING_COLUMNS,
+                      rows: collecting.rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Collected so far"
                   value={formatUGX(collecting.expected.collected)}
                   icon={Wallet}
                   tone="emerald"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Collected so far, by rent plan',
+                      columns: COLLECTING_COLUMNS,
+                      rows: collecting.rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Still to collect"
                   value={formatUGX(collecting.expected.expected)}
                   icon={AlertTriangle}
                   tone="amber"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Still to collect, by rent plan',
+                      columns: COLLECTING_COLUMNS,
+                      rows: collecting.rows,
+                    })
+                  }
                 />
               </div>
 
@@ -381,22 +725,51 @@ export default function LandlordFloat() {
                   sub={`${with_agents.summary.agents.toLocaleString()} agents`}
                   icon={Users}
                   tone="sky"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Agents holding landlord float',
+                      columns: AGENT_COLUMNS,
+                      rows: with_agents.rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Total ever funded"
                   value={formatUGX(with_agents.summary.total_funded)}
                   icon={Banknote}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Float funded to agents',
+                      columns: AGENT_COLUMNS,
+                      rows: with_agents.rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Total paid to landlords"
                   value={formatUGX(with_agents.summary.total_paid_out)}
                   icon={Home}
                   tone="emerald"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Payouts agents made to landlords',
+                      description: 'Every completed landlord payment, with channel and reference.',
+                      columns: PAYOUT_COLUMNS,
+                      kind: 'payouts',
+                    })
+                  }
                 />
                 <StatTile
                   label="Agents holding float"
                   value={with_agents.summary.agents.toLocaleString()}
                   icon={Users}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Agents holding landlord float',
+                      columns: AGENT_COLUMNS,
+                      rows: with_agents.rows,
+                    })
+                  }
                 />
               </div>
 
@@ -421,7 +794,33 @@ export default function LandlordFloat() {
                     </tr>
                   )}
                   {with_agents.rows.map((r) => (
-                    <tr key={r.agent_id} className="border-t border-border/50">
+                    <tr
+                      key={r.agent_id}
+                      className="border-t border-border/50 cursor-pointer hover:bg-muted/40"
+                      tabIndex={0}
+                      role="button"
+                      onClick={() =>
+                        setDrill({
+                          title: `Landlord payouts by ${r.agent_name}`,
+                          description: 'Every completed landlord payment this agent made.',
+                          columns: PAYOUT_COLUMNS,
+                          kind: 'payouts',
+                          filterKey: r.agent_id,
+                        })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDrill({
+                            title: `Landlord payouts by ${r.agent_name}`,
+                            description: 'Every completed landlord payment this agent made.',
+                            columns: PAYOUT_COLUMNS,
+                            kind: 'payouts',
+                            filterKey: r.agent_id,
+                          });
+                        }
+                      }}
+                    >
                       <td className={TD}>{r.agent_name}</td>
                       <td className={TD}>{r.agent_phone || '—'}</td>
                       <td className={TD}>{r.region || '—'}</td>
@@ -454,6 +853,14 @@ export default function LandlordFloat() {
                   value={formatUGX(no_tenant.total)}
                   sub={`${no_tenant.portfolios.toLocaleString()} live portfolios`}
                   icon={Wallet}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Funder portfolios',
+                      description: 'Each live funder portfolio and its capital.',
+                      columns: PORTFOLIO_COLUMNS,
+                      kind: 'portfolios',
+                    })
+                  }
                 />
                 <StatTile
                   label="Attached to a house"
@@ -461,12 +868,29 @@ export default function LandlordFloat() {
                   sub={`${no_tenant.attached_houses.toLocaleString()} supported houses`}
                   icon={Home}
                   tone="emerald"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Funder capital attached to houses',
+                      description: 'Supported houses with funder, landlord and principal.',
+                      columns: ATTACHED_COLUMNS,
+                      kind: 'attached_houses',
+                    })
+                  }
                 />
                 <StatTile
                   label="Not attached to a tenant"
                   value={formatUGX(no_tenant.unattached)}
                   icon={AlertTriangle}
                   tone="amber"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Funder portfolios',
+                      description:
+                        'Live portfolios behind the unattached balance. Compare with the attached houses list.',
+                      columns: PORTFOLIO_COLUMNS,
+                      kind: 'portfolios',
+                    })
+                  }
                 />
               </div>
               <p className="text-xs text-muted-foreground">
@@ -476,6 +900,8 @@ export default function LandlordFloat() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <DrillDownDialog target={drill} onClose={() => setDrill(null)} />
     </div>
   );
 }
