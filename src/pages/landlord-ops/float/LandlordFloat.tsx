@@ -123,6 +123,65 @@ function StatTile({
   return <div className={`rounded-xl border p-4 ${toneRing}`}>{inner}</div>;
 }
 
+/**
+ * The "Being collected" headline tile shows a forward collection projection.
+ * The default horizon is the next 12 months and can be switched in place.
+ * The figure is computed from the recorded daily expected amounts returned by
+ * the overview RPC; nothing is recomputed from financial records.
+ */
+function CollectingProjectionTile({
+  rows,
+  expected,
+  paidOut,
+  horizon,
+  onHorizonChange,
+  onDetails,
+}: {
+  rows: Array<{ daily_repayment: number }>;
+  expected: number;
+  paidOut: number;
+  horizon: string;
+  onHorizonChange: (v: string) => void;
+  onDetails: () => void;
+}) {
+  const totalDaily = rows.reduce((sum, r) => sum + (Number(r.daily_repayment) || 0), 0);
+  const h = COLLECTING_HORIZONS.find((x) => x.key === horizon) ?? COLLECTING_HORIZONS[4];
+  const projected = Math.round(totalDaily * h.days);
+  return (
+    <div className="rounded-xl border p-4 border-emerald-500/30 bg-emerald-500/5">
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Banknote className="h-3.5 w-3.5" />
+        <span className="truncate">Being collected</span>
+        <button
+          type="button"
+          onClick={onDetails}
+          className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Details <ChevronRight className="h-3 w-3" />
+        </button>
+      </div>
+      <p className="mt-2 text-xl font-bold tabular-nums leading-tight">{formatUGX(projected)}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {h.label.toLowerCase()} projection · {formatUGX(expected)} still expected · {formatUGX(paidOut)} paid to landlords
+      </p>
+      <div className="mt-3">
+        <Select value={horizon} onValueChange={onHorizonChange}>
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Select projection horizon" />
+          </SelectTrigger>
+          <SelectContent>
+            {COLLECTING_HORIZONS.map((x) => (
+              <SelectItem key={x.key} value={x.key} className="text-xs">
+                {x.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
 function TableShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border/60">
