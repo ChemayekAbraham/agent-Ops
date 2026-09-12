@@ -578,6 +578,53 @@ function ServerPayoutTable({
             </SelectContent>
           </Select>
         </div>
+        <div className="relative space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Find a location
+          </label>
+          <DrillSearch
+            value={locSearch}
+            onChange={setLocSearch}
+            placeholder="District, region, country…"
+          />
+          {locSearch.trim() !== '' && (
+            <div className="absolute left-0 top-[58px] z-20 w-[280px] overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+              {locMatches.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  No location matches that spelling.
+                </p>
+              ) : (
+                <ul className="max-h-[240px] overflow-y-auto py-1">
+                  {locMatches.map((m) => (
+                    <li key={`${m.country}|${m.region}|${m.district}`}>
+                      <button
+                        type="button"
+                        className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-muted/60"
+                        onClick={() => {
+                          setCountry(m.country);
+                          setRegion(m.region);
+                          setDistrict(m.district);
+                          setLocSearch('');
+                        }}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{m.district}</span>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {m.region} · {m.country} · {m.payouts.toLocaleString()} payout
+                            {m.payouts === 1 ? '' : 's'}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold tabular-nums">
+                          {formatUGX(m.amount)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
         {isFiltered && (
           <Button
             type="button"
