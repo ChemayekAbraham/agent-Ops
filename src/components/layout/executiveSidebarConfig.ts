@@ -130,6 +130,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Money In',
       items: [
         { label: 'Rent Collections', icon: Receipt, id: 'rent-collections' },
+        { label: 'Payments by Location', icon: MapPin, id: 'payments-by-location' },
         { label: 'Tenant Self-Repayments', icon: Receipt, id: 'tenant-self-repayments' },
         { label: 'Investor Returns', icon: TrendingUp, id: 'roi-requests' },
         { label: 'Partner Top-ups', icon: TrendingUp, id: 'partner-topups' },
