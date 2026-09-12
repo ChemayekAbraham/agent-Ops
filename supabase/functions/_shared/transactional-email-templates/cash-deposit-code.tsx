@@ -102,6 +102,20 @@ export function CashDepositCodeEmail({
           </Text>
           </Section>
 
+          <Section style={helpSection}>
+            <Text style={helpTitle}>Need help?</Text>
+            <Text style={helpText}>
+              If you have questions about this deposit, message us on{' '}
+              <Link href={`https://wa.me/${supportWhatsapp.replace(/\D/g, '')}`} style={helpLinkStyle}>
+                WhatsApp
+              </Link>{' '}
+              or call <strong>{supportPhone}</strong>.
+            </Text>
+            <Text style={helpText}>
+              Visit our <Link href={helpLink} style={helpLinkStyle}>help center</Link> for quick answers.
+            </Text>
+          </Section>
+
           <Section style={footerSection}>
             <Text style={footerTitle}>WELILE TECHNOLOGIES LTD</Text>
             <Text style={footer}>Turning rent into an asset.</Text>
