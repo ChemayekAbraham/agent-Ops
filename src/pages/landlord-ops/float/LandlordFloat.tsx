@@ -204,10 +204,100 @@ function filterPayoutRows(
   });
 }
 
+const PAGE_SIZE = 25;
+
+/** Free-text match across every displayed column value of a read-only row. */
+function matchesSearch(row: Record<string, any>, columns: DrillColumn[], query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return columns.some((c) => {
+    const raw = row[c.key];
+    if (raw === null || raw === undefined) return false;
+    const text = c.type === 'date' ? `${fmtDateTime(raw)} ${String(raw)}` : String(raw);
+    return text.toLowerCase().includes(q);
+  });
+}
+
+/** Search box for narrowing already-loaded drill-down rows. */
+function DrillSearch({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="relative w-full sm:w-[280px]">
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="h-8 pl-8 text-sm"
+      />
+    </div>
+  );
+}
+
+/** Page controls for read-only drill-down tables. */
+function DrillPager({
+  page,
+  pageCount,
+  total,
+  from,
+  to,
+  onPage,
+}: {
+  page: number;
+  pageCount: number;
+  total: number;
+  from: number;
+  to: number;
+  onPage: (p: number) => void;
+}) {
+  if (total === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-muted-foreground">
+      <span>
+        Showing {from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}
+      </span>
+      {pageCount > 1 && (
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2"
+            disabled={page <= 1}
+            onClick={() => onPage(page - 1)}
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <span className="tabular-nums">
+            Page {page} of {pageCount}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2"
+            disabled={page >= pageCount}
+            onClick={() => onPage(page + 1)}
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
- * Payout drill-down table with date-range and landlord filters. Used by the
- * inline all-time panel and the payout dialogs; the filtered subtotal is a
- * sum of the visible rows only.
+ * Payout drill-down table with date-range, landlord, search and pagination.
+ * Used by the inline all-time panel and the payout dialogs; the subtotal is a
+ * sum of every matching row (not just the visible page).
  */
 function FilteredPayoutTable({
   columns,
@@ -225,6 +315,8 @@ function FilteredPayoutTable({
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [landlord, setLandlord] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const landlords = useMemo(
     () =>
@@ -235,11 +327,22 @@ function FilteredPayoutTable({
   );
 
   const filtered = useMemo(
-    () => filterPayoutRows(rows, from, to, landlord),
-    [rows, from, to, landlord],
+    () =>
+      filterPayoutRows(rows, from, to, landlord).filter((r) =>
+        matchesSearch(r, columns, search),
+      ),
+    [rows, from, to, landlord, search, columns],
   );
   const filteredTotal = filtered.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-  const isFiltered = !!from || !!to || !!landlord;
+  const isFiltered = !!from || !!to || !!landlord || !!search.trim();
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    setPage(1);
+  }, [from, to, landlord, search, rows]);
+  const safePage = Math.min(page, pageCount);
+  const start = (safePage - 1) * PAGE_SIZE;
+  const visible = filtered.slice(start, start + PAGE_SIZE);
 
   return (
     <div className="space-y-3">
@@ -287,6 +390,16 @@ function FilteredPayoutTable({
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Search
+          </label>
+          <DrillSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Landlord, phone, amount, reference…"
+          />
+        </div>
         {isFiltered && (
           <Button
             type="button"
@@ -297,6 +410,7 @@ function FilteredPayoutTable({
               setFrom('');
               setTo('');
               setLandlord(null);
+              setSearch('');
             }}
           >
             <FilterX className="mr-1.5 h-3.5 w-3.5" />
@@ -339,8 +453,8 @@ function FilteredPayoutTable({
                 </td>
               </tr>
             )}
-            {filtered.map((r, i) => (
-              <tr key={r.id ?? i} className="border-t border-border/50">
+            {visible.map((r, i) => (
+              <tr key={r.id ?? `${start + i}`} className="border-t border-border/50">
                 {columns.map((c) => (
                   <DrillCell key={c.key} column={c} row={r} />
                 ))}
@@ -349,6 +463,15 @@ function FilteredPayoutTable({
           </tbody>
         </TableShell>
       </div>
+
+      <DrillPager
+        page={safePage}
+        pageCount={pageCount}
+        total={filtered.length}
+        from={filtered.length === 0 ? 0 : start + 1}
+        to={Math.min(start + PAGE_SIZE, filtered.length)}
+        onPage={setPage}
+      />
     </div>
   );
 }
