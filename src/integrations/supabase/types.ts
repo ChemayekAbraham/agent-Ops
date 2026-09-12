@@ -55048,12 +55048,33 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_ops_payout_source_transactions: {
+        Args: { p_payout_id: string }
+        Returns: Json
+      }
       landlord_ops_payouts_geo: {
         Args: {
           p_agent_id?: string
           p_from?: string
           p_scope?: string
           p_search?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      landlord_ops_payouts_geo_page: {
+        Args: {
+          p_agent_id?: string
+          p_country?: string
+          p_dir?: string
+          p_district?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_region?: string
+          p_scope?: string
+          p_search?: string
+          p_sort?: string
           p_to?: string
         }
         Returns: Json

@@ -44,6 +44,8 @@ import {
   useLandlordFloatDrilldown,
   useLandlordPayoutsPage,
   useLandlordPayoutsGeo,
+  useLandlordPayoutsGeoPage,
+  useLandlordPayoutSources,
   useLandlordFloatNeededGeo,
   type LandlordFloatDrilldownKind,
   type LandlordFloatNeededGeoRow,
@@ -180,6 +182,16 @@ function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, a
 }
 
 const PAGE_SIZE = 25;
+const GEO_PAGE_SIZE = 15;
+
+/** Sortable columns of the server-paged payout geography breakdown. */
+const GEO_COLUMNS: DrillColumn[] = [
+  { key: 'country', label: 'Country' },
+  { key: 'region', label: 'Region' },
+  { key: 'district', label: 'District' },
+  { key: 'payouts', label: 'Payouts', align: 'right' },
+  { key: 'amount', label: 'Amount paid', type: 'ugx' },
+];
 
 /** Free-text match across every displayed column value of a read-only row. */
 function matchesSearch(row: Record<string, any>, columns: DrillColumn[], query: string) {
@@ -343,6 +355,20 @@ function ServerPayoutTable({
   const [country, setCountry] = useState('');
   const [region, setRegion] = useState('');
   const [district, setDistrict] = useState('');
+  const [geoPage, setGeoPage] = useState(1);
+  const [geoSort, setGeoSort] = useState('amount');
+  const [geoDir, setGeoDir] = useState<SortDir>('desc');
+  const [sourceId, setSourceId] = useState<string | null>(null);
+
+  const toggleGeoSort = (key: string) => {
+    if (key === geoSort) {
+      setGeoDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setGeoSort(key);
+      setGeoDir(key === 'amount' || key === 'payouts' ? 'desc' : 'asc');
+    }
+    setGeoPage(1);
+  };
 
   const toggleSort = (key: string) => {
     if (key === sort) {
@@ -364,6 +390,10 @@ function ServerPayoutTable({
     setPage(1);
   }, [from, to, search, scope, agentId, country, region, district]);
 
+  useEffect(() => {
+    setGeoPage(1);
+  }, [from, to, search, scope, agentId, country, region, district]);
+
   const { data, isLoading, isFetching, isError, error } = useLandlordPayoutsPage({
     scope,
     search,
@@ -379,8 +409,8 @@ function ServerPayoutTable({
     district,
   });
 
-  // Same payout population, grouped through the approved country -> region ->
-  // district hierarchy. Read-only; nothing is recomputed in the browser.
+  // Filter option lists: the same payout population grouped through the approved
+  // country -> region -> district hierarchy. One small aggregate read.
   const geoQuery = useLandlordPayoutsGeo({
     scope,
     search,
@@ -389,6 +419,23 @@ function ServerPayoutTable({
     agentId: agentId ?? null,
   });
   const geoRows = geoQuery.data ?? [];
+
+  // The visible breakdown table: grouped, filtered, sorted, counted and paged on
+  // the server, so it stays fast at any payout volume. Read-only.
+  const geoPageQuery = useLandlordPayoutsGeoPage({
+    scope,
+    search,
+    from,
+    to,
+    agentId: agentId ?? null,
+    country,
+    region,
+    district,
+    page: geoPage,
+    pageSize: GEO_PAGE_SIZE,
+    sort: geoSort,
+    dir: geoDir,
+  });
 
   const countries = useMemo(
     () => Array.from(new Set(geoRows.map((r) => r.country))).sort(),
@@ -413,19 +460,10 @@ function ServerPayoutTable({
     [geoRows, country, region],
   );
 
-  // District-level totals for the current geography selection, biggest first.
-  const geoBreakdown = useMemo(
-    () =>
-      geoRows
-        .filter(
-          (r) =>
-            (!country || r.country === country) &&
-            (!region || r.region === region) &&
-            (!district || r.district === district),
-        )
-        .sort((a, b) => b.amount - a.amount),
-    [geoRows, country, region, district],
-  );
+  const geoBreakdown = geoPageQuery.data?.rows ?? [];
+  const geoTotalRows = geoPageQuery.data?.total_count ?? 0;
+  const geoPageCount = Math.max(1, Math.ceil(geoTotalRows / GEO_PAGE_SIZE));
+  const geoStart = (geoPage - 1) * GEO_PAGE_SIZE;
 
   const rows = data?.rows ?? [];
   const total = data?.total_count ?? 0;
@@ -562,7 +600,8 @@ function ServerPayoutTable({
         )}
       </div>
 
-      {/* Where the money went: district totals for the current selection. */}
+      {/* Where the money went: district totals for the current selection, grouped,
+          sorted, counted and paged on the server. */}
       <div className="rounded-lg border border-border/60">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-muted/40 px-3 py-2">
           <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -570,91 +609,114 @@ function ServerPayoutTable({
             Paid out by location · {geoLabel}
           </span>
           <span className="text-xs text-muted-foreground">
-            {geoQuery.isLoading
+            {geoPageQuery.isLoading
               ? 'Loading…'
-              : `${geoBreakdown.length.toLocaleString()} district${
-                  geoBreakdown.length === 1 ? '' : 's'
-                }`}
+              : `${geoTotalRows.toLocaleString()} district${geoTotalRows === 1 ? '' : 's'} · ${
+                  (geoPageQuery.data?.total_payouts ?? 0).toLocaleString()
+                } payouts · ${formatUGX(geoPageQuery.data?.total_amount ?? 0)}`}
+            {geoPageQuery.isFetching && !geoPageQuery.isLoading ? ' · updating…' : ''}
           </span>
         </div>
-        {geoQuery.isError ? (
+        {geoPageQuery.isError ? (
           <div className="p-3">
             <p className="text-sm font-medium text-destructive">
               The location breakdown could not be loaded.
             </p>
-            <ErrorDetails error={geoQuery.error} />
+            <ErrorDetails error={geoPageQuery.error} />
           </div>
         ) : (
-          <div className="max-h-[240px] overflow-y-auto">
-            <TableShell>
-              <thead className="sticky top-0 bg-muted/60 backdrop-blur">
-                <tr>
-                  <th className={TH}>Country</th>
-                  <th className={TH}>Region</th>
-                  <th className={TH}>District</th>
-                  <th className={TH}>Payouts</th>
-                  <th className={TH}>Amount paid</th>
-                </tr>
-              </thead>
-              <tbody>
-                {geoQuery.isLoading &&
-                  [0, 1, 2].map((i) => (
-                    <tr key={`g-${i}`} className="border-t border-border/50">
-                      <td className={TD} colSpan={5}>
-                        <Skeleton className="h-5 w-full" />
+          <>
+            <div className="max-h-[280px] overflow-y-auto">
+              <TableShell>
+                <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+                  <tr>
+                    {GEO_COLUMNS.map((c) => (
+                      <SortableTh
+                        key={c.key}
+                        column={c}
+                        active={geoSort === c.key}
+                        dir={geoDir}
+                        onSort={toggleGeoSort}
+                      />
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {geoPageQuery.isLoading &&
+                    [0, 1, 2].map((i) => (
+                      <tr key={`g-${i}`} className="border-t border-border/50">
+                        <td className={TD} colSpan={GEO_COLUMNS.length}>
+                          <Skeleton className="h-5 w-full" />
+                        </td>
+                      </tr>
+                    ))}
+                  {!geoPageQuery.isLoading && geoBreakdown.length === 0 && (
+                    <tr>
+                      <td className={`${TD} text-muted-foreground`} colSpan={GEO_COLUMNS.length}>
+                        No payouts recorded for this selection.
                       </td>
                     </tr>
-                  ))}
-                {!geoQuery.isLoading && geoBreakdown.length === 0 && (
-                  <tr>
-                    <td className={`${TD} text-muted-foreground`} colSpan={5}>
-                      No payouts recorded for this selection.
-                    </td>
-                  </tr>
-                )}
-                {!geoQuery.isLoading &&
-                  geoBreakdown.map((g) => (
-                    <tr
-                      key={`${g.country}|${g.region}|${g.district}`}
-                      className="cursor-pointer border-t border-border/50 hover:bg-muted/40"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
+                  )}
+                  {!geoPageQuery.isLoading &&
+                    geoBreakdown.map((g) => {
+                      const drill = () => {
                         setCountry(g.country);
                         setRegion(g.region);
                         setDistrict(g.district);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setCountry(g.country);
-                          setRegion(g.region);
-                          setDistrict(g.district);
-                        }
-                      }}
-                    >
-                      <td className={TD}>{g.country}</td>
-                      <td className={TD}>{g.region}</td>
-                      <td className={TD}>
-                        <span className="flex items-center gap-1.5">
-                          {g.district}
-                          {g.unmatched && (
-                            <Badge
-                              variant="outline"
-                              className="border-amber-500/40 text-[10px] text-amber-600"
-                            >
-                              Unmatched spelling
-                            </Badge>
-                          )}
-                        </span>
-                      </td>
-                      <td className={`${TD} tabular-nums`}>{g.payouts.toLocaleString()}</td>
-                      <td className={`${TD} font-semibold tabular-nums`}>{formatUGX(g.amount)}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </TableShell>
-          </div>
+                      };
+                      return (
+                        <tr
+                          key={`${g.country}|${g.region}|${g.district}`}
+                          className="cursor-pointer border-t border-border/50 hover:bg-muted/40"
+                          role="button"
+                          tabIndex={0}
+                          title="Open the payouts recorded in this district"
+                          onClick={drill}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              drill();
+                            }
+                          }}
+                        >
+                          <td className={TD}>{g.country}</td>
+                          <td className={TD}>{g.region}</td>
+                          <td className={TD}>
+                            <span className="flex items-center gap-1.5">
+                              {g.district}
+                              {g.unmatched && (
+                                <Badge
+                                  variant="outline"
+                                  className="border-amber-500/40 text-[10px] text-amber-600"
+                                >
+                                  Unmatched spelling
+                                </Badge>
+                              )}
+                            </span>
+                          </td>
+                          <td className={`${TD} text-right tabular-nums`}>
+                            {g.payouts.toLocaleString()}
+                          </td>
+                          <td className={`${TD} text-right font-semibold tabular-nums`}>
+                            {formatUGX(g.amount)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </TableShell>
+            </div>
+            <div className="border-t border-border/60 px-3">
+              <DrillPager
+                page={geoPage}
+                pageCount={geoPageCount}
+                total={geoTotalRows}
+                from={geoTotalRows === 0 ? 0 : geoStart + 1}
+                to={Math.min(geoStart + GEO_PAGE_SIZE, geoTotalRows)}
+                onPage={setGeoPage}
+              />
+            </div>
+          </>
         )}
       </div>
 
@@ -713,7 +775,20 @@ function ServerPayoutTable({
               )}
               {!isLoading &&
                 rows.map((r, i) => (
-                  <tr key={r.id ?? `${start + i}`} className="border-t border-border/50">
+                  <tr
+                    key={r.id ?? `${start + i}`}
+                    className="cursor-pointer border-t border-border/50 hover:bg-muted/40"
+                    role="button"
+                    tabIndex={0}
+                    title="Open the source transactions behind this payout"
+                    onClick={() => r.id && setSourceId(String(r.id))}
+                    onKeyDown={(e) => {
+                      if ((e.key === 'Enter' || e.key === ' ') && r.id) {
+                        e.preventDefault();
+                        setSourceId(String(r.id));
+                      }
+                    }}
+                  >
                     {columns.map((c) => (
                       <DrillCell key={c.key} column={c} row={r as Record<string, any>} />
                     ))}
@@ -732,7 +807,122 @@ function ServerPayoutTable({
         to={Math.min(start + PAGE_SIZE, total)}
         onPage={setPage}
       />
+
+      <PayoutSourcesDialog payoutId={sourceId} onClose={() => setSourceId(null)} />
     </div>
+  );
+}
+
+/**
+ * Read-only source transactions behind a single payout: the recorded payout and
+ * the ledger legs posted against it, straight from the RPC.
+ */
+function PayoutSourcesDialog({
+  payoutId,
+  onClose,
+}: {
+  payoutId: string | null;
+  onClose: () => void;
+}) {
+  const { data, isLoading, isError, error } = useLandlordPayoutSources(payoutId);
+  const payout = data?.payout ?? null;
+  const legs = data?.legs ?? [];
+
+  return (
+    <Dialog open={!!payoutId} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Source transactions behind this payout</DialogTitle>
+          <DialogDescription>
+            The recorded payout and every ledger entry posted against it. Read-only.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isError ? (
+          <div>
+            <p className="text-sm font-medium text-destructive">
+              The source transactions could not be loaded.
+            </p>
+            <ErrorDetails error={error} />
+          </div>
+        ) : isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {payout && (
+              <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-sm sm:grid-cols-2">
+                <div>
+                  <span className="text-muted-foreground">Landlord: </span>
+                  {payout.landlord_name || '—'}
+                  {payout.landlord_phone ? ` · ${payout.landlord_phone}` : ''}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Amount: </span>
+                  <span className="font-semibold tabular-nums">
+                    {formatUGX(Number(payout.amount) || 0)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Tenant: </span>
+                  {payout.tenant_name || '—'}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Paid via: </span>
+                  {payout.provider || '—'} · {payout.reference || 'no reference'}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Agent: </span>
+                  {payout.agent_name || '—'}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Paid on: </span>
+                  {fmtDateTime(payout.disbursed_at) || fmtDateTime(payout.created_at)}
+                </div>
+              </div>
+            )}
+
+            <div className="max-h-[45vh] overflow-y-auto rounded-lg border border-border/60">
+              <TableShell>
+                <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+                  <tr>
+                    <th className={TH}>When</th>
+                    <th className={TH}>Category</th>
+                    <th className={TH}>Direction</th>
+                    <th className={`${TH} text-right`}>Amount</th>
+                    <th className={TH}>Description</th>
+                    <th className={TH}>Reference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legs.length === 0 && (
+                    <tr>
+                      <td className={`${TD} text-muted-foreground`} colSpan={6}>
+                        No ledger entries recorded against this payout.
+                      </td>
+                    </tr>
+                  )}
+                  {legs.map((l) => (
+                    <tr key={String(l.id)} className="border-t border-border/50">
+                      <td className={TD}>{fmtDateTime(l.transaction_date)}</td>
+                      <td className={TD}>{String(l.category ?? '—').replace(/_/g, ' ')}</td>
+                      <td className={TD}>{l.direction || '—'}</td>
+                      <td className={`${TD} text-right tabular-nums`}>
+                        {formatUGX(Number(l.amount) || 0)}
+                      </td>
+                      <td className={TD}>{l.description || '—'}</td>
+                      <td className={TD}>{l.reference_id || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableShell>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
