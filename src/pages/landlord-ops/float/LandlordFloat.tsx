@@ -606,12 +606,12 @@ function DrillDownDialog({
   target: DrillTarget | null;
   onClose: () => void;
 }) {
+  const isPayouts = target?.kind === 'payouts' || target?.kind === 'payouts_all';
   const { data: fetched, isLoading, isError, error } = useLandlordFloatDrilldown(
-    target?.rows ? null : (target?.kind ?? null),
+    target?.rows || isPayouts ? null : (target?.kind ?? null),
     target?.filterKey ?? null,
   );
   const rows = target?.rows ?? fetched ?? [];
-  const isPayouts = target?.kind === 'payouts' || target?.kind === 'payouts_all';
 
   return (
     <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
@@ -623,7 +623,16 @@ function DrillDownDialog({
           )}
         </DialogHeader>
 
-        {isLoading ? (
+        {isPayouts ? (
+          <ServerPayoutTable
+            key={`${target?.kind}-${target?.filterKey ?? 'all'}`}
+            columns={target?.columns ?? []}
+            scope={target?.kind === 'payouts_all' ? 'all_time' : 'completed'}
+            agentId={target?.filterKey ?? null}
+            emptyText="No payout records found."
+            maxHeight="55vh"
+          />
+        ) : isLoading ? (
           <div className="space-y-2 py-4">
             {[0, 1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-8 w-full" />
@@ -634,15 +643,8 @@ function DrillDownDialog({
             <p className="text-sm font-medium text-destructive">These records could not be loaded.</p>
             <ErrorDetails error={error} />
           </div>
-        ) : isPayouts ? (
-          <FilteredPayoutTable
-            key={`${target?.kind}-${target?.filterKey ?? 'all'}`}
-            columns={target?.columns ?? []}
-            rows={rows}
-            emptyText="No payout records found."
-            maxHeight="55vh"
-          />
         ) : (
+
           <SearchablePagedTable
             key={`${target?.kind}-${target?.filterKey ?? 'all'}`}
             columns={target?.columns ?? []}
