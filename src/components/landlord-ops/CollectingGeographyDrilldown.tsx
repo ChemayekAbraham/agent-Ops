@@ -193,7 +193,20 @@ function PhoneLine({ label, name, phone }: { label: string; name?: string | null
  * Every figure comes from `landlord_ops_collecting_geo_page`. Nothing is written and
  * recorded location text is never rewritten — unmatched spellings show as "Unmapped".
  */
-export default function CollectingGeographyDrilldown() {
+export default function CollectingGeographyDrilldown({
+  horizonKey: controlledHorizonKey,
+  onHorizonChange,
+}: {
+  /**
+   * Optional controlled projection horizon. When provided (e.g. by the
+   * Landlord Float "Being collected" tile), the drilldown opens with — and
+   * stays in sync with — the caller's selected horizon, and its dropdown
+   * reflects and updates that same choice. Without it, the drilldown keeps
+   * its own local state and opens on the default 12-month view.
+   */
+  horizonKey?: string;
+  onHorizonChange?: (key: string) => void;
+} = {}) {
   const [path, setPath] = useState<CollectingGeoPath>({});
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
