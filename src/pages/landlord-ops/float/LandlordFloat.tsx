@@ -794,7 +794,33 @@ export default function LandlordFloat() {
                     </tr>
                   )}
                   {with_agents.rows.map((r) => (
-                    <tr key={r.agent_id} className="border-t border-border/50">
+                    <tr
+                      key={r.agent_id}
+                      className="border-t border-border/50 cursor-pointer hover:bg-muted/40"
+                      tabIndex={0}
+                      role="button"
+                      onClick={() =>
+                        setDrill({
+                          title: `Landlord payouts by ${r.agent_name}`,
+                          description: 'Every completed landlord payment this agent made.',
+                          columns: PAYOUT_COLUMNS,
+                          kind: 'payouts',
+                          filterKey: r.agent_id,
+                        })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDrill({
+                            title: `Landlord payouts by ${r.agent_name}`,
+                            description: 'Every completed landlord payment this agent made.',
+                            columns: PAYOUT_COLUMNS,
+                            kind: 'payouts',
+                            filterKey: r.agent_id,
+                          });
+                        }
+                      }}
+                    >
                       <td className={TD}>{r.agent_name}</td>
                       <td className={TD}>{r.agent_phone || '—'}</td>
                       <td className={TD}>{r.region || '—'}</td>
