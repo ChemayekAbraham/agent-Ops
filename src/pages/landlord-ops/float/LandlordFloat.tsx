@@ -2085,7 +2085,10 @@ export default function LandlordFloat() {
                 )}
               </div>
 
+              <CollectingGeographyDrilldown />
+
               <TableShell>
+
                 <thead className="bg-muted/40">
                   <tr>
                     <th className={TH}>Tenant</th>
