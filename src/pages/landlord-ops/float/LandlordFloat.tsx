@@ -613,24 +613,54 @@ export default function LandlordFloat() {
                   value={formatUGX(collecting.paid_out.amount)}
                   sub={`${collecting.paid_out.payouts.toLocaleString()} completed payouts`}
                   icon={Banknote}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Completed landlord payouts',
+                      description: 'Each payment made to a landlord, with channel and reference.',
+                      columns: PAYOUT_COLUMNS,
+                      kind: 'payouts',
+                    })
+                  }
                 />
                 <StatTile
                   label="Contracted from tenants"
                   value={formatUGX(collecting.expected.contracted)}
                   sub={`${collecting.expected.plans.toLocaleString()} live rent plans`}
                   icon={Home}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Live rent plans',
+                      description: 'Every tenant and landlord behind the contracted total.',
+                      columns: COLLECTING_COLUMNS,
+                      rows: collecting.rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Collected so far"
                   value={formatUGX(collecting.expected.collected)}
                   icon={Wallet}
                   tone="emerald"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Collected so far, by rent plan',
+                      columns: COLLECTING_COLUMNS,
+                      rows: collecting.rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Still to collect"
                   value={formatUGX(collecting.expected.expected)}
                   icon={AlertTriangle}
                   tone="amber"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Still to collect, by rent plan',
+                      columns: COLLECTING_COLUMNS,
+                      rows: collecting.rows,
+                    })
+                  }
                 />
               </div>
 
