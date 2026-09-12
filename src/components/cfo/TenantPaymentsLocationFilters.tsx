@@ -559,7 +559,7 @@ export function TenantPaymentsLocationFilters() {
                   No receipts match these filters.
                 </p>
               )}
-              {receipts.data.payments.map((p) => (
+              {pagedReceipts.map((p) => (
                 <div
                   key={p.payment_id}
                   className="flex items-start sm:items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5 last:border-0"
