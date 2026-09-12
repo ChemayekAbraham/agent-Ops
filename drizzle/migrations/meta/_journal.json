@@ -57,6 +57,13 @@
       "when": 1789148487759,
       "tag": "0007_identity_photo_fingerprints",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789190453300,
+      "tag": "0008_payments_by_location_cfo_reporting",
+      "breakpoints": true
     }
   ]
 }
