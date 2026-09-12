@@ -535,16 +535,16 @@ export function TenantPaymentsLocationFilters() {
             <div className="flex flex-wrap items-center gap-2">
               <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {sel.village
-                  ? `Payments — ${sel.village}`
+                  ? `PAYMENTS FOR ${sel.village}`
                   : sel.subcountyLabel
-                    ? `Payments — ${sel.subcountyLabel}`
+                    ? `PAYMENTS FOR ${sel.subcountyLabel}`
                     : sel.districtLabel
-                      ? `Payments — ${sel.districtLabel}`
+                      ? `PAYMENTS FOR ${sel.districtLabel}`
                       : sel.region
-                        ? `Payments — ${sel.region}`
+                        ? `PAYMENTS FOR ${sel.region}`
                         : sel.country
-                          ? `Payments — ${sel.country}`
-                          : 'All filtered payments'}
+                          ? `PAYMENTS FOR ${sel.country}`
+                          : 'ALL FILTERED PAYMENTS'}
               </h4>
               {receipts.data && (
                 <>
