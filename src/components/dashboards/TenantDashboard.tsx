@@ -43,7 +43,7 @@ import {
   TenantAgreementModal
 } from '@/components/tenant/agreement';
 import { useTenantAgreement } from '@/hooks/useTenantAgreement';
-import RepaymentSection from '@/components/tenant/RepaymentSection';
+
 import RentProcessTracker from '@/components/rent/RentProcessTracker';
 import PaymentPartnersDialog from '@/components/payments/PaymentPartnersDialog';
 
@@ -137,7 +137,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   const [showPaymentPartners, setShowPaymentPartners] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [isAcceptingAgreement, setIsAcceptingAgreement] = useState(false);
-  const [showRepaymentSchedule, setShowRepaymentSchedule] = useState(false);
+  
   const [showCalculator, setShowCalculator] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const rentCarouselRef = useRef<HTMLDivElement | null>(null);
@@ -485,26 +485,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             </div>
           )}
 
-          {/* Payment history — collapsed by default, full schedule + history on demand */}
-          <div className="rounded-xl border border-border/60 bg-card">
-            <button
-              type="button"
-              onClick={() => { hapticTap(); setShowRepaymentSchedule((v) => !v); }}
-              className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold"
-            >
-              Payment History
-              <span className="text-xs text-muted-foreground font-normal">
-                {showRepaymentSchedule ? 'Hide' : 'View'}
-              </span>
-            </button>
-            {showRepaymentSchedule && (
-              <div className="px-3 pb-3">
-                <WidgetErrorBoundary label="Payment history">
-                  <RepaymentSection userId={user.id} activeRequest={currentRentRequest} />
-                </WidgetErrorBoundary>
-              </div>
-            )}
-          </div>
 
           {/* Invite & Earn — kept on home for growth */}
           <InviteAndEarnCard variant="tenant" compact />
