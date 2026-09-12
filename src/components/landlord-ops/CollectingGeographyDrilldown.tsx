@@ -378,9 +378,17 @@ export default function CollectingGeographyDrilldown() {
       {/* Pagination */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
-          {totalRows.toLocaleString()} {level === 'houses' ? 'house' : COLLECTING_GEO_LEVEL_LABELS[level].toLowerCase()}
-          {totalRows === 1 ? '' : 's'} · page {page + 1} of {pages}
+          {totalRows.toLocaleString()}{' '}
+          {level === 'houses'
+            ? totalRows === 1
+              ? 'house'
+              : 'houses'
+            : totalRows === 1
+              ? COLLECTING_GEO_LEVEL_LABELS[level].toLowerCase()
+              : `${COLLECTING_GEO_LEVEL_LABELS[level].toLowerCase()} places`}{' '}
+          · page {page + 1} of {pages}
         </span>
+
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
