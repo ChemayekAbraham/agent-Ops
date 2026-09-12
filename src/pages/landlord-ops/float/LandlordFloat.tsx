@@ -725,22 +725,51 @@ export default function LandlordFloat() {
                   sub={`${with_agents.summary.agents.toLocaleString()} agents`}
                   icon={Users}
                   tone="sky"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Agents holding landlord float',
+                      columns: AGENT_COLUMNS,
+                      rows: with_agents.rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Total ever funded"
                   value={formatUGX(with_agents.summary.total_funded)}
                   icon={Banknote}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Float funded to agents',
+                      columns: AGENT_COLUMNS,
+                      rows: with_agents.rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Total paid to landlords"
                   value={formatUGX(with_agents.summary.total_paid_out)}
                   icon={Home}
                   tone="emerald"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Payouts agents made to landlords',
+                      description: 'Every completed landlord payment, with channel and reference.',
+                      columns: PAYOUT_COLUMNS,
+                      kind: 'payouts',
+                    })
+                  }
                 />
                 <StatTile
                   label="Agents holding float"
                   value={with_agents.summary.agents.toLocaleString()}
                   icon={Users}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Agents holding landlord float',
+                      columns: AGENT_COLUMNS,
+                      rows: with_agents.rows,
+                    })
+                  }
                 />
               </div>
 
