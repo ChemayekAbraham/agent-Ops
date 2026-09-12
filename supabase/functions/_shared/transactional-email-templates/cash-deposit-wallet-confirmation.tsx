@@ -39,6 +39,9 @@ export function CashDepositWalletConfirmationEmail({
   receiptCode = '',
   depositedAt = new Date().toISOString(),
   referenceNumber = '',
+  supportPhone = '+256 708 257 899',
+  supportWhatsapp = '+256708257899',
+  helpLink = 'https://welileapp.com/help',
 }: CashDepositWalletConfirmationProps) {
   const depositedWhen = new Date(depositedAt).toLocaleString('en-UG', {
     timeZone: 'Africa/Kampala',
