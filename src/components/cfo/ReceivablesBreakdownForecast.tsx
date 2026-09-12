@@ -26,7 +26,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
 import { TenantReceivablesLocationPanel } from '@/components/cfo/TenantReceivablesLocationPanel';
-import PaymentsByLocationPanel from '@/components/cfo/PaymentsByLocationPanel';
+import TenantPaymentsLocationFilters from '@/components/cfo/TenantPaymentsLocationFilters';
 
 
 const ALL_PRODUCTS = '__all__';
