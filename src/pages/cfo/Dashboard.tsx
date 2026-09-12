@@ -77,6 +77,7 @@ import { CFOAgentRequisitions } from '@/components/cfo/CFOAgentRequisitions';
 import { EmployeeRequisitionLinksPanel } from '@/components/financial-ops/EmployeeRequisitionLinksPanel';
 import { EmployeeRequisitionQueuePanel } from '@/components/financial-ops/EmployeeRequisitionQueuePanel';
 import { RentCollectionsFeed } from '@/components/cfo/RentCollectionsFeed';
+import { PaymentsByLocationPanel } from '@/components/cfo/PaymentsByLocationPanel';
 import { TenantSelfRepaymentsPanel } from '@/components/reporting/TenantSelfRepaymentsPanel';
 import { AgentPerformanceRankings } from '@/components/cfo/AgentPerformanceRankings';
 import { AgentFloatManagement } from '@/components/cfo/AgentFloatManagement';
@@ -498,6 +499,8 @@ export default function CFODashboardPage() {
         );
       case 'rent-collections':
         return <RentCollectionsFeed />;
+      case 'payments-by-location':
+        return <PaymentsByLocationPanel />;
       case 'tenant-self-repayments':
         return <TenantSelfRepaymentsPanel audience="finance" />;
       case 'agent-rankings':

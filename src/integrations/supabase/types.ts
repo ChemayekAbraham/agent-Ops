@@ -51936,6 +51936,7 @@ export type Database = {
           today_paid_amount: number
           today_paid_count: number
           total_repayment: number
+          unfunded_balance: number
           verified: boolean
         }[]
       }
@@ -53122,6 +53123,34 @@ export type Database = {
         Returns: Json
       }
       get_payables_total: { Args: never; Returns: Json }
+      get_payments_location_breakdown: {
+        Args: {
+          p_country?: string
+          p_district_id?: number
+          p_from?: string
+          p_level?: string
+          p_method?: string
+          p_region?: string
+          p_subcounty_id?: number
+          p_to?: string
+        }
+        Returns: Json
+      }
+      get_payments_location_receipts: {
+        Args: {
+          p_country?: string
+          p_district_id?: number
+          p_from?: string
+          p_group_label?: string
+          p_level?: string
+          p_limit?: number
+          p_method?: string
+          p_region?: string
+          p_subcounty_id?: number
+          p_to?: string
+        }
+        Returns: Json
+      }
       get_payout_delivery_audit: {
         Args: { p_limit?: number; p_user_id?: string }
         Returns: {
