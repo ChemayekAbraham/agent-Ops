@@ -304,6 +304,18 @@ const PAYOUT_COLUMNS: DrillColumn[] = [
   { key: 'disbursed_at', label: 'Paid', type: 'date' },
 ];
 
+const PAYOUT_ALL_COLUMNS: DrillColumn[] = [
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'tenant_name', label: 'Tenant' },
+  { key: 'agent_name', label: 'Agent' },
+  { key: 'provider', label: 'Channel' },
+  { key: 'reference', label: 'Reference' },
+  { key: 'amount', label: 'Amount', type: 'ugx' },
+  { key: 'status', label: 'Status', type: 'badge' },
+  { key: 'disbursed_at', label: 'Paid', type: 'date' },
+];
+
 const COLLECTING_COLUMNS: DrillColumn[] = [
   { key: 'tenant_name', label: 'Tenant' },
   { key: 'landlord_name', label: 'Landlord' },
@@ -1027,9 +1039,25 @@ export default function LandlordFloat() {
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <StatTile
-                  label="Paid out to landlords"
+                  label="Paid to landlords (all time)"
+                  value={formatUGX(collecting.paid_all_time?.amount ?? 0)}
+                  sub={`${(collecting.paid_all_time?.payouts ?? 0).toLocaleString()} payouts actually disbursed`}
+                  icon={Banknote}
+                  tone="emerald"
+                  onClick={() =>
+                    setDrill({
+                      title: 'All money paid to landlords',
+                      description:
+                        'Every payout whose money actually reached the landlord, all time — including payments still awaiting the agent\'s receipt confirmation.',
+                      columns: PAYOUT_ALL_COLUMNS,
+                      kind: 'payouts_all',
+                    })
+                  }
+                />
+                <StatTile
+                  label="Confirmed by agent receipt"
                   value={formatUGX(collecting.paid_out.amount)}
                   sub={`${collecting.paid_out.payouts.toLocaleString()} completed payouts`}
                   icon={Banknote}
