@@ -347,8 +347,9 @@ const ATTACHED_COLUMNS: DrillColumn[] = [
 function NeededByLocation({
   onOpenDistrict,
 }: {
-  onOpenDistrict: (district: string) => void;
+  onOpenDistrict: (row: LandlordFloatNeededGeoRow) => void;
 }) {
+
   const { data, isLoading, isError, error, refetch } = useLandlordFloatNeededGeo();
   const [country, setCountry] = useState<string | null>(null);
   const [region, setRegion] = useState<string | null>(null);
