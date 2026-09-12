@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, RefreshCw, Loader2, Check, Clock, Radio, Smartphone, Search, Inbox, X, ChevronDown, ArrowLeft, BarChart3, CheckCircle2, Menu, Building2, Banknote } from 'lucide-react';
+import { KeyRound, RefreshCw, Loader2, Check, Clock, Radio, Smartphone, Search, Inbox, X, ChevronDown, ArrowLeft, BarChart3, CheckCircle2, Menu, Building2, Banknote, Mail } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { StartCashDepositDialog } from './StartCashDepositDialog';
 
