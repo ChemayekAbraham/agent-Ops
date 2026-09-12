@@ -39,6 +39,7 @@ export const LANDLORD_OPS_ROUTES: LandlordOpsRoute[] = [
   { path: 'fixups/matching', Component: lazy(() => import('./fixups/Matching')) },
 
   { path: 'registers/landlords', Component: lazy(() => import('./registers/Landlords')) },
+  { path: 'registers/landlord-float', Component: lazy(() => import('./float/LandlordFloat')) },
   { path: 'registers/houses-tenants', Component: lazy(() => import('./registers/HousesTenants')) },
   { path: 'registers/requests', Component: lazy(() => import('./registers/Requests')) },
   { path: 'registers/lc1', Component: lazy(() => import('./registers/Lc1')) },

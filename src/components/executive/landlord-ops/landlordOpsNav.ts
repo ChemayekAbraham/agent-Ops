@@ -18,6 +18,7 @@ import {
   PhoneCall,
   Globe,
   Download,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -78,6 +79,7 @@ export const LANDLORD_OPS_SECTIONS: LandlordOpsNavSection[] = [
     title: 'REGISTERS',
     items: [
       { key: 'registers-landlords', label: 'Landlords', path: 'registers/landlords', icon: Building2 },
+      { key: 'registers-landlord-float', label: 'Landlord Float', path: 'registers/landlord-float', icon: Wallet },
       { key: 'registers-houses-tenants', label: 'Houses & Tenants', path: 'registers/houses-tenants', icon: Home },
       { key: 'registers-requests', label: 'All Requests', path: 'registers/requests', icon: Table2 },
       { key: 'registers-lc1', label: 'LC1 Register', path: 'registers/lc1', icon: ShieldCheck },
