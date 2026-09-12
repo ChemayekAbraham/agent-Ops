@@ -570,8 +570,15 @@ export default function CollectingGeographyDrilldown({
             <tbody>
               {groupRows.length === 0 && (
                 <tr>
-                  <td className="px-3 py-3 text-muted-foreground" colSpan={8}>
-                    Nothing is being collected here.
+                  <td className="px-3 py-10" colSpan={8}>
+                    <div className="flex flex-col items-center gap-1.5 text-center">
+                      <MapPin className="h-6 w-6 text-muted-foreground/50" />
+                      <p className="text-sm font-medium">No collections match the current filters</p>
+                      <p className="max-w-sm text-xs text-muted-foreground">
+                        Nothing is being collected here. Try widening the location, clearing the search, or removing
+                        the date range.
+                      </p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -632,7 +639,14 @@ export default function CollectingGeographyDrilldown({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {houseRows.length === 0 && (
-            <p className="text-sm text-muted-foreground">No houses are being collected from here.</p>
+            <div className="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-10 text-center">
+              <Home className="h-6 w-6 text-muted-foreground/50" />
+              <p className="text-sm font-medium">No collections match the current filters</p>
+              <p className="max-w-sm text-xs text-muted-foreground">
+                No houses are being collected from here. Try widening the location, clearing the search, or removing
+                the date range.
+              </p>
+            </div>
           )}
           {houseRows.map((h) => (
             <button
