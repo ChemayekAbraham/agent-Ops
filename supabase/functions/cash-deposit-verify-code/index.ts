@@ -642,6 +642,7 @@ Deno.serve(async (req) => {
           facilitatedRentVolume,
           platformServiceFees,
           transactionExpenses,
+          codeExpiredAt: ver.expires_at,
         });
         await logEvent(admin, {
           verification_id: ver.id,

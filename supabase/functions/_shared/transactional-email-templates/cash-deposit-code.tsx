@@ -28,6 +28,8 @@ interface CashDepositCodeProps {
   depositorName?: string
   cashOwnerName?: string
   issuedAt?: string
+  expiresAt?: string
+  resendUrl?: string
   minutesValid?: number
   supportPhone?: string
   supportWhatsapp?: string
@@ -46,12 +48,22 @@ export function CashDepositCodeEmail({
   depositorName = 'there',
   cashOwnerName = '',
   issuedAt = new Date().toISOString(),
+  expiresAt,
+  resendUrl = 'https://welileapp.com/cash-deposit/resend',
   minutesValid = 10,
   supportPhone = '+256 708 257 899',
   supportWhatsapp = '+256708257899',
   helpLink = 'https://welileapp.com/help',
 }: CashDepositCodeProps) {
   const when = new Date(issuedAt).toLocaleString('en-UG', { timeZone: 'Africa/Kampala' })
+  const expiry = new Date(expiresAt ?? new Date(issuedAt).getTime() + minutesValid * 60_000).toLocaleString('en-UG', {
+    timeZone: 'Africa/Kampala',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
   return (
     <Html>
       <Head />
@@ -82,7 +94,10 @@ export function CashDepositCodeEmail({
           </Section>
 
           <Text style={muted}>
-            Valid for {minutesValid} minutes and can be used once.
+            This code expires on {expiry} EAT (Kampala time) and can be used once.
+          </Text>
+          <Text style={resendText}>
+            Code expired or did not arrive? <Link href={resendUrl} style={resendLink}>Resend code</Link>
           </Text>
 
           <Hr style={hr} />
@@ -184,6 +199,8 @@ const codeText: React.CSSProperties = {
   margin: 0,
 }
 const muted: React.CSSProperties = { color: '#64748b', fontSize: '13px', lineHeight: '20px', margin: '0 0 12px' }
+const resendText: React.CSSProperties = { color: '#475569', fontSize: '13px', lineHeight: '20px', margin: '0 0 12px', textAlign: 'center' as const }
+const resendLink: React.CSSProperties = { color: '#7b19d4', fontWeight: 700, textDecoration: 'underline' }
 const hr: React.CSSProperties = { borderColor: '#e2e8f0', margin: '18px 0' }
 const label: React.CSSProperties = {
   color: '#94a3b8',
@@ -244,6 +261,8 @@ export const template = {
     depositorName: 'Benjamin',
     cashOwnerName: 'BENJAMIN MUHANGUZI',
     issuedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    resendUrl: 'https://welileapp.com/cash-deposit/resend?deposit=00000000-0000-0000-0000-000000000000',
     minutesValid: 10,
   },
 } satisfies TemplateEntry

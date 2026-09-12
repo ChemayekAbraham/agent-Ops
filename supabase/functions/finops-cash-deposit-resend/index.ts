@@ -52,37 +52,74 @@ Deno.serve(async (req) => {
     if (authErr || !authData?.user) return json(401, { error: "Unauthorized" });
     const operator = authData.user;
 
-    const { data: roleRows } = await admin
-      .from("user_roles").select("role").eq("user_id", operator.id);
-    const roles = (roleRows ?? []).map((r: any) => String(r.role));
-    if (!roles.some((r) => ALLOWED_ROLES.includes(r))) {
-      return json(403, {
-        error: "not_authorized",
-        message: "Only Financial Ops staff can resend a cash deposit code.",
-      });
+    const body = await req.json().catch(() => ({}));
+    const accountResend = body?.account_resend === true;
+    const depositRequestId = typeof body?.deposit_request_id === "string" ? body.deposit_request_id.trim() : "";
+    let verificationId = typeof body?.verification_id === "string" ? body.verification_id.trim() : "";
+
+    if (!accountResend) {
+      const { data: roleRows } = await admin
+        .from("user_roles").select("role").eq("user_id", operator.id);
+      const roles = (roleRows ?? []).map((r: any) => String(r.role));
+      if (!roles.some((r) => ALLOWED_ROLES.includes(r))) {
+        return json(403, {
+          error: "not_authorized",
+          message: "Only Financial Ops staff can resend a cash deposit code.",
+        });
+      }
+    } else if (!depositRequestId) {
+      return json(400, { error: "invalid_request", message: "The deposit reference is missing." });
     }
 
-    const body = await req.json().catch(() => ({}));
-    const verificationId = typeof body?.verification_id === "string" ? body.verification_id : "";
-    if (!verificationId) {
+    if (!verificationId && !accountResend) {
       return json(400, { error: "invalid_request", message: "verification_id is required" });
     }
     // Email is an ALTERNATIVE delivery channel for the same code; it credits nothing.
-    const wantsEmail = body?.send_email === true;
-    const emailOverride = normalizeEmail(body?.email);
+    const wantsEmail = accountResend || body?.send_email === true;
+    const emailOverride = accountResend ? null : normalizeEmail(body?.email);
     if (body?.email !== undefined && body?.email !== null && String(body.email).trim() !== "" && !emailOverride) {
       return json(400, { error: "invalid_email", message: "Enter a valid email address" });
     }
 
-    const { data: ver, error: vErr } = await admin
+    let verificationQuery = admin
       .from("cash_deposit_verifications")
       .select("id, deposit_request_id, user_id, amount, status")
-      .eq("id", verificationId)
-      .maybeSingle();
+      .limit(1);
+    verificationQuery = accountResend
+      ? verificationQuery.eq("deposit_request_id", depositRequestId).eq("user_id", operator.id)
+      : verificationQuery.eq("id", verificationId);
+    const { data: verificationRows, error: vErr } = await verificationQuery;
+    const ver = verificationRows?.[0] ?? null;
     if (vErr) return json(400, { error: "lookup_failed", message: vErr.message });
-    if (!ver) return json(404, { error: "verification_not_found", message: "That deposit code session no longer exists." });
+    if (!ver) {
+      return json(404, {
+        error: "verification_not_found",
+        message: accountResend
+          ? "No cash deposit code was found for this signed-in account."
+          : "That deposit code session no longer exists.",
+      });
+    }
+    verificationId = String((ver as any).id);
     if ((ver as any).status === "verified") {
       return json(409, { error: "already_verified", message: "This deposit has already been verified." });
+    }
+
+    if (accountResend) {
+      const { data: deposit, error: depositError } = await admin
+        .from("deposit_requests")
+        .select("status, rejection_reason")
+        .eq("id", (ver as any).deposit_request_id)
+        .eq("user_id", operator.id)
+        .maybeSingle();
+      if (depositError || !deposit) {
+        return json(404, { error: "deposit_not_found", message: "This deposit does not belong to your account." });
+      }
+      const status = String((deposit as any).status ?? "");
+      const rejectionReason = String((deposit as any).rejection_reason ?? "").toLowerCase();
+      const expiredRejection = status === "rejected" && rejectionReason.includes("code expired");
+      if (status !== "pending" && !expiredRejection) {
+        return json(409, { error: "deposit_not_resendable", message: "A new code cannot be issued for this deposit." });
+      }
     }
 
     const { data: profile } = await admin
@@ -165,6 +202,7 @@ Deno.serve(async (req) => {
           amount,
           depositorName: (profile as any)?.full_name ?? null,
           depositRequestId: (ver as any).deposit_request_id,
+          expiresAt,
         });
         emailSent = res.sent;
         emailError = res.error;
@@ -194,6 +232,7 @@ Deno.serve(async (req) => {
             ? deliveredChannels.map((c) => String(c).toLowerCase()).join("+")
             : "failed",
           reissued_by: operator.id,
+          account_self_resend: accountResend,
           depositor_phone: smsPhone,
           depositor_email: emailAddress,
           email_sent: emailSent,

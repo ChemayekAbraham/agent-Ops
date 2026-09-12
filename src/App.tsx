@@ -184,6 +184,7 @@ const StopSms = lazy(() => import('./pages/StopSms'));
 const PublicRequisitionForm = lazy(() => import('./pages/PublicRequisitionForm'));
 const PayoutReceipt = lazy(() => import('./pages/PayoutReceipt'));
 const ResumeSms = lazy(() => import('./pages/ResumeSms'));
+const ResendCashDepositCode = lazy(() => import('./pages/ResendCashDepositCode'));
 const HouseDetail = lazy(() => import('./pages/HouseDetail'));
 const ShopEntry = lazy(() => import('./pages/ShopEntry'));
 const ManagerLogin = lazy(() => import('./pages/ManagerLogin'));
@@ -452,6 +453,7 @@ function AppRoutes() {
           <Route path="/budgets" element={<DepartmentBudgets />} />
           <Route path="/receipt/:id" element={<PayoutReceipt />} />
           <Route path="/resume-sms" element={<ResumeSms />} />
+          <Route path="/cash-deposit/resend" element={<ResendCashDepositCode />} />
           <Route path="/r/:code" element={<ResolveRLink />} />
           <Route path="/s/:code" element={<TrackedRedirect />} />
           <Route path="/t/:token" element={<TenantDashboardLandingPage />} />

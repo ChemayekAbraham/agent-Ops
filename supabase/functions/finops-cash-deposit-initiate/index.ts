@@ -249,6 +249,7 @@ Deno.serve(async (req) => {
           depositorName: (depositor as any).full_name ?? null,
           cashOwnerName,
           depositRequestId: depositId,
+          expiresAt: (verRow as any)?.expires_at,
         });
         emailSent = res.sent;
         emailError = res.error;
