@@ -99,15 +99,18 @@ export function PaymentsByLocationPanel() {
   const drillInto = (row: PaymentsLocationRow) => {
     if (!NEXT_LEVEL[level]) return;
     setReceiptsFor(null);
+    // Carry only the keys for the levels actually drilled through. Group rows
+    // also echo one arbitrary member's deeper fields (e.g. a country row may
+    // carry region/district_id of a single payment); inheriting those would
+    // over-filter the next level and show an empty result.
     setPath((p) => [
       ...p,
       {
         level,
         label: row.label,
-        country: level === 'country' ? row.label : (current?.country ?? row.country ?? null),
-        region: level === 'region' ? row.label : (current?.region ?? row.region ?? null),
-        districtId:
-          level === 'district' ? row.district_id : (current?.districtId ?? row.district_id ?? null),
+        country: level === 'country' ? row.label : (current?.country ?? null),
+        region: level === 'region' ? row.label : (current?.region ?? null),
+        districtId: level === 'district' ? row.district_id : (current?.districtId ?? null),
         subcountyId: level === 'subcounty' ? row.subcounty_id : (current?.subcountyId ?? null),
       },
     ]);
