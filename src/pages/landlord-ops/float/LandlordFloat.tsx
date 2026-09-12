@@ -460,6 +460,20 @@ function ServerPayoutTable({
     [geoRows, country, region],
   );
 
+  // Locate a place by any part of its recorded location details and jump the
+  // register straight to its payouts. Matching runs over the already-loaded
+  // grouped totals; nothing is recalculated.
+  const locMatches = useMemo(() => {
+    const q = locSearch.trim().toLowerCase();
+    if (!q) return [];
+    return geoRows
+      .filter((r) =>
+        `${r.district} ${r.region} ${r.country}`.toLowerCase().includes(q),
+      )
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 20);
+  }, [geoRows, locSearch]);
+
   const geoBreakdown = geoPageQuery.data?.rows ?? [];
   const geoTotalRows = geoPageQuery.data?.total_count ?? 0;
   const geoPageCount = Math.max(1, Math.ceil(geoTotalRows / GEO_PAGE_SIZE));
