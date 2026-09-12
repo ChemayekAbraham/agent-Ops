@@ -21,7 +21,7 @@ import { toast } from 'sonner';
  * rather than landing on a broken persona screen.
  */
 export default function DashboardRedirect() {
-  const { user, role, roles, loading } = useAuth();
+  const { user, role, roles, loading, rolesResolved } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,9 +58,21 @@ export default function DashboardRedirect() {
     };
 
     // No roles at all → onboarding picker. This is the lost-roles case.
+    //
+    // Only act on a DEFINITIVE empty answer. A transient failure right after
+    // sign-in (token refresh in flight, slow first request) used to land users
+    // with full roles on the "Dashboard not available" picker. While the role
+    // lookup is unresolved we hold on the loading screen; if it never resolves
+    // we fall through to the picker after a bounded wait.
     if (roles.length === 0) {
-      navigate('/select-role', { replace: true, state: { reason: 'no-roles' } });
-      return;
+      if (rolesResolved) {
+        navigate('/select-role', { replace: true, state: { reason: 'no-roles' } });
+        return;
+      }
+      const unresolvedTimer = setTimeout(() => {
+        navigate('/select-role', { replace: true, state: { reason: 'no-roles' } });
+      }, 6000);
+      return () => clearTimeout(unresolvedTimer);
     }
 
     // Detect whether the local prefs file actually has explicit routing
@@ -198,7 +210,7 @@ export default function DashboardRedirect() {
 
     fallback();
     }
-  }, [loading, user, role, roles, pathHint, queryHint, hasUnknownPathSlug, navigate]);
+  }, [loading, user, role, roles, rolesResolved, pathHint, queryHint, hasUnknownPathSlug, navigate]);
 
   // While auth resolves, show the same skeleton the dashboard uses so
   // there is no flash of empty content.
