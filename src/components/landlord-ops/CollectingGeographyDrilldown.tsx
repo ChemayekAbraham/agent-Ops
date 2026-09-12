@@ -460,7 +460,7 @@ export default function CollectingGeographyDrilldown() {
             <tbody>
               {groupRows.length === 0 && (
                 <tr>
-                  <td className="px-3 py-3 text-muted-foreground" colSpan={7}>
+                  <td className="px-3 py-3 text-muted-foreground" colSpan={8}>
                     Nothing is being collected here.
                   </td>
                 </tr>
