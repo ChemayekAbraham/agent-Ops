@@ -204,6 +204,13 @@
       "when": 1789219414503,
       "tag": "0028_engrep_session_views_security_invoker_true",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1789219453034,
+      "tag": "0029_engrep_sessions_empty_array_fix",
+      "breakpoints": true
     }
   ]
 }
