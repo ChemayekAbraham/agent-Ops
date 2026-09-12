@@ -793,5 +793,6 @@ export default function CollectingGeographyDrilldown() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }
