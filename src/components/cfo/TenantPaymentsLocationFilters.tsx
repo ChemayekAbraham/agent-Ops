@@ -531,20 +531,42 @@ export function TenantPaymentsLocationFilters() {
 
         {/* Payments that match the active filters (always shown; village filter narrows further) */}
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {sel.village ? `Payments — ${sel.village}` : 'Payments matching your filters'}
-            </h4>
-            {receipts.data && (
-              <>
-                <Badge variant="outline" className="px-2 py-0 text-[10px] font-mono">
-                  {formatUGX(receipts.data.total)}
-                </Badge>
-                <Badge variant="outline" className="px-2 py-0 text-[10px]">
-                  <Users className="mr-1 h-3 w-3" />
-                  {receipts.data.tenant_count} tenants
-                </Badge>
-              </>
+          <div className="space-y-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {sel.village
+                  ? `Payments — ${sel.village}`
+                  : sel.subcountyLabel
+                    ? `Payments — ${sel.subcountyLabel}`
+                    : sel.districtLabel
+                      ? `Payments — ${sel.districtLabel}`
+                      : sel.region
+                        ? `Payments — ${sel.region}`
+                        : sel.country
+                          ? `Payments — ${sel.country}`
+                          : 'All filtered payments'}
+              </h4>
+              {receipts.data && (
+                <>
+                  <Badge variant="outline" className="px-2 py-0 text-[10px] font-mono">
+                    {formatUGX(receipts.data.total)}
+                  </Badge>
+                  <Badge variant="outline" className="px-2 py-0 text-[10px]">
+                    <Users className="mr-1 h-3 w-3" />
+                    {receipts.data.tenant_count} tenants
+                  </Badge>
+                </>
+              )}
+            </div>
+            {(method !== ALL || from !== isoDaysAgo(30) || to !== new Date().toISOString().slice(0, 10)) && (
+              <p className="text-[10px] text-muted-foreground">
+                {[
+                  method !== ALL ? (METHOD_LABEL[method] ?? method) : null,
+                  from && to ? `${format(new Date(from), 'dd MMM yyyy')} – ${format(new Date(to), 'dd MMM yyyy')}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
             )}
           </div>
           {receipts.isLoading && (
