@@ -1804,6 +1804,7 @@ export default function LandlordFloat() {
           const horizonDays = 365;
           const daily = collecting.rows.reduce((sum, r) => sum + (r.daily_repayment || 0), 0);
           const projected = Math.round(daily * horizonDays);
+          const houses = collecting.rows.length;
           const empty = collecting.expected.plans === 0;
           return (
             <button
@@ -1825,7 +1826,9 @@ export default function LandlordFloat() {
                   <p className="mt-2 text-xl font-bold tabular-nums leading-tight text-emerald-700 dark:text-emerald-400">
                     {formatUGX(projected)}
                   </p>
-                  <p className="mt-1 text-xs font-medium text-muted-foreground">Next 12 months projection</p>
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">
+                    Next 12 months projection · {houses.toLocaleString()} house{houses === 1 ? '' : 's'}
+                  </p>
                   <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
                     {formatUGX(daily)} a day × 365 days
                   </p>
