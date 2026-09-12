@@ -15,6 +15,13 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -25,6 +32,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   useLandlordFloatOverview,
   useLandlordFloatDrilldown,
+  useLandlordFloatNeededGeo,
   type LandlordFloatDrilldownKind,
 } from '@/hooks/useLandlordFloatOverview';
 
@@ -262,6 +270,18 @@ const WAITING_COLUMNS: DrillColumn[] = [
   { key: 'created_at', label: 'Requested', type: 'date' },
 ];
 
+const NEEDED_DISTRICT_COLUMNS: DrillColumn[] = [
+  { key: 'source', label: 'Source', type: 'badge' },
+  { key: 'name', label: 'House / Tenant' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'agent_name', label: 'Agent' },
+  { key: 'sub_county', label: 'Sub-county' },
+  { key: 'village', label: 'Village' },
+  { key: 'amount', label: 'Rent needed', type: 'ugx' },
+  { key: 'created_at', label: 'Recorded', type: 'date' },
+];
+
 const PAYOUT_COLUMNS: DrillColumn[] = [
   { key: 'landlord_name', label: 'Landlord' },
   { key: 'landlord_phone', label: 'Landlord phone' },
@@ -319,6 +339,164 @@ const ATTACHED_COLUMNS: DrillColumn[] = [
  * hint — so a permission denial, a missing function, or a bad request is
  * distinguishable at a glance.
  */
+/**
+ * Geographic breakdown of the float need: cascading Country -> Region ->
+ * District filters over the read-only geo RPC. Clicking a district opens the
+ * combined drill-down (empty houses + awaiting funding) for that district.
+ */
+function NeededByLocation({
+  onOpenDistrict,
+}: {
+  onOpenDistrict: (district: string) => void;
+}) {
+  const { data, isLoading, isError, error, refetch } = useLandlordFloatNeededGeo();
+  const [country, setCountry] = useState<string | null>(null);
+  const [region, setRegion] = useState<string | null>(null);
+
+  const rows = data ?? [];
+  const countries = [...new Set(rows.map((r) => r.country))].sort();
+  const regions = [
+    ...new Set(rows.filter((r) => !country || r.country === country).map((r) => r.region)),
+  ].sort();
+  const filtered = rows.filter(
+    (r) => (!country || r.country === country) && (!region || r.region === region),
+  );
+  const totals = filtered.reduce(
+    (acc, r) => ({
+      houses: acc.houses + r.houses,
+      amount: acc.amount + r.amount,
+    }),
+    { houses: 0, amount: 0 },
+  );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-8 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-lg border border-destructive/40 p-4">
+        <p className="text-sm font-medium text-destructive">
+          The geographic breakdown could not be loaded.
+        </p>
+        <ErrorDetails error={error} />
+        <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+          <RefreshCw className="mr-2 h-3.5 w-3.5" /> Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          value={country ?? 'all'}
+          onValueChange={(v) => {
+            setCountry(v === 'all' ? null : v);
+            setRegion(null);
+          }}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Country" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All countries</SelectItem>
+            {countries.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={region ?? 'all'} onValueChange={(v) => setRegion(v === 'all' ? null : v)}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Region" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All regions</SelectItem>
+            {regions.map((r) => (
+              <SelectItem key={r} value={r}>
+                {r}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(country || region) && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setCountry(null);
+              setRegion(null);
+            }}
+          >
+            Reset
+          </Button>
+        )}
+        <span className="ml-auto text-xs text-muted-foreground">
+          {totals.houses.toLocaleString()} houses ·{' '}
+          <span className="font-semibold text-foreground tabular-nums">
+            {formatUGX(totals.amount)}
+          </span>
+        </span>
+      </div>
+
+      <TableShell>
+        <thead className="bg-muted/40">
+          <tr>
+            <th className={TH}>District</th>
+            <th className={TH}>Region</th>
+            <th className={`${TH} text-right`}>Empty houses</th>
+            <th className={`${TH} text-right`}>Awaiting funding</th>
+            <th className={`${TH} text-right`}>Total needed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.length === 0 && (
+            <tr>
+              <td className={`${TD} text-muted-foreground`} colSpan={5}>
+                No float need recorded for this selection.
+              </td>
+            </tr>
+          )}
+          {filtered.map((r) => (
+            <tr
+              key={`${r.country}|${r.region}|${r.district}`}
+              className="border-t border-border/50 cursor-pointer hover:bg-muted/40"
+              tabIndex={0}
+              role="button"
+              onClick={() => onOpenDistrict(r.district)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onOpenDistrict(r.district);
+                }
+              }}
+            >
+              <td className={TD}>{r.district}</td>
+              <td className={`${TD} text-muted-foreground`}>{r.region}</td>
+              <td className={`${TD} text-right tabular-nums`}>
+                {r.empty_houses.toLocaleString()} · {formatUGX(r.empty_amount)}
+              </td>
+              <td className={`${TD} text-right tabular-nums`}>
+                {r.waiting_houses.toLocaleString()} · {formatUGX(r.waiting_amount)}
+              </td>
+              <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(r.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </TableShell>
+    </div>
+  );
+}
+
 function ErrorDetails({ error }: { error: unknown }) {
   if (!error) {
     return <p className="mt-1 text-sm text-muted-foreground">Unknown error — please try again.</p>;
@@ -534,59 +712,25 @@ export default function LandlordFloat() {
 
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Empty houses by district
+                  Float needed by location
                 </p>
-                <TableShell>
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className={TH}>District</th>
-                      <th className={`${TH} text-right`}>Houses</th>
-                      <th className={`${TH} text-right`}>Monthly rent</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {needed.by_district.length === 0 && (
-                      <tr>
-                        <td className={`${TD} text-muted-foreground`} colSpan={3}>
-                          No empty listed houses.
-                        </td>
-                      </tr>
-                    )}
-                    {needed.by_district.map((r) => (
-                      <tr
-                        key={r.district}
-                        className="border-t border-border/50 cursor-pointer hover:bg-muted/40"
-                        tabIndex={0}
-                        role="button"
-                        onClick={() =>
-                          setDrill({
-                            title: `Empty houses in ${r.district}`,
-                            description: 'Houses, landlords and listing agents in this district.',
-                            columns: EMPTY_HOUSE_COLUMNS,
-                            kind: 'empty_houses',
-                            filterKey: r.district,
-                          })
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setDrill({
-                              title: `Empty houses in ${r.district}`,
-                              description: 'Houses, landlords and listing agents in this district.',
-                              columns: EMPTY_HOUSE_COLUMNS,
-                              kind: 'empty_houses',
-                              filterKey: r.district,
-                            });
-                          }
-                        }}
-                      >
-                        <td className={TD}>{r.district}</td>
-                        <td className={`${TD} text-right tabular-nums`}>{r.houses.toLocaleString()}</td>
-                        <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(r.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </TableShell>
+                <p className="text-xs text-muted-foreground">
+                  Filter by country and region, then open any district to see the exact houses and
+                  tenants behind its need. Districts that match no approved location stay under
+                  Unmapped with their original spelling.
+                </p>
+                <NeededByLocation
+                  onOpenDistrict={(district) =>
+                    setDrill({
+                      title: `Float needed in ${district}`,
+                      description:
+                        'Empty listed houses and tenants still awaiting funding in this district.',
+                      columns: NEEDED_DISTRICT_COLUMNS,
+                      kind: 'needed_district',
+                      filterKey: district,
+                    })
+                  }
+                />
               </div>
 
               <div className="space-y-2">

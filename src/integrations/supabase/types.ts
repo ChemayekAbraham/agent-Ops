@@ -54841,6 +54841,7 @@ export type Database = {
         Args: { p_key?: string; p_kind: string }
         Returns: Json
       }
+      landlord_ops_float_needed_geo: { Args: never; Returns: Json }
       landlord_ops_float_overview: { Args: never; Returns: Json }
       landlord_ops_remove_tenant_from_house: {
         Args: { p_house_id: string; p_reason: string }

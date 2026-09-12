@@ -68,9 +68,41 @@ export interface LandlordFloatOverview {
 
 export type LandlordFloatDrilldownKind =
   | 'empty_houses'
+  | 'needed_district'
   | 'payouts'
   | 'portfolios'
   | 'attached_houses';
+
+/** One row of the geographic float-need breakdown (country/region/district). */
+export interface LandlordFloatNeededGeoRow {
+  country: string;
+  region: string;
+  district: string;
+  empty_houses: number;
+  empty_amount: number;
+  waiting_houses: number;
+  waiting_amount: number;
+  houses: number;
+  amount: number;
+}
+
+/**
+ * Read-only geographic breakdown of the float need. One SECURITY DEFINER RPC
+ * (`landlord_ops_float_needed_geo`) groups empty houses and awaiting-funding
+ * requests through the approved country -> region -> district hierarchy;
+ * unmatched legacy district text stays under Unmapped, unchanged.
+ */
+export function useLandlordFloatNeededGeo() {
+  return useQuery({
+    queryKey: ['landlord-ops-float-needed-geo'],
+    staleTime: 60_000,
+    queryFn: async (): Promise<LandlordFloatNeededGeoRow[]> => {
+      const { data, error } = await (supabase as any).rpc('landlord_ops_float_needed_geo');
+      if (error) throw error;
+      return ((data as any)?.rows ?? []) as LandlordFloatNeededGeoRow[];
+    },
+  });
+}
 
 /**
  * Read-only drill-down rows behind a Landlord Float total. One SECURITY DEFINER
