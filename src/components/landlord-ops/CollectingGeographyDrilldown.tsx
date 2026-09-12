@@ -1,0 +1,500 @@
+import { useMemo, useState } from 'react';
+import {
+  MapPin,
+  ChevronRight,
+  ChevronLeft,
+  Search,
+  Loader2,
+  AlertTriangle,
+  Home,
+  Phone,
+  User,
+  Navigation,
+  ImageOff,
+  FilterX,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import LocationMapPreview from '@/components/shared/LocationMapPreview';
+import { formatUGX } from '@/lib/rentCalculations';
+import {
+  useCollectingGeoPage,
+  nextCollectingLevel,
+  collectingPathKeyFor,
+  COLLECTING_GEO_LEVEL_LABELS,
+  type CollectingGeoPath,
+  type CollectingGeoGroupRow,
+  type CollectingGeoHouseRow,
+} from '@/hooks/useCollectingGeoDrilldown';
+
+const PAGE_SIZE = 25;
+
+const ORDER: Array<keyof CollectingGeoPath> = [
+  'country',
+  'region',
+  'district',
+  'county',
+  'subcounty',
+  'parish',
+  'village',
+];
+
+const LEVEL_OF_KEY: Record<keyof CollectingGeoPath, string> = {
+  country: 'Country',
+  region: 'Region',
+  district: 'District',
+  county: 'County',
+  subcounty: 'Sub-county',
+  parish: 'Parish',
+  village: 'Village / Cell',
+};
+
+function fmtDate(v: string | null) {
+  if (!v) return '—';
+  return new Date(v).toLocaleDateString('en-GB', {
+    timeZone: 'Africa/Kampala',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="truncate text-sm font-medium">{value ?? '—'}</p>
+    </div>
+  );
+}
+
+function PhoneLine({ label, name, phone }: { label: string; name?: string | null; phone?: string | null }) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="truncate text-sm font-medium">{name || '—'}</p>
+      </div>
+      {phone ? (
+        <a
+          href={`tel:${phone}`}
+          className="inline-flex shrink-0 items-center gap-1 text-sm text-primary hover:underline"
+        >
+          <Phone className="h-3.5 w-3.5" />
+          {phone}
+        </a>
+      ) : (
+        <span className="shrink-0 text-sm text-muted-foreground">No phone</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Read-only holistic geographic drilldown for landlord float being collected:
+ * Country → Region → District → County → Sub-county → Parish → Village/Cell → House,
+ * ending at the house itself with its photo, GPS, landlord, tenant and agent contacts.
+ *
+ * Every figure comes from `landlord_ops_collecting_geo_page`. Nothing is written and
+ * recorded location text is never rewritten — unmatched spellings show as "Unmapped".
+ */
+export default function CollectingGeographyDrilldown() {
+  const [path, setPath] = useState<CollectingGeoPath>({});
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const [openHouse, setOpenHouse] = useState<CollectingGeoHouseRow | null>(null);
+
+  const level = nextCollectingLevel(path);
+  const { data, isLoading, isFetching, error } = useCollectingGeoPage(path, {
+    search,
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  });
+
+  const totals = data?.totals;
+  const totalRows = data?.total_rows ?? 0;
+  const pages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+
+  const trail = useMemo(
+    () => ORDER.filter((k) => path[k]).map((k) => ({ key: k, value: path[k] as string })),
+    [path],
+  );
+
+  const setLevelValue = (key: keyof CollectingGeoPath, value: string) => {
+    setPath((prev) => ({ ...prev, [key]: value }));
+    setSearch('');
+    setPage(0);
+  };
+
+  const truncateTo = (key: keyof CollectingGeoPath | null) => {
+    if (!key) {
+      setPath({});
+    } else {
+      const stop = ORDER.indexOf(key);
+      const next: CollectingGeoPath = {};
+      ORDER.forEach((k, i) => {
+        if (i <= stop && path[k]) next[k] = path[k];
+      });
+      setPath(next);
+    }
+    setSearch('');
+    setPage(0);
+  };
+
+  const groupRows = level !== 'houses' ? ((data?.rows ?? []) as CollectingGeoGroupRow[]) : [];
+  const houseRows = level === 'houses' ? ((data?.rows ?? []) as CollectingGeoHouseRow[]) : [];
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <MapPin className="h-4 w-4 text-primary" />
+            Where the money is being collected from
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Drill from country down to the exact house — {COLLECTING_GEO_LEVEL_LABELS[level]} shown now.
+            Places we cannot match to an approved location appear as “Unmapped” with the recorded spelling kept.
+          </p>
+        </div>
+        {isFetching && !isLoading && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Updating
+          </span>
+        )}
+      </div>
+
+      {/* Breadcrumbs */}
+      <div className="flex flex-wrap items-center gap-1 text-xs">
+        <button
+          type="button"
+          onClick={() => truncateTo(null)}
+          className="rounded px-2 py-1 font-medium hover:bg-muted"
+        >
+          Everywhere
+        </button>
+        {trail.map((t) => (
+          <span key={t.key} className="flex items-center gap-1">
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+            <button
+              type="button"
+              onClick={() => truncateTo(t.key)}
+              className="rounded px-2 py-1 hover:bg-muted"
+              title={LEVEL_OF_KEY[t.key]}
+            >
+              {t.value}
+            </button>
+          </span>
+        ))}
+        {trail.length > 0 && (
+          <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => truncateTo(null)}>
+            <FilterX className="h-3.5 w-3.5" /> Reset
+          </Button>
+        )}
+      </div>
+
+      {/* Totals for the current place */}
+      <div className="grid gap-2 sm:grid-cols-4">
+        {[
+          { label: 'Live rent plans', value: (totals?.plans ?? 0).toLocaleString() },
+          { label: 'Expected total', value: formatUGX(totals?.contracted ?? 0) },
+          { label: 'Collected', value: formatUGX(totals?.collected ?? 0) },
+          { label: 'Outstanding', value: formatUGX(totals?.outstanding ?? 0) },
+        ].map((t) => (
+          <div key={t.label} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t.label}</p>
+            <p className="truncate text-sm font-semibold tabular-nums">{t.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(0);
+          }}
+          placeholder={
+            level === 'houses'
+              ? 'Search house, tenant, landlord, agent or phone'
+              : `Search ${COLLECTING_GEO_LEVEL_LABELS[level].toLowerCase()}`
+          }
+          className="pl-8"
+        />
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+          <span className="min-w-0">{(error as { message?: string })?.message || 'Could not load this location.'}</span>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : level !== 'houses' ? (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                  {COLLECTING_GEO_LEVEL_LABELS[level]}
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Plans</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Expected</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Collected</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Outstanding</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Daily</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody>
+              {groupRows.length === 0 && (
+                <tr>
+                  <td className="px-3 py-3 text-muted-foreground" colSpan={7}>
+                    Nothing is being collected here.
+                  </td>
+                </tr>
+              )}
+              {groupRows.map((r) => (
+                <tr
+                  key={r.label}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    const key = collectingPathKeyFor(level);
+                    if (key) setLevelValue(key, r.label);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      const key = collectingPathKeyFor(level);
+                      if (key) setLevelValue(key, r.label);
+                    }
+                  }}
+                  className="cursor-pointer border-t border-border/50 hover:bg-muted/40"
+                >
+                  <td className="px-3 py-2">
+                    <span className="flex items-center gap-2">
+                      <span className="font-medium">{r.label}</span>
+                      {r.unmatched && (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700"
+                        >
+                          Unmapped
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {r.houses.toLocaleString()} house{r.houses === 1 ? '' : 's'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">{r.plans.toLocaleString()}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatUGX(r.contracted)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {formatUGX(r.collected)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium tabular-nums">{formatUGX(r.outstanding)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatUGX(r.daily_repayment)}</td>
+                  <td className="px-2 py-2 text-muted-foreground">
+                    <ChevronRight className="h-4 w-4" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {houseRows.length === 0 && (
+            <p className="text-sm text-muted-foreground">No houses are being collected from here.</p>
+          )}
+          {houseRows.map((h) => (
+            <button
+              key={h.rent_request_id}
+              type="button"
+              onClick={() => setOpenHouse(h)}
+              className="overflow-hidden rounded-lg border border-border bg-background text-left transition hover:border-primary/40 hover:shadow-sm"
+            >
+              <div className="relative h-32 w-full bg-muted">
+                {h.house_image_url ? (
+                  <img
+                    src={h.house_image_url}
+                    alt={h.house_title || `House rented by ${h.tenant_name}`}
+                    loading="lazy"
+                    className="h-32 w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-32 w-full items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <ImageOff className="h-4 w-4" /> No house photo
+                  </span>
+                )}
+                {h.latitude != null && h.longitude != null && (
+                  <Badge className="absolute right-2 top-2 gap-1 bg-background/90 text-[10px] text-foreground">
+                    <Navigation className="h-3 w-3" /> GPS
+                  </Badge>
+                )}
+              </div>
+              <div className="space-y-2 p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {h.house_title || h.house_address || 'House on this plan'}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[h.village, h.parish, h.subcounty, h.district].filter((v) => v && v !== 'Unmapped').join(', ') ||
+                      'Location not recorded'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Tenant" value={h.tenant_name} />
+                  <Field label="Agent" value={h.agent_name || 'No agent'} />
+                  <Field label="Landlord" value={h.landlord_name} />
+                  <Field label="Outstanding" value={formatUGX(h.outstanding)} />
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>
+          {totalRows.toLocaleString()} {level === 'houses' ? 'house' : COLLECTING_GEO_LEVEL_LABELS[level].toLowerCase()}
+          {totalRows === 1 ? '' : 's'} · page {page + 1} of {pages}
+        </span>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1 px-2"
+            disabled={page === 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Back
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1 px-2"
+            disabled={page + 1 >= pages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* House detail */}
+      <Dialog open={!!openHouse} onOpenChange={(o) => !o && setOpenHouse(null)}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Home className="h-4 w-4 text-primary" />
+              {openHouse?.house_title || openHouse?.house_address || 'House being collected from'}
+            </DialogTitle>
+            <DialogDescription>
+              {[
+                openHouse?.village,
+                openHouse?.parish,
+                openHouse?.subcounty,
+                openHouse?.county,
+                openHouse?.district,
+                openHouse?.region,
+                openHouse?.country,
+              ]
+                .filter((v) => v && v !== 'Unmapped')
+                .join(' · ') || 'Location not recorded'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {openHouse && (
+            <div className="space-y-4">
+              {openHouse.house_image_url ? (
+                <img
+                  src={openHouse.house_image_url}
+                  alt={openHouse.house_title || `House rented by ${openHouse.tenant_name}`}
+                  className="max-h-64 w-full rounded-lg object-cover"
+                />
+              ) : (
+                <div className="flex h-32 items-center justify-center gap-2 rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+                  <ImageOff className="h-4 w-4" /> No house photo recorded
+                </div>
+              )}
+
+              {openHouse.latitude != null && openHouse.longitude != null ? (
+                <LocationMapPreview lat={Number(openHouse.latitude)} lng={Number(openHouse.longitude)} />
+              ) : (
+                <p className="text-xs text-muted-foreground">No GPS point recorded for this house.</p>
+              )}
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Field label="Address" value={openHouse.house_address || '—'} />
+                <Field label="Plan status" value={openHouse.status} />
+                <Field label="Rent paid to landlord" value={formatUGX(openHouse.rent_amount)} />
+                <Field label="Funded" value={fmtDate(openHouse.funded_at)} />
+                <Field label="Expected total" value={formatUGX(openHouse.contracted)} />
+                <Field label="Collected" value={formatUGX(openHouse.collected)} />
+                <Field label="Outstanding" value={formatUGX(openHouse.outstanding)} />
+                <Field label="Daily amount" value={formatUGX(openHouse.daily_repayment)} />
+              </div>
+
+              <div className="space-y-2">
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <User className="h-3.5 w-3.5" /> People on this house
+                </p>
+                <PhoneLine label="Tenant" name={openHouse.tenant_name} phone={openHouse.tenant_phone} />
+                <PhoneLine label="Agent" name={openHouse.agent_name} phone={openHouse.agent_phone} />
+                <PhoneLine label="Landlord" name={openHouse.landlord_name} phone={openHouse.landlord_phone} />
+                {(openHouse.mobile_money_name || openHouse.mobile_money_number) && (
+                  <PhoneLine
+                    label="Landlord mobile money"
+                    name={openHouse.mobile_money_name}
+                    phone={openHouse.mobile_money_number}
+                  />
+                )}
+                {(openHouse.caretaker_name || openHouse.caretaker_phone) && (
+                  <PhoneLine
+                    label="Caretaker"
+                    name={openHouse.caretaker_name}
+                    phone={openHouse.caretaker_phone}
+                  />
+                )}
+                {(openHouse.lc1_chairperson_name || openHouse.lc1_chairperson_phone) && (
+                  <PhoneLine
+                    label="LC1 chairperson"
+                    name={openHouse.lc1_chairperson_name}
+                    phone={openHouse.lc1_chairperson_phone}
+                  />
+                )}
+              </div>
+
+              {!openHouse.geo_official && (
+                <p className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700">
+                  This location was matched from recorded text only, so parts of it show as “Unmapped”. The recorded
+                  spelling is kept exactly as captured.
+                </p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
