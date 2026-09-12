@@ -652,13 +652,14 @@ function TenantProductsServicesDailyReport() {
 }
 
 export function TenantProductsServicesReport() {
-  const [tab, setTab] = useState<'daily' | 'projections'>('daily');
+  const [tab, setTab] = useState<'daily' | 'projections' | 'collections-forecast'>('daily');
 
   return (
-    <Tabs value={tab} onValueChange={(v) => setTab(v as 'daily' | 'projections')} className="space-y-3">
+    <Tabs value={tab} onValueChange={(v) => setTab(v as 'daily' | 'projections' | 'collections-forecast')} className="space-y-3">
       <TabsList className="h-8">
         <TabsTrigger value="daily" className="h-7 text-[11px]">Daily Report</TabsTrigger>
         <TabsTrigger value="projections" className="h-7 text-[11px]">Projections</TabsTrigger>
+        <TabsTrigger value="collections-forecast" className="h-7 text-[11px]">Collections Forecast</TabsTrigger>
       </TabsList>
       <TabsContent value="daily" className="mt-0">
         <TenantProductsServicesDailyReport />
@@ -667,6 +668,13 @@ export function TenantProductsServicesReport() {
         {tab === 'projections' && (
           <Suspense fallback={<Skeleton className="h-[320px] rounded-xl" />}>
             <TenantProductsProjections />
+          </Suspense>
+        )}
+      </TabsContent>
+      <TabsContent value="collections-forecast" className="mt-0">
+        {tab === 'collections-forecast' && (
+          <Suspense fallback={<Skeleton className="h-[320px] rounded-xl" />}>
+            <CollectionsProjectionPanel />
           </Suspense>
         )}
       </TabsContent>
