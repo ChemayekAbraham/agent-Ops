@@ -359,6 +359,7 @@ function ServerPayoutTable({
   const [geoSort, setGeoSort] = useState('amount');
   const [geoDir, setGeoDir] = useState<SortDir>('desc');
   const [sourceId, setSourceId] = useState<string | null>(null);
+  const [locSearch, setLocSearch] = useState('');
 
   const toggleGeoSort = (key: string) => {
     if (key === geoSort) {
@@ -459,6 +460,20 @@ function ServerPayoutTable({
       ).sort(),
     [geoRows, country, region],
   );
+
+  // Locate a place by any part of its recorded location details and jump the
+  // register straight to its payouts. Matching runs over the already-loaded
+  // grouped totals; nothing is recalculated.
+  const locMatches = useMemo(() => {
+    const q = locSearch.trim().toLowerCase();
+    if (!q) return [];
+    return geoRows
+      .filter((r) =>
+        `${r.district} ${r.region} ${r.country}`.toLowerCase().includes(q),
+      )
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 20);
+  }, [geoRows, locSearch]);
 
   const geoBreakdown = geoPageQuery.data?.rows ?? [];
   const geoTotalRows = geoPageQuery.data?.total_count ?? 0;
@@ -577,6 +592,53 @@ function ServerPayoutTable({
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="relative space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Find a location
+          </label>
+          <DrillSearch
+            value={locSearch}
+            onChange={setLocSearch}
+            placeholder="District, region, country…"
+          />
+          {locSearch.trim() !== '' && (
+            <div className="absolute left-0 top-[58px] z-20 w-[280px] overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+              {locMatches.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  No location matches that spelling.
+                </p>
+              ) : (
+                <ul className="max-h-[240px] overflow-y-auto py-1">
+                  {locMatches.map((m) => (
+                    <li key={`${m.country}|${m.region}|${m.district}`}>
+                      <button
+                        type="button"
+                        className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-muted/60"
+                        onClick={() => {
+                          setCountry(m.country);
+                          setRegion(m.region);
+                          setDistrict(m.district);
+                          setLocSearch('');
+                        }}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{m.district}</span>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {m.region} · {m.country} · {m.payouts.toLocaleString()} payout
+                            {m.payouts === 1 ? '' : 's'}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold tabular-nums">
+                          {formatUGX(m.amount)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
         {isFiltered && (
           <Button
