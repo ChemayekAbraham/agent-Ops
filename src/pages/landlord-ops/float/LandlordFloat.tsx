@@ -359,6 +359,7 @@ function ServerPayoutTable({
   const [geoSort, setGeoSort] = useState('amount');
   const [geoDir, setGeoDir] = useState<SortDir>('desc');
   const [sourceId, setSourceId] = useState<string | null>(null);
+  const [locSearch, setLocSearch] = useState('');
 
   const toggleGeoSort = (key: string) => {
     if (key === geoSort) {
