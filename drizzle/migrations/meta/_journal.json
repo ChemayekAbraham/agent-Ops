@@ -225,6 +225,13 @@
       "when": 1789220219837,
       "tag": "0031_landlord_payouts_geo_page_and_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1789220321129,
+      "tag": "0032_landlord_payouts_geo_page_no_temp_table",
+      "breakpoints": true
     }
   ]
 }
