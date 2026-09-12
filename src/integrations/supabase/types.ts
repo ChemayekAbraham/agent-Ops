@@ -12878,7 +12878,9 @@ export type Database = {
           basis: string | null
           change_classes: string[]
           claimed_objects: string[]
+          claims_landed: number | null
           claims_schema: boolean
+          claims_total: number | null
           commit_subject: string
           committed_at: string | null
           edit_title: string | null
@@ -12913,7 +12915,9 @@ export type Database = {
           basis?: string | null
           change_classes?: string[]
           claimed_objects?: string[]
+          claims_landed?: number | null
           claims_schema?: boolean
+          claims_total?: number | null
           commit_subject: string
           committed_at?: string | null
           edit_title?: string | null
@@ -12948,7 +12952,9 @@ export type Database = {
           basis?: string | null
           change_classes?: string[]
           claimed_objects?: string[]
+          claims_landed?: number | null
           claims_schema?: boolean
+          claims_total?: number | null
           commit_subject?: string
           committed_at?: string | null
           edit_title?: string | null
@@ -55023,6 +55029,22 @@ export type Database = {
           p_house_id: string
           p_reason: string
           p_rent_request_id: string
+        }
+        Returns: Json
+      }
+      landlord_ops_collecting_geo_page: {
+        Args: {
+          p_country?: string
+          p_county?: string
+          p_district?: string
+          p_level?: string
+          p_limit?: number
+          p_offset?: number
+          p_parish?: string
+          p_region?: string
+          p_search?: string
+          p_subcounty?: string
+          p_village?: string
         }
         Returns: Json
       }

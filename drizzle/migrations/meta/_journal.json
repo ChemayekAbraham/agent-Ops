@@ -232,6 +232,27 @@
       "when": 1789220321129,
       "tag": "0032_landlord_payouts_geo_page_no_temp_table",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1789221462043,
+      "tag": "0033_landlord_float_collecting_geo_drilldown",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789221623903,
+      "tag": "0034_landlord_float_collecting_geo_richer_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1789222167499,
+      "tag": "0035_engrep_liveness_partial_credit",
+      "breakpoints": true
     }
   ]
 }
