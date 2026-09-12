@@ -319,17 +319,23 @@ export default function CollectingGeographyDrilldown() {
       <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-primary">
-              Projected collection · {horizon.label.toLowerCase()}
-            </p>
+            <ProjectionLabel
+              label={`Projected collection · ${horizon.label.toLowerCase()}`}
+              sublabel={
+                <>
+                  {formatUGX(totals?.daily_repayment ?? 0)} a day across{' '}
+                  {(totals?.plans ?? 0).toLocaleString()} live rent plan{(totals?.plans ?? 0) === 1 ? '' : 's'} ×{' '}
+                  {horizon.days.toLocaleString()} days
+                  {trail.length > 0 ? ` · ${trail[trail.length - 1].value}` : ' · everywhere'}
+                </>
+              }
+            />
             <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">
-              {formatUGX(Math.round((totals?.daily_repayment ?? 0) * horizon.days))}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formatUGX(totals?.daily_repayment ?? 0)} a day across{' '}
-              {(totals?.plans ?? 0).toLocaleString()} live rent plan{(totals?.plans ?? 0) === 1 ? '' : 's'} ×{' '}
-              {horizon.days.toLocaleString()} days
-              {trail.length > 0 ? ` · ${trail[trail.length - 1].value}` : ' · everywhere'}
+              <ProjectionValue
+                daily={totals?.daily_repayment ?? 0}
+                days={horizon.days}
+                label={horizon.label}
+              />
             </p>
           </div>
           <div className="flex flex-col gap-1">
