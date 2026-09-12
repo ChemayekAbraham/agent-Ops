@@ -103,6 +103,50 @@ function fmtDate(v: string | null) {
   });
 }
 
+const PROJECTION_EXPLANATION =
+  'Projected collection is calculated as the recorded daily expected amount multiplied by the number of days in the selected horizon. It is a straight projection — it does not stop at the outstanding balance or assume any missed day.';
+
+function ProjectionValue({
+  daily,
+  days,
+  label,
+}: {
+  daily: number;
+  days: number;
+  label?: string;
+}) {
+  const amount = Math.round(daily * days);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="cursor-help">{formatUGX(amount)}</span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        <p className="text-xs font-medium">{label ? `${label} projection` : 'Projected collection'}</p>
+        <p className="text-xs text-muted-foreground">
+          {formatUGX(daily)} a day × {days.toLocaleString()} days = {formatUGX(amount)}
+        </p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ProjectionLabel({ label, sublabel }: { label: string; sublabel?: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="block cursor-help">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-primary">{label}</span>
+          {sublabel && <span className="block text-xs text-muted-foreground">{sublabel}</span>}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        <p className="text-xs">{PROJECTION_EXPLANATION}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
