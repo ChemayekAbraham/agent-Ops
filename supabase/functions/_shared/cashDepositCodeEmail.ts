@@ -11,18 +11,18 @@ export interface CashDepositEmailResult {
   error: string | null;
 }
 
+export function maskDepositCode(raw: unknown): string {
+  const code = String(raw ?? "").replace(/\s/g, "");
+  if (!code) return "";
+  const visibleCharacters = Math.min(2, code.length);
+  return `${"•".repeat(code.length - visibleCharacters)}${code.slice(-visibleCharacters)}`;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function normalizeEmail(raw: unknown): string | null {
   const v = String(raw ?? "").trim().toLowerCase();
   return EMAIL_RE.test(v) ? v : null;
-}
-
-function maskDepositCode(raw: unknown): string {
-  const code = String(raw ?? "").replace(/\s/g, "");
-  if (!code) return "";
-  const visibleCharacters = Math.min(2, code.length);
-  return `${"•".repeat(code.length - visibleCharacters)}${code.slice(-visibleCharacters)}`;
 }
 
 /**
@@ -112,6 +112,7 @@ export async function sendCashDepositWalletConfirmationEmail(
     depositRequestId: string;
     depositedAt: string;
     referenceNumber: string;
+    receiptDownloadUrl?: string | null;
   },
 ): Promise<CashDepositEmailResult> {
   const {
@@ -123,6 +124,7 @@ export async function sendCashDepositWalletConfirmationEmail(
     depositRequestId,
     depositedAt,
     referenceNumber,
+    receiptDownloadUrl = null,
   } = params;
 
   try {
@@ -140,6 +142,7 @@ export async function sendCashDepositWalletConfirmationEmail(
           maskedDepositCode: maskDepositCode(receiptCode),
           depositedAt,
           referenceNumber,
+          receiptDownloadUrl,
         },
       },
     });
