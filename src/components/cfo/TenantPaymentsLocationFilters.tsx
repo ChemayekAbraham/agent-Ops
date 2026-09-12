@@ -4,9 +4,11 @@
 // authoritative reporting RPCs (get_payments_location_breakdown /
 // get_payments_location_receipts); nothing here touches payment or accounting
 // logic.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   MapPin,
   Receipt,
@@ -35,6 +37,7 @@ import {
 } from '@/hooks/usePaymentsByLocation';
 
 const ALL = '__all__';
+const RECEIPTS_PER_PAGE = 15;
 
 const METHOD_LABEL: Record<string, string> = {
   mobile_money: 'Mobile money',
