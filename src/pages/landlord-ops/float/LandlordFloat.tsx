@@ -39,7 +39,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
-import CollectingGeographyDrilldown from '@/components/landlord-ops/CollectingGeographyDrilldown';
+import CollectingGeographyDrilldown, {
+  HORIZONS as COLLECT_HORIZONS,
+  DEFAULT_HORIZON as COLLECT_DEFAULT_HORIZON,
+} from '@/components/landlord-ops/CollectingGeographyDrilldown';
 
 import {
   useLandlordFloatOverview,
@@ -1727,6 +1730,11 @@ export default function LandlordFloat() {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordFloatOverview();
   const [tab, setTab] = useState('needed');
   const [drill, setDrill] = useState<DrillTarget | null>(null);
+  // Shared projection horizon: the Being collected tile and its drilldown
+  // always show the same selected period.
+  const [collectHorizonKey, setCollectHorizonKey] = useState<string>(COLLECT_DEFAULT_HORIZON);
+  const collectHorizon =
+    COLLECT_HORIZONS.find((h) => h.key === collectHorizonKey) ?? COLLECT_HORIZONS[4];
   const [showPaidAllTime, setShowPaidAllTime] = useState(false);
 
   if (isLoading) {
