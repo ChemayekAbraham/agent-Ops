@@ -34,7 +34,6 @@ const TENANT_CATEGORY_LABEL = 'Tenant Products & Services';
 
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
-  const [openProduct, setOpenProduct] = useState<string | null>(null);
   const [productFilter, setProductFilter] = useState<string>(ALL_PRODUCTS);
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
   const total = useReceivablesTotal();
