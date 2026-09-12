@@ -1806,6 +1806,23 @@ export default function LandlordFloat() {
   const [tab, setTab] = useState('needed');
   const [drill, setDrill] = useState<DrillTarget | null>(null);
   const [showPaidAllTime, setShowPaidAllTime] = useState(false);
+  const [collectingHorizon, setCollectingHorizon] = useState(() => {
+    try {
+      const stored = localStorage.getItem(COLLECTING_HORIZON_KEY);
+      if (stored && COLLECTING_HORIZONS.some((h) => h.key === stored)) return stored;
+    } catch {
+      // localStorage may be unavailable in private mode; fall back to default.
+    }
+    return DEFAULT_COLLECTING_HORIZON;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLECTING_HORIZON_KEY, collectingHorizon);
+    } catch {
+      // ignore storage errors
+    }
+  }, [collectingHorizon]);
 
   if (isLoading) {
     return (
