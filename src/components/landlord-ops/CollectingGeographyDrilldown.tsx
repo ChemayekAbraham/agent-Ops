@@ -671,6 +671,26 @@ export default function CollectingGeographyDrilldown() {
                 <Field label="Daily amount" value={formatUGX(openHouse.daily_repayment)} />
               </div>
 
+              <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-primary">
+                  Projected collection from this house
+                </p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  {HORIZONS.map((h) => (
+                    <div key={h.key} className="min-w-0">
+                      <p className="text-[11px] text-muted-foreground">{h.label}</p>
+                      <p className="truncate text-sm font-semibold tabular-nums">
+                        {formatUGX(Math.round(openHouse.daily_repayment * h.days))}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Daily amount × days in each period. A straight projection — it does not stop at the
+                  outstanding balance or assume any missed day.
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <User className="h-3.5 w-3.5" /> People on this house
