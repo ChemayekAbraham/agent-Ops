@@ -451,6 +451,9 @@ export default function CollectingGeographyDrilldown() {
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Collected</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Outstanding</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Daily</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-primary">
+                  {horizon.label}
+                </th>
                 <th className="w-8" />
               </tr>
             </thead>
