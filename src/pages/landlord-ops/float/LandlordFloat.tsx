@@ -351,7 +351,156 @@ const ATTACHED_COLUMNS: DrillColumn[] = [
  * District filters over the read-only geo RPC. Clicking a district opens the
  * combined drill-down (empty houses + awaiting funding) for that district.
  */
+/**
+ * One-click mapping of an unmatched recorded spelling to an approved district.
+ * Records an alias only — the location text on the underlying house, landlord
+ * or tenant records is never rewritten.
+ */
+function MapDistrictDialog({
+  recordedText,
+  onClose,
+}: {
+  recordedText: string | null;
+  onClose: () => void;
+}) {
+  const { data: districts = [], isLoading } = useApprovedDistricts(!!recordedText);
+  const mapAlias = useMapDistrictAlias();
+  const [region, setRegion] = useState<string | null>(null);
+  const [districtId, setDistrictId] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
+
+  const regions = [...new Set(districts.map((d) => d.region ?? 'Unspecified'))].sort();
+  const districtChoices = districts.filter((d) => !region || (d.region ?? 'Unspecified') === region);
+  const reasonTooShort = reason.trim().length < 10;
+
+  const reset = () => {
+    setRegion(null);
+    setDistrictId(null);
+    setReason('');
+    mapAlias.reset();
+  };
+
+  return (
+    <Dialog
+      open={!!recordedText}
+      onOpenChange={(open) => {
+        if (!open) {
+          reset();
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-base">Map "{recordedText}" to a district</DialogTitle>
+          <DialogDescription>
+            This links the recorded spelling to an approved district so its houses and tenants show
+            under the right region. The spelling saved on the records themselves is left untouched.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Region</label>
+            <Select
+              value={region ?? ''}
+              onValueChange={(v) => {
+                setRegion(v);
+                setDistrictId(null);
+              }}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={isLoading ? 'Loading…' : 'Choose a region'} />
+              </SelectTrigger>
+              <SelectContent>
+                {regions.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">District</label>
+            <Select
+              value={districtId ?? ''}
+              onValueChange={setDistrictId}
+              disabled={isLoading || !region}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={region ? 'Choose a district' : 'Choose a region first'} />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {districtChoices.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              Why this mapping (at least 10 characters)
+            </label>
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. Recorded as a misspelling of Wakiso by the field agent"
+            />
+          </div>
+
+          {mapAlias.isError && (
+            <div className="rounded-lg border border-destructive/40 p-3">
+              <p className="text-sm font-medium text-destructive">This mapping was not saved.</p>
+              <ErrorDetails error={mapAlias.error} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={!districtId || reasonTooShort || mapAlias.isPending}
+            onClick={async () => {
+              if (!recordedText || !districtId) return;
+              try {
+                await mapAlias.mutateAsync({
+                  recordedText,
+                  districtId: Number(districtId),
+                  reason: reason.trim(),
+                });
+                reset();
+                onClose();
+              } catch {
+                /* error shown above */
+              }
+            }}
+          >
+            {mapAlias.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            Map district
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function NeededByLocation({
+
   onOpenDistrict,
 }: {
   onOpenDistrict: (row: LandlordFloatNeededGeoRow) => void;
