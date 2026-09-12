@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Home,
   Banknote,
@@ -10,9 +10,11 @@ import {
   ChevronRight,
   ChevronDown,
   MapPin,
+  FilterX,
 
 
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
