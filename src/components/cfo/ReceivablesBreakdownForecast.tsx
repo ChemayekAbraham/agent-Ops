@@ -12,8 +12,9 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -268,12 +269,43 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                   {isTenantCat ? (
                     <Dialog open={tenantModalOpen} onOpenChange={setTenantModalOpen}>
                       <DialogTrigger asChild>{categoryHeader}</DialogTrigger>
-                      <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-y-auto p-0">
-                        <DialogHeader className="px-4 pt-4 pb-2">
-                          <DialogTitle>{cat.label}</DialogTitle>
+                      <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-y-auto p-0 rounded-2xl border border-border/60 shadow-2xl">
+                        <DialogHeader className="px-6 pt-6 pb-2">
+                          <DialogTitle className="text-lg sm:text-xl">{cat.label}</DialogTitle>
+                          <DialogDescription>
+                            Payment activity by location and forward collections forecast for Rent Access Plans.
+                          </DialogDescription>
                         </DialogHeader>
-                        <div className="px-4 pb-4 space-y-4">
-                          <div className="space-y-1.5">{productList}</div>
+                        <div className="px-6 pb-8 space-y-6">
+                          <Card className="border-border/60">
+                            <CardContent className="p-4 sm:p-5">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                    Outstanding receivable
+                                  </p>
+                                  <p className="mt-1 text-2xl sm:text-3xl font-bold font-mono tabular-nums">
+                                    {formatUGX(shownOutstanding)}
+                                  </p>
+                                  <p className="mt-1 text-[11px] text-muted-foreground">
+                                    {itemCount} open {itemCount === 1 ? 'item' : 'items'} · {share.toFixed(1)}% of total receivables book
+                                  </p>
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                    Share of book
+                                  </p>
+                                  <p className="mt-1 text-xl font-bold font-mono tabular-nums">
+                                    {share.toFixed(1)}%
+                                  </p>
+                                  <Progress value={share} className="mt-2 h-1.5 w-24 sm:w-32" />
+                                </div>
+                              </div>
+                              <Separator className="my-4" />
+                              <div className="space-y-1.5">{productList}</div>
+                            </CardContent>
+                          </Card>
+
                           <TenantPaymentsLocationFilters />
                           <CollectionsProjectionPanel />
                         </div>
