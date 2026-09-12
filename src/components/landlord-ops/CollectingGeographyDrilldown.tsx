@@ -59,7 +59,7 @@ const PAGE_SIZE = 25;
  * repayment multiplied by the number of days in the chosen horizon — no
  * financial record is read differently or written.
  */
-const HORIZONS = [
+export const HORIZONS = [
   { key: '1w', label: 'Next 1 week', short: '1w', days: 7 },
   { key: '1m', label: 'Next 1 month', short: '1m', days: 30 },
   { key: '3m', label: 'Next 3 months', short: '3m', days: 91 },
