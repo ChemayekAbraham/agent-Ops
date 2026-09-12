@@ -36,6 +36,7 @@ const GRAN_OPTIONS: Array<{ value: ProjectionGranularity; label: string }> = [
   { value: 'week', label: 'Weekly' },
   { value: 'month', label: 'Monthly' },
   { value: 'quarter', label: 'Quarterly' },
+  { value: 'year', label: 'Yearly' },
 ];
 
 const HORIZON_PRESETS: Array<{ label: string; granularity: ProjectionGranularity; periods: number }> = [
@@ -44,6 +45,8 @@ const HORIZON_PRESETS: Array<{ label: string; granularity: ProjectionGranularity
   { label: 'Next 3 months', granularity: 'week', periods: 13 },
   { label: 'Next 6 months', granularity: 'month', periods: 6 },
   { label: 'Next 12 months', granularity: 'month', periods: 12 },
+  { label: 'Next 2 years', granularity: 'year', periods: 2 },
+  { label: 'Next 3 years', granularity: 'year', periods: 3 },
 ];
 
 const QUALITY_STYLE: Record<ProjectionQuality, string> = {
@@ -64,7 +67,7 @@ function bucketHistory(
   gran: ProjectionGranularity,
   buckets: number,
 ) {
-  const perDays = gran === 'day' ? 1 : gran === 'week' ? 7 : gran === 'month' ? 30 : 91;
+  const perDays = gran === 'day' ? 1 : gran === 'week' ? 7 : gran === 'month' ? 30 : gran === 'quarter' ? 91 : 365;
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
   const out: Array<{ label: string; amount: number }> = [];
   for (let i = sorted.length - 1; i >= 0 && out.length < buckets; i -= perDays) {
@@ -97,7 +100,7 @@ export function CollectionsProjectionPanel() {
     }));
     for (const p of data.periods) {
       rows.push({
-        label: p.period_start.slice(5),
+        label: p.label,
         actual: null,
         forecast: p.forecast_amount,
         high: p.high,

@@ -15,7 +15,7 @@ const AMBER: [number, number, number] = [180, 83, 9];
 const PURPLE: [number, number, number] = [124, 58, 237];
 
 const granTitle = (g: ProjectionGranularity) =>
-  g === 'day' ? 'Daily' : g === 'week' ? 'Weekly' : g === 'month' ? 'Monthly' : 'Quarterly';
+  g === 'day' ? 'Daily' : g === 'week' ? 'Weekly' : g === 'month' ? 'Monthly' : g === 'quarter' ? 'Quarterly' : 'Yearly';
 
 const qualityLabel: Record<string, string> = {
   high: 'High confidence',
