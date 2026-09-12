@@ -712,59 +712,25 @@ export default function LandlordFloat() {
 
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Empty houses by district
+                  Float needed by location
                 </p>
-                <TableShell>
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className={TH}>District</th>
-                      <th className={`${TH} text-right`}>Houses</th>
-                      <th className={`${TH} text-right`}>Monthly rent</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {needed.by_district.length === 0 && (
-                      <tr>
-                        <td className={`${TD} text-muted-foreground`} colSpan={3}>
-                          No empty listed houses.
-                        </td>
-                      </tr>
-                    )}
-                    {needed.by_district.map((r) => (
-                      <tr
-                        key={r.district}
-                        className="border-t border-border/50 cursor-pointer hover:bg-muted/40"
-                        tabIndex={0}
-                        role="button"
-                        onClick={() =>
-                          setDrill({
-                            title: `Empty houses in ${r.district}`,
-                            description: 'Houses, landlords and listing agents in this district.',
-                            columns: EMPTY_HOUSE_COLUMNS,
-                            kind: 'empty_houses',
-                            filterKey: r.district,
-                          })
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setDrill({
-                              title: `Empty houses in ${r.district}`,
-                              description: 'Houses, landlords and listing agents in this district.',
-                              columns: EMPTY_HOUSE_COLUMNS,
-                              kind: 'empty_houses',
-                              filterKey: r.district,
-                            });
-                          }
-                        }}
-                      >
-                        <td className={TD}>{r.district}</td>
-                        <td className={`${TD} text-right tabular-nums`}>{r.houses.toLocaleString()}</td>
-                        <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(r.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </TableShell>
+                <p className="text-xs text-muted-foreground">
+                  Filter by country and region, then open any district to see the exact houses and
+                  tenants behind its need. Districts that match no approved location stay under
+                  Unmapped with their original spelling.
+                </p>
+                <NeededByLocation
+                  onOpenDistrict={(district) =>
+                    setDrill({
+                      title: `Float needed in ${district}`,
+                      description:
+                        'Empty listed houses and tenants still awaiting funding in this district.',
+                      columns: NEEDED_DISTRICT_COLUMNS,
+                      kind: 'needed_district',
+                      filterKey: district,
+                    })
+                  }
+                />
               </div>
 
               <div className="space-y-2">
