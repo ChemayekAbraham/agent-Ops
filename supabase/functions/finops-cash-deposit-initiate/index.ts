@@ -233,6 +233,36 @@ Deno.serve(async (req) => {
       console.error("[finops-cash-initiate] sms failed", e);
     }
 
+    // ── Email the same code (operator asked for it, or SMS was refused) ──
+    let emailSent = false;
+    let emailAddress: string | null = null;
+    let emailError: string | null = null;
+    if (wantsEmail || !smsSent) {
+      emailAddress = await resolveDepositorEmail(admin, (depositor as any).id, emailOverride);
+      if (!emailAddress) {
+        emailError = "No email address on file for this depositor.";
+      } else {
+        const res = await sendCashDepositCodeEmail(admin, {
+          email: emailAddress,
+          code,
+          amount,
+          depositorName: (depositor as any).full_name ?? null,
+          cashOwnerName,
+          depositRequestId: depositId,
+        });
+        emailSent = res.sent;
+        emailError = res.error;
+        if (emailSent) {
+          await admin
+            .from("cash_deposit_verifications")
+            .update({ emailed_to: emailAddress } as any)
+            .eq("id", (verRow as any)?.id);
+        }
+      }
+    }
+
+    const deliveredChannels = [smsSent ? "SMS" : null, emailSent ? "email" : null].filter(Boolean);
+
     try {
       await admin.from("cash_deposit_verification_events").insert({
         verification_id: (verRow as any)?.id ?? null,
@@ -240,13 +270,18 @@ Deno.serve(async (req) => {
         user_id: (depositor as any).id,
         event_type: "code_issued",
         amount,
-        detail: smsSent
-          ? "Receipt code issued by Financial Ops and sent to the depositor by SMS (10-minute expiry)."
-          : "Receipt code issued by Financial Ops. SMS delivery was not accepted — read the code from the Cash Deposit Codes panel.",
+        detail: deliveredChannels.length
+          ? `Receipt code issued by Financial Ops and sent to the depositor by ${deliveredChannels.join(" and ")} (10-minute expiry).`
+          : "Receipt code issued by Financial Ops. SMS and email delivery were not accepted — read the code from the Cash Deposit Codes panel.",
         metadata: {
-          delivery: smsSent ? "sms" : "fin_ops_panel",
+          delivery: deliveredChannels.length
+            ? deliveredChannels.map((c) => String(c).toLowerCase()).join("+")
+            : "fin_ops_panel",
           initiated_by: operator.id,
           depositor_phone: smsPhone,
+          depositor_email: emailAddress,
+          email_sent: emailSent,
+          email_error: emailError,
           expires_at: (verRow as any)?.expires_at ?? null,
           max_attempts: (verRow as any)?.max_attempts ?? null,
           deposit_purpose: depositPurpose,
