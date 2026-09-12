@@ -40,7 +40,6 @@ import {
 } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
 import CollectingGeographyDrilldown, {
-  HORIZONS as COLLECTING_HORIZONS,
   DEFAULT_HORIZON,
 } from '@/components/landlord-ops/CollectingGeographyDrilldown';
 
