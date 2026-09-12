@@ -148,16 +148,39 @@ export function collectingPathKeyFor(level: CollectingGeoLevel): keyof Collectin
   }
 }
 
+export interface CollectingGeoSuggestion extends CollectingGeoPath {
+  kind: 'place' | 'house';
+  level: CollectingGeoLevel;
+  label: string;
+  plans: number;
+  outstanding: number;
+  detail: string | null;
+}
+
+/** Optional collection period (Kampala-local dates, inclusive). */
+export interface CollectingGeoPeriod {
+  from?: string | null;
+  to?: string | null;
+}
+
 export function useCollectingGeoPage(
   path: CollectingGeoPath,
-  opts: { search?: string; limit?: number; offset?: number; enabled?: boolean } = {},
+  opts: {
+    search?: string;
+    limit?: number;
+    offset?: number;
+    enabled?: boolean;
+    period?: CollectingGeoPeriod;
+  } = {},
 ) {
   const level = nextCollectingLevel(path);
-  const { search = '', limit = 25, offset = 0, enabled = true } = opts;
+  const { search = '', limit = 25, offset = 0, enabled = true, period } = opts;
   const q = search.trim() || null;
+  const from = period?.from || null;
+  const to = period?.to || null;
 
   return useQuery({
-    queryKey: ['landlord-collecting-geo', level, path, q, limit, offset],
+    queryKey: ['landlord-collecting-geo', level, path, q, limit, offset, from, to],
     enabled,
     staleTime: 60 * 1000,
     queryFn: async (): Promise<CollectingGeoPage> => {
@@ -175,10 +198,38 @@ export function useCollectingGeoPage(
           p_search: q,
           p_limit: limit,
           p_offset: offset,
+          p_from: from,
+          p_to: to,
         },
       );
       if (error) throw error;
       return data as CollectingGeoPage;
+    },
+  });
+}
+
+/**
+ * Autocomplete suggestions for the location search box: countries, regions,
+ * districts, counties, sub-counties, parishes, villages plus house / landlord /
+ * tenant / agent matches. Read-only.
+ */
+export function useCollectingGeoSuggestions(search: string, period?: CollectingGeoPeriod) {
+  const q = search.trim();
+  const from = period?.from || null;
+  const to = period?.to || null;
+
+  return useQuery({
+    queryKey: ['landlord-collecting-geo-suggest', q, from, to],
+    enabled: q.length >= 2,
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<CollectingGeoSuggestion[]> => {
+      const { data, error } = await (supabase.rpc as unknown as RpcFn)(
+        'landlord_ops_collecting_geo_suggest',
+        { p_search: q, p_limit: 12, p_from: from, p_to: to },
+      );
+      if (error) throw error;
+      const rows = (data as { suggestions?: CollectingGeoSuggestion[] } | null)?.suggestions ?? [];
+      return rows;
     },
   });
 }
