@@ -519,7 +519,14 @@ export default function CollectingGeographyDrilldown() {
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Outstanding</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Daily</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-primary">
-                  {horizon.label}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">{horizon.label}</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-xs">{PROJECTION_EXPLANATION}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </th>
                 <th className="w-8" />
               </tr>
