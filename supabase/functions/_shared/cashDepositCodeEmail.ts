@@ -93,3 +93,53 @@ export async function sendCashDepositCodeEmail(
     return { sent: false, email, error: String((e as Error)?.message ?? e) };
   }
 }
+
+export async function sendCashDepositWalletConfirmationEmail(
+  admin: any,
+  params: {
+    email: string;
+    amount: number;
+    newBalance?: number | null;
+    depositorName?: string | null;
+    receiptCode: string;
+    depositRequestId: string;
+  },
+): Promise<CashDepositEmailResult> {
+  const {
+    email,
+    amount,
+    newBalance = null,
+    depositorName,
+    receiptCode,
+    depositRequestId,
+  } = params;
+
+  try {
+    const { data, error } = await admin.functions.invoke("send-transactional-email", {
+      body: {
+        templateName: "cash-deposit-wallet-confirmation",
+        recipientEmail: email,
+        // The deposit request can only be credited once. Reusing its ID makes
+        // retries safe and prevents duplicate wallet-confirmation emails.
+        idempotencyKey: `cash-deposit-wallet-confirmation-${depositRequestId}`,
+        templateData: {
+          amountUgx: amount,
+          newBalanceUgx: newBalance,
+          depositorName: String(depositorName ?? "").split(" ")[0] || "there",
+          receiptCode,
+          creditedAt: new Date().toISOString(),
+        },
+      },
+    });
+    if (error || data?.success === false) {
+      return {
+        sent: false,
+        email,
+        error: String(error?.message ?? data?.reason ?? "Email was not accepted"),
+      };
+    }
+    return { sent: true, email, error: null };
+  } catch (e) {
+    return { sent: false, email, error: String((e as Error)?.message ?? e) };
+  }
+}
