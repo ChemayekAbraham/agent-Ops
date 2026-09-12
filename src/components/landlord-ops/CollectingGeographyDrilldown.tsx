@@ -566,6 +566,15 @@ export default function CollectingGeographyDrilldown() {
                   <Field label="Landlord" value={h.landlord_name} />
                   <Field label="Outstanding" value={formatUGX(h.outstanding)} />
                 </div>
+                <div className="rounded-md border border-primary/25 bg-primary/5 px-2.5 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-primary">{horizon.label}</p>
+                  <p className="text-sm font-semibold tabular-nums">
+                    {formatUGX(Math.round(h.daily_repayment * horizon.days))}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {formatUGX(h.daily_repayment)} a day × {horizon.days.toLocaleString()} days
+                  </p>
+                </div>
               </div>
             </button>
           ))}
