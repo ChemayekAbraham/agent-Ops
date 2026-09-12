@@ -7,6 +7,9 @@ export interface CashDepositReceiptData {
   depositedAt: string;
   referenceNumber: string;
   maskedDepositCode: string;
+  facilitatedRentVolume?: number | null;
+  platformServiceFees?: number | null;
+  transactionExpenses?: number | null;
 }
 
 const PURPLE = rgb(0.482, 0.098, 0.831);
@@ -111,24 +114,34 @@ export async function renderCashDepositReceipt(data: CashDepositReceiptData): Pr
   text(`Reference ${data.referenceNumber}`, LEFT, 659, 10.5, regular, MUTED);
   line(638);
 
-  page.drawSvgPath(roundedRectPath(LEFT, 493, RIGHT - LEFT, 116, 8), { color: PURPLE_SOFT });
-  centered("AMOUNT CREDITED", 576, 9, bold, PURPLE_DARK);
-  centered(formatUGX(data.amount), 535, 31, bold, PURPLE_DARK);
-  centered("Successfully added to your Welile Wallet", 510, 10, regular, SLATE);
+  page.drawSvgPath(roundedRectPath(LEFT, 510, RIGHT - LEFT, 99, 8), { color: PURPLE_SOFT });
+  centered("AMOUNT CREDITED", 579, 9, bold, PURPLE_DARK);
+  centered(formatUGX(data.amount), 543, 29, bold, PURPLE_DARK);
+  centered("Successfully added to your Welile Wallet", 521, 10, regular, SLATE);
 
-  text("RECEIPT DETAILS", LEFT, 451, 9, bold, PURPLE_DARK);
+  text("RECORDED BREAKDOWN", LEFT, 478, 9, bold, PURPLE_DARK);
+  const breakdown = (label: string, value: number | null | undefined, x: number) => {
+    text(label, x, 454, 8, bold, MUTED);
+    text(formatUGX(value), x, 435, 10.5, bold, INK);
+  };
+  breakdown("FACILITATED RENT VOLUME", data.facilitatedRentVolume, LEFT);
+  breakdown("PLATFORM SERVICE FEES", data.platformServiceFees, 235);
+  breakdown("TRANSACTION EXPENSES", data.transactionExpenses, 403);
+  line(416);
+
+  text("RECEIPT DETAILS", LEFT, 389, 9, bold, PURPLE_DARK);
   const detail = (label: string, value: string, y: number) => {
     text(label, LEFT, y, 8.5, bold, MUTED);
     text(value, LEFT, y - 20, 11.5, bold, INK);
     line(y - 38);
   };
-  detail("DEPOSITOR", data.depositorName || "Welile customer", 420);
-  detail("TRANSACTION DATE & TIME", kampalaDateTime(data.depositedAt), 355);
-  detail("DEPOSIT CODE", data.maskedDepositCode || "Not available", 290);
-  detail("AVAILABLE WALLET BALANCE", formatUGX(data.newBalance), 225);
+  detail("DEPOSITOR", data.depositorName || "Welile customer", 363);
+  detail("TRANSACTION DATE & TIME", kampalaDateTime(data.depositedAt), 308);
+  detail("DEPOSIT CODE", data.maskedDepositCode || "Not available", 253);
+  detail("AVAILABLE WALLET BALANCE", formatUGX(data.newBalance), 198);
 
-  centered("This receipt confirms that the cash deposit above was credited to the named Welile Wallet.", 134, 9.5, regular, SLATE);
-  centered("Keep this receipt and reference number for your records.", 117, 9.5, regular, SLATE);
+  centered("Breakdown values are shown only when recorded against this deposit.", 129, 9, regular, SLATE);
+  centered("Keep this receipt and reference number for your records.", 112, 9, regular, SLATE);
   centered("welileapp.com  |  support: +256 708 257 899", 80, 9, bold, PURPLE_DARK);
   centered("Turning rent into an asset.", 62, 8.5, regular, MUTED);
 

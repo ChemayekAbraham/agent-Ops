@@ -560,6 +560,33 @@ Deno.serve(async (req) => {
         const depositedAt = (depositRequest as any)?.transaction_date ||
           (depositRequest as any)?.approved_at || new Date().toISOString();
         const referenceNumber = `DEP-${depositId.slice(0, 8).toUpperCase()}`;
+        const { data: recordedLedgerRows, error: recordedLedgerError } = await admin
+          .from("general_ledger")
+          .select("amount, direction, category")
+          .or(`source_id.eq.${depositId},reference_id.eq.${depositId}`);
+        if (recordedLedgerError) {
+          console.error("[cash-verify-code] receipt breakdown lookup failed", recordedLedgerError);
+        }
+        const recordedRows = Array.isArray(recordedLedgerRows) ? recordedLedgerRows : [];
+        const sumRecorded = (categories: string[], direction: "cash_in" | "cash_out"): number | null => {
+          const matches = recordedRows.filter((row: any) =>
+            categories.includes(String(row?.category ?? "")) && row?.direction === direction
+          );
+          if (matches.length === 0) return null;
+          return matches.reduce((sum: number, row: any) => sum + Number(row?.amount ?? 0), 0);
+        };
+        const facilitatedRentVolume = sumRecorded([
+          "rent_disbursement", "pool_rent_deployment", "rent_payment_for_tenant",
+          "agent_float_used_for_rent",
+        ], "cash_out");
+        const platformServiceFees = sumRecorded([
+          "access_fee_collected", "registration_fee_collected", "tenant_access_fee",
+          "tenant_request_fee", "platform_service_income", "service_fee_revenue",
+          "landlord_platform_fee", "management_fee",
+        ], "cash_in");
+        const transactionExpenses = sumRecorded([
+          "platform_expense", "transaction_platform_expenses",
+        ], "cash_out");
         let receiptDownloadUrl: string | null = null;
         try {
           const receiptBytes = await renderCashDepositReceipt({
@@ -569,6 +596,9 @@ Deno.serve(async (req) => {
             depositedAt,
             referenceNumber,
             maskedDepositCode: maskDepositCode(enteredCode),
+            facilitatedRentVolume,
+            platformServiceFees,
+            transactionExpenses,
           });
           const receiptFilename = cashDepositReceiptFilename(referenceNumber);
           const receiptPath = `${depositorId}/${depositId}/${receiptFilename}`;
@@ -609,6 +639,9 @@ Deno.serve(async (req) => {
           depositedAt,
           referenceNumber,
           receiptDownloadUrl,
+          facilitatedRentVolume,
+          platformServiceFees,
+          transactionExpenses,
         });
         await logEvent(admin, {
           verification_id: ver.id,

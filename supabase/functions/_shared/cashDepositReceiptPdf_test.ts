@@ -9,6 +9,9 @@ Deno.test("cash deposit receipt renders a valid single-page PDF", async () => {
     depositedAt: "2026-09-12T09:30:00.000Z",
     referenceNumber: "DEP-5A7C91E2",
     maskedDepositCode: "••21",
+    facilitatedRentVolume: 4_500_000,
+    platformServiceFees: 350_000,
+    transactionExpenses: 150_000,
   });
 
   assert(bytes.length > 1_000);

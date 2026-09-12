@@ -27,6 +27,9 @@ interface CashDepositWalletConfirmationProps {
   supportWhatsapp?: string
   helpLink?: string
   receiptDownloadUrl?: string | null
+  facilitatedRentVolume?: number | null
+  platformServiceFees?: number | null
+  transactionExpenses?: number | null
 }
 
 const ugx = (amount: number | null | undefined): string =>
@@ -45,6 +48,9 @@ export function CashDepositWalletConfirmationEmail({
   supportWhatsapp = '+256708257899',
   helpLink = 'https://welileapp.com/help',
   receiptDownloadUrl = null,
+  facilitatedRentVolume = null,
+  platformServiceFees = null,
+  transactionExpenses = null,
 }: CashDepositWalletConfirmationProps) {
   const depositedWhen = new Date(depositedAt).toLocaleString('en-UG', {
     timeZone: 'Africa/Kampala',
@@ -77,6 +83,14 @@ export function CashDepositWalletConfirmationEmail({
             <Section style={amountPanel}>
               <Text style={amountLabel}>AMOUNT CREDITED</Text>
               <Text style={amountValue}>{ugx(amountUgx)}</Text>
+            </Section>
+
+            <Section style={breakdownPanel}>
+              <Text style={breakdownTitle}>RECORDED BREAKDOWN</Text>
+              <Text style={breakdownRow}>Facilitated rent volume <strong>{ugx(facilitatedRentVolume)}</strong></Text>
+              <Text style={breakdownRow}>Platform service fees <strong>{ugx(platformServiceFees)}</strong></Text>
+              <Text style={breakdownRow}>Transaction expenses <strong>{ugx(transactionExpenses)}</strong></Text>
+              <Text style={breakdownNote}>Values appear only when recorded against this deposit.</Text>
             </Section>
 
             <Hr style={divider} />
@@ -184,6 +198,16 @@ const amountPanel: React.CSSProperties = {
 }
 const amountLabel: React.CSSProperties = { color: '#64748b', fontSize: '11px', fontWeight: 700, margin: '0 0 6px' }
 const amountValue: React.CSSProperties = { color: '#0f172a', fontSize: '30px', fontWeight: 700, margin: 0 }
+const breakdownPanel: React.CSSProperties = {
+  backgroundColor: '#f8fafc',
+  border: '1px solid #e2e8f0',
+  borderRadius: '8px',
+  margin: '0 0 22px',
+  padding: '18px 20px',
+}
+const breakdownTitle: React.CSSProperties = { color: '#7b19d4', fontSize: '11px', fontWeight: 700, margin: '0 0 12px' }
+const breakdownRow: React.CSSProperties = { color: '#334155', fontSize: '14px', lineHeight: '22px', margin: '0 0 5px' }
+const breakdownNote: React.CSSProperties = { color: '#64748b', fontSize: '12px', lineHeight: '18px', margin: '10px 0 0' }
 const divider: React.CSSProperties = { borderColor: '#e2e8f0', margin: '20px 0' }
 const detailLabel: React.CSSProperties = { color: '#94a3b8', fontSize: '11px', fontWeight: 700, margin: '0 0 3px' }
 const detailValue: React.CSSProperties = { color: '#0f172a', fontSize: '14px', margin: '0 0 14px' }
@@ -245,5 +269,8 @@ export const template = {
     depositedAt: new Date().toISOString(),
     referenceNumber: 'DEP-5A7C91E2',
     receiptDownloadUrl: 'https://welileapp.com',
+    facilitatedRentVolume: 4500000,
+    platformServiceFees: 350000,
+    transactionExpenses: 150000,
   },
 } satisfies TemplateEntry
