@@ -139,7 +139,8 @@ export function ReferralBonusProgress() {
             </div>
           );
         })}
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   );
 }
