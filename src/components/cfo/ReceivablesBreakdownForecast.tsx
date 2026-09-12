@@ -30,6 +30,7 @@ import PaymentsByLocationPanel from '@/components/cfo/PaymentsByLocationPanel';
 
 
 const ALL_PRODUCTS = '__all__';
+const TENANT_CATEGORY_LABEL = 'Tenant Products & Services';
 
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
@@ -174,7 +175,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             {breakdown.data?.categories
               .slice()
               .sort((a, b) => {
-                const pinned = 'Tenant Products & Services';
+                const pinned = TENANT_CATEGORY_LABEL;
                 if (a.label === pinned && b.label !== pinned) return -1;
                 if (b.label === pinned && a.label !== pinned) return 1;
                 return 0;
@@ -311,6 +312,13 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                           </div>
                         );
                       })}
+
+                      {/* Payment activity by geography, inside this category */}
+                      {cat.label === TENANT_CATEGORY_LABEL && (
+                        <div className="pt-1">
+                          <PaymentsByLocationPanel />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -328,10 +336,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             : null
         }
       />
-
-      {/* Tenant products & services: where the money actually came in, by location */}
-      <PaymentsByLocationPanel />
-
 
       {/* Predictive, data-driven forecast */}
       <PredictiveReceivablesForecast />
