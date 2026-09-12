@@ -552,8 +552,8 @@ Deno.serve(async (req) => {
           admin.from("profiles").select("full_name").eq("id", depositorId).maybeSingle(),
           admin.from("deposit_requests").select("transaction_date, approved_at").eq("id", depositId).maybeSingle(),
         ]);
-        const depositedAt = (depositRequest as any)?.approved_at ||
-          (depositRequest as any)?.transaction_date || new Date().toISOString();
+        const depositedAt = (depositRequest as any)?.transaction_date ||
+          (depositRequest as any)?.approved_at || new Date().toISOString();
         const referenceNumber = `DEP-${depositId.slice(0, 8).toUpperCase()}`;
         const result = await sendCashDepositWalletConfirmationEmail(admin, {
           email,
