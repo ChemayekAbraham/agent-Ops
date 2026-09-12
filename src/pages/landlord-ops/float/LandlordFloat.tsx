@@ -1168,7 +1168,10 @@ function DrillDownDialog({
     target?.rows || isPayouts ? null : (target?.kind ?? null),
     target?.filterKey ?? null,
   );
-  const rows = target?.rows ?? fetched ?? [];
+  const rows = useMemo(
+    () => stripFunderIdentity(target?.rows ?? fetched ?? []),
+    [target?.rows, fetched],
+  );
 
   return (
     <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
