@@ -55037,6 +55037,7 @@ export type Database = {
           p_country?: string
           p_county?: string
           p_district?: string
+          p_from?: string
           p_level?: string
           p_limit?: number
           p_offset?: number
@@ -55044,7 +55045,17 @@ export type Database = {
           p_region?: string
           p_search?: string
           p_subcounty?: string
+          p_to?: string
           p_village?: string
+        }
+        Returns: Json
+      }
+      landlord_ops_collecting_geo_suggest: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_search: string
+          p_to?: string
         }
         Returns: Json
       }
