@@ -162,6 +162,13 @@
       "when": 1789217212867,
       "tag": "0022_engrep_rows_lovable_edit_id",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789218253280,
+      "tag": "0023_landlord_ops_payouts_page",
+      "breakpoints": true
     }
   ]
 }

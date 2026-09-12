@@ -41,6 +41,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   useLandlordFloatOverview,
   useLandlordFloatDrilldown,
+  useLandlordPayoutsPage,
   useLandlordFloatNeededGeo,
   type LandlordFloatDrilldownKind,
   type LandlordFloatNeededGeoRow,
@@ -176,34 +177,6 @@ function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, a
   );
 }
 
-/** Kampala calendar day (YYYY-MM-DD) used for date-range comparison. */
-function payoutDay(value?: string | null) {
-  if (!value) return null;
-  return new Date(value).toLocaleDateString('en-CA', { timeZone: KAMPALA });
-}
-
-/**
- * Client-side narrowing of read-only payout rows by paid date range and
- * landlord. Only hides/shows rows already returned by the drill-down RPC —
- * nothing is recalculated on the server and no record is changed.
- */
-function filterPayoutRows(
-  rows: Record<string, any>[],
-  from: string,
-  to: string,
-  landlord: string | null,
-) {
-  return rows.filter((r) => {
-    if (landlord && r.landlord_name !== landlord) return false;
-    if (!from && !to) return true;
-    const day = payoutDay(r.disbursed_at);
-    if (!day) return false;
-    if (from && day < from) return false;
-    if (to && day > to) return false;
-    return true;
-  });
-}
-
 const PAGE_SIZE = 25;
 
 /** Free-text match across every displayed column value of a read-only row. */
@@ -295,54 +268,58 @@ function DrillPager({
 }
 
 /**
- * Payout drill-down table with date-range, landlord, search and pagination.
- * Used by the inline all-time panel and the payout dialogs; the subtotal is a
- * sum of every matching row (not just the visible page).
+ * Landlord payout register with server-side date-range, search, totals and
+ * pagination. Filtering, counting and totalling all happen in
+ * `landlord_ops_payouts_page`, so the register stays fast with millions of
+ * landlords and payouts. Read-only: nothing is recalculated or changed.
  */
-function FilteredPayoutTable({
+function ServerPayoutTable({
   columns,
-  rows,
+  scope,
+  agentId,
   emptyText,
   maxHeight = '50vh',
   caption,
 }: {
   columns: DrillColumn[];
-  rows: Record<string, any>[];
+  scope: 'all_time' | 'completed';
+  agentId?: string | null;
   emptyText: string;
   maxHeight?: string;
   caption?: string;
 }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [landlord, setLandlord] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
-  const landlords = useMemo(
-    () =>
-      [...new Set(rows.map((r) => r.landlord_name).filter(Boolean))].sort((a, b) =>
-        String(a).localeCompare(String(b)),
-      ) as string[],
-    [rows],
-  );
+  // Debounced so typing never fires a query per keystroke at scale.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-  const filtered = useMemo(
-    () =>
-      filterPayoutRows(rows, from, to, landlord).filter((r) =>
-        matchesSearch(r, columns, search),
-      ),
-    [rows, from, to, landlord, search, columns],
-  );
-  const filteredTotal = filtered.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-  const isFiltered = !!from || !!to || !!landlord || !!search.trim();
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   useEffect(() => {
     setPage(1);
-  }, [from, to, landlord, search, rows]);
-  const safePage = Math.min(page, pageCount);
-  const start = (safePage - 1) * PAGE_SIZE;
-  const visible = filtered.slice(start, start + PAGE_SIZE);
+  }, [from, to, search, scope, agentId]);
+
+  const { data, isLoading, isFetching, isError, error } = useLandlordPayoutsPage({
+    scope,
+    search,
+    from,
+    to,
+    agentId: agentId ?? null,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+
+  const rows = data?.rows ?? [];
+  const total = data?.total_count ?? 0;
+  const totalAmount = data?.total_amount ?? 0;
+  const isFiltered = !!from || !!to || !!search.trim();
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const start = (page - 1) * PAGE_SIZE;
 
   return (
     <div className="space-y-3">
@@ -371,32 +348,11 @@ function FilteredPayoutTable({
         </div>
         <div className="space-y-1">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Landlord
-          </label>
-          <Select
-            value={landlord ?? 'all'}
-            onValueChange={(v) => setLandlord(v === 'all' ? null : v)}
-          >
-            <SelectTrigger className="h-8 w-[200px] text-sm">
-              <SelectValue placeholder="All landlords" />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              <SelectItem value="all">All landlords</SelectItem>
-              {landlords.map((name) => (
-                <SelectItem key={name} value={name}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Search
           </label>
           <DrillSearch
-            value={search}
-            onChange={setSearch}
+            value={searchInput}
+            onChange={setSearchInput}
             placeholder="Landlord, phone, amount, reference…"
           />
         </div>
@@ -409,7 +365,7 @@ function FilteredPayoutTable({
             onClick={() => {
               setFrom('');
               setTo('');
-              setLandlord(null);
+              setSearchInput('');
               setSearch('');
             }}
           >
@@ -422,54 +378,73 @@ function FilteredPayoutTable({
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="text-muted-foreground">
           {caption ? `${caption} · ` : ''}
-          {isFiltered
-            ? `${filtered.length.toLocaleString()} of ${rows.length.toLocaleString()} record${
-                rows.length === 1 ? '' : 's'
-              }`
-            : `${rows.length.toLocaleString()} record${rows.length === 1 ? '' : 's'}`}
+          {isLoading
+            ? 'Counting…'
+            : `${total.toLocaleString()} record${total === 1 ? '' : 's'}${
+                isFiltered ? ' matching your filters' : ''
+              }`}
+          {isFetching && !isLoading ? ' · updating…' : ''}
         </span>
-        <span className="font-semibold tabular-nums">{formatUGX(filteredTotal)}</span>
+        <span className="font-semibold tabular-nums">{formatUGX(totalAmount)}</span>
       </div>
 
-      <div className="overflow-y-auto" style={{ maxHeight }}>
-        <TableShell>
-          <thead className="sticky top-0 bg-muted/60 backdrop-blur">
-            <tr>
-              {columns.map((c) => (
-                <th
-                  key={c.key}
-                  className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
-                >
-                  {c.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
+      {isError ? (
+        <div className="py-4">
+          <p className="text-sm font-medium text-destructive">
+            These payout records could not be loaded.
+          </p>
+          <ErrorDetails error={error} />
+        </div>
+      ) : (
+        <div className="overflow-y-auto" style={{ maxHeight }}>
+          <TableShell>
+            <thead className="sticky top-0 bg-muted/60 backdrop-blur">
               <tr>
-                <td className={`${TD} text-muted-foreground`} colSpan={columns.length}>
-                  {isFiltered ? 'No records match these filters.' : emptyText}
-                </td>
-              </tr>
-            )}
-            {visible.map((r, i) => (
-              <tr key={r.id ?? `${start + i}`} className="border-t border-border/50">
                 {columns.map((c) => (
-                  <DrillCell key={c.key} column={c} row={r} />
+                  <th
+                    key={c.key}
+                    className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
+                  >
+                    {c.label}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </TableShell>
-      </div>
+            </thead>
+            <tbody>
+              {isLoading &&
+                [0, 1, 2, 3, 4].map((i) => (
+                  <tr key={`s-${i}`} className="border-t border-border/50">
+                    <td className={TD} colSpan={columns.length}>
+                      <Skeleton className="h-5 w-full" />
+                    </td>
+                  </tr>
+                ))}
+              {!isLoading && rows.length === 0 && (
+                <tr>
+                  <td className={`${TD} text-muted-foreground`} colSpan={columns.length}>
+                    {isFiltered ? 'No records match these filters.' : emptyText}
+                  </td>
+                </tr>
+              )}
+              {!isLoading &&
+                rows.map((r, i) => (
+                  <tr key={r.id ?? `${start + i}`} className="border-t border-border/50">
+                    {columns.map((c) => (
+                      <DrillCell key={c.key} column={c} row={r as Record<string, any>} />
+                    ))}
+                  </tr>
+                ))}
+            </tbody>
+          </TableShell>
+        </div>
+      )}
 
       <DrillPager
-        page={safePage}
+        page={page}
         pageCount={pageCount}
-        total={filtered.length}
-        from={filtered.length === 0 ? 0 : start + 1}
-        to={Math.min(start + PAGE_SIZE, filtered.length)}
+        total={total}
+        from={total === 0 ? 0 : start + 1}
+        to={Math.min(start + PAGE_SIZE, total)}
         onPage={setPage}
       />
     </div>
@@ -477,36 +452,16 @@ function FilteredPayoutTable({
 }
 
 function PaidAllTimeDrillPanel() {
-  const { data: fetched, isLoading, isError, error } = useLandlordFloatDrilldown('payouts_all', null);
-  const rows = fetched ?? [];
-
-  if (isLoading) {
-    return (
-      <div className="space-y-2 py-3">
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-8 w-full" />
-        ))}
-      </div>
-    );
-  }
-  if (isError) {
-    return (
-      <div className="py-4">
-        <p className="text-sm font-medium text-destructive">The source transactions could not be loaded.</p>
-        <ErrorDetails error={error} />
-      </div>
-    );
-  }
-
   return (
-    <FilteredPayoutTable
+    <ServerPayoutTable
       columns={PAYOUT_ALL_COLUMNS}
-      rows={rows}
+      scope="all_time"
       emptyText="No payout records found."
       caption="Payout records behind the all-time total"
     />
   );
 }
+
 
 /**
  * Read-only drill-down table with free-text search and pagination. Rows come
@@ -624,12 +579,12 @@ function DrillDownDialog({
   target: DrillTarget | null;
   onClose: () => void;
 }) {
+  const isPayouts = target?.kind === 'payouts' || target?.kind === 'payouts_all';
   const { data: fetched, isLoading, isError, error } = useLandlordFloatDrilldown(
-    target?.rows ? null : (target?.kind ?? null),
+    target?.rows || isPayouts ? null : (target?.kind ?? null),
     target?.filterKey ?? null,
   );
   const rows = target?.rows ?? fetched ?? [];
-  const isPayouts = target?.kind === 'payouts' || target?.kind === 'payouts_all';
 
   return (
     <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
@@ -641,7 +596,16 @@ function DrillDownDialog({
           )}
         </DialogHeader>
 
-        {isLoading ? (
+        {isPayouts ? (
+          <ServerPayoutTable
+            key={`${target?.kind}-${target?.filterKey ?? 'all'}`}
+            columns={target?.columns ?? []}
+            scope={target?.kind === 'payouts_all' ? 'all_time' : 'completed'}
+            agentId={target?.filterKey ?? null}
+            emptyText="No payout records found."
+            maxHeight="55vh"
+          />
+        ) : isLoading ? (
           <div className="space-y-2 py-4">
             {[0, 1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-8 w-full" />
@@ -652,15 +616,8 @@ function DrillDownDialog({
             <p className="text-sm font-medium text-destructive">These records could not be loaded.</p>
             <ErrorDetails error={error} />
           </div>
-        ) : isPayouts ? (
-          <FilteredPayoutTable
-            key={`${target?.kind}-${target?.filterKey ?? 'all'}`}
-            columns={target?.columns ?? []}
-            rows={rows}
-            emptyText="No payout records found."
-            maxHeight="55vh"
-          />
         ) : (
+
           <SearchablePagedTable
             key={`${target?.kind}-${target?.filterKey ?? 'all'}`}
             columns={target?.columns ?? []}
