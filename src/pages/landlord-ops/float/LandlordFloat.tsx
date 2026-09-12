@@ -15,6 +15,13 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -25,6 +32,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   useLandlordFloatOverview,
   useLandlordFloatDrilldown,
+  useLandlordFloatNeededGeo,
   type LandlordFloatDrilldownKind,
 } from '@/hooks/useLandlordFloatOverview';
 
@@ -260,6 +268,18 @@ const WAITING_COLUMNS: DrillColumn[] = [
   { key: 'status', label: 'Stage', type: 'badge' },
   { key: 'amount', label: 'Rent needed', type: 'ugx' },
   { key: 'created_at', label: 'Requested', type: 'date' },
+];
+
+const NEEDED_DISTRICT_COLUMNS: DrillColumn[] = [
+  { key: 'source', label: 'Source', type: 'badge' },
+  { key: 'name', label: 'House / Tenant' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'agent_name', label: 'Agent' },
+  { key: 'sub_county', label: 'Sub-county' },
+  { key: 'village', label: 'Village' },
+  { key: 'amount', label: 'Rent needed', type: 'ugx' },
+  { key: 'created_at', label: 'Recorded', type: 'date' },
 ];
 
 const PAYOUT_COLUMNS: DrillColumn[] = [
