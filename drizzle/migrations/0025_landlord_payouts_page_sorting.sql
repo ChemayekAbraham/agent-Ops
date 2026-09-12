@@ -96,7 +96,7 @@ BEGIN
           )
   ), totals AS (
     SELECT COUNT(*)::bigint AS n, COALESCE(SUM(amount),0) AS amt FROM base
-  ), ordered AS (
+  ), page AS (
     SELECT * FROM base
     ORDER BY
       CASE WHEN v_sort = 'amount' AND v_desc THEN amount END DESC NULLS LAST,
@@ -129,11 +129,9 @@ BEGIN
       END ASC NULLS LAST,
       id
     LIMIT v_limit OFFSET v_offset
-  ), page AS (
-    SELECT o.*, ROW_NUMBER() OVER () AS rn FROM ordered o
   )
   SELECT t.n, t.amt,
-         COALESCE((SELECT jsonb_agg(to_jsonb(p) - 'rn' ORDER BY p.rn) FROM page p), '[]'::jsonb)
+         COALESCE((SELECT jsonb_agg(to_jsonb(p)) FROM page p), '[]'::jsonb)
   INTO v_total, v_amount, v_rows
   FROM totals t;
 
