@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Filter,
   Layers,
