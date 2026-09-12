@@ -69,6 +69,11 @@ export const HORIZONS = [
   { key: '3y', label: 'Next 3 years', short: '3y', days: 1095 },
   { key: '4y', label: 'Next 4 years', short: '4y', days: 1460 },
   { key: '5y', label: 'Next 5 years', short: '5y', days: 1825 },
+  { key: '6y', label: 'Next 6 years', short: '6y', days: 2190 },
+  { key: '7y', label: 'Next 7 years', short: '7y', days: 2555 },
+  { key: '8y', label: 'Next 8 years', short: '8y', days: 2920 },
+  { key: '9y', label: 'Next 9 years', short: '9y', days: 3285 },
+  { key: '10y', label: 'Next 10 years', short: '10y', days: 3650 },
 ] as const;
 
 export const DEFAULT_HORIZON = '12m';
