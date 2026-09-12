@@ -12626,6 +12626,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "engrep_addenda_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_session_rows"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "engrep_addenda_window_id_fkey"
             columns: ["window_id"]
             isOneToOne: false
@@ -12994,6 +13001,13 @@ export type Database = {
             columns: ["self_fix_of"]
             isOneToOne: false
             referencedRelation: "engrep_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_self_fix_of_fkey"
+            columns: ["self_fix_of"]
+            isOneToOne: false
+            referencedRelation: "engrep_session_rows"
             referencedColumns: ["id"]
           },
           {
@@ -45213,6 +45227,99 @@ export type Database = {
           zeroed: boolean | null
         }
         Relationships: []
+      }
+      engrep_session_rows: {
+        Row: {
+          change_classes: string[] | null
+          claims_schema: boolean | null
+          commit_subject: string | null
+          committed_at: string | null
+          edit_title: string | null
+          engineer_id: string | null
+          evidence_ref: string | null
+          id: string | null
+          live_verified: string | null
+          lovable_edit_id: string | null
+          migration_bearing: boolean | null
+          paths: string[] | null
+          session_seq: number | null
+          source: string | null
+          untagged: boolean | null
+          window_id: string | null
+          zeroed: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_rows_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      engrep_sessions: {
+        Row: {
+          change_classes: string[] | null
+          claims_count: number | null
+          duration_minutes: number | null
+          ended_at: string | null
+          engineer_id: string | null
+          evidence_refs: string[] | null
+          external_commits: number | null
+          files_touched: number | null
+          item_count: number | null
+          live_na: number | null
+          live_no: number | null
+          live_yes: number | null
+          lovable_edits: number | null
+          migration_count: number | null
+          paths: string[] | null
+          plan_only: boolean | null
+          session_seq: number | null
+          started_at: string | null
+          subjects: string[] | null
+          untagged_count: number | null
+          window_id: string | null
+          zeroed_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_rows_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       engrep_window_summary: {
         Row: {
