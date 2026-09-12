@@ -186,6 +186,25 @@ function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, a
 const PAGE_SIZE = 25;
 const GEO_PAGE_SIZE = 15;
 
+/**
+ * Forward collection horizons for the "Being collected" headline tile.
+ * A projection is the recorded daily repayment multiplied by the number of days
+ * in the chosen horizon — no financial record is read differently or written.
+ */
+const COLLECTING_HORIZONS = [
+  { key: '1w', label: 'Next 1 week', days: 7 },
+  { key: '1m', label: 'Next 1 month', days: 30 },
+  { key: '3m', label: 'Next 3 months', days: 91 },
+  { key: '6m', label: 'Next 6 months', days: 182 },
+  { key: '12m', label: 'Next 12 months', days: 365 },
+  { key: '2y', label: 'Next 2 years', days: 730 },
+  { key: '3y', label: 'Next 3 years', days: 1095 },
+  { key: '4y', label: 'Next 4 years', days: 1460 },
+  { key: '5y', label: 'Next 5 years', days: 1825 },
+] as const;
+const DEFAULT_COLLECTING_HORIZON = '12m';
+const COLLECTING_HORIZON_KEY = 'landlord-float:collecting-card-horizon';
+
 /** Sortable columns of the server-paged payout geography breakdown. */
 const GEO_COLUMNS: DrillColumn[] = [
   { key: 'country', label: 'Country' },
