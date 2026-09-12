@@ -184,7 +184,7 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
       <button
         type="button"
         onClick={() => (openRequest ? setTrackOpen(true) : setOpen(true))}
-        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation"
+        className="w-full aspect-square lg:aspect-auto rounded-[28px] border bg-success/10 border-success/20 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation overflow-hidden"
       >
         <div className="flex flex-col justify-between h-full w-full gap-2 lg:gap-4">
           <div className="space-y-2 lg:space-y-3">
