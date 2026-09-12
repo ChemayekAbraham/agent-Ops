@@ -54913,6 +54913,10 @@ export type Database = {
         Args: { p_key?: string; p_kind: string }
         Returns: Json
       }
+      landlord_ops_float_needed_district_rows: {
+        Args: { p_key: string }
+        Returns: Json
+      }
       landlord_ops_float_needed_geo: { Args: never; Returns: Json }
       landlord_ops_float_overview: { Args: never; Returns: Json }
       landlord_ops_map_district_alias: {
