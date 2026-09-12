@@ -30,6 +30,7 @@ import PaymentsByLocationPanel from '@/components/cfo/PaymentsByLocationPanel';
 
 
 const ALL_PRODUCTS = '__all__';
+const TENANT_CATEGORY_LABEL = 'Tenant Products & Services';
 
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
@@ -174,7 +175,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             {breakdown.data?.categories
               .slice()
               .sort((a, b) => {
-                const pinned = 'Tenant Products & Services';
+                const pinned = TENANT_CATEGORY_LABEL;
                 if (a.label === pinned && b.label !== pinned) return -1;
                 if (b.label === pinned && a.label !== pinned) return 1;
                 return 0;
