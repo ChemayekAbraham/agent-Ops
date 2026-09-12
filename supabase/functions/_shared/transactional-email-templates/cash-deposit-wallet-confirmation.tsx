@@ -8,6 +8,7 @@ import {
   Hr,
   Html,
   Img,
+  Link,
   Preview,
   Section,
   Text,
@@ -21,6 +22,9 @@ interface CashDepositWalletConfirmationProps {
   receiptCode?: string
   depositedAt?: string
   referenceNumber?: string
+  supportPhone?: string
+  supportWhatsapp?: string
+  helpLink?: string
 }
 
 const ugx = (amount: number | null | undefined): string =>
@@ -35,6 +39,9 @@ export function CashDepositWalletConfirmationEmail({
   receiptCode = '',
   depositedAt = new Date().toISOString(),
   referenceNumber = '',
+  supportPhone = '+256 708 257 899',
+  supportWhatsapp = '+256708257899',
+  helpLink = 'https://welileapp.com/help',
 }: CashDepositWalletConfirmationProps) {
   const depositedWhen = new Date(depositedAt).toLocaleString('en-UG', {
     timeZone: 'Africa/Kampala',
@@ -94,6 +101,20 @@ export function CashDepositWalletConfirmationEmail({
             <Text style={muted}>
               You can sign in to Welile to view your updated Wallet balance and transaction history.
               If you did not make this deposit, contact Welile support immediately.
+            </Text>
+          </Section>
+
+          <Section style={helpSection}>
+            <Text style={helpTitle}>Need help?</Text>
+            <Text style={helpText}>
+              If you have questions about this deposit, message us on{' '}
+              <Link href={`https://wa.me/${supportWhatsapp.replace(/\D/g, '')}`} style={helpLinkStyle}>
+                WhatsApp
+              </Link>{' '}
+              or call <strong>{supportPhone}</strong>.
+            </Text>
+            <Text style={helpText}>
+              Visit our <Link href={helpLink} style={helpLinkStyle}>help center</Link> for quick answers.
             </Text>
           </Section>
 
@@ -167,6 +188,28 @@ const footer: React.CSSProperties = {
 const footerTitle: React.CSSProperties = { color: '#475569', fontSize: '11px', fontWeight: 700, margin: '0 0 5px' }
 const footerText: React.CSSProperties = { color: '#64748b', fontSize: '12px', margin: '0 0 5px' }
 const footerLink: React.CSSProperties = { color: '#7b19d4', fontSize: '12px', fontWeight: 600, margin: 0 }
+const helpSection: React.CSSProperties = {
+  backgroundColor: '#f8fafc',
+  borderTop: '1px solid #e2e8f0',
+  padding: '22px 32px',
+}
+const helpTitle: React.CSSProperties = {
+  color: '#0f172a',
+  fontSize: '14px',
+  fontWeight: 700,
+  margin: '0 0 8px',
+}
+const helpText: React.CSSProperties = {
+  color: '#475569',
+  fontSize: '13px',
+  lineHeight: '20px',
+  margin: '0 0 6px',
+}
+const helpLinkStyle: React.CSSProperties = {
+  color: '#7b19d4',
+  fontWeight: 600,
+  textDecoration: 'underline',
+}
 
 export const template = {
   component: CashDepositWalletConfirmationEmail,
