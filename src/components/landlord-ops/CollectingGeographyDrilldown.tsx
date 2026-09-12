@@ -266,6 +266,7 @@ export default function CollectingGeographyDrilldown() {
   const houseRows = level === 'houses' ? ((data?.rows ?? []) as CollectingGeoHouseRow[]) : [];
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="space-y-3 rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
