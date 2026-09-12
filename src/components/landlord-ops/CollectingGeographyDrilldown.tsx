@@ -76,6 +76,38 @@ export const HORIZONS = [
   { key: '10y', label: 'Next 10 years', short: '10y', days: 3650 },
 ] as const;
 
+export const CUSTOM_HORIZON_KEY = 'custom';
+export const MAX_CUSTOM_YEARS = 10;
+
+export function isCustomHorizon(key: string): boolean {
+  return key.startsWith(`${CUSTOM_HORIZON_KEY}:`);
+}
+
+export function parseCustomYears(key: string): number {
+  if (!isCustomHorizon(key)) return 1;
+  const n = Number(key.split(':')[1]);
+  return Math.max(1, Math.min(MAX_CUSTOM_YEARS, Number.isFinite(n) ? n : 1));
+}
+
+export function makeCustomHorizonKey(years: number): string {
+  const y = Math.max(1, Math.min(MAX_CUSTOM_YEARS, Math.round(Number(years) || 1)));
+  return `${CUSTOM_HORIZON_KEY}:${y}`;
+}
+
+export function resolveHorizon(key: string): { key: string; label: string; short: string; days: number } {
+  if (isCustomHorizon(key)) {
+    const years = parseCustomYears(key);
+    return {
+      key,
+      label: `Custom: next ${years} year${years === 1 ? '' : 's'}`,
+      short: `${years}y`,
+      days: years * 365,
+    };
+  }
+  return HORIZONS.find((h) => h.key === key) ?? HORIZONS[4];
+}
+
+
 export const DEFAULT_HORIZON = '12m';
 
 /**
@@ -216,12 +248,24 @@ export default function CollectingGeographyDrilldown({
   const [debounced, setDebounced] = useState('');
   const [localHorizonKey, setLocalHorizonKey] = useState<string>(DEFAULT_HORIZON);
   const horizonKey = controlledHorizonKey ?? localHorizonKey;
+  const customYears = parseCustomYears(horizonKey);
   const setHorizonKey = (key: string) => {
-    setLocalHorizonKey(key);
-    onHorizonChange?.(key);
+    if (key === CUSTOM_HORIZON_KEY) {
+      const nextKey = makeCustomHorizonKey(customYears || 1);
+      setLocalHorizonKey(nextKey);
+      onHorizonChange?.(nextKey);
+    } else {
+      setLocalHorizonKey(key);
+      onHorizonChange?.(key);
+    }
   };
+  const setCustomYears = (years: number) => {
+    const nextKey = makeCustomHorizonKey(years);
+    setLocalHorizonKey(nextKey);
+    onHorizonChange?.(nextKey);
+  };
+  const horizon = resolveHorizon(horizonKey);
 
-  const horizon = HORIZONS.find((h) => h.key === horizonKey) ?? HORIZONS[4];
 
 
 
@@ -404,19 +448,37 @@ export default function CollectingGeographyDrilldown({
             <Label htmlFor="projection-horizon" className="text-[11px] font-semibold uppercase tracking-wide text-primary">
               Projection period
             </Label>
-            <Select value={horizon.key} onValueChange={setHorizonKey}>
-              <SelectTrigger id="projection-horizon" className="w-48 bg-background/80 backdrop-blur-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {HORIZONS.map((h) => (
-                  <SelectItem key={h.key} value={h.key}>
-                    {h.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={horizon.key} onValueChange={setHorizonKey}>
+                <SelectTrigger id="projection-horizon" className="w-48 bg-background/80 backdrop-blur-sm">
+                  <SelectValue placeholder="Select projection period">{horizon.label}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {HORIZONS.map((h) => (
+                    <SelectItem key={h.key} value={h.key}>
+                      {h.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={CUSTOM_HORIZON_KEY}>Custom years...</SelectItem>
+                </SelectContent>
+              </Select>
+              {isCustomHorizon(horizonKey) && (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={MAX_CUSTOM_YEARS}
+                    value={customYears}
+                    onChange={(e) => setCustomYears(Number(e.target.value))}
+                    className="w-20"
+                    aria-label="Custom projection years"
+                  />
+                  <span className="text-xs text-muted-foreground">year{customYears === 1 ? '' : 's'}</span>
+                </div>
+              )}
+            </div>
           </div>
+
         </div>
       </div>
 
@@ -881,7 +943,7 @@ export default function CollectingGeographyDrilldown({
               <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
                 <ProjectionLabel label="Projected collection from this house" />
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  {HORIZONS.map((h) => (
+                  {[...HORIZONS, ...(isCustomHorizon(horizonKey) ? [horizon] : [])].map((h) => (
                     <div key={h.key} className="min-w-0">
                       <p className="text-[11px] text-muted-foreground">{h.label}</p>
                       <p className="truncate text-sm font-semibold tabular-nums">
@@ -899,6 +961,7 @@ export default function CollectingGeographyDrilldown({
                   outstanding balance or assume any missed day.
                 </p>
               </div>
+
 
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

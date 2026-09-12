@@ -42,7 +42,14 @@ import { formatUGX } from '@/lib/rentCalculations';
 import CollectingGeographyDrilldown, {
   HORIZONS as COLLECT_HORIZONS,
   DEFAULT_HORIZON as COLLECT_DEFAULT_HORIZON,
+  CUSTOM_HORIZON_KEY as COLLECT_CUSTOM_KEY,
+  MAX_CUSTOM_YEARS as COLLECT_MAX_YEARS,
+  resolveHorizon as resolveCollectHorizon,
+  isCustomHorizon as isCollectCustomHorizon,
+  parseCustomYears as parseCollectCustomYears,
+  makeCustomHorizonKey as makeCollectCustomHorizonKey,
 } from '@/components/landlord-ops/CollectingGeographyDrilldown';
+
 
 import {
   useLandlordFloatOverview,
@@ -1733,9 +1740,10 @@ export default function LandlordFloat() {
   // Shared projection horizon: the Being collected tile and its drilldown
   // always show the same selected period.
   const [collectHorizonKey, setCollectHorizonKey] = useState<string>(COLLECT_DEFAULT_HORIZON);
-  const collectHorizon =
-    COLLECT_HORIZONS.find((h) => h.key === collectHorizonKey) ?? COLLECT_HORIZONS[4];
+  const collectHorizon = resolveCollectHorizon(collectHorizonKey);
+  const collectCustomYears = parseCollectCustomYears(collectHorizonKey);
   const [showPaidAllTime, setShowPaidAllTime] = useState(false);
+
 
   if (isLoading) {
     return (
@@ -1831,12 +1839,21 @@ export default function LandlordFloat() {
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
-                <Select value={collectHorizon.key} onValueChange={setCollectHorizonKey}>
+                <Select
+                  value={collectHorizon.key}
+                  onValueChange={(key) =>
+                    setCollectHorizonKey(
+                      key === COLLECT_CUSTOM_KEY
+                        ? makeCollectCustomHorizonKey(collectCustomYears || 1)
+                        : key,
+                    )
+                  }
+                >
                   <SelectTrigger
                     aria-label="Projection period"
                     className="h-7 w-full gap-1 border-emerald-500/40 bg-background/80 px-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400"
                   >
-                    <SelectValue />
+                    <SelectValue placeholder="Select projection period">{collectHorizon.label}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {COLLECT_HORIZONS.map((h) => (
@@ -1844,8 +1861,28 @@ export default function LandlordFloat() {
                         {h.label}
                       </SelectItem>
                     ))}
+                    <SelectItem value={COLLECT_CUSTOM_KEY}>Custom years...</SelectItem>
                   </SelectContent>
                 </Select>
+                {isCollectCustomHorizon(collectHorizonKey) && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={COLLECT_MAX_YEARS}
+                      value={collectCustomYears}
+                      onChange={(e) =>
+                        setCollectHorizonKey(makeCollectCustomHorizonKey(Number(e.target.value)))
+                      }
+                      className="h-7 w-20 px-2 text-xs"
+                      aria-label="Custom projection years"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      year{collectCustomYears === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                )}
+
               </div>
               {empty ? (
                 <p className="mt-3 rounded-md border border-dashed border-border px-2 py-2 text-xs text-muted-foreground">
