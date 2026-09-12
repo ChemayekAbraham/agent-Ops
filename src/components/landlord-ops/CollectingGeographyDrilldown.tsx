@@ -71,7 +71,7 @@ export const HORIZONS = [
   { key: '5y', label: 'Next 5 years', short: '5y', days: 1825 },
 ] as const;
 
-const DEFAULT_HORIZON = '12m';
+export const DEFAULT_HORIZON = '12m';
 
 /**
  * The projection horizon always opens on the 12-month view so anyone opening
@@ -193,7 +193,14 @@ function PhoneLine({ label, name, phone }: { label: string; name?: string | null
  * Every figure comes from `landlord_ops_collecting_geo_page`. Nothing is written and
  * recorded location text is never rewritten — unmatched spellings show as "Unmapped".
  */
-export default function CollectingGeographyDrilldown() {
+export default function CollectingGeographyDrilldown({
+  horizonKey: controlledHorizonKey,
+  onHorizonChange,
+}: {
+  /** When provided, the projection horizon is controlled by the parent (e.g. the Being collected tile). */
+  horizonKey?: string;
+  onHorizonChange?: (key: string) => void;
+} = {}) {
   const [path, setPath] = useState<CollectingGeoPath>({});
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
@@ -202,7 +209,12 @@ export default function CollectingGeographyDrilldown() {
   const [to, setTo] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [debounced, setDebounced] = useState('');
-  const [horizonKey, setHorizonKey] = useState<string>(DEFAULT_HORIZON);
+  const [localHorizonKey, setLocalHorizonKey] = useState<string>(DEFAULT_HORIZON);
+  const horizonKey = controlledHorizonKey ?? localHorizonKey;
+  const setHorizonKey = (key: string) => {
+    setLocalHorizonKey(key);
+    onHorizonChange?.(key);
+  };
 
   const horizon = HORIZONS.find((h) => h.key === horizonKey) ?? HORIZONS[4];
 
