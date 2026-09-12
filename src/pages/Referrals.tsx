@@ -36,6 +36,7 @@ export default function Referrals() {
   const { snapshot, loading, refresh } = useUserSnapshot(user?.id);
   const [copied, setCopied] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
+  const [historyOpen, setHistoryOpen] = useState(true);
 
   const referrals = snapshot.referrals || [];
   const isReferralIncomplete = (r: any) => r.referral_status === 'incomplete';
