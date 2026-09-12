@@ -73,6 +73,19 @@ const HORIZONS = [
 
 const DEFAULT_HORIZON = '12m';
 
+/** Persisted (presentation-only) preference for the projection horizon. */
+const HORIZON_STORAGE_KEY = 'landlord-float:collecting-geo:horizon';
+
+const readStoredHorizon = (): string => {
+  try {
+    const saved = window.localStorage.getItem(HORIZON_STORAGE_KEY);
+    if (saved && HORIZONS.some((h) => h.key === saved)) return saved;
+  } catch {
+    // storage unavailable (private mode) — fall back to the default
+  }
+  return DEFAULT_HORIZON;
+};
+
 const ORDER: Array<keyof CollectingGeoPath> = [
   'country',
   'region',
@@ -195,9 +208,17 @@ export default function CollectingGeographyDrilldown() {
   const [to, setTo] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [debounced, setDebounced] = useState('');
-  const [horizonKey, setHorizonKey] = useState<string>(DEFAULT_HORIZON);
+  const [horizonKey, setHorizonKey] = useState<string>(readStoredHorizon);
 
   const horizon = HORIZONS.find((h) => h.key === horizonKey) ?? HORIZONS[4];
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(HORIZON_STORAGE_KEY, horizonKey);
+    } catch {
+      // ignore storage failures — the selection still applies for this session
+    }
+  }, [horizonKey]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 250);
