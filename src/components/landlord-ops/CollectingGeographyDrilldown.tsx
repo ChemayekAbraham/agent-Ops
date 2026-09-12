@@ -336,35 +336,46 @@ export default function CollectingGeographyDrilldown() {
         )}
       </div>
 
-      {/* Headline forward projection for every house in this place */}
-      <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* Prominent header: total projected collections for the selected horizon */}
+      <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-primary/10 p-5">
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <ProjectionLabel
-              label={`Projected collection · ${horizon.label.toLowerCase()}`}
-              sublabel={
-                <>
-                  {formatUGX(totals?.daily_repayment ?? 0)} a day across{' '}
-                  {(totals?.plans ?? 0).toLocaleString()} live rent plan{(totals?.plans ?? 0) === 1 ? '' : 's'} ×{' '}
-                  {horizon.days.toLocaleString()} days
-                  {trail.length > 0 ? ` · ${trail[trail.length - 1].value}` : ' · everywhere'}
-                </>
-              }
-            />
-            <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">
+            <div className="flex items-center gap-2">
+              <ProjectionLabel
+                label={`Total projected collections · ${horizon.label.toLowerCase()}`}
+                sublabel={
+                  <>
+                    {formatUGX(totals?.daily_repayment ?? 0)} a day across{' '}
+                    {(totals?.plans ?? 0).toLocaleString()} live rent plan{(totals?.plans ?? 0) === 1 ? '' : 's'} ×{' '}
+                    {horizon.days.toLocaleString()} days
+                    {trail.length > 0 ? ` · ${trail[trail.length - 1].value}` : ' · everywhere'}
+                    {dated && (
+                      <span className="ml-1.5 inline-flex items-center rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                        filtered {fmtDate(from)} – {fmtDate(to)}
+                      </span>
+                    )}
+                  </>
+                }
+              />
+            </div>
+            <p className="mt-2 text-3xl font-extrabold tabular-nums tracking-tight sm:text-4xl">
               <ProjectionValue
                 daily={totals?.daily_repayment ?? 0}
                 days={horizon.days}
                 label={horizon.label}
               />
             </p>
+            <p className="mt-1.5 max-w-xl text-xs text-muted-foreground">
+              This figure updates automatically when you change the location filters, the date range, or the projection
+              period. It is a straight daily amount × days projection and does not stop at the outstanding balance.
+            </p>
           </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="projection-horizon" className="text-[11px] font-medium uppercase tracking-wide text-primary">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="projection-horizon" className="text-[11px] font-semibold uppercase tracking-wide text-primary">
               Projection period
             </Label>
             <Select value={horizon.key} onValueChange={setHorizonKey}>
-              <SelectTrigger id="projection-horizon" className="w-44">
+              <SelectTrigger id="projection-horizon" className="w-48 bg-background/80 backdrop-blur-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
