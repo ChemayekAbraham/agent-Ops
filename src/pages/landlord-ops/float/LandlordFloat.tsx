@@ -13,8 +13,9 @@ import {
   FilterX,
   Search,
   ChevronLeft,
-
-
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -267,6 +268,49 @@ function DrillPager({
   );
 }
 
+type SortDir = 'asc' | 'desc';
+
+/**
+ * Clickable column header. Presentation only — it just reports which column and
+ * direction the operator picked; no figure is recalculated.
+ */
+function SortableTh({
+  column,
+  active,
+  dir,
+  onSort,
+}: {
+  column: DrillColumn;
+  active: boolean;
+  dir: SortDir;
+  onSort: (key: string) => void;
+}) {
+  const right = column.type === 'ugx' || column.align === 'right';
+  return (
+    <th className={`${TH} ${right ? 'text-right' : ''} p-0`}>
+      <button
+        type="button"
+        onClick={() => onSort(column.key)}
+        aria-label={`Sort by ${column.label}`}
+        className={`flex w-full items-center gap-1 px-3 py-2 text-left hover:text-foreground ${
+          right ? 'justify-end' : ''
+        } ${active ? 'text-foreground' : ''}`}
+      >
+        <span className="truncate">{column.label}</span>
+        {active ? (
+          dir === 'asc' ? (
+            <ArrowUp className="h-3 w-3 shrink-0" />
+          ) : (
+            <ArrowDown className="h-3 w-3 shrink-0" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3 w-3 shrink-0 opacity-30" />
+        )}
+      </button>
+    </th>
+  );
+}
+
 /**
  * Landlord payout register with server-side date-range, search, totals and
  * pagination. Filtering, counting and totalling all happen in
@@ -293,6 +337,18 @@ function ServerPayoutTable({
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState('disbursed_at');
+  const [dir, setDir] = useState<SortDir>('desc');
+
+  const toggleSort = (key: string) => {
+    if (key === sort) {
+      setDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSort(key);
+      setDir(key === 'amount' || key === 'disbursed_at' || key === 'created_at' ? 'desc' : 'asc');
+    }
+    setPage(1);
+  };
 
   // Debounced so typing never fires a query per keystroke at scale.
   useEffect(() => {
@@ -312,6 +368,8 @@ function ServerPayoutTable({
     agentId: agentId ?? null,
     page,
     pageSize: PAGE_SIZE,
+    sort,
+    dir,
   });
 
   const rows = data?.rows ?? [];
@@ -401,12 +459,13 @@ function ServerPayoutTable({
             <thead className="sticky top-0 bg-muted/60 backdrop-blur">
               <tr>
                 {columns.map((c) => (
-                  <th
+                  <SortableTh
                     key={c.key}
-                    className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
-                  >
-                    {c.label}
-                  </th>
+                    column={c}
+                    active={sort === c.key}
+                    dir={dir}
+                    onSort={toggleSort}
+                  />
                 ))}
               </tr>
             </thead>
@@ -476,11 +535,45 @@ function SearchablePagedTable({
 }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<string | null>(null);
+  const [dir, setDir] = useState<SortDir>('desc');
 
-  const filtered = useMemo(
+  const toggleSort = (key: string) => {
+    if (key === sort) {
+      setDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      const col = columns.find((c) => c.key === key);
+      setSort(key);
+      setDir(col?.type === 'ugx' || col?.type === 'date' ? 'desc' : 'asc');
+    }
+    setPage(1);
+  };
+
+  const searched = useMemo(
     () => rows.filter((r) => matchesSearch(r, columns, search)),
     [rows, columns, search],
   );
+
+  // Sorting only reorders the recorded rows; no value is recalculated.
+  const filtered = useMemo(() => {
+    if (!sort) return searched;
+    const col = columns.find((c) => c.key === sort);
+    const numeric = col?.type === 'ugx';
+    const dateLike = col?.type === 'date';
+    const sign = dir === 'asc' ? 1 : -1;
+    return [...searched].sort((a, b) => {
+      const av = a[sort];
+      const bv = b[sort];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (numeric) return ((Number(av) || 0) - (Number(bv) || 0)) * sign;
+      if (dateLike) {
+        return (new Date(av).getTime() - new Date(bv).getTime()) * sign;
+      }
+      return String(av).localeCompare(String(bv), undefined, { sensitivity: 'base' }) * sign;
+    });
+  }, [searched, sort, dir, columns]);
   const total = useMemo(() => {
     const col = columns.find((c) => c.type === 'ugx');
     return col ? filtered.reduce((sum, r) => sum + (Number(r[col.key]) || 0), 0) : 0;
@@ -527,12 +620,13 @@ function SearchablePagedTable({
           <thead className="sticky top-0 bg-muted/60 backdrop-blur">
             <tr>
               {columns.map((c) => (
-                <th
+                <SortableTh
                   key={c.key}
-                  className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
-                >
-                  {c.label}
-                </th>
+                  column={c}
+                  active={sort === c.key}
+                  dir={dir}
+                  onSort={toggleSort}
+                />
               ))}
             </tr>
           </thead>

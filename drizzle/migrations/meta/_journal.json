@@ -176,6 +176,20 @@
       "when": 1789218685120,
       "tag": "0024_cash_deposit_code_no_plaintext",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789219090479,
+      "tag": "0025_landlord_payouts_page_sorting",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789219199420,
+      "tag": "0026_landlord_payouts_page_sort_order_stable",
+      "breakpoints": true
     }
   ]
 }

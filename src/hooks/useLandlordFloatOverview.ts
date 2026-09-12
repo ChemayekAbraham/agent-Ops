@@ -269,6 +269,9 @@ export interface LandlordPayoutsPageArgs {
   agentId?: string | null;
   page: number;
   pageSize: number;
+  /** Server-side sort column key (defaults to the payment date). */
+  sort?: string;
+  dir?: 'asc' | 'desc';
 }
 
 /**
@@ -278,7 +281,7 @@ export interface LandlordPayoutsPageArgs {
  * without ever loading them into the browser. Read-only.
  */
 export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = true) {
-  const { scope, search, from, to, agentId, page, pageSize } = args;
+  const { scope, search, from, to, agentId, page, pageSize, sort, dir } = args;
   return useQuery({
     queryKey: [
       'landlord-ops-payouts-page',
@@ -289,6 +292,8 @@ export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = 
       agentId ?? '',
       page,
       pageSize,
+      sort ?? 'disbursed_at',
+      dir ?? 'desc',
     ],
     enabled,
     staleTime: 30_000,
@@ -302,6 +307,8 @@ export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = 
         p_agent_id: agentId || null,
         p_limit: pageSize,
         p_offset: Math.max(0, (page - 1) * pageSize),
+        p_sort: sort ?? 'disbursed_at',
+        p_dir: dir ?? 'desc',
       });
       if (error) throw error;
       return data as LandlordPayoutsPage;
