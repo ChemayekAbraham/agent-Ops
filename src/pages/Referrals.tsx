@@ -15,11 +15,12 @@ import {
   Copy, 
   CheckCircle2,
   Gift,
-  
+  ChevronDown,
   AlertCircle
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ReferralLeaderboard } from '@/components/ReferralLeaderboard';
 import { RewardHistoryBadges } from '@/components/RewardHistoryBadges';
@@ -35,6 +36,7 @@ export default function Referrals() {
   const { snapshot, loading, refresh } = useUserSnapshot(user?.id);
   const [copied, setCopied] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
+  const [historyOpen, setHistoryOpen] = useState(true);
 
   const referrals = snapshot.referrals || [];
   const isReferralIncomplete = (r: any) => r.referral_status === 'incomplete';
@@ -198,12 +200,22 @@ export default function Referrals() {
         >
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Calendar className="h-5 w-5 text-primary" />
-                Referral History
-              </CardTitle>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(v => !v)}
+                className="flex w-full items-center justify-between gap-2 text-left"
+                aria-expanded={historyOpen}
+                aria-controls="referral-history-content"
+              >
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Referral History
+                </CardTitle>
+                <ChevronDown className={cn('h-5 w-5 text-muted-foreground transition-transform', historyOpen && 'rotate-180')} />
+              </button>
             </CardHeader>
-            <CardContent>
+            {historyOpen && (
+            <CardContent id="referral-history-content">
               <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
                 <ToggleGroup
                   type="single"
@@ -309,6 +321,7 @@ export default function Referrals() {
                 </div>
               )}
             </CardContent>
+          )}
           </Card>
         </motion.div>
       </main>
