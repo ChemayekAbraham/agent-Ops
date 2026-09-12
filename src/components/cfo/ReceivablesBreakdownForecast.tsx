@@ -49,6 +49,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
         value: `${cat.key}:${prod.key}`,
         label: `${prod.label} — ${cat.label}`,
         outstanding: prod.outstanding,
+        catLabel: cat.label,
       }))
     );
   }, [breakdown.data]);
