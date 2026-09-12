@@ -316,7 +316,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                       {/* Payment activity by geography, inside this category */}
                       {cat.label === TENANT_CATEGORY_LABEL && (
                         <div className="pt-1">
-                          <PaymentsByLocationPanel />
+                          <TenantPaymentsLocationFilters />
                         </div>
                       )}
                     </div>
