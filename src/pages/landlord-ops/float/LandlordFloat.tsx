@@ -123,6 +123,65 @@ function StatTile({
   return <div className={`rounded-xl border p-4 ${toneRing}`}>{inner}</div>;
 }
 
+/**
+ * The "Being collected" headline tile shows a forward collection projection.
+ * The default horizon is the next 12 months and can be switched in place.
+ * The figure is computed from the recorded daily expected amounts returned by
+ * the overview RPC; nothing is recomputed from financial records.
+ */
+function CollectingProjectionTile({
+  rows,
+  expected,
+  paidOut,
+  horizon,
+  onHorizonChange,
+  onDetails,
+}: {
+  rows: Array<{ daily_repayment: number }>;
+  expected: number;
+  paidOut: number;
+  horizon: string;
+  onHorizonChange: (v: string) => void;
+  onDetails: () => void;
+}) {
+  const totalDaily = rows.reduce((sum, r) => sum + (Number(r.daily_repayment) || 0), 0);
+  const h = COLLECTING_HORIZONS.find((x) => x.key === horizon) ?? COLLECTING_HORIZONS[4];
+  const projected = Math.round(totalDaily * h.days);
+  return (
+    <div className="rounded-xl border p-4 border-emerald-500/30 bg-emerald-500/5">
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Banknote className="h-3.5 w-3.5" />
+        <span className="truncate">Being collected</span>
+        <button
+          type="button"
+          onClick={onDetails}
+          className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Details <ChevronRight className="h-3 w-3" />
+        </button>
+      </div>
+      <p className="mt-2 text-xl font-bold tabular-nums leading-tight">{formatUGX(projected)}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {h.label.toLowerCase()} projection · {formatUGX(expected)} still expected · {formatUGX(paidOut)} paid to landlords
+      </p>
+      <div className="mt-3">
+        <Select value={horizon} onValueChange={onHorizonChange}>
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Select projection horizon" />
+          </SelectTrigger>
+          <SelectContent>
+            {COLLECTING_HORIZONS.map((x) => (
+              <SelectItem key={x.key} value={x.key} className="text-xs">
+                {x.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
 function TableShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border/60">
@@ -185,6 +244,25 @@ function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, a
 
 const PAGE_SIZE = 25;
 const GEO_PAGE_SIZE = 15;
+
+/**
+ * Forward collection horizons for the "Being collected" headline tile.
+ * A projection is the recorded daily repayment multiplied by the number of days
+ * in the chosen horizon — no financial record is read differently or written.
+ */
+const COLLECTING_HORIZONS = [
+  { key: '1w', label: 'Next 1 week', days: 7 },
+  { key: '1m', label: 'Next 1 month', days: 30 },
+  { key: '3m', label: 'Next 3 months', days: 91 },
+  { key: '6m', label: 'Next 6 months', days: 182 },
+  { key: '12m', label: 'Next 12 months', days: 365 },
+  { key: '2y', label: 'Next 2 years', days: 730 },
+  { key: '3y', label: 'Next 3 years', days: 1095 },
+  { key: '4y', label: 'Next 4 years', days: 1460 },
+  { key: '5y', label: 'Next 5 years', days: 1825 },
+] as const;
+const DEFAULT_COLLECTING_HORIZON = '12m';
+const COLLECTING_HORIZON_KEY = 'landlord-float:collecting-card-horizon';
 
 /** Sortable columns of the server-paged payout geography breakdown. */
 const GEO_COLUMNS: DrillColumn[] = [
@@ -1728,6 +1806,23 @@ export default function LandlordFloat() {
   const [tab, setTab] = useState('needed');
   const [drill, setDrill] = useState<DrillTarget | null>(null);
   const [showPaidAllTime, setShowPaidAllTime] = useState(false);
+  const [collectingHorizon, setCollectingHorizon] = useState(() => {
+    try {
+      const stored = localStorage.getItem(COLLECTING_HORIZON_KEY);
+      if (stored && COLLECTING_HORIZONS.some((h) => h.key === stored)) return stored;
+    } catch {
+      // localStorage may be unavailable in private mode; fall back to default.
+    }
+    return DEFAULT_COLLECTING_HORIZON;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLECTING_HORIZON_KEY, collectingHorizon);
+    } catch {
+      // ignore storage errors
+    }
+  }, [collectingHorizon]);
 
   if (isLoading) {
     return (
@@ -1800,13 +1895,13 @@ export default function LandlordFloat() {
             })
           }
         />
-        <StatTile
-          label="Being collected"
-          value={formatUGX(collecting.expected.expected)}
-          sub={`${formatUGX(collecting.paid_out.amount)} paid to landlords`}
-          icon={Banknote}
-          tone="emerald"
-          onClick={() =>
+        <CollectingProjectionTile
+          rows={collecting.rows}
+          expected={collecting.expected.expected}
+          paidOut={collecting.paid_out.amount}
+          horizon={collectingHorizon}
+          onHorizonChange={setCollectingHorizon}
+          onDetails={() =>
             setDrill({
               title: 'Live rent plans still being collected',
               description: 'Tenants in funded houses, their landlords and what is still outstanding.',
