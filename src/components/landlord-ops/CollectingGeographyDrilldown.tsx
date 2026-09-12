@@ -508,6 +508,9 @@ export default function CollectingGeographyDrilldown() {
                   </td>
                   <td className="px-3 py-2 text-right font-medium tabular-nums">{formatUGX(r.outstanding)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{formatUGX(r.daily_repayment)}</td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-primary">
+                    {formatUGX(Math.round(r.daily_repayment * horizon.days))}
+                  </td>
                   <td className="px-2 py-2 text-muted-foreground">
                     <ChevronRight className="h-4 w-4" />
                   </td>
