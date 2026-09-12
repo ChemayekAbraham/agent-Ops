@@ -44,6 +44,7 @@ deleted ledger row. **Never delete, never `UPDATE`, never "clean up" financial h
 | [`06-live-state-verification.md`](./06-live-state-verification.md) | You do not trust this documentation (correct instinct). Regenerates every fact from the live catalog. |
 | [`07-tribal-knowledge.md`](./07-tribal-knowledge.md) | The traps that have already cost real money. Read this once, cover to cover, early. |
 | [`08-incident-2026-09-12-merchant-claim.md`](./08-incident-2026-09-12-merchant-claim.md) | A merchant says their claim failed, vanished, or "was taken by another agent". The worked incident: why a retry destroyed the claimer's own reservation, what was rebuilt, and what is **still** broken (the 45-minute stale release). |
+| [`09-incident-2026-09-12-landlord-payout-otp-lock.md`](./09-incident-2026-09-12-landlord-payout-otp-lock.md) | An agent says paying a landlord shows "network issue" then locks for 10 minutes. Why a slow SMS-delivery check got mistaken for a dead request, why a client-only lock made it worse, and **why the fix is currently reverted** — read the "Is the fix still live" section before assuming it's deployed. |
 
 ---
 
