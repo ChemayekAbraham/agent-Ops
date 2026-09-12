@@ -12,6 +12,11 @@ import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { sha256Hex } from "../_shared/cash-verification-core.ts";
 import { sendSMS, formatPhoneInternational } from "../_shared/sendSmsMultiProvider.ts";
+import {
+  normalizeEmail,
+  resolveDepositorEmail,
+  sendCashDepositCodeEmail,
+} from "../_shared/cashDepositCodeEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
