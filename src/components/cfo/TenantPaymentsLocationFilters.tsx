@@ -529,11 +529,11 @@ export function TenantPaymentsLocationFilters() {
           </div>
         )}
 
-        {/* Receipts for the active filter set (always shown; village filter narrows further) */}
+        {/* Payments that match the active filters (always shown; village filter narrows further) */}
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {sel.village ? `Receipts — ${sel.village}` : 'Receipts for the current filters'}
+              {sel.village ? `Payments — ${sel.village}` : 'Payments matching your filters'}
             </h4>
             {receipts.data && (
               <>
