@@ -208,24 +208,22 @@ async function fetchUserRolesOnce(
         if (!currentRole || !rolesToCreate.includes(currentRole as AppRole)) {
           setRole(defaultRole as AppRole);
         }
-      } else {
-        console.warn('[RoleManager] Failed to auto-create roles:', insertError.message);
-        setRoles(DEFAULT_ROLES);
-        setRole(DEFAULT_ROLE);
-        setCachedRoles(DEFAULT_ROLES);
+        return 'resolved';
       }
+      console.warn('[RoleManager] Failed to auto-create roles:', insertError.message);
+      return 'unresolved';
     } else {
-      // All roles exist but are disabled — user has been fully restricted
+      // All roles exist but are disabled — user has been fully restricted.
+      // This is the ONE case where an empty role list is the truth.
       console.warn('[RoleManager] All roles disabled for user:', userId);
       setRoles([]);
       setRole(null as unknown as AppRole);
       setCachedRoles([]);
+      return 'resolved';
     }
   } catch (err: any) {
     console.warn('[RoleManager] Exception fetching roles:', err?.message);
-    setRoles(DEFAULT_ROLES);
-    setRole(DEFAULT_ROLE);
-    setCachedRoles(DEFAULT_ROLES);
+    return 'unresolved';
   }
 }
 
