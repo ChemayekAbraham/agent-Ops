@@ -44,10 +44,10 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 const METHOD_BADGE: Record<string, string> = {
-  mobile_money: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900',
-  cash: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900',
-  in_app_wallet: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-900',
-  unknown: 'bg-muted/50 text-muted-foreground border-border',
+  mobile_money: 'bg-muted/60 text-foreground border-border/60',
+  cash: 'bg-muted/60 text-foreground border-border/60',
+  in_app_wallet: 'bg-muted/60 text-foreground border-border/60',
+  unknown: 'bg-muted/40 text-muted-foreground border-border/60',
 };
 
 function isoDaysAgo(days: number) {
