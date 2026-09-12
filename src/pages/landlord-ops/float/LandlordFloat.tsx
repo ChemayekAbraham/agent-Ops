@@ -8,7 +8,9 @@ import {
   Loader2,
   RefreshCw,
   ChevronRight,
+  ChevronDown,
   MapPin,
+
 
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -167,6 +169,73 @@ function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, a
     <td className={`${TD} ${column.align === 'right' ? 'text-right tabular-nums' : ''}`}>
       {raw === null || raw === undefined || raw === '' ? '—' : String(raw)}
     </td>
+  );
+}
+
+function PaidAllTimeDrillPanel() {
+  const { data: fetched, isLoading, isError, error } = useLandlordFloatDrilldown('payouts_all', null);
+  const rows = fetched ?? [];
+  const total = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2 py-3">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-8 w-full" />
+        ))}
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <div className="py-4">
+        <p className="text-sm font-medium text-destructive">The source transactions could not be loaded.</p>
+        <ErrorDetails error={error} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className="text-muted-foreground">
+          {rows.length.toLocaleString()} payout record{rows.length === 1 ? '' : 's'} behind the all-time total
+        </span>
+        <span className="font-semibold tabular-nums">{formatUGX(total)}</span>
+      </div>
+      <div className="max-h-[50vh] overflow-y-auto">
+        <TableShell>
+          <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+            <tr>
+              {PAYOUT_ALL_COLUMNS.map((c) => (
+                <th
+                  key={c.key}
+                  className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
+                >
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td className={`${TD} text-muted-foreground`} colSpan={PAYOUT_ALL_COLUMNS.length}>
+                  No payout records found.
+                </td>
+              </tr>
+            )}
+            {rows.map((r, i) => (
+              <tr key={r.id ?? i} className="border-t border-border/50">
+                {PAYOUT_ALL_COLUMNS.map((c) => (
+                  <DrillCell key={c.key} column={c} row={r} />
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </TableShell>
+      </div>
+    </div>
   );
 }
 
@@ -778,6 +847,7 @@ export default function LandlordFloat() {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordFloatOverview();
   const [tab, setTab] = useState('needed');
   const [drill, setDrill] = useState<DrillTarget | null>(null);
+  const [showPaidAllTime, setShowPaidAllTime] = useState(false);
 
   if (isLoading) {
     return (
@@ -1110,6 +1180,31 @@ export default function LandlordFloat() {
                     })
                   }
                 />
+              </div>
+
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm font-medium hover:bg-emerald-500/10"
+                  onClick={() => setShowPaidAllTime((v) => !v)}
+                >
+                  <span>
+                    Source transactions behind the all-time total —{' '}
+                    <span className="tabular-nums font-semibold">
+                      {formatUGX(collecting.paid_all_time?.amount ?? 0)}
+                    </span>
+                  </span>
+                  {showPaidAllTime ? (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                </button>
+                {showPaidAllTime && (
+                  <div className="border-t border-emerald-500/20 px-4 py-3">
+                    <PaidAllTimeDrillPanel />
+                  </div>
+                )}
               </div>
 
               <TableShell>
