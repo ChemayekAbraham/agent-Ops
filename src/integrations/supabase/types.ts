@@ -55026,6 +55026,22 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_ops_collecting_geo_page: {
+        Args: {
+          p_country?: string
+          p_county?: string
+          p_district?: string
+          p_level?: string
+          p_limit?: number
+          p_offset?: number
+          p_parish?: string
+          p_region?: string
+          p_search?: string
+          p_subcounty?: string
+          p_village?: string
+        }
+        Returns: Json
+      }
       landlord_ops_district_alias_status: {
         Args: { p_recorded_text: string }
         Returns: Json
