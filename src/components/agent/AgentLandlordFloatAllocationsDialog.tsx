@@ -9,14 +9,21 @@ import {
   describeInflightPayout,
   type LandlordFloatAllocation,
 } from '@/hooks/useLandlordFloatAllocations';
-import { Loader2, Landmark, ArrowRight, Inbox, User, Search, Clock3 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Loader2, Landmark, ArrowRight, Inbox, User, Search, Lock, Clock3 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectAllocation: (allocation: LandlordFloatAllocation) => void;
 }
+
+/** Per-landlord withdrawal cooldown: one tap, then locked for 10 minutes. */
+const WITHDRAW_LOCK_MS = 10 * 60 * 1000;
+
+const lockStorageKey = (agentId?: string | null) => `welile-ll-withdraw-lock:${agentId ?? 'anon'}`;
+const allocationLockKey = (a: LandlordFloatAllocation) => a.landlord_id || a.id;
 
 function maskLandlordPhone(phone?: string | null): string {
   if (!phone) return '';
@@ -41,23 +48,69 @@ function maskLandlordPhone(phone?: string | null): string {
   return phone;
 }
 
+function loadLocks(agentId?: string | null): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(lockStorageKey(agentId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    const now = Date.now();
+    // Drop expired entries on read so storage stays small.
+    return Object.fromEntries(Object.entries(parsed).filter(([, exp]) => exp > now));
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Phase 1 — Per-tenant allocations browser.
  * Shows the agent which tenants currently have ring-fenced float ready to be paid
  * to a landlord. Tapping an allocation hands off to the existing payout wizard.
  */
 export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSelectAllocation }: Props) {
+  const { user } = useAuth();
   const { data: allocations = [], isLoading } = useLandlordFloatAllocations({ onlyOpen: true });
 
   const [search, setSearch] = useState('');
+  const [locks, setLocks] = useState<Record<string, number>>({});
+  const [now, setNow] = useState(() => Date.now());
 
-  // Whether an allocation is "spoken for" is now entirely server-authoritative
-  // via `inflight_payout` (a real landlord_payouts row, OR — since the fix for
-  // the false 10-minute lockout — a live, unexpired OTP challenge; see
-  // useLandlordFloatAllocations). There is no client-side lock any more: a tap
-  // either finds real in-flight state and opens the wizard to show/track it,
-  // or finds none and starts a fresh OTP request.
+  // Hydrate locks whenever the dialog opens (catches locks set on other screens/sessions).
+  useEffect(() => {
+    if (open) setLocks(loadLocks(user?.id));
+  }, [open, user?.id]);
+
+  // Tick every second while there is at least one active lock so countdowns update.
+  const hasActiveLock = useMemo(
+    () => Object.values(locks).some((exp) => exp > now),
+    [locks, now],
+  );
+  useEffect(() => {
+    if (!open || !hasActiveLock) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [open, hasActiveLock]);
+
   const handleSelect = (a: LandlordFloatAllocation) => {
+    const key = allocationLockKey(a);
+    const expiry = locks[key];
+    if (expiry && expiry > Date.now()) return; // still locked — ignore the tap
+    // A payout the agent already submitted is still working through the
+    // merchant queue. Opening the wizard here would show a payment form pinned
+    // at "Available to pay: UGX 0" (the float is held for that payout), which
+    // reads as the app having eaten their money. Let the wizard open so it can
+    // show the payout's progress, but do NOT burn a withdrawal lock on it.
+    if (a.inflight_payout) {
+      onSelectAllocation(a);
+      return;
+    }
+    const next = { ...loadLocks(user?.id), [key]: Date.now() + WITHDRAW_LOCK_MS };
+    setLocks(next);
+    setNow(Date.now());
+    try {
+      localStorage.setItem(lockStorageKey(user?.id), JSON.stringify(next));
+    } catch {
+      /* ignore storage failures */
+    }
     onSelectAllocation(a);
   };
 
@@ -117,7 +170,7 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
               {totalInflight > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-amber-600 dark:text-amber-500">
-                    Already in progress — OTP sent or with a merchant
+                    Already sent — waiting for a merchant
                   </span>
                   <span className="text-xs font-semibold text-amber-600 dark:text-amber-500">
                     {formatUGX(totalInflight)}
@@ -149,9 +202,13 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                     <p className="text-xs mt-1">Try a different name or clear the search.</p>
                   </div>
                 ) : filtered.map((a) => {
-                  // Already submitted (or an OTP is already out) and still
-                  // moving through verification/the merchant queue — this row
-                  // is not work to do, it is work to track.
+                  const lockExpiry = locks[allocationLockKey(a)] ?? 0;
+                  const remainingMs = Math.max(0, lockExpiry - now);
+                  const isLocked = remainingMs > 0;
+                  const mins = Math.floor(remainingMs / 60000).toString().padStart(2, '0');
+                  const secs = Math.floor((remainingMs % 60000) / 1000).toString().padStart(2, '0');
+                  // Already submitted and still moving through the merchant
+                  // queue — this row is not work to do, it is work to track.
                   const inflight = a.inflight_payout
                     ? describeInflightPayout(a.inflight_payout)
                     : null;
@@ -159,10 +216,14 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                   <button
                     key={a.id}
                     onClick={() => handleSelect(a)}
+                    disabled={isLocked}
+                    aria-disabled={isLocked}
                     className={`w-full text-left p-3.5 rounded-xl border-2 transition-all touch-manipulation ${
-                      inflight
-                        ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500/60'
-                        : 'border-border/80 bg-card hover:border-[#9234EA]/50 hover:bg-[#9234EA]/5 active:scale-[0.99] shadow-sm'
+                      isLocked
+                        ? 'border-border/60 bg-muted/30 opacity-70 cursor-not-allowed'
+                        : inflight
+                          ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500/60'
+                          : 'border-border/80 bg-card hover:border-[#9234EA]/50 hover:bg-[#9234EA]/5 active:scale-[0.99] shadow-sm'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -185,7 +246,7 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                       </div>
                       {inflight && (
                         <Badge className="text-[10px] uppercase font-semibold shrink-0 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15">
-                          {inflight.label}
+                          merchant
                         </Badge>
                       )}
                       {!inflight && a.status === 'partially_paid' && (
@@ -210,7 +271,13 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        {inflight ? (
+                        {isLocked ? (
+                          <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">
+                            <Lock className="h-3 w-3" />
+                            <span>{mins}:{secs}</span>
+                            <span className="text-[10px] text-muted-foreground">locked</span>
+                          </div>
+                        ) : inflight ? (
                           <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-500">
                             <Clock3 className="h-3.5 w-3.5" />
                             Track

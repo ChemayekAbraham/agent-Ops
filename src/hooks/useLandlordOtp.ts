@@ -28,51 +28,17 @@ async function readErrorPayload(error: any): Promise<any | null> {
 // A network-level fetch failure ("Failed to send a request to the Edge
 // Function") means the request never reached the server — the OTP is still
 // valid and can simply be re-entered on a stable connection.
-function isNetworkishMessage(rawMessage: string | undefined): boolean {
+function friendlyOtpError(rawMessage: string | undefined, fallback: string): string {
   const msg = (rawMessage || '').toLowerCase();
-  return (
+  if (
     msg.includes('failed to send a request') ||
     msg.includes('failed to fetch') ||
     msg.includes('network') ||
     msg.includes('load failed')
-  );
-}
-
-function friendlyOtpError(rawMessage: string | undefined, fallback: string): string {
-  if (isNetworkishMessage(rawMessage)) {
+  ) {
     return 'Network issue — the request did not reach our servers. Your code is still valid; check the connection and tap Verify again.';
   }
   return rawMessage || fallback;
-}
-
-// A transport-level failure on `issue-landlord-payout-otp` does NOT mean
-// nothing happened — the server may have already committed the OTP challenge
-// (and kicked off the SMS send in the background) before the response was
-// lost in transit. Rather than asserting "the request did not reach our
-// servers" — which is often simply false — ask the server what actually
-// happened: is there already a live challenge for this exact landlord (+
-// rent request)? If so, adopt it instead of telling the agent to start over
-// and risk a second SMS / a confusing duplicate attempt.
-async function reconcilePayoutChallenge(
-  landlordId: string,
-  rentRequestId?: string,
-): Promise<{ id: string; expires_at: string } | null> {
-  try {
-    let q = supabase
-      .from('landlord_payout_otp_challenges')
-      .select('id, otp_expires_at')
-      .eq('landlord_id', landlordId)
-      .eq('status', 'pending')
-      .gt('otp_expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1);
-    q = rentRequestId ? q.eq('rent_request_id', rentRequestId) : q.is('rent_request_id', null);
-    const { data, error } = await q.maybeSingle();
-    if (error || !data) return null;
-    return { id: data.id, expires_at: data.otp_expires_at };
-  } catch {
-    return null;
-  }
 }
 
 interface PayoutOtpPayload {
@@ -264,51 +230,20 @@ export function useLandlordOtp() {
     lastErrorRef.current = null;
     setSendStatus('idle');
     pollTokenRef.current += 1;
-    // Shared "we don't actually know what happened" recovery: check the
-    // server for a live challenge before telling the agent nothing was sent.
-    const reconcileOrFail = async (rawMessage: string | undefined) => {
-      if (isNetworkishMessage(rawMessage)) {
-        fail("We couldn't confirm the response — checking whether your OTP request was created…");
-        const existing = await reconcilePayoutChallenge(payload.landlord_id, payload.rent_request_id);
-        if (existing) {
-          setOtpSent(true);
-          setVerifiedPhone(cleanPhoneNumber(payload.landlord_phone));
-          setChallengeId(existing.id);
-          setExpiresAt(existing.expires_at);
-          startCooldown(DEFAULT_COOLDOWN_SECONDS);
-          setSendStatus('accepted');
-          lastErrorRef.current = null;
-          setOtpError(null);
-          return existing.id;
-        }
-        fail('The OTP request was not created. Please try again.');
-        setSendStatus('failed');
-        return null;
-      }
-      fail(friendlyOtpError(rawMessage, 'Failed to send OTP'));
-      setSendStatus('failed');
-      return null;
-    };
-
     try {
       const { data, error } = await supabase.functions.invoke('issue-landlord-payout-otp', {
         body: payload,
       });
       if (error) {
-        const errPayload = await readErrorPayload(error);
-        const errMsg = errPayload?.error || error.message;
-        if (typeof errPayload?.retry_after === 'number') {
-          startCooldown(errPayload.retry_after);
+        let payload: any = null;
+        payload = await readErrorPayload(error);
+        const errMsg = payload?.error || error.message;
+        if (typeof payload?.retry_after === 'number') {
+          startCooldown(payload.retry_after);
         }
-        // A real error body from the server (e.g. "Insufficient float") is
-        // authoritative — only reconcile when the message itself looks like
-        // the request never got a response at all.
-        if (errPayload?.error) {
-          fail(errPayload.error);
-          setSendStatus('failed');
-          return null;
-        }
-        return await reconcileOrFail(errMsg);
+        fail(friendlyOtpError(errMsg, 'Failed to send OTP'));
+        setSendStatus('failed');
+        return null;
       }
       if (data?.error) {
         if (typeof data?.retry_after === 'number') startCooldown(data.retry_after);
@@ -329,7 +264,9 @@ export function useLandlordOtp() {
       setSendStatus('accepted');
       return data?.challenge_id as string | null;
     } catch (e: any) {
-      return await reconcileOrFail(e?.message);
+      fail(friendlyOtpError(e?.message, 'Failed to send OTP'));
+      setSendStatus('failed');
+      return null;
     } finally {
       inFlightRef.current = false;
       setOtpLoading(false);
@@ -360,23 +297,13 @@ export function useLandlordOtp() {
         body: { challenge_id: challengeId },
       });
       if (error) {
-        const errPayload = await readErrorPayload(error);
-        const errMsg = errPayload?.error || error.message;
-        if (typeof errPayload?.retry_after === 'number') {
-          startCooldown(errPayload.retry_after);
+        let payload: any = null;
+        payload = await readErrorPayload(error);
+        const errMsg = payload?.error || error.message;
+        if (typeof payload?.retry_after === 'number') {
+          startCooldown(payload.retry_after);
         }
-        if (errPayload?.error) {
-          fail(errPayload.error);
-        } else {
-          // The existing challenge is unaffected either way — we just don't
-          // know if a new code went out. Don't claim the request "never
-          // reached our servers" when that may simply be false.
-          fail(
-            isNetworkishMessage(errMsg)
-              ? "We couldn't confirm the resend reached our servers. If the landlord doesn't get a new code shortly, tap Resend again."
-              : friendlyOtpError(errMsg, 'Failed to resend OTP'),
-          );
-        }
+        fail(friendlyOtpError(errMsg, 'Failed to resend OTP'));
         setSendStatus('failed');
         return false;
       }
@@ -392,11 +319,7 @@ export function useLandlordOtp() {
       setSendStatus('accepted');
       return true;
     } catch (e: any) {
-      fail(
-        isNetworkishMessage(e?.message)
-          ? "We couldn't confirm the resend reached our servers. If the landlord doesn't get a new code shortly, tap Resend again."
-          : friendlyOtpError(e?.message, 'Failed to resend OTP'),
-      );
+      fail(friendlyOtpError(e?.message, 'Failed to resend OTP'));
       setSendStatus('failed');
       return false;
     } finally {

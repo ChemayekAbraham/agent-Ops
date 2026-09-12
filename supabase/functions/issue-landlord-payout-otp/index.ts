@@ -318,111 +318,6 @@ async function logSms(
   }
 }
 
-// ── Background OTP dispatch ─────────────────────────────────────────────────
-// The client's HTTP request must end the instant the challenge row is
-// committed — it must NOT stay open through sendOtpWithFallback(), which can
-// run a full send + up to ~10s of Yoola delivery-report polling + an Africa's
-// Talking fallback + a Twilio fallback. On a field agent's mobile connection,
-// holding that request open for 10-20+ seconds routinely gets the connection
-// dropped by the carrier/browser, which the client then (wrongly) reports as
-// "the request never reached our servers" — when in fact the challenge was
-// already created and an SMS may already be on its way. Everything below runs
-// via EdgeRuntime.waitUntil AFTER the response has already been sent.
-async function dispatchOtpInBackground(
-  admin: ReturnType<typeof createClient>,
-  params: {
-    phone: string;
-    message: string;
-    challengeId: string;
-    agentId: string;
-    landlordId: string;
-    landlordName: string | null;
-    landlordPhone: string;
-    amount: number;
-    eventType: "sent" | "resent";
-    attemptNumber: number;
-    otpExpiresAt: string;
-    tenantName?: string | null;
-    triggerSource?: "auto" | "manual";
-  },
-): Promise<void> {
-  const { phone, message, challengeId, agentId, landlordId, landlordName, landlordPhone, amount, eventType, attemptNumber, otpExpiresAt, tenantName, triggerSource } = params;
-  try {
-    const result = await sendOtpWithFallback(phone, message);
-    await logSms(admin, phone, `Landlord payout OTP (${eventType})`, result, landlordName ?? null, challengeId);
-
-    const detailVerb = eventType === "sent" ? "sent" : "resent";
-    const detail = result.ok
-      ? (result.fallbackUsed
-        ? `OTP ${detailVerb} via Twilio fallback (Africa's Talking failed: ${result.primaryReason ?? "unknown"})`
-        : `OTP ${detailVerb} via SMS`)
-      : `OTP ${eventType === "sent" ? "created" : "regenerated"} (SMS NOT delivered: ${result.reason ?? "unknown"})`;
-
-    await admin.from("landlord_payout_otp_events").insert({
-      challenge_id: challengeId,
-      agent_id: agentId,
-      landlord_id: landlordId,
-      event_type: eventType,
-      landlord_phone: landlordPhone,
-      amount,
-      otp_expires_at: otpExpiresAt,
-      detail: triggerSource === "auto"
-        ? (result.ok
-          ? (result.fallbackUsed
-            ? `OTP auto-sent via Twilio fallback on withdraw float tap (Africa's Talking failed: ${result.primaryReason ?? "unknown"})`
-            : "OTP auto-sent via SMS on withdraw float tap")
-          : `OTP auto-created on withdraw float tap (SMS NOT delivered: ${result.reason ?? "unknown"})`)
-        : detail,
-      failure_reason: result.ok ? null : (result.reason ?? "sms_not_delivered"),
-      metadata: {
-        attempt_number: attemptNumber,
-        sms_sent: result.ok,
-        sms_status: result.status ?? null,
-        sms_status_code: result.statusCode ?? null,
-        sms_reason: result.reason ?? null,
-        sms_message_id: result.messageId ?? null,
-        sms_provider: result.provider ?? null,
-        fallback_used: result.fallbackUsed ?? false,
-        primary_provider: result.primaryProvider ?? null,
-        primary_reason: result.primaryReason ?? null,
-        delivery_status: result.ok ? "submitted" : "failed",
-        tenant_name: tenantName ?? null,
-        trigger_source: triggerSource ?? null,
-      },
-    });
-  } catch (e) {
-    console.error("[issue-landlord-payout-otp] background dispatch failed:", e);
-    try {
-      await admin.from("landlord_payout_otp_events").insert({
-        challenge_id: challengeId,
-        agent_id: agentId,
-        landlord_id: landlordId,
-        event_type: eventType,
-        landlord_phone: landlordPhone,
-        amount,
-        otp_expires_at: otpExpiresAt,
-        detail: `OTP dispatch crashed: ${e instanceof Error ? e.message : "unknown error"}`,
-        failure_reason: "dispatch_exception",
-        metadata: { attempt_number: attemptNumber, sms_sent: false, delivery_status: "failed" },
-      });
-    } catch { /* best-effort only */ }
-  }
-}
-
-/** Fire `task` in the background if the runtime supports it, otherwise inline. */
-function background(task: Promise<void>): void {
-  try {
-    const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil;
-    if (typeof waitUntil === "function") {
-      waitUntil(task.catch((e) => console.error("[issue-landlord-payout-otp] background task error:", e)));
-      return;
-    }
-  } catch { /* fall through to inline */ }
-  // No EdgeRuntime (e.g. local dev) — nothing else can keep this alive after
-  // the response returns, so just let it run un-awaited on a best-effort basis.
-  task.catch((e) => console.error("[issue-landlord-payout-otp] background task error (no EdgeRuntime):", e));
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -484,25 +379,40 @@ Deno.serve(async (req) => {
       const attemptNumber = (priorSends ?? 0) + 1;
 
       const phone = normalizePhone(existing.landlord_phone);
-      const message = `Welile: You are receiving UGX ${Number(existing.amount).toLocaleString()} as rent. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`;
-
-      // Respond as soon as the challenge is committed — the SMS send/confirm/
-      // fallback chain runs after the response, never blocking the agent's app.
-      background(dispatchOtpInBackground(admin, {
+      const resent = await sendOtpWithFallback(
         phone,
-        message,
-        challengeId: challenge_id,
-        agentId,
-        landlordId: existing.landlord_id,
-        landlordName: existing.landlord_name ?? null,
-        landlordPhone: existing.landlord_phone,
+        `Welile: You are receiving UGX ${Number(existing.amount).toLocaleString()} as rent. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`,
+      );
+      await logSms(admin, phone, "Landlord payout OTP (resend)", resent, existing.landlord_name ?? null, challenge_id);
+      await admin.from("landlord_payout_otp_events").insert({
+        challenge_id,
+        agent_id: agentId,
+        landlord_id: existing.landlord_id,
+        event_type: "resent",
+        landlord_phone: existing.landlord_phone,
         amount: existing.amount,
-        eventType: "resent",
-        attemptNumber,
-        otpExpiresAt: otp_expires_at,
-      }));
-
-      return json({ success: true, challenge_id, expires_at: otp_expires_at, attempt_number: attemptNumber, delivery_status: "pending" });
+        otp_expires_at,
+        detail: resent.ok
+          ? (resent.fallbackUsed
+            ? `OTP resent via Twilio fallback (Africa's Talking failed: ${resent.primaryReason ?? "unknown"})`
+            : "OTP resent via SMS")
+          : `OTP regenerated (SMS NOT delivered: ${resent.reason ?? "unknown"})`,
+        failure_reason: resent.ok ? null : (resent.reason ?? "sms_not_delivered"),
+        metadata: {
+          attempt_number: attemptNumber,
+          sms_sent: resent.ok,
+          sms_status: resent.status ?? null,
+          sms_status_code: resent.statusCode ?? null,
+          sms_reason: resent.reason ?? null,
+          sms_message_id: resent.messageId ?? null,
+          sms_provider: resent.provider ?? null,
+          fallback_used: resent.fallbackUsed ?? false,
+          primary_provider: resent.primaryProvider ?? null,
+          primary_reason: resent.primaryReason ?? null,
+          delivery_status: resent.ok ? "submitted" : "failed",
+        },
+      });
+      return json({ success: true, challenge_id, expires_at: otp_expires_at, attempt_number: attemptNumber, sms_sent: resent.ok, sms_reason: resent.reason ?? null });
     }
 
     // Validation
@@ -516,36 +426,6 @@ Deno.serve(async (req) => {
     }
     if (!/^\+?\d{9,15}$/.test(String(landlord_phone).replace(/\s|-/g, ""))) {
       return json({ error: "Invalid landlord phone" }, 400);
-    }
-
-    // Idempotency: if this agent already has a live, unexpired challenge for
-    // this exact landlord (+ rent request, when known), hand that back instead
-    // of minting a second one. Without this, a slow/ambiguous response to an
-    // earlier tap (see background dispatch below) led agents to tap again and
-    // spin up parallel challenges for the same payout — e.g. three separate
-    // challenge rows for one Mata Pius → Sowali Sebuyila payout in one hour.
-    let existingLive = admin
-      .from("landlord_payout_otp_challenges")
-      .select("id, otp_expires_at")
-      .eq("agent_id", agentId)
-      .eq("landlord_id", landlord_id)
-      .eq("status", "pending")
-      .gt("otp_expires_at", new Date().toISOString())
-      .order("created_at", { ascending: false })
-      .limit(1);
-    existingLive = rent_request_id
-      ? existingLive.eq("rent_request_id", rent_request_id)
-      : existingLive.is("rent_request_id", null);
-    const { data: liveChallenge } = await existingLive.maybeSingle();
-    if (liveChallenge) {
-      return json({
-        success: true,
-        challenge_id: liveChallenge.id,
-        expires_at: liveChallenge.otp_expires_at,
-        attempt_number: 1,
-        delivery_status: "pending",
-        reused_existing_challenge: true,
-      });
     }
 
     // Eligibility check (float, cutoff, landlord status) — same gate as final insert
@@ -628,32 +508,56 @@ Deno.serve(async (req) => {
     }
 
     const phone = normalizePhone(landlord_phone);
-    const message = `Welile: You are receiving UGX ${amt.toLocaleString()} as rent${tenant_name ? ` from ${tenant_name}` : ""}. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`;
-
-    // Respond as soon as the challenge is committed — see dispatchOtpInBackground
-    // for why the SMS send/confirm/fallback chain must never block this response.
-    background(dispatchOtpInBackground(admin, {
+    const sent = await sendOtpWithFallback(
       phone,
-      message,
-      challengeId: challenge.id,
-      agentId,
-      landlordId: landlord_id,
-      landlordName: landlord_name ?? null,
-      landlordPhone: landlord_phone,
+      `Welile: You are receiving UGX ${amt.toLocaleString()} as rent${tenant_name ? ` from ${tenant_name}` : ""}. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`,
+    );
+    await logSms(admin, phone, "Landlord payout OTP", sent, landlord_name ?? null, challenge.id);
+
+    await admin.from("landlord_payout_otp_events").insert({
+      challenge_id: challenge.id,
+      agent_id: agentId,
+      landlord_id,
+      event_type: "sent",
+      landlord_phone,
       amount: amt,
-      eventType: "sent",
-      attemptNumber: 1,
-      otpExpiresAt: otp_expires_at,
-      tenantName: tenant_name ?? null,
-      triggerSource: normalizedTrigger,
-    }));
+      otp_expires_at,
+      detail: normalizedTrigger === "auto"
+        ? (sent.ok
+          ? (sent.fallbackUsed
+            ? `OTP auto-sent via Twilio fallback on withdraw float tap (Africa's Talking failed: ${sent.primaryReason ?? "unknown"})`
+            : "OTP auto-sent via SMS on withdraw float tap")
+          : `OTP auto-created on withdraw float tap (SMS NOT delivered: ${sent.reason ?? "unknown"})`)
+        : (sent.ok
+          ? (sent.fallbackUsed
+            ? `OTP sent via Twilio fallback (Africa's Talking failed: ${sent.primaryReason ?? "unknown"})`
+            : "OTP sent via SMS")
+          : `OTP created (SMS NOT delivered: ${sent.reason ?? "unknown"})`),
+      failure_reason: sent.ok ? null : (sent.reason ?? "sms_not_delivered"),
+      metadata: {
+        attempt_number: 1,
+        sms_sent: sent.ok,
+        sms_status: sent.status ?? null,
+        sms_status_code: sent.statusCode ?? null,
+        sms_reason: sent.reason ?? null,
+        sms_message_id: sent.messageId ?? null,
+        sms_provider: sent.provider ?? null,
+        fallback_used: sent.fallbackUsed ?? false,
+        primary_provider: sent.primaryProvider ?? null,
+        primary_reason: sent.primaryReason ?? null,
+        delivery_status: sent.ok ? "submitted" : "failed",
+        tenant_name: tenant_name ?? null,
+        trigger_source: normalizedTrigger,
+      },
+    });
 
     return json({
       success: true,
       challenge_id: challenge.id,
       expires_at: otp_expires_at,
       attempt_number: 1,
-      delivery_status: "pending",
+      sms_sent: sent.ok,
+      sms_reason: sent.reason ?? null,
     });
   } catch (e) {
     console.error("[issue-landlord-payout-otp] error", e);

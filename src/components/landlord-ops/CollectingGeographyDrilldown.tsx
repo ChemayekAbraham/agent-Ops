@@ -40,6 +40,25 @@ import {
 
 const PAGE_SIZE = 25;
 
+/**
+ * Forward collection horizons. A projection is simply the recorded daily
+ * repayment multiplied by the number of days in the chosen horizon — no
+ * financial record is read differently or written.
+ */
+const HORIZONS = [
+  { key: '1w', label: 'Next 1 week', short: '1w', days: 7 },
+  { key: '1m', label: 'Next 1 month', short: '1m', days: 30 },
+  { key: '3m', label: 'Next 3 months', short: '3m', days: 91 },
+  { key: '6m', label: 'Next 6 months', short: '6m', days: 182 },
+  { key: '12m', label: 'Next 12 months', short: '12m', days: 365 },
+  { key: '2y', label: 'Next 2 years', short: '2y', days: 730 },
+  { key: '3y', label: 'Next 3 years', short: '3y', days: 1095 },
+  { key: '4y', label: 'Next 4 years', short: '4y', days: 1460 },
+  { key: '5y', label: 'Next 5 years', short: '5y', days: 1825 },
+] as const;
+
+const DEFAULT_HORIZON = '12m';
+
 const ORDER: Array<keyof CollectingGeoPath> = [
   'country',
   'region',
@@ -118,6 +137,9 @@ export default function CollectingGeographyDrilldown() {
   const [to, setTo] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [debounced, setDebounced] = useState('');
+  const [horizonKey, setHorizonKey] = useState<string>(DEFAULT_HORIZON);
+
+  const horizon = HORIZONS.find((h) => h.key === horizonKey) ?? HORIZONS[4];
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 250);
@@ -232,6 +254,41 @@ export default function CollectingGeographyDrilldown() {
             <FilterX className="h-3.5 w-3.5" /> Reset
           </Button>
         )}
+      </div>
+
+      {/* Headline forward projection for every house in this place */}
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-primary">
+              Projected collection · {horizon.label.toLowerCase()}
+            </p>
+            <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">
+              {formatUGX(Math.round((totals?.daily_repayment ?? 0) * horizon.days))}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatUGX(totals?.daily_repayment ?? 0)} a day across{' '}
+              {(totals?.plans ?? 0).toLocaleString()} live rent plan{(totals?.plans ?? 0) === 1 ? '' : 's'} ×{' '}
+              {horizon.days.toLocaleString()} days
+              {trail.length > 0 ? ` · ${trail[trail.length - 1].value}` : ' · everywhere'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {HORIZONS.map((h) => (
+              <Button
+                key={h.key}
+                type="button"
+                size="sm"
+                variant={h.key === horizon.key ? 'default' : 'outline'}
+                className="h-7 px-2 text-xs"
+                onClick={() => setHorizonKey(h.key)}
+                title={h.label}
+              >
+                {h.short}
+              </Button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Totals for the current place */}
@@ -394,13 +451,16 @@ export default function CollectingGeographyDrilldown() {
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Collected</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Outstanding</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Daily</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-primary">
+                  {horizon.label}
+                </th>
                 <th className="w-8" />
               </tr>
             </thead>
             <tbody>
               {groupRows.length === 0 && (
                 <tr>
-                  <td className="px-3 py-3 text-muted-foreground" colSpan={7}>
+                  <td className="px-3 py-3 text-muted-foreground" colSpan={8}>
                     Nothing is being collected here.
                   </td>
                 </tr>
@@ -448,6 +508,9 @@ export default function CollectingGeographyDrilldown() {
                   </td>
                   <td className="px-3 py-2 text-right font-medium tabular-nums">{formatUGX(r.outstanding)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{formatUGX(r.daily_repayment)}</td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-primary">
+                    {formatUGX(Math.round(r.daily_repayment * horizon.days))}
+                  </td>
                   <td className="px-2 py-2 text-muted-foreground">
                     <ChevronRight className="h-4 w-4" />
                   </td>
@@ -502,6 +565,15 @@ export default function CollectingGeographyDrilldown() {
                   <Field label="Agent" value={h.agent_name || 'No agent'} />
                   <Field label="Landlord" value={h.landlord_name} />
                   <Field label="Outstanding" value={formatUGX(h.outstanding)} />
+                </div>
+                <div className="rounded-md border border-primary/25 bg-primary/5 px-2.5 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-primary">{horizon.label}</p>
+                  <p className="text-sm font-semibold tabular-nums">
+                    {formatUGX(Math.round(h.daily_repayment * horizon.days))}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {formatUGX(h.daily_repayment)} a day × {horizon.days.toLocaleString()} days
+                  </p>
                 </div>
               </div>
             </button>
@@ -597,6 +669,26 @@ export default function CollectingGeographyDrilldown() {
                 <Field label="Collected" value={formatUGX(openHouse.collected)} />
                 <Field label="Outstanding" value={formatUGX(openHouse.outstanding)} />
                 <Field label="Daily amount" value={formatUGX(openHouse.daily_repayment)} />
+              </div>
+
+              <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-primary">
+                  Projected collection from this house
+                </p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  {HORIZONS.map((h) => (
+                    <div key={h.key} className="min-w-0">
+                      <p className="text-[11px] text-muted-foreground">{h.label}</p>
+                      <p className="truncate text-sm font-semibold tabular-nums">
+                        {formatUGX(Math.round(openHouse.daily_repayment * h.days))}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Daily amount × days in each period. A straight projection — it does not stop at the
+                  outstanding balance or assume any missed day.
+                </p>
               </div>
 
               <div className="space-y-2">
