@@ -1305,7 +1305,6 @@ const PORTFOLIO_COLUMNS: DrillColumn[] = [
 ];
 
 const ATTACHED_COLUMNS: DrillColumn[] = [
-  { key: 'partner_name', label: 'Funder' },
   { key: 'house_title', label: 'House' },
   { key: 'district', label: 'District' },
   { key: 'landlord_name', label: 'Landlord' },
