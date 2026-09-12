@@ -18,6 +18,10 @@ export function maskDepositCode(raw: unknown): string {
   return `${"•".repeat(code.length - visibleCharacters)}${code.slice(-visibleCharacters)}`;
 }
 
+export function cashDepositReference(depositRequestId: string): string {
+  return `DEP-${String(depositRequestId).replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function normalizeEmail(raw: unknown): string | null {
@@ -84,6 +88,7 @@ export async function sendCashDepositCodeEmail(
         idempotencyKey: `cash-deposit-code-${depositRequestId}-${code}`,
         templateData: {
           code,
+          referenceNumber: cashDepositReference(depositRequestId),
           amountUgx: amount,
           depositorName: String(depositorName ?? "").split(" ")[0] || "there",
           cashOwnerName: cashOwnerName ?? "",

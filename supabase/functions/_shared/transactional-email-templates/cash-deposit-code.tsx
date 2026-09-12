@@ -23,6 +23,7 @@ import type { TemplateEntry } from './types.ts'
  */
 interface CashDepositCodeProps {
   code?: string
+  referenceNumber?: string
   amountUgx?: number
   depositorName?: string
   cashOwnerName?: string
@@ -40,6 +41,7 @@ const ugx = (n: number | undefined): string =>
 
 export function CashDepositCodeEmail({
   code = '0000',
+  referenceNumber = 'DEP-00000000',
   amountUgx = 0,
   depositorName = 'there',
   cashOwnerName = '',
@@ -84,6 +86,8 @@ export function CashDepositCodeEmail({
           </Text>
 
           <Hr style={hr} />
+          <Text style={label}>DEPOSIT REFERENCE</Text>
+          <Text style={referenceValue}>{referenceNumber}</Text>
           <Text style={label}>AMOUNT</Text>
           <Text style={value}>{ugx(amountUgx)}</Text>
           {cashOwnerName ? (
@@ -189,6 +193,13 @@ const label: React.CSSProperties = {
   fontWeight: 700,
 }
 const value: React.CSSProperties = { color: '#0f172a', fontSize: '14px', margin: '0 0 12px' }
+const referenceValue: React.CSSProperties = {
+  color: '#0f172a',
+  fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
+  fontSize: '15px',
+  fontWeight: 700,
+  margin: '0 0 12px',
+}
 const footerSection: React.CSSProperties = {
   backgroundColor: '#f8fafc',
   borderTop: '1px solid #e2e8f0',
@@ -228,6 +239,7 @@ export const template = {
   displayName: 'Cash deposit code',
   previewData: {
     code: '4821',
+    referenceNumber: 'DEP-5A7C91E2',
     amountUgx: 5000000,
     depositorName: 'Benjamin',
     cashOwnerName: 'BENJAMIN MUHANGUZI',
