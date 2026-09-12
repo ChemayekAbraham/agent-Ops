@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ReferralLeaderboard } from '@/components/ReferralLeaderboard';
 import { RewardHistoryBadges } from '@/components/RewardHistoryBadges';
