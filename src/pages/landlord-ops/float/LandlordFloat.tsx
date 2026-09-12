@@ -2111,10 +2111,7 @@ export default function LandlordFloat() {
                 )}
               </div>
 
-              <CollectingGeographyDrilldown
-                horizonKey={collectingHorizonKey}
-                onHorizonChange={setCollectingHorizonKey}
-              />
+              <CollectingGeographyDrilldown />
 
               <TableShell>
 
