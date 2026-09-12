@@ -198,6 +198,28 @@ const footerSection: React.CSSProperties = {
 const footerTitle: React.CSSProperties = { color: '#475569', fontSize: '11px', fontWeight: 700, margin: '0 0 5px' }
 const footer: React.CSSProperties = { color: '#64748b', fontSize: '12px', margin: '0 0 5px' }
 const footerLink: React.CSSProperties = { color: '#7b19d4', fontSize: '12px', fontWeight: 600, margin: 0 }
+const helpSection: React.CSSProperties = {
+  backgroundColor: '#f8fafc',
+  borderTop: '1px solid #e2e8f0',
+  padding: '22px 32px',
+}
+const helpTitle: React.CSSProperties = {
+  color: '#0f172a',
+  fontSize: '14px',
+  fontWeight: 700,
+  margin: '0 0 8px',
+}
+const helpText: React.CSSProperties = {
+  color: '#475569',
+  fontSize: '13px',
+  lineHeight: '20px',
+  margin: '0 0 6px',
+}
+const helpLinkStyle: React.CSSProperties = {
+  color: '#7b19d4',
+  fontWeight: 600,
+  textDecoration: 'underline',
+}
 
 export const template = {
   component: CashDepositCodeEmail,
