@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import {
   usePaymentCollectionsProjection,
@@ -134,180 +135,190 @@ export function CollectionsProjectionPanel() {
   };
 
   return (
-    <div className="space-y-3">
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
-                Collections Forecast
-                <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-700">
-                  Forecast — estimated
-                </Badge>
-              </CardTitle>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Projected rent-payment collections from historical payment trends only. Not a guarantee of future collections.
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={() => refetch()} disabled={isFetching}>
-                {isFetching ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-1 h-3 w-3" />}
-                Refresh
-              </Button>
-              <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={onExport} disabled={!data || exporting}>
-                {exporting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
-                Export PDF
-              </Button>
-            </div>
+    <Card className="border-border/60">
+      <CardHeader className="pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+              <TrendingUp className="h-4 w-4 text-emerald-600 shrink-0" />
+              Collections Forecast
+              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-700">
+                Forecast — estimated
+              </Badge>
+            </CardTitle>
+            <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground max-w-2xl">
+              Projected rent-payment collections from historical payment trends only. Not a guarantee of future collections.
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {/* Horizon presets */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Horizon</span>
-            {HORIZON_PRESETS.map((h) => (
-              <Button
-                key={h.label}
-                size="sm"
-                variant={horizonLabel === h.label ? 'default' : 'outline'}
-                className="h-6 px-2 text-[10px]"
-                onClick={() => { setGranularity(h.granularity); setPeriods(h.periods); setHorizonLabel(h.label); }}
-              >
-                {h.label}
-              </Button>
-            ))}
-            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">View</span>
-            {GRAN_OPTIONS.map((g) => (
-              <Button
-                key={g.value}
-                size="sm"
-                variant={granularity === g.value ? 'default' : 'outline'}
-                className="h-6 px-2 text-[10px]"
-                onClick={() => { setGranularity(g.value); setHorizonLabel('Custom'); }}
-              >
-                {g.label}
-              </Button>
-            ))}
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" size="sm" className="h-8 text-[11px]" onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-[11px]" onClick={onExport} disabled={!data || exporting}>
+              {exporting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
+              Export PDF
+            </Button>
           </div>
+        </div>
+      </CardHeader>
 
-          {isLoading ? (
-            <Skeleton className="h-[300px] rounded-xl" />
-          ) : error ? (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[12px] text-destructive">
-              {(error as Error).message}
-            </div>
-          ) : data && totals ? (
-            <>
-              {/* KPI row */}
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Expected collections</div>
-                  <div className="text-sm font-bold">{ugx(totals.forecast)}</div>
-                  <div className="text-[10px] text-muted-foreground">{horizonLabel}</div>
+      <CardContent className="space-y-5">
+        {/* Horizon presets */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Horizon</span>
+          {HORIZON_PRESETS.map((h) => (
+            <Button
+              key={h.label}
+              size="sm"
+              variant={horizonLabel === h.label ? 'default' : 'outline'}
+              className="h-7 px-2.5 text-[10px]"
+              onClick={() => { setGranularity(h.granularity); setPeriods(h.periods); setHorizonLabel(h.label); }}
+            >
+              {h.label}
+            </Button>
+          ))}
+          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">View</span>
+          {GRAN_OPTIONS.map((g) => (
+            <Button
+              key={g.value}
+              size="sm"
+              variant={granularity === g.value ? 'default' : 'outline'}
+              className="h-7 px-2.5 text-[10px]"
+              onClick={() => { setGranularity(g.value); setHorizonLabel('Custom'); }}
+            >
+              {g.label}
+            </Button>
+          ))}
+        </div>
+
+        {isLoading ? (
+          <Skeleton className="h-[300px] rounded-xl" />
+        ) : error ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-[12px] text-destructive">
+            {(error as Error).message}
+          </div>
+        ) : data && totals ? (
+          <>
+            <Separator />
+
+            {/* KPI row */}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="rounded-xl border border-border/60 bg-card p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Expected collections
                 </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Likely range</div>
-                  <div className="text-sm font-bold">{compact(totals.low)} – {compact(totals.high)}</div>
-                  <div className="text-[10px] text-muted-foreground">low – high band</div>
+                <div className="mt-1.5 text-base sm:text-lg font-bold font-mono tabular-nums">{ugx(totals.forecast)}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">{horizonLabel}</div>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-card p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Likely range
                 </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Daily level</div>
-                  <div className="text-sm font-bold">{ugx(data.meta.level_daily)}</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    trend {data.meta.trend_weekly >= 0 ? '+' : '−'}{compact(Math.abs(data.meta.trend_weekly))} / week
-                  </div>
+                <div className="mt-1.5 text-base sm:text-lg font-bold font-mono tabular-nums">{compact(totals.low)} – {compact(totals.high)}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">low – high band</div>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-card p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Daily level
                 </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Confidence</div>
-                  <div className="mt-0.5">
-                    <Badge variant="outline" className={cn('text-[10px]', QUALITY_STYLE[totals.worst])}>
-                      {QUALITY_LABEL[totals.worst]}
-                    </Badge>
-                  </div>
-                  <div className="mt-1 text-[10px] text-muted-foreground">
-                    {data.meta.history_span_days} days of history
-                  </div>
+                <div className="mt-1.5 text-base sm:text-lg font-bold font-mono tabular-nums">{ugx(data.meta.level_daily)}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  trend {data.meta.trend_weekly >= 0 ? '+' : '−'}{compact(Math.abs(data.meta.trend_weekly))} / week
                 </div>
               </div>
-
-              {totals.worst === 'low' && (
-                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">
-                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  Part of this horizon extends beyond the {data.meta.history_span_days}-day observed history.
-                  Those periods are low-confidence trend extrapolations — treat them as indicative, not commitments.
+              <div className="rounded-xl border border-border/60 bg-card p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Confidence
                 </div>
-              )}
-
-              {/* Actual vs forecast chart */}
-              <div className="h-[280px] w-full rounded-lg border bg-background p-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                    <YAxis tickFormatter={compact} tick={{ fontSize: 10 }} width={48} />
-                    <Tooltip formatter={(v: any) => (v == null ? '—' : ugx(v))} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="actual" name="Actual collections" fill="#0ea5e9" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="forecast" name="Forecast (estimated)" fill="#a78bfa" radius={[3, 3, 0, 0]} />
-                    <Line dataKey="high" name="High band" stroke="#10b981" strokeDasharray="4 4" dot={false} />
-                    <Line dataKey="low" name="Low band" stroke="#f59e0b" strokeDasharray="4 4" dot={false} />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <div className="mt-1.5">
+                  <Badge variant="outline" className={cn('text-[10px]', QUALITY_STYLE[totals.worst])}>
+                    {QUALITY_LABEL[totals.worst]}
+                  </Badge>
+                </div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  {data.meta.history_span_days} days of history
+                </div>
               </div>
+            </div>
 
-              {/* Period table */}
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-[11px]">
-                  <thead>
-                    <tr className="border-b bg-muted/50 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                      <th className="px-3 py-2">Period</th>
-                      <th className="px-3 py-2 text-right">Forecast</th>
-                      <th className="px-3 py-2 text-right">Low</th>
-                      <th className="px-3 py-2 text-right">High</th>
-                      <th className="px-3 py-2">Confidence</th>
+            {totals.worst === 'low' && (
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                Part of this horizon extends beyond the {data.meta.history_span_days}-day observed history.
+                Those periods are low-confidence trend extrapolations — treat them as indicative, not commitments.
+              </div>
+            )}
+
+            {/* Actual vs forecast chart */}
+            <div className="h-[300px] w-full rounded-xl border border-border/60 bg-card p-3">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <YAxis tickFormatter={compact} tick={{ fontSize: 10 }} width={48} />
+                  <Tooltip formatter={(v: any) => (v == null ? '—' : ugx(v))} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="actual" name="Actual collections" fill="#0ea5e9" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="forecast" name="Forecast (estimated)" fill="#a78bfa" radius={[3, 3, 0, 0]} />
+                  <Line dataKey="high" name="High band" stroke="#10b981" strokeDasharray="4 4" dot={false} />
+                  <Line dataKey="low" name="Low band" stroke="#f59e0b" strokeDasharray="4 4" dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Period table */}
+            <div className="overflow-x-auto rounded-xl border border-border/60">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-border/60 bg-muted/50 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <th className="px-3 py-2.5 font-semibold">Period</th>
+                    <th className="px-3 py-2.5 font-semibold text-right">Forecast</th>
+                    <th className="px-3 py-2.5 font-semibold text-right">Low</th>
+                    <th className="px-3 py-2.5 font-semibold text-right">High</th>
+                    <th className="px-3 py-2.5 font-semibold">Confidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.periods.map((p) => (
+                    <tr key={p.period_start} className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-3 py-2.5">{p.label}</td>
+                      <td className="px-3 py-2.5 text-right font-semibold font-mono tabular-nums">{ugx(p.forecast_amount)}</td>
+                      <td className="px-3 py-2.5 text-right text-muted-foreground font-mono tabular-nums">{ugx(p.low)}</td>
+                      <td className="px-3 py-2.5 text-right text-muted-foreground font-mono tabular-nums">{ugx(p.high)}</td>
+                      <td className="px-3 py-2.5">
+                        <Badge variant="outline" className={cn('text-[10px]', QUALITY_STYLE[p.quality])}>
+                          {QUALITY_LABEL[p.quality]}
+                        </Badge>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {data.periods.map((p) => (
-                      <tr key={p.period_start} className="border-b last:border-0">
-                        <td className="px-3 py-2">{p.label}</td>
-                        <td className="px-3 py-2 text-right font-semibold">{ugx(p.forecast_amount)}</td>
-                        <td className="px-3 py-2 text-right text-muted-foreground">{ugx(p.low)}</td>
-                        <td className="px-3 py-2 text-right text-muted-foreground">{ugx(p.high)}</td>
-                        <td className="px-3 py-2">
-                          <Badge variant="outline" className={cn('text-[10px]', QUALITY_STYLE[p.quality])}>
-                            {QUALITY_LABEL[p.quality]}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-              {/* Method disclosure */}
-              <details className="rounded-lg border bg-muted/20 p-3 text-[11px] text-muted-foreground">
-                <summary className="cursor-pointer text-[11px] font-semibold text-foreground">
-                  How this is calculated
-                </summary>
-                <div className="mt-2 space-y-1">
-                  <p>{data.meta.method}</p>
-                  <p>
-                    History: {data.meta.history_span_days} days ({data.meta.observed_days} days with collections),
-                    as at {data.meta.as_at} (East Africa Time).
-                  </p>
-                  <p>
-                    Confidence ceilings: High 0.85 · Medium 0.6 · Low 0.35. Projections beyond the observed
-                    history span are always Low confidence.
-                  </p>
-                </div>
-              </details>
-            </>
-          ) : null}
-        </CardContent>
-      </Card>
-    </div>
+            {/* Method disclosure */}
+            <details className="rounded-xl border border-border/60 bg-muted/20 p-3.5 text-[11px] text-muted-foreground">
+              <summary className="cursor-pointer text-[11px] font-semibold text-foreground list-none flex items-center gap-1.5">
+                <Info className="h-3.5 w-3.5" />
+                How this is calculated
+              </summary>
+              <div className="mt-2.5 space-y-1 pl-5">
+                <p>{data.meta.method}</p>
+                <p>
+                  History: {data.meta.history_span_days} days ({data.meta.observed_days} days with collections),
+                  as at {data.meta.as_at} (East Africa Time).
+                </p>
+                <p>
+                  Confidence ceilings: High 0.85 · Medium 0.6 · Low 0.35. Projections beyond the observed
+                  history span are always Low confidence.
+                </p>
+              </div>
+            </details>
+          </>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
