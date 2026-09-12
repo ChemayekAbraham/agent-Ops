@@ -775,7 +775,20 @@ function ServerPayoutTable({
               )}
               {!isLoading &&
                 rows.map((r, i) => (
-                  <tr key={r.id ?? `${start + i}`} className="border-t border-border/50">
+                  <tr
+                    key={r.id ?? `${start + i}`}
+                    className="cursor-pointer border-t border-border/50 hover:bg-muted/40"
+                    role="button"
+                    tabIndex={0}
+                    title="Open the source transactions behind this payout"
+                    onClick={() => r.id && setSourceId(String(r.id))}
+                    onKeyDown={(e) => {
+                      if ((e.key === 'Enter' || e.key === ' ') && r.id) {
+                        e.preventDefault();
+                        setSourceId(String(r.id));
+                      }
+                    }}
+                  >
                     {columns.map((c) => (
                       <DrillCell key={c.key} column={c} row={r as Record<string, any>} />
                     ))}
@@ -794,7 +807,122 @@ function ServerPayoutTable({
         to={Math.min(start + PAGE_SIZE, total)}
         onPage={setPage}
       />
+
+      <PayoutSourcesDialog payoutId={sourceId} onClose={() => setSourceId(null)} />
     </div>
+  );
+}
+
+/**
+ * Read-only source transactions behind a single payout: the recorded payout and
+ * the ledger legs posted against it, straight from the RPC.
+ */
+function PayoutSourcesDialog({
+  payoutId,
+  onClose,
+}: {
+  payoutId: string | null;
+  onClose: () => void;
+}) {
+  const { data, isLoading, isError, error } = useLandlordPayoutSources(payoutId);
+  const payout = data?.payout ?? null;
+  const legs = data?.legs ?? [];
+
+  return (
+    <Dialog open={!!payoutId} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Source transactions behind this payout</DialogTitle>
+          <DialogDescription>
+            The recorded payout and every ledger entry posted against it. Read-only.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isError ? (
+          <div>
+            <p className="text-sm font-medium text-destructive">
+              The source transactions could not be loaded.
+            </p>
+            <ErrorDetails error={error} />
+          </div>
+        ) : isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {payout && (
+              <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-sm sm:grid-cols-2">
+                <div>
+                  <span className="text-muted-foreground">Landlord: </span>
+                  {payout.landlord_name || '—'}
+                  {payout.landlord_phone ? ` · ${payout.landlord_phone}` : ''}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Amount: </span>
+                  <span className="font-semibold tabular-nums">
+                    {formatUGX(Number(payout.amount) || 0)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Tenant: </span>
+                  {payout.tenant_name || '—'}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Paid via: </span>
+                  {payout.provider || '—'} · {payout.reference || 'no reference'}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Agent: </span>
+                  {payout.agent_name || '—'}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Paid on: </span>
+                  {fmtDateTime(payout.disbursed_at) || fmtDateTime(payout.created_at)}
+                </div>
+              </div>
+            )}
+
+            <div className="max-h-[45vh] overflow-y-auto rounded-lg border border-border/60">
+              <TableShell>
+                <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+                  <tr>
+                    <th className={TH}>When</th>
+                    <th className={TH}>Category</th>
+                    <th className={TH}>Direction</th>
+                    <th className={`${TH} text-right`}>Amount</th>
+                    <th className={TH}>Description</th>
+                    <th className={TH}>Reference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legs.length === 0 && (
+                    <tr>
+                      <td className={`${TD} text-muted-foreground`} colSpan={6}>
+                        No ledger entries recorded against this payout.
+                      </td>
+                    </tr>
+                  )}
+                  {legs.map((l) => (
+                    <tr key={String(l.id)} className="border-t border-border/50">
+                      <td className={TD}>{fmtDateTime(l.transaction_date)}</td>
+                      <td className={TD}>{String(l.category ?? '—').replace(/_/g, ' ')}</td>
+                      <td className={TD}>{l.direction || '—'}</td>
+                      <td className={`${TD} text-right tabular-nums`}>
+                        {formatUGX(Number(l.amount) || 0)}
+                      </td>
+                      <td className={TD}>{l.description || '—'}</td>
+                      <td className={TD}>{l.reference_id || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableShell>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
