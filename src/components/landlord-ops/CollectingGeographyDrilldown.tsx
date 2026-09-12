@@ -59,7 +59,7 @@ const PAGE_SIZE = 25;
  * repayment multiplied by the number of days in the chosen horizon — no
  * financial record is read differently or written.
  */
-const HORIZONS = [
+export const HORIZONS = [
   { key: '1w', label: 'Next 1 week', short: '1w', days: 7 },
   { key: '1m', label: 'Next 1 month', short: '1m', days: 30 },
   { key: '3m', label: 'Next 3 months', short: '3m', days: 91 },
@@ -71,13 +71,12 @@ const HORIZONS = [
   { key: '5y', label: 'Next 5 years', short: '5y', days: 1825 },
 ] as const;
 
-const DEFAULT_HORIZON = '12m';
+export const DEFAULT_HORIZON = '12m';
 
 /**
- * Uncontrolled fallback: the drilldown opens on the 12-month view when no
- * caller supplies a horizon. When the Landlord Float "Being collected" tile
- * passes its selected horizon in, the drilldown opens with — and stays in
- * sync with — that same dropdown choice instead.
+ * The projection horizon always opens on the 12-month view so anyone opening
+ * Landlord Float sees the next-12-months collection figure first. Switching the
+ * horizon applies for the current view only and is not remembered.
  */
 
 
@@ -198,13 +197,7 @@ export default function CollectingGeographyDrilldown({
   horizonKey: controlledHorizonKey,
   onHorizonChange,
 }: {
-  /**
-   * Optional controlled projection horizon. When provided (e.g. by the
-   * Landlord Float "Being collected" tile), the drilldown opens with — and
-   * stays in sync with — the caller's selected horizon, and its dropdown
-   * reflects and updates that same choice. Without it, the drilldown keeps
-   * its own local state and opens on the default 12-month view.
-   */
+  /** When provided, the projection horizon is controlled by the parent (e.g. the Being collected tile). */
   horizonKey?: string;
   onHorizonChange?: (key: string) => void;
 } = {}) {
@@ -219,8 +212,8 @@ export default function CollectingGeographyDrilldown({
   const [localHorizonKey, setLocalHorizonKey] = useState<string>(DEFAULT_HORIZON);
   const horizonKey = controlledHorizonKey ?? localHorizonKey;
   const setHorizonKey = (key: string) => {
-    if (onHorizonChange) onHorizonChange(key);
-    else setLocalHorizonKey(key);
+    setLocalHorizonKey(key);
+    onHorizonChange?.(key);
   };
 
   const horizon = HORIZONS.find((h) => h.key === horizonKey) ?? HORIZONS[4];
@@ -365,13 +358,17 @@ export default function CollectingGeographyDrilldown({
                 }
               />
             </div>
-            <p className="mt-2 text-3xl font-extrabold tabular-nums tracking-tight sm:text-4xl">
-              <ProjectionValue
-                daily={totals?.daily_repayment ?? 0}
-                days={horizon.days}
-                label={horizon.label}
-              />
-            </p>
+            {isLoading ? (
+              <Skeleton className="mt-2 h-10 w-64 max-w-full" />
+            ) : (
+              <p className="mt-2 text-3xl font-extrabold tabular-nums tracking-tight sm:text-4xl">
+                <ProjectionValue
+                  daily={totals?.daily_repayment ?? 0}
+                  days={horizon.days}
+                  label={horizon.label}
+                />
+              </p>
+            )}
             <p className="mt-1.5 max-w-xl text-xs text-muted-foreground">
               This figure updates automatically when you change the location filters, the date range, or the projection
               period. It is a straight daily amount × days projection and does not stop at the outstanding balance.
@@ -573,8 +570,15 @@ export default function CollectingGeographyDrilldown({
             <tbody>
               {groupRows.length === 0 && (
                 <tr>
-                  <td className="px-3 py-3 text-muted-foreground" colSpan={8}>
-                    Nothing is being collected here.
+                  <td className="px-3 py-10" colSpan={8}>
+                    <div className="flex flex-col items-center gap-1.5 text-center">
+                      <MapPin className="h-6 w-6 text-muted-foreground/50" />
+                      <p className="text-sm font-medium">No collections match the current filters</p>
+                      <p className="max-w-sm text-xs text-muted-foreground">
+                        Nothing is being collected here. Try widening the location, clearing the search, or removing
+                        the date range.
+                      </p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -635,7 +639,14 @@ export default function CollectingGeographyDrilldown({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {houseRows.length === 0 && (
-            <p className="text-sm text-muted-foreground">No houses are being collected from here.</p>
+            <div className="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-10 text-center">
+              <Home className="h-6 w-6 text-muted-foreground/50" />
+              <p className="text-sm font-medium">No collections match the current filters</p>
+              <p className="max-w-sm text-xs text-muted-foreground">
+                No houses are being collected from here. Try widening the location, clearing the search, or removing
+                the date range.
+              </p>
+            </div>
           )}
           {houseRows.map((h) => (
             <button
