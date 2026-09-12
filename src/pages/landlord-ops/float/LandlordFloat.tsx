@@ -345,6 +345,20 @@ function ServerPayoutTable({
   const [country, setCountry] = useState('');
   const [region, setRegion] = useState('');
   const [district, setDistrict] = useState('');
+  const [geoPage, setGeoPage] = useState(1);
+  const [geoSort, setGeoSort] = useState('amount');
+  const [geoDir, setGeoDir] = useState<SortDir>('desc');
+  const [sourceId, setSourceId] = useState<string | null>(null);
+
+  const toggleGeoSort = (key: string) => {
+    if (key === geoSort) {
+      setGeoDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setGeoSort(key);
+      setGeoDir(key === 'amount' || key === 'payouts' ? 'desc' : 'asc');
+    }
+    setGeoPage(1);
+  };
 
   const toggleSort = (key: string) => {
     if (key === sort) {
