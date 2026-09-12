@@ -163,22 +163,24 @@ async function fetchUserRolesOnce(
         // the pending withdrawals queue is visible.
         setRole('agent');
       }
+      return 'resolved';
     } else if (!hasAnyRolesInDb) {
       // Only auto-provision if user has NO roles at all in DB (not even disabled ones)
       // If profile doesn't exist, the user is being deleted — do NOT re-provision
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
         .eq('id', userId)
         .maybeSingle();
 
-      if (!profile) {
-        console.warn('[RoleManager] No profile found for user, account likely deleted. Skipping auto-provisioning.');
-        setRoles([]);
-        setRole(null as unknown as AppRole);
-        setCachedRoles([]);
-        return;
+      if (profileError || !profile) {
+        // Either the account really is gone, or the profile read failed at this
+        // instant. We cannot tell the two apart, so report unresolved and leave
+        // whatever roles the caller already holds untouched.
+        console.warn('[RoleManager] Profile unreadable — role state left unresolved');
+        return 'unresolved';
       }
+
 
       console.log('[RoleManager] No roles found, checking user metadata for:', userId);
       
