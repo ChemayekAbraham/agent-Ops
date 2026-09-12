@@ -28,6 +28,9 @@ interface CashDepositCodeProps {
   cashOwnerName?: string
   issuedAt?: string
   minutesValid?: number
+  supportPhone?: string
+  supportWhatsapp?: string
+  helpLink?: string
 }
 
 const ugx = (n: number | undefined): string =>
