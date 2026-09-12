@@ -337,6 +337,120 @@ export function useLandlordPayoutsGeo(
   });
 }
 
+/** One server-sorted, server-paged page of the payout geography breakdown. */
+export interface LandlordPayoutsGeoPage {
+  rows: LandlordPayoutsGeoRow[];
+  total_count: number;
+  total_amount: number;
+  total_payouts: number;
+  limit: number;
+  offset: number;
+  as_at: string;
+}
+
+export interface LandlordPayoutsGeoPageArgs {
+  scope: 'all_time' | 'completed';
+  search?: string;
+  from?: string | null;
+  to?: string | null;
+  agentId?: string | null;
+  country?: string | null;
+  region?: string | null;
+  district?: string | null;
+  page: number;
+  pageSize: number;
+  sort?: string;
+  dir?: 'asc' | 'desc';
+}
+
+/**
+ * Server-paged and server-sorted geography breakdown. Grouping, counting,
+ * totalling, ordering and paging all run inside
+ * `landlord_ops_payouts_geo_page`, so the table stays fast at any payout volume.
+ * Read-only; no figure is recomputed in the browser.
+ */
+export function useLandlordPayoutsGeoPage(args: LandlordPayoutsGeoPageArgs, enabled = true) {
+  const {
+    scope,
+    search,
+    from,
+    to,
+    agentId,
+    country,
+    region,
+    district,
+    page,
+    pageSize,
+    sort,
+    dir,
+  } = args;
+  return useQuery({
+    queryKey: [
+      'landlord-ops-payouts-geo-page',
+      scope,
+      search ?? '',
+      from ?? '',
+      to ?? '',
+      agentId ?? '',
+      country ?? '',
+      region ?? '',
+      district ?? '',
+      page,
+      pageSize,
+      sort ?? 'amount',
+      dir ?? 'desc',
+    ],
+    enabled,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+    queryFn: async (): Promise<LandlordPayoutsGeoPage> => {
+      const { data, error } = await (supabase as any).rpc('landlord_ops_payouts_geo_page', {
+        p_scope: scope,
+        p_search: search?.trim() ? search.trim() : null,
+        p_from: from || null,
+        p_to: to || null,
+        p_agent_id: agentId || null,
+        p_country: country || null,
+        p_region: region || null,
+        p_district: district || null,
+        p_limit: pageSize,
+        p_offset: Math.max(0, (page - 1) * pageSize),
+        p_sort: sort ?? 'amount',
+        p_dir: dir ?? 'desc',
+      });
+      if (error) throw error;
+      return data as LandlordPayoutsGeoPage;
+    },
+  });
+}
+
+/** The recorded payout plus the ledger legs posted behind it. */
+export interface LandlordPayoutSources {
+  as_at: string;
+  payout: Record<string, any> | null;
+  legs: Record<string, any>[];
+}
+
+/**
+ * Read-only source transactions behind one landlord payout: the payout record
+ * itself and every ledger leg referencing it. Nothing is written or recomputed.
+ */
+export function useLandlordPayoutSources(payoutId: string | null) {
+  return useQuery({
+    queryKey: ['landlord-ops-payout-sources', payoutId],
+    enabled: !!payoutId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<LandlordPayoutSources> => {
+      const { data, error } = await (supabase as any).rpc(
+        'landlord_ops_payout_source_transactions',
+        { p_payout_id: payoutId },
+      );
+      if (error) throw error;
+      return data as LandlordPayoutSources;
+    },
+  });
+}
+
 /**
  * Server-side paginated, searchable landlord payout register. Counting,
  * filtering, searching and totalling all happen in
