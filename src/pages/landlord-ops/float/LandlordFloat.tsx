@@ -1895,13 +1895,13 @@ export default function LandlordFloat() {
             })
           }
         />
-        <StatTile
-          label="Being collected"
-          value={formatUGX(collecting.expected.expected)}
-          sub={`${formatUGX(collecting.paid_out.amount)} paid to landlords`}
-          icon={Banknote}
-          tone="emerald"
-          onClick={() =>
+        <CollectingProjectionTile
+          rows={collecting.rows}
+          expected={collecting.expected.expected}
+          paidOut={collecting.paid_out.amount}
+          horizon={collectingHorizon}
+          onHorizonChange={setCollectingHorizon}
+          onDetails={() =>
             setDrill({
               title: 'Live rent plans still being collected',
               description: 'Tenants in funded houses, their landlords and what is still outstanding.',
