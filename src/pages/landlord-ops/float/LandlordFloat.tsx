@@ -1298,8 +1298,6 @@ const AGENT_COLUMNS: DrillColumn[] = [
 
 const PORTFOLIO_COLUMNS: DrillColumn[] = [
   { key: 'portfolio_code', label: 'Portfolio' },
-  { key: 'partner_name', label: 'Funder' },
-  { key: 'partner_phone', label: 'Phone' },
   { key: 'status', label: 'Status', type: 'badge' },
   { key: 'duration_months', label: 'Months', align: 'right' },
   { key: 'amount', label: 'Capital', type: 'ugx' },
