@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { cn } from "@/lib/utils";
+import React from 'react';
+import { cn } from '@/lib/utils';
 
 const styles = {
   switch: `relative block cursor-pointer h-8 w-[52px]
@@ -39,27 +39,28 @@ const styles = {
 };
 
 const variantStyles = {
-  default: "[--c-background:var(--c-active)]",
-  success: "[--c-background:var(--c-success)]",
-  warning: "[--c-background:var(--c-warning)]",
-  danger: "[--c-background:var(--c-danger)]",
+  default: '[--c-background:var(--c-active)]',
+  success: '[--c-background:var(--c-success)]',
+  warning: '[--c-background:var(--c-warning)]',
+  danger:  '[--c-background:var(--c-danger)]',
 };
 
 interface ToggleProps {
   checked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
   className?: string;
-  variant?: "default" | "success" | "warning" | "danger";
+  variant?: 'default' | 'success' | 'warning' | 'danger';
 }
 
-export function Toggle({
+export function LiquidToggle({
   checked = false,
   onCheckedChange,
   className,
-  variant = "default",
+  variant = 'default',
 }: ToggleProps) {
   const [isChecked, setIsChecked] = React.useState(checked);
 
+  // Keep in sync with controlled prop changes
   React.useEffect(() => {
     setIsChecked(checked);
   }, [checked]);
@@ -85,8 +86,8 @@ export function Toggle({
           cy="16"
           r="10"
           style={{
-            transformOrigin: "16px 16px",
-            transform: `translateX(${isChecked ? "12px" : "0px"}) scale(${isChecked ? "0" : "1"})`,
+            transformOrigin: '16px 16px',
+            transform: `translateX(${isChecked ? '12px' : '0px'}) scale(${isChecked ? '0' : '1'})`,
           }}
         />
         <circle
@@ -95,26 +96,22 @@ export function Toggle({
           cy="16"
           r="10"
           style={{
-            transformOrigin: "36px 16px",
-            transform: `translateX(${isChecked ? "0px" : "-12px"}) scale(${isChecked ? "1" : "0"})`,
+            transformOrigin: '36px 16px',
+            transform: `translateX(${isChecked ? '0px' : '-12px'}) scale(${isChecked ? '1' : '0'})`,
           }}
         />
         {isChecked && (
-          <circle
-            className={styles.dropCircle}
-            cx="35"
-            cy="-1"
-            r="2.5"
-          />
+          <circle className={styles.dropCircle} cx="35" cy="-1" r="2.5" />
         )}
       </svg>
     </label>
   );
 }
 
+/** Mount once near the top of any page that uses LiquidToggle. */
 export function GooeyFilter() {
   return (
-    <svg className="fixed w-0 h-0">
+    <svg className="fixed w-0 h-0" aria-hidden="true">
       <defs>
         <filter id="goo">
           <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
@@ -130,3 +127,6 @@ export function GooeyFilter() {
     </svg>
   );
 }
+
+/** @deprecated Use LiquidToggle instead */
+export { LiquidToggle as Toggle };

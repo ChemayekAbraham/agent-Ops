@@ -25,7 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFontSize, fontSizeOptions } from '@/hooks/useFontSize';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Toggle as Switch, GooeyFilter } from '@/components/ui/liquid-toggle';
+import { LiquidToggle as Switch, GooeyFilter } from '@/components/ui/liquid-toggle';
 import { useAppPreferences } from '@/hooks/useAppPreferences';
 import { playNotificationSound } from '@/lib/notificationSound';
 import { cn } from '@/lib/utils';

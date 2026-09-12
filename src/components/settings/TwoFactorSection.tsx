@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ShieldCheck, Loader2, MailWarning, MonitorSmartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
+import { LiquidToggle } from '@/components/ui/liquid-toggle';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +62,7 @@ export default function TwoFactorSection() {
     setBusy(false);
     setConfirmOpen(false);
     if (error) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const signedOut = (data as any)?.devices_signed_out ?? 0;
     toast.success('Two-step verification is on', {
       description:
@@ -121,8 +122,9 @@ export default function TwoFactorSection() {
             {loading || busy ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             ) : (
-              <Switch
+              <LiquidToggle
                 checked={enabled}
+                variant={enabled ? 'success' : 'default'}
                 aria-label="Two-step verification"
                 onCheckedChange={(next) => (next ? setConfirmOpen(true) : setDisableOpen(true))}
               />

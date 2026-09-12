@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Shield } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
+import { LiquidToggle } from '@/components/ui/liquid-toggle';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,6 +28,7 @@ export function TrustPrivacySection() {
         .eq('id', user.id)
         .maybeSingle();
       if (!cancelled) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setEnabled(Boolean((data as any)?.always_share_location));
         setLoading(false);
       }
@@ -62,6 +63,7 @@ export function TrustPrivacySection() {
       .update({
         always_share_location: checked,
         last_continuous_location_at: checked ? new Date().toISOString() : null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
       .eq('id', user.id);
 
@@ -95,7 +97,9 @@ export function TrustPrivacySection() {
                 </p>
               </div>
             </div>
-            <Switch checked={enabled} onCheckedChange={toggle} disabled={loading || saving} />
+            <div className={loading || saving ? 'opacity-50 pointer-events-none' : ''}>
+              <LiquidToggle checked={enabled} onCheckedChange={toggle} />
+            </div>
           </div>
 
           {enabled && (
