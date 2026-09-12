@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Select,
@@ -280,6 +281,7 @@ const WAITING_COLUMNS: DrillColumn[] = [
 const NEEDED_DISTRICT_COLUMNS: DrillColumn[] = [
   { key: 'source', label: 'Source', type: 'badge' },
   { key: 'name', label: 'House / Tenant' },
+  { key: 'recorded_district', label: 'Recorded district' },
   { key: 'landlord_name', label: 'Landlord' },
   { key: 'landlord_phone', label: 'Landlord phone' },
   { key: 'agent_name', label: 'Agent' },
@@ -906,7 +908,8 @@ export default function LandlordFloat() {
                 <p className="text-xs text-muted-foreground">
                   Filter by country and region, then open any district to see the exact houses and
                   tenants behind its need. Districts that match no approved location stay under
-                  Unmapped with their original spelling.
+                  Unmapped with their original spelling — use Map district to link that spelling to
+                  an approved district and every float table by location refreshes at once.
                 </p>
                 <NeededByLocation
                   onOpenDistrict={(row) =>
