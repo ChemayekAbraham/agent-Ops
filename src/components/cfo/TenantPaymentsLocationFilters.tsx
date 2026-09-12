@@ -159,6 +159,30 @@ export function TenantPaymentsLocationFilters() {
 
   const data = results.data;
 
+  // Receipts pagination — reset to page 1 whenever the filters change.
+  const [receiptPage, setReceiptPage] = useState(1);
+  useEffect(() => {
+    setReceiptPage(1);
+  }, [sel, fromParam, toParam, methodParam]);
+
+  const receiptTotal = receipts.data?.payments.length ?? 0;
+  const receiptTotalPages = Math.max(1, Math.ceil(receiptTotal / RECEIPTS_PER_PAGE));
+  const receiptPageSafe = Math.min(receiptPage, receiptTotalPages);
+  const pagedReceipts = useMemo(() => {
+    const all = receipts.data?.payments ?? [];
+    const start = (receiptPageSafe - 1) * RECEIPTS_PER_PAGE;
+    return all.slice(start, start + RECEIPTS_PER_PAGE);
+  }, [receipts.data, receiptPageSafe]);
+
+  const pageNumbers = useMemo(() => {
+    // Compact window: first, last, and neighbours of the current page.
+    const pages = new Set<number>([1, receiptTotalPages]);
+    for (let p = receiptPageSafe - 1; p <= receiptPageSafe + 1; p++) {
+      if (p >= 1 && p <= receiptTotalPages) pages.add(p);
+    }
+    return [...pages].sort((a, b) => a - b);
+  }, [receiptPageSafe, receiptTotalPages]);
+
   const summary = useMemo(() => {
     // Totals come from the deepest available breakdown so they always reflect
     // every active filter.
