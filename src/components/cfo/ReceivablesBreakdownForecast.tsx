@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
-import { format } from 'date-fns';
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronDown,
   ChevronRight,
   Filter,
   Layers,
@@ -13,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import {
   Select,
@@ -36,6 +35,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [openProduct, setOpenProduct] = useState<string | null>(null);
   const [productFilter, setProductFilter] = useState<string>(ALL_PRODUCTS);
+  const [tenantModalOpen, setTenantModalOpen] = useState(false);
   const total = useReceivablesTotal();
   const breakdown = useReceivablesBreakdown();
 
