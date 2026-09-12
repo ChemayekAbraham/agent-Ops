@@ -200,12 +200,22 @@ export default function Referrals() {
         >
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Calendar className="h-5 w-5 text-primary" />
-                Referral History
-              </CardTitle>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(v => !v)}
+                className="flex w-full items-center justify-between gap-2 text-left"
+                aria-expanded={historyOpen}
+                aria-controls="referral-history-content"
+              >
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Referral History
+                </CardTitle>
+                <ChevronDown className={cn('h-5 w-5 text-muted-foreground transition-transform', historyOpen && 'rotate-180')} />
+              </button>
             </CardHeader>
-            <CardContent>
+            {historyOpen && (
+            <CardContent id="referral-history-content">
               <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
                 <ToggleGroup
                   type="single"
