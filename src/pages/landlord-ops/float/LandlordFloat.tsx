@@ -39,6 +39,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
+import CollectingGeographyDrilldown from '@/components/landlord-ops/CollectingGeographyDrilldown';
+
 import {
   useLandlordFloatOverview,
   useLandlordFloatDrilldown,
@@ -2085,7 +2087,10 @@ export default function LandlordFloat() {
                 )}
               </div>
 
+              <CollectingGeographyDrilldown />
+
               <TableShell>
+
                 <thead className="bg-muted/40">
                   <tr>
                     <th className={TH}>Tenant</th>
