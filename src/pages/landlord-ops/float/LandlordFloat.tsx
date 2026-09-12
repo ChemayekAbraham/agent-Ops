@@ -361,7 +361,7 @@ function ServerPayoutTable({
 
   useEffect(() => {
     setPage(1);
-  }, [from, to, search, scope, agentId]);
+  }, [from, to, search, scope, agentId, country, region, district]);
 
   const { data, isLoading, isFetching, isError, error } = useLandlordPayoutsPage({
     scope,
@@ -373,14 +373,66 @@ function ServerPayoutTable({
     pageSize: PAGE_SIZE,
     sort,
     dir,
+    country,
+    region,
+    district,
   });
+
+  // Same payout population, grouped through the approved country -> region ->
+  // district hierarchy. Read-only; nothing is recomputed in the browser.
+  const geoQuery = useLandlordPayoutsGeo({
+    scope,
+    search,
+    from,
+    to,
+    agentId: agentId ?? null,
+  });
+  const geoRows = geoQuery.data ?? [];
+
+  const countries = useMemo(
+    () => Array.from(new Set(geoRows.map((r) => r.country))).sort(),
+    [geoRows],
+  );
+  const regions = useMemo(
+    () =>
+      Array.from(
+        new Set(geoRows.filter((r) => !country || r.country === country).map((r) => r.region)),
+      ).sort(),
+    [geoRows, country],
+  );
+  const districts = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          geoRows
+            .filter((r) => (!country || r.country === country) && (!region || r.region === region))
+            .map((r) => r.district),
+        ),
+      ).sort(),
+    [geoRows, country, region],
+  );
+
+  // District-level totals for the current geography selection, biggest first.
+  const geoBreakdown = useMemo(
+    () =>
+      geoRows
+        .filter(
+          (r) =>
+            (!country || r.country === country) &&
+            (!region || r.region === region) &&
+            (!district || r.district === district),
+        )
+        .sort((a, b) => b.amount - a.amount),
+    [geoRows, country, region, district],
+  );
 
   const rows = data?.rows ?? [];
   const total = data?.total_count ?? 0;
   const totalAmount = data?.total_amount ?? 0;
-  const isFiltered = !!from || !!to || !!search.trim();
+  const isFiltered = !!from || !!to || !!search.trim() || !!country || !!region || !!district;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const start = (page - 1) * PAGE_SIZE;
+  const geoLabel = district || region || country || 'all locations';
 
   return (
     <div className="space-y-3">
