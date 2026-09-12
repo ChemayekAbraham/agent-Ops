@@ -473,15 +473,24 @@ function NeededByLocation({
               className="border-t border-border/50 cursor-pointer hover:bg-muted/40"
               tabIndex={0}
               role="button"
-              onClick={() => onOpenDistrict(r.district)}
+              onClick={() => onOpenDistrict(r)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  onOpenDistrict(r.district);
+                  onOpenDistrict(r);
                 }
               }}
             >
-              <td className={TD}>{r.district}</td>
+              <td className={TD}>
+                <span className="inline-flex items-center gap-2">
+                  {r.district}
+                  {r.country === 'Unmapped' && (
+                    <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">
+                      Unmapped
+                    </Badge>
+                  )}
+                </span>
+              </td>
               <td className={`${TD} text-muted-foreground`}>{r.region}</td>
               <td className={`${TD} text-right tabular-nums`}>
                 {r.empty_houses.toLocaleString()} · {formatUGX(r.empty_amount)}
@@ -492,6 +501,7 @@ function NeededByLocation({
               <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(r.amount)}</td>
             </tr>
           ))}
+
         </tbody>
       </TableShell>
     </div>
