@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   MapPin,
   ChevronRight,
@@ -28,12 +28,14 @@ import LocationMapPreview from '@/components/shared/LocationMapPreview';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   useCollectingGeoPage,
+  useCollectingGeoSuggestions,
   nextCollectingLevel,
   collectingPathKeyFor,
   COLLECTING_GEO_LEVEL_LABELS,
   type CollectingGeoPath,
   type CollectingGeoGroupRow,
   type CollectingGeoHouseRow,
+  type CollectingGeoSuggestion,
 } from '@/hooks/useCollectingGeoDrilldown';
 
 const PAGE_SIZE = 25;
@@ -112,13 +114,43 @@ export default function CollectingGeographyDrilldown() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [openHouse, setOpenHouse] = useState<CollectingGeoHouseRow | null>(null);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [debounced, setDebounced] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const period = { from: from || null, to: to || null };
+  const dated = !!(from || to);
 
   const level = nextCollectingLevel(path);
   const { data, isLoading, isFetching, error } = useCollectingGeoPage(path, {
     search,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
+    period,
   });
+
+  const { data: suggestions = [], isFetching: suggesting } = useCollectingGeoSuggestions(
+    debounced,
+    period,
+  );
+
+  const applySuggestion = (s: CollectingGeoSuggestion) => {
+    const next: CollectingGeoPath = {};
+    ORDER.forEach((k) => {
+      const v = s[k];
+      if (v) next[k] = v;
+    });
+    setPath(next);
+    setSearch(s.kind === 'house' ? s.label : '');
+    setSuggestOpen(false);
+    setPage(0);
+  };
 
   const totals = data?.totals;
   const totalRows = data?.total_rows ?? 0;
@@ -217,21 +249,123 @@ export default function CollectingGeographyDrilldown() {
         ))}
       </div>
 
+      {/* Collection period */}
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
+        <div>
+          <label className="text-[11px] uppercase tracking-wide text-muted-foreground" htmlFor="cgd-from">
+            Collected from
+          </label>
+          <Input
+            id="cgd-from"
+            type="date"
+            value={from}
+            max={to || undefined}
+            onChange={(e) => {
+              setFrom(e.target.value);
+              setPage(0);
+            }}
+            className="h-9 w-[10.5rem]"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] uppercase tracking-wide text-muted-foreground" htmlFor="cgd-to">
+            Collected to
+          </label>
+          <Input
+            id="cgd-to"
+            type="date"
+            value={to}
+            min={from || undefined}
+            onChange={(e) => {
+              setTo(e.target.value);
+              setPage(0);
+            }}
+            className="h-9 w-[10.5rem]"
+          />
+        </div>
+        {dated && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 gap-1 px-2 text-xs"
+            onClick={() => {
+              setFrom('');
+              setTo('');
+              setPage(0);
+            }}
+          >
+            <FilterX className="h-3.5 w-3.5" /> Clear period
+          </Button>
+        )}
+        <p className="ml-auto max-w-sm text-[11px] text-muted-foreground">
+          {dated
+            ? 'Collected shows money received inside this period (Kampala time). Expected and outstanding stay as recorded to date.'
+            : 'Leave the dates empty to see everything collected to date.'}
+        </p>
+      </div>
+
+      {/* Location search with autocomplete */}
       <div className="relative">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
+            setSuggestOpen(true);
             setPage(0);
           }}
-          placeholder={
-            level === 'houses'
-              ? 'Search house, tenant, landlord, agent or phone'
-              : `Search ${COLLECTING_GEO_LEVEL_LABELS[level].toLowerCase()}`
-          }
+          onFocus={() => setSuggestOpen(true)}
+          onBlur={() => setTimeout(() => setSuggestOpen(false), 150)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setSuggestOpen(false);
+          }}
+          placeholder="Search a country, region, district, village, house, landlord, tenant or agent"
           className="pl-8"
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={suggestOpen && suggestions.length > 0}
         />
+        {suggestOpen && search.trim().length >= 2 && (
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg">
+            {suggesting && suggestions.length === 0 && (
+              <p className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Looking…
+              </p>
+            )}
+            {!suggesting && suggestions.length === 0 && (
+              <p className="px-2 py-2 text-xs text-muted-foreground">No matching place, house or person.</p>
+            )}
+            {suggestions.map((s, i) => (
+              <button
+                key={`${s.kind}-${s.level}-${s.label}-${i}`}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applySuggestion(s)}
+                className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left hover:bg-muted"
+              >
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium">{s.label}</span>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      {s.kind === 'house' ? 'House' : COLLECTING_GEO_LEVEL_LABELS[s.level]}
+                    </Badge>
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {s.detail ||
+                      ORDER.map((k) => s[k])
+                        .filter((v) => v && v !== 'Unmapped')
+                        .join(' · ') ||
+                      'Location not recorded'}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                  {s.plans.toLocaleString()} plan{s.plans === 1 ? '' : 's'}
+                  <span className="block">{formatUGX(s.outstanding)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && (
