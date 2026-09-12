@@ -32,6 +32,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import LocationMapPreview from '@/components/shared/LocationMapPreview';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
