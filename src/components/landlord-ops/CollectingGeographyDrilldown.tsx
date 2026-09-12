@@ -40,6 +40,25 @@ import {
 
 const PAGE_SIZE = 25;
 
+/**
+ * Forward collection horizons. A projection is simply the recorded daily
+ * repayment multiplied by the number of days in the chosen horizon — no
+ * financial record is read differently or written.
+ */
+const HORIZONS = [
+  { key: '1w', label: 'Next 1 week', short: '1w', days: 7 },
+  { key: '1m', label: 'Next 1 month', short: '1m', days: 30 },
+  { key: '3m', label: 'Next 3 months', short: '3m', days: 91 },
+  { key: '6m', label: 'Next 6 months', short: '6m', days: 182 },
+  { key: '12m', label: 'Next 12 months', short: '12m', days: 365 },
+  { key: '2y', label: 'Next 2 years', short: '2y', days: 730 },
+  { key: '3y', label: 'Next 3 years', short: '3y', days: 1095 },
+  { key: '4y', label: 'Next 4 years', short: '4y', days: 1460 },
+  { key: '5y', label: 'Next 5 years', short: '5y', days: 1825 },
+] as const;
+
+const DEFAULT_HORIZON = '12m';
+
 const ORDER: Array<keyof CollectingGeoPath> = [
   'country',
   'region',
