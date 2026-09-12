@@ -51052,6 +51052,7 @@ export type Database = {
           cash_owner_name: string
           code: string
           created_at: string
+          delivery_channel: string
           deposit_purpose: string
           deposit_request_id: string
           depositor_name: string
