@@ -462,6 +462,14 @@ export default function LandlordFloat() {
                   value={formatUGX(needed.empty_houses.amount)}
                   sub={`${needed.empty_houses.houses.toLocaleString()} houses`}
                   icon={Home}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Empty listed houses',
+                      description: 'House, landlord, listing agent and monthly rent.',
+                      columns: EMPTY_HOUSE_COLUMNS,
+                      kind: 'empty_houses',
+                    })
+                  }
                 />
                 <StatTile
                   label="Tenant in, awaiting funding"
@@ -469,6 +477,14 @@ export default function LandlordFloat() {
                   sub={`${needed.waiting_funding.houses.toLocaleString()} requests`}
                   icon={Home}
                   tone="amber"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Tenants waiting for funding',
+                      description: 'Rent requests with a tenant already in the house.',
+                      columns: WAITING_COLUMNS,
+                      rows: needed.waiting_rows,
+                    })
+                  }
                 />
                 <StatTile
                   label="Total float needed"
