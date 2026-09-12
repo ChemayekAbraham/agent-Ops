@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Loader2,
   RefreshCw,
+  ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
