@@ -70,17 +70,17 @@ export function CashDepositCodeEmail({
           <Heading style={h1}>Welile has received your cash deposit</Heading>
           <Text style={text}>
             Hi {depositorName}, we have received your cash deposit of <strong>{ugx(amountUgx)}</strong>.
-            Use the secure confirmation code below in the Welile app to complete the deposit and
-            have it credited to your wallet.
+            Enter the cash deposit code below in the Welile app to confirm your cash deposit and
+            have it credited to your Welile Wallet.
           </Text>
 
-          <Text style={codeLabel}>YOUR CONFIRMATION CODE</Text>
+          <Text style={codeLabel}>YOUR CASH DEPOSIT CODE</Text>
           <Section style={codeBox}>
             <Text style={codeText}>{code}</Text>
           </Section>
 
           <Text style={muted}>
-            The code expires in {minutesValid} minutes and can be used once.
+            Valid for {minutesValid} minutes and can be used once.
           </Text>
 
           <Hr style={hr} />
@@ -97,7 +97,7 @@ export function CashDepositCodeEmail({
           <Hr style={hr} />
 
           <Text style={muted}>
-            For your security, do not share this code with anyone. Your wallet is credited only after
+            Do not share this code with anyone who has not received your cash. Your Welile Wallet is credited only after
             you enter this code in the Welile app.
           </Text>
           </Section>
