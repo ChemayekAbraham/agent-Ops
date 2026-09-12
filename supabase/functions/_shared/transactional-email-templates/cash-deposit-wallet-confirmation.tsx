@@ -30,6 +30,7 @@ interface CashDepositWalletConfirmationProps {
   facilitatedRentVolume?: number | null
   platformServiceFees?: number | null
   transactionExpenses?: number | null
+  codeExpiredAt?: string | null
 }
 
 const ugx = (amount: number | null | undefined): string =>
@@ -51,6 +52,7 @@ export function CashDepositWalletConfirmationEmail({
   facilitatedRentVolume = null,
   platformServiceFees = null,
   transactionExpenses = null,
+  codeExpiredAt = null,
 }: CashDepositWalletConfirmationProps) {
   const depositedWhen = new Date(depositedAt).toLocaleString('en-UG', {
     timeZone: 'Africa/Kampala',
@@ -60,6 +62,16 @@ export function CashDepositWalletConfirmationEmail({
     hour: '2-digit',
     minute: '2-digit',
   })
+  const codeExpiry = codeExpiredAt
+    ? new Date(codeExpiredAt).toLocaleString('en-UG', {
+        timeZone: 'Africa/Kampala',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null
 
   return (
     <Html lang="en" dir="ltr">
@@ -113,6 +125,11 @@ export function CashDepositWalletConfirmationEmail({
                 <Text style={detailLabel}>DEPOSIT CODE</Text>
                 <Text style={detailValue}>{maskedDepositCode}</Text>
               </>
+            ) : null}
+            {codeExpiry ? (
+              <Text style={codeUsedNote}>
+                This code was valid until {codeExpiry} EAT (Kampala time). It has already been used and no longer works.
+              </Text>
             ) : null}
             {receiptDownloadUrl ? (
               <Section style={receiptAction}>
@@ -212,6 +229,7 @@ const divider: React.CSSProperties = { borderColor: '#e2e8f0', margin: '20px 0' 
 const detailLabel: React.CSSProperties = { color: '#94a3b8', fontSize: '11px', fontWeight: 700, margin: '0 0 3px' }
 const detailValue: React.CSSProperties = { color: '#0f172a', fontSize: '14px', margin: '0 0 14px' }
 const muted: React.CSSProperties = { color: '#64748b', fontSize: '13px', lineHeight: '20px', margin: 0 }
+const codeUsedNote: React.CSSProperties = { color: '#64748b', fontSize: '12px', lineHeight: '19px', margin: '2px 0 18px' }
 const receiptAction: React.CSSProperties = { margin: '24px 0 4px', textAlign: 'center' as const }
 const receiptButton: React.CSSProperties = {
   backgroundColor: '#7b19d4',
@@ -272,5 +290,6 @@ export const template = {
     facilitatedRentVolume: 4500000,
     platformServiceFees: 350000,
     transactionExpenses: 150000,
+    codeExpiredAt: new Date(Date.now() + 10 * 60_000).toISOString(),
   },
 } satisfies TemplateEntry

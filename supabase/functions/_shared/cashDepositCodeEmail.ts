@@ -66,6 +66,7 @@ export async function sendCashDepositCodeEmail(
     depositorName?: string | null;
     cashOwnerName?: string | null;
     depositRequestId: string;
+    expiresAt: string;
     minutesValid?: number;
   },
 ): Promise<CashDepositEmailResult> {
@@ -76,6 +77,7 @@ export async function sendCashDepositCodeEmail(
     depositorName,
     cashOwnerName,
     depositRequestId,
+    expiresAt,
     minutesValid = 10,
   } = params;
 
@@ -93,6 +95,8 @@ export async function sendCashDepositCodeEmail(
           depositorName: String(depositorName ?? "").split(" ")[0] || "there",
           cashOwnerName: cashOwnerName ?? "",
           issuedAt: new Date().toISOString(),
+          expiresAt,
+          resendUrl: `https://welileapp.com/cash-deposit/resend?deposit=${encodeURIComponent(depositRequestId)}`,
           minutesValid,
         },
       },
@@ -121,6 +125,7 @@ export async function sendCashDepositWalletConfirmationEmail(
     facilitatedRentVolume?: number | null;
     platformServiceFees?: number | null;
     transactionExpenses?: number | null;
+    codeExpiredAt?: string | null;
   },
 ): Promise<CashDepositEmailResult> {
   const {
@@ -136,6 +141,7 @@ export async function sendCashDepositWalletConfirmationEmail(
     facilitatedRentVolume = null,
     platformServiceFees = null,
     transactionExpenses = null,
+    codeExpiredAt = null,
   } = params;
 
   try {
@@ -157,6 +163,7 @@ export async function sendCashDepositWalletConfirmationEmail(
           facilitatedRentVolume,
           platformServiceFees,
           transactionExpenses,
+          codeExpiredAt,
         },
       },
     });
