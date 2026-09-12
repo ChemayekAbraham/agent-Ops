@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageSquare, ShieldCheck, Smartphone } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 
@@ -36,6 +37,10 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const [purpose, setPurpose] = useState('personal_deposit');
   const [cashLocation, setCashLocation] = useState<'bank' | 'cash_at_hand'>('cash_at_hand');
   const [reason, setReason] = useState('');
+  // Email is an extra delivery channel for the same code — useful when SMS is
+  // unavailable. Crediting still only happens when the depositor enters it.
+  const [alsoEmail, setAlsoEmail] = useState(false);
+  const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +50,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const nameCheck = validatePersonNameParts(nameParts);
   // Tell the operator exactly what is still blocking the send instead of leaving
   // the button greyed out with no explanation.
+  const emailClean = email.trim();
+  const emailValid = emailClean === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean);
   const blockedReason = !nameCheck.valid
     ? nameCheck.error || 'Enter the depositor\u2019s first and last name'
     : ownerNameClean.length < 3
@@ -53,7 +60,9 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         ? 'Enter a valid depositor phone number (at least 9 digits)'
         : !Number.isFinite(amountNum) || amountNum < 500
           ? 'Enter a cash amount of at least UGX 500'
-          : null;
+          : !emailValid
+            ? 'Enter a valid email address, or leave it blank to use the depositor\u2019s account email'
+            : null;
   const canSubmit = !blockedReason && !submitting;
 
   const reset = () => {
@@ -63,6 +72,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     setPurpose('personal_deposit');
     setCashLocation('cash_at_hand');
     setReason('');
+    setAlsoEmail(false);
+    setEmail('');
     setError(null);
   };
 
@@ -77,6 +88,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         deposit_purpose: purpose,
         cash_location: cashLocation,
         reason: reason.trim() || undefined,
+        send_email: alsoEmail,
+        email: alsoEmail && emailClean ? emailClean : undefined,
       },
     });
     setSubmitting(false);
@@ -90,11 +103,16 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     }
 
     const smsSent = Boolean((data as any)?.sms_sent);
+    const emailSent = Boolean((data as any)?.email_sent);
     const name = (data as any)?.depositor_name || 'the depositor';
+    const channels = [
+      smsSent ? `SMS on ${(data as any)?.depositor_phone}` : null,
+      emailSent ? `email to ${(data as any)?.depositor_email}` : null,
+    ].filter(Boolean) as string[];
     toast({
-      title: smsSent ? 'Code sent by SMS' : 'Code issued (SMS not confirmed)',
-      description: smsSent
-        ? `${name} has been sent the code on ${(data as any)?.depositor_phone}. It expires in 10 minutes.`
+      title: channels.length ? 'Code sent' : 'Code issued (delivery not confirmed)',
+      description: channels.length
+        ? `${name} has been sent the code by ${channels.join(' and ')}. It expires in 10 minutes.`
         : `The code is in the Cash Deposit Codes list below — read it back to ${name}.`,
     });
     reset();
@@ -114,11 +132,12 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Smartphone className="h-5 w-5 text-primary" />
-            Start cash deposit by SMS code
+            Start cash deposit code
           </DialogTitle>
           <DialogDescription>
             Enter the depositor's phone number and the cash you received. The one-time code is sent
-            straight to their phone. Their wallet is only credited once they enter that code.
+            straight to their phone, and to their email as well if you tick the option below. Their
+            wallet is only credited once they enter that code.
           </DialogDescription>
         </DialogHeader>
 
@@ -212,6 +231,36 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
             />
           </div>
 
+          <div className="space-y-2 rounded-lg border border-border/60 p-3">
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="fin-cash-also-email"
+                checked={alsoEmail}
+                onCheckedChange={(v) => setAlsoEmail(v === true)}
+                className="mt-0.5"
+              />
+              <div className="space-y-1">
+                <Label htmlFor="fin-cash-also-email" className="cursor-pointer text-sm">
+                  Also send the code by email
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Useful when SMS is not getting through. If the depositor has an account email,
+                  leave the box below blank.
+                </p>
+              </div>
+            </div>
+            {alsoEmail && (
+              <Input
+                id="fin-cash-email"
+                type="email"
+                inputMode="email"
+                placeholder="depositor@example.com (optional)"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            )}
+          </div>
+
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-400">
             <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
@@ -234,7 +283,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
           </Button>
           <Button onClick={submit} disabled={!canSubmit} className="gap-2">
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-            Send code by SMS
+            {alsoEmail ? 'Send code by SMS + email' : 'Send code by SMS'}
           </Button>
         </DialogFooter>
       </DialogContent>
