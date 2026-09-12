@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+
 
 /**
  * Read-only Landlord Float overview for Landlord Ops.
@@ -104,20 +105,81 @@ export function useLandlordFloatNeededGeo() {
   });
 }
 
+/** One approved Uganda district, used by the Unmapped mapping picker. */
+export interface ApprovedDistrict {
+  id: number;
+  name: string;
+  region: string | null;
+}
+
+/** Read-only list of approved districts (`landlord_ops_approved_districts`). */
+export function useApprovedDistricts(enabled = true) {
+  return useQuery({
+    queryKey: ['landlord-ops-approved-districts'],
+    enabled,
+    staleTime: 30 * 60_000,
+    queryFn: async (): Promise<ApprovedDistrict[]> => {
+      const { data, error } = await (supabase as any).rpc('landlord_ops_approved_districts');
+      if (error) throw error;
+      return ((data as any)?.rows ?? []) as ApprovedDistrict[];
+    },
+  });
+}
+
+/**
+ * One-click mapping of an unmatched (legacy) district spelling to an approved
+ * district. The RPC `landlord_ops_map_district_alias` only records an alias —
+ * the spelling recorded on any house, landlord or tenant record is never
+ * rewritten. On success every landlord-float query is refreshed so the mapped
+ * rows leave Unmapped immediately.
+ */
+export function useMapDistrictAlias() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { recordedText: string; districtId: number; reason: string }) => {
+      const { data, error } = await (supabase as any).rpc('landlord_ops_map_district_alias', {
+        p_recorded_text: vars.recordedText,
+        p_district_id: vars.districtId,
+        p_reason: vars.reason,
+      });
+      if (error) throw error;
+      return data as { district_name: string; region: string | null };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['landlord-ops-float-needed-geo'] });
+      qc.invalidateQueries({ queryKey: ['landlord-ops-float-overview'] });
+      qc.invalidateQueries({ queryKey: ['landlord-ops-float-drilldown'] });
+      qc.invalidateQueries({ queryKey: ['landlord-ops-float-needed-district'] });
+    },
+  });
+}
+
 /**
  * Read-only drill-down rows behind a Landlord Float total. One SECURITY DEFINER
- * RPC (`landlord_ops_float_drilldown`) does all the reading; nothing is written
- * and no figure is recomputed on the client.
+ * RPC does all the reading; nothing is written and no figure is recomputed on
+ * the client. District-scoped float need uses the alias-aware RPC so mapped
+ * spellings stay consistent with the geographic summary.
  */
 export function useLandlordFloatDrilldown(
   kind: LandlordFloatDrilldownKind | null,
   key?: string | null,
 ) {
+  const isDistrict = kind === 'needed_district';
   return useQuery({
-    queryKey: ['landlord-ops-float-drilldown', kind, key ?? null],
+    queryKey: isDistrict
+      ? ['landlord-ops-float-needed-district', key ?? null]
+      : ['landlord-ops-float-drilldown', kind, key ?? null],
     enabled: !!kind,
     staleTime: 60_000,
     queryFn: async (): Promise<Record<string, any>[]> => {
+      if (isDistrict) {
+        const { data, error } = await (supabase as any).rpc(
+          'landlord_ops_float_needed_district_rows',
+          { p_key: key ?? null },
+        );
+        if (error) throw error;
+        return ((data as any)?.rows ?? []) as Record<string, any>[];
+      }
       const { data, error } = await (supabase as any).rpc('landlord_ops_float_drilldown', {
         p_kind: kind,
         p_key: key ?? null,
@@ -125,6 +187,7 @@ export function useLandlordFloatDrilldown(
       if (error) throw error;
       return ((data as any)?.rows ?? []) as Record<string, any>[];
     },
+
   });
 }
 

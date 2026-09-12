@@ -40801,6 +40801,68 @@ export type Database = {
           },
         ]
       }
+      ug_district_alias_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          district_id: number
+          id: string
+          norm_key: string
+          reason: string
+          recorded_text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          district_id: number
+          id?: string
+          norm_key: string
+          reason: string
+          recorded_text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          district_id?: number
+          id?: string
+          norm_key?: string
+          reason?: string
+          recorded_text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ug_district_alias_overrides_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "mv_ug_district_alias"
+            referencedColumns: ["district_id"]
+          },
+          {
+            foreignKeyName: "ug_district_alias_overrides_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "mv_ug_subcounty_alias"
+            referencedColumns: ["district_id"]
+          },
+          {
+            foreignKeyName: "ug_district_alias_overrides_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "mv_ug_village_geo"
+            referencedColumns: ["district_id"]
+          },
+          {
+            foreignKeyName: "ug_district_alias_overrides_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "ug_districts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ug_district_aliases: {
         Row: {
           alias: string
@@ -48008,6 +48070,15 @@ export type Database = {
           },
         ]
       }
+      v_ug_district_alias_all: {
+        Row: {
+          district_id: number | null
+          district_name: string | null
+          norm_key: string | null
+          region: string | null
+        }
+        Relationships: []
+      }
       v_unsettled_payouts: {
         Row: {
           amount: number | null
@@ -54829,6 +54900,7 @@ export type Database = {
         Args: { p_landlord_id: string }
         Returns: boolean
       }
+      landlord_ops_approved_districts: { Args: never; Returns: Json }
       landlord_ops_bind_tenant_to_house: {
         Args: {
           p_house_id: string
@@ -54841,8 +54913,20 @@ export type Database = {
         Args: { p_key?: string; p_kind: string }
         Returns: Json
       }
+      landlord_ops_float_needed_district_rows: {
+        Args: { p_key: string }
+        Returns: Json
+      }
       landlord_ops_float_needed_geo: { Args: never; Returns: Json }
       landlord_ops_float_overview: { Args: never; Returns: Json }
+      landlord_ops_map_district_alias: {
+        Args: {
+          p_district_id: number
+          p_reason: string
+          p_recorded_text: string
+        }
+        Returns: Json
+      }
       landlord_ops_remove_tenant_from_house: {
         Args: { p_house_id: string; p_reason: string }
         Returns: Json

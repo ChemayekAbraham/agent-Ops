@@ -8,11 +8,14 @@ import {
   Loader2,
   RefreshCw,
   ChevronRight,
+  MapPin,
+
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Select,
@@ -35,6 +38,9 @@ import {
   useLandlordFloatNeededGeo,
   type LandlordFloatDrilldownKind,
   type LandlordFloatNeededGeoRow,
+  useApprovedDistricts,
+  useMapDistrictAlias,
+
 
 } from '@/hooks/useLandlordFloatOverview';
 
@@ -275,6 +281,7 @@ const WAITING_COLUMNS: DrillColumn[] = [
 const NEEDED_DISTRICT_COLUMNS: DrillColumn[] = [
   { key: 'source', label: 'Source', type: 'badge' },
   { key: 'name', label: 'House / Tenant' },
+  { key: 'recorded_district', label: 'Recorded district' },
   { key: 'landlord_name', label: 'Landlord' },
   { key: 'landlord_phone', label: 'Landlord phone' },
   { key: 'agent_name', label: 'Agent' },
@@ -346,7 +353,156 @@ const ATTACHED_COLUMNS: DrillColumn[] = [
  * District filters over the read-only geo RPC. Clicking a district opens the
  * combined drill-down (empty houses + awaiting funding) for that district.
  */
+/**
+ * One-click mapping of an unmatched recorded spelling to an approved district.
+ * Records an alias only — the location text on the underlying house, landlord
+ * or tenant records is never rewritten.
+ */
+function MapDistrictDialog({
+  recordedText,
+  onClose,
+}: {
+  recordedText: string | null;
+  onClose: () => void;
+}) {
+  const { data: districts = [], isLoading } = useApprovedDistricts(!!recordedText);
+  const mapAlias = useMapDistrictAlias();
+  const [region, setRegion] = useState<string | null>(null);
+  const [districtId, setDistrictId] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
+
+  const regions = [...new Set(districts.map((d) => d.region ?? 'Unspecified'))].sort();
+  const districtChoices = districts.filter((d) => !region || (d.region ?? 'Unspecified') === region);
+  const reasonTooShort = reason.trim().length < 10;
+
+  const reset = () => {
+    setRegion(null);
+    setDistrictId(null);
+    setReason('');
+    mapAlias.reset();
+  };
+
+  return (
+    <Dialog
+      open={!!recordedText}
+      onOpenChange={(open) => {
+        if (!open) {
+          reset();
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-base">Map "{recordedText}" to a district</DialogTitle>
+          <DialogDescription>
+            This links the recorded spelling to an approved district so its houses and tenants show
+            under the right region. The spelling saved on the records themselves is left untouched.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Region</label>
+            <Select
+              value={region ?? ''}
+              onValueChange={(v) => {
+                setRegion(v);
+                setDistrictId(null);
+              }}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={isLoading ? 'Loading…' : 'Choose a region'} />
+              </SelectTrigger>
+              <SelectContent>
+                {regions.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">District</label>
+            <Select
+              value={districtId ?? ''}
+              onValueChange={setDistrictId}
+              disabled={isLoading || !region}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={region ? 'Choose a district' : 'Choose a region first'} />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {districtChoices.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              Why this mapping (at least 10 characters)
+            </label>
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. Recorded as a misspelling of Wakiso by the field agent"
+            />
+          </div>
+
+          {mapAlias.isError && (
+            <div className="rounded-lg border border-destructive/40 p-3">
+              <p className="text-sm font-medium text-destructive">This mapping was not saved.</p>
+              <ErrorDetails error={mapAlias.error} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={!districtId || reasonTooShort || mapAlias.isPending}
+            onClick={async () => {
+              if (!recordedText || !districtId) return;
+              try {
+                await mapAlias.mutateAsync({
+                  recordedText,
+                  districtId: Number(districtId),
+                  reason: reason.trim(),
+                });
+                reset();
+                onClose();
+              } catch {
+                /* error shown above */
+              }
+            }}
+          >
+            {mapAlias.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            Map district
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function NeededByLocation({
+
   onOpenDistrict,
 }: {
   onOpenDistrict: (row: LandlordFloatNeededGeoRow) => void;
@@ -355,6 +511,8 @@ function NeededByLocation({
   const { data, isLoading, isError, error, refetch } = useLandlordFloatNeededGeo();
   const [country, setCountry] = useState<string | null>(null);
   const [region, setRegion] = useState<string | null>(null);
+  const [mapping, setMapping] = useState<string | null>(null);
+
 
   const rows = data ?? [];
   const countries = [...new Set(rows.map((r) => r.country))].sort();
@@ -459,12 +617,13 @@ function NeededByLocation({
             <th className={`${TH} text-right`}>Empty houses</th>
             <th className={`${TH} text-right`}>Awaiting funding</th>
             <th className={`${TH} text-right`}>Total needed</th>
+            <th className={`${TH} text-right`}>Action</th>
           </tr>
         </thead>
         <tbody>
           {filtered.length === 0 && (
             <tr>
-              <td className={`${TD} text-muted-foreground`} colSpan={5}>
+              <td className={`${TD} text-muted-foreground`} colSpan={6}>
                 No float need recorded for this selection.
               </td>
             </tr>
@@ -501,12 +660,31 @@ function NeededByLocation({
                 {r.waiting_houses.toLocaleString()} · {formatUGX(r.waiting_amount)}
               </td>
               <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(r.amount)}</td>
+              <td className={`${TD} text-right`}>
+                {r.country === 'Unmapped' && r.district !== 'Unspecified' ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMapping(r.district);
+                    }}
+                  >
+                    <MapPin className="mr-1.5 h-3 w-3" /> Map district
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </td>
             </tr>
           ))}
-
         </tbody>
       </TableShell>
+
+      <MapDistrictDialog recordedText={mapping} onClose={() => setMapping(null)} />
     </div>
+
   );
 }
 
@@ -730,7 +908,8 @@ export default function LandlordFloat() {
                 <p className="text-xs text-muted-foreground">
                   Filter by country and region, then open any district to see the exact houses and
                   tenants behind its need. Districts that match no approved location stay under
-                  Unmapped with their original spelling.
+                  Unmapped with their original spelling — use Map district to link that spelling to
+                  an approved district and every float table by location refreshes at once.
                 </p>
                 <NeededByLocation
                   onOpenDistrict={(row) =>
