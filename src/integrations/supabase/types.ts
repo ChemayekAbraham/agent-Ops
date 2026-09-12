@@ -54944,11 +54944,13 @@ export type Database = {
       landlord_ops_payouts_page: {
         Args: {
           p_agent_id?: string
+          p_dir?: string
           p_from?: string
           p_limit?: number
           p_offset?: number
           p_scope?: string
           p_search?: string
+          p_sort?: string
           p_to?: string
         }
         Returns: Json
