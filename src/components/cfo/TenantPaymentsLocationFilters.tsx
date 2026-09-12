@@ -584,10 +584,54 @@ export function TenantPaymentsLocationFilters() {
                   </div>
                 </div>
               ))}
-              {receipts.data.payment_count > receipts.data.returned && (
-                <p className="px-3 py-2 text-[10px] text-muted-foreground bg-muted/30">
-                  Showing latest {receipts.data.returned} of {receipts.data.payment_count} payments.
-                </p>
+              {receiptTotal > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 px-3 py-2 bg-muted/30">
+                  <p className="text-[10px] text-muted-foreground">
+                    Showing {(receiptPageSafe - 1) * RECEIPTS_PER_PAGE + 1}–
+                    {Math.min(receiptPageSafe * RECEIPTS_PER_PAGE, receiptTotal)} of {receiptTotal} receipts
+                    {receipts.data.payment_count > receipts.data.returned &&
+                      ` (latest ${receipts.data.returned} of ${receipts.data.payment_count} payments)`}
+                  </p>
+                  {receiptTotalPages > 1 && (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 w-7 p-0"
+                        disabled={receiptPageSafe <= 1}
+                        onClick={() => setReceiptPage((p) => Math.max(1, p - 1))}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      {pageNumbers.map((p, i) => (
+                        <span key={p} className="flex items-center gap-1">
+                          {i > 0 && pageNumbers[i - 1] < p - 1 && (
+                            <span className="px-0.5 text-[10px] text-muted-foreground">…</span>
+                          )}
+                          <Button
+                            size="sm"
+                            variant={p === receiptPageSafe ? 'default' : 'outline'}
+                            className="h-7 min-w-7 px-1.5 text-[10px] font-mono"
+                            onClick={() => setReceiptPage(p)}
+                          >
+                            {p}
+                          </Button>
+                        </span>
+                      ))}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 w-7 p-0"
+                        disabled={receiptPageSafe >= receiptTotalPages}
+                        onClick={() => setReceiptPage((p) => Math.min(receiptTotalPages, p + 1))}
+                        aria-label="Next page"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
