@@ -238,3 +238,73 @@ export function useLandlordFloatOverview() {
     staleTime: 60_000,
   });
 }
+
+/** One page of the landlord payout register, read straight from the RPC. */
+export interface LandlordPayoutsPage {
+  rows: Array<{
+    id: string;
+    landlord_name: string;
+    landlord_phone: string | null;
+    tenant_name: string | null;
+    agent_name: string | null;
+    amount: number;
+    provider: string | null;
+    reference: string | null;
+    status: string;
+    disbursed_at: string | null;
+    created_at: string;
+  }>;
+  total_count: number;
+  total_amount: number;
+  limit: number;
+  offset: number;
+  as_at: string;
+}
+
+export interface LandlordPayoutsPageArgs {
+  scope: 'all_time' | 'completed';
+  search?: string;
+  from?: string | null;
+  to?: string | null;
+  agentId?: string | null;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Server-side paginated, searchable landlord payout register. Counting,
+ * filtering, searching and totalling all happen in
+ * `landlord_ops_payouts_page`, so the register carries millions of payouts
+ * without ever loading them into the browser. Read-only.
+ */
+export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = true) {
+  const { scope, search, from, to, agentId, page, pageSize } = args;
+  return useQuery({
+    queryKey: [
+      'landlord-ops-payouts-page',
+      scope,
+      search ?? '',
+      from ?? '',
+      to ?? '',
+      agentId ?? '',
+      page,
+      pageSize,
+    ],
+    enabled,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+    queryFn: async (): Promise<LandlordPayoutsPage> => {
+      const { data, error } = await (supabase as any).rpc('landlord_ops_payouts_page', {
+        p_scope: scope,
+        p_search: search?.trim() ? search.trim() : null,
+        p_from: from || null,
+        p_to: to || null,
+        p_agent_id: agentId || null,
+        p_limit: pageSize,
+        p_offset: Math.max(0, (page - 1) * pageSize),
+      });
+      if (error) throw error;
+      return data as LandlordPayoutsPage;
+    },
+  });
+}
