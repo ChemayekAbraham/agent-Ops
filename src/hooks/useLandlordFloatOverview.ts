@@ -376,6 +376,9 @@ export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = 
         p_offset: Math.max(0, (page - 1) * pageSize),
         p_sort: sort ?? 'disbursed_at',
         p_dir: dir ?? 'desc',
+        p_country: country || null,
+        p_region: region || null,
+        p_district: district || null,
       });
       if (error) throw error;
       return data as LandlordPayoutsPage;
