@@ -18,6 +18,13 @@ export function normalizeEmail(raw: unknown): string | null {
   return EMAIL_RE.test(v) ? v : null;
 }
 
+function maskDepositCode(raw: unknown): string {
+  const code = String(raw ?? "").replace(/\s/g, "");
+  if (!code) return "";
+  const visibleCharacters = Math.min(2, code.length);
+  return `${"•".repeat(code.length - visibleCharacters)}${code.slice(-visibleCharacters)}`;
+}
+
 /**
  * Resolve the address to use: an explicit operator-supplied override wins,
  * otherwise the depositor's account email.
@@ -130,7 +137,7 @@ export async function sendCashDepositWalletConfirmationEmail(
           amountUgx: amount,
           newBalanceUgx: newBalance,
           depositorName: String(depositorName ?? "").split(" ")[0] || "there",
-          receiptCode,
+          maskedDepositCode: maskDepositCode(receiptCode),
           depositedAt,
           referenceNumber,
         },

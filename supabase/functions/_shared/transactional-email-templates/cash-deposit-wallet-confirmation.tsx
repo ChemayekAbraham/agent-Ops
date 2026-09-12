@@ -19,7 +19,7 @@ interface CashDepositWalletConfirmationProps {
   amountUgx?: number
   newBalanceUgx?: number | null
   depositorName?: string
-  receiptCode?: string
+  maskedDepositCode?: string
   depositedAt?: string
   referenceNumber?: string
   supportPhone?: string
@@ -36,7 +36,7 @@ export function CashDepositWalletConfirmationEmail({
   amountUgx = 0,
   newBalanceUgx = null,
   depositorName = 'there',
-  receiptCode = '',
+  maskedDepositCode = '',
   depositedAt = new Date().toISOString(),
   referenceNumber = '',
   supportPhone = '+256 708 257 899',
@@ -83,7 +83,7 @@ export function CashDepositWalletConfirmationEmail({
                 <Text style={detailValue}>{referenceNumber}</Text>
               </>
             ) : null}
-            <Text style={detailLabel}>DEPOSIT DATE &amp; TIME</Text>
+            <Text style={detailLabel}>TRANSACTION DATE &amp; TIME</Text>
             <Text style={detailValue}>{depositedWhen} EAT</Text>
             {newBalanceUgx !== null ? (
               <>
@@ -91,10 +91,10 @@ export function CashDepositWalletConfirmationEmail({
                 <Text style={detailValue}>{ugx(newBalanceUgx)}</Text>
               </>
             ) : null}
-            {receiptCode ? (
+            {maskedDepositCode ? (
               <>
-                <Text style={detailLabel}>RECEIPT CODE</Text>
-                <Text style={detailValue}>{receiptCode}</Text>
+                <Text style={detailLabel}>DEPOSIT CODE</Text>
+                <Text style={detailValue}>{maskedDepositCode}</Text>
               </>
             ) : null}
             <Hr style={divider} />
@@ -220,7 +220,7 @@ export const template = {
     amountUgx: 5000000,
     newBalanceUgx: 5125000,
     depositorName: 'Benjamin',
-    receiptCode: '4821',
+    maskedDepositCode: '••21',
     depositedAt: new Date().toISOString(),
     referenceNumber: 'DEP-5A7C91E2',
   },
