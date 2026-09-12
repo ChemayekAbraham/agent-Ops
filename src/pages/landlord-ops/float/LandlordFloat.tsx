@@ -556,49 +556,11 @@ function DrillDownDialog({
             maxHeight="55vh"
           />
         ) : (
-          <>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="text-muted-foreground">
-                {rows.length.toLocaleString()} record{rows.length === 1 ? '' : 's'}
-              </span>
-              {total > 0 && <span className="font-semibold tabular-nums">{formatUGX(total)}</span>}
-            </div>
-            <div className="max-h-[60vh] overflow-y-auto">
-              <TableShell>
-                <thead className="sticky top-0 bg-muted/60 backdrop-blur">
-                  <tr>
-                    {target?.columns.map((c) => (
-                      <th
-                        key={c.key}
-                        className={`${TH} ${c.type === 'ugx' || c.align === 'right' ? 'text-right' : ''}`}
-                      >
-                        {c.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.length === 0 && (
-                    <tr>
-                      <td className={`${TD} text-muted-foreground`} colSpan={target?.columns.length || 1}>
-                        Nothing recorded here.
-                      </td>
-                    </tr>
-                  )}
-                  {rows.map((r, i) => (
-                    <tr key={String(r.id ?? r.rent_request_id ?? r.agent_id ?? i)} className="border-t border-border/50">
-                      {target?.columns.map((c) => (
-                        <DrillCell key={c.key} column={c} row={r} />
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </TableShell>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Read-only records, shown exactly as recorded. Up to 500 rows.
-            </p>
-          </>
+          <SearchablePagedTable
+            key={`${target?.kind}-${target?.filterKey ?? 'all'}`}
+            columns={target?.columns ?? []}
+            rows={rows}
+          />
         )}
       </DialogContent>
     </Dialog>
