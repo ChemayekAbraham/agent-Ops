@@ -7,6 +7,7 @@ import {
   Heading,
   Hr,
   Html,
+  Img,
   Preview,
   Section,
   Text,
@@ -45,15 +46,28 @@ export function CashDepositCodeEmail({
   return (
     <Html>
       <Head />
-      <Preview>Your Welile cash deposit code is {code}</Preview>
+      <Preview>Welile has received your cash deposit of {ugx(amountUgx)}</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Your cash deposit code</Heading>
+          <Section style={brandHeader}>
+            <Img
+              src="https://welileapp.com/welile-logo.png"
+              width="132"
+              alt="Welile"
+              style={logo}
+            />
+          </Section>
+
+          <Section style={content}>
+          <Text style={eyebrow}>CASH DEPOSIT RECEIVED</Text>
+          <Heading style={h1}>Welile has received your cash deposit</Heading>
           <Text style={text}>
-            Hi {depositorName}, Financial Ops has recorded cash of {ugx(amountUgx)}. Enter the code
-            below in the Welile app to confirm the deposit and have it credited to your wallet.
+            Hi {depositorName}, we have received your cash deposit of <strong>{ugx(amountUgx)}</strong>.
+            Use the secure confirmation code below in the Welile app to complete the deposit and
+            have it credited to your wallet.
           </Text>
 
+          <Text style={codeLabel}>YOUR CONFIRMATION CODE</Text>
           <Section style={codeBox}>
             <Text style={codeText}>{code}</Text>
           </Section>
@@ -76,30 +90,64 @@ export function CashDepositCodeEmail({
           <Hr style={hr} />
 
           <Text style={muted}>
-            Do not share this code with anyone who has not physically received your cash. Nothing is
-            credited until you enter it yourself in the Welile app.
+            For your security, do not share this code with anyone. Your wallet is credited only after
+            you enter this code in the Welile app.
           </Text>
-          <Text style={footer}>Welile · https://welileapp.com</Text>
+          </Section>
+
+          <Section style={footerSection}>
+            <Text style={footerTitle}>WELILE TECHNOLOGIES LTD</Text>
+            <Text style={footer}>Turning rent into an asset.</Text>
+            <Text style={footerLink}>welileapp.com</Text>
+          </Section>
         </Container>
       </Body>
     </Html>
   )
 }
 
-const main: React.CSSProperties = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
+const main: React.CSSProperties = {
+  backgroundColor: '#f4f7f9',
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
+  margin: 0,
+  padding: '32px 12px',
+}
 const container: React.CSSProperties = {
   backgroundColor: '#ffffff',
   margin: '0 auto',
-  padding: '32px 24px',
-  maxWidth: '520px',
+  maxWidth: '560px',
   borderRadius: '12px',
+  overflow: 'hidden',
+  border: '1px solid #e2e8f0',
 }
-const h1: React.CSSProperties = { color: '#0f172a', fontSize: '22px', margin: '0 0 12px', fontWeight: 700 }
+const brandHeader: React.CSSProperties = {
+  borderTop: '6px solid #7b19d4',
+  borderBottom: '1px solid #e2e8f0',
+  padding: '24px 32px',
+}
+const logo: React.CSSProperties = { display: 'block', height: 'auto', maxWidth: '132px' }
+const content: React.CSSProperties = { padding: '32px' }
+const eyebrow: React.CSSProperties = {
+  color: '#7b19d4',
+  fontSize: '11px',
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  margin: '0 0 8px',
+}
+const h1: React.CSSProperties = { color: '#0f172a', fontSize: '25px', lineHeight: '32px', margin: '0 0 14px', fontWeight: 700 }
 const text: React.CSSProperties = { color: '#334155', fontSize: '15px', lineHeight: '24px', margin: '0 0 20px' }
+const codeLabel: React.CSSProperties = {
+  color: '#64748b',
+  fontSize: '11px',
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  margin: '0 0 8px',
+  textAlign: 'center' as const,
+}
 const codeBox: React.CSSProperties = {
   backgroundColor: '#0f172a',
-  borderRadius: '10px',
-  padding: '18px',
+  borderRadius: '8px',
+  padding: '20px',
   textAlign: 'center' as const,
   margin: '0 0 12px',
 }
@@ -120,11 +168,20 @@ const label: React.CSSProperties = {
   fontWeight: 700,
 }
 const value: React.CSSProperties = { color: '#0f172a', fontSize: '14px', margin: '0 0 12px' }
-const footer: React.CSSProperties = { color: '#94a3b8', fontSize: '12px', margin: '16px 0 0' }
+const footerSection: React.CSSProperties = {
+  backgroundColor: '#f8fafc',
+  borderTop: '1px solid #e2e8f0',
+  padding: '22px 32px',
+  textAlign: 'center' as const,
+}
+const footerTitle: React.CSSProperties = { color: '#475569', fontSize: '11px', fontWeight: 700, margin: '0 0 5px' }
+const footer: React.CSSProperties = { color: '#64748b', fontSize: '12px', margin: '0 0 5px' }
+const footerLink: React.CSSProperties = { color: '#7b19d4', fontSize: '12px', fontWeight: 600, margin: 0 }
 
 export const template = {
   component: CashDepositCodeEmail,
-  subject: 'Your Welile cash deposit code',
+  subject: (data: Record<string, any>) =>
+    `Welile received your cash deposit · ${ugx(Number(data?.amountUgx ?? 0))}`,
   displayName: 'Cash deposit code',
   previewData: {
     code: '4821',
