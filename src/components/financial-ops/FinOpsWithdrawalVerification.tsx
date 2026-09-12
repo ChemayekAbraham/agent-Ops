@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowDownToLine, CheckCircle, XCircle, Loader2, RefreshCw,
-  Smartphone, Clock, Hand, Wallet, Briefcase, AlertTriangle, EyeOff, Eye, Unlock,
+  Smartphone, Clock, Hand, Wallet, Briefcase, AlertTriangle, EyeOff, Eye, Unlock, Building,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -37,6 +37,7 @@ interface WithdrawalRequest {
   bank_account_name: string | null;
   agent_location: string | null;
   reason: string | null;
+  rejection_reason?: string | null;
   created_at: string;
   fin_ops_reference: string | null;
   hidden_from_merchant_queue?: boolean | null;
@@ -685,32 +686,51 @@ export function FinOpsWithdrawalVerification() {
     if (isLandlordFloatReason(req.reason)) {
       const floatBal = landlordFloatBalances[req.user_id];
       const known = floatBal !== undefined;
+      const isShort = known && floatBal < amount;
       return (
-        <div className="px-2 py-1.5 rounded-lg border bg-amber-500/5 border-amber-500/30 space-y-1">
+        <div
+          className={`p-3 rounded-xl border transition-all ${
+            isShort
+              ? 'bg-destructive/5 border-destructive/30 dark:bg-destructive/10'
+              : 'bg-amber-500/5 border-amber-500/20 dark:bg-amber-500/10'
+          } space-y-2`}
+        >
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Landlord float: <span className="text-foreground normal-case font-semibold">{req.user?.full_name || 'Agent'}</span>
-            </p>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 font-semibold uppercase tracking-wider">
-              Company float
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Briefcase className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                Landlord Float: <span className="text-foreground normal-case font-semibold">{req.user?.full_name || 'Agent'}</span>
+              </p>
+            </div>
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider">
+              Company Float
             </span>
           </div>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Briefcase className="h-3 w-3 text-amber-600 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground leading-none">Available landlord float</p>
-              <p className="text-xs font-bold text-foreground truncate">{known ? formatCurrency(floatBal) : '—'}</p>
-              {known && (
-                <p className="text-[9px] text-muted-foreground truncate">→ {formatCurrency(Math.max(0, floatBal - amount))} after payout</p>
-              )}
+
+          <div className="p-2.5 rounded-lg bg-background/80 border border-border/50 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Available Landlord Float</p>
+              <p className="text-sm font-black tabular-nums text-foreground">
+                {known ? formatCurrency(floatBal) : '—'}
+              </p>
             </div>
+            {known && (
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">After Payout</p>
+                <p className="text-xs font-semibold tabular-nums text-foreground/80">
+                  {formatCurrency(Math.max(0, floatBal - amount))}
+                </p>
+              </div>
+            )}
           </div>
-          <p className="text-[10px] text-muted-foreground leading-snug pt-0.5 border-t border-border/40">
-            Already deducted from the agent's float at request time. The agent's personal wallet is never touched for this payout.
+
+          <p className="text-[10px] text-muted-foreground leading-snug">
+            Already deducted from agent float at request time. Personal wallet is not touched for this payout.
           </p>
-          {known && floatBal < amount && (
-            <div className="flex items-center gap-1 text-[10px] font-semibold text-destructive">
-              <AlertTriangle className="h-3 w-3" />
+
+          {isShort && (
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-destructive px-2.5 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               <span>Landlord float short {formatCurrency(amount - floatBal)} — verify before completing.</span>
             </div>
           )}
@@ -738,89 +758,113 @@ export function FinOpsWithdrawalVerification() {
       const personalUsed = Math.min(personal, amount);
       const floatUsed = Math.min(float, Math.max(0, amount - personal));
       const afterFloat = float - floatUsed;
+
       return (
         <div
-          className={`px-2 py-1.5 rounded-lg border space-y-1 ${
+          className={`p-3 rounded-xl border transition-all ${
             insufficient
-              ? 'bg-destructive/10 border-destructive/40'
-              : 'bg-muted/40 border-border/50'
-          }`}
+              ? 'bg-destructive/5 border-destructive/30 dark:bg-destructive/10'
+              : 'bg-muted/25 border-border/60 dark:bg-muted/15'
+          } space-y-2`}
         >
+          {/* Header Row */}
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              {opts.ownerLabel}: <span className="text-foreground normal-case font-semibold">{opts.ownerName}</span>
-            </p>
-            {opts.roleTag && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold uppercase tracking-wider">
-                {opts.roleTag}
-              </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Wallet className={`h-3.5 w-3.5 shrink-0 ${insufficient ? 'text-destructive' : 'text-primary'}`} />
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                {opts.ownerLabel}: <span className="text-foreground normal-case font-semibold">{opts.ownerName}</span>
+              </p>
+              {opts.roleTag && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold uppercase tracking-wider">
+                  {opts.roleTag}
+                </span>
+              )}
+            </div>
+
+            {bal !== undefined && (
+              insufficient ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/20 shrink-0">
+                  <AlertTriangle className="h-2.5 w-2.5" />
+                  Short {formatCurrency(amount - totalAvailable)}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                  <CheckCircle className="h-2.5 w-2.5" />
+                  Funded
+                </span>
+              )
             )}
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Wallet className="h-3 w-3 text-primary shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground leading-none">Personal</p>
-                <p className="text-xs font-bold text-foreground truncate">
-                  {bal ? formatCurrency(personal) : '—'}
+
+          {/* 2-Column Balance Tiles */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="p-2 rounded-lg bg-background/80 border border-border/50 space-y-0.5">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground leading-none">Personal</p>
+              <p className="text-xs sm:text-sm font-black tabular-nums text-foreground">
+                {bal ? formatCurrency(personal) : '—'}
+              </p>
+              {opts.showImpact && bal && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-0.5 tabular-nums">
+                  <span className="opacity-70">After:</span>
+                  <span className="font-semibold text-foreground/90">{formatCurrency(afterPersonal)}</span>
                 </p>
-                {opts.showImpact && bal && (
-                  <p className="text-[9px] text-muted-foreground truncate">
-                    → {formatCurrency(afterPersonal)}
-                  </p>
-                )}
-              </div>
+              )}
             </div>
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Briefcase className="h-3 w-3 text-amber-600 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground leading-none">Op. Float</p>
-                <p className="text-xs font-bold text-foreground truncate">
-                  {bal ? formatCurrency(float) : '—'}
+
+            <div className="p-2 rounded-lg bg-background/80 border border-border/50 space-y-0.5">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground leading-none">Operating Float</p>
+              <p className="text-xs sm:text-sm font-black tabular-nums text-foreground">
+                {bal ? formatCurrency(float) : '—'}
+              </p>
+              {opts.showImpact && bal && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-0.5 tabular-nums">
+                  <span className="opacity-70">After:</span>
+                  <span className="font-semibold text-foreground/90">{formatCurrency(afterFloat)}</span>
                 </p>
-                {opts.showImpact && bal && (
-                  <p className="text-[9px] text-muted-foreground truncate">
-                    → {formatCurrency(afterFloat)}
-                  </p>
-                )}
-              </div>
+              )}
             </div>
           </div>
+
+          {/* Pending Holds Banner */}
           {bal && pendingHolds > 0 && (
-            <div className="flex items-center justify-between gap-2 px-1 py-1 rounded bg-amber-500/10 border border-amber-500/30">
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
-                <Clock className="h-3 w-3" />
-                Reserved against pending requests
+            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-[11px]">
+              <span className="inline-flex items-center gap-1.5 font-medium min-w-0 truncate">
+                <Clock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                Reserved hold against pending requests
               </span>
-              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 tabular-nums">
+              <span className="font-bold tabular-nums shrink-0 whitespace-nowrap">
                 {formatCurrency(pendingHolds)}
               </span>
             </div>
           )}
-          {opts.showImpact && bal && (
-            <div className="flex items-center justify-between text-[10px] pt-0.5 border-t border-border/40">
-              <span className="text-muted-foreground">
-                Debit {formatCurrency(amount)} → {personalUsed > 0 && `${formatCurrency(personalUsed)} personal`}{personalUsed > 0 && floatUsed > 0 ? ' + ' : ''}{floatUsed > 0 && `${formatCurrency(floatUsed)} float`}
-              </span>
+
+          {/* Insufficient funds banner */}
+          {insufficient && (
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-destructive px-2.5 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span>Insufficient balance — short {formatCurrency(amount - totalAvailable)}. Debit will be blocked.</span>
             </div>
           )}
-          {insufficient && (
-            <div className="flex items-center gap-1 text-[10px] font-semibold text-destructive">
-              <AlertTriangle className="h-3 w-3" />
-              <span>Insufficient — short {formatCurrency(amount - totalAvailable)}. Debit will be blocked.</span>
+
+          {/* Debit breakdown if funded */}
+          {opts.showImpact && bal && !insufficient && (personalUsed > 0 || floatUsed > 0) && (
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+              <span>Debit breakdown:</span>
+              <span className="font-medium text-foreground tabular-nums">
+                {personalUsed > 0 ? `${formatCurrency(personalUsed)} personal` : ''}
+                {personalUsed > 0 && floatUsed > 0 ? ' + ' : ''}
+                {floatUsed > 0 ? `${formatCurrency(floatUsed)} float` : ''}
+              </span>
             </div>
           )}
         </div>
       );
     };
 
-    // Proxy withdrawal: agent (proxy) is the debit source (v2 partner
-    // withdrawals still hold partner.withdrawable, but operationally the
-    // proxy agent's wallet is what FinOps must watch for funding). Show
-    // BOTH wallets so the operator sees the full picture and the impact.
+    // Proxy withdrawal: agent (proxy) is the debit source
     if (proxy) {
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {renderOneWallet({
             ownerLabel: 'Requested by',
             ownerName: req.user?.full_name || 'Partner',
@@ -857,184 +901,264 @@ export function FinOpsWithdrawalVerification() {
     })();
     const isNewestInCluster = cluster ? cluster[0].id === req.id : false;
     const olderCount = cluster ? cluster.length - 1 : 0;
+
+    const recipientName = req.mobile_money_name || req.bank_account_name;
+    const isMtn = (req.mobile_money_provider || '').toLowerCase() === 'mtn';
+    const isAirtel = (req.mobile_money_provider || '').toLowerCase() === 'airtel';
+    const isBank = (req.payout_method || '').toLowerCase() === 'bank_transfer' || !!bankLabel;
+    const isCash = (req.payout_method || '').toLowerCase() === 'cash';
+
     return (
-      <div key={req.id} className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+      <div
+        key={req.id}
+        className="group relative rounded-2xl border border-border/70 bg-card text-card-foreground p-4 sm:p-5 shadow-xs hover:shadow-md transition-all duration-200 space-y-3.5 overflow-hidden"
+      >
+        {/* Duplicate submission warning cluster */}
         {cluster && (
-          <div className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border ${
-            isNewestInCluster
-              ? 'bg-destructive/10 border-destructive/30'
-              : 'bg-muted/40 border-border/50'
-          }`}>
-            <span className="text-[11px] font-semibold flex items-center gap-1.5">
-              <span className={isNewestInCluster ? 'text-destructive' : 'text-muted-foreground'}>
-                ⚠ {cluster.length} duplicate submissions
-              </span>
-              <span className="text-muted-foreground font-normal">
-                · same recipient · same amount
-              </span>
+          <div
+            className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border ${
+              isNewestInCluster
+                ? 'bg-destructive/10 border-destructive/30 text-destructive'
+                : 'bg-muted/50 border-border/50 text-muted-foreground'
+            }`}
+          >
+            <span className="text-xs font-semibold flex items-center gap-1.5 min-w-0 truncate">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span>{cluster.length} duplicate submissions</span>
+              <span className="opacity-80 text-[11px] font-normal">· same recipient & amount</span>
               {!isNewestInCluster && (
-                <span className="text-[10px] text-muted-foreground italic">
-                  (older copy)
-                </span>
+                <span className="text-[10px] italic opacity-75">(older copy)</span>
               )}
             </span>
             {isNewestInCluster && olderCount > 0 && (
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-[11px] px-2 text-destructive border-destructive/40"
+                className="h-6 text-[10px] px-2 text-destructive border-destructive/40 hover:bg-destructive/10 font-bold shrink-0"
                 onClick={() => handleBulkRejectDuplicates(cluster)}
                 disabled={!!processing}
               >
-                Reject {olderCount} older duplicate{olderCount === 1 ? '' : 's'}
+                Reject {olderCount} older
               </Button>
             )}
           </div>
         )}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <UserAvatar fullName={req.user?.full_name || ''} avatarUrl={req.user?.avatar_url} size="sm" />
+
+        {/* Card Header: Customer info on left, Amount & Stage Badge on right */}
+        <div className="flex items-start justify-between gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <UserAvatar fullName={req.user?.full_name || ''} avatarUrl={req.user?.avatar_url} size="md" />
             <button
               type="button"
               onClick={() => setProfileUser({ id: req.user_id, name: req.user?.full_name || 'User' })}
-              className="text-left group"
-              title="Open full profile"
+              className="text-left group/user min-w-0 flex-1"
+              title="Open full profile drilldown"
             >
-              <p className="text-sm font-bold underline decoration-dotted underline-offset-2 group-hover:text-primary">{req.user?.full_name}</p>
-              <p className="text-xs text-muted-foreground">{req.user?.phone} · tap for full profile</p>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="text-sm sm:text-base font-bold text-foreground group-hover/user:text-primary transition-colors truncate">
+                  {req.user?.full_name || req.user?.phone || 'Customer'}
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+                <span className="font-mono">{req.user?.phone || 'No phone'}</span>
+                <span>·</span>
+                <span className="group-hover/user:underline underline-offset-2">View profile</span>
+              </p>
             </button>
           </div>
-          <div className="text-right space-y-1">
-            <p className="text-base font-black">{formatCurrency(req.amount)}</p>
-            <div className="flex items-center justify-end gap-1 flex-wrap">
+
+          <div className="text-right shrink-0 whitespace-nowrap space-y-1">
+            <p className="text-lg sm:text-xl font-black tabular-nums tracking-tight text-foreground">
+              {formatCurrency(req.amount)}
+            </p>
+            <div className="flex items-center justify-end">
               {getStageBadge(req.status)}
             </div>
           </div>
         </div>
 
-        {renderBalanceStrip(req)}
-
-        {req.hidden_from_merchant_queue && (
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-700 dark:text-amber-300">
-            <EyeOff className="h-3.5 w-3.5 shrink-0" />
-            <p className="text-[11px] font-bold uppercase tracking-wide">
-              Hidden from Merchant Agent payout queue
-            </p>
-          </div>
-        )}
-
+        {/* Claimed Banner (if claimed by merchant agent) */}
         {req.assigned_cashout_agent_id && (
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/40 text-orange-700 dark:text-orange-300">
-            <Hand className="h-3.5 w-3.5 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wide">
-                Claimed by Merchant Agent — DO NOT double-pay
-              </p>
-              <p className="text-[11px] font-medium truncate opacity-90">
-                {req.cashout_agent?.full_name || 'Agent'}
-                {req.cashout_agent?.phone ? ` · ${req.cashout_agent.phone}` : ''}
-                {req.claimed_at ? ` · claimed ${formatDistanceToNow(new Date(req.claimed_at), { addSuffix: true })}` : ''}
-              </p>
+          <div className="flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-7 w-7 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                <Hand className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                  Claimed by Merchant Agent — DO NOT double-pay
+                </p>
+                <p className="text-xs font-semibold truncate">
+                  {req.cashout_agent?.full_name || 'Agent'}
+                  {req.cashout_agent?.phone ? ` · ${req.cashout_agent.phone}` : ''}
+                  {req.claimed_at ? ` · claimed ${formatDistanceToNow(new Date(req.claimed_at), { addSuffix: true })}` : ''}
+                </p>
+              </div>
             </div>
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0 h-7 text-[11px] font-bold border-orange-500/50 text-orange-700 dark:text-orange-300 hover:bg-orange-500/20"
+              className="shrink-0 h-7 text-xs font-bold border-amber-500/40 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20"
               disabled={releasingClaim === req.id}
               onClick={(e) => { e.stopPropagation(); handleReleaseClaim(req); }}
             >
-              {releasingClaim === req.id
-                ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                : <Unlock className="h-3 w-3 mr-1" />}
+              {releasingClaim === req.id ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+              ) : (
+                <Unlock className="h-3.5 w-3.5 mr-1" />
+              )}
               Release Claim
             </Button>
           </div>
         )}
 
-        {(req.mobile_money_name || req.bank_account_name) && (
-          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
-            <span className="text-xs font-bold text-foreground">
-              Recipient: {req.mobile_money_name || req.bank_account_name}
-            </span>
+        {/* Hidden from Merchant Queue Notification Strip */}
+        {req.hidden_from_merchant_queue && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/60 border border-border/70 text-muted-foreground text-xs">
+            <EyeOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="font-medium">Hidden from Merchant Agent payout queue</span>
           </div>
         )}
 
-        {req.mobile_money_number && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Smartphone className="h-3 w-3" />
-            <span className={`uppercase font-medium ${req.mobile_money_provider === 'mtn' ? 'text-yellow-600' : 'text-red-500'}`}>
-              {req.mobile_money_provider || 'MoMo'}
-            </span>
-            <span>•</span>
-            <span>{req.mobile_money_number}</span>
-            {req.mobile_money_name && <><span>•</span><span>{req.mobile_money_name}</span></>}
+        {/* Wallet Balance & Funding Health Check */}
+        {renderBalanceStrip(req)}
+
+        {/* Unified Payout Destination Card */}
+        <div className="rounded-xl border border-border/70 bg-muted/20 dark:bg-muted/10 p-3 space-y-2">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span>Payout Destination</span>
+            {req.reason?.includes('[Agent proxy:') && (
+              <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold tracking-normal normal-case">
+                👤 Proxy Agent Request
+              </span>
+            )}
           </div>
-        )}
 
-        {bankLabel && <p className="text-xs text-muted-foreground">{bankLabel}</p>}
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Provider Rail Icon */}
+            {isMtn ? (
+              <div className="h-9 w-9 rounded-xl bg-yellow-500/15 border border-yellow-500/30 flex items-center justify-center shrink-0">
+                <Smartphone className="h-4 w-4 text-yellow-700 dark:text-yellow-400" />
+              </div>
+            ) : isAirtel ? (
+              <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">
+                <Smartphone className="h-4 w-4 text-red-600 dark:text-red-400" />
+              </div>
+            ) : isBank ? (
+              <div className="h-9 w-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
+                <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
+            ) : (
+              <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <ArrowDownToLine className="h-4 w-4 text-primary" />
+              </div>
+            )}
 
-        {req.reason?.includes('[Agent proxy:') && (
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-[10px] font-semibold uppercase tracking-wider">
-            👤 Proxy Agent Request
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs sm:text-sm font-bold text-foreground truncate">
+                  {recipientName || req.user?.full_name || 'Direct Payout'}
+                </span>
+                {req.mobile_money_provider && (
+                  <span
+                    className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                      isMtn
+                        ? 'bg-yellow-500/20 text-yellow-800 dark:text-yellow-300'
+                        : 'bg-red-500/20 text-red-700 dark:text-red-300'
+                    }`}
+                  >
+                    {req.mobile_money_provider}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs font-mono text-muted-foreground truncate mt-0.5">
+                {req.mobile_money_number ||
+                  bankLabel ||
+                  (isCash ? `Cash pickup at ${req.agent_location || 'Agent'}` : 'No phone / account provided')}
+              </p>
+            </div>
           </div>
-        )}
 
-        {req.reason && (
-          <div className="px-2 py-1.5 rounded-lg bg-muted/50 border border-border/50">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Reason</p>
-            <p className="text-xs text-foreground">{req.reason}</p>
-          </div>
-        )}
+          {/* Reason inside the destination card */}
+          {req.reason && (
+            <div className="pt-2 border-t border-border/40 text-xs flex items-baseline gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
+                Reason:
+              </span>
+              <span className="text-foreground/90 italic truncate">{req.reason}</span>
+            </div>
+          )}
+        </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <p className="text-[10px] text-muted-foreground">
+        {/* Card Action Footer */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/50">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap text-muted-foreground">
+            <span className="text-xs">
               Requested {formatDistanceToNow(new Date(req.created_at), { addSuffix: true })}
-            </p>
+            </span>
             {ageBadge}
           </div>
-          <div className="flex gap-2">
+
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               size="sm"
               variant="outline"
-              className={`h-8 text-xs ${req.hidden_from_merchant_queue ? 'text-amber-600 border-amber-500/40 bg-amber-500/10' : 'text-muted-foreground'}`}
+              className={`h-8 text-xs font-semibold shrink-0 transition-colors ${
+                req.hidden_from_merchant_queue
+                  ? 'text-amber-700 dark:text-amber-300 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
               onClick={() => handleToggleHiddenFromMerchantQueue(req)}
               disabled={!!processing}
               title={
                 req.hidden_from_merchant_queue
-                  ? 'Currently hidden from the Merchant Agent payout queue — click to make it visible again'
+                  ? 'Currently hidden from Merchant Agent payout queue — click to make it visible'
                   : 'Hide this withdrawal from the Merchant Agent payout queue'
               }
             >
               {req.hidden_from_merchant_queue ? (
-                <><EyeOff className="h-3 w-3 mr-1" />Hidden from queue</>
+                <>
+                  <EyeOff className="h-3.5 w-3.5 mr-1.5 text-amber-600" />
+                  Hidden from queue
+                </>
               ) : (
-                <><Eye className="h-3 w-3 mr-1" />Hide from queue</>
+                <>
+                  <Eye className="h-3.5 w-3.5 mr-1.5" />
+                  Hide from queue
+                </>
               )}
             </Button>
+
             <Button
               size="sm"
               variant="outline"
-              className="h-8 text-xs text-destructive border-destructive/30"
-              onClick={() => { setSelected(req); setRejectOpen(true); }}
+              className="h-8 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
+              onClick={() => {
+                setSelected(req);
+                setRejectOpen(true);
+              }}
               disabled={!!processing}
             >
-              <XCircle className="h-3 w-3 mr-1" />
+              <XCircle className="h-3.5 w-3.5 mr-1.5" />
               Reject
             </Button>
+
             {isMerchantOnlyPayout(req) ? (
-              <span className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-muted/60 border border-border text-[11px] font-medium text-muted-foreground">
-                <Hand className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-muted/70 border border-border text-xs font-semibold text-muted-foreground shrink-0 shadow-2xs">
+                <Hand className="h-3.5 w-3.5 text-primary" />
                 A merchant agent pays this
               </span>
             ) : (
               <Button
                 size="sm"
-                className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground"
-                onClick={() => { setSelected(req); setApproveOpen(true); }}
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shrink-0 shadow-xs transition-all"
+                onClick={() => {
+                  setSelected(req);
+                  setApproveOpen(true);
+                }}
                 disabled={!!processing}
               >
-                <CheckCircle className="h-3 w-3 mr-1" />
+                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
                 Approve & Complete
               </Button>
             )}
@@ -1047,85 +1171,146 @@ export function FinOpsWithdrawalVerification() {
   const renderRejectedCard = (req: WithdrawalRequest) => {
     const bankLabel = getPayoutLabel(req);
     const ageBadge = getAgeBadge(req.created_at);
+    const recipientName = req.mobile_money_name || req.bank_account_name;
+    const isMtn = (req.mobile_money_provider || '').toLowerCase() === 'mtn';
+    const isAirtel = (req.mobile_money_provider || '').toLowerCase() === 'airtel';
+    const isBank = (req.payout_method || '').toLowerCase() === 'bank_transfer' || !!bankLabel;
+    const isCash = (req.payout_method || '').toLowerCase() === 'cash';
+    const rejectionText = req.rejection_reason || req.reason;
+
     return (
-      <div key={req.id} className="p-3 rounded-xl border border-destructive/30 bg-destructive/5 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <UserAvatar fullName={req.user?.full_name || ''} avatarUrl={req.user?.avatar_url} size="sm" />
+      <div
+        key={req.id}
+        className="group relative rounded-2xl border border-destructive/30 bg-card text-card-foreground p-4 sm:p-5 shadow-xs hover:shadow-md transition-all duration-200 space-y-3.5 overflow-hidden"
+      >
+        {/* Card Header: Requester on left, Amount & Rejected Badge on right */}
+        <div className="flex items-start justify-between gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <UserAvatar fullName={req.user?.full_name || ''} avatarUrl={req.user?.avatar_url} size="md" />
             <button
               type="button"
               onClick={() => setProfileUser({ id: req.user_id, name: req.user?.full_name || 'User' })}
-              className="text-left group"
-              title="Open full profile"
+              className="text-left group/user min-w-0 flex-1"
+              title="Open full profile drilldown"
             >
-              <p className="text-sm font-bold underline decoration-dotted underline-offset-2 group-hover:text-primary">{req.user?.full_name}</p>
-              <p className="text-xs text-muted-foreground">{req.user?.phone} · tap for full profile</p>
+              <p className="text-sm sm:text-base font-bold text-foreground group-hover/user:text-primary transition-colors truncate">
+                {req.user?.full_name || req.user?.phone || 'Customer'}
+              </p>
+              <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+                <span className="font-mono">{req.user?.phone || 'No phone'}</span>
+                <span>·</span>
+                <span className="group-hover/user:underline underline-offset-2">View profile</span>
+              </p>
             </button>
           </div>
-          <div className="text-right">
-            <p className="text-base font-black">{formatCurrency(req.amount)}</p>
-            <Badge variant="destructive" size="sm">Rejected</Badge>
+
+          <div className="text-right shrink-0 whitespace-nowrap space-y-1">
+            <p className="text-lg sm:text-xl font-black tabular-nums tracking-tight text-foreground">
+              {formatCurrency(req.amount)}
+            </p>
+            <div className="flex items-center justify-end">
+              <Badge variant="destructive" size="sm" className="font-bold uppercase tracking-wider text-[10px]">
+                Rejected
+              </Badge>
+            </div>
           </div>
         </div>
 
+        {/* Wallet Balance & Funding Health Check */}
         {renderBalanceStrip(req)}
 
-        {(req.mobile_money_name || req.bank_account_name) && (
-          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
-            <span className="text-xs font-bold text-foreground">
-              Recipient: {req.mobile_money_name || req.bank_account_name}
-            </span>
+        {/* Unified Payout Destination Card */}
+        <div className="rounded-xl border border-border/70 bg-muted/20 dark:bg-muted/10 p-3 space-y-2">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span>Payout Destination</span>
+            {req.reason?.includes('[Agent proxy:') && (
+              <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold tracking-normal normal-case">
+                👤 Proxy Agent Request
+              </span>
+            )}
           </div>
-        )}
 
-        {req.mobile_money_number && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Smartphone className="h-3 w-3" />
-            <span className={`uppercase font-medium ${req.mobile_money_provider === 'mtn' ? 'text-yellow-600' : 'text-red-500'}`}>
-              {req.mobile_money_provider || 'MoMo'}
-            </span>
-            <span>•</span>
-            <span>{req.mobile_money_number}</span>
+          <div className="flex items-center gap-3 min-w-0">
+            {isMtn ? (
+              <div className="h-9 w-9 rounded-xl bg-yellow-500/15 border border-yellow-500/30 flex items-center justify-center shrink-0">
+                <Smartphone className="h-4 w-4 text-yellow-700 dark:text-yellow-400" />
+              </div>
+            ) : isAirtel ? (
+              <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">
+                <Smartphone className="h-4 w-4 text-red-600 dark:text-red-400" />
+              </div>
+            ) : isBank ? (
+              <div className="h-9 w-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
+                <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
+            ) : (
+              <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <ArrowDownToLine className="h-4 w-4 text-primary" />
+              </div>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs sm:text-sm font-bold text-foreground truncate">
+                  {recipientName || req.user?.full_name || 'Direct Payout'}
+                </span>
+                {req.mobile_money_provider && (
+                  <span
+                    className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                      isMtn
+                        ? 'bg-yellow-500/20 text-yellow-800 dark:text-yellow-300'
+                        : 'bg-red-500/20 text-red-700 dark:text-red-300'
+                    }`}
+                  >
+                    {req.mobile_money_provider}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs font-mono text-muted-foreground truncate mt-0.5">
+                {req.mobile_money_number ||
+                  bankLabel ||
+                  (isCash ? `Cash pickup at ${req.agent_location || 'Agent'}` : 'No phone / account provided')}
+              </p>
+            </div>
           </div>
-        )}
+        </div>
 
-        {bankLabel && <p className="text-xs text-muted-foreground">{bankLabel}</p>}
-
-        {req.reason && (
-          <div className="px-2 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20">
-            <p className="text-[10px] font-semibold text-destructive uppercase tracking-wider mb-0.5">Rejection Reason</p>
-            <p className="text-xs text-foreground">{req.reason}</p>
-          </div>
-        )}
-
-        {(req as any).rejection_reason && !(req.reason) && (
-          <div className="px-2 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20">
-            <p className="text-[10px] font-semibold text-destructive uppercase tracking-wider mb-0.5">Rejection Reason</p>
-            <p className="text-xs text-foreground">{(req as any).rejection_reason}</p>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <p className="text-[10px] text-muted-foreground">
-              Requested {formatDistanceToNow(new Date(req.created_at), { addSuffix: true })}
+        {/* Rejection Reason Banner */}
+        {rejectionText && (
+          <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs space-y-1">
+            <p className="font-bold text-[10px] uppercase tracking-wider text-destructive flex items-center gap-1.5">
+              <XCircle className="h-3.5 w-3.5" /> Rejection Reason
             </p>
+            <p className="text-foreground leading-relaxed">{rejectionText}</p>
+          </div>
+        )}
+
+        {/* Card Action Footer */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/50">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap text-muted-foreground">
+            <span className="text-xs">
+              Requested {formatDistanceToNow(new Date(req.created_at), { addSuffix: true })}
+            </span>
             {ageBadge}
           </div>
-          <div className="flex gap-2">
+
+          <div className="flex items-center gap-2 flex-wrap">
             {isMerchantOnlyPayout(req) ? (
-              <span className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-muted/60 border border-border text-[11px] font-medium text-muted-foreground">
-                <Hand className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-muted/70 border border-border text-xs font-semibold text-muted-foreground shrink-0 shadow-2xs">
+                <Hand className="h-3.5 w-3.5 text-primary" />
                 A merchant agent pays this
               </span>
             ) : (
               <Button
                 size="sm"
-                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => { setSelected(req); setApproveOpen(true); }}
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shrink-0 shadow-xs transition-all"
+                onClick={() => {
+                  setSelected(req);
+                  setApproveOpen(true);
+                }}
                 disabled={!!processing}
               >
-                <CheckCircle className="h-3 w-3 mr-1" />
+                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
                 Re-Approve & Pay
               </Button>
             )}

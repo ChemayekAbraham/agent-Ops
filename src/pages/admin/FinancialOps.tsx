@@ -19,34 +19,36 @@ export default function FinancialOpsPage() {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Sticky top bar so the back action is always reachable */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-2">
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border shadow-xs">
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 min-w-0">
           <Button
             variant="ghost"
             size="sm"
             onClick={goBack}
-            className="gap-2 text-sm font-medium -ml-2"
+            className="gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium -ml-1 sm:-ml-2 shrink-0"
             aria-label="Back to previous page"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back to dashboard
+            <ArrowLeft className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Back to dashboard</span>
+            <span className="sm:hidden">Back</span>
           </Button>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 shrink-0">
             <BudgetDepartmentNotificationBell dashboard="financial-ops" />
             <Button
               variant="outline"
               size="sm"
               onClick={goToManagerDashboard}
-              className="gap-2 text-sm"
+              className="gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium shrink-0"
             >
-              <LayoutDashboard className="h-4 w-4" />
-              Manager dashboard
+              <LayoutDashboard className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Manager dashboard</span>
+              <span className="sm:hidden">Manager</span>
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6 min-w-0">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-3 sm:py-8 space-y-4 sm:space-y-6 min-w-0">
         <FinancialOpsCommandCenter />
       </div>
     </div>

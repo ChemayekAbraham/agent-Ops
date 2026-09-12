@@ -442,19 +442,33 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
             return (
               <div
                 key={r.deskId}
-                className={`flex items-center justify-between gap-3 rounded-xl border bg-background px-3 py-2 min-w-0 ${
+                className={`flex flex-col sm:flex-row sm:items-start justify-between gap-3 rounded-xl border bg-background p-3 sm:px-3.5 sm:py-2.5 min-w-0 shadow-2xs ${
                   isUnverified(r) ? 'border-dashed border-destructive/40' : 'border-border'
                 }`}
               >
-                <div className="min-w-0 text-left">
-                  <button
-                    type="button"
-                    onClick={() => setStatementFor(r)}
-                    className="text-sm font-medium text-foreground truncate hover:text-primary hover:underline text-left w-full"
-                  >
-                    {r.agentName || r.label || 'Merchant agent'}
-                  </button>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                <div className="min-w-0 flex-1 text-left">
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setStatementFor(r)}
+                      className="text-sm font-bold text-foreground truncate hover:text-primary hover:underline text-left"
+                    >
+                      {r.agentName || r.label || 'Merchant agent'}
+                    </button>
+                    {/* Mobile balance indicator displayed inline with name */}
+                    <p
+                      className={`sm:hidden font-mono text-sm font-bold tabular-nums shrink-0 whitespace-nowrap ${
+                        isUnverified(r)
+                          ? 'text-muted-foreground'
+                          : spendableFloat(r) > 0
+                            ? 'text-warning'
+                            : 'text-foreground'
+                      }`}
+                    >
+                      {formatUGX(spendableFloat(r))}
+                    </p>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
                     <button
                       type="button"
                       disabled={!r.agentId}
@@ -509,7 +523,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground mt-1">
                     {capacityLabel(cap)}
                     {cap && cap.earnedCapacity > 0
                       ? ` · avg ${formatUGX(Math.round(cap.dailyThroughput))}/day paid out`
@@ -521,31 +535,33 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                     </span>
                   )}
 
-                  {movements.length === 0 ? (
-                    <p className="text-[11px] text-muted-foreground">No float movements</p>
-                  ) : (
-                    movements.map((m, idx) => (
-                      <p
-                        key={`${m.agentId}-${m.date}-${idx}`}
-                        className={`text-[11px] font-semibold tabular-nums text-left ${
-                          m.direction === 'cash_in' ? 'text-success' : 'text-destructive'
-                        }`}
-                      >
-                        {m.direction === 'cash_in' ? '+' : '−'}
-                        {formatUGX(m.amount)}
-                        <span className="ml-1 font-normal text-muted-foreground">
-                          {format(new Date(m.date), 'd MMM')}
-                        </span>
-                      </p>
-                    ))
-                  )}
-                  <p className="text-[11px] text-muted-foreground truncate text-left">
+                  <div className="mt-1.5 space-y-0.5">
+                    {movements.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground">No float movements</p>
+                    ) : (
+                      movements.map((m, idx) => (
+                        <p
+                          key={`${m.agentId}-${m.date}-${idx}`}
+                          className={`text-[11px] font-semibold tabular-nums text-left whitespace-nowrap ${
+                            m.direction === 'cash_in' ? 'text-success' : 'text-destructive'
+                          }`}
+                        >
+                          {m.direction === 'cash_in' ? '+' : '−'}
+                          {formatUGX(m.amount)}
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            {format(new Date(m.date), 'd MMM')}
+                          </span>
+                        </p>
+                      ))
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate text-left mt-1">
                     {r.agentPhone || '—'} · they paid out {formatUGX(r.paidOut)} · we paid them back {formatUGX(r.reimbursed)}
                   </p>
                 </div>
-                <div className="text-right shrink-0">
+                <div className="text-left sm:text-right shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
                   <p
-                    className={`font-mono text-sm font-bold tabular-nums ${
+                    className={`hidden sm:block font-mono text-sm font-bold tabular-nums whitespace-nowrap ${
                       isUnverified(r)
                         ? 'text-muted-foreground'
                         : spendableFloat(r) > 0
@@ -556,7 +572,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                     {formatUGX(spendableFloat(r))}
                   </p>
                   {isUnverified(r) && (
-                    <p className="text-[10px] text-destructive">
+                    <p className="text-[10px] text-destructive whitespace-nowrap">
                       {formatUGX(excludedFloat(r))} not counted as float
                     </p>
                   )}
@@ -594,7 +610,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                     <button
                       type="button"
                       onClick={() => setReconciling(r)}
-                      className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
                     >
                       <SlidersHorizontal className="h-3 w-3" /> Fix balance
                     </button>
