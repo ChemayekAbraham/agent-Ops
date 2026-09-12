@@ -6,11 +6,20 @@
 // logic.
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Loader2, MapPin, Users, X } from 'lucide-react';
+import {
+  Loader2,
+  MapPin,
+  Receipt,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -32,6 +41,13 @@ const METHOD_LABEL: Record<string, string> = {
   cash: 'Cash',
   in_app_wallet: 'In-app wallet',
   unknown: 'Not recorded',
+};
+
+const METHOD_BADGE: Record<string, string> = {
+  mobile_money: 'bg-muted/60 text-foreground border-border/60',
+  cash: 'bg-muted/60 text-foreground border-border/60',
+  in_app_wallet: 'bg-muted/60 text-foreground border-border/60',
+  unknown: 'bg-muted/40 text-muted-foreground border-border/60',
 };
 
 function isoDaysAgo(days: number) {
@@ -167,338 +183,390 @@ export function TenantPaymentsLocationFilters() {
     !!sel.country || !!sel.region || !!sel.districtId || !!sel.subcountyId || !!sel.village;
 
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/20 p-2.5 sm:p-3 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[11px] sm:text-xs font-medium">
-            <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-            Payment activity by location
-          </p>
-          <p className="text-[9px] sm:text-[10px] text-muted-foreground">
-            Filter money received by country, region, district, town/sub-county and village — each
-            choice narrows the next.
-          </p>
+    <Card className="border-border/60">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+              <MapPin className="h-4 w-4 text-primary shrink-0" />
+              Payment activity by location
+            </CardTitle>
+            <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground max-w-xl">
+              Filter money received by country, region, district, town/sub-county and village. Each choice narrows the next.
+            </p>
+          </div>
+          {hasAnyFilter && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 px-2.5 text-[11px] shrink-0"
+              onClick={() => setSel(EMPTY_SELECTION)}
+            >
+              <X className="mr-1.5 h-3.5 w-3.5" />
+              Reset filters
+            </Button>
+          )}
         </div>
-        {hasAnyFilter && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 px-2 text-[10px] shrink-0"
-            onClick={() => setSel(EMPTY_SELECTION)}
-          >
-            <X className="mr-1 h-3 w-3" />
-            Reset
-          </Button>
-        )}
-      </div>
+      </CardHeader>
 
-      {/* Date + method filters */}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="space-y-1">
-          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">From</label>
-          <Input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
-        </div>
-        <div className="space-y-1">
-          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">To</label>
-          <Input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="h-8 w-[140px] text-xs" />
-        </div>
-        <div className="space-y-1">
-          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Method</label>
-          <Select value={method} onValueChange={setMethod}>
-            <SelectTrigger className="h-8 w-[150px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL} className="text-xs">All methods</SelectItem>
-              {(data?.methods ?? countryQ.data?.methods ?? []).map((m) => (
-                <SelectItem key={m.method} value={m.method} className="text-xs">
-                  {METHOD_LABEL[m.method] ?? m.method}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Cascading location filters */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-        <div className="space-y-1">
-          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Country</label>
-          <Select
-            value={sel.country ?? ALL}
-            onValueChange={(v) =>
-              setSel({ ...EMPTY_SELECTION, country: v === ALL ? null : v })
-            }
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="All countries" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL} className="text-xs">All countries</SelectItem>
-              {(countryQ.data?.rows ?? []).map((r) => (
-                <SelectItem key={r.label} value={r.label} className="text-xs">
-                  {r.label} ({r.payment_count})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <CardContent className="space-y-5">
+        {/* Date + method filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              From
+            </label>
+            <Input
+              type="date"
+              value={from}
+              max={to}
+              onChange={(e) => setFrom(e.target.value)}
+              className="h-9 text-xs"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              To
+            </label>
+            <Input
+              type="date"
+              value={to}
+              min={from}
+              onChange={(e) => setTo(e.target.value)}
+              className="h-9 text-xs"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Payment method
+            </label>
+            <Select value={method} onValueChange={setMethod}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="text-xs">All methods</SelectItem>
+                {(data?.methods ?? countryQ.data?.methods ?? []).map((m) => (
+                  <SelectItem key={m.method} value={m.method} className="text-xs">
+                    {METHOD_LABEL[m.method] ?? m.method}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Region</label>
-          <Select
-            value={sel.region ?? ALL}
-            disabled={!sel.country}
-            onValueChange={(v) =>
-              setSel((s) => ({
-                ...s,
-                region: v === ALL ? null : v,
-                districtId: null, districtLabel: null,
-                subcountyId: null, subcountyLabel: null, village: null,
-              }))
-            }
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder={sel.country ? 'All regions' : 'Pick country first'} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL} className="text-xs">All regions</SelectItem>
-              {(regionQ.data?.rows ?? []).map((r) => (
-                <SelectItem key={r.label} value={r.label} className="text-xs">
-                  {r.label} ({r.payment_count})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Cascading location filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Country
+            </label>
+            <Select
+              value={sel.country ?? ALL}
+              onValueChange={(v) =>
+                setSel({ ...EMPTY_SELECTION, country: v === ALL ? null : v })
+              }
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="All countries" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="text-xs">All countries</SelectItem>
+                {(countryQ.data?.rows ?? []).map((r) => (
+                  <SelectItem key={r.label} value={r.label} className="text-xs">
+                    {r.label} ({r.payment_count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-1">
-          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">District</label>
-          <Select
-            value={sel.districtId != null ? String(sel.districtId) : ALL}
-            disabled={!sel.region}
-            onValueChange={(v) =>
-              setSel((s) => {
-                if (v === ALL) {
-                  return { ...s, districtId: null, districtLabel: null, subcountyId: null, subcountyLabel: null, village: null };
-                }
-                const row = (districtQ.data?.rows ?? []).find((r) => String(r.district_id) === v);
-                return {
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Region
+            </label>
+            <Select
+              value={sel.region ?? ALL}
+              disabled={!sel.country}
+              onValueChange={(v) =>
+                setSel((s) => ({
                   ...s,
-                  districtId: Number(v),
-                  districtLabel: row?.label ?? null,
+                  region: v === ALL ? null : v,
+                  districtId: null, districtLabel: null,
                   subcountyId: null, subcountyLabel: null, village: null,
-                };
-              })
-            }
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder={sel.region ? 'All districts' : 'Pick region first'} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL} className="text-xs">All districts</SelectItem>
-              {(districtQ.data?.rows ?? [])
-                .filter((r) => r.district_id != null)
-                .map((r) => (
-                  <SelectItem key={r.district_id} value={String(r.district_id)} className="text-xs">
+                }))
+              }
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder={sel.country ? 'All regions' : 'Pick country first'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="text-xs">All regions</SelectItem>
+                {(regionQ.data?.rows ?? []).map((r) => (
+                  <SelectItem key={r.label} value={r.label} className="text-xs">
                     {r.label} ({r.payment_count})
                   </SelectItem>
                 ))}
-            </SelectContent>
-          </Select>
-        </div>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-1">
-          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Town / sub-county</label>
-          <Select
-            value={sel.subcountyId != null ? String(sel.subcountyId) : ALL}
-            disabled={!sel.districtId}
-            onValueChange={(v) =>
-              setSel((s) => {
-                if (v === ALL) {
-                  return { ...s, subcountyId: null, subcountyLabel: null, village: null };
-                }
-                const row = (subcountyQ.data?.rows ?? []).find((r) => String(r.subcounty_id) === v);
-                return {
-                  ...s,
-                  subcountyId: Number(v),
-                  subcountyLabel: row?.label ?? null,
-                  village: null,
-                };
-              })
-            }
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder={sel.districtId ? 'All towns' : 'Pick district first'} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL} className="text-xs">All towns / sub-counties</SelectItem>
-              {(subcountyQ.data?.rows ?? [])
-                .filter((r) => r.subcounty_id != null)
-                .map((r) => (
-                  <SelectItem key={r.subcounty_id} value={String(r.subcounty_id)} className="text-xs">
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              District
+            </label>
+            <Select
+              value={sel.districtId != null ? String(sel.districtId) : ALL}
+              disabled={!sel.region}
+              onValueChange={(v) =>
+                setSel((s) => {
+                  if (v === ALL) {
+                    return { ...s, districtId: null, districtLabel: null, subcountyId: null, subcountyLabel: null, village: null };
+                  }
+                  const row = (districtQ.data?.rows ?? []).find((r) => String(r.district_id) === v);
+                  return {
+                    ...s,
+                    districtId: Number(v),
+                    districtLabel: row?.label ?? null,
+                    subcountyId: null, subcountyLabel: null, village: null,
+                  };
+                })
+              }
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder={sel.region ? 'All districts' : 'Pick region first'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="text-xs">All districts</SelectItem>
+                {(districtQ.data?.rows ?? [])
+                  .filter((r) => r.district_id != null)
+                  .map((r) => (
+                    <SelectItem key={r.district_id} value={String(r.district_id)} className="text-xs">
+                      {r.label} ({r.payment_count})
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Town / sub-county
+            </label>
+            <Select
+              value={sel.subcountyId != null ? String(sel.subcountyId) : ALL}
+              disabled={!sel.districtId}
+              onValueChange={(v) =>
+                setSel((s) => {
+                  if (v === ALL) {
+                    return { ...s, subcountyId: null, subcountyLabel: null, village: null };
+                  }
+                  const row = (subcountyQ.data?.rows ?? []).find((r) => String(r.subcounty_id) === v);
+                  return {
+                    ...s,
+                    subcountyId: Number(v),
+                    subcountyLabel: row?.label ?? null,
+                    village: null,
+                  };
+                })
+              }
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder={sel.districtId ? 'All towns' : 'Pick district first'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="text-xs">All towns / sub-counties</SelectItem>
+                {(subcountyQ.data?.rows ?? [])
+                  .filter((r) => r.subcounty_id != null)
+                  .map((r) => (
+                    <SelectItem key={r.subcounty_id} value={String(r.subcounty_id)} className="text-xs">
+                      {r.label} ({r.payment_count})
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Village
+            </label>
+            <Select
+              value={sel.village ?? ALL}
+              disabled={!sel.subcountyId}
+              onValueChange={(v) => setSel((s) => ({ ...s, village: v === ALL ? null : v }))}
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder={sel.subcountyId ? 'All villages' : 'Pick town first'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="text-xs">All villages</SelectItem>
+                {(villageQ.data?.rows ?? []).map((r) => (
+                  <SelectItem key={r.label} value={r.label} className="text-xs">
                     {r.label} ({r.payment_count})
                   </SelectItem>
                 ))}
-            </SelectContent>
-          </Select>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Village</label>
-          <Select
-            value={sel.village ?? ALL}
-            disabled={!sel.subcountyId}
-            onValueChange={(v) => setSel((s) => ({ ...s, village: v === ALL ? null : v }))}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder={sel.subcountyId ? 'All villages' : 'Pick town first'} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL} className="text-xs">All villages</SelectItem>
-              {(villageQ.data?.rows ?? []).map((r) => (
-                <SelectItem key={r.label} value={r.label} className="text-xs">
-                  {r.label} ({r.payment_count})
-                </SelectItem>
+        <Separator />
+
+        {/* Totals for the active filter set */}
+        {summary && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-border/60 bg-card p-3">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Wallet className="h-3.5 w-3.5" />
+                Collected
+              </div>
+              <p className="mt-1.5 text-sm font-bold font-mono tabular-nums">{formatUGX(summary.total)}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card p-3">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Receipt className="h-3.5 w-3.5" />
+                Payments
+              </div>
+              <p className="mt-1.5 text-sm font-bold font-mono tabular-nums">{summary.payment_count}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card p-3">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Users className="h-3.5 w-3.5" />
+                Tenants paying
+              </div>
+              <p className="mt-1.5 text-sm font-bold font-mono tabular-nums">{summary.tenant_count}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card p-3">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" />
+                Not placed
+              </div>
+              <p className="mt-1.5 text-sm font-bold font-mono tabular-nums">{formatUGX(summary.unmapped_amount)}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Where the filtered money sits (one level below the deepest filter) */}
+        {!sel.village && (
+          <div className="space-y-2">
+            <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Location breakdown
+            </h4>
+            {results.isLoading && (
+              <div className="flex items-center gap-2 py-6 justify-center text-[11px] text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading payment activity…
+              </div>
+            )}
+            {results.isError && (
+              <p className="py-4 text-center text-[11px] text-destructive">
+                Could not load payment activity. Please try again.
+              </p>
+            )}
+            {data && data.rows.length === 0 && !results.isLoading && (
+              <p className="py-6 text-center text-[11px] text-muted-foreground bg-muted/30 rounded-xl">
+                No payments recorded for this location and period.
+              </p>
+            )}
+            <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
+              {(data?.rows ?? []).map((row) => (
+                <button
+                  key={row.label}
+                  type="button"
+                  onClick={() => {
+                    // Clicking a row moves the matching filter down one level.
+                    if (resultLevel === 'country') setSel({ ...EMPTY_SELECTION, country: row.label });
+                    else if (resultLevel === 'region') setSel((s) => ({ ...s, region: row.label, districtId: null, districtLabel: null, subcountyId: null, subcountyLabel: null, village: null }));
+                    else if (resultLevel === 'district' && row.district_id != null)
+                      setSel((s) => ({ ...s, districtId: row.district_id!, districtLabel: row.label, subcountyId: null, subcountyLabel: null, village: null }));
+                    else if (resultLevel === 'subcounty' && row.subcounty_id != null)
+                      setSel((s) => ({ ...s, subcountyId: row.subcounty_id!, subcountyLabel: row.label, village: null }));
+                    else if (resultLevel === 'village') setSel((s) => ({ ...s, village: row.label }));
+                  }}
+                  className="w-full flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2.5 last:border-0 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[11px] sm:text-xs font-medium">{row.label}</span>
+                    <span className="block text-[9px] sm:text-[10px] text-muted-foreground">
+                      {row.payment_count} payment{row.payment_count === 1 ? '' : 's'} · {row.tenant_count} tenant{row.tenant_count === 1 ? '' : 's'}
+                      {row.last_payment_at ? ` · last ${format(new Date(row.last_payment_at), 'dd MMM')}` : ''}
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-mono text-[11px] sm:text-xs font-semibold tabular-nums">
+                    {formatUGX(row.amount)}
+                  </span>
+                </button>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            </div>
+          </div>
+        )}
 
-      {/* Totals for the active filter set */}
-      {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div className="rounded-lg bg-background/70 p-2">
-            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Collected</p>
-            <p className="text-xs sm:text-sm font-semibold font-mono tabular-nums">{formatUGX(summary.total)}</p>
+        {/* Receipts for the active filter set (always shown; village filter narrows further) */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {sel.village ? `Receipts — ${sel.village}` : 'Receipts for the current filters'}
+            </h4>
+            {receipts.data && (
+              <>
+                <Badge variant="outline" className="px-2 py-0 text-[10px] font-mono">
+                  {formatUGX(receipts.data.total)}
+                </Badge>
+                <Badge variant="outline" className="px-2 py-0 text-[10px]">
+                  <Users className="mr-1 h-3 w-3" />
+                  {receipts.data.tenant_count} tenants
+                </Badge>
+              </>
+            )}
           </div>
-          <div className="rounded-lg bg-background/70 p-2">
-            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Payments</p>
-            <p className="text-xs sm:text-sm font-semibold font-mono tabular-nums">{summary.payment_count}</p>
-          </div>
-          <div className="rounded-lg bg-background/70 p-2">
-            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Tenants paying</p>
-            <p className="text-xs sm:text-sm font-semibold font-mono tabular-nums">{summary.tenant_count}</p>
-          </div>
-          <div className="rounded-lg bg-background/70 p-2">
-            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Not placed</p>
-            <p className="text-xs sm:text-sm font-semibold font-mono tabular-nums">{formatUGX(summary.unmapped_amount)}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Where the filtered money sits (one level below the deepest filter) */}
-      {!sel.village && (
-        <div className="space-y-1">
-          {results.isLoading && (
-            <div className="flex items-center gap-2 py-4 justify-center text-[11px] text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading payment activity…
+          {receipts.isLoading && (
+            <div className="flex items-center gap-2 py-6 justify-center text-[11px] text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading receipts…
             </div>
           )}
-          {results.isError && (
-            <p className="py-4 text-center text-[11px] text-destructive">
-              Could not load payment activity. Please try again.
-            </p>
-          )}
-          {data && data.rows.length === 0 && !results.isLoading && (
-            <p className="py-4 text-center text-[11px] text-muted-foreground">
-              No payments recorded for this location and period.
-            </p>
-          )}
-          <div className="max-h-56 overflow-y-auto rounded-lg bg-background/70">
-            {(data?.rows ?? []).map((row) => (
-              <button
-                key={row.label}
-                type="button"
-                onClick={() => {
-                  // Clicking a row moves the matching filter down one level.
-                  if (resultLevel === 'country') setSel({ ...EMPTY_SELECTION, country: row.label });
-                  else if (resultLevel === 'region') setSel((s) => ({ ...s, region: row.label, districtId: null, districtLabel: null, subcountyId: null, subcountyLabel: null, village: null }));
-                  else if (resultLevel === 'district' && row.district_id != null)
-                    setSel((s) => ({ ...s, districtId: row.district_id!, districtLabel: row.label, subcountyId: null, subcountyLabel: null, village: null }));
-                  else if (resultLevel === 'subcounty' && row.subcounty_id != null)
-                    setSel((s) => ({ ...s, subcountyId: row.subcounty_id!, subcountyLabel: row.label, village: null }));
-                  else if (resultLevel === 'village') setSel((s) => ({ ...s, village: row.label }));
-                }}
-                className="w-full flex items-center justify-between gap-2 border-b border-border/40 px-2.5 py-1.5 last:border-0 text-left hover:bg-muted/40"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate text-[10px] sm:text-xs font-medium">{row.label}</span>
-                  <span className="block text-[9px] text-muted-foreground">
-                    {row.payment_count} payment{row.payment_count === 1 ? '' : 's'} · {row.tenant_count} tenant{row.tenant_count === 1 ? '' : 's'}
-                    {row.last_payment_at ? ` · last ${format(new Date(row.last_payment_at), 'dd MMM')}` : ''}
-                  </span>
-                </span>
-                <span className="shrink-0 font-mono text-[10px] sm:text-xs font-semibold tabular-nums">
-                  {formatUGX(row.amount)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Receipts for the active filter set (always shown; village filter narrows further) */}
-      <div className="space-y-1.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <p className="text-[10px] sm:text-[11px] font-medium">
-            {sel.village ? `Receipts — ${sel.village}` : 'Receipts for the current filters'}
-          </p>
           {receipts.data && (
-            <>
-              <Badge variant="outline" className="px-1.5 py-0 text-[9px]">
-                {formatUGX(receipts.data.total)}
-              </Badge>
-              <Badge variant="outline" className="px-1.5 py-0 text-[9px]">
-                <Users className="mr-1 h-2.5 w-2.5" />
-                {receipts.data.tenant_count} tenants
-              </Badge>
-            </>
+            <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
+              {receipts.data.payments.length === 0 && (
+                <p className="px-3 py-6 text-center text-[11px] text-muted-foreground">
+                  No receipts match these filters.
+                </p>
+              )}
+              {receipts.data.payments.map((p) => (
+                <div
+                  key={p.payment_id}
+                  className="flex items-start sm:items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5 last:border-0"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[11px] sm:text-xs font-medium">
+                      {p.tenant || 'Unnamed tenant'}
+                    </span>
+                    <span className="block text-[9px] sm:text-[10px] text-muted-foreground">
+                      {format(new Date(p.paid_at), 'dd MMM yyyy HH:mm')}
+                      {p.agent ? ` · ${p.agent}` : ''}
+                      {p.village && p.village !== 'Unmapped' ? ` · ${p.village}` : ''}
+                    </span>
+                  </span>
+                  <div className="shrink-0 flex flex-col sm:flex-row items-end sm:items-center gap-1.5 sm:gap-3">
+                    <Badge variant="outline" className={`px-1.5 py-0 text-[9px] ${METHOD_BADGE[p.method ?? 'unknown'] ?? METHOD_BADGE.unknown}`}>
+                      {METHOD_LABEL[p.method ?? 'unknown'] ?? p.method}
+                    </Badge>
+                    <span className="font-mono text-[11px] sm:text-xs font-semibold tabular-nums">
+                      {formatUGX(p.amount)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {receipts.data.payment_count > receipts.data.returned && (
+                <p className="px-3 py-2 text-[10px] text-muted-foreground bg-muted/30">
+                  Showing latest {receipts.data.returned} of {receipts.data.payment_count} payments.
+                </p>
+              )}
+            </div>
           )}
         </div>
-        {receipts.isLoading && (
-          <div className="flex items-center gap-2 py-3 justify-center text-[11px] text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading receipts…
-          </div>
-        )}
-        {receipts.data && (
-          <div className="max-h-64 overflow-y-auto rounded-lg bg-background/70">
-            {receipts.data.payments.length === 0 && (
-              <p className="px-2.5 py-3 text-center text-[10px] text-muted-foreground">
-                No receipts match these filters.
-              </p>
-            )}
-            {receipts.data.payments.map((p) => (
-              <div
-                key={p.payment_id}
-                className="flex items-center justify-between gap-2 border-b border-border/40 px-2.5 py-1.5 last:border-0"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate text-[10px] sm:text-xs">
-                    {p.tenant || 'Unnamed tenant'}
-                  </span>
-                  <span className="block text-[9px] text-muted-foreground">
-                    {format(new Date(p.paid_at), 'dd MMM yyyy HH:mm')} ·{' '}
-                    {METHOD_LABEL[p.method ?? 'unknown'] ?? p.method}
-                    {p.agent ? ` · ${p.agent}` : ''}
-                    {p.village && p.village !== 'Unmapped' ? ` · ${p.village}` : ''}
-                  </span>
-                </span>
-                <span className="shrink-0 font-mono text-[10px] sm:text-xs tabular-nums">
-                  {formatUGX(p.amount)}
-                </span>
-              </div>
-            ))}
-            {receipts.data.payment_count > receipts.data.returned && (
-              <p className="px-2.5 py-1.5 text-[9px] text-muted-foreground">
-                Showing latest {receipts.data.returned} of {receipts.data.payment_count} payments.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
