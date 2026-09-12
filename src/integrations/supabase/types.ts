@@ -12874,6 +12874,7 @@ export type Database = {
           claims_schema: boolean
           commit_subject: string
           committed_at: string | null
+          edit_title: string | null
           engineer_code: string | null
           engineer_id: string | null
           evidence_kind: string
@@ -12883,6 +12884,7 @@ export type Database = {
           harvested_at: string
           id: string
           live_verified: string
+          lovable_edit_id: string | null
           migration_bearing: boolean
           paths: string[] | null
           recurrence_count: number
@@ -12907,6 +12909,7 @@ export type Database = {
           claims_schema?: boolean
           commit_subject: string
           committed_at?: string | null
+          edit_title?: string | null
           engineer_code?: string | null
           engineer_id?: string | null
           evidence_kind: string
@@ -12916,6 +12919,7 @@ export type Database = {
           harvested_at?: string
           id?: string
           live_verified?: string
+          lovable_edit_id?: string | null
           migration_bearing?: boolean
           paths?: string[] | null
           recurrence_count?: number
@@ -12940,6 +12944,7 @@ export type Database = {
           claims_schema?: boolean
           commit_subject?: string
           committed_at?: string | null
+          edit_title?: string | null
           engineer_code?: string | null
           engineer_id?: string | null
           evidence_kind?: string
@@ -12949,6 +12954,7 @@ export type Database = {
           harvested_at?: string
           id?: string
           live_verified?: string
+          lovable_edit_id?: string | null
           migration_bearing?: boolean
           paths?: string[] | null
           recurrence_count?: number
@@ -51053,6 +51059,10 @@ export type Database = {
         Returns: undefined
       }
       engrep_svc_run_start: { Args: { p_zone: string }; Returns: string }
+      engrep_svc_set_edit_meta: {
+        Args: { p_edit_id: string; p_evidence_ref: string }
+        Returns: undefined
+      }
       enqueue_agent_capability_job: {
         Args: {
           _action: string
