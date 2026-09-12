@@ -11,6 +11,8 @@ import {
   ChevronDown,
   MapPin,
   FilterX,
+  Search,
+  ChevronLeft,
 
 
 } from 'lucide-react';
