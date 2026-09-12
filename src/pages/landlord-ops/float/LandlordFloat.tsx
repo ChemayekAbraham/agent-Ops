@@ -853,6 +853,14 @@ export default function LandlordFloat() {
                   value={formatUGX(no_tenant.total)}
                   sub={`${no_tenant.portfolios.toLocaleString()} live portfolios`}
                   icon={Wallet}
+                  onClick={() =>
+                    setDrill({
+                      title: 'Funder portfolios',
+                      description: 'Each live funder portfolio and its capital.',
+                      columns: PORTFOLIO_COLUMNS,
+                      kind: 'portfolios',
+                    })
+                  }
                 />
                 <StatTile
                   label="Attached to a house"
@@ -860,12 +868,29 @@ export default function LandlordFloat() {
                   sub={`${no_tenant.attached_houses.toLocaleString()} supported houses`}
                   icon={Home}
                   tone="emerald"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Funder capital attached to houses',
+                      description: 'Supported houses with funder, landlord and principal.',
+                      columns: ATTACHED_COLUMNS,
+                      kind: 'attached_houses',
+                    })
+                  }
                 />
                 <StatTile
                   label="Not attached to a tenant"
                   value={formatUGX(no_tenant.unattached)}
                   icon={AlertTriangle}
                   tone="amber"
+                  onClick={() =>
+                    setDrill({
+                      title: 'Funder portfolios',
+                      description:
+                        'Live portfolios behind the unattached balance. Compare with the attached houses list.',
+                      columns: PORTFOLIO_COLUMNS,
+                      kind: 'portfolios',
+                    })
+                  }
                 />
               </div>
               <p className="text-xs text-muted-foreground">
@@ -875,6 +900,8 @@ export default function LandlordFloat() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <DrillDownDialog target={drill} onClose={() => setDrill(null)} />
     </div>
   );
 }
