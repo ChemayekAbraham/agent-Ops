@@ -1805,21 +1805,62 @@ export default function LandlordFloat() {
             })
           }
         />
-        <StatTile
-          label="Being collected"
-          value={formatUGX(collecting.expected.expected)}
-          sub={`${formatUGX(collecting.paid_out.amount)} paid to landlords`}
-          icon={Banknote}
-          tone="emerald"
-          onClick={() =>
-            setDrill({
-              title: 'Live rent plans still being collected',
-              description: 'Tenants in funded houses, their landlords and what is still outstanding.',
-              columns: COLLECTING_COLUMNS,
-              rows: collecting.rows,
-            })
-          }
-        />
+        {(() => {
+          const horizon =
+            COLLECTING_HORIZONS.find((h) => h.key === collectingHorizonKey) ?? COLLECTING_HORIZONS[4];
+          const daily = collecting.rows.reduce((sum, r) => sum + (r.daily_repayment || 0), 0);
+          const projected = Math.round(daily * horizon.days);
+          const empty = collecting.expected.plans === 0;
+          return (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <Banknote className="h-3.5 w-3.5" />
+                <span className="truncate">Being collected</span>
+              </div>
+              <p className="mt-2 text-xl font-bold tabular-nums leading-tight">
+                {formatUGX(collecting.expected.expected)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatUGX(collecting.paid_out.amount)} paid to landlords
+              </p>
+              {empty ? (
+                <p className="mt-3 rounded-md border border-dashed border-border px-2 py-2 text-xs text-muted-foreground">
+                  No live rent plans are being collected yet.
+                </p>
+              ) : (
+                <div className="mt-3 space-y-1.5">
+                  <Select value={horizon.key} onValueChange={setCollectingHorizonKey}>
+                    <SelectTrigger className="h-8 w-full text-xs" aria-label="Projection period">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COLLECTING_HORIZONS.map((h) => (
+                        <SelectItem key={h.key} value={h.key}>
+                          {h.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                    {formatUGX(projected)}
+                  </p>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Projected {horizon.label.toLowerCase()} · {formatUGX(daily)} a day ×{' '}
+                    {horizon.days.toLocaleString()} days
+                  </p>
+                </div>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3 w-full"
+                onClick={() => setTab('collecting')}
+              >
+                Details <ChevronRight className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </div>
+          );
+        })()}
         <StatTile
           label="With agents"
           value={formatUGX(with_agents.summary.amount)}
@@ -2092,7 +2133,10 @@ export default function LandlordFloat() {
                 )}
               </div>
 
-              <CollectingGeographyDrilldown />
+              <CollectingGeographyDrilldown
+                horizonKey={collectingHorizonKey}
+                onHorizonChange={setCollectingHorizonKey}
+              />
 
               <TableShell>
 
