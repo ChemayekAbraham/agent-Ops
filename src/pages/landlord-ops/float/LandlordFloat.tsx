@@ -163,6 +163,24 @@ interface DrillTarget {
   filterKey?: string | null;
 }
 
+/**
+ * Funder identity is never shown on this page. Any funder / supporter /
+ * investor name, phone, email or user id that a read-only RPC happens to
+ * return is dropped before the rows reach a table, a search match or a copy
+ * out of the dialog. Amounts and portfolio codes are kept.
+ */
+const FUNDER_IDENTITY_KEY = /^(funder|supporter|investor|partner)_(name|full_name|phone|phone_number|email|user_id|id)$/i;
+
+function stripFunderIdentity(rows: Record<string, any>[]): Record<string, any>[] {
+  return rows.map((row) => {
+    const keys = Object.keys(row).filter((k) => FUNDER_IDENTITY_KEY.test(k));
+    if (keys.length === 0) return row;
+    const clean = { ...row };
+    for (const k of keys) delete clean[k];
+    return clean;
+  });
+}
+
 function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, any> }) {
   const raw = row[column.key];
   if (column.type === 'ugx') {
@@ -1168,7 +1186,10 @@ function DrillDownDialog({
     target?.rows || isPayouts ? null : (target?.kind ?? null),
     target?.filterKey ?? null,
   );
-  const rows = target?.rows ?? fetched ?? [];
+  const rows = useMemo(
+    () => stripFunderIdentity(target?.rows ?? fetched ?? []),
+    [target?.rows, fetched],
+  );
 
   return (
     <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
