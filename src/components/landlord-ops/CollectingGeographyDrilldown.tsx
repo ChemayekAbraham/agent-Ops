@@ -302,7 +302,9 @@ export default function CollectingGeographyDrilldown() {
                       )}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {r.houses.toLocaleString()} house{r.houses === 1 ? '' : 's'}
+                      {r.plans.toLocaleString()} rent plan{r.plans === 1 ? '' : 's'}
+                      {r.houses > 0 ? ` · ${r.houses.toLocaleString()} listed house${r.houses === 1 ? '' : 's'}` : ''}
+
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.plans.toLocaleString()}</td>
