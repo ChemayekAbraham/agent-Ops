@@ -103,6 +103,8 @@ export async function sendCashDepositWalletConfirmationEmail(
     depositorName?: string | null;
     receiptCode: string;
     depositRequestId: string;
+    depositedAt: string;
+    referenceNumber: string;
   },
 ): Promise<CashDepositEmailResult> {
   const {
@@ -112,6 +114,8 @@ export async function sendCashDepositWalletConfirmationEmail(
     depositorName,
     receiptCode,
     depositRequestId,
+    depositedAt,
+    referenceNumber,
   } = params;
 
   try {
@@ -127,7 +131,8 @@ export async function sendCashDepositWalletConfirmationEmail(
           newBalanceUgx: newBalance,
           depositorName: String(depositorName ?? "").split(" ")[0] || "there",
           receiptCode,
-          creditedAt: new Date().toISOString(),
+          depositedAt,
+          referenceNumber,
         },
       },
     });
