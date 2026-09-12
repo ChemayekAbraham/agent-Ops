@@ -339,6 +339,9 @@ function ServerPayoutTable({
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState('disbursed_at');
   const [dir, setDir] = useState<SortDir>('desc');
+  const [country, setCountry] = useState('');
+  const [region, setRegion] = useState('');
+  const [district, setDistrict] = useState('');
 
   const toggleSort = (key: string) => {
     if (key === sort) {
