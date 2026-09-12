@@ -266,22 +266,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                                 {formatUGX(prod.outstanding)}
                               </span>
                             </button>
-
-                            {prodOpen && (
-                              <div className="px-2.5 pb-2.5 space-y-1.5">
-                                <div className="flex flex-wrap gap-1.5 text-[9px] sm:text-[10px]">
-                                  <Badge variant="outline" className="px-1.5 py-0">
-                                    Scheduled {formatUGX(prod.scheduled_amount)}
-                                  </Badge>
-                                  <Badge variant="outline" className="px-1.5 py-0">
-                                    Projected {formatUGX(prod.projected_amount)}
-                                  </Badge>
-                                  <Badge variant="outline" className="px-1.5 py-0">
-                                    {prod.source}
-                                  </Badge>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
