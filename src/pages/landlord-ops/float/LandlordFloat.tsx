@@ -590,7 +590,8 @@ function ServerPayoutTable({
         )}
       </div>
 
-      {/* Where the money went: district totals for the current selection. */}
+      {/* Where the money went: district totals for the current selection, grouped,
+          sorted, counted and paged on the server. */}
       <div className="rounded-lg border border-border/60">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-muted/40 px-3 py-2">
           <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -598,91 +599,114 @@ function ServerPayoutTable({
             Paid out by location · {geoLabel}
           </span>
           <span className="text-xs text-muted-foreground">
-            {geoQuery.isLoading
+            {geoPageQuery.isLoading
               ? 'Loading…'
-              : `${geoBreakdown.length.toLocaleString()} district${
-                  geoBreakdown.length === 1 ? '' : 's'
-                }`}
+              : `${geoTotalRows.toLocaleString()} district${geoTotalRows === 1 ? '' : 's'} · ${
+                  (geoPageQuery.data?.total_payouts ?? 0).toLocaleString()
+                } payouts · ${formatUGX(geoPageQuery.data?.total_amount ?? 0)}`}
+            {geoPageQuery.isFetching && !geoPageQuery.isLoading ? ' · updating…' : ''}
           </span>
         </div>
-        {geoQuery.isError ? (
+        {geoPageQuery.isError ? (
           <div className="p-3">
             <p className="text-sm font-medium text-destructive">
               The location breakdown could not be loaded.
             </p>
-            <ErrorDetails error={geoQuery.error} />
+            <ErrorDetails error={geoPageQuery.error} />
           </div>
         ) : (
-          <div className="max-h-[240px] overflow-y-auto">
-            <TableShell>
-              <thead className="sticky top-0 bg-muted/60 backdrop-blur">
-                <tr>
-                  <th className={TH}>Country</th>
-                  <th className={TH}>Region</th>
-                  <th className={TH}>District</th>
-                  <th className={TH}>Payouts</th>
-                  <th className={TH}>Amount paid</th>
-                </tr>
-              </thead>
-              <tbody>
-                {geoQuery.isLoading &&
-                  [0, 1, 2].map((i) => (
-                    <tr key={`g-${i}`} className="border-t border-border/50">
-                      <td className={TD} colSpan={5}>
-                        <Skeleton className="h-5 w-full" />
+          <>
+            <div className="max-h-[280px] overflow-y-auto">
+              <TableShell>
+                <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+                  <tr>
+                    {GEO_COLUMNS.map((c) => (
+                      <SortableTh
+                        key={c.key}
+                        column={c}
+                        active={geoSort === c.key}
+                        dir={geoDir}
+                        onSort={toggleGeoSort}
+                      />
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {geoPageQuery.isLoading &&
+                    [0, 1, 2].map((i) => (
+                      <tr key={`g-${i}`} className="border-t border-border/50">
+                        <td className={TD} colSpan={GEO_COLUMNS.length}>
+                          <Skeleton className="h-5 w-full" />
+                        </td>
+                      </tr>
+                    ))}
+                  {!geoPageQuery.isLoading && geoBreakdown.length === 0 && (
+                    <tr>
+                      <td className={`${TD} text-muted-foreground`} colSpan={GEO_COLUMNS.length}>
+                        No payouts recorded for this selection.
                       </td>
                     </tr>
-                  ))}
-                {!geoQuery.isLoading && geoBreakdown.length === 0 && (
-                  <tr>
-                    <td className={`${TD} text-muted-foreground`} colSpan={5}>
-                      No payouts recorded for this selection.
-                    </td>
-                  </tr>
-                )}
-                {!geoQuery.isLoading &&
-                  geoBreakdown.map((g) => (
-                    <tr
-                      key={`${g.country}|${g.region}|${g.district}`}
-                      className="cursor-pointer border-t border-border/50 hover:bg-muted/40"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
+                  )}
+                  {!geoPageQuery.isLoading &&
+                    geoBreakdown.map((g) => {
+                      const drill = () => {
                         setCountry(g.country);
                         setRegion(g.region);
                         setDistrict(g.district);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setCountry(g.country);
-                          setRegion(g.region);
-                          setDistrict(g.district);
-                        }
-                      }}
-                    >
-                      <td className={TD}>{g.country}</td>
-                      <td className={TD}>{g.region}</td>
-                      <td className={TD}>
-                        <span className="flex items-center gap-1.5">
-                          {g.district}
-                          {g.unmatched && (
-                            <Badge
-                              variant="outline"
-                              className="border-amber-500/40 text-[10px] text-amber-600"
-                            >
-                              Unmatched spelling
-                            </Badge>
-                          )}
-                        </span>
-                      </td>
-                      <td className={`${TD} tabular-nums`}>{g.payouts.toLocaleString()}</td>
-                      <td className={`${TD} font-semibold tabular-nums`}>{formatUGX(g.amount)}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </TableShell>
-          </div>
+                      };
+                      return (
+                        <tr
+                          key={`${g.country}|${g.region}|${g.district}`}
+                          className="cursor-pointer border-t border-border/50 hover:bg-muted/40"
+                          role="button"
+                          tabIndex={0}
+                          title="Open the payouts recorded in this district"
+                          onClick={drill}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              drill();
+                            }
+                          }}
+                        >
+                          <td className={TD}>{g.country}</td>
+                          <td className={TD}>{g.region}</td>
+                          <td className={TD}>
+                            <span className="flex items-center gap-1.5">
+                              {g.district}
+                              {g.unmatched && (
+                                <Badge
+                                  variant="outline"
+                                  className="border-amber-500/40 text-[10px] text-amber-600"
+                                >
+                                  Unmatched spelling
+                                </Badge>
+                              )}
+                            </span>
+                          </td>
+                          <td className={`${TD} text-right tabular-nums`}>
+                            {g.payouts.toLocaleString()}
+                          </td>
+                          <td className={`${TD} text-right font-semibold tabular-nums`}>
+                            {formatUGX(g.amount)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </TableShell>
+            </div>
+            <div className="border-t border-border/60 px-3">
+              <DrillPager
+                page={geoPage}
+                pageCount={geoPageCount}
+                total={geoTotalRows}
+                from={geoTotalRows === 0 ? 0 : geoStart + 1}
+                to={Math.min(geoStart + GEO_PAGE_SIZE, geoTotalRows)}
+                onPage={setGeoPage}
+              />
+            </div>
+          </>
         )}
       </div>
 
