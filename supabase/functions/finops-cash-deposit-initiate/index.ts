@@ -198,8 +198,8 @@ Deno.serve(async (req) => {
         deposit_request_id: depositId,
         user_id: (depositor as any).id,
         amount,
+        // Only the hash is stored: the code is never kept in readable form.
         code_hash: codeHash,
-        code_plain: code,
         emailed_to: null,
         status: "awaiting_code",
       } as any)
