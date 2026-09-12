@@ -54909,6 +54909,10 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_ops_district_alias_status: {
+        Args: { p_recorded_text: string }
+        Returns: Json
+      }
       landlord_ops_float_drilldown: {
         Args: { p_key?: string; p_kind: string }
         Returns: Json

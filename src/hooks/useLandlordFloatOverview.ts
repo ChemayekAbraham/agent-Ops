@@ -112,6 +112,40 @@ export interface ApprovedDistrict {
   region: string | null;
 }
 
+/** Existing mapping state for a recorded district spelling. */
+export interface DistrictAliasStatus {
+  normalisable: boolean;
+  norm_key?: string;
+  approved?: { district_id: number; district_name: string; region: string | null } | null;
+  override?: {
+    district_id: number;
+    district_name: string;
+    region: string | null;
+    reason: string;
+    mapped_at: string;
+  } | null;
+}
+
+/**
+ * Read-only check of whether a recorded spelling already resolves to an approved
+ * district or already carries an operator mapping. Used to warn before a
+ * conflicting mapping is attempted; the server refuses conflicts regardless.
+ */
+export function useDistrictAliasStatus(recordedText: string | null) {
+  return useQuery({
+    queryKey: ['landlord-ops-district-alias-status', recordedText],
+    enabled: !!recordedText,
+    staleTime: 60_000,
+    queryFn: async (): Promise<DistrictAliasStatus> => {
+      const { data, error } = await (supabase as any).rpc('landlord_ops_district_alias_status', {
+        p_recorded_text: recordedText,
+      });
+      if (error) throw error;
+      return (data ?? { normalisable: false }) as DistrictAliasStatus;
+    },
+  });
+}
+
 /** Read-only list of approved districts (`landlord_ops_approved_districts`). */
 export function useApprovedDistricts(enabled = true) {
   return useQuery({

@@ -134,6 +134,13 @@
       "when": 1789215729152,
       "tag": "0018_landlord_float_geo_use_alias_view",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789216121318,
+      "tag": "0019_district_alias_conflict_guard",
+      "breakpoints": true
     }
   ]
 }

@@ -39,6 +39,8 @@ import {
   type LandlordFloatDrilldownKind,
   type LandlordFloatNeededGeoRow,
   useApprovedDistricts,
+  useDistrictAliasStatus,
+
   useMapDistrictAlias,
 
 
@@ -370,6 +372,10 @@ function MapDistrictDialog({
   const [region, setRegion] = useState<string | null>(null);
   const [districtId, setDistrictId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
+  const { data: status, isLoading: statusLoading } = useDistrictAliasStatus(recordedText);
+
+  const existing = status?.override ?? status?.approved ?? null;
+  const conflicted = !!existing || status?.normalisable === false;
 
   const regions = [...new Set(districts.map((d) => d.region ?? 'Unspecified'))].sort();
   const districtChoices = districts.filter((d) => !region || (d.region ?? 'Unspecified') === region);
@@ -402,6 +408,40 @@ function MapDistrictDialog({
         </DialogHeader>
 
         <div className="space-y-3">
+          {statusLoading && (
+            <p className="text-xs text-muted-foreground">Checking existing mappings…</p>
+          )}
+
+          {status?.normalisable === false && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/20">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                This spelling cannot be mapped
+              </p>
+              <p className="mt-1 text-xs text-amber-800/80 dark:text-amber-300/80">
+                The recorded text has no usable letters, so it cannot be linked to a district.
+              </p>
+            </div>
+          )}
+
+          {existing && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/20">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                Already pointing at {existing.district_name}
+                {existing.region ? ` (${existing.region})` : ''}
+              </p>
+              <p className="mt-1 text-xs text-amber-800/80 dark:text-amber-300/80">
+                {status?.override
+                  ? 'Someone has already mapped this spelling. Adding another mapping would conflict with it, so this is blocked. Change or remove the existing mapping first.'
+                  : 'This spelling already matches an approved district, so no mapping is needed.'}
+              </p>
+              {status?.override?.reason && (
+                <p className="mt-1.5 text-xs text-amber-800/70 dark:text-amber-300/70">
+                  Reason given: {status.override.reason}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Region</label>
             <Select
@@ -410,7 +450,7 @@ function MapDistrictDialog({
                 setRegion(v);
                 setDistrictId(null);
               }}
-              disabled={isLoading}
+              disabled={isLoading || conflicted}
             >
               <SelectTrigger>
                 <SelectValue placeholder={isLoading ? 'Loading…' : 'Choose a region'} />
@@ -430,7 +470,7 @@ function MapDistrictDialog({
             <Select
               value={districtId ?? ''}
               onValueChange={setDistrictId}
-              disabled={isLoading || !region}
+              disabled={isLoading || !region || conflicted}
             >
               <SelectTrigger>
                 <SelectValue placeholder={region ? 'Choose a district' : 'Choose a region first'} />
@@ -453,6 +493,7 @@ function MapDistrictDialog({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
+              disabled={conflicted}
               placeholder="e.g. Recorded as a misspelling of Wakiso by the field agent"
             />
           </div>
@@ -476,7 +517,7 @@ function MapDistrictDialog({
             Cancel
           </Button>
           <Button
-            disabled={!districtId || reasonTooShort || mapAlias.isPending}
+            disabled={!districtId || reasonTooShort || conflicted || statusLoading || mapAlias.isPending}
             onClick={async () => {
               if (!recordedText || !districtId) return;
               try {
