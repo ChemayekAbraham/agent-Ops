@@ -256,6 +256,41 @@ export default function CollectingGeographyDrilldown() {
         )}
       </div>
 
+      {/* Headline forward projection for every house in this place */}
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-primary">
+              Projected collection · {horizon.label.toLowerCase()}
+            </p>
+            <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">
+              {formatUGX(Math.round((totals?.daily_repayment ?? 0) * horizon.days))}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatUGX(totals?.daily_repayment ?? 0)} a day across{' '}
+              {(totals?.plans ?? 0).toLocaleString()} live rent plan{(totals?.plans ?? 0) === 1 ? '' : 's'} ×{' '}
+              {horizon.days.toLocaleString()} days
+              {trail.length > 0 ? ` · ${trail[trail.length - 1].value}` : ' · everywhere'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {HORIZONS.map((h) => (
+              <Button
+                key={h.key}
+                type="button"
+                size="sm"
+                variant={h.key === horizon.key ? 'default' : 'outline'}
+                className="h-7 px-2 text-xs"
+                onClick={() => setHorizonKey(h.key)}
+                title={h.label}
+              >
+                {h.short}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Totals for the current place */}
       <div className="grid gap-2 sm:grid-cols-4">
         {[
