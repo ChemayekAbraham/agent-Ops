@@ -314,6 +314,44 @@ const ATTACHED_COLUMNS: DrillColumn[] = [
   { key: 'supported_at', label: 'Attached', type: 'date' },
 ];
 
+/**
+ * Renders the full backend error (PostgREST/RPC): code, message, details and
+ * hint — so a permission denial, a missing function, or a bad request is
+ * distinguishable at a glance.
+ */
+function ErrorDetails({ error }: { error: unknown }) {
+  if (!error) {
+    return <p className="mt-1 text-sm text-muted-foreground">Unknown error — please try again.</p>;
+  }
+  const e = error as { message?: string; code?: string; details?: string; hint?: string };
+  return (
+    <div className="mt-2 space-y-1 rounded-lg border border-destructive/30 bg-destructive/5 p-3 font-mono text-xs">
+      {e.code && (
+        <p>
+          <span className="text-muted-foreground">code: </span>
+          <span className="font-semibold text-destructive">{e.code}</span>
+        </p>
+      )}
+      <p className="break-words">
+        <span className="text-muted-foreground">message: </span>
+        <span>{e.message || String(error)}</span>
+      </p>
+      {e.details && (
+        <p className="break-words">
+          <span className="text-muted-foreground">details: </span>
+          <span>{e.details}</span>
+        </p>
+      )}
+      {e.hint && (
+        <p className="break-words">
+          <span className="text-muted-foreground">hint: </span>
+          <span>{e.hint}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function LandlordFloat() {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordFloatOverview();
   const [tab, setTab] = useState('needed');
