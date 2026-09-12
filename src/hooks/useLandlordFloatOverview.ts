@@ -344,7 +344,8 @@ export function useLandlordPayoutsGeo(
  * without ever loading them into the browser. Read-only.
  */
 export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = true) {
-  const { scope, search, from, to, agentId, page, pageSize, sort, dir } = args;
+  const { scope, search, from, to, agentId, page, pageSize, sort, dir, country, region, district } =
+    args;
   return useQuery({
     queryKey: [
       'landlord-ops-payouts-page',
@@ -357,6 +358,9 @@ export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = 
       pageSize,
       sort ?? 'disbursed_at',
       dir ?? 'desc',
+      country ?? '',
+      region ?? '',
+      district ?? '',
     ],
     enabled,
     staleTime: 30_000,
