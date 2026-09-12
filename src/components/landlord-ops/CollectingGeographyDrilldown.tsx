@@ -358,13 +358,17 @@ export default function CollectingGeographyDrilldown({
                 }
               />
             </div>
-            <p className="mt-2 text-3xl font-extrabold tabular-nums tracking-tight sm:text-4xl">
-              <ProjectionValue
-                daily={totals?.daily_repayment ?? 0}
-                days={horizon.days}
-                label={horizon.label}
-              />
-            </p>
+            {isLoading ? (
+              <Skeleton className="mt-2 h-10 w-64 max-w-full" />
+            ) : (
+              <p className="mt-2 text-3xl font-extrabold tabular-nums tracking-tight sm:text-4xl">
+                <ProjectionValue
+                  daily={totals?.daily_repayment ?? 0}
+                  days={horizon.days}
+                  label={horizon.label}
+                />
+              </p>
+            )}
             <p className="mt-1.5 max-w-xl text-xs text-muted-foreground">
               This figure updates automatically when you change the location filters, the date range, or the projection
               period. It is a straight daily amount × days projection and does not stop at the outstanding balance.
