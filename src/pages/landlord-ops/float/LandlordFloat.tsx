@@ -41,6 +41,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   useLandlordFloatOverview,
   useLandlordFloatDrilldown,
+  useLandlordPayoutsPage,
   useLandlordFloatNeededGeo,
   type LandlordFloatDrilldownKind,
   type LandlordFloatNeededGeoRow,
@@ -174,34 +175,6 @@ function DrillCell({ column, row }: { column: DrillColumn; row: Record<string, a
       {raw === null || raw === undefined || raw === '' ? '—' : String(raw)}
     </td>
   );
-}
-
-/** Kampala calendar day (YYYY-MM-DD) used for date-range comparison. */
-function payoutDay(value?: string | null) {
-  if (!value) return null;
-  return new Date(value).toLocaleDateString('en-CA', { timeZone: KAMPALA });
-}
-
-/**
- * Client-side narrowing of read-only payout rows by paid date range and
- * landlord. Only hides/shows rows already returned by the drill-down RPC —
- * nothing is recalculated on the server and no record is changed.
- */
-function filterPayoutRows(
-  rows: Record<string, any>[],
-  from: string,
-  to: string,
-  landlord: string | null,
-) {
-  return rows.filter((r) => {
-    if (landlord && r.landlord_name !== landlord) return false;
-    if (!from && !to) return true;
-    const day = payoutDay(r.disbursed_at);
-    if (!day) return false;
-    if (from && day < from) return false;
-    if (to && day > to) return false;
-    return true;
-  });
 }
 
 const PAGE_SIZE = 25;
