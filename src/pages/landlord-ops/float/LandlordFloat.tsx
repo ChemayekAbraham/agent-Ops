@@ -509,6 +509,8 @@ function NeededByLocation({
   const { data, isLoading, isError, error, refetch } = useLandlordFloatNeededGeo();
   const [country, setCountry] = useState<string | null>(null);
   const [region, setRegion] = useState<string | null>(null);
+  const [mapping, setMapping] = useState<string | null>(null);
+
 
   const rows = data ?? [];
   const countries = [...new Set(rows.map((r) => r.country))].sort();
