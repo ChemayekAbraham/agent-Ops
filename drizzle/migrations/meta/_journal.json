@@ -141,6 +141,13 @@
       "when": 1789216121318,
       "tag": "0019_district_alias_conflict_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789216693713,
+      "tag": "0020_landlord_float_paid_all_time",
+      "breakpoints": true
     }
   ]
 }
