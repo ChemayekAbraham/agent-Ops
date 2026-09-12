@@ -29,6 +29,7 @@ import { template as walletTransferReceivedTemplate } from './wallet-transfer-re
 import { template as walletTransferSentTemplate } from './wallet-transfer-sent.tsx'
 import { template as agentTenantPaymentReceiptTemplate } from './agent-tenant-payment-receipt.tsx'
 import { template as cashWithdrawalCodeTemplate } from './cash-withdrawal-code.tsx'
+import { template as cashDepositCodeTemplate } from './cash-deposit-code.tsx'
 import { template as twoFactorCodeTemplate } from './two-factor-code.tsx'
 import { template as smsFailureAlertTemplate } from './sms-failure-alert.tsx'
 import { template as dailyAgentCardTemplate } from './daily-agent-card.tsx'
@@ -87,6 +88,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'wallet-transfer-sent': walletTransferSentTemplate,
   'agent-tenant-payment-receipt': agentTenantPaymentReceiptTemplate,
   'cash-withdrawal-code': cashWithdrawalCodeTemplate,
+  'cash-deposit-code': cashDepositCodeTemplate,
   'two-factor-code': twoFactorCodeTemplate,
   'sms-failure-alert': smsFailureAlertTemplate,
   'daily-agent-card': dailyAgentCardTemplate,
