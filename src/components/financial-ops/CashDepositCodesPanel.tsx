@@ -22,6 +22,7 @@ interface CashCodeRow {
   max_attempts: number | null;
   deposit_purpose: string | null;
   cash_location: 'cash_at_hand' | 'bank' | string | null;
+  delivery_channel: string | null;
   expires_at: string | null;
   created_at: string;
 }
@@ -94,6 +95,43 @@ function CashLocationBadge({ location }: { location: string | null }) {
       {cashLocationLabel(location)}
     </Badge>
   );
+}
+
+function DeliveryBadge({ channel }: { channel: string | null }) {
+  const normalized = channel?.toLowerCase() ?? '';
+  const bySms = normalized.includes('sms');
+  const byEmail = normalized.includes('email');
+
+  if (bySms && byEmail) {
+    return (
+      <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
+        <Smartphone className="h-3 w-3" />
+        <Mail className="h-3 w-3" />
+        Delivered by SMS &amp; email
+      </Badge>
+    );
+  }
+  if (byEmail) {
+    return (
+      <Badge variant="outline" className="gap-1 border-sky-500/30 bg-sky-500/10 text-[10px] text-sky-600">
+        <Mail className="h-3 w-3" /> Delivered by email
+      </Badge>
+    );
+  }
+  if (bySms) {
+    return (
+      <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
+        <Smartphone className="h-3 w-3" /> Delivered by SMS
+      </Badge>
+    );
+  }
+  if (normalized === 'failed') {
+    return <Badge variant="outline" className="border-destructive/30 bg-destructive/5 text-[10px] text-destructive">Delivery failed</Badge>;
+  }
+  if (normalized === 'fin_ops_panel') {
+    return <Badge variant="outline" className="text-[10px] text-muted-foreground">Available in panel</Badge>;
+  }
+  return <Badge variant="outline" className="text-[10px] text-muted-foreground">Delivery not recorded</Badge>;
 }
 
 /** Live mm:ss countdown to expiry; color shifts from emerald → amber → rose as time runs low. */
@@ -791,12 +829,13 @@ export function CashDepositCodesPanel({
             <div className="rounded-lg border bg-muted/20 p-3 text-sm space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={openRow.status} />
+                <DeliveryBadge channel={openRow.delivery_channel} />
                 <Badge variant="outline" className="text-xs">{purposeLabel(openRow.deposit_purpose)}</Badge>
                 <CashLocationBadge location={openRow.cash_location} />
                 <Countdown expiresAt={openRow.expires_at} inline />
               </div>
               <p className="text-muted-foreground text-xs leading-relaxed">
-                The 4-digit code was sent to the depositor by SMS and is never shown here. Ask them to read it back
+                The 4-digit code is delivered using the channel shown above and is never shown here. Ask the depositor to read it back
                 once you have received the matching cash, then enter it below. Codes expire in 10 minutes.
               </p>
             </div>
@@ -871,6 +910,7 @@ export function CashDepositCodesPanel({
                     </div>
 
                     <div className="hidden md:flex items-center gap-2 shrink-0">
+                      <DeliveryBadge channel={r.delivery_channel} />
                       <CashLocationBadge location={r.cash_location} />
                       <StatusBadge status={r.status} />
                       <Countdown expiresAt={r.expires_at} inline />
