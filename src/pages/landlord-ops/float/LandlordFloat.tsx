@@ -731,17 +731,23 @@ export default function LandlordFloat() {
                   Unmapped with their original spelling.
                 </p>
                 <NeededByLocation
-                  onOpenDistrict={(district) =>
+                  onOpenDistrict={(row) =>
                     setDrill({
-                      title: `Float needed in ${district}`,
+                      title:
+                        row.country === 'Unmapped'
+                          ? `Unmatched location "${row.district}"`
+                          : `Float needed in ${row.district}`,
                       description:
-                        'Empty listed houses and tenants still awaiting funding in this district.',
+                        row.country === 'Unmapped'
+                          ? `These houses and tenants were recorded with the location "${row.district}", which matches no approved district. The spelling is shown exactly as recorded and nothing has been changed.`
+                          : 'Empty listed houses and tenants still awaiting funding in this district.',
                       columns: NEEDED_DISTRICT_COLUMNS,
                       kind: 'needed_district',
-                      filterKey: district,
+                      filterKey: row.district,
                     })
                   }
                 />
+
               </div>
 
               <div className="space-y-2">
