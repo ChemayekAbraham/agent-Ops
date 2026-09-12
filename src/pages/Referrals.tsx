@@ -321,6 +321,7 @@ export default function Referrals() {
                 </div>
               )}
             </CardContent>
+          )}
           </Card>
         </motion.div>
       </main>
