@@ -280,34 +280,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                                     {prod.source}
                                   </Badge>
                                 </div>
-                                <div className="max-h-64 overflow-y-auto rounded-lg bg-background/70">
-                                  {prod.items.map((item) => (
-                                    <div
-                                      key={item.item_id}
-                                      className="flex items-center justify-between gap-2 px-2.5 py-1.5 border-b border-border/40 last:border-0"
-                                    >
-                                      <span className="min-w-0">
-                                        <span className="block text-[10px] sm:text-xs truncate">
-                                          {item.counterparty || 'Unnamed'}
-                                        </span>
-                                        <span className="block text-[9px] sm:text-[10px] text-muted-foreground">
-                                          {item.due_date
-                                            ? `${item.due_kind === 'scheduled' ? 'Due' : 'Est.'} ${format(new Date(item.due_date), 'dd MMM yyyy')}`
-                                            : 'No date'}
-                                          {item.status ? ` · ${item.status}` : ''}
-                                        </span>
-                                      </span>
-                                      <span className="text-[10px] sm:text-xs font-mono tabular-nums shrink-0">
-                                        {formatUGX(item.amount)}
-                                      </span>
-                                    </div>
-                                  ))}
-                                  {prod.item_count > prod.items.length && (
-                                    <p className="px-2.5 py-1.5 text-[9px] sm:text-[10px] text-muted-foreground">
-                                      Showing largest {prod.items.length} of {prod.item_count} items.
-                                    </p>
-                                  )}
-                                </div>
                               </div>
                             )}
                           </div>
