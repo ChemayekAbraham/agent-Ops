@@ -4,9 +4,11 @@
 // authoritative reporting RPCs (get_payments_location_breakdown /
 // get_payments_location_receipts); nothing here touches payment or accounting
 // logic.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   MapPin,
   Receipt,
@@ -35,6 +37,7 @@ import {
 } from '@/hooks/usePaymentsByLocation';
 
 const ALL = '__all__';
+const RECEIPTS_PER_PAGE = 15;
 
 const METHOD_LABEL: Record<string, string> = {
   mobile_money: 'Mobile money',
@@ -155,6 +158,30 @@ export function TenantPaymentsLocationFilters() {
   });
 
   const data = results.data;
+
+  // Receipts pagination — reset to page 1 whenever the filters change.
+  const [receiptPage, setReceiptPage] = useState(1);
+  useEffect(() => {
+    setReceiptPage(1);
+  }, [sel, fromParam, toParam, methodParam]);
+
+  const receiptTotal = receipts.data?.payments.length ?? 0;
+  const receiptTotalPages = Math.max(1, Math.ceil(receiptTotal / RECEIPTS_PER_PAGE));
+  const receiptPageSafe = Math.min(receiptPage, receiptTotalPages);
+  const pagedReceipts = useMemo(() => {
+    const all = receipts.data?.payments ?? [];
+    const start = (receiptPageSafe - 1) * RECEIPTS_PER_PAGE;
+    return all.slice(start, start + RECEIPTS_PER_PAGE);
+  }, [receipts.data, receiptPageSafe]);
+
+  const pageNumbers = useMemo(() => {
+    // Compact window: first, last, and neighbours of the current page.
+    const pages = new Set<number>([1, receiptTotalPages]);
+    for (let p = receiptPageSafe - 1; p <= receiptPageSafe + 1; p++) {
+      if (p >= 1 && p <= receiptTotalPages) pages.add(p);
+    }
+    return [...pages].sort((a, b) => a - b);
+  }, [receiptPageSafe, receiptTotalPages]);
 
   const summary = useMemo(() => {
     // Totals come from the deepest available breakdown so they always reflect
@@ -532,7 +559,7 @@ export function TenantPaymentsLocationFilters() {
                   No receipts match these filters.
                 </p>
               )}
-              {receipts.data.payments.map((p) => (
+              {pagedReceipts.map((p) => (
                 <div
                   key={p.payment_id}
                   className="flex items-start sm:items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5 last:border-0"
@@ -557,10 +584,54 @@ export function TenantPaymentsLocationFilters() {
                   </div>
                 </div>
               ))}
-              {receipts.data.payment_count > receipts.data.returned && (
-                <p className="px-3 py-2 text-[10px] text-muted-foreground bg-muted/30">
-                  Showing latest {receipts.data.returned} of {receipts.data.payment_count} payments.
-                </p>
+              {receiptTotal > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 px-3 py-2 bg-muted/30">
+                  <p className="text-[10px] text-muted-foreground">
+                    Showing {(receiptPageSafe - 1) * RECEIPTS_PER_PAGE + 1}–
+                    {Math.min(receiptPageSafe * RECEIPTS_PER_PAGE, receiptTotal)} of {receiptTotal} receipts
+                    {receipts.data.payment_count > receipts.data.returned &&
+                      ` (latest ${receipts.data.returned} of ${receipts.data.payment_count} payments)`}
+                  </p>
+                  {receiptTotalPages > 1 && (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 w-7 p-0"
+                        disabled={receiptPageSafe <= 1}
+                        onClick={() => setReceiptPage((p) => Math.max(1, p - 1))}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      {pageNumbers.map((p, i) => (
+                        <span key={p} className="flex items-center gap-1">
+                          {i > 0 && pageNumbers[i - 1] < p - 1 && (
+                            <span className="px-0.5 text-[10px] text-muted-foreground">…</span>
+                          )}
+                          <Button
+                            size="sm"
+                            variant={p === receiptPageSafe ? 'default' : 'outline'}
+                            className="h-7 min-w-7 px-1.5 text-[10px] font-mono"
+                            onClick={() => setReceiptPage(p)}
+                          >
+                            {p}
+                          </Button>
+                        </span>
+                      ))}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 w-7 p-0"
+                        disabled={receiptPageSafe >= receiptTotalPages}
+                        onClick={() => setReceiptPage((p) => Math.min(receiptTotalPages, p + 1))}
+                        aria-label="Next page"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
