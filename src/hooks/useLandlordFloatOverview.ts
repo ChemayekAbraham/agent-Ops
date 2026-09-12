@@ -253,6 +253,12 @@ export interface LandlordPayoutsPage {
     status: string;
     disbursed_at: string | null;
     created_at: string;
+    country: string;
+    region: string;
+    district: string;
+    recorded_district: string | null;
+    sub_county: string | null;
+    village: string | null;
   }>;
   total_count: number;
   total_amount: number;
@@ -272,6 +278,63 @@ export interface LandlordPayoutsPageArgs {
   /** Server-side sort column key (defaults to the payment date). */
   sort?: string;
   dir?: 'asc' | 'desc';
+  /** Geography filters, resolved server-side through the approved hierarchy. */
+  country?: string | null;
+  region?: string | null;
+  district?: string | null;
+}
+
+/** One country/region/district row of the landlord payout geography. */
+export interface LandlordPayoutsGeoRow {
+  country: string;
+  region: string;
+  district: string;
+  payouts: number;
+  amount: number;
+  unmatched: boolean;
+}
+
+/**
+ * Read-only geographic breakdown of money paid to landlords. The RPC
+ * `landlord_ops_payouts_geo` groups the same payout population as the register
+ * through the approved country -> region -> district hierarchy; recorded
+ * location text is never rewritten and unmatched spellings stay under Unmapped.
+ */
+export function useLandlordPayoutsGeo(
+  args: {
+    scope: 'all_time' | 'completed';
+    search?: string;
+    from?: string | null;
+    to?: string | null;
+    agentId?: string | null;
+  },
+  enabled = true,
+) {
+  const { scope, search, from, to, agentId } = args;
+  return useQuery({
+    queryKey: [
+      'landlord-ops-payouts-geo',
+      scope,
+      search ?? '',
+      from ?? '',
+      to ?? '',
+      agentId ?? '',
+    ],
+    enabled,
+    staleTime: 60_000,
+    placeholderData: (prev) => prev,
+    queryFn: async (): Promise<LandlordPayoutsGeoRow[]> => {
+      const { data, error } = await (supabase as any).rpc('landlord_ops_payouts_geo', {
+        p_scope: scope,
+        p_search: search?.trim() ? search.trim() : null,
+        p_from: from || null,
+        p_to: to || null,
+        p_agent_id: agentId || null,
+      });
+      if (error) throw error;
+      return ((data as any)?.rows ?? []) as LandlordPayoutsGeoRow[];
+    },
+  });
 }
 
 /**
@@ -281,7 +344,8 @@ export interface LandlordPayoutsPageArgs {
  * without ever loading them into the browser. Read-only.
  */
 export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = true) {
-  const { scope, search, from, to, agentId, page, pageSize, sort, dir } = args;
+  const { scope, search, from, to, agentId, page, pageSize, sort, dir, country, region, district } =
+    args;
   return useQuery({
     queryKey: [
       'landlord-ops-payouts-page',
@@ -294,6 +358,9 @@ export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = 
       pageSize,
       sort ?? 'disbursed_at',
       dir ?? 'desc',
+      country ?? '',
+      region ?? '',
+      district ?? '',
     ],
     enabled,
     staleTime: 30_000,
@@ -309,6 +376,9 @@ export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = 
         p_offset: Math.max(0, (page - 1) * pageSize),
         p_sort: sort ?? 'disbursed_at',
         p_dir: dir ?? 'desc',
+        p_country: country || null,
+        p_region: region || null,
+        p_district: district || null,
       });
       if (error) throw error;
       return data as LandlordPayoutsPage;
