@@ -382,6 +382,14 @@ export default function LandlordFloat() {
           sub={`${needed.total_houses.toLocaleString()} houses`}
           icon={Home}
           tone="amber"
+          onClick={() =>
+            setDrill({
+              title: 'Empty listed houses needing landlord float',
+              description: 'Every listed house that is still empty, with its landlord and listing agent.',
+              columns: EMPTY_HOUSE_COLUMNS,
+              kind: 'empty_houses',
+            })
+          }
         />
         <StatTile
           label="Being collected"
@@ -389,6 +397,14 @@ export default function LandlordFloat() {
           sub={`${formatUGX(collecting.paid_out.amount)} paid to landlords`}
           icon={Banknote}
           tone="emerald"
+          onClick={() =>
+            setDrill({
+              title: 'Live rent plans still being collected',
+              description: 'Tenants in funded houses, their landlords and what is still outstanding.',
+              columns: COLLECTING_COLUMNS,
+              rows: collecting.rows,
+            })
+          }
         />
         <StatTile
           label="With agents"
@@ -396,12 +412,28 @@ export default function LandlordFloat() {
           sub={`${with_agents.summary.agents.toLocaleString()} agents holding float`}
           icon={Users}
           tone="sky"
+          onClick={() =>
+            setDrill({
+              title: 'Agents holding landlord float',
+              description: 'Every agent with landlord float still in hand.',
+              columns: AGENT_COLUMNS,
+              rows: with_agents.rows,
+            })
+          }
         />
         <StatTile
           label="No tenant attached"
           value={formatUGX(no_tenant.unattached)}
           sub={`${no_tenant.portfolios.toLocaleString()} funder portfolios`}
           icon={Wallet}
+          onClick={() =>
+            setDrill({
+              title: 'Funder portfolios',
+              description: 'Live funder capital recorded in Partnership Ops.',
+              columns: PORTFOLIO_COLUMNS,
+              kind: 'portfolios',
+            })
+          }
         />
       </div>
 
