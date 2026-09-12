@@ -12878,7 +12878,9 @@ export type Database = {
           basis: string | null
           change_classes: string[]
           claimed_objects: string[]
+          claims_landed: number | null
           claims_schema: boolean
+          claims_total: number | null
           commit_subject: string
           committed_at: string | null
           edit_title: string | null
@@ -12913,7 +12915,9 @@ export type Database = {
           basis?: string | null
           change_classes?: string[]
           claimed_objects?: string[]
+          claims_landed?: number | null
           claims_schema?: boolean
+          claims_total?: number | null
           commit_subject: string
           committed_at?: string | null
           edit_title?: string | null
@@ -12948,7 +12952,9 @@ export type Database = {
           basis?: string | null
           change_classes?: string[]
           claimed_objects?: string[]
+          claims_landed?: number | null
           claims_schema?: boolean
+          claims_total?: number | null
           commit_subject?: string
           committed_at?: string | null
           edit_title?: string | null
