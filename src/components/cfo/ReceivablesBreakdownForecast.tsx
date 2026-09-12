@@ -327,6 +327,10 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
         }
       />
 
+      {/* Tenant products & services: where the money actually came in, by location */}
+      <PaymentsByLocationPanel />
+
+
       {/* Predictive, data-driven forecast */}
       <PredictiveReceivablesForecast />
     </div>
