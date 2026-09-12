@@ -239,9 +239,84 @@ function DrillDownDialog({
   );
 }
 
+const EMPTY_HOUSE_COLUMNS: DrillColumn[] = [
+  { key: 'title', label: 'House' },
+  { key: 'district', label: 'District' },
+  { key: 'sub_county', label: 'Sub-county' },
+  { key: 'village', label: 'Village' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'agent_name', label: 'Listing agent' },
+  { key: 'amount', label: 'Monthly rent', type: 'ugx' },
+  { key: 'created_at', label: 'Listed', type: 'date' },
+];
+
+const WAITING_COLUMNS: DrillColumn[] = [
+  { key: 'tenant_name', label: 'Tenant' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'district', label: 'District' },
+  { key: 'status', label: 'Stage', type: 'badge' },
+  { key: 'amount', label: 'Rent needed', type: 'ugx' },
+  { key: 'created_at', label: 'Requested', type: 'date' },
+];
+
+const PAYOUT_COLUMNS: DrillColumn[] = [
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'tenant_name', label: 'Tenant' },
+  { key: 'agent_name', label: 'Agent' },
+  { key: 'provider', label: 'Channel' },
+  { key: 'reference', label: 'Reference' },
+  { key: 'amount', label: 'Amount', type: 'ugx' },
+  { key: 'disbursed_at', label: 'Paid', type: 'date' },
+];
+
+const COLLECTING_COLUMNS: DrillColumn[] = [
+  { key: 'tenant_name', label: 'Tenant' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'landlord_phone', label: 'Landlord phone' },
+  { key: 'status', label: 'Status', type: 'badge' },
+  { key: 'contracted', label: 'Expected total', type: 'ugx' },
+  { key: 'collected', label: 'Collected', type: 'ugx' },
+  { key: 'outstanding', label: 'Outstanding', type: 'ugx' },
+  { key: 'funded_at', label: 'Funded', type: 'date' },
+];
+
+const AGENT_COLUMNS: DrillColumn[] = [
+  { key: 'agent_name', label: 'Agent' },
+  { key: 'agent_phone', label: 'Phone' },
+  { key: 'region', label: 'Region' },
+  { key: 'balance', label: 'Float held', type: 'ugx' },
+  { key: 'total_funded', label: 'Funded', type: 'ugx' },
+  { key: 'total_paid_out', label: 'Paid out', type: 'ugx' },
+  { key: 'updated_at', label: 'Last movement', type: 'date' },
+];
+
+const PORTFOLIO_COLUMNS: DrillColumn[] = [
+  { key: 'portfolio_code', label: 'Portfolio' },
+  { key: 'partner_name', label: 'Funder' },
+  { key: 'partner_phone', label: 'Phone' },
+  { key: 'status', label: 'Status', type: 'badge' },
+  { key: 'duration_months', label: 'Months', align: 'right' },
+  { key: 'amount', label: 'Capital', type: 'ugx' },
+  { key: 'created_at', label: 'Created', type: 'date' },
+];
+
+const ATTACHED_COLUMNS: DrillColumn[] = [
+  { key: 'partner_name', label: 'Funder' },
+  { key: 'house_title', label: 'House' },
+  { key: 'district', label: 'District' },
+  { key: 'landlord_name', label: 'Landlord' },
+  { key: 'status', label: 'Status', type: 'badge' },
+  { key: 'amount', label: 'Principal', type: 'ugx' },
+  { key: 'supported_at', label: 'Attached', type: 'date' },
+];
+
 export default function LandlordFloat() {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordFloatOverview();
   const [tab, setTab] = useState('needed');
+  const [drill, setDrill] = useState<DrillTarget | null>(null);
 
   if (isLoading) {
     return (
