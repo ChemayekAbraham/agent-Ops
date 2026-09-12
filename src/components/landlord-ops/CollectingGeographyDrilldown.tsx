@@ -16,6 +16,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -273,20 +281,22 @@ export default function CollectingGeographyDrilldown() {
               {trail.length > 0 ? ` · ${trail[trail.length - 1].value}` : ' · everywhere'}
             </p>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {HORIZONS.map((h) => (
-              <Button
-                key={h.key}
-                type="button"
-                size="sm"
-                variant={h.key === horizon.key ? 'default' : 'outline'}
-                className="h-7 px-2 text-xs"
-                onClick={() => setHorizonKey(h.key)}
-                title={h.label}
-              >
-                {h.short}
-              </Button>
-            ))}
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="projection-horizon" className="text-[11px] font-medium uppercase tracking-wide text-primary">
+              Projection period
+            </Label>
+            <Select value={horizon.key} onValueChange={setHorizonKey}>
+              <SelectTrigger id="projection-horizon" className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HORIZONS.map((h) => (
+                  <SelectItem key={h.key} value={h.key}>
+                    {h.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
