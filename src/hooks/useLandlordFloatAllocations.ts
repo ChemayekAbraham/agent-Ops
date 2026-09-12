@@ -99,6 +99,13 @@ export function describeInflightPayout(p: InflightPayout): {
   settled: boolean;
 } {
   switch (p.status) {
+    case 'otp_pending':
+      return {
+        label: 'OTP sent — waiting on landlord',
+        detail:
+          "We already texted the landlord a verification code for this payout. Ask them to read it out, or use Resend in the OTP screen — do not start a new payout for the same landlord.",
+        settled: false,
+      };
     case 'otp_verified':
       return {
         label: 'Sending…',
@@ -176,7 +183,7 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
       // landlord_id as a fallback for older rows with no rent request.
       const rentRequestIds = [...new Set(rows.map((r) => r.rent_request_id).filter(Boolean))];
 
-      const [tenantsRes, landlordsRes, payoutsRes] = await Promise.all([
+      const [tenantsRes, landlordsRes, payoutsRes, challengesRes] = await Promise.all([
         tenantIds.length
           ? supabase.from('profiles').select('id, full_name').in('id', tenantIds)
           : Promise.resolve({ data: [] as any[] }),
@@ -194,6 +201,21 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
               .in('status', INFLIGHT_PAYOUT_STATUSES)
               .order('created_at', { ascending: false })
           : Promise.resolve({ data: [] as PayoutMatchRow[] }),
+        // A live (pending, unexpired) OTP challenge is the server-authoritative
+        // signal that this landlord already has an OTP outstanding — no
+        // `landlord_payouts` row exists yet at this stage (that only appears
+        // once the OTP is verified), so without this the allocation reads as
+        // untouched and a second OTP can be requested for the same landlord.
+        // Replaces the old client-only 10-minute localStorage lock.
+        landlordIds.length
+          ? supabase
+              .from('landlord_payout_otp_challenges')
+              .select('id, amount, created_at, rent_request_id, landlord_id, tenant_id, otp_expires_at')
+              .eq('agent_id', user.id)
+              .eq('status', 'pending')
+              .gt('otp_expires_at', new Date().toISOString())
+              .order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] as any[] }),
       ]);
 
       const tenantById = new Map<string, string>(
@@ -221,6 +243,24 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         }
       }
 
+      // Same matching strategy as payouts: rent_request_id first, tenant+landlord
+      // as the legacy fallback for allocations with no rent_request_id.
+      const challengeRows = ((challengesRes as any).data ?? []) as Array<{
+        id: string; amount: number; created_at: string;
+        rent_request_id: string | null; landlord_id: string | null; tenant_id: string | null;
+      }>;
+      const challengeByRentRequest = new Map<string, typeof challengeRows[number]>();
+      const challengeByTenantLandlord = new Map<string, typeof challengeRows[number]>();
+      for (const c of challengeRows) {
+        if (c.rent_request_id && !challengeByRentRequest.has(c.rent_request_id)) {
+          challengeByRentRequest.set(c.rent_request_id, c);
+        }
+        if (c.tenant_id && c.landlord_id) {
+          const key = `${c.tenant_id}|${c.landlord_id}`;
+          if (!challengeByTenantLandlord.has(key)) challengeByTenantLandlord.set(key, c);
+        }
+      }
+
       return rows.map((r) => {
         const live = r.landlord_id ? landlordById.get(r.landlord_id) : null;
         const payout =
@@ -234,6 +274,15 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
           // been paid for yet, with no way back to the OTP/pay screen).
           (!r.rent_request_id && r.tenant_id && r.landlord_id
             ? payoutByTenantLandlord.get(`${r.tenant_id}|${r.landlord_id}`)
+            : null) ??
+          null;
+        // A real payout row always wins (it means the OTP was verified and
+        // things have moved on); otherwise fall back to a live OTP challenge
+        // so a pending-verification landlord still reads as "in flight".
+        const challenge =
+          (r.rent_request_id ? challengeByRentRequest.get(r.rent_request_id) : null) ??
+          (!r.rent_request_id && r.tenant_id && r.landlord_id
+            ? challengeByTenantLandlord.get(`${r.tenant_id}|${r.landlord_id}`)
             : null) ??
           null;
         return {
@@ -251,7 +300,14 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
                 status: payout.status,
                 created_at: payout.created_at,
               }
-            : null,
+            : challenge
+              ? {
+                  id: challenge.id,
+                  amount: Number(challenge.amount) || 0,
+                  status: 'otp_pending',
+                  created_at: challenge.created_at,
+                }
+              : null,
         };
       }) as LandlordFloatAllocation[];
     },

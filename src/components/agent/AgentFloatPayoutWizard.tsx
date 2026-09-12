@@ -415,6 +415,10 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
       if (challengeId) {
         bumpCooldown();
         toast.success(source === 'auto' ? 'OTP auto-sent to landlord\'s phone' : 'OTP sent to landlord\'s phone');
+        // The allocations list now reads "in flight" purely from a live OTP
+        // challenge (no more client-side lock) — refresh it immediately so
+        // going back to that list shows this row as spoken for right away.
+        qc.invalidateQueries({ queryKey: ['landlord-float-allocations'] });
       } else {
         const reason =
           landlordOtp.getLastError() ||
