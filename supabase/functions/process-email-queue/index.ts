@@ -1,6 +1,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-const MAX_RETRIES = 1
+const DEFAULT_MAX_ATTEMPTS = 1
+const WALLET_CONFIRMATION_MAX_ATTEMPTS = 5
+const WALLET_CONFIRMATION_RETRY_DELAYS_SECONDS = [60, 120, 300, 600]
 // A suppressed recipient is not a failure — put the message back and try again
 // in 2 minutes instead of burning a retry.
 const SUPPRESSION_RETRY_SECONDS = 120
@@ -34,6 +36,37 @@ function isForbidden(error: unknown): boolean {
     return (error as { status: number }).status === 403
   }
   return error instanceof Error && error.message.includes('403')
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = Number((error as { status: unknown }).status)
+    return Number.isFinite(status) ? status : null
+  }
+  return null
+}
+
+function isRetryableDeliveryFailure(error: unknown): boolean {
+  const status = getErrorStatus(error)
+  if (status !== null) return status >= 500
+  // Network and transport failures do not carry an HTTP status. These are
+  // transient, unlike provider 4xx responses such as an invalid recipient.
+  return error instanceof TypeError ||
+    (error instanceof Error && /network|fetch|timeout|connection/i.test(error.message))
+}
+
+function maxAttemptsFor(payload: Record<string, unknown>): number {
+  return payload.label === 'cash-deposit-wallet-confirmation'
+    ? WALLET_CONFIRMATION_MAX_ATTEMPTS
+    : DEFAULT_MAX_ATTEMPTS
+}
+
+function retryDelayFor(failedAttempts: number): number {
+  const delayIndex = Math.min(
+    Math.max(failedAttempts, 0),
+    WALLET_CONFIRMATION_RETRY_DELAYS_SECONDS.length - 1,
+  )
+  return WALLET_CONFIRMATION_RETRY_DELAYS_SECONDS[delayIndex]
 }
 
 // 401 = Mailgun credential problem (disabled/rotated/wrong-region API key).
@@ -330,6 +363,7 @@ Deno.serve(async (req) => {
         payload?.message_id && typeof payload.message_id === 'string'
           ? (failedAttemptsByMessageId.get(payload.message_id) ?? 0)
           : msg.read_ct ?? 0
+      const maxAttempts = maxAttemptsFor(payload)
 
       // Drop expired messages (TTL exceeded).
       // Prefer payload.queued_at when present; fall back to PGMQ's enqueued_at
@@ -351,8 +385,8 @@ Deno.serve(async (req) => {
       }
 
       // Move to DLQ if max failed send attempts reached.
-      if (failedAttempts >= MAX_RETRIES) {
-        await moveToDlq(supabase, queue, msg, `Max retries (${MAX_RETRIES}) exceeded (attempted ${failedAttempts} times)`)
+      if (failedAttempts >= maxAttempts) {
+        await moveToDlq(supabase, queue, msg, `Max attempts (${maxAttempts}) exceeded (attempted ${failedAttempts} times)`)
         continue
       }
 
@@ -569,12 +603,47 @@ Deno.serve(async (req) => {
           failedAttemptsByMessageId.set(payload.message_id, failedAttempts + 1)
         }
 
-        // Failed sends are never resent: retire the message to the DLQ right away.
+        const nextFailedAttempts = failedAttempts + 1
+        const shouldRetryWalletConfirmation =
+          payload.label === 'cash-deposit-wallet-confirmation' &&
+          isRetryableDeliveryFailure(error) &&
+          nextFailedAttempts < maxAttempts
+
+        if (shouldRetryWalletConfirmation) {
+          const delaySeconds = retryDelayFor(failedAttempts)
+          const { error: deferError } = await supabase.rpc('defer_email', {
+            queue_name: queue,
+            message_id: msg.msg_id,
+            delay_seconds: delaySeconds,
+          })
+          if (deferError) {
+            console.error('Failed to defer wallet confirmation retry', {
+              queue,
+              msg_id: msg.msg_id,
+              attempt: nextFailedAttempts,
+              error: deferError,
+            })
+          } else {
+            console.warn('Wallet confirmation email deferred for retry', {
+              queue,
+              msg_id: msg.msg_id,
+              attempt: nextFailedAttempts,
+              max_attempts: maxAttempts,
+              delay_seconds: delaySeconds,
+            })
+            continue
+          }
+        }
+
+        // Non-retryable failures, exhausted retries, or a failed defer operation
+        // are retired so they remain visible for operational follow-up.
         await moveToDlq(
           supabase,
           queue,
           msg,
-          `Send failed — no resend: ${errorMsg.slice(0, 300)}`
+          shouldRetryWalletConfirmation
+            ? `Retry scheduling failed: ${errorMsg.slice(0, 300)}`
+            : `Send failed${nextFailedAttempts >= maxAttempts ? ' — retries exhausted' : ' — not retryable'}: ${errorMsg.slice(0, 300)}`
         )
       }
 
