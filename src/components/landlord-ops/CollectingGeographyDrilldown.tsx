@@ -74,9 +74,10 @@ const HORIZONS = [
 const DEFAULT_HORIZON = '12m';
 
 /**
- * The projection horizon always opens on the 12-month view so anyone opening
- * Landlord Float sees the next-12-months collection figure first. Switching the
- * horizon applies for the current view only and is not remembered.
+ * Uncontrolled fallback: the drilldown opens on the 12-month view when no
+ * caller supplies a horizon. When the Landlord Float "Being collected" tile
+ * passes its selected horizon in, the drilldown opens with — and stays in
+ * sync with — that same dropdown choice instead.
  */
 
 
