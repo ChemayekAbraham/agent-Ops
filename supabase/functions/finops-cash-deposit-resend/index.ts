@@ -9,6 +9,11 @@ import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { sha256Hex } from "../_shared/cash-verification-core.ts";
 import { sendSMS, formatPhoneInternational } from "../_shared/sendSmsMultiProvider.ts";
+import {
+  normalizeEmail,
+  resolveDepositorEmail,
+  sendCashDepositCodeEmail,
+} from "../_shared/cashDepositCodeEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,6 +67,12 @@ Deno.serve(async (req) => {
     if (!verificationId) {
       return json(400, { error: "invalid_request", message: "verification_id is required" });
     }
+    // Email is an ALTERNATIVE delivery channel for the same code; it credits nothing.
+    const wantsEmail = body?.send_email === true;
+    const emailOverride = normalizeEmail(body?.email);
+    if (body?.email !== undefined && body?.email !== null && String(body.email).trim() !== "" && !emailOverride) {
+      return json(400, { error: "invalid_email", message: "Enter a valid email address" });
+    }
 
     const { data: ver, error: vErr } = await admin
       .from("cash_deposit_verifications")
@@ -77,13 +88,14 @@ Deno.serve(async (req) => {
     const { data: profile } = await admin
       .from("profiles").select("id, full_name, phone").eq("id", (ver as any).user_id).maybeSingle();
     const rawPhone = (profile as any)?.phone ?? "";
-    if (!rawPhone || String(rawPhone).replace(/\D/g, "").length < 9) {
+    const hasPhone = Boolean(rawPhone) && String(rawPhone).replace(/\D/g, "").length >= 9;
+    if (!hasPhone && !wantsEmail) {
       return json(400, {
         error: "no_phone",
         message: "The depositor has no usable phone number on file, so the code cannot be delivered by SMS.",
       });
     }
-    const smsPhone = formatPhoneInternational(rawPhone);
+    const smsPhone = hasPhone ? formatPhoneInternational(rawPhone) : null;
 
     const code = generateReceiptCode();
     const codeHash = await sha256Hex(code);
@@ -122,8 +134,8 @@ Deno.serve(async (req) => {
 
     let smsSent = false;
     let smsError: string | null = null;
-    try {
-      smsSent = await sendSMS(smsPhone, message, {
+    if (smsPhone) try {
+      smsSent = await sendSMS(smsPhone!, message, {
         admin,
         source: "finops-cash-deposit-resend",
         reference_id: (ver as any).deposit_request_id,
@@ -138,6 +150,35 @@ Deno.serve(async (req) => {
       console.error("[finops-cash-resend] sms failed", e);
     }
 
+    // ── Email the same code (operator asked, or SMS was refused) ──
+    let emailSent = false;
+    let emailAddress: string | null = null;
+    let emailError: string | null = null;
+    if (wantsEmail || !smsSent) {
+      emailAddress = await resolveDepositorEmail(admin, (ver as any).user_id, emailOverride);
+      if (!emailAddress) {
+        emailError = "No email address on file for this depositor.";
+      } else {
+        const res = await sendCashDepositCodeEmail(admin, {
+          email: emailAddress,
+          code,
+          amount,
+          depositorName: (profile as any)?.full_name ?? null,
+          depositRequestId: (ver as any).deposit_request_id,
+        });
+        emailSent = res.sent;
+        emailError = res.error;
+        if (emailSent) {
+          await admin
+            .from("cash_deposit_verifications")
+            .update({ emailed_to: emailAddress } as any)
+            .eq("id", verificationId);
+        }
+      }
+    }
+
+    const deliveredChannels = [smsSent ? "SMS" : null, emailSent ? "email" : null].filter(Boolean);
+
     try {
       await admin.from("cash_deposit_verification_events").insert({
         verification_id: verificationId,
@@ -145,13 +186,18 @@ Deno.serve(async (req) => {
         user_id: (ver as any).user_id,
         event_type: "code_reissued",
         amount,
-        detail: smsSent
-          ? "Code reissued by Financial Ops and delivered to the depositor by SMS (10-minute expiry)."
-          : `Code reissued by Financial Ops but SMS delivery was NOT accepted${smsError ? `: ${smsError}` : ""}.`,
+        detail: deliveredChannels.length
+          ? `Code reissued by Financial Ops and delivered to the depositor by ${deliveredChannels.join(" and ")} (10-minute expiry).`
+          : `Code reissued by Financial Ops but delivery was NOT accepted${smsError ? `: ${smsError}` : ""}${emailError ? ` (email: ${emailError})` : ""}.`,
         metadata: {
-          delivery: smsSent ? "sms" : "failed",
+          delivery: deliveredChannels.length
+            ? deliveredChannels.map((c) => String(c).toLowerCase()).join("+")
+            : "failed",
           reissued_by: operator.id,
           depositor_phone: smsPhone,
+          depositor_email: emailAddress,
+          email_sent: emailSent,
+          email_error: emailError,
           expires_at: expiresAt,
           sms_error: smsError,
         },
@@ -160,10 +206,10 @@ Deno.serve(async (req) => {
       console.warn("[finops-cash-resend] audit log failed", e);
     }
 
-    if (!smsSent) {
+    if (!smsSent && !emailSent) {
       return json(502, {
-        error: "sms_not_delivered",
-        message: `A new code was generated but the SMS to ${smsPhone} was not accepted by the provider${smsError ? ` (${smsError})` : ""}. Try again or contact the depositor.`,
+        error: "code_not_delivered",
+        message: `A new code was generated but delivery was not accepted${smsPhone ? ` (SMS to ${smsPhone}${smsError ? `: ${smsError}` : ""})` : ""}${emailError ? ` (email: ${emailError})` : ""}. Read the code from the Cash Deposit Codes list instead.`,
         verification_id: verificationId,
         expires_at: expiresAt,
       });
@@ -171,8 +217,11 @@ Deno.serve(async (req) => {
 
     return json(200, {
       ok: true,
-      sms_sent: true,
+      sms_sent: smsSent,
+      email_sent: emailSent,
       depositor_phone: smsPhone,
+      depositor_email: emailAddress,
+      email_error: emailError,
       expires_at: expiresAt,
     });
   } catch (e) {

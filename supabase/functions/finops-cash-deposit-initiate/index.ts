@@ -12,6 +12,11 @@ import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { sha256Hex } from "../_shared/cash-verification-core.ts";
 import { sendSMS, formatPhoneInternational } from "../_shared/sendSmsMultiProvider.ts";
+import {
+  normalizeEmail,
+  resolveDepositorEmail,
+  sendCashDepositCodeEmail,
+} from "../_shared/cashDepositCodeEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,6 +108,13 @@ Deno.serve(async (req) => {
     }
     const cashLocation = String(body?.cash_location) === "bank" ? "bank" : "cash_at_hand";
     const cashLocationLabel = cashLocation === "bank" ? "Deposited on bank" : "Cash at hand";
+    // Email is an ALTERNATIVE delivery channel for the same code. It never
+    // credits anything — the depositor still has to enter the code in the app.
+    const wantsEmail = body?.send_email === true;
+    const emailOverride = normalizeEmail(body?.email);
+    if (body?.email !== undefined && body?.email !== null && String(body.email).trim() !== "" && !emailOverride) {
+      return json(400, { error: "invalid_email", message: "Enter a valid email address" });
+    }
 
     // ── Resolve the depositor by phone ──
     const candidates = [phone9, `0${phone9}`, `256${phone9}`, `+256${phone9}`];
@@ -221,6 +233,36 @@ Deno.serve(async (req) => {
       console.error("[finops-cash-initiate] sms failed", e);
     }
 
+    // ── Email the same code (operator asked for it, or SMS was refused) ──
+    let emailSent = false;
+    let emailAddress: string | null = null;
+    let emailError: string | null = null;
+    if (wantsEmail || !smsSent) {
+      emailAddress = await resolveDepositorEmail(admin, (depositor as any).id, emailOverride);
+      if (!emailAddress) {
+        emailError = "No email address on file for this depositor.";
+      } else {
+        const res = await sendCashDepositCodeEmail(admin, {
+          email: emailAddress,
+          code,
+          amount,
+          depositorName: (depositor as any).full_name ?? null,
+          cashOwnerName,
+          depositRequestId: depositId,
+        });
+        emailSent = res.sent;
+        emailError = res.error;
+        if (emailSent) {
+          await admin
+            .from("cash_deposit_verifications")
+            .update({ emailed_to: emailAddress } as any)
+            .eq("id", (verRow as any)?.id);
+        }
+      }
+    }
+
+    const deliveredChannels = [smsSent ? "SMS" : null, emailSent ? "email" : null].filter(Boolean);
+
     try {
       await admin.from("cash_deposit_verification_events").insert({
         verification_id: (verRow as any)?.id ?? null,
@@ -228,13 +270,18 @@ Deno.serve(async (req) => {
         user_id: (depositor as any).id,
         event_type: "code_issued",
         amount,
-        detail: smsSent
-          ? "Receipt code issued by Financial Ops and sent to the depositor by SMS (10-minute expiry)."
-          : "Receipt code issued by Financial Ops. SMS delivery was not accepted — read the code from the Cash Deposit Codes panel.",
+        detail: deliveredChannels.length
+          ? `Receipt code issued by Financial Ops and sent to the depositor by ${deliveredChannels.join(" and ")} (10-minute expiry).`
+          : "Receipt code issued by Financial Ops. SMS and email delivery were not accepted — read the code from the Cash Deposit Codes panel.",
         metadata: {
-          delivery: smsSent ? "sms" : "fin_ops_panel",
+          delivery: deliveredChannels.length
+            ? deliveredChannels.map((c) => String(c).toLowerCase()).join("+")
+            : "fin_ops_panel",
           initiated_by: operator.id,
           depositor_phone: smsPhone,
+          depositor_email: emailAddress,
+          email_sent: emailSent,
+          email_error: emailError,
           expires_at: (verRow as any)?.expires_at ?? null,
           max_attempts: (verRow as any)?.max_attempts ?? null,
           deposit_purpose: depositPurpose,
@@ -251,6 +298,9 @@ Deno.serve(async (req) => {
       deposit_request_id: depositId,
       verification_id: (verRow as any)?.id ?? null,
       sms_sent: smsSent,
+      email_sent: emailSent,
+      depositor_email: emailAddress,
+      email_error: emailError,
       depositor_name: cashOwnerName,
       wallet_holder_name: (depositor as any).full_name ?? null,
       depositor_phone: smsPhone,

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, RefreshCw, Loader2, Check, Clock, Radio, Smartphone, Search, Inbox, X, ChevronDown, ArrowLeft, BarChart3, CheckCircle2, Menu, Building2, Banknote } from 'lucide-react';
+import { KeyRound, RefreshCw, Loader2, Check, Clock, Radio, Smartphone, Search, Inbox, X, ChevronDown, ArrowLeft, BarChart3, CheckCircle2, Menu, Building2, Banknote, Mail } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { StartCashDepositDialog } from './StartCashDepositDialog';
 
@@ -240,16 +240,20 @@ export function CashDepositCodesPanel({
 
   if (denied) return null;
 
-  const reissue = async (verificationId: string) => {
+  const reissue = async (verificationId: string, channel: 'sms' | 'email' = 'sms') => {
     setReissuing(verificationId);
     // Must go through the edge function: it rotates the code AND actually
     // delivers the SMS. The old RPC only rotated the code in the database, so
     // the depositor never received anything.
     const { data, error } = await supabase.functions.invoke('finops-cash-deposit-resend', {
-      body: { verification_id: verificationId },
+      body: { verification_id: verificationId, send_email: channel === 'email' },
     });
     setReissuing(null);
-    const payload = data as { ok?: boolean; error?: string; message?: string; depositor_phone?: string } | null;
+    const payload = data as {
+      ok?: boolean; error?: string; message?: string;
+      depositor_phone?: string; depositor_email?: string;
+      sms_sent?: boolean; email_sent?: boolean;
+    } | null;
     if (error || payload?.error) {
       let detail = payload?.message || payload?.error || error?.message || null;
       const ctx = (error as any)?.context;
@@ -269,9 +273,13 @@ export function CashDepositCodesPanel({
       load();
       return;
     }
+    const channels = [
+      payload?.sms_sent ? `SMS to ${payload?.depositor_phone ?? 'their phone'}` : null,
+      payload?.email_sent ? `email to ${payload?.depositor_email ?? 'their inbox'}` : null,
+    ].filter(Boolean) as string[];
     toast({
-      title: 'New code sent by SMS',
-      description: `Delivered to ${payload?.depositor_phone ?? 'the depositor'}. Valid for 10 minutes.`,
+      title: 'New code sent',
+      description: `${channels.length ? `Delivered by ${channels.join(' and ')}` : 'Delivered to the depositor'}. Valid for 10 minutes.`,
     });
     load();
   };
@@ -506,16 +514,28 @@ export function CashDepositCodesPanel({
   );
 
   const resendButton = (r: CashCodeRow) => (
-    <Button
-      variant="outline"
-      size="sm"
-      className="h-8 gap-1 rounded-full text-xs"
-      disabled={reissuing === r.verification_id}
-      onClick={(e) => { e.stopPropagation(); void reissue(r.verification_id); }}
-    >
-      {reissuing === r.verification_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <KeyRound className="h-3 w-3" />}
-      Resend code
-    </Button>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1 rounded-full text-xs"
+        disabled={reissuing === r.verification_id}
+        onClick={(e) => { e.stopPropagation(); void reissue(r.verification_id, 'sms'); }}
+      >
+        {reissuing === r.verification_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <KeyRound className="h-3 w-3" />}
+        Resend by SMS
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1 rounded-full text-xs"
+        disabled={reissuing === r.verification_id}
+        onClick={(e) => { e.stopPropagation(); void reissue(r.verification_id, 'email'); }}
+      >
+        {reissuing === r.verification_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+        Resend by email
+      </Button>
+    </div>
   );
 
   const bankButton = (r: CashCodeRow, size: 'row' | 'pane' = 'row') => {
