@@ -1728,8 +1728,6 @@ function ErrorDetails({ error }: { error: unknown }) {
 export default function LandlordFloat() {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordFloatOverview();
   const [tab, setTab] = useState('needed');
-  // Shared projection horizon between the Being collected tile and its drilldown.
-  const [collectingHorizonKey, setCollectingHorizonKey] = useState<string>(DEFAULT_HORIZON);
   const [drill, setDrill] = useState<DrillTarget | null>(null);
   const [showPaidAllTime, setShowPaidAllTime] = useState(false);
 
