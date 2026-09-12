@@ -54941,6 +54941,18 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_ops_payouts_page: {
+        Args: {
+          p_agent_id?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_scope?: string
+          p_search?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       landlord_ops_remove_tenant_from_house: {
         Args: { p_house_id: string; p_reason: string }
         Returns: Json
