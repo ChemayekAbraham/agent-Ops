@@ -196,93 +196,98 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               .filter(({ products }) => products.length > 0 || productFilter === ALL_PRODUCTS)
               .map(({ cat, products }) => {
               const catOpen = openCategory === cat.key;
+              const isTenantCat = cat.label === TENANT_CATEGORY_LABEL;
               const shownOutstanding =
                 productFilter === ALL_PRODUCTS
                   ? cat.outstanding
                   : products.reduce((s, p) => s + p.outstanding, 0);
               const share =
                 breakdown.data.total > 0 ? (shownOutstanding / breakdown.data.total) * 100 : 0;
-              return (
-                <div
-                  key={cat.key}
-                  className="rounded-xl border border-border/60 bg-card"
+              const itemCount =
+                productFilter === ALL_PRODUCTS
+                  ? cat.item_count
+                  : products.reduce((s, p) => s + p.item_count, 0);
+
+              const categoryHeader = (
+                <button
+                  type="button"
+                  onClick={isTenantCat ? undefined : () => setOpenCategory(catOpen ? null : cat.key)}
+                  aria-expanded={isTenantCat ? tenantModalOpen : catOpen}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 min-h-11 text-left hover:bg-muted/40 rounded-xl transition-colors"
                 >
-                  <button
-                    type="button"
-                    onClick={() => setOpenCategory(catOpen ? null : cat.key)}
-                    aria-expanded={catOpen}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 min-h-11 text-left hover:bg-muted/40 rounded-xl transition-colors"
-                  >
-                    <span className="flex items-center gap-1.5 min-w-0">
-                      {catOpen ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      )}
-                      <span className="min-w-0">
-                        <span className="block text-xs sm:text-sm font-medium truncate">
-                          {cat.label}
-                        </span>
-                        <span className="block text-[9px] sm:text-[10px] text-muted-foreground">
-                          {productFilter === ALL_PRODUCTS ? cat.item_count : products.reduce((s, p) => s + p.item_count, 0)} item
-                          {(productFilter === ALL_PRODUCTS ? cat.item_count : products.reduce((s, p) => s + p.item_count, 0)) === 1 ? '' : 's'} · {share.toFixed(1)}%
-                          of book
-                        </span>
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    {isTenantCat || !catOpen ? (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                    )}
+                    <span className="min-w-0">
+                      <span className="block text-xs sm:text-sm font-medium truncate">
+                        {cat.label}
+                      </span>
+                      <span className="block text-[9px] sm:text-[10px] text-muted-foreground">
+                        {itemCount} item{itemCount === 1 ? '' : 's'} · {share.toFixed(1)}% of book
                       </span>
                     </span>
-                    <span className="text-right shrink-0">
-                      <span className="block text-xs sm:text-sm font-bold font-mono tabular-nums">
-                        {formatUGX(shownOutstanding)}
-                      </span>
-                      <Progress value={share} className="h-1 w-16 sm:w-24 mt-1" />
+                  </span>
+                  <span className="text-right shrink-0">
+                    <span className="block text-xs sm:text-sm font-bold font-mono tabular-nums">
+                      {formatUGX(shownOutstanding)}
                     </span>
-                  </button>
+                    <Progress value={share} className="h-1 w-16 sm:w-24 mt-1" />
+                  </span>
+                </button>
+              );
 
-                  {catOpen && (
-                    <div className="px-2.5 pb-2.5 space-y-1.5">
-                      {products.length === 0 && (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground py-1">
-                          No open receivables in this category.
-                        </p>
-                      )}
-                      {products.map((prod) => {
-                        const prodKey = `${cat.key}:${prod.key}`;
-                        const prodOpen = openProduct === prodKey;
-                        return (
-                          <div key={prodKey} className="rounded-lg bg-muted/30">
-                            <button
-                              type="button"
-                              onClick={() => setOpenProduct(prodOpen ? null : prodKey)}
-                              aria-expanded={prodOpen}
-                              className="w-full flex items-center justify-between gap-2 px-2.5 py-2 min-h-10 text-left"
-                            >
-                              <span className="flex items-center gap-1.5 min-w-0">
-                                {prodOpen ? (
-                                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                ) : (
-                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                )}
-                                <span className="text-[11px] sm:text-xs truncate">{prod.label}</span>
-                                <span className="text-[9px] sm:text-[10px] text-muted-foreground shrink-0">
-                                  ({prod.item_count})
-                                </span>
-                              </span>
-                              <span className="text-[11px] sm:text-xs font-mono tabular-nums font-semibold shrink-0">
-                                {formatUGX(prod.outstanding)}
-                              </span>
-                            </button>
-                          </div>
-                        );
-                      })}
+              const productList = (
+                <>
+                  {products.length === 0 && (
+                    <p className="text-[10px] sm:text-xs text-muted-foreground py-1">
+                      No open receivables in this category.
+                    </p>
+                  )}
+                  {products.map((prod) => (
+                    <div
+                      key={`${cat.key}:${prod.key}`}
+                      className="rounded-lg bg-muted/30 px-2.5 py-2 flex items-center justify-between gap-2 min-h-10"
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[11px] sm:text-xs truncate">{prod.label}</span>
+                        <span className="text-[9px] sm:text-[10px] text-muted-foreground shrink-0">
+                          ({prod.item_count})
+                        </span>
+                      </span>
+                      <span className="text-[11px] sm:text-xs font-mono tabular-nums font-semibold shrink-0">
+                        {formatUGX(prod.outstanding)}
+                      </span>
+                    </div>
+                  ))}
+                </>
+              );
 
-                      {/* Payment activity by geography, inside this category */}
-                      {cat.label === TENANT_CATEGORY_LABEL && (
-                        <div className="pt-1 space-y-3">
+              return (
+                <div key={cat.key} className="rounded-xl border border-border/60 bg-card">
+                  {isTenantCat ? (
+                    <Dialog open={tenantModalOpen} onOpenChange={setTenantModalOpen}>
+                      <DialogTrigger asChild>{categoryHeader}</DialogTrigger>
+                      <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-y-auto p-0">
+                        <DialogHeader className="px-4 pt-4 pb-2">
+                          <DialogTitle>{cat.label}</DialogTitle>
+                        </DialogHeader>
+                        <div className="px-4 pb-4 space-y-4">
+                          <div className="space-y-1.5">{productList}</div>
                           <TenantPaymentsLocationFilters />
                           <CollectionsProjectionPanel />
                         </div>
+                      </DialogContent>
+                    </Dialog>
+                  ) : (
+                    <>
+                      {categoryHeader}
+                      {catOpen && (
+                        <div className="px-2.5 pb-2.5 space-y-1.5">{productList}</div>
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
               );
