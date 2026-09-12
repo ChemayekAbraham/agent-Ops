@@ -53123,6 +53123,10 @@ export type Database = {
         Returns: Json
       }
       get_payables_total: { Args: never; Returns: Json }
+      get_payment_collections_projection: {
+        Args: { p_granularity?: string; p_periods?: number }
+        Returns: Json
+      }
       get_payments_location_breakdown: {
         Args: {
           p_country?: string
