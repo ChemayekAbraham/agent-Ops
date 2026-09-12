@@ -312,6 +312,13 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                           </div>
                         );
                       })}
+
+                      {/* Payment activity by geography, inside this category */}
+                      {cat.label === TENANT_CATEGORY_LABEL && (
+                        <div className="pt-1">
+                          <PaymentsByLocationPanel />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -329,10 +336,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             : null
         }
       />
-
-      {/* Tenant products & services: where the money actually came in, by location */}
-      <PaymentsByLocationPanel />
-
 
       {/* Predictive, data-driven forecast */}
       <PredictiveReceivablesForecast />
