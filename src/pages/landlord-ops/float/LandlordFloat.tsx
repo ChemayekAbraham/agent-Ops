@@ -469,6 +469,76 @@ function ServerPayoutTable({
             placeholder="Landlord, phone, amount, reference…"
           />
         </div>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Country
+          </label>
+          <Select
+            value={country || 'all'}
+            onValueChange={(v) => {
+              setCountry(v === 'all' ? '' : v);
+              setRegion('');
+              setDistrict('');
+            }}
+          >
+            <SelectTrigger className="h-8 w-[150px] text-sm">
+              <SelectValue placeholder="All countries" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All countries</SelectItem>
+              {countries.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Region
+          </label>
+          <Select
+            value={region || 'all'}
+            onValueChange={(v) => {
+              setRegion(v === 'all' ? '' : v);
+              setDistrict('');
+            }}
+          >
+            <SelectTrigger className="h-8 w-[160px] text-sm">
+              <SelectValue placeholder="All regions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All regions</SelectItem>
+              {regions.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            District
+          </label>
+          <Select
+            value={district || 'all'}
+            onValueChange={(v) => setDistrict(v === 'all' ? '' : v)}
+          >
+            <SelectTrigger className="h-8 w-[180px] text-sm">
+              <SelectValue placeholder="All districts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All districts</SelectItem>
+              {districts.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {d}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {isFiltered && (
           <Button
             type="button"
@@ -480,6 +550,9 @@ function ServerPayoutTable({
               setTo('');
               setSearchInput('');
               setSearch('');
+              setCountry('');
+              setRegion('');
+              setDistrict('');
             }}
           >
             <FilterX className="mr-1.5 h-3.5 w-3.5" />
@@ -487,6 +560,103 @@ function ServerPayoutTable({
           </Button>
         )}
       </div>
+
+      {/* Where the money went: district totals for the current selection. */}
+      <div className="rounded-lg border border-border/60">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-muted/40 px-3 py-2">
+          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" />
+            Paid out by location · {geoLabel}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {geoQuery.isLoading
+              ? 'Loading…'
+              : `${geoBreakdown.length.toLocaleString()} district${
+                  geoBreakdown.length === 1 ? '' : 's'
+                }`}
+          </span>
+        </div>
+        {geoQuery.isError ? (
+          <div className="p-3">
+            <p className="text-sm font-medium text-destructive">
+              The location breakdown could not be loaded.
+            </p>
+            <ErrorDetails error={geoQuery.error} />
+          </div>
+        ) : (
+          <div className="max-h-[240px] overflow-y-auto">
+            <TableShell>
+              <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+                <tr>
+                  <th className={TH}>Country</th>
+                  <th className={TH}>Region</th>
+                  <th className={TH}>District</th>
+                  <th className={TH}>Payouts</th>
+                  <th className={TH}>Amount paid</th>
+                </tr>
+              </thead>
+              <tbody>
+                {geoQuery.isLoading &&
+                  [0, 1, 2].map((i) => (
+                    <tr key={`g-${i}`} className="border-t border-border/50">
+                      <td className={TD} colSpan={5}>
+                        <Skeleton className="h-5 w-full" />
+                      </td>
+                    </tr>
+                  ))}
+                {!geoQuery.isLoading && geoBreakdown.length === 0 && (
+                  <tr>
+                    <td className={`${TD} text-muted-foreground`} colSpan={5}>
+                      No payouts recorded for this selection.
+                    </td>
+                  </tr>
+                )}
+                {!geoQuery.isLoading &&
+                  geoBreakdown.map((g) => (
+                    <tr
+                      key={`${g.country}|${g.region}|${g.district}`}
+                      className="cursor-pointer border-t border-border/50 hover:bg-muted/40"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setCountry(g.country);
+                        setRegion(g.region);
+                        setDistrict(g.district);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setCountry(g.country);
+                          setRegion(g.region);
+                          setDistrict(g.district);
+                        }
+                      }}
+                    >
+                      <td className={TD}>{g.country}</td>
+                      <td className={TD}>{g.region}</td>
+                      <td className={TD}>
+                        <span className="flex items-center gap-1.5">
+                          {g.district}
+                          {g.unmatched && (
+                            <Badge
+                              variant="outline"
+                              className="border-amber-500/40 text-[10px] text-amber-600"
+                            >
+                              Unmatched spelling
+                            </Badge>
+                          )}
+                        </span>
+                      </td>
+                      <td className={`${TD} tabular-nums`}>{g.payouts.toLocaleString()}</td>
+                      <td className={`${TD} font-semibold tabular-nums`}>{formatUGX(g.amount)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </TableShell>
+          </div>
+        )}
+      </div>
+
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="text-muted-foreground">
