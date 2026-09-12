@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Lock, Unlock, Gift, CheckCircle2, Clock } from 'lucide-react';
+import { Lock, Unlock, Gift, CheckCircle2, Clock, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface BonusRow {
   referral_id: string;
