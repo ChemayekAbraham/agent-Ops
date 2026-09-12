@@ -13032,6 +13032,99 @@ export type Database = {
           },
         ]
       }
+      engrep_survival: {
+        Row: {
+          evaluated_at: string
+          matured_on: string
+          object_reclaimed: number
+          retouch_by_other: number
+          retouch_same_file: number
+          reverted_by_row: string | null
+          reverted_by_self: boolean
+          row_id: string
+          verdict: string
+        }
+        Insert: {
+          evaluated_at?: string
+          matured_on: string
+          object_reclaimed?: number
+          retouch_by_other?: number
+          retouch_same_file?: number
+          reverted_by_row?: string | null
+          reverted_by_self?: boolean
+          row_id: string
+          verdict: string
+        }
+        Update: {
+          evaluated_at?: string
+          matured_on?: string
+          object_reclaimed?: number
+          retouch_by_other?: number
+          retouch_same_file?: number
+          reverted_by_row?: string | null
+          reverted_by_self?: boolean
+          row_id?: string
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_survival_reverted_by_row_fkey"
+            columns: ["reverted_by_row"]
+            isOneToOne: false
+            referencedRelation: "engrep_claimed_not_live"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "engrep_survival_reverted_by_row_fkey"
+            columns: ["reverted_by_row"]
+            isOneToOne: false
+            referencedRelation: "engrep_my_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_survival_reverted_by_row_fkey"
+            columns: ["reverted_by_row"]
+            isOneToOne: false
+            referencedRelation: "engrep_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_survival_reverted_by_row_fkey"
+            columns: ["reverted_by_row"]
+            isOneToOne: false
+            referencedRelation: "engrep_session_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_survival_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "engrep_claimed_not_live"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "engrep_survival_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "engrep_my_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_survival_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "engrep_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_survival_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "engrep_session_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_unclaimed_objects: {
         Row: {
           change: string
@@ -45327,6 +45420,41 @@ export type Database = {
           },
         ]
       }
+      engrep_survival_summary: {
+        Row: {
+          engineer_code: string | null
+          engineer_id: string | null
+          held: number | null
+          held_share_pct: number | null
+          retouched: number | null
+          reverted: number | null
+          rows_matured: number | null
+          window_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_rows_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_window_summary: {
         Row: {
           claiming_schema: number | null
@@ -51130,6 +51258,10 @@ export type Database = {
       engrep_svc_ensure_window: {
         Args: { p_day: string; p_granularity: string }
         Returns: string
+      }
+      engrep_svc_evaluate_survival: {
+        Args: { p_maturity_days?: number }
+        Returns: number
       }
       engrep_svc_ingest_row: {
         Args: {
