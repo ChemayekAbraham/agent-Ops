@@ -1,0 +1,505 @@
+// Read-only geographic payment filters for Tenant Products & Services.
+// Cascading selects — Country → Region → District → Town/Sub-county → Village —
+// each narrowing the options and results below it. Backed by the same
+// authoritative reporting RPCs (get_payments_location_breakdown /
+// get_payments_location_receipts); nothing here touches payment or accounting
+// logic.
+import { useMemo, useState } from 'react';
+import { format } from 'date-fns';
+import { Loader2, MapPin, Users, X } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { formatUGX } from '@/lib/rentCalculations';
+import {
+  usePaymentsAtLocation,
+  usePaymentsByLocation,
+  type PaymentsLocationLevel,
+} from '@/hooks/usePaymentsByLocation';
+
+const ALL = '__all__';
+
+const METHOD_LABEL: Record<string, string> = {
+  mobile_money: 'Mobile money',
+  cash: 'Cash',
+  in_app_wallet: 'In-app wallet',
+  unknown: 'Not recorded',
+};
+
+function isoDaysAgo(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+interface Selection {
+  country: string | null;
+  region: string | null;
+  districtId: number | null;
+  districtLabel: string | null;
+  subcountyId: number | null;
+  subcountyLabel: string | null;
+  village: string | null;
+}
+
+const EMPTY_SELECTION: Selection = {
+  country: null,
+  region: null,
+  districtId: null,
+  districtLabel: null,
+  subcountyId: null,
+  subcountyLabel: null,
+  village: null,
+};
+
+export function TenantPaymentsLocationFilters() {
+  const [sel, setSel] = useState<Selection>(EMPTY_SELECTION);
+  const [from, setFrom] = useState<string>(isoDaysAgo(30));
+  const [to, setTo] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [method, setMethod] = useState<string>(ALL);
+
+  const methodParam = method === ALL ? null : method;
+  const fromParam = from || null;
+  const toParam = to || null;
+
+  // ---- Option lists: each level is queried with the parents above it. ----
+  const countryQ = usePaymentsByLocation({
+    level: 'country', from: fromParam, to: toParam, method: methodParam,
+  });
+  const regionQ = usePaymentsByLocation(
+    { level: 'region', country: sel.country, from: fromParam, to: toParam, method: methodParam },
+    !!sel.country
+  );
+  const districtQ = usePaymentsByLocation(
+    {
+      level: 'district', country: sel.country, region: sel.region,
+      from: fromParam, to: toParam, method: methodParam,
+    },
+    !!sel.region
+  );
+  const subcountyQ = usePaymentsByLocation(
+    {
+      level: 'subcounty', country: sel.country, region: sel.region, districtId: sel.districtId,
+      from: fromParam, to: toParam, method: methodParam,
+    },
+    !!sel.districtId
+  );
+  const villageQ = usePaymentsByLocation(
+    {
+      level: 'village', country: sel.country, region: sel.region,
+      districtId: sel.districtId, subcountyId: sel.subcountyId,
+      from: fromParam, to: toParam, method: methodParam,
+    },
+    !!sel.subcountyId
+  );
+
+  // ---- Results for the current (deepest) selection. ----
+  const resultLevel: PaymentsLocationLevel = sel.subcountyId
+    ? 'village'
+    : sel.districtId
+      ? 'subcounty'
+      : sel.region
+        ? 'district'
+        : sel.country
+          ? 'region'
+          : 'country';
+
+  const results = usePaymentsByLocation({
+    level: resultLevel,
+    country: sel.country,
+    region: sel.region,
+    districtId: sel.districtId,
+    subcountyId: sel.subcountyId,
+    from: fromParam,
+    to: toParam,
+    method: methodParam,
+  });
+
+  // Receipts: at village level show that village's receipts; otherwise the
+  // receipts under the currently selected filters.
+  const receipts = usePaymentsAtLocation({
+    level: sel.subcountyId ? 'village' : resultLevel,
+    country: sel.country,
+    region: sel.region,
+    districtId: sel.districtId,
+    subcountyId: sel.subcountyId,
+    groupLabel: sel.village,
+    from: fromParam,
+    to: toParam,
+    method: methodParam,
+    limit: 200,
+  });
+
+  const data = results.data;
+
+  const summary = useMemo(() => {
+    // Totals come from the deepest available breakdown so they always reflect
+    // every active filter.
+    const deepest = sel.village
+      ? receipts.data
+      : sel.subcountyId
+        ? villageQ.data
+        : sel.districtId
+          ? subcountyQ.data
+          : sel.region
+            ? districtQ.data
+            : sel.country
+              ? regionQ.data
+              : countryQ.data;
+    if (!deepest) return null;
+    return {
+      total: deepest.total,
+      payment_count: deepest.payment_count,
+      tenant_count: deepest.tenant_count,
+      unmapped_amount: 'unmapped_amount' in deepest ? deepest.unmapped_amount : 0,
+    };
+  }, [sel, receipts.data, villageQ.data, subcountyQ.data, districtQ.data, regionQ.data, countryQ.data]);
+
+  const hasAnyFilter =
+    !!sel.country || !!sel.region || !!sel.districtId || !!sel.subcountyId || !!sel.village;
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/20 p-2.5 sm:p-3 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[11px] sm:text-xs font-medium">
+            <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+            Payment activity by location
+          </p>
+          <p className="text-[9px] sm:text-[10px] text-muted-foreground">
+            Filter money received by country, region, district, town/sub-county and village — each
+            choice narrows the next.
+          </p>
+        </div>
+        {hasAnyFilter && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-[10px] shrink-0"
+            onClick={() => setSel(EMPTY_SELECTION)}
+          >
+            <X className="mr-1 h-3 w-3" />
+            Reset
+          </Button>
+        )}
+      </div>
+
+      {/* Date + method filters */}
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1">
+          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">From</label>
+          <Input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">To</label>
+          <Input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="h-8 w-[140px] text-xs" />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Method</label>
+          <Select value={method} onValueChange={setMethod}>
+            <SelectTrigger className="h-8 w-[150px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="text-xs">All methods</SelectItem>
+              {(data?.methods ?? countryQ.data?.methods ?? []).map((m) => (
+                <SelectItem key={m.method} value={m.method} className="text-xs">
+                  {METHOD_LABEL[m.method] ?? m.method}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Cascading location filters */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="space-y-1">
+          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Country</label>
+          <Select
+            value={sel.country ?? ALL}
+            onValueChange={(v) =>
+              setSel({ ...EMPTY_SELECTION, country: v === ALL ? null : v })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="All countries" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="text-xs">All countries</SelectItem>
+              {(countryQ.data?.rows ?? []).map((r) => (
+                <SelectItem key={r.label} value={r.label} className="text-xs">
+                  {r.label} ({r.payment_count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Region</label>
+          <Select
+            value={sel.region ?? ALL}
+            disabled={!sel.country}
+            onValueChange={(v) =>
+              setSel((s) => ({
+                ...s,
+                region: v === ALL ? null : v,
+                districtId: null, districtLabel: null,
+                subcountyId: null, subcountyLabel: null, village: null,
+              }))
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder={sel.country ? 'All regions' : 'Pick country first'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="text-xs">All regions</SelectItem>
+              {(regionQ.data?.rows ?? []).map((r) => (
+                <SelectItem key={r.label} value={r.label} className="text-xs">
+                  {r.label} ({r.payment_count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">District</label>
+          <Select
+            value={sel.districtId != null ? String(sel.districtId) : ALL}
+            disabled={!sel.region}
+            onValueChange={(v) =>
+              setSel((s) => {
+                if (v === ALL) {
+                  return { ...s, districtId: null, districtLabel: null, subcountyId: null, subcountyLabel: null, village: null };
+                }
+                const row = (districtQ.data?.rows ?? []).find((r) => String(r.district_id) === v);
+                return {
+                  ...s,
+                  districtId: Number(v),
+                  districtLabel: row?.label ?? null,
+                  subcountyId: null, subcountyLabel: null, village: null,
+                };
+              })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder={sel.region ? 'All districts' : 'Pick region first'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="text-xs">All districts</SelectItem>
+              {(districtQ.data?.rows ?? [])
+                .filter((r) => r.district_id != null)
+                .map((r) => (
+                  <SelectItem key={r.district_id} value={String(r.district_id)} className="text-xs">
+                    {r.label} ({r.payment_count})
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Town / sub-county</label>
+          <Select
+            value={sel.subcountyId != null ? String(sel.subcountyId) : ALL}
+            disabled={!sel.districtId}
+            onValueChange={(v) =>
+              setSel((s) => {
+                if (v === ALL) {
+                  return { ...s, subcountyId: null, subcountyLabel: null, village: null };
+                }
+                const row = (subcountyQ.data?.rows ?? []).find((r) => String(r.subcounty_id) === v);
+                return {
+                  ...s,
+                  subcountyId: Number(v),
+                  subcountyLabel: row?.label ?? null,
+                  village: null,
+                };
+              })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder={sel.districtId ? 'All towns' : 'Pick district first'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="text-xs">All towns / sub-counties</SelectItem>
+              {(subcountyQ.data?.rows ?? [])
+                .filter((r) => r.subcounty_id != null)
+                .map((r) => (
+                  <SelectItem key={r.subcounty_id} value={String(r.subcounty_id)} className="text-xs">
+                    {r.label} ({r.payment_count})
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-[9px] uppercase tracking-wide text-muted-foreground">Village</label>
+          <Select
+            value={sel.village ?? ALL}
+            disabled={!sel.subcountyId}
+            onValueChange={(v) => setSel((s) => ({ ...s, village: v === ALL ? null : v }))}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder={sel.subcountyId ? 'All villages' : 'Pick town first'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="text-xs">All villages</SelectItem>
+              {(villageQ.data?.rows ?? []).map((r) => (
+                <SelectItem key={r.label} value={r.label} className="text-xs">
+                  {r.label} ({r.payment_count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Totals for the active filter set */}
+      {summary && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="rounded-lg bg-background/70 p-2">
+            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Collected</p>
+            <p className="text-xs sm:text-sm font-semibold font-mono tabular-nums">{formatUGX(summary.total)}</p>
+          </div>
+          <div className="rounded-lg bg-background/70 p-2">
+            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Payments</p>
+            <p className="text-xs sm:text-sm font-semibold font-mono tabular-nums">{summary.payment_count}</p>
+          </div>
+          <div className="rounded-lg bg-background/70 p-2">
+            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Tenants paying</p>
+            <p className="text-xs sm:text-sm font-semibold font-mono tabular-nums">{summary.tenant_count}</p>
+          </div>
+          <div className="rounded-lg bg-background/70 p-2">
+            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Not placed</p>
+            <p className="text-xs sm:text-sm font-semibold font-mono tabular-nums">{formatUGX(summary.unmapped_amount)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Where the filtered money sits (one level below the deepest filter) */}
+      {!sel.village && (
+        <div className="space-y-1">
+          {results.isLoading && (
+            <div className="flex items-center gap-2 py-4 justify-center text-[11px] text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading payment activity…
+            </div>
+          )}
+          {results.isError && (
+            <p className="py-4 text-center text-[11px] text-destructive">
+              Could not load payment activity. Please try again.
+            </p>
+          )}
+          {data && data.rows.length === 0 && !results.isLoading && (
+            <p className="py-4 text-center text-[11px] text-muted-foreground">
+              No payments recorded for this location and period.
+            </p>
+          )}
+          <div className="max-h-56 overflow-y-auto rounded-lg bg-background/70">
+            {(data?.rows ?? []).map((row) => (
+              <button
+                key={row.label}
+                type="button"
+                onClick={() => {
+                  // Clicking a row moves the matching filter down one level.
+                  if (resultLevel === 'country') setSel({ ...EMPTY_SELECTION, country: row.label });
+                  else if (resultLevel === 'region') setSel((s) => ({ ...s, region: row.label, districtId: null, districtLabel: null, subcountyId: null, subcountyLabel: null, village: null }));
+                  else if (resultLevel === 'district' && row.district_id != null)
+                    setSel((s) => ({ ...s, districtId: row.district_id!, districtLabel: row.label, subcountyId: null, subcountyLabel: null, village: null }));
+                  else if (resultLevel === 'subcounty' && row.subcounty_id != null)
+                    setSel((s) => ({ ...s, subcountyId: row.subcounty_id!, subcountyLabel: row.label, village: null }));
+                  else if (resultLevel === 'village') setSel((s) => ({ ...s, village: row.label }));
+                }}
+                className="w-full flex items-center justify-between gap-2 border-b border-border/40 px-2.5 py-1.5 last:border-0 text-left hover:bg-muted/40"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-[10px] sm:text-xs font-medium">{row.label}</span>
+                  <span className="block text-[9px] text-muted-foreground">
+                    {row.payment_count} payment{row.payment_count === 1 ? '' : 's'} · {row.tenant_count} tenant{row.tenant_count === 1 ? '' : 's'}
+                    {row.last_payment_at ? ` · last ${format(new Date(row.last_payment_at), 'dd MMM')}` : ''}
+                  </span>
+                </span>
+                <span className="shrink-0 font-mono text-[10px] sm:text-xs font-semibold tabular-nums">
+                  {formatUGX(row.amount)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Receipts for the active filter set (always shown; village filter narrows further) */}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <p className="text-[10px] sm:text-[11px] font-medium">
+            {sel.village ? `Receipts — ${sel.village}` : 'Receipts for the current filters'}
+          </p>
+          {receipts.data && (
+            <>
+              <Badge variant="outline" className="px-1.5 py-0 text-[9px]">
+                {formatUGX(receipts.data.total)}
+              </Badge>
+              <Badge variant="outline" className="px-1.5 py-0 text-[9px]">
+                <Users className="mr-1 h-2.5 w-2.5" />
+                {receipts.data.tenant_count} tenants
+              </Badge>
+            </>
+          )}
+        </div>
+        {receipts.isLoading && (
+          <div className="flex items-center gap-2 py-3 justify-center text-[11px] text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading receipts…
+          </div>
+        )}
+        {receipts.data && (
+          <div className="max-h-64 overflow-y-auto rounded-lg bg-background/70">
+            {receipts.data.payments.length === 0 && (
+              <p className="px-2.5 py-3 text-center text-[10px] text-muted-foreground">
+                No receipts match these filters.
+              </p>
+            )}
+            {receipts.data.payments.map((p) => (
+              <div
+                key={p.payment_id}
+                className="flex items-center justify-between gap-2 border-b border-border/40 px-2.5 py-1.5 last:border-0"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-[10px] sm:text-xs">
+                    {p.tenant || 'Unnamed tenant'}
+                  </span>
+                  <span className="block text-[9px] text-muted-foreground">
+                    {format(new Date(p.paid_at), 'dd MMM yyyy HH:mm')} ·{' '}
+                    {METHOD_LABEL[p.method ?? 'unknown'] ?? p.method}
+                    {p.agent ? ` · ${p.agent}` : ''}
+                    {p.village && p.village !== 'Unmapped' ? ` · ${p.village}` : ''}
+                  </span>
+                </span>
+                <span className="shrink-0 font-mono text-[10px] sm:text-xs tabular-nums">
+                  {formatUGX(p.amount)}
+                </span>
+              </div>
+            ))}
+            {receipts.data.payment_count > receipts.data.returned && (
+              <p className="px-2.5 py-1.5 text-[9px] text-muted-foreground">
+                Showing latest {receipts.data.returned} of {receipts.data.payment_count} payments.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default TenantPaymentsLocationFilters;

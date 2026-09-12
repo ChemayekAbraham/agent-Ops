@@ -26,7 +26,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
 import { TenantReceivablesLocationPanel } from '@/components/cfo/TenantReceivablesLocationPanel';
-import PaymentsByLocationPanel from '@/components/cfo/PaymentsByLocationPanel';
+import TenantPaymentsLocationFilters from '@/components/cfo/TenantPaymentsLocationFilters';
 
 
 const ALL_PRODUCTS = '__all__';
@@ -316,7 +316,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                       {/* Payment activity by geography, inside this category */}
                       {cat.label === TENANT_CATEGORY_LABEL && (
                         <div className="pt-1">
-                          <PaymentsByLocationPanel />
+                          <TenantPaymentsLocationFilters />
                         </div>
                       )}
                     </div>
