@@ -186,9 +186,10 @@ function DrillDownDialog({
             ))}
           </div>
         ) : isError ? (
-          <p className="py-6 text-sm text-destructive">
-            {(error as Error)?.message || 'These records could not be loaded.'}
-          </p>
+          <div className="py-6">
+            <p className="text-sm font-medium text-destructive">These records could not be loaded.</p>
+            <ErrorDetails error={error} />
+          </div>
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -339,9 +340,7 @@ export default function LandlordFloat() {
           <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
           <div className="min-w-0">
             <p className="font-semibold">Landlord float could not be loaded</p>
-            <p className="mt-1 text-sm text-muted-foreground break-words">
-              {(error as Error)?.message || 'Please try again.'}
-            </p>
+            <ErrorDetails error={error} />
             <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
               <RefreshCw className="mr-2 h-3.5 w-3.5" /> Retry
             </Button>
