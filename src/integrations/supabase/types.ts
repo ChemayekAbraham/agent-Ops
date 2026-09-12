@@ -51936,6 +51936,7 @@ export type Database = {
           today_paid_amount: number
           today_paid_count: number
           total_repayment: number
+          unfunded_balance: number
           verified: boolean
         }[]
       }
