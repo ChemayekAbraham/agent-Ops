@@ -399,6 +399,7 @@ function DrillDownDialog({
     const col = target?.columns.find((c) => c.type === 'ugx');
     return sum + (col ? Number(r[col.key]) || 0 : 0);
   }, 0);
+  const isPayouts = target?.kind === 'payouts' || target?.kind === 'payouts_all';
 
   return (
     <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
