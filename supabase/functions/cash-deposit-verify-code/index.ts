@@ -14,8 +14,13 @@ import {
 } from "../_shared/cash-verification-core.ts";
 import {
   resolveDepositorEmail,
+  maskDepositCode,
   sendCashDepositWalletConfirmationEmail,
 } from "../_shared/cashDepositCodeEmail.ts";
+import {
+  cashDepositReceiptFilename,
+  renderCashDepositReceipt,
+} from "../_shared/cashDepositReceiptPdf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -555,6 +560,45 @@ Deno.serve(async (req) => {
         const depositedAt = (depositRequest as any)?.transaction_date ||
           (depositRequest as any)?.approved_at || new Date().toISOString();
         const referenceNumber = `DEP-${depositId.slice(0, 8).toUpperCase()}`;
+        let receiptDownloadUrl: string | null = null;
+        try {
+          const receiptBytes = await renderCashDepositReceipt({
+            depositorName: (profile as any)?.full_name ?? "Welile customer",
+            amount: Number(ver.amount),
+            newBalance,
+            depositedAt,
+            referenceNumber,
+            maskedDepositCode: maskDepositCode(enteredCode),
+          });
+          const receiptFilename = cashDepositReceiptFilename(referenceNumber);
+          const receiptPath = `${depositorId}/${depositId}/${receiptFilename}`;
+          const { error: receiptUploadError } = await admin.storage
+            .from("cash-deposit-receipts")
+            .upload(receiptPath, receiptBytes, {
+              contentType: "application/pdf",
+              upsert: true,
+            });
+          if (receiptUploadError) throw receiptUploadError;
+          const { data: signedReceipt, error: receiptSignError } = await admin.storage
+            .from("cash-deposit-receipts")
+            .createSignedUrl(receiptPath, 60 * 60 * 24 * 30, {
+              download: receiptFilename,
+            });
+          if (receiptSignError) throw receiptSignError;
+          receiptDownloadUrl = signedReceipt?.signedUrl ?? null;
+          if (!receiptDownloadUrl) throw new Error("Receipt link was not created");
+        } catch (receiptError) {
+          console.error("[cash-verify-code] PDF receipt preparation failed", receiptError);
+          await logEvent(admin, {
+            verification_id: ver.id,
+            deposit_request_id: depositId,
+            user_id: depositorId,
+            event_type: "confirmation_receipt_failed",
+            amount: Number(ver.amount),
+            detail: "Wallet was credited, but the PDF receipt could not be prepared.",
+            metadata: { reference_number: referenceNumber, error: String((receiptError as Error)?.message ?? receiptError) },
+          });
+        }
         const result = await sendCashDepositWalletConfirmationEmail(admin, {
           email,
           amount: Number(ver.amount),
@@ -564,6 +608,7 @@ Deno.serve(async (req) => {
           depositRequestId: depositId,
           depositedAt,
           referenceNumber,
+          receiptDownloadUrl,
         });
         await logEvent(admin, {
           verification_id: ver.id,
@@ -574,7 +619,12 @@ Deno.serve(async (req) => {
           detail: result.sent
             ? "Wallet credit confirmation emailed to the depositor."
             : "Wallet was credited, but the confirmation email was not accepted.",
-          metadata: { recipient_email: email, reference_number: referenceNumber, error: result.error },
+          metadata: {
+            recipient_email: email,
+            reference_number: referenceNumber,
+            receipt_included: Boolean(receiptDownloadUrl),
+            error: result.error,
+          },
         });
       } else {
         console.warn("[cash-verify-code] no email on file for wallet confirmation");

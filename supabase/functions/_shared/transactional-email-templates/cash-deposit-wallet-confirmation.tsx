@@ -2,6 +2,7 @@
 import * as React from 'npm:react@18.3.1'
 import {
   Body,
+  Button,
   Container,
   Head,
   Heading,
@@ -25,6 +26,7 @@ interface CashDepositWalletConfirmationProps {
   supportPhone?: string
   supportWhatsapp?: string
   helpLink?: string
+  receiptDownloadUrl?: string | null
 }
 
 const ugx = (amount: number | null | undefined): string =>
@@ -42,6 +44,7 @@ export function CashDepositWalletConfirmationEmail({
   supportPhone = '+256 708 257 899',
   supportWhatsapp = '+256708257899',
   helpLink = 'https://welileapp.com/help',
+  receiptDownloadUrl = null,
 }: CashDepositWalletConfirmationProps) {
   const depositedWhen = new Date(depositedAt).toLocaleString('en-UG', {
     timeZone: 'Africa/Kampala',
@@ -96,6 +99,12 @@ export function CashDepositWalletConfirmationEmail({
                 <Text style={detailLabel}>DEPOSIT CODE</Text>
                 <Text style={detailValue}>{maskedDepositCode}</Text>
               </>
+            ) : null}
+            {receiptDownloadUrl ? (
+              <Section style={receiptAction}>
+                <Button href={receiptDownloadUrl} style={receiptButton}>Download PDF receipt</Button>
+                <Text style={receiptHint}>This secure receipt link is available for 30 days.</Text>
+              </Section>
             ) : null}
             <Hr style={divider} />
             <Text style={muted}>
@@ -179,6 +188,18 @@ const divider: React.CSSProperties = { borderColor: '#e2e8f0', margin: '20px 0' 
 const detailLabel: React.CSSProperties = { color: '#94a3b8', fontSize: '11px', fontWeight: 700, margin: '0 0 3px' }
 const detailValue: React.CSSProperties = { color: '#0f172a', fontSize: '14px', margin: '0 0 14px' }
 const muted: React.CSSProperties = { color: '#64748b', fontSize: '13px', lineHeight: '20px', margin: 0 }
+const receiptAction: React.CSSProperties = { margin: '24px 0 4px', textAlign: 'center' as const }
+const receiptButton: React.CSSProperties = {
+  backgroundColor: '#7b19d4',
+  borderRadius: '6px',
+  color: '#ffffff',
+  display: 'inline-block',
+  fontSize: '14px',
+  fontWeight: 700,
+  padding: '12px 22px',
+  textDecoration: 'none',
+}
+const receiptHint: React.CSSProperties = { color: '#64748b', fontSize: '12px', margin: '10px 0 0' }
 const footer: React.CSSProperties = {
   backgroundColor: '#f8fafc',
   borderTop: '1px solid #e2e8f0',
@@ -223,5 +244,6 @@ export const template = {
     maskedDepositCode: '••21',
     depositedAt: new Date().toISOString(),
     referenceNumber: 'DEP-5A7C91E2',
+    receiptDownloadUrl: 'https://welileapp.com',
   },
 } satisfies TemplateEntry
