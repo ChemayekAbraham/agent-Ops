@@ -516,7 +516,33 @@ export default function LandlordFloat() {
                       </tr>
                     )}
                     {needed.by_district.map((r) => (
-                      <tr key={r.district} className="border-t border-border/50">
+                      <tr
+                        key={r.district}
+                        className="border-t border-border/50 cursor-pointer hover:bg-muted/40"
+                        tabIndex={0}
+                        role="button"
+                        onClick={() =>
+                          setDrill({
+                            title: `Empty houses in ${r.district}`,
+                            description: 'Houses, landlords and listing agents in this district.',
+                            columns: EMPTY_HOUSE_COLUMNS,
+                            kind: 'empty_houses',
+                            filterKey: r.district,
+                          })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setDrill({
+                              title: `Empty houses in ${r.district}`,
+                              description: 'Houses, landlords and listing agents in this district.',
+                              columns: EMPTY_HOUSE_COLUMNS,
+                              kind: 'empty_houses',
+                              filterKey: r.district,
+                            });
+                          }
+                        }}
+                      >
                         <td className={TD}>{r.district}</td>
                         <td className={`${TD} text-right tabular-nums`}>{r.houses.toLocaleString()}</td>
                         <td className={`${TD} text-right tabular-nums font-medium`}>{formatUGX(r.amount)}</td>
