@@ -64,6 +64,13 @@
       "when": 1789190453300,
       "tag": "0008_payments_by_location_cfo_reporting",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789194075805,
+      "tag": "0009_payment_collections_projection_rpc",
+      "breakpoints": true
     }
   ]
 }
