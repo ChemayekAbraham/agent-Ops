@@ -46,6 +46,11 @@ function coAuthorEmails(message: string): string[] {
   return [...out];
 }
 
+function lovableEditId(message: string): string | null {
+  const m = /^\s*x-lovable-edit-id:\s*(\S+)\s*$/im.exec(message);
+  return m ? m[1].trim() : null;
+}
+
 function kampalaToday(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Kampala",
@@ -140,6 +145,7 @@ Deno.serve(async (req) => {
     let lovableIngested = 0;
     let lovableUntagged = 0;
     let claimedNotLive = 0;
+    let editIdsCaptured = 0;
     let failed = 0;
     const failures: Array<{ sha: string; error: string }> = [];
     const authorEmails = new Set<string>();
@@ -244,6 +250,18 @@ Deno.serve(async (req) => {
           ingested++;
           if (source === "lovable_edit") lovableIngested++;
         }
+        if (rowId && source === "lovable_edit") {
+          // The join key to Lovable's own edit feed. A metadata failure must never
+          // abort a harvested commit: the row and its liveness verdict matter more.
+          try {
+            const editId = lovableEditId(fullMessage);
+            if (editId) {
+              const { error: metaErr } = await admin.rpc("engrep_svc_set_edit_meta", { p_evidence_ref: c.sha, p_edit_id: editId });
+              if (metaErr) throw new Error(metaErr.message);
+              editIdsCaptured++;
+            }
+          } catch (_metaErr) { /* title key is best-effort */ }
+        }
         if (attributedEmail) authorEmails.add(attributedEmail);
         if (claimsSchema) {
           const { data: row } = await admin.from("engrep_rows").select("live_verified").eq("id", rowId).maybeSingle();
@@ -274,6 +292,7 @@ Deno.serve(async (req) => {
       distinct_author_emails: authorEmails.size,
       coauthor_emails_seen: [...coauthorSeen],
       claimed_not_live: claimedNotLive,
+      edit_ids_captured: editIdsCaptured,
       unclaimed_detected: unclaimed ?? 0,
       failed,
       failures,
