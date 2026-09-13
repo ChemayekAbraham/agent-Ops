@@ -38,7 +38,7 @@ function TenantCallButtons({ tenants, fullWidth = false }: { tenants?: { name: s
   );
 }
 
-export type { LandlordTenantsMap };
+
 import { setLandlordVerification } from '@/lib/landlord-ops/verification';
 import { generateLandlordVerificationQueuePdf } from '@/lib/landlordVerificationQueuePdf';
 import {
