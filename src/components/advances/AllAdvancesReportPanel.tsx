@@ -206,11 +206,31 @@ export function AllAdvancesReportPanel() {
     ].join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const a = document.createElement('a');
-    a.href = url;
     const scope = reportScope();
-    a.download = `advances-report-${scope}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `advances-report-${scope}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.href = url;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+
+    // Bulk export of every advance -- recipient names, phones, amounts --
+    // not logged before this. Plain client-side insert so the audit_logs
+    // IP-capture trigger sees the real browser IP directly. Never blocks
+    // the actual download.
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id ?? null,
+          action_type: 'csv_exported',
+          table_name: 'export',
+          record_id: null,
+          metadata: { filename, row_count: filtered.length },
+        });
+      } catch (e) {
+        console.warn('[AllAdvancesReportPanel] audit log insert failed:', e);
+      }
+    })();
   };
 
   const [pdfBusy, setPdfBusy] = useState(false);
