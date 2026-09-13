@@ -153,7 +153,22 @@ export function TransactionsFeed({
             options={TX_METHOD_OPTIONS}
             onChange={(v) => setMethod(v as TxMethodFilter)}
           />
+          <FilterPill
+            label="Item"
+            value={item}
+            options={TX_ITEM_OPTIONS}
+            onChange={(v) => setItem(v as TxItemFilter)}
+          />
         </div>
+      )}
+
+      {showFilters && (
+        <WelileItemTotals
+          userId={userId}
+          date={date}
+          selected={item}
+          onSelect={setItem}
+        />
       )}
 
       {query.isLoading && (
