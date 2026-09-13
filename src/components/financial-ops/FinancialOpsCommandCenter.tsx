@@ -172,6 +172,8 @@ const FinancialOpsPulseStrip = lz(() => import('./FinancialOpsPulseStrip'), 'Fin
 const LiquidityForecastPanel = lz(() => import('./LiquidityForecastPanel'), 'LiquidityForecastPanel');
 const DailyWalletReportsPanel = lz(() => import('./DailyWalletReportsPanel'), 'DailyWalletReportsPanel');
 const StaleWithdrawalHoldsPanel = lz(() => import('@/components/cfo/StaleWithdrawalHoldsPanel'), 'StaleWithdrawalHoldsPanel');
+const PayoutVerificationPanel = lz(() => import('./PayoutVerificationPanel'), 'PayoutVerificationPanel');
+const PayoutVerificationCallout = lz(() => import('./PayoutVerificationCallout'), 'PayoutVerificationCallout');
 import { 
   ShieldCheck, Banknote, ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Menu, X,
   ClipboardList, Search, Scale, Shield, Gauge, BookOpen, TrendingUp, FileText,
@@ -202,6 +204,7 @@ type Tool =
   | 'liquidity_forecast'
   | 'reports'
   | 'stale_withdrawal_holds'
+  | 'payout_verification'
   | 'wallet_buckets';
 // Extend Tool type via union above; add new tools:
 
@@ -216,6 +219,7 @@ type MoreAction =
   | { kind: 'view'; id: Exclude<View, 'home'>; label: string; desc: string; icon: typeof Gauge };
 
 const moreActions: MoreAction[] = [
+  { kind: 'tool', id: 'payout_verification', label: 'Verify Payout Numbers', desc: 'Call each holder and confirm the mobile money number or bank account belongs to them, and that the National ID name matches. Nobody is paid until you verify it here.', icon: ShieldCheck },
   { kind: 'tool', id: 'liquidity_forecast', label: 'Liquidity Forecast', desc: 'Withdrawable across all wallets today + ROI due per day for the next 7–60 days, so you can pre-fund before payouts.', icon: CalendarClock },
   { kind: 'tool', id: 'reports', label: 'Reports', desc: 'Daily Wallet Financial Summary Reports — auto-generated at 00:00 EAT from the ledger. View, filter, regenerate & download PDF/Excel/CSV.', icon: FileText },
   { kind: 'tool', id: 'earnings_explainer', label: 'How Did They Earn?', desc: 'Plain-English breakdown of every UGX that landed in a user\u2019s wallet — grouped by source (commissions, deposits, ROI, payroll, corrections) with counts and samples.', icon: Sparkles },
