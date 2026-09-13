@@ -101,7 +101,22 @@ const isAgentOpsActionable = (s: string) => s === 'pending_approval' || s === 's
  * assigned supplier directly and starts the 33% recovery plan on the agent.
  * Rejecting at any stage requires a 10+ character reason.
  */
-export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly = false, inProgressOnly = false }: { pendingOnly?: boolean; rejectedOnly?: boolean; inProgressOnly?: boolean } = {}) {
+export function SmartphoneOrderApprovalQueue({
+  pendingOnly = false,
+  rejectedOnly = false,
+  inProgressOnly = false,
+  stage: stageFilter,
+}: {
+  pendingOnly?: boolean;
+  rejectedOnly?: boolean;
+  inProgressOnly?: boolean;
+  /**
+   * Restricts the queue to one review desk. A desk sees the files waiting on it
+   * plus every file it has already signed off (those stay listed with an
+   * updated status badge and open strictly read-only).
+   */
+  stage?: 'ops' | 'coo' | 'cfo';
+} = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [rejectTarget, setRejectTarget] = useState<SmartphoneOrderRow | null>(null);
