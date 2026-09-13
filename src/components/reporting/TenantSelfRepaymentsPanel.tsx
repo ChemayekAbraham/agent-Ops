@@ -40,7 +40,7 @@ const AUDIENCE_COPY: Record<Audience, { title: string; description: string }> = 
   'tenant-ops': {
     title: 'Tenant Self-Repayments',
     description:
-      'Tenants paying their own rent directly. Shows what was applied to the plan, what stayed in their float and the balance left.',
+      'Tenants paying their own rent directly. Shows what was applied to the plan, what stayed in their wallet and the balance still owed.',
   },
   'agent-ops': {
     title: 'Tenant Self-Repayments (Agent Credit)',
