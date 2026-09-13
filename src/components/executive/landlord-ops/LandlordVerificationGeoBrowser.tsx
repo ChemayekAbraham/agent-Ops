@@ -179,65 +179,78 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
     : scoped;
   const hasPath = crumbs.length > 0 || !!path.landlordId;
 
+  const currentStepIndex = level === 'landlord' ? LEVELS.length : LEVELS.indexOf(level);
+
   return (
     <div className="rounded-lg border border-amber-500/25 bg-background/70 p-3 space-y-3 sm:rounded-xl">
       <div className="flex items-center gap-2">
-        {hasPath ? (
-          <Button type="button" variant="outline" size="sm" className="h-11 shrink-0 gap-1.5 px-3 sm:h-9" onClick={goBack}>
-            <ArrowLeft className="h-4 w-4" /> Back
-          </Button>
-        ) : (
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 sm:h-9 sm:w-9">
-            <Globe className="h-4 w-4" />
-          </div>
-        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-12 shrink-0 gap-1.5 px-3 sm:h-10"
+          onClick={goBack}
+          disabled={!hasPath}
+          aria-label="Back to previous level"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Button>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-foreground">
-            {level === 'landlord' ? 'Choose a landlord' : `Choose ${LEVEL_LABEL[level].toLowerCase()}`}
+          <p className="text-sm font-semibold text-foreground">
+            {level === 'landlord'
+              ? `Step ${LEVELS.length + 1} of ${LEVELS.length + 1} · Choose a landlord`
+              : `Step ${currentStepIndex + 1} of ${LEVELS.length + 1} · Choose ${LEVEL_LABEL[level].toLowerCase()}`}
           </p>
           <p className="truncate text-[11px] text-muted-foreground">
             {crumbs.length ? crumbs.map((crumb) => crumb.value).join(' › ') : 'All locations'}
           </p>
         </div>
-        <Badge variant="secondary" className="h-6 shrink-0 text-[10px]">
-          {scoped.length} request{scoped.length === 1 ? '' : 's'}
+        <Badge variant="secondary" className="h-7 shrink-0 text-[11px]">
+          {scoped.length}
         </Badge>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Path</span>
-        <Button type="button" variant="ghost" size="sm" onClick={() => onChange({})} className="h-8 px-2 text-[11px]">
-          All locations
+      {/* Stepper: every level, tappable once reached */}
+      <div className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1">
+        <Button
+          type="button"
+          variant={hasPath ? 'ghost' : 'secondary'}
+          size="sm"
+          onClick={() => onChange({})}
+          className="h-11 shrink-0 gap-1.5 px-3 text-xs"
+        >
+          <Globe className="h-4 w-4" /> All
         </Button>
-        {crumbs.map((c) => (
-          <span key={c.label} className="flex items-center gap-1.5">
-            <ChevronRight className="h-3 w-3 text-muted-foreground" />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onChange(c.path)}
-              className="h-8 px-2 text-[11px]"
-              title={c.label}
-            >
-              {c.value}
-            </Button>
-          </span>
-        ))}
-        {path.landlordId && (
-          <span className="flex items-center gap-1.5">
-            <ChevronRight className="h-3 w-3 text-muted-foreground" />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onChange({ ...path, landlordId: undefined })}
-              className="h-8 px-2 text-[11px]"
-            >
-              Selected landlord
-            </Button>
-          </span>
-        )}
+        {LEVELS.map((lvl, i) => {
+          const value = path[lvl as keyof GeoPath] as string | undefined;
+          const reached = i <= currentStepIndex;
+          const isCurrent = level === lvl;
+          return (
+            <span key={lvl} className="flex shrink-0 items-center gap-1">
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <Button
+                type="button"
+                variant={isCurrent ? 'secondary' : 'ghost'}
+                size="sm"
+                disabled={!reached}
+                onClick={() => {
+                  const next: GeoPath = {};
+                  for (const l of LEVELS) {
+                    if (l === lvl) break;
+                    const v = path[l as keyof GeoPath] as string | undefined;
+                    if (v) (next as Record<string, string>)[l] = v;
+                  }
+                  onChange(next);
+                }}
+                className="h-11 max-w-[10rem] shrink-0 flex-col items-start gap-0 px-3 py-1 text-left"
+                title={LEVEL_LABEL[lvl]}
+              >
+                <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{LEVEL_LABEL[lvl]}</span>
+                <span className="max-w-[9rem] truncate text-xs font-semibold">{value || (isCurrent ? 'Choose…' : '—')}</span>
+              </Button>
+            </span>
+          );
+        })}
       </div>
 
       <div className="relative">
@@ -247,14 +260,15 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
           onChange={(event) => setQuery(event.target.value)}
           placeholder={level === 'landlord' ? 'Search landlord, agent or phone' : `Search ${LEVEL_LABEL[level].toLowerCase()}`}
           aria-label="Search the current location level"
-          className="h-11 bg-background pl-9 pr-10 text-sm"
+          className="h-12 bg-background pl-9 pr-12 text-sm"
         />
         {query && (
-          <Button type="button" variant="ghost" size="icon" aria-label="Clear location search" className="absolute right-0 top-0 h-11 w-11" onClick={() => setQuery('')}>
+          <Button type="button" variant="ghost" size="icon" aria-label="Clear location search" className="absolute right-0 top-0 h-12 w-12" onClick={() => setQuery('')}>
             <X className="h-4 w-4" />
           </Button>
         )}
       </div>
+
 
       {level !== 'landlord' ? (
         visibleGroups.length === 0 ? (
@@ -268,15 +282,19 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
                 key={g.label}
                 type="button"
                 onClick={() => selectAt(level, g.label)}
-                className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-16 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3 text-left transition-colors hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-[12px] font-semibold text-foreground">{g.label}</span>
-                  <span className="block text-[10px] text-muted-foreground">
+                  <span className="block truncate text-sm font-semibold text-foreground">{g.label}</span>
+                  <span className="block text-[11px] text-muted-foreground">
                     {LEVEL_LABEL[level]} · {g.landlords.size} landlord{g.landlords.size === 1 ? '' : 's'}
                   </span>
                 </span>
-                <Badge variant="outline" className="shrink-0 h-5 text-[10px]">{g.count}</Badge>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <Badge variant="outline" className="h-6 text-[11px]">{g.count}</Badge>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </span>
+
               </button>
             ))}
           </div>
