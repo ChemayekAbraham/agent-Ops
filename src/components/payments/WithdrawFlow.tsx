@@ -23,6 +23,7 @@ import { UGANDA_BANKS, PAYOUT_METHODS } from '@/lib/ugandaBanks';
 import { useSavedPayoutMethods, type SavedPayoutMethod } from '@/hooks/useSavedPayoutMethods';
 import { useMyPayoutDestinations, destinationStateFor } from '@/hooks/usePayoutVerification';
 import NationalIdPrompt, { useMyNationalId } from '@/components/wallet/NationalIdPrompt';
+import NationalIdRejectedReminder from '@/components/wallet/NationalIdRejectedReminder';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Star } from 'lucide-react';
 import { downloadWithdrawalReceiptPdf, shareWithdrawalReceiptPdf } from '@/lib/withdrawalReceiptPdf';
@@ -1128,6 +1129,7 @@ export default function WithdrawFlow({
       case 0:
         return (
           <div className="space-y-4">
+            <NationalIdRejectedReminder />
             {needsNationalId && (
               <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
             )}

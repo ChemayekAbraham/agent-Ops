@@ -30,6 +30,7 @@ import { NfcCardSetupDialog } from './NfcCardSetupDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
+import NationalIdRejectedReminder from '@/components/wallet/NationalIdRejectedReminder';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { UserAvatar } from '@/components/UserAvatar';
 import { hapticTap } from '@/lib/haptics';
@@ -157,6 +158,7 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
           >
             <div className="p-4 space-y-4">
               {/* National ID — required before any payout can be released */}
+              <NationalIdRejectedReminder />
               <NationalIdPrompt withdrawableBalance={realWithdrawableBalance} />
               {/* Wallet Statement section */}
               <div ref={statementSectionRef} id="wallet-statement-section" className="scroll-mt-4">
