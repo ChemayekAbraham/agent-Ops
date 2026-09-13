@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { UGANDA_BANKS, PAYOUT_METHODS } from '@/lib/ugandaBanks';
 import { useSavedPayoutMethods, type SavedPayoutMethod } from '@/hooks/useSavedPayoutMethods';
 import { useMyPayoutDestinations, destinationStateFor } from '@/hooks/usePayoutVerification';
-import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
+import NationalIdPrompt, { useMyNationalId } from '@/components/wallet/NationalIdPrompt';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Star } from 'lucide-react';
 import { downloadWithdrawalReceiptPdf, shareWithdrawalReceiptPdf } from '@/lib/withdrawalReceiptPdf';
