@@ -183,7 +183,27 @@ export function AgentOpsComprehensiveReport() {
     doc.addPage(); addHeader('Agent Products & Services'); kpiTable(kpiBlocks[4]?.tiles ?? []); table(['Product', 'Applications', 'Expected', 'Collected', 'Pending', 'Approved', 'Rejected'], productSummary.map(r => [r.product, r.applications, ugx(r.expected), ugx(r.collected), r.pending, r.approved, r.rejected]), afterKpis());
     doc.addPage(); addHeader('Agent Performance'); table(['Rank', 'Agent', 'Collected', 'Expected', 'Success'], report.performance.map((r, i) => [i + 1, r.agent_name, ugx(r.collected), ugx(r.expected), pct(r.success_rate)]));
     const pages = doc.getNumberOfPages(); for (let i = 1; i <= pages; i += 1) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(110); doc.text(`Page ${i} of ${pages}`, 515, 815); }
-    doc.save(`agent-operations-${from}-to-${to}.pdf`);
+    const filename = `agent-operations-${from}-to-${to}.pdf`;
+    doc.save(filename);
+
+    // Comprehensive multi-section export -- every agent's rent, advances,
+    // service centres, and performance in one file -- not logged before
+    // this. Plain client-side insert so the audit_logs IP-capture trigger
+    // sees the real browser IP directly. Never blocks the actual download.
+    (async () => {
+      try {
+        const { data: { user: actor } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: actor?.id ?? null,
+          action_type: 'pdf_report_exported',
+          table_name: 'export',
+          record_id: null,
+          metadata: { filename, agent_count: report.performance.length },
+        });
+      } catch (e) {
+        console.warn('[AgentOpsComprehensiveReport] audit log insert failed:', e);
+      }
+    })();
   };
 
   if (reportQuery.isLoading) return <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Preparing comprehensive report…</div>;
