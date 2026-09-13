@@ -70,7 +70,7 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
   const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
 
   const me = profile?.full_name?.trim() || "Me";
-  const other = peer?.name ?? txCounterparty(row!) ?? "—";
+  const other = peer?.name ?? (row ? txCounterparty(row) : null) ?? "—";
 
   const handleDownload = async (kind: "pdf" | "xlsx") => {
     if (!row) return;
