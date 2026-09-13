@@ -180,16 +180,21 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
 
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 min-w-0">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 min-w-0 shadow-2xs">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-10 w-10 rounded-xl bg-warning/15 flex items-center justify-center shrink-0">
-            <HandCoins className="h-5 w-5 text-warning" />
+          <div className="h-10 w-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
+            <HandCoins className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-              MONEY WITH MERCHANT AGENTS
-            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
+                Money With Merchant Agents
+              </p>
+              <span className="hidden sm:inline-flex items-center rounded-md bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                Float Reconciliation
+              </span>
+            </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               Our cash sitting on their phones vs money they already spent for us
             </p>

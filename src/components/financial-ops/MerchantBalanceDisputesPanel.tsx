@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Flag, SlidersHorizontal, Check, X, ShieldAlert } from 'lucide-react';
+import { Flag, SlidersHorizontal, Check, X, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -67,40 +67,92 @@ export function MerchantBalanceDisputesPanel() {
   const excludedFor = (p: MerchantFloatPosition) =>
     Math.max(0, p.clampArtifactAmount) + Math.max(0, p.assertedOnlyAmount);
 
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem('finops_merchant_disputes_open_v1') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleOpen = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('finops_merchant_disputes_open_v1', String(next));
+      } catch { /* noop */ }
+      return next;
+    });
+  };
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 min-w-0">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+      <button
+        type="button"
+        onClick={toggleOpen}
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        aria-expanded={open}
+      >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-10 w-10 rounded-xl bg-destructive/15 flex items-center justify-center shrink-0">
-            <Flag className="h-5 w-5 text-destructive" />
+          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border ${
+            openCount > 0
+              ? 'bg-destructive/15 text-destructive border-destructive/30'
+              : 'bg-muted text-muted-foreground border-border'
+          }`}>
+            <Flag className="h-4.5 w-4.5" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-              AGENTS SAYING THEIR BALANCE IS WRONG
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-bold tracking-tight text-foreground">Agents Saying Their Balance Is Wrong</h2>
+              {openCount > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 border border-destructive/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-destructive">
+                  {openCount} waiting
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  All clear
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
               {openCount > 0
-                ? `${openCount} waiting for you to check and correct`
-                : 'Nothing waiting right now'}
+                ? `${openCount} correction request${openCount === 1 ? '' : 's'} waiting for you to check and correct.`
+                : 'No pending correction requests from merchant agents.'}
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowClosed((v) => !v)}
-          className="text-[11px] font-medium text-primary hover:underline shrink-0"
-        >
-          {showClosed ? 'Show only open' : 'Show all'}
-        </button>
-      </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {open ? (
+            <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+          )}
+        </div>
+      </button>
 
-      {error && (
-        <p className="mt-4 text-[11px] text-muted-foreground">
-          This board is only visible to finance roles.
-        </p>
-      )}
+      {open && (
+        <div className="p-5 border-t border-border space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-xs text-muted-foreground">
+              Review agent statements and resolve via reconciliation tools.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowClosed((v) => !v)}
+              className="text-xs font-semibold text-primary hover:underline shrink-0"
+            >
+              {showClosed ? 'Show only open' : 'Show all'}
+            </button>
+          </div>
 
-      <div className="mt-4 space-y-3">
+          {error && (
+            <p className="text-xs text-muted-foreground">
+              This board is only visible to finance roles.
+            </p>
+          )}
+
+          <div className="space-y-3">
         {isLoading && <p className="text-xs text-muted-foreground">Loading requests…</p>}
         {!isLoading && rows.length === 0 && !error && (
           <p className="text-xs text-muted-foreground">No correction requests.</p>
@@ -239,6 +291,8 @@ export function MerchantBalanceDisputesPanel() {
           );
         })}
       </div>
+    </div>
+  )}
 
       <MerchantReconcileDialog
         position={fixing}

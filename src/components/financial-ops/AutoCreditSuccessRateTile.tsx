@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle2, Zap } from 'lucide-react';
+import { CheckCircle2, Zap, ChevronDown, ChevronUp, ArrowRightLeft } from 'lucide-react';
 import { useFinOpsAutoRefresh } from '@/hooks/useFinOpsAutoRefresh';
 
 interface AutoCreditSuccessRateTileProps {
@@ -16,6 +17,25 @@ interface SuccessRateData {
 
 export function AutoCreditSuccessRateTile({ onClick }: AutoCreditSuccessRateTileProps) {
   const autoRefresh = useFinOpsAutoRefresh();
+
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem('finops_autocredit_tile_open_v1') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleOpen = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('finops_autocredit_tile_open_v1', String(next));
+      } catch { /* noop */ }
+      return next;
+    });
+  };
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['finops-autocredit-success-rate', 24],
@@ -41,52 +61,73 @@ export function AutoCreditSuccessRateTile({ onClick }: AutoCreditSuccessRateTile
   // the hero number never renders the literal string "undefined%".
   const displayPct = data?.successRatePct ?? null;
 
-  const className = `text-left rounded-2xl border border-border bg-card p-5 min-w-0 flex flex-col ${
-    onClick ? 'hover:border-primary/40 hover:shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary' : ''
-  }`;
-
-  const content = (
-    <>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Auto-Credit Success</p>
-        {hasActivity && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-            <Zap className="h-3 w-3" /> 24h
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+      <button
+        type="button"
+        onClick={toggleOpen}
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        aria-expanded={open}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="h-4.5 w-4.5 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-bold tracking-tight text-foreground">Auto-Credit Success Rate</h2>
+              {hasActivity && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
+                  <Zap className="h-3 w-3" /> 24h
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              Parsed MTN/Airtel deposits auto-credited to a wallet.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <span className={`font-mono text-sm font-bold tabular-nums ${isLoading ? 'animate-pulse text-muted-foreground' : 'text-foreground'}`}>
+            {isLoading ? '——' : displayPct === null ? '—' : `${displayPct}%`}
           </span>
-        )}
-      </div>
-
-      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <CheckCircle2 className="h-4 w-4 text-primary" />
-        <span>Parsed MTN/Airtel deposits auto-credited to a wallet</span>
-      </div>
-
-      <div className="flex-1" />
-
-      <div className="mt-6 pt-4 border-t border-border">
-        <p className={`font-mono text-3xl sm:text-4xl font-black tabular-nums ${isLoading ? 'animate-pulse text-muted-foreground' : 'text-foreground'}`}>
-          {isLoading ? '——' : displayPct === null ? '—' : `${displayPct}%`}
-        </p>
-        <p className="mt-1 text-[11px] text-muted-foreground font-medium">
-          {isLoading
-            ? 'Loading…'
-            : isError
-              ? "Couldn't load — try again shortly"
-              : hasActivity
-                ? `${data?.successful} / ${data?.attempted} successful`
-                : 'No deposit SMS in the last 24h'}
-        </p>
-      </div>
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <button type="button" onClick={onClick} className={className}>
-        {content}
+          {open ? (
+            <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+          )}
+        </div>
       </button>
-    );
-  }
 
-  return <div className={className}>{content}</div>;
+      {open && (
+        <div className="p-5 border-t border-border space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className={`font-mono text-2xl sm:text-3xl font-black tabular-nums ${isLoading ? 'animate-pulse text-muted-foreground' : 'text-foreground'}`}>
+                {isLoading ? '——' : displayPct === null ? '—' : `${displayPct}%`}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {isLoading
+                  ? 'Loading…'
+                  : isError
+                    ? "Couldn't load — try again shortly"
+                    : hasActivity
+                      ? `${data?.successful} of ${data?.attempted} deposits auto-credited successfully in the last 24h`
+                      : 'No deposit SMS parsed in the last 24h'}
+              </p>
+            </div>
+            {onClick && (
+              <button
+                type="button"
+                onClick={onClick}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+              >
+                <ArrowRightLeft className="h-3.5 w-3.5" /> Review Auto-Credits
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

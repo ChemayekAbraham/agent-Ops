@@ -147,20 +147,32 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
       aria-label={interactive ? 'Open Wallet Deductions' : undefined}
       onClick={interactive ? handleOpen : undefined}
       onKeyDown={interactive ? handleKey : undefined}
-      className={`rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-background p-5 sm:p-6 ${
+      className={`rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-6 ${
         interactive
-          ? 'cursor-pointer transition-all hover:border-primary/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+          ? 'cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background'
           : ''
-      } overflow-hidden h-full flex flex-col`}
+      } overflow-hidden h-full flex flex-col shadow-2xs relative`}
     >
-      <div className="flex items-start justify-between gap-2 mb-3 min-w-0">
+      <div className="flex items-start justify-between gap-3 mb-4 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
-            <Wallet className="h-5 w-5 text-primary" />
+          <div className="h-10 w-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0 border border-primary/25">
+            <Wallet className="h-5 w-5" />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
-            Total Money in All Wallets
-          </p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                Total Money in All Wallets
+              </p>
+              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/15 text-primary border border-primary/20">
+                Ledger Total
+              </span>
+            </div>
+            {data?.computedAt && (
+              <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                As of {data.computedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -178,48 +190,48 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
               never wonder why a number is stale. */}
           <label
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground cursor-pointer select-none shrink-0"
-          title={
-            autoRefresh
-              ? 'Auto-refresh is on. Pause to keep the screen stable while you review.'
-              : 'Auto-refresh is paused. Numbers will not update until you resume.'
-          }
-        >
-          {autoRefresh ? (
-            <Play className="h-3 w-3 text-primary" />
-          ) : (
-            <Pause className="h-3 w-3 text-warning" />
-          )}
-          <span className="uppercase tracking-wider">
-            {autoRefresh ? 'Live' : 'Paused'}
-          </span>
-          <Switch
-            checked={autoRefresh}
-            onCheckedChange={setFinOpsAutoRefresh}
-            aria-label="Toggle auto-refresh"
-            className="ml-1"
-          />
+            className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground cursor-pointer select-none shrink-0 bg-background/60 hover:bg-background border border-border/80 px-2.5 py-1 rounded-full transition-colors"
+            title={
+              autoRefresh
+                ? 'Auto-refresh is on. Pause to keep the screen stable while you review.'
+                : 'Auto-refresh is paused. Numbers will not update until you resume.'
+            }
+          >
+            {autoRefresh ? (
+              <Play className="h-3 w-3 text-emerald-600 dark:text-emerald-400 fill-emerald-600/30" />
+            ) : (
+              <Pause className="h-3 w-3 text-amber-500 fill-amber-500/30" />
+            )}
+            <span className="uppercase tracking-wider font-semibold text-[10px]">
+              {autoRefresh ? 'Live' : 'Paused'}
+            </span>
+            <Switch
+              checked={autoRefresh}
+              onCheckedChange={setFinOpsAutoRefresh}
+              aria-label="Toggle auto-refresh"
+              className="scale-75 origin-right"
+            />
           </label>
         </div>
       </div>
-      <p className={`text-2xl sm:text-3xl md:text-4xl font-black tabular-nums tracking-tight break-all ${isLoading ? 'animate-pulse text-muted-foreground' : 'text-foreground'}`}>
-        {isLoading ? '———' : formatUGX(data?.totalBalance ?? 0)}
-      </p>
-      {data?.computedAt && (
-        <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-          As of {data.computedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+      <div className="my-1">
+        <p className={`text-3xl sm:text-4xl font-black tabular-nums tracking-tight break-all ${isLoading ? 'animate-pulse text-muted-foreground' : 'text-foreground'}`}>
+          {isLoading ? '———' : formatUGX(data?.totalBalance ?? 0)}
         </p>
-      )}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <Users className="h-3.5 w-3.5" />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-medium">
+          <Users className="h-3.5 w-3.5 text-muted-foreground/80" />
           {isLoading ? '—' : data?.walletCount?.toLocaleString()} wallets
         </span>
+        <span className="text-muted-foreground/40">·</span>
         {onOpenBreakdown ? (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOpenBreakdown(); }}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -my-0.5 text-primary font-medium underline-offset-2 hover:bg-primary/10 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-primary font-semibold hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Open read-only wallet breakdown"
           >
             {isLoading ? '—' : data?.activeWallets?.toLocaleString()} with balance
@@ -229,14 +241,14 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onViewActiveWallets(); }}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -my-0.5 text-primary font-medium underline-offset-2 hover:bg-primary/10 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-primary font-semibold hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="View all wallets with balance"
           >
             {isLoading ? '—' : data?.activeWallets?.toLocaleString()} with balance
             <ChevronRight className="h-3 w-3" />
           </button>
         ) : (
-          <span className="text-primary font-medium">
+          <span className="text-primary font-semibold">
             {isLoading ? '—' : data?.activeWallets?.toLocaleString()} with balance
           </span>
         )}
@@ -245,29 +257,29 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
       {/* ─── Bucket Breakdown: Float + Withdrawable ─── */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="mt-4 grid grid-cols-2 gap-2"
+        className="mt-4 grid grid-cols-2 gap-2.5"
       >
         {onDrillBucket ? (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDrillBucket('float'); }}
-            className="text-left rounded-xl bg-background/60 backdrop-blur-sm border border-border p-3 transition-all hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="group text-left rounded-xl bg-background/70 backdrop-blur-sm border border-border/80 p-3 transition-all hover:border-primary/50 hover:bg-primary/5 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Drill down on Operations Float"
           >
             <div className="flex items-center justify-between gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-              <span className="flex items-center gap-1.5"><ArrowRightLeft className="h-3 w-3" /> Operations Float</span>
-              <ChevronRight className="h-3 w-3 text-primary" />
+              <span className="flex items-center gap-1.5"><ArrowRightLeft className="h-3 w-3 text-primary/80" /> Operations Float</span>
+              <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
             </div>
-            <p className="text-lg sm:text-xl font-black tabular-nums mt-1 text-foreground break-all">
+            <p className="text-base sm:text-lg font-black tabular-nums mt-1 text-foreground break-all">
               {isLoading ? '—' : formatUGX(data?.totalFloat ?? 0)}
             </p>
           </button>
         ) : (
-          <div className="rounded-xl bg-background/60 backdrop-blur-sm border border-border p-3">
+          <div className="rounded-xl bg-background/70 backdrop-blur-sm border border-border/80 p-3">
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-              <ArrowRightLeft className="h-3 w-3" /> Operations Float
+              <ArrowRightLeft className="h-3 w-3 text-primary/80" /> Operations Float
             </div>
-            <p className="text-lg sm:text-xl font-black tabular-nums mt-1 text-foreground break-all">
+            <p className="text-base sm:text-lg font-black tabular-nums mt-1 text-foreground break-all">
               {isLoading ? '—' : formatUGX(data?.totalFloat ?? 0)}
             </p>
           </div>
@@ -276,85 +288,100 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDrillBucket('withdrawable'); }}
-            className="text-left rounded-xl bg-background/60 backdrop-blur-sm border border-border p-3 transition-all hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="group text-left rounded-xl bg-background/70 backdrop-blur-sm border border-border/80 p-3 transition-all hover:border-primary/50 hover:bg-primary/5 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Drill down on Withdrawable"
           >
             <div className="flex items-center justify-between gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-              <span className="flex items-center gap-1.5"><Banknote className="h-3 w-3" /> Withdrawable</span>
-              <ChevronRight className="h-3 w-3 text-primary" />
+              <span className="flex items-center gap-1.5"><Banknote className="h-3 w-3 text-primary/80" /> Withdrawable</span>
+              <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
             </div>
-            <p className="text-lg sm:text-xl font-black tabular-nums mt-1 text-foreground break-all">
+            <p className="text-base sm:text-lg font-black tabular-nums mt-1 text-foreground break-all">
               {isLoading ? '—' : formatUGX(data?.totalWithdrawable ?? 0)}
             </p>
           </button>
         ) : (
-          <div className="rounded-xl bg-background/60 backdrop-blur-sm border border-border p-3">
+          <div className="rounded-xl bg-background/70 backdrop-blur-sm border border-border/80 p-3">
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-              <Banknote className="h-3 w-3" /> Withdrawable
+              <Banknote className="h-3 w-3 text-primary/80" /> Withdrawable
             </div>
-            <p className="text-lg sm:text-xl font-black tabular-nums mt-1 text-foreground break-all">
+            <p className="text-base sm:text-lg font-black tabular-nums mt-1 text-foreground break-all">
               {isLoading ? '—' : formatUGX(data?.totalWithdrawable ?? 0)}
             </p>
           </div>
         )}
       </div>
 
-      {/* ─── Strict ledger truth row (operator transparency) ───
-          The headline above is the cache total Fin Ops works from. This
-          row shows what the ledger actually says so the operator can see,
-          at a glance, whether the cache is drifting and by how much. */}
+      {/* ─── Strict ledger truth row (operator transparency) ─── */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="mt-3 pt-3 border-t border-primary/15 space-y-1.5"
+        className="mt-3.5 pt-3 border-t border-border/80 space-y-1.5"
       >
         <div className="flex items-center justify-between gap-2 text-[11px] min-w-0">
           <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
-            <Scale className="h-3 w-3" />
-            <span className="uppercase tracking-wider font-semibold truncate">Ledger total</span>
+            <Scale className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="uppercase tracking-wider font-semibold truncate">Ledger Total</span>
           </span>
-          <span className="font-mono tabular-nums font-semibold text-foreground break-all text-right">
+          <span className="font-mono tabular-nums font-bold text-foreground break-all text-right">
             {strictLoading ? '———' : formatUGX(strict?.strictTotal ?? 0)}
           </span>
         </div>
 
         {strictLoading ? (
           <p className="text-[10px] text-muted-foreground">Checking ledger alignment…</p>
+        ) : driftIsMaterial ? (
+          driftClickable ? (
+            <button
+              type="button"
+              onClick={onOpenReconciliation}
+              className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-semibold hover:underline text-left bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg w-full transition-colors"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+              <span className="flex-1 truncate">
+                Drift: {formatUGX(strict?.totalDrift ?? 0)} across {strict?.driftedWallets} wallet(s) — reconcile
+              </span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            </button>
+          ) : (
+            <p className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-semibold bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+              <span>Drift: {formatUGX(strict?.totalDrift ?? 0)} across {strict?.driftedWallets} wallet(s)</span>
+            </p>
+          )
         ) : (
-          <p className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
-            <CheckCircle2 className="h-3 w-3" />
-            Ledger reconciled
+          <p className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+            <span>Ledger reconciled</span>
           </p>
         )}
       </div>
 
       {/* ─── Two live key stats that mirror the two action buttons below ─── */}
-      <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-primary/15">
+      <div className="grid grid-cols-2 gap-2.5 mt-3.5 pt-3.5 border-t border-border/80">
         <div
           onClick={(e) => e.stopPropagation()}
-          className="rounded-xl bg-background/60 backdrop-blur-sm border border-border p-3"
+          className="rounded-xl bg-background/70 backdrop-blur-sm border border-border/80 p-3"
         >
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-            <ShieldCheck className="h-3 w-3" /> Awaiting verification
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Awaiting verification
           </div>
-          <p className="text-2xl font-black tabular-nums mt-1 text-foreground">
+          <p className="text-xl sm:text-2xl font-black tabular-nums mt-1 text-foreground">
             {queues?.depositsPending ?? '—'}
           </p>
-          <p className="text-[10px] text-muted-foreground">user + field deposits</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">user + field deposits</p>
         </div>
         <div
           onClick={(e) => e.stopPropagation()}
-          className="rounded-xl bg-background/60 backdrop-blur-sm border border-border p-3"
+          className="rounded-xl bg-background/70 backdrop-blur-sm border border-border/80 p-3"
         >
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-            <Banknote className="h-3 w-3" /> Awaiting payout
+            <Banknote className="h-3.5 w-3.5 text-destructive" /> Awaiting payout
           </div>
-          <p className="text-2xl font-black tabular-nums mt-1 text-foreground">
+          <p className="text-xl sm:text-2xl font-black tabular-nums mt-1 text-foreground">
             {queues?.payoutsPending ?? '—'}
           </p>
-          <p className="text-[10px] text-muted-foreground">withdrawal requests</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">withdrawal requests</p>
         </div>
       </div>
     </div>
   );
 }
-

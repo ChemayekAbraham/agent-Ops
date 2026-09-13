@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowDownToLine, ArrowUpFromLine, Activity, AlertTriangle, RefreshCw, Banknote } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Activity, AlertTriangle, RefreshCw, Banknote, ChevronRight } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Button } from '@/components/ui/button';
 
@@ -85,18 +85,18 @@ export function FinancialOpsPulseStrip({ onSelect }: { onSelect?: (key: PulseMet
   ];
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Live</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pulse Monitor</span>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-7 w-7 p-0 sm:w-auto sm:px-2 sm:gap-1">
+        <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-7 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
           <RefreshCw className="h-3 w-3" />
-          <span className="hidden sm:inline text-xs">Refresh</span>
+          <span>Refresh</span>
         </Button>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 sm:gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
         {pulseItems.map((item) => {
           const Icon = item.icon;
           const isUrgent = item.value > 0 && item.label !== 'Today';
@@ -105,22 +105,29 @@ export function FinancialOpsPulseStrip({ onSelect }: { onSelect?: (key: PulseMet
               key={item.label}
               type="button"
               onClick={() => onSelect?.(item.key)}
-              className={`text-left rounded-lg sm:rounded-xl border p-1.5 sm:p-3 transition-all hover:bg-accent/40 hover:border-primary/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                isUrgent ? 'border-amber-500/40 bg-amber-500/5' : 'border-border bg-card'
+              className={`group text-left rounded-xl border p-2.5 sm:p-3 transition-all hover:shadow-xs active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                isUrgent ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500/60' : 'border-border bg-card hover:border-primary/40'
               }`}
             >
-              <div className="flex items-center gap-1 mb-0.5">
-                <div className={`p-0.5 sm:p-1.5 rounded ${item.bgColor}`}>
-                  <Icon className={`h-2.5 sm:h-3.5 w-2.5 sm:w-3.5 ${item.color}`} />
+              <div className="flex items-center justify-between gap-1 mb-1.5">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className={`p-1 rounded-md shrink-0 ${item.bgColor}`}>
+                    <Icon className={`h-3.5 w-3.5 ${item.color}`} />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground font-semibold truncate">{item.label}</span>
                 </div>
-                <span className="text-[8px] sm:text-[11px] text-muted-foreground font-medium truncate leading-tight">{item.label}</span>
+                <ChevronRight className="h-3 w-3 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
               </div>
-              <p className={`text-base sm:text-2xl font-black tabular-nums truncate ${isLoading ? 'animate-pulse' : ''}`}>
+              <p className={`text-xl sm:text-2xl font-black tabular-nums tracking-tight text-foreground truncate ${isLoading ? 'animate-pulse' : ''}`}>
                 {isLoading ? '—' : item.value.toLocaleString()}
               </p>
-              {item.amount !== undefined && item.amount > 0 && (
-                <p className="text-[8px] sm:text-[11px] text-muted-foreground font-mono mt-0.5 truncate">
+              {item.amount !== undefined && item.amount > 0 ? (
+                <p className="text-[11px] text-muted-foreground font-mono font-medium mt-0.5 truncate">
                   {formatUGX(item.amount)}
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">
+                  {item.label === 'Today' ? 'Volume today' : 'Pending'}
                 </p>
               )}
             </button>

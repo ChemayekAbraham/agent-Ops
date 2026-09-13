@@ -178,7 +178,8 @@ import {
   WifiOff, MoreHorizontal, AlertTriangle, AlertCircle, ScanLine, Receipt, Mail, Home as HomeIcon,
   ArrowRightLeft, ScrollText, KeyRound, ReceiptText
   , Bell, HandCoins, MessageSquare
-  , Store, Archive, Activity, CheckCircle2, Sparkles, PanelLeftClose, PanelLeftOpen, Wallet, CalendarClock
+  , Store, Archive, Activity, CheckCircle2, Sparkles, PanelLeftClose, PanelLeftOpen, Wallet, CalendarClock,
+  Smartphone
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -259,11 +260,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams } from 'react-router-dom';
 
 const WALLET_BREAKDOWN_KEY = 'finops_wallet_breakdown_open_v2';
+const IFTTT_DIAGNOSTICS_KEY = 'finops_ifttt_diagnostics_open_v1';
+const MERCHANT_PHONE_CHECKLIST_KEY = 'finops_merchant_phone_checklist_open_v1';
 
-function getStoredOpen(userId?: string): boolean {
+function getStoredAccordionOpen(key: string, userId?: string): boolean {
   if (typeof window === 'undefined' || !userId) return false;
   try {
-    const raw = localStorage.getItem(WALLET_BREAKDOWN_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return false;
     const map = JSON.parse(raw) as Record<string, boolean>;
     return !!map[userId];
@@ -272,15 +275,18 @@ function getStoredOpen(userId?: string): boolean {
   }
 }
 
-function setStoredOpen(userId: string, open: boolean) {
+function setStoredAccordionOpen(key: string, userId: string, open: boolean) {
   if (typeof window === 'undefined' || !userId) return;
   try {
-    const raw = localStorage.getItem(WALLET_BREAKDOWN_KEY);
+    const raw = localStorage.getItem(key);
     const map = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
     map[userId] = open;
-    localStorage.setItem(WALLET_BREAKDOWN_KEY, JSON.stringify(map));
+    localStorage.setItem(key, JSON.stringify(map));
   } catch { /* noop */ }
 }
+
+const getStoredOpen = (userId?: string) => getStoredAccordionOpen(WALLET_BREAKDOWN_KEY, userId);
+const setStoredOpen = (userId: string, open: boolean) => setStoredAccordionOpen(WALLET_BREAKDOWN_KEY, userId, open);
 
 export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymentRef?: boolean } = {}) {
   const { user } = useAuth();
@@ -321,6 +327,8 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [focusBucket, setFocusBucket] = useState<'float' | 'withdrawable' | null>(null);
   const [walletBreakdownOpen, setWalletBreakdownOpen] = useState(() => getStoredOpen(userId));
+  const [iftttDiagnosticsOpen, setIftttDiagnosticsOpen] = useState(() => getStoredAccordionOpen(IFTTT_DIAGNOSTICS_KEY, userId));
+  const [merchantChecklistOpen, setMerchantChecklistOpen] = useState(() => getStoredAccordionOpen(MERCHANT_PHONE_CHECKLIST_KEY, userId));
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('finops_sidebar_collapsed') === '1';
@@ -350,6 +358,14 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
   useEffect(() => {
     if (userId) setStoredOpen(userId, walletBreakdownOpen);
   }, [walletBreakdownOpen, userId]);
+
+  useEffect(() => {
+    if (userId) setStoredAccordionOpen(IFTTT_DIAGNOSTICS_KEY, userId, iftttDiagnosticsOpen);
+  }, [iftttDiagnosticsOpen, userId]);
+
+  useEffect(() => {
+    if (userId) setStoredAccordionOpen(MERCHANT_PHONE_CHECKLIST_KEY, userId, merchantChecklistOpen);
+  }, [merchantChecklistOpen, userId]);
 
   const openMoreAction = (a: MoreAction) => {
     if (a.kind === 'tool') {
@@ -861,8 +877,80 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         {!activeTool && view === 'home' && (
           <div className="mt-6 space-y-4">
             <MomoFeedSilenceAlert />
-            <IftttDiagnosticsPanel />
-            <MerchantPhoneChecklist />
+
+            {/* IFTTT Diagnostics Accordion — collapsed by default */}
+            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setIftttDiagnosticsOpen(!iftttDiagnosticsOpen)}
+                className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-expanded={iftttDiagnosticsOpen}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Activity className="h-4.5 w-4.5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-bold tracking-tight text-foreground">IFTTT Live Webhook Diagnostics</h2>
+                      <span className="hidden sm:inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Automation
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      SMS forwarding health, last received webhooks & payload inspection.
+                    </p>
+                  </div>
+                </div>
+                {iftttDiagnosticsOpen ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+                )}
+              </button>
+              {iftttDiagnosticsOpen && (
+                <div className="p-4 border-t border-border bg-muted/5">
+                  <IftttDiagnosticsPanel />
+                </div>
+              )}
+            </div>
+
+            {/* Merchant Phone Checklist Accordion — collapsed by default */}
+            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setMerchantChecklistOpen(!merchantChecklistOpen)}
+                className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-expanded={merchantChecklistOpen}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                    <Smartphone className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-bold tracking-tight text-foreground">Merchant Operational Phone Setup</h2>
+                      <span className="hidden sm:inline-flex items-center rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                        Checklist
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      Required background permissions, battery optimizations & SMS automation steps.
+                    </p>
+                  </div>
+                </div>
+                {merchantChecklistOpen ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+                )}
+              </button>
+              {merchantChecklistOpen && (
+                <div className="p-4 border-t border-border bg-muted/5">
+                  <MerchantPhoneChecklist />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -895,6 +983,7 @@ function FinOpsHome({
   moreSheet, setMoreSheet, openMoreAction, onOpenMobileDrawer,
 }: FinOpsHomeProps) {
   const qc = useQueryClient();
+  const [exploreQuery, setExploreQuery] = useState('');
 
   const { data: totals, isLoading: totalsLoading } = useQuery({
     queryKey: ['finops-wallet-overview'],
@@ -968,6 +1057,11 @@ function FinOpsHome({
     qc.invalidateQueries({ queryKey: ['finops-wallet-overview-queues'] });
   };
 
+  const eq = exploreQuery.trim().toLowerCase();
+  const filteredMoreActions = eq
+    ? moreActions.filter(a => a.label.toLowerCase().includes(eq) || a.desc.toLowerCase().includes(eq))
+    : moreActions;
+
   return (
     <div className="space-y-6">
       {/* Header row */}
@@ -1029,6 +1123,7 @@ function FinOpsHome({
           tone="blue"
           title="Payout Queue"
           desc={`${queues?.payoutsPending ?? 0} withdrawal${(queues?.payoutsPending ?? 0) === 1 ? '' : 's'} pending payout.`}
+          badgeCount={queues?.payoutsPending}
         />
         <MajorActionButton
           onClick={() => onOpenTool('merchant_float')}
@@ -1036,30 +1131,46 @@ function FinOpsHome({
           tone="amber"
           title="Merchant Float"
           desc={`${queues?.activeClaims ?? 0} active claim${(queues?.activeClaims ?? 0) === 1 ? '' : 's'} & float requests.`}
+          badgeCount={queues?.activeClaims}
         />
       </div>
 
       {/* Wallet Breakdown — collapsed by default; expand to search every wallet */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
         <button
           type="button"
           onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
           className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base sm:text-lg font-bold tracking-tight">Wallet Breakdown</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Search every wallet by name, phone, or balance range.
-            </p>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <Search className="h-4.5 w-4.5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold tracking-tight text-foreground">Wallet Breakdown</h2>
+                <span className="hidden sm:inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Read Only
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                Search every wallet by name, phone, or balance range.
+              </p>
+            </div>
           </div>
-          {walletBreakdownOpen ? (
-            <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-medium text-muted-foreground hidden sm:inline">
+              {walletBreakdownOpen ? 'Collapse' : 'Expand search'}
+            </span>
+            {walletBreakdownOpen ? (
+              <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+            )}
+          </div>
         </button>
         {walletBreakdownOpen && (
-          <div className="px-4 pb-4 border-t border-border">
+          <div className="px-4 pb-4 border-t border-border bg-muted/5">
             <WalletBreakdownReadOnly
               focusBucket={focusBucket}
               onClearFocus={onClearFocus}
@@ -1085,13 +1196,16 @@ function FinOpsHome({
       {/* Company money sitting with merchant agents — directly below ACTUAL MONEY */}
       <MoneyWithAgentsCard onOpenTimeline={() => onOpenTool('cashout_settlement')} />
 
-      {/* Who to give more float, who to cut back — measured from real withdrawals */}
-      <MerchantAgentFloatAllocationPanel compact onOpenFull={() => onOpenTool('merchant_float_allocation')} />
+      {/* Performance, Disputes & Verification */}
+      <div className="space-y-4">
+        {/* Who to give more float, who to cut back — measured from real withdrawals */}
+        <MerchantAgentFloatAllocationPanel compact onOpenFull={() => onOpenTool('merchant_float_allocation')} />
 
-      {/* Merchant agents reporting a wrong balance — fix it right here */}
-      <MerchantBalanceDisputesPanel />
+        {/* Merchant agents reporting a wrong balance — fix it right here */}
+        <MerchantBalanceDisputesPanel />
 
-      <AutoCreditSuccessRateTile onClick={() => onOpenTool('auto_credit_review')} />
+        <AutoCreditSuccessRateTile onClick={() => onOpenTool('auto_credit_review')} />
+      </div>
 
       {/* Flagship action tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1151,12 +1265,27 @@ function FinOpsHome({
           side="right"
           className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden"
         >
-          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
+          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border bg-gradient-to-br from-primary/5 via-card to-card text-left">
             <SheetTitle>Explore Tools</SheetTitle>
             <SheetDescription>Everything beyond verifying deposits and approving withdrawals</SheetDescription>
+            <div className="mt-3 relative">
+              <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={exploreQuery}
+                onChange={(e) => setExploreQuery(e.target.value)}
+                placeholder="Search 35+ tools…"
+                className="w-full h-8 pl-8 pr-2.5 rounded-md bg-background border border-border text-xs placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
+              />
+            </div>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 min-w-0">
-            {moreActions.map(a => {
+            {filteredMoreActions.length === 0 && (
+              <p className="px-3 py-8 text-center text-xs text-muted-foreground">
+                No tools match "{exploreQuery}"
+              </p>
+            )}
+            {filteredMoreActions.map(a => {
               const badgeCount = badgeCounts[a.id as string];
               return (
                 <button
@@ -1201,14 +1330,22 @@ function ActionStatTile({
 }) {
   const toneClass =
     tone === 'primary'
-      ? 'bg-primary/10 text-primary border-primary/20'
+      ? 'bg-primary/15 text-primary border-primary/25'
       : tone === 'secondary'
-      ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
-      : 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/20';
+      ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25'
+      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25';
+
+  const gradientBg =
+    tone === 'primary'
+      ? 'bg-gradient-to-br from-primary/8 via-card to-card hover:border-primary/50'
+      : tone === 'secondary'
+      ? 'bg-gradient-to-br from-purple-500/8 via-card to-card hover:border-purple-500/50'
+      : 'bg-gradient-to-br from-amber-500/8 via-card to-card hover:border-amber-500/50';
+
   return (
     <button
       onClick={onClick}
-      className="group relative text-left rounded-xl sm:rounded-2xl border border-border/80 bg-card p-4 sm:p-5 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[140px] sm:min-h-[160px] flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs"
+      className={`group relative text-left rounded-xl sm:rounded-2xl border border-border/80 p-4 sm:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[140px] sm:min-h-[160px] flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs ${gradientBg}`}
     >
       <div className="flex items-start justify-between gap-3 w-full">
         <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center shrink-0 border ${toneClass}`}>
@@ -1245,29 +1382,31 @@ function QuickTile({
   return (
     <button
       onClick={onClick}
-      className="text-left rounded-xl border border-border/80 bg-card p-3 hover:border-primary/40 hover:bg-primary/5 hover:shadow-xs transition-all min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="group text-left rounded-xl border border-border/80 bg-card p-3.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-xs transition-all min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary flex items-start gap-3"
     >
-      <div className="flex items-start gap-2.5">
-        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-          <Icon className="h-4 w-4 text-primary" />
+      <div className="h-8.5 w-8.5 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+        <Icon className="h-4 w-4 text-primary" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-1">
+          <p className="text-xs sm:text-sm font-semibold truncate text-foreground group-hover:text-primary transition-colors">{label}</p>
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{label}</p>
-          <p className="text-[11px] text-muted-foreground truncate">{desc}</p>
-        </div>
+        <p className="text-[11px] text-muted-foreground truncate mt-0.5">{desc}</p>
       </div>
     </button>
   );
 }
 
 function MajorActionButton({
-  onClick, icon: Icon, tone, title, desc,
+  onClick, icon: Icon, tone, title, desc, badgeCount,
 }: {
   onClick: () => void;
   icon: typeof KeyRound;
   tone: 'amber' | 'blue' | 'primary' | 'rose';
   title: string;
   desc: string;
+  badgeCount?: number;
 }) {
   const toneBadge =
     tone === 'amber'
@@ -1296,8 +1435,20 @@ function MajorActionButton({
         <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0 border ${toneBadge}`}>
           <Icon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
         </div>
-        <div className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground/60 group-hover:text-foreground group-hover:bg-muted/80 transition-colors">
-          <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        <div className="flex items-center gap-1.5">
+          {typeof badgeCount === 'number' && badgeCount > 0 && (
+            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums border ${
+              tone === 'amber' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30' :
+              tone === 'primary' ? 'bg-primary/15 text-primary border-primary/30' :
+              tone === 'rose' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30' :
+              'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
+            }`}>
+              {badgeCount}
+            </span>
+          )}
+          <div className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground/60 group-hover:text-foreground group-hover:bg-muted/80 transition-colors">
+            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </div>
         </div>
       </div>
       <div className="mt-3">

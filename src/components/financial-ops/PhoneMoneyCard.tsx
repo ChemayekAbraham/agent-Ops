@@ -87,57 +87,78 @@ export function PhoneMoneyCard() {
   ];
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 min-w-0 flex flex-col h-full">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-          <Smartphone className="h-5 w-5 text-primary" />
+    <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/8 via-card to-card p-5 sm:p-6 min-w-0 flex flex-col h-full shadow-2xs relative">
+      <div className="flex items-start justify-between gap-3 mb-4 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-10 w-10 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <Smartphone className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                Actual Money
+              </p>
+              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                Phone Lines + Cash
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+              Real float available on mobile money lines
+            </p>
+          </div>
         </div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-          ACTUAL MONEY
+
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Verified Float
+        </span>
+      </div>
+
+      <div className="my-1">
+        <p className={`font-mono text-3xl sm:text-4xl font-black tabular-nums tracking-tight text-foreground break-all ${loading ? 'animate-pulse text-muted-foreground' : ''}`}>
+          {loading ? '—' : formatUGX(total)}
         </p>
       </div>
 
-      <p className="mt-4 font-mono text-2xl sm:text-3xl font-bold tabular-nums text-foreground break-all">
-        {loading ? '—' : formatUGX(total)}
-      </p>
-
-      <div className="mt-4 pt-4 border-t border-border space-y-3">
+      <div className="mt-4 pt-3.5 border-t border-border/80 space-y-2">
         {rows.map((r) => (
           <button
             key={r.label}
             type="button"
             onClick={() => setOpenLine(r.line)}
             aria-label={`View ${r.label} detailed statement`}
-            className="w-full flex items-center justify-between gap-3 min-w-0 rounded-lg -mx-1 px-1 py-1 text-left hover:bg-muted/50 active:bg-muted transition-colors"
+            className="w-full flex items-center justify-between gap-3 min-w-0 rounded-xl p-2.5 text-left bg-background/70 hover:bg-muted/70 active:bg-muted border border-border/70 transition-all hover:border-emerald-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               {r.logo ? (
-                <span className="h-6 w-6 rounded-md overflow-hidden shrink-0 border border-border bg-background">
-                  <img src={r.logo} alt={r.label} className="w-full h-full object-cover" loading="lazy" />
+                <span className="h-7 w-7 rounded-lg overflow-hidden shrink-0 border border-border bg-background p-0.5 flex items-center justify-center">
+                  <img src={r.logo} alt={r.label} className="w-full h-full object-contain" loading="lazy" />
                 </span>
               ) : (
-                <span className="h-6 w-6 rounded-md shrink-0 border border-border bg-success/10 flex items-center justify-center">
-                  <Banknote className="h-3.5 w-3.5 text-success" />
+                <span className="h-7 w-7 rounded-lg shrink-0 border border-border bg-emerald-500/10 flex items-center justify-center">
+                  <Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 </span>
               )}
-              <span className="text-sm text-foreground truncate">{r.label}</span>
+              <div className="min-w-0">
+                <span className="text-sm font-semibold text-foreground truncate block">{r.label}</span>
+                <span className="text-[10px] text-muted-foreground block">Tap for line statement</span>
+              </div>
             </div>
-            <span className="flex items-center gap-1.5 shrink-0">
-              <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+            <span className="flex items-center gap-2 shrink-0">
+              <span className="font-mono text-sm font-bold tabular-nums text-foreground">
                 {loading ? '—' : formatUGX(r.amount)}
               </span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground/70" />
             </span>
           </button>
         ))}
       </div>
 
-      <div className="flex-1" />
+      <div className="flex-1 min-h-[1rem]" />
 
-      <div className="mt-4 rounded-xl bg-primary/5 border border-primary/10 p-3 flex gap-2">
-        <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+      <div className="mt-4 rounded-xl bg-emerald-500/5 border border-emerald-500/15 p-3 flex gap-2.5">
+        <Info className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          This represents the total float available on mobile money lines and cash awaiting banking. Tap any line for a detailed statement.
+          Live float confirmed from provider transaction feeds and physically verified cash awaiting banking.
         </p>
       </div>
 

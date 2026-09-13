@@ -9,6 +9,7 @@ import {
   ArrowRightLeft,
   AlertTriangle,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Wifi,
   WifiOff,
@@ -333,6 +334,25 @@ export function MerchantAgentFloatAllocationPanel({
   const { data, isLoading, error, dataUpdatedAt } = useMerchantAgentFloatAllocation(days);
   const qc = useQueryClient();
 
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem('finops_merchant_float_allocation_open_v1') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleOpen = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('finops_merchant_float_allocation_open_v1', String(next));
+      } catch { /* noop */ }
+      return next;
+    });
+  };
+
   const rows = data ?? [];
   const withData = rows.filter((r) => r.attempts > 0);
   const increase = withData.filter((r) => r.recommendation === 'increase').sort((a, b) => b.allocationScore - a.allocationScore);
@@ -349,65 +369,98 @@ export function MerchantAgentFloatAllocationPanel({
 
   if (compact) {
     return (
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold tracking-tight">Merchant Float Allocation</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Who to give more float, who to cut back — based on the last {days} days of withdrawals.
-            </p>
-          </div>
-          <button
-            onClick={() => qc.invalidateQueries({ queryKey: ['merchant-agent-float-allocation'] })}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors shrink-0"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </button>
-        </div>
-        {isLoading ? (
-          <div className="p-5 text-sm text-muted-foreground">Scoring merchant agents…</div>
-        ) : withData.length === 0 ? (
-          <div className="p-5 text-sm text-muted-foreground">No merchant agent payouts in the last {days} days.</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
-                <TrendingUp className="h-3.5 w-3.5" /> Give more float ({increase.length})
-              </p>
-              <ul className="space-y-1.5">
-                {increase.slice(0, 3).map((r) => (
-                  <li key={r.agentId} className="flex items-center justify-between text-sm">
-                    <span className="truncate">{r.merchantName}</span>
-                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 shrink-0 ml-2">{r.allocationScore.toFixed(0)}</span>
-                  </li>
-                ))}
-                {increase.length === 0 && <li className="text-xs text-muted-foreground">None qualify yet.</li>}
-              </ul>
+      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+        <button
+          type="button"
+          onClick={toggleOpen}
+          className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-expanded={open}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <TrendingUp className="h-4.5 w-4.5 text-primary" />
             </div>
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400 mb-2 flex items-center gap-1.5">
-                <TrendingDown className="h-3.5 w-3.5" /> Give less float ({reduce.length})
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold tracking-tight text-foreground">Merchant Float Allocation</h2>
+                {!isLoading && withData.length > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    {increase.length} to increase · {reduce.length} to cut
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                Who to give more float, who to cut back — based on the last {days} days of withdrawals.
               </p>
-              <ul className="space-y-1.5">
-                {reduce.slice(0, 3).map((r) => (
-                  <li key={r.agentId} className="flex items-center justify-between text-sm">
-                    <span className="truncate">{r.merchantName}</span>
-                    <span className="text-xs font-bold text-red-700 dark:text-red-400 shrink-0 ml-2">{r.allocationScore.toFixed(0)}</span>
-                  </li>
-                ))}
-                {reduce.length === 0 && <li className="text-xs text-muted-foreground">None flagged.</li>}
-              </ul>
             </div>
           </div>
-        )}
-        {onOpenFull && (
-          <button
-            type="button"
-            onClick={onOpenFull}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-primary border-t border-border hover:bg-primary/5 transition-colors"
-          >
-            View full report <ArrowRightLeft className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                qc.invalidateQueries({ queryKey: ['merchant-agent-float-allocation'] });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+            {open ? (
+              <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+            )}
+          </div>
+        </button>
+        {open && (
+          <div className="border-t border-border">
+            {isLoading ? (
+              <div className="p-5 text-sm text-muted-foreground">Scoring merchant agents…</div>
+            ) : withData.length === 0 ? (
+              <div className="p-5 text-sm text-muted-foreground">No merchant agent payouts in the last {days} days.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5" /> Give more float ({increase.length})
+                  </p>
+                  <ul className="space-y-1.5">
+                    {increase.slice(0, 3).map((r) => (
+                      <li key={r.agentId} className="flex items-center justify-between text-sm">
+                        <span className="truncate">{r.merchantName}</span>
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 shrink-0 ml-2">{r.allocationScore.toFixed(0)}</span>
+                      </li>
+                    ))}
+                    {increase.length === 0 && <li className="text-xs text-muted-foreground">None qualify yet.</li>}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400 mb-2 flex items-center gap-1.5">
+                    <TrendingDown className="h-3.5 w-3.5" /> Give less float ({reduce.length})
+                  </p>
+                  <ul className="space-y-1.5">
+                    {reduce.slice(0, 3).map((r) => (
+                      <li key={r.agentId} className="flex items-center justify-between text-sm">
+                        <span className="truncate">{r.merchantName}</span>
+                        <span className="text-xs font-bold text-red-700 dark:text-red-400 shrink-0 ml-2">{r.allocationScore.toFixed(0)}</span>
+                      </li>
+                    ))}
+                    {reduce.length === 0 && <li className="text-xs text-muted-foreground">None flagged.</li>}
+                  </ul>
+                </div>
+              </div>
+            )}
+            {onOpenFull && (
+              <button
+                type="button"
+                onClick={onOpenFull}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-primary border-t border-border hover:bg-primary/5 transition-colors"
+              >
+                View full report <ArrowRightLeft className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
