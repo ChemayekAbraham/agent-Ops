@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   ShieldQuestion, CheckCircle2, XCircle, Loader2, UserCircle,
   MapPin, Home, Banknote, Smartphone, Calendar, Search, Building2,
-  FilterX, Clock, RotateCcw, AlertTriangle, FileDown, BarChart3, Ban,
+  FilterX, Clock, RotateCcw, AlertTriangle, FileDown, BarChart3, Ban, X,
   ChevronLeft, ChevronRight, ArrowLeftRight,
 } from 'lucide-react';
 import {
