@@ -1107,6 +1107,23 @@ export function useAuthForm() {
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+    safetyTimer = setTimeout(async () => {
+      setIsGoogleLoading(false);
+      try {
+        const { recordOAuthError } = await import('@/lib/oauthErrorLog');
+        recordOAuthError({
+          provider: 'google',
+          message: 'Sign-in did not start — the provider window never opened or was blocked.',
+          context: 'signInWithOAuth:timeout',
+        });
+      } catch { /* logging must never break sign-in */ }
+      toast({
+        title: 'Google Sign In Failed',
+        description: 'That took too long to start. Please try again, or sign in with your phone number and password below.',
+        variant: 'destructive',
+      });
+    }, 15000);
     try {
       const { error } = await signInWithGoogle();
       if (error) {
@@ -1162,9 +1179,11 @@ export function useAuthForm() {
         variant: 'destructive',
       });
     } finally {
+      if (safetyTimer) clearTimeout(safetyTimer);
       setIsGoogleLoading(false);
     }
   };
+
 
   const handleAppleSignIn = async () => {
     setIsAppleLoading(true);
