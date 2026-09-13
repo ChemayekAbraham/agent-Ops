@@ -15,6 +15,27 @@ function csvEscape(v: unknown): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+// This screen exports raw general_ledger rows -- the entire ledger in one
+// shot, or one specific user's full financial history -- to a plain CSV
+// file with no logging at all beyond a toast. That is exactly the bulk
+// data-exfiltration risk the "tie every action to an IP" series exists for.
+// Plain client-side insert so the audit_logs IP-capture trigger (item 8)
+// sees the real browser IP directly. Never blocks the actual export.
+async function logLedgerExport(actionType: 'bulk_ledger_export_all' | 'ledger_export_single_user', rowCount: number, targetUserId?: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: actionType,
+      table_name: 'general_ledger',
+      record_id: targetUserId ?? null,
+      metadata: { row_count: rowCount, target_user_id: targetUserId ?? null },
+    });
+  } catch (e) {
+    console.warn('[CTOLedgerExport] audit log insert failed:', e);
+  }
+}
+
 export function CTOLedgerExport() {
   const [search, setSearch] = useState('');
   const [matches, setMatches] = useState<ProfileMatch[]>([]);
@@ -90,6 +111,7 @@ export function CTOLedgerExport() {
       a.remove();
       URL.revokeObjectURL(url);
       toast({ title: 'Export ready', description: `${all.length} ledger rows exported.` });
+      void logLedgerExport('ledger_export_single_user', all.length, profile.id);
     } catch (e) {
       toast({ title: 'Export failed', description: (e as Error).message, variant: 'destructive' });
     } finally {
@@ -139,6 +161,7 @@ export function CTOLedgerExport() {
       a.remove();
       URL.revokeObjectURL(url);
       toast({ title: 'Full ledger exported', description: `${total.toLocaleString()} rows.` });
+      void logLedgerExport('bulk_ledger_export_all', total);
     } catch (e) {
       toast({ title: 'Full export failed', description: (e as Error).message, variant: 'destructive' });
     } finally {
