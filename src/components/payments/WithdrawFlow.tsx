@@ -579,7 +579,8 @@ export default function WithdrawFlow({
     // (personal wallet) source. Landlord-float payouts use a separate
     // flow and are exempt. Threshold: today_pct < 20% with active tenants.
     switch (currentStep) {
-      case 0: return true;
+      // Verify the wallet first: no National ID on file, no withdrawal.
+      case 0: return !needsNationalId;
       case 1:
         // Mirror the Confirm-step pattern: keep Continue tappable even when
         // the live ledger check is still loading / failed / stale. We refetch
