@@ -91,8 +91,10 @@ export function TenantPaymentsLocationFilters() {
   const [method, setMethod] = useState<string>(ALL);
 
   const methodParam = method === ALL ? null : method;
-  const fromParam = from || null;
-  const toParam = to || null;
+  // Daily mode pins both bounds to the picked calendar day.
+  const dayIso = day ? format(day, 'yyyy-MM-dd') : null;
+  const fromParam = dateMode === 'day' ? dayIso : (from || null);
+  const toParam = dateMode === 'day' ? dayIso : (to || null);
 
   // ---- Option lists: every level is independent — each loads whether or not
   // the levels above it are selected, and narrows when parents are chosen. ----
