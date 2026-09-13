@@ -1,9 +1,31 @@
 // html-to-image and jsPDF loaded dynamically to reduce initial bundle size
 import { archivePdfBlob } from '@/lib/pdfVault';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ExportData {
   headers: string[];
   rows: (string | number)[][];
+}
+
+// Shared choke point for the ~20 components that call exportToCSV/exportToPDF
+// with data spanning many users/transactions/records at once -- a real bulk
+// data-exfiltration risk distinct from a single receipt download. Logging it
+// once here, instead of at each call site. Plain client-side insert so the
+// audit_logs IP-capture trigger sees the real browser IP directly. Never
+// blocks the actual export.
+async function logExport(actionType: 'csv_exported' | 'pdf_exported', filename: string, rowCount?: number) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: actionType,
+      table_name: 'export',
+      record_id: null,
+      metadata: { filename, row_count: rowCount ?? null },
+    });
+  } catch (e) {
+    console.warn('[exportUtils] audit log insert failed:', e);
+  }
 }
 
 /**
@@ -37,6 +59,8 @@ export function exportToCSV(data: ExportData, filename: string): void {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+
+  void logExport('csv_exported', filename, rows.length);
 }
 
 /**
@@ -152,7 +176,8 @@ export async function exportToPDF(
     setTimeout(() => {
       URL.revokeObjectURL(blobUrl);
     }, 1000);
-    
+
+    void logExport('pdf_exported', filename);
   } catch (error) {
     console.error('PDF export failed:', error);
     throw error;
