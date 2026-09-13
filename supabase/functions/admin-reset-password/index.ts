@@ -122,6 +122,36 @@ serve(async (req) => {
       throw error;
     }
 
+    // Permanent, actor-attributed record. Previously this action was only a
+    // console.log line -- not queryable, and never captured WHO performed
+    // the reset (only the target user_id reached the database, via the
+    // auth.users trigger, and with no IP since this call never goes through
+    // PostgREST). Captured here because this edge function is the only
+    // place in the whole call path that has the real client IP.
+    const clientIp =
+      (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+      req.headers.get("cf-connecting-ip") ||
+      null;
+    const userAgent = req.headers.get("user-agent") || null;
+
+    try {
+      await supabaseAdmin.from("audit_logs").insert({
+        user_id: callerId === "service-role" ? null : callerId,
+        action_type: "admin_password_reset",
+        table_name: "auth.users",
+        record_id: user_id,
+        ip_address: clientIp,
+        user_agent: userAgent,
+        metadata: {
+          target_user_id: user_id,
+          performed_by: callerId,
+        },
+      });
+    } catch (auditErr) {
+      // Telemetry must never block a password reset that already succeeded.
+      console.error("admin-reset-password: audit insert failed:", auditErr);
+    }
+
     console.log(`Password reset by ${callerId} for user: ${user_id}`);
 
     return new Response(
