@@ -2,6 +2,7 @@
 // Requires status = 'coo_approved'. Sets last_compounded_date = today and status = 'active'.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkTreasuryGuard } from '../_shared/treasuryGuard.ts';
+import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from '../_shared/cfoApprovalGate.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +36,10 @@ Deno.serve(async (req) => {
       .from('user_roles').select('role').eq('user_id', user.id)
       .in('role', ['cfo', 'manager', 'super_admin']);
     if (!roles || roles.length === 0) throw new Error('Insufficient permissions');
+
+    // Sole-CFO-approver gate: everyone else is read-only for approvals.
+    const cfoGate = await guardCfoApprover(service, user.id, corsHeaders);
+    if (cfoGate) return cfoGate;
 
     const { advance_id, notes } = await req.json();
     if (!advance_id) throw new Error('advance_id required');

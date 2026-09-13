@@ -7,6 +7,7 @@ import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { learnDepositNumber, toLast9, learnDepositName } from "../_shared/depositNumberLearning.ts";
+import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -200,6 +201,11 @@ Deno.serve(async (req) => {
       }
       user = { id: authedUser.id };
       callerRoles = (roles || []).map((r: any) => r.role);
+      // CFO Direct Credit/Debit acting in a CFO capacity is restricted to the
+      // designated CFO approver. Financial Ops keeps its own verification duty.
+      if (!callerRoles.includes("financial_ops") && !(await isCfoApprover(adminClient, authedUser.id))) {
+        return cfoApproverDenied(corsHeaders);
+      }
     }
     const userId = user.id;
 
