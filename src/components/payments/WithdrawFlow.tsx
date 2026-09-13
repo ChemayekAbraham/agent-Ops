@@ -105,6 +105,12 @@ export default function WithdrawFlow({
   // Migrating both dialogs onto this hook eliminates gate drift where one
   // dialog enforced a rule the other missed (e.g. the payout-freeze bug).
   const withdrawCtx = useWithdrawContext(user?.id);
+  // Wallet verification: nobody moves past the first screen until their
+  // National ID is on file, and each saved destination shows its own
+  // Financial Ops verification state.
+  const myNationalId = useMyNationalId(user?.id);
+  const needsNationalId = !!user?.id && myNationalId.data ? !myNationalId.data.submitted : false;
+  const myDestinations = useMyPayoutDestinations(user?.id);
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
