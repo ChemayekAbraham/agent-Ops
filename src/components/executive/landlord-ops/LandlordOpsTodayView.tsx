@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Home,
   User,
+  UserCheck,
   Users,
+
   FileText,
   ChevronRight,
   Wallet,
@@ -159,9 +161,49 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
         <p className="text-xs text-muted-foreground mt-0.5">
           Work the queues. Every verification decision carries a wallet consequence.
         </p>
+        </div>
+
+      {/* Landlord Verification Queue — primary action */}
+      <div
+        onClick={() => onNavigate('verify/landlords')}
+        className="rounded-xl border border-primary/20 bg-primary p-5 text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer group"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-primary-foreground/10">
+              <UserCheck className="h-7 w-7" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold">Landlord Verification Queue</h2>
+              <p className="text-sm text-primary-foreground/80">
+                Review and verify landlords waiting for approval
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-3xl font-black tabular-nums">
+                {num(pendingLandlords, countErrors.landlords)}
+              </p>
+              <p className="text-xs text-primary-foreground/80 font-medium">
+                awaiting verification
+              </p>
+            </div>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate('verify/landlords');
+              }}
+              className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-bold text-sm h-11 px-5 rounded-lg shadow-sm"
+            >
+              Review now <ArrowRight className="h-4 w-4 ml-1.5" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Landlord Float — primary register entry point */}
+
       <div
         onClick={() => onNavigate('registers/landlord-float')}
         className="p-4 rounded-xl border border-border bg-card hover:border-primary/60 hover:shadow-sm transition-all cursor-pointer group"
