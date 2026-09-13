@@ -5,7 +5,14 @@
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, X } from "lucide-react";
+import { Copy, Download, FileSpreadsheet, X } from "lucide-react";
+import { useState } from "react";
+import { useProfile } from "@/hooks/useProfile";
+import {
+  downloadTransferReceiptPdf,
+  downloadTransferReceiptXlsx,
+  type TransferReceiptData,
+} from "@/lib/transferReceiptExport";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
