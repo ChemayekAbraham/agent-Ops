@@ -505,6 +505,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         )}
         {activeTool === 'mismatch_metrics' && <MismatchMetricsPanel />}
         {activeTool === 'bridge_health' && <DepositBridgeHealthPanel />}
+        {activeTool === 'payout_verification' && <PayoutVerificationPanel />}
         {activeTool === 'stale_withdrawal_holds' && <StaleWithdrawalHoldsPanel />}
         {activeTool === 'withdrawal_history' && <WithdrawalHistoryStatement />}
         {activeTool === 'funded_tenants' && <FundedTenantsList />}
@@ -880,6 +881,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
 
         {!activeTool && view === 'home' && (
           <div className="mt-6 space-y-4">
+            <PayoutVerificationCallout onOpen={() => setActiveTool('payout_verification')} />
             <MomoFeedSilenceAlert />
 
             {/* IFTTT Diagnostics Accordion — collapsed by default */}
