@@ -38,6 +38,7 @@ import {
   txTone,
   type TxDateFilter,
   type TxFeedRow,
+  type TxItemFilter,
   type TxMethodFilter,
   type TxServiceFilter,
 } from "@/lib/transactionsFeed";
