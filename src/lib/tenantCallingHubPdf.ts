@@ -1,5 +1,27 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+
+// Shared choke point for bulk PDF exports across the Tenant/Landlord
+// Calling Hub reports (TenantCallReportsPanel.tsx, LandlordCallReportsPanel.
+// tsx) -- many rows of call/collection data leaving the system in one file,
+// not logged before this. Plain client-side insert so the audit_logs
+// IP-capture trigger sees the real browser IP directly. Never blocks the
+// actual download.
+async function logPdfExport(filename: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: 'pdf_report_exported',
+      table_name: 'export',
+      record_id: null,
+      metadata: { filename },
+    });
+  } catch (e) {
+    console.warn('[tenantCallingHubPdf] audit log insert failed:', e);
+  }
+}
 
 /**
  * Branded PDF for the Tenant Ops → Calling Hub reports.
@@ -369,4 +391,6 @@ export function downloadPdfBlob(blob: Blob, filename: string) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  void logPdfExport(filename);
 }
