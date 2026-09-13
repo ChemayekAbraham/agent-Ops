@@ -1187,6 +1187,23 @@ export function useAuthForm() {
 
   const handleAppleSignIn = async () => {
     setIsAppleLoading(true);
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+    safetyTimer = setTimeout(async () => {
+      setIsAppleLoading(false);
+      try {
+        const { recordOAuthError } = await import('@/lib/oauthErrorLog');
+        recordOAuthError({
+          provider: 'apple',
+          message: 'Sign-in did not start — the provider window never opened or was blocked.',
+          context: 'signInWithOAuth:timeout',
+        });
+      } catch { /* logging must never break sign-in */ }
+      toast({
+        title: 'Apple Sign In Failed',
+        description: 'That took too long to start. Please try again, or sign in with your phone number and password below.',
+        variant: 'destructive',
+      });
+    }, 15000);
     try {
       const { error } = await signInWithApple();
       if (error) {
@@ -1197,9 +1214,11 @@ export function useAuthForm() {
       console.error('[AppleSignIn] Unexpected error:', err);
       toast({ title: 'Apple Sign In Failed', description: `Unexpected error: ${msg}`, variant: 'destructive' });
     } finally {
+      if (safetyTimer) clearTimeout(safetyTimer);
       setIsAppleLoading(false);
     }
   };
+
 
   return {
     // URL params
