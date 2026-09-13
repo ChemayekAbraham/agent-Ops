@@ -345,7 +345,7 @@ export function BikeLeaseDetailDialog({
 
           <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-2 w-full sm:w-auto">
             <div className="flex items-center justify-center gap-2 w-full sm:w-auto">
-              {onEditPrice && (
+              {onEditPrice && canAct && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -357,6 +357,11 @@ export function BikeLeaseDetailDialog({
                 >
                   <Edit3 className="h-3.5 w-3.5 text-primary" /> Edit Price
                 </Button>
+              )}
+              {!canAct && (
+                <span className="text-[11px] text-muted-foreground">
+                  Read-only — already decided at this level
+                </span>
               )}
 
               {canAct && onReject && (
