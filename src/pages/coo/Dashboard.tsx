@@ -38,10 +38,11 @@ import { AgentNetworkBadge } from '@/components/executive/tenant-ops/AgentNetwor
 import {
   Activity, ClipboardList, Users, Wallet, BarChart3,
   FileText, Banknote, Handshake, UserCheck, UserPlus,
-  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike
+  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike, MonitorSmartphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
+import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 
 interface QuickNavItem {
   id: string;
