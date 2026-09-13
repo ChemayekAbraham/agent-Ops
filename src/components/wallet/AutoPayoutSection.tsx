@@ -191,11 +191,11 @@ export function AutoPayoutSection({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={saving || !recipientId || !amountValid}
+            disabled={saving || !recipientId || !amountValid || !item}
             className="h-11 w-full gap-2"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat className="h-4 w-4" />}
-            Save automatic payment
+            {item ? `Save automatic ${item}` : 'Save automatic payment'}
           </Button>
         </div>
       )}
@@ -210,6 +210,7 @@ export function AutoPayoutSection({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">
+                    {s.description?.trim() ? `${s.description.trim()} · ` : ''}
                     {fmt(s.amount)} to {s.recipientName || 'Welile user'}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
