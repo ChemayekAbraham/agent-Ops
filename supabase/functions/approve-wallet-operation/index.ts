@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "You do not have permission to approve wallet operations" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
 
     // Anyone approving in a CFO capacity must be the designated CFO approver.
     // Financial Ops keeps its own verification duty (separation of powers).
@@ -66,7 +67,6 @@ Deno.serve(async (req) => {
       .from("user_roles").select("role").eq("user_id", userId).eq("role", "financial_ops").maybeSingle();
     if (!finOpsRole && !(await isCfoApprover(adminClient, userId))) {
       return cfoApproverDenied(corsHeaders);
-    }
     }
 
     const body = await req.json();
