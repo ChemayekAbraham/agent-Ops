@@ -24,6 +24,7 @@ import { AutoPayoutSection } from '@/components/wallet/AutoPayoutSection';
 
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
+import { WELILE_ITEM_IMAGES } from '@/lib/welileItemImages';
 
 import { 
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
