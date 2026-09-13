@@ -134,20 +134,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const senderId = user.id;
     const body = await req.json().catch(() => ({}));
     const { recipient_id, recipient_phone, amount, description, transfer_kind } = body as {
       recipient_id?: string;
@@ -156,6 +142,37 @@ Deno.serve(async (req) => {
       description?: string;
       transfer_kind?: string;
     };
+
+    // === Internal (server-to-server) path ===
+    // The scheduled auto-payout runner has no end-user JWT. It presents the
+    // service-role key and names the wallet owner it is acting for. Every
+    // gate below still runs exactly as for an interactive transfer.
+    const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const internalActorId = (body as { internal_actor_id?: string }).internal_actor_id;
+    const isInternal =
+      bearer === supabaseServiceKey &&
+      typeof internalActorId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(internalActorId);
+
+    let senderId: string;
+    if (isInternal) {
+      senderId = internalActorId!;
+    } else {
+      const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } }
+      });
+
+      const { data: { user }, error: userError } = await userClient.auth.getUser();
+      if (userError || !user) {
+        console.error('Auth error:', userError);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      senderId = user.id;
+    }
+
 
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
@@ -199,6 +216,46 @@ Deno.serve(async (req) => {
       }
       return new Response(
         JSON.stringify({ error: 'Invalid recipient' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // === Receiver eligibility gate ===
+    // One shared definition (check_transfer_recipient_eligibility): the
+    // receiver must have a live, non-frozen, non-deleted Welile account that
+    // is not the sender, and the item must be a real Welile item. Applies to
+    // manual sends and to automatic payouts alike.
+    try {
+      const { data: eligCheck, error: eligError } = await adminClient.rpc(
+        'check_transfer_recipient_eligibility' as never,
+        {
+          p_recipient_id: resolvedRecipientId,
+          // Item text is validated where it is chosen (transfer dialog and the
+          // automatic-payout RPC). Here we only gate on the receiver's account
+          // so long-standing internal callers with their own description text
+          // keep working.
+          p_item: null,
+          p_sender_id: senderId,
+        } as never,
+      );
+      const eligRow = (Array.isArray(eligCheck) ? eligCheck[0] : eligCheck) as
+        | { eligible?: boolean; reason?: string | null }
+        | null;
+      if (eligError) {
+        return new Response(
+          JSON.stringify({ error: 'Could not verify the receiver. Please try again.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (!eligRow?.eligible) {
+        return new Response(
+          JSON.stringify({ error: eligRow?.reason || 'This receiver cannot be paid' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (_e) {
+      return new Response(
+        JSON.stringify({ error: 'Could not verify the receiver. Please try again.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

@@ -63,6 +63,8 @@ import {
   type TenantLocationDashboardAgent,
 } from '@/hooks/useTenantLocationCorrections';
 import CorrectTenantLocationDialog from '@/components/location/CorrectTenantLocationDialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import UserLocationCorrectionsPanel from '@/components/tenant-ops/UserLocationCorrectionsPanel';
 
 const PAGE_SIZE = 25;
 
@@ -125,7 +127,7 @@ function AgentProgressList({
   );
 }
 
-export function TenantLocationCorrectionsHub() {
+function TenantCorrectionsPanel() {
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
@@ -773,6 +775,31 @@ export function TenantLocationCorrectionsHub() {
         onCorrected={() => setSelected(null)}
       />
     </div>
+  );
+}
+
+/**
+ * Two monitoring surfaces over the SAME correction system and the same approved
+ * Uganda dataset: tenants (unchanged) and all other authenticated system users.
+ */
+export function TenantLocationCorrectionsHub() {
+  return (
+    <Tabs defaultValue="tenants" className="space-y-4">
+      <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex">
+        <TabsTrigger value="tenants" className="text-xs sm:text-sm">
+          Tenant Location Corrections
+        </TabsTrigger>
+        <TabsTrigger value="users" className="text-xs sm:text-sm">
+          User Location Corrections
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="tenants" className="mt-0">
+        <TenantCorrectionsPanel />
+      </TabsContent>
+      <TabsContent value="users" className="mt-0">
+        <UserLocationCorrectionsPanel />
+      </TabsContent>
+    </Tabs>
   );
 }
 

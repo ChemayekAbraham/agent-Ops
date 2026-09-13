@@ -1,10 +1,11 @@
 import { useCallback, useMemo, Suspense } from 'react';
 import { useLocation, useNavigate, useSearchParams, Outlet } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, UserCheck } from 'lucide-react';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
 import { LandlordOpsTopBar } from '@/components/executive/landlord-ops/LandlordOpsTopBar';
 import { LandlordOpsSidebar } from '@/components/executive/landlord-ops/LandlordOpsSidebar';
 import { LandlordOpsDecisionDrawer } from '@/components/executive/landlord-ops/LandlordOpsDecisionDrawer';
+import { Button } from '@/components/ui/button';
 
 /**
  * Layout route for Landlord Ops.
@@ -75,7 +76,7 @@ export default function LandlordOpsPage() {
           />
         </aside>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 min-w-0">
+        <main className="flex-1 overflow-y-auto p-2.5 pb-24 sm:p-4 sm:pb-24 lg:p-6 min-w-0 overscroll-contain">
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-64">
@@ -86,6 +87,24 @@ export default function LandlordOpsPage() {
             <Outlet />
           </Suspense>
         </main>
+
+        <div className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[70] flex justify-center lg:hidden">
+          <Button
+            type="button"
+            size="lg"
+            className="pointer-events-auto w-full max-w-md justify-between rounded-xl border border-primary-foreground/20 px-4 shadow-xl"
+            onClick={() => handleNavigate('verify/landlords')}
+            aria-label={`Open landlord verification queue. ${pendingLandlords} pending`}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <UserCheck className="h-5 w-5 shrink-0" />
+              <span className="truncate">Landlord Verification Queue</span>
+            </span>
+            <span className="flex min-w-8 shrink-0 items-center justify-center rounded-full bg-primary-foreground px-2 py-0.5 text-xs font-bold text-primary">
+              {pendingLandlords > 999 ? '999+' : pendingLandlords}
+            </span>
+          </Button>
+        </div>
 
         {hasDecisionDrawer && (
           <LandlordOpsDecisionDrawer

@@ -5,11 +5,19 @@
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, X } from "lucide-react";
+import { Copy, Download, FileSpreadsheet, X } from "lucide-react";
+import { useState } from "react";
+import { useProfile } from "@/hooks/useProfile";
+import {
+  downloadTransferReceiptPdf,
+  downloadTransferReceiptXlsx,
+  type TransferReceiptData,
+} from "@/lib/transferReceiptExport";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatUGX } from "@/lib/rentCalculations";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   txCounterparty,
   txIcon,
@@ -52,7 +60,40 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
   const isIn = row?.direction === "cash_in";
   const tone = row ? txTone(row) : null;
   const Icon = row ? txIcon(row) : null;
+  // Person-to-person transfer: the person on the other side (photo + name).
+  const peer =
+    row && row.category === "wallet_transfer" && row.peer_name
+      ? { name: row.peer_name, avatar: row.peer_avatar_url ?? null }
+      : null;
 
+  const { profile } = useProfile();
+  const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
+
+  const me = profile?.full_name?.trim() || "Me";
+  const other = peer?.name ?? (row ? txCounterparty(row) : null) ?? "—";
+
+  const handleDownload = async (kind: "pdf" | "xlsx") => {
+    if (!row) return;
+    const data: TransferReceiptData = {
+      item: row.description?.trim() || txLabel(row),
+      amount: Number(row.amount),
+      date: new Date(row.transaction_date),
+      sender: isIn ? other : me,
+      receiver: isIn ? me : other,
+      reference: row.reference_id ?? row.id,
+      method: txMethodLabel(row),
+    };
+    setBusy(kind);
+    try {
+      if (kind === "pdf") await downloadTransferReceiptPdf(data);
+      else await downloadTransferReceiptXlsx(data);
+      toast.success("Receipt downloaded");
+    } catch {
+      toast.error("Could not prepare the receipt. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -69,14 +110,31 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
               >
                 <X className="h-4 w-4" />
               </button>
-              <div
-                className={cn(
-                  "flex h-16 w-16 items-center justify-center rounded-full",
-                  tone?.bubble,
-                )}
-              >
-                {Icon && <Icon className={cn("h-7 w-7", tone?.icon)} />}
-              </div>
+              {peer ? (
+                <UserAvatar
+                  avatarUrl={peer.avatar}
+                  fullName={peer.name}
+                  size="lg"
+                  className="h-16 w-16"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    "flex h-16 w-16 items-center justify-center rounded-full",
+                    tone?.bubble,
+                  )}
+                >
+                  {Icon && <Icon className={cn("h-7 w-7", tone?.icon)} />}
+                </div>
+              )}
+              {peer && (
+                <div className="mt-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {isIn ? "Received from" : "Sent to"}
+                  </p>
+                  <p className="text-base font-extrabold leading-tight text-foreground">{peer.name}</p>
+                </div>
+              )}
               <h2 className="mt-3 text-xl font-bold text-foreground">{txLabel(row)}</h2>
               <div className="mt-1 flex items-center gap-1.5">
                 <Badge
@@ -145,8 +203,8 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
                   </span>
                 </DetailRow>
               )}
-              <DetailRow label="Beneficiary / Source" last={!row.description}>
-                {txCounterparty(row) ?? "—"}
+              <DetailRow label={peer ? (isIn ? "Sender" : "Recipient") : "Beneficiary / Source"} last={!row.description}>
+                {peer?.name ?? txCounterparty(row) ?? "—"}
               </DetailRow>
               {row.description && (
                 <DetailRow label="Details" last>
@@ -157,8 +215,29 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
               )}
             </div>
 
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="h-12 rounded-2xl text-sm font-bold"
+                disabled={busy !== null}
+                onClick={() => handleDownload("pdf")}
+              >
+                <Download className="mr-1.5 h-4 w-4" />
+                {busy === "pdf" ? "Preparing…" : "PDF receipt"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 rounded-2xl text-sm font-bold"
+                disabled={busy !== null}
+                onClick={() => handleDownload("xlsx")}
+              >
+                <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+                {busy === "xlsx" ? "Preparing…" : "Excel receipt"}
+              </Button>
+            </div>
+
             <Button
-              className="mt-5 h-14 w-full rounded-2xl text-base font-bold"
+              className="mt-2 h-14 w-full rounded-2xl text-base font-bold"
               onClick={() => onOpenChange(false)}
             >
               Dismiss Receipt

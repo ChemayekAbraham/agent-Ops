@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,17 +8,53 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  ShieldQuestion, CheckCircle2, XCircle, Phone, Loader2, UserCircle,
+  ShieldQuestion, CheckCircle2, XCircle, Loader2, UserCircle,
   MapPin, Home, Banknote, Smartphone, Calendar, Search, Building2,
-  FilterX, Clock, RotateCcw, AlertTriangle, FileDown, BarChart3, Ban,
+  FilterX, Clock, RotateCcw, AlertTriangle, FileDown, BarChart3, Ban, X,
+  ChevronLeft, ChevronRight, ArrowLeftRight,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts';
 import { format as fmtDay, subDays } from 'date-fns';
 import { notifyVerificationResolved } from '@/lib/landlordVerificationNotify';
+import { CallButton } from './CallButton';
+import { useLandlordTenantsMap } from '@/hooks/useLandlordTenantsMap';
+
+/** Tap-to-call buttons for a landlord's tenants (empty when none recorded). */
+function TenantCallButtons({ tenants, fullWidth = false }: { tenants?: { name: string; phone: string }[]; fullWidth?: boolean }) {
+  if (!tenants?.length) return null;
+  return (
+    <>
+      {tenants.map((t) => (
+        <CallButton
+          key={t.phone}
+          phone={t.phone}
+          who={`tenant ${t.name}`}
+          className={fullWidth ? 'w-full min-[420px]:w-auto' : undefined}
+        />
+      ))}
+    </>
+  );
+}
+
+
 import { setLandlordVerification } from '@/lib/landlord-ops/verification';
 import { generateLandlordVerificationQueuePdf } from '@/lib/landlordVerificationQueuePdf';
+import {
+  LandlordVerificationGeoBrowser,
+  matchesGeoPath,
+  type GeoPath,
+  type GeoQueueRow,
+  type LandlordGeo,
+} from './LandlordVerificationGeoBrowser';
+
+/** Location columns read for the geographic navigator (district kept for the existing badge). */
+const GEO_COLS =
+  'id, country, region, district, county, sub_county, town_council, village, cell, latitude, longitude';
+
+/** Rows shown per page in the queue / history lists. */
+const PAGE_SIZE = 20;
 
 interface VerificationRequest {
   id: string;
@@ -146,6 +182,42 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   const [exporting, setExporting] = useState(false);
   const [fromDate, setFromDate] = useState<string>(() => fmtDay(subDays(new Date(), 29), 'yyyy-MM-dd'));
   const [toDate, setToDate] = useState<string>(() => fmtDay(new Date(), 'yyyy-MM-dd'));
+  // ── Geographic navigator (read-only grouping of the rows already loaded) ──
+  const [geoByLandlord, setGeoByLandlord] = useState<Record<string, LandlordGeo>>({});
+  const [geoPath, setGeoPath] = useState<GeoPath>({});
+  // Floating Pending ⇄ History quick toggle: shown once the header tabs have
+  // scrolled out of view so reviewers can switch lists without scrolling back.
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [tabsOutOfView, setTabsOutOfView] = useState(false);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setTabsOutOfView(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  const isHistoryView = tab === 'verified' || tab === 'rejected' || tab === 'cancelled' || tab === 'all';
+  const togglePendingHistory = useCallback(() => {
+    setTab((current) => (
+      current === 'verified' || current === 'rejected' || current === 'cancelled' || current === 'all'
+        ? 'pending'
+        : 'all'
+    ));
+  }, []);
+
+  /** Merge landlord location rows into the shared geo map (never overwrites with blanks). */
+  const mergeGeo = useCallback((locs: unknown) => {
+    const rows = (locs ?? []) as (LandlordGeo & { id: string })[];
+    if (!rows.length) return;
+    setGeoByLandlord(prev => {
+      const next = { ...prev };
+      for (const l of rows) next[l.id] = l;
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -160,8 +232,9 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       if (ids.length > 0) {
         const { data: locs } = await supabase
           .from('landlords')
-          .select('id, district')
+          .select(GEO_COLS)
           .in('id', ids);
+        mergeGeo(locs);
         setDistrictByLandlord(
           Object.fromEntries(
             ((locs ?? []) as { id: string; district: string | null }[]).map(l => [l.id, l.district || '']),
@@ -191,7 +264,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       }
     }
     setLoading(false);
-  }, []);
+  }, [mergeGeo]);
 
   /**
    * Decided requests (verified / rejected / cancelled) in the selected window.
@@ -214,7 +287,8 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       setDecided(rows);
       const ids = Array.from(new Set(rows.map((r) => r.landlord_id).filter(Boolean)));
       if (ids.length > 0) {
-        const { data: locs } = await supabase.from('landlords').select('id, district').in('id', ids);
+        const { data: locs } = await supabase.from('landlords').select(GEO_COLS).in('id', ids);
+        mergeGeo(locs);
         setDistrictByLandlordAll(
           Object.fromEntries(
             ((locs ?? []) as { id: string; district: string | null }[]).map((l) => [l.id, l.district || '']),
@@ -226,7 +300,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
     } finally {
       setDecidedLoading(false);
     }
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, mergeGeo]);
 
   useEffect(() => { void loadDecided(); }, [loadDecided]);
 
@@ -362,21 +436,70 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   };
 
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+
+  // Any filter change restarts pagination at the first page.
+  useEffect(() => {
+    setPage(0);
+  }, [search, tab, geoPath, onlyResubmitted, fromDate, toDate]);
+
+  /** Searchable location text for a landlord (approved-dataset columns). */
+  const geoText = useCallback(
+    (landlordId: string) => {
+      const g = geoByLandlord[landlordId];
+      if (!g) return '';
+      return [g.country, g.region, g.district, g.county, g.sub_county, g.town_council, g.village, g.cell]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+    },
+    [geoByLandlord],
+  );
+
+  /** Rows feeding the geographic navigator (pending + decided in range). */
+  const geoRows = useMemo<GeoQueueRow[]>(() => {
+    const toRow = (r: VerificationRequest, status: string): GeoQueueRow => ({
+      landlord_id: r.landlord_id,
+      landlord_name: r.landlord_name,
+      landlord_phone: r.landlord_phone,
+      agent_name: r.agent_name,
+      agent_phone: r.agent_phone,
+      status,
+      geo: geoByLandlord[r.landlord_id] ?? null,
+    });
+    const pending = requests.map((r) => toRow(r, 'pending'));
+    const done = decided
+      .filter((r) => tab === 'all' || tab === 'pending' || tab === 'resubmitted' ? true : r.status === tab)
+      .map((r) => toRow(r, r.status));
+    return tab === 'pending' || tab === 'resubmitted' ? pending : [...pending, ...done];
+  }, [requests, decided, geoByLandlord, tab]);
+
+  /** Does this request sit inside the chosen location path? */
+  const inGeo = useCallback(
+    (landlordId: string) =>
+      matchesGeoPath(
+        { landlord_id: landlordId, landlord_name: null, landlord_phone: null, agent_name: null, agent_phone: null, status: '', geo: geoByLandlord[landlordId] ?? null },
+        geoPath,
+      ),
+    [geoByLandlord, geoPath],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = (onlyResubmitted || tab === 'resubmitted')
+    const base = ((onlyResubmitted || tab === 'resubmitted')
       ? requests.filter((r) => !!priorByLandlord[r.landlord_id])
-      : requests;
+      : requests
+    ).filter((r) => inGeo(r.landlord_id));
     if (!q) return base;
     return base.filter((r) =>
       (r.landlord_name || '').toLowerCase().includes(q) ||
       (r.landlord_phone || '').toLowerCase().includes(q) ||
       (r.agent_name || '').toLowerCase().includes(q) ||
       (r.agent_phone || '').toLowerCase().includes(q) ||
-      (districtByLandlord[r.landlord_id] || '').toLowerCase().includes(q)
+      (districtByLandlord[r.landlord_id] || '').toLowerCase().includes(q) ||
+      geoText(r.landlord_id).includes(q)
     );
-  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab]);
+  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab, inGeo, geoText]);
 
   const resubmittedCount = useMemo(
     () => requests.filter((r) => !!priorByLandlord[r.landlord_id]).length,
@@ -386,18 +509,62 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   /** Decided rows matching the current search box (read-only tabs). */
   const decidedFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const byStatus = tab === 'all' || tab === 'pending' || tab === 'resubmitted'
+    const byStatus = (tab === 'all' || tab === 'pending' || tab === 'resubmitted'
       ? decided
-      : decided.filter((r) => r.status === tab);
+      : decided.filter((r) => r.status === tab)
+    ).filter((r) => inGeo(r.landlord_id));
     if (!q) return byStatus;
     return byStatus.filter((r) =>
       (r.landlord_name || '').toLowerCase().includes(q) ||
       (r.landlord_phone || '').toLowerCase().includes(q) ||
       (r.agent_name || '').toLowerCase().includes(q) ||
       (r.agent_phone || '').toLowerCase().includes(q) ||
-      (districtByLandlordAll[r.landlord_id] || '').toLowerCase().includes(q)
+      (districtByLandlordAll[r.landlord_id] || '').toLowerCase().includes(q) ||
+      geoText(r.landlord_id).includes(q)
     );
-  }, [decided, search, tab, districtByLandlordAll]);
+  }, [decided, search, tab, districtByLandlordAll, inGeo, geoText]);
+
+  // ---- Pagination: one page index shared by the visible list, PAGE_SIZE rows per page ----
+  const isPendingList = tab === 'pending' || tab === 'resubmitted' || tab === 'all';
+  const activeRows = isPendingList ? filtered : decidedFiltered;
+  const pageCount = Math.max(1, Math.ceil(activeRows.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedFiltered = useMemo(
+    () => filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [filtered, safePage],
+  );
+  const pagedDecided = useMemo(
+    () => decidedFiltered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [decidedFiltered, safePage],
+  );
+
+  /** Tenants (name + phone) per landlord in the loaded queue, for tap-to-call. */
+  const queueLandlordIds = useMemo(
+    () => [...requests, ...decided].map((r) => r.landlord_id).filter(Boolean),
+    [requests, decided],
+  );
+  const { data: tenantsByLandlord } = useLandlordTenantsMap(queueLandlordIds);
+
+  /**
+   * Sticky bottom call bar focus: the request whose details are open, else the
+   * landlord picked in the location browser, else the first row on the current
+   * page — so the call buttons follow the operator through the queue.
+   */
+  const [callBarDismissedFor, setCallBarDismissedFor] = useState<string | null>(null);
+  const callFocus = useMemo(() => {
+    const all = [...requests, ...decided];
+    if (expandedId) {
+      const hit = all.find((r) => r.id === expandedId);
+      if (hit) return hit;
+    }
+    if (geoPath.landlordId) {
+      const hit = all.find((r) => r.landlord_id === geoPath.landlordId);
+      if (hit) return hit;
+    }
+    const pageRows = isPendingList ? pagedFiltered : pagedDecided;
+    return pageRows[0] ?? null;
+  }, [expandedId, geoPath.landlordId, requests, decided, isPendingList, pagedFiltered, pagedDecided]);
+  const showCallBar = !!callFocus && callBarDismissedFor !== callFocus.id;
 
   const tabCounts = useMemo(() => ({
     pending: requests.length,
@@ -482,9 +649,9 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   if (loading || (requests.length === 0 && decided.length === 0)) return null;
 
   return (
-    <div className="rounded-2xl border border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20 shadow-sm overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-amber-500/40 bg-amber-50/40 shadow-sm dark:bg-amber-950/20 sm:rounded-2xl">
       {/* Header — always visible, never collapsible */}
-      <div className="p-4 border-b border-amber-500/20 bg-amber-500/10">
+      <div ref={headerRef} className="border-b border-amber-500/20 bg-amber-500/10 p-3 sm:p-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <div className="p-2 rounded-xl bg-amber-500/15">
@@ -506,24 +673,27 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search landlord, agent or district…"
-              className="pl-8 h-8 text-xs bg-background/80"
+              className="h-11 bg-background/80 pl-9 pr-10 text-sm sm:h-9 sm:text-xs"
             />
             {search && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear queue search"
+                className="absolute right-0 top-0 h-11 w-11 text-muted-foreground sm:h-9 sm:w-9"
               >
-                <FilterX className="h-3 w-3" />
-              </button>
+                <FilterX className="h-4 w-4" />
+              </Button>
             )}
           </div>
         </div>
         {/* Tabs — pending, resubmitted and the read-only decision history */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as QueueTab)} className="mt-3">
-          <TabsList className="h-auto flex-wrap justify-start gap-1 bg-background/70 p-1">
+          <TabsList className="grid h-auto grid-cols-2 gap-1 bg-background/70 p-1 sm:flex sm:flex-wrap sm:justify-start">
             {(['pending', 'resubmitted', 'verified', 'rejected', 'cancelled', 'all'] as QueueTab[]).map((t) => (
-              <TabsTrigger key={t} value={t} className="h-7 text-[11px] px-2.5 gap-1.5">
+              <TabsTrigger key={t} value={t} className="min-h-11 gap-1.5 px-2.5 text-xs sm:min-h-8 sm:text-[11px]">
                 {TAB_LABEL[t]}
                 <Badge variant="secondary" className="h-4 px-1 text-[9px]">{tabCounts[t]}</Badge>
               </TabsTrigger>
@@ -531,20 +701,25 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
           </TabsList>
         </Tabs>
 
+        {/* Location navigator: Country -> Region -> District -> County -> Sub-county -> Village/Cell -> landlord */}
+        <div className="mt-2.5">
+          <LandlordVerificationGeoBrowser rows={geoRows} path={geoPath} onChange={setGeoPath} tenantsByLandlord={tenantsByLandlord} />
+        </div>
+
         {/* Date range + export */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5">
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 sm:flex">
             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <Input type="date" value={fromDate} max={toDate} onChange={(e) => setFromDate(e.target.value)} className="h-7 w-[135px] text-[11px] bg-background/80" />
+            <Input type="date" value={fromDate} max={toDate} onChange={(e) => setFromDate(e.target.value)} className="h-11 min-w-0 bg-background/80 px-2 text-xs sm:h-8 sm:w-[135px]" />
             <span className="text-[11px] text-muted-foreground">to</span>
-            <Input type="date" value={toDate} min={fromDate} onChange={(e) => setToDate(e.target.value)} className="h-7 w-[135px] text-[11px] bg-background/80" />
+            <Input type="date" value={toDate} min={fromDate} onChange={(e) => setToDate(e.target.value)} className="h-11 min-w-0 bg-background/80 px-2 text-xs sm:h-8 sm:w-[135px]" />
           </div>
           {([['7d', 6], ['30d', 29], ['90d', 89]] as [string, number][]).map(([label, days]) => (
             <Button
               key={label}
               size="sm"
               variant="outline"
-              className="h-7 text-[10px] px-2"
+              className="h-11 text-xs sm:h-8 sm:text-[10px]"
               onClick={() => {
                 setFromDate(fmtDay(subDays(new Date(), days), 'yyyy-MM-dd'));
                 setToDate(fmtDay(new Date(), 'yyyy-MM-dd'));
@@ -553,11 +728,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               Last {label}
             </Button>
           ))}
-          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5" onClick={() => setShowChart((v) => !v)}>
+          <Button size="sm" variant="outline" className="h-11 gap-1.5 text-xs sm:h-8 sm:text-[10px]" onClick={() => setShowChart((v) => !v)}>
             <BarChart3 className="h-3 w-3" />
             {showChart ? 'Hide chart' : 'Show chart'}
           </Button>
-          <Button size="sm" className="h-7 text-[10px] gap-1.5 ml-auto" disabled={exporting} onClick={handleExportPdf}>
+          <Button size="sm" className="h-11 gap-1.5 text-xs sm:ml-auto sm:h-8 sm:text-[10px]" disabled={exporting} onClick={handleExportPdf}>
             {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
             Export PDF
           </Button>
@@ -604,20 +779,20 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       </div>
 
       {/* Proper list — not nested in a collapsible */}
-      <div className="p-3 space-y-2">
+      <div className="space-y-2 p-2.5 sm:p-3">
         {(tab === 'verified' || tab === 'rejected' || tab === 'cancelled') ? null : filtered.length === 0 ? (
           <div className="text-center py-6 text-xs text-muted-foreground">
             No requests match “{search}”.
           </div>
         ) : (
-          filtered.map((req) => (
+          pagedFiltered.map((req) => (
             <div
               key={req.id}
-              className="rounded-xl border border-amber-500/30 bg-background p-3 space-y-3 hover:border-amber-500/60 transition-colors"
+              className="space-y-3 rounded-lg border border-amber-500/30 bg-background p-3 transition-colors hover:border-amber-500/60 sm:rounded-xl"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className="font-bold text-sm text-foreground truncate">
                       {req.landlord_name || 'Unnamed landlord'}
                     </p>
@@ -640,10 +815,12 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                       </Badge>
                     )}
                   </div>
-                  {req.landlord_phone && (
-                    <a href={`tel:${req.landlord_phone}`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 truncate mt-0.5">
-                      <Phone className="h-3 w-3 shrink-0" /> {req.landlord_phone}
-                    </a>
+                  {(req.landlord_phone || req.agent_phone || tenantsByLandlord?.[req.landlord_id]?.length) && (
+                    <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row">
+                      <CallButton phone={req.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
+                      <CallButton phone={req.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
+                      <TenantCallButtons tenants={tenantsByLandlord?.[req.landlord_id]} fullWidth />
+                    </div>
                   )}
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1 truncate">
                     <UserCircle className="h-3.5 w-3.5 shrink-0" />
@@ -676,7 +853,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               <Button
                 size="sm"
                 variant={expandedId === req.id ? 'secondary' : 'default'}
-                className="w-full"
+                className="h-11 w-full"
                 onClick={() => openDetails(req)}
               >
                 <Search className="h-3.5 w-3.5 mr-1" />
@@ -759,14 +936,12 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                       </p>
                       <p className="text-xs font-medium text-foreground">{req.agent_name || 'Unknown agent'}</p>
                       {req.agent_phone && (
-                        <a href={`tel:${req.agent_phone}`} className="text-[11px] font-medium text-sky-600 hover:underline inline-flex items-center gap-1">
-                          <Phone className="h-3 w-3" /> {req.agent_phone}
-                        </a>
+                        <CallButton phone={req.agent_phone} who="agent" />
                       )}
                     </div>
 
                     {/* Finance & contact metadata */}
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-1 border-t border-amber-500/20">
+                          <div className="grid grid-cols-1 gap-x-3 gap-y-2 border-t border-amber-500/20 pt-2 min-[420px]:grid-cols-2">
                       <div>
                         <p className="text-[9px] uppercase tracking-wide text-muted-foreground flex items-center gap-1"><Banknote className="h-3 w-3" /> Monthly rent</p>
                         <p className="text-[11px] font-medium">{fmtUgx(d?.monthly_rent)}</p>
@@ -810,7 +985,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                           placeholder="Add a comment explaining why this landlord is rejected (min 10 characters)…"
                           className="min-h-[64px] text-sm"
                         />
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 min-[420px]:flex-row">
                           <Button size="sm" variant="destructive" className="flex-1" disabled={busyId === req.id} onClick={() => handleReject(req)}>
                             {busyId === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
                             Confirm reject
@@ -833,7 +1008,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                             className="min-h-[56px] text-sm"
                           />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 min-[420px]:flex-row">
                         <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" disabled={busyId === req.id} onClick={() => handleVerify(req)}>
                           {busyId === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
                           Verify landlord
@@ -863,7 +1038,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               No {TAB_LABEL[tab].toLowerCase()} requests in this date range.
             </div>
           ) : (
-            decidedFiltered.map((r) => (
+            pagedDecided.map((r) => (
               <div key={r.id} className="rounded-xl border border-border bg-background p-3 space-y-1.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -891,10 +1066,12 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                         </Badge>
                       )}
                     </div>
-                    {r.landlord_phone && (
-                      <a href={`tel:${r.landlord_phone}`} className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 mt-0.5">
-                        <Phone className="h-3 w-3" /> {r.landlord_phone}
-                      </a>
+                    {(r.landlord_phone || r.agent_phone || tenantsByLandlord?.[r.landlord_id]?.length) && (
+                      <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row min-[420px]:flex-wrap">
+                        <CallButton phone={r.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
+                        <CallButton phone={r.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
+                        <TenantCallButtons tenants={tenantsByLandlord?.[r.landlord_id]} fullWidth />
+                      </div>
                     )}
                     <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 flex-wrap">
                       <UserCircle className="h-3.5 w-3.5" />
@@ -916,7 +1093,90 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
             ))
           )
         )}
+
+        {/* Pagination */}
+        {activeRows.length > PAGE_SIZE && (
+          <div className="mt-2 flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[11px] text-muted-foreground">
+              Showing {safePage * PAGE_SIZE + 1}–{Math.min(activeRows.length, safePage * PAGE_SIZE + PAGE_SIZE)} of {activeRows.length}
+            </p>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-11 gap-1 text-xs sm:h-8 sm:text-[11px]"
+                disabled={safePage === 0}
+                onClick={() => setPage(safePage - 1)}
+              >
+                <ChevronLeft className="h-3 w-3" />
+                Prev
+              </Button>
+              <span className="text-[11px] text-muted-foreground px-1">
+                Page {safePage + 1} of {pageCount}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-11 gap-1 text-xs sm:h-8 sm:text-[11px]"
+                disabled={safePage >= pageCount - 1}
+                onClick={() => setPage(safePage + 1)}
+              >
+                Next
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Sticky bottom call bar — follows the focused queue record so landlord,
+          agent and tenant numbers stay one tap away while scrolling or with
+          the details open. Sits above the page-level queue shortcut on phones. */}
+      {showCallBar && callFocus && (
+        <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-[65] lg:bottom-4">
+          <div className="mx-auto w-full max-w-2xl rounded-xl border border-emerald-600/40 bg-background/95 p-2.5 shadow-xl backdrop-blur">
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-foreground">
+                Call about <span className="text-emerald-700 dark:text-emerald-300">{callFocus.landlord_name || 'Unnamed landlord'}</span>
+              </p>
+              <button
+                type="button"
+                onClick={() => setCallBarDismissedFor(callFocus.id)}
+                aria-label="Hide call bar"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-1.5 flex items-stretch gap-2 overflow-x-auto pb-0.5">
+              <CallButton phone={callFocus.landlord_phone} who="landlord" className="shrink-0" />
+              <CallButton phone={callFocus.agent_phone} who="agent" className="shrink-0" />
+              {(tenantsByLandlord?.[callFocus.landlord_id] ?? []).map((t) => (
+                <CallButton key={t.phone} phone={t.phone} who={`tenant ${t.name}`} className="shrink-0" />
+              ))}
+              {!callFocus.landlord_phone && !callFocus.agent_phone && !(tenantsByLandlord?.[callFocus.landlord_id]?.length) && (
+                <p className="py-2 text-[11px] text-muted-foreground">No phone numbers recorded for this record yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating quick toggle — Pending ⇄ Full history, once the header tabs scroll away */}
+      {tabsOutOfView && (
+        <div className={`pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4 ${showCallBar ? 'bottom-[11.5rem] sm:bottom-24' : 'bottom-24 sm:bottom-6'}`}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={togglePendingHistory}
+            className="pointer-events-auto h-11 gap-2 rounded-full bg-amber-600 px-5 text-xs font-semibold text-white shadow-lg shadow-amber-900/30 hover:bg-amber-700"
+            aria-label={isHistoryView ? 'Switch to pending verifications' : 'Switch to full history'}
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            {isHistoryView ? `Pending (${tabCounts.pending})` : `Full history (${tabCounts.all})`}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

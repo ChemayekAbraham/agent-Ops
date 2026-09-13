@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Calendar as CalendarIcon, Settings, ChevronDown, X, Menu } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, Settings, ChevronDown, X, Menu, Type } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { useFontSize, type FontSize } from '@/hooks/useFontSize';
+import WelileLogo from '@/components/WelileLogo';
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { LandlordOpsSidebar } from './LandlordOpsSidebar';
 import { searchLandlordOpsNav } from './landlordOpsNav';
@@ -19,6 +22,11 @@ interface TopBarProps {
 }
 
 const KAMPALA = 'Africa/Kampala';
+const MOBILE_FONT_SIZE_OPTIONS: { value: FontSize; label: string }[] = [
+  { value: 'small', label: 'Small' },
+  { value: 'large', label: 'Default' },
+  { value: 'extra-large', label: 'Large' },
+];
 
 function formatKampalaDate(d: Date) {
   return d.toLocaleDateString('en-GB', {
@@ -41,6 +49,7 @@ function formatKampalaTime(d: Date) {
 export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProps) {
   const navigate = useNavigate();
   const { user, role } = useAuth();
+  const { fontSize, setFontSize } = useFontSize();
   const [searchQuery, setSearchQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -88,19 +97,19 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
   };
 
   return (
-    <header className="border-b border-border bg-card px-3 py-2 sm:px-4 lg:px-6 sticky top-0 z-30 shadow-xs">
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+    <header className="border-b border-border bg-card px-2.5 py-2 sm:px-4 lg:px-6 sticky top-0 z-30 shadow-xs">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
         {/* Left: Mobile Trigger + Logo & Title */}
         <div className="flex min-w-0 items-center gap-2">
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 lg:hidden" aria-label="Open menu">
-                <Menu className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-11 w-11 lg:hidden" aria-label="Open menu">
+                <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
-              <div className="p-4 border-b border-border flex items-center gap-2">
-                <span className="font-black text-base tracking-tight text-[#0FA958]">WELILE</span>
+            <div className="p-4 border-b border-border flex items-center gap-2">
+                <WelileLogo showText size="sm" linkToHome={false} />
                 <span className="text-xs font-bold text-foreground">Landlord Operations</span>
               </div>
               <LandlordOpsSidebar
@@ -120,8 +129,9 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
             className="flex min-w-0 items-center gap-2"
             onClick={() => onNavigate('')}
           >
-            <span className="font-black text-base lg:text-lg tracking-tight text-[#0FA958]">WELILE</span>
-            <span className="hidden truncate text-xs font-bold text-foreground pl-1 border-l border-border sm:inline lg:text-sm">
+            <span className="hidden min-[360px]:inline-flex"><WelileLogo showText size="sm" linkToHome={false} /></span>
+            <span className="min-[360px]:hidden"><WelileLogo size="sm" linkToHome={false} /></span>
+            <span className="hidden truncate text-xs font-bold text-foreground pl-2 border-l border-border sm:inline lg:text-sm">
               Landlord Operations
             </span>
           </button>
@@ -139,7 +149,7 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
             }}
             placeholder="Search sections…"
             aria-label="Search Landlord Ops sections"
-            className="h-9 pl-8 pr-7 text-xs bg-muted/30 border-border rounded-lg"
+            className="h-11 pl-9 pr-9 text-sm bg-muted/30 border-border rounded-lg sm:h-9 sm:text-xs"
           />
           {searchQuery && (
             <button
@@ -209,10 +219,39 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
 
           {user?.id && <AgentNotificationBell userId={user.id} />}
 
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9"
+                aria-label={`Text size: ${fontSize.replace('-', ' ')}`}
+              >
+                <Type className="h-5 w-5 sm:h-4 sm:w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-60 p-3">
+              <p className="mb-2 text-sm font-semibold">Text size</p>
+              <div className="grid grid-cols-3 gap-2">
+                {MOBILE_FONT_SIZE_OPTIONS.map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={fontSize === option.value ? 'default' : 'outline'}
+                    className="h-12 px-2"
+                    onClick={() => setFontSize(option.value as FontSize)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+            className="h-11 w-11 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9"
             aria-label="Settings"
             onClick={() => navigate('/settings')}
           >
@@ -222,7 +261,7 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
           <button
             type="button"
             onClick={() => navigate('/settings')}
-            className="flex items-center gap-2 pl-1 sm:pl-2 border-l border-border group"
+            className="hidden items-center gap-2 pl-1 border-l border-border group sm:flex sm:pl-2"
           >
             <div className="h-7 w-7 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px]">
               {initials || 'U'}

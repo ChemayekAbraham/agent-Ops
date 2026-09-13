@@ -43169,6 +43169,143 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_transfer_schedule_config: {
+        Row: {
+          auto_approval_cap: number
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_approval_cap?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_approval_cap?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      wallet_transfer_schedule_locks: {
+        Row: {
+          leased_until: string
+          name: string
+        }
+        Insert: {
+          leased_until: string
+          name: string
+        }
+        Update: {
+          leased_until?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      wallet_transfer_schedule_runs: {
+        Row: {
+          amount: number
+          error_text: string | null
+          id: string
+          ran_at: string
+          run_key: string
+          schedule_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          error_text?: string | null
+          id?: string
+          ran_at?: string
+          run_key: string
+          schedule_id: string
+          status: string
+        }
+        Update: {
+          amount?: number
+          error_text?: string | null
+          id?: string
+          ran_at?: string
+          run_key?: string
+          schedule_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transfer_schedule_runs_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transfer_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_transfer_schedules: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          consecutive_failures: number
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          description: string | null
+          frequency: string
+          id: string
+          last_error: string | null
+          last_run_at: string | null
+          next_run_at: string | null
+          recipient_id: string
+          runs_completed: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          consecutive_failures?: number
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          description?: string | null
+          frequency: string
+          id?: string
+          last_error?: string | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          recipient_id: string
+          runs_completed?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          consecutive_failures?: number
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          description?: string | null
+          frequency?: string
+          id?: string
+          last_error?: string | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          recipient_id?: string
+          runs_completed?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallet_unrouted_movements: {
         Row: {
           amount: number
@@ -49350,6 +49487,35 @@ export type Database = {
             }
             Returns: Json
           }
+      approve_wallet_transfer_schedule: {
+        Args: { p_approve: boolean; p_reason: string; p_schedule_id: string }
+        Returns: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          consecutive_failures: number
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          description: string | null
+          frequency: string
+          id: string
+          last_error: string | null
+          last_run_at: string | null
+          next_run_at: string | null
+          recipient_id: string
+          runs_completed: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_transfer_schedules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       archive_dead_letter_batch: {
         Args: { _dead_letter_id: number }
         Returns: undefined
@@ -50363,6 +50529,15 @@ export type Database = {
           id: string
         }[]
       }
+      check_transfer_recipient_eligibility: {
+        Args: { p_item?: string; p_recipient_id: string; p_sender_id?: string }
+        Returns: {
+          display_name: string
+          eligible: boolean
+          has_wallet: boolean
+          reason: string
+        }[]
+      }
       claim_deposit_bridge_events: {
         Args: { p_batch_size?: number; p_worker_id: string }
         Returns: {
@@ -50741,6 +50916,42 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      create_wallet_transfer_schedule: {
+        Args: {
+          p_amount: number
+          p_day_of_month?: number
+          p_day_of_week?: number
+          p_description?: string
+          p_frequency: string
+          p_recipient_id: string
+        }
+        Returns: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          consecutive_failures: number
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          description: string | null
+          frequency: string
+          id: string
+          last_error: string | null
+          last_run_at: string | null
+          next_run_at: string | null
+          recipient_id: string
+          runs_completed: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_transfer_schedules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       credit_agent_event_bonus: {
         Args: {
@@ -54430,6 +54641,23 @@ export type Database = {
               ward: string
             }[]
           }
+      get_transfer_peers: {
+        Args: { p_reference_ids: string[] }
+        Returns: {
+          peer_avatar_url: string
+          peer_name: string
+          peer_user_id: string
+          reference_id: string
+        }[]
+      }
+      get_transfer_peers_by_ids: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          peer_avatar_url: string
+          peer_name: string
+          peer_user_id: string
+        }[]
+      }
       get_treasury_cash_position: { Args: { p_as_at?: string }; Returns: Json }
       get_treasury_cash_transactions: {
         Args: {
@@ -55817,6 +56045,7 @@ export type Database = {
         }
         Returns: number
       }
+      my_location_correction_status: { Args: never; Returns: Json }
       my_partner_lead_agents: {
         Args: never
         Returns: {
@@ -58343,6 +58572,35 @@ export type Database = {
         Args: { p_source?: string; p_status: string; p_tenant_id: string }
         Returns: Json
       }
+      set_wallet_transfer_schedule_state: {
+        Args: { p_schedule_id: string; p_state: string }
+        Returns: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          consecutive_failures: number
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          description: string | null
+          frequency: string
+          id: string
+          last_error: string | null
+          last_run_at: string | null
+          next_run_at: string | null
+          recipient_id: string
+          runs_completed: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_transfer_schedules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_withdrawal_account: {
         Args: { p_name: string; p_number: string; p_provider: string }
         Returns: Json
@@ -58971,6 +59229,34 @@ export type Database = {
         Args: { _landlord_id: string; _user_id: string }
         Returns: boolean
       }
+      user_location_correction_progress: { Args: never; Returns: Json }
+      user_location_corrections: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          approved_path: string
+          corrected_at: string
+          corrected_by: string
+          corrected_by_name: string
+          correction_status: string
+          full_name: string
+          is_tenant: boolean
+          legacy_district: string
+          legacy_parish: string
+          legacy_region: string
+          legacy_sub_county: string
+          legacy_village: string
+          phone: string
+          roles: string[]
+          total_count: number
+          ug_village_id: number
+          user_id: string
+        }[]
+      }
       user_wallet_strict: {
         Args: { p_user_id: string }
         Returns: {
@@ -59084,6 +59370,15 @@ export type Database = {
           user_id: string
           withdrawable: number
         }[]
+      }
+      wallet_transfer_schedule_next_run: {
+        Args: {
+          _day_of_month: number
+          _day_of_week: number
+          _frequency: string
+          _from: string
+        }
+        Returns: string
       }
       welile_agent_vouch_max_ugx: { Args: never; Returns: number }
       welile_agent_vouch_min_ugx: { Args: never; Returns: number }
@@ -59379,6 +59674,7 @@ export type Database = {
         Args: { p_amount: number }
         Returns: number
       }
+      welile_transfer_items: { Args: never; Returns: string[] }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json

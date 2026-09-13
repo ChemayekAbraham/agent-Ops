@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Home,
   User,
+  UserCheck,
   Users,
+
   FileText,
   ChevronRight,
   Wallet,
@@ -35,6 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useLandlordOpsTotals } from '@/hooks/useLandlordOps';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
+import { useLandlordFloatOverview } from '@/hooks/useLandlordFloatOverview';
 import {
   useLandlordOpsActivity,
   useLandlordOpsRecentDecisions,
@@ -63,6 +66,8 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
     isLoading: countsLoading,
     errors: countErrors,
   } = useLandlordOpsBadgeCounts();
+  const { data: floatOverview } = useLandlordFloatOverview();
+  const floatWithAgents = floatOverview?.with_agents?.summary?.amount ?? null;
 
   // 'Today' | 'Last 7 days' | 'Last 30 days' — drives the activity chart and the
   // decision mix beside it, so the two always describe the same window.
@@ -146,20 +151,94 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
   };
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in-50 duration-200">
+    <div className="space-y-4 pb-10 sm:space-y-6 sm:pb-12 animate-in fade-in-50 duration-200">
       {/* Header */}
       <div>
         <p className="text-xs text-muted-foreground font-medium">Landlord Ops / Today</p>
-        <h1 className="text-2xl font-extrabold tracking-tight text-foreground mt-0.5">
+        <h1 className="text-xl font-extrabold tracking-tight text-foreground mt-0.5 sm:text-2xl">
           Today's Landlord Operations
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
           Work the queues. Every verification decision carries a wallet consequence.
         </p>
+        </div>
+
+      {/* Landlord Verification Queue — primary action */}
+      <div
+        onClick={() => onNavigate('verify/landlords')}
+        className="rounded-lg border border-primary/20 bg-primary p-4 text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer group sm:p-5"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 rounded-lg bg-primary-foreground/10 sm:p-3">
+              <UserCheck className="h-7 w-7" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold">Landlord Verification Queue</h2>
+              <p className="text-sm text-primary-foreground/80">
+                Review and verify landlords waiting for approval
+              </p>
+            </div>
+          </div>
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:gap-4">
+            <div className="text-left sm:text-right">
+              <p className="text-3xl font-black tabular-nums">
+                {num(pendingLandlords, countErrors.landlords)}
+              </p>
+              <p className="text-xs text-primary-foreground/80 font-medium">
+                awaiting verification
+              </p>
+            </div>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate('verify/landlords');
+              }}
+              className="h-12 flex-1 bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-bold text-sm px-5 rounded-lg shadow-sm sm:h-11 sm:flex-none"
+            >
+              Review now <ArrowRight className="h-4 w-4 ml-1.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Landlord Float — primary register entry point */}
+
+      <div
+        onClick={() => onNavigate('registers/landlord-float')}
+        className="p-4 rounded-lg border border-border bg-card hover:border-primary/60 hover:shadow-sm transition-all cursor-pointer group"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Landlord Float</h2>
+              <p className="text-xs text-muted-foreground">View float held, needed, and collected by geography</p>
+            </div>
+          </div>
+          <div className="flex flex-col items-stretch gap-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between sm:justify-end sm:gap-3">
+            {floatWithAgents !== null && (
+              <span className="text-sm font-semibold text-foreground tabular-nums">
+                {formatUGX(floatWithAgents)} with agents
+              </span>
+            )}
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate('registers/landlord-float');
+              }}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs h-11 rounded-lg sm:h-9"
+            >
+              Open register <ArrowRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Top Grid: Needs Attention & Wallet Impact */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4">
         {/* Needs Attention Column (3 cols on XL) */}
         <div className="xl:col-span-3 space-y-2.5">
           <div className="flex items-center justify-between">

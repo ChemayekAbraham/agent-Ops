@@ -46,6 +46,41 @@ export type TxServiceFilter =
   | "returns";
 export type TxMethodFilter = "all" | "mobile_money" | "p2p" | "bank";
 
+/**
+ * Welile items — the fixed list a sender picks from on the transfer screen
+ * (mirrors public.welile_transfer_items() server side). An item transfer is a
+ * `wallet_transfer` ledger row whose description carries the item name, so the
+ * item filter is a category + description match, never a new column.
+ */
+export const WELILE_ITEMS = [
+  "Welile Rent",
+  "Welile Bread",
+  "Welile Chapati",
+  "Welile Eggs",
+  "Welile Fuel",
+  "Welile Reward",
+  "Welile Boda fees",
+  "Welile tax",
+] as const;
+
+export type WelileItem = (typeof WELILE_ITEMS)[number];
+export type TxItemFilter = "all" | WelileItem;
+
+export const TX_ITEM_OPTIONS: { value: TxItemFilter; label: string }[] = [
+  { value: "all", label: "All items" },
+  ...WELILE_ITEMS.map((i) => ({ value: i as TxItemFilter, label: i })),
+];
+
+/** The Welile item an entry represents, or null when it isn't an item transfer. */
+export function welileItemOf(row: {
+  category: string;
+  description: string | null;
+}): WelileItem | null {
+  if (row.category !== "wallet_transfer") return null;
+  const haystack = (row.description ?? "").toLowerCase();
+  return WELILE_ITEMS.find((i) => haystack.includes(i.toLowerCase())) ?? null;
+}
+
 export interface TxFeedRow {
   id: string;
   transaction_date: string;
@@ -65,6 +100,14 @@ export interface TxFeedRow {
    * callers merge onto rows by `id` before rendering).
    */
   balanceAfter?: number | null;
+  /**
+   * For wallet_transfer rows: the person on the other side of the transfer
+   * (the sender for a received item, the receiver for a sent one). Resolved
+   * via the get_transfer_peers RPC, which only ever exposes the counterparty
+   * of a transfer the caller personally took part in.
+   */
+  peer_name?: string | null;
+  peer_avatar_url?: string | null;
 }
 
 export const TX_DATE_OPTIONS: { value: TxDateFilter; label: string }[] = [
@@ -273,6 +316,54 @@ export interface TxFeedFilters {
   date: TxDateFilter;
   service: TxServiceFilter;
   method: TxMethodFilter;
+  /** Welile item (Rent, Bread, …). Optional — defaults to every item. */
+  item?: TxItemFilter;
+}
+
+export interface WelileItemTotal {
+  item: WelileItem;
+  inAmount: number;
+  outAmount: number;
+  count: number;
+}
+
+/**
+ * Per-item money-in / money-out totals for the dashboard + statement summary.
+ * One query over the caller's own wallet transfers (same visibility filters as
+ * the feed), aggregated client side — no per-item round trip.
+ */
+export async function fetchWelileItemTotals(
+  userId: string,
+  date: TxDateFilter = "all",
+): Promise<WelileItemTotal[]> {
+  let query = applyCustomerWalletLedgerFilters(
+    supabase
+      .from("general_ledger")
+      .select("id, transaction_date, amount, direction, category, description, reference_id, linked_party, source_table, source_id, classification")
+      .eq("user_id", userId)
+      .eq("category", "wallet_transfer")
+      .in("ledger_scope", ["wallet", "bridge"]),
+  ).order("transaction_date", { ascending: false });
+
+  const floor = dateFloor(date);
+  if (floor) query = query.gte("transaction_date", floor);
+
+  const { data, error } = await query.limit(1000);
+  if (error) throw error;
+
+  const rows = ((data ?? []) as TxFeedRow[]).filter(isCustomerWalletLedgerEntryVisible);
+  const totals = new Map<WelileItem, WelileItemTotal>(
+    WELILE_ITEMS.map((i) => [i, { item: i, inAmount: 0, outAmount: 0, count: 0 }]),
+  );
+  for (const row of rows) {
+    const item = welileItemOf(row);
+    if (!item) continue;
+    const bucket = totals.get(item)!;
+    bucket.count += 1;
+    if (row.direction === "cash_in") bucket.inAmount += Number(row.amount);
+    else bucket.outAmount += Number(row.amount);
+  }
+  return [...totals.values()];
 }
 
 /**
@@ -309,6 +400,12 @@ export async function fetchTxFeedPage(
     if (or) query = query.or(or);
   }
 
+  // Welile item: item transfers are wallet_transfer rows carrying the item name
+  // in the description (set by the transfer edge function on both legs).
+  if (filters.item && filters.item !== "all") {
+    query = query.eq("category", "wallet_transfer").ilike("description", `%${filters.item}%`);
+  }
+
   if (cursor) query = query.lt("transaction_date", cursor);
 
   // One extra row acts as the "is there more?" probe — no count() scan.
@@ -320,6 +417,36 @@ export async function fetchTxFeedPage(
   const pageRows = fetched.slice(0, TX_PAGE_SIZE);
   const rows = pageRows.filter(isCustomerWalletLedgerEntryVisible);
   const last = pageRows[pageRows.length - 1];
+
+  // Enrich person-to-person transfers with the counterparty's name + photo so
+  // the receiver sees WHO sent each item. Best-effort: the feed still renders
+  // (name-only via linked_party) if the lookup fails.
+  const transferRefs = [
+    ...new Set(
+      rows
+        .filter((r) => r.category === "wallet_transfer" && r.reference_id)
+        .map((r) => r.reference_id as string),
+    ),
+  ];
+  if (transferRefs.length > 0) {
+    try {
+      const { data: peers } = await (supabase.rpc as any)("get_transfer_peers", {
+        p_reference_ids: transferRefs,
+      });
+      const byRef = new Map<string, { peer_name: string; peer_avatar_url: string | null }>(
+        ((peers ?? []) as any[]).map((p) => [p.reference_id as string, p]),
+      );
+      for (const r of rows) {
+        const peer = r.reference_id ? byRef.get(r.reference_id) : undefined;
+        if (peer) {
+          r.peer_name = peer.peer_name;
+          r.peer_avatar_url = peer.peer_avatar_url;
+        }
+      }
+    } catch (e) {
+      console.warn("[tx-feed] transfer peer lookup failed:", e);
+    }
+  }
 
   return { rows, nextCursor: hasMore && last ? last.transaction_date : null };
 }
