@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, ChevronRight, MapPin, Navigation, Phone, UserCircle, Globe, Search, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, MapPin, Navigation, Phone, UserCircle, Globe, Search, X, Copy, Check } from 'lucide-react';
 
 export interface LandlordGeo {
   country: string | null;
@@ -110,6 +110,31 @@ interface Props {
 
 export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) {
   const [query, setQuery] = useState('');
+  // Per-row "copied" feedback for the Copy location link action.
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const mapsUrlFor = (geo: LandlordGeo) =>
+    `https://www.google.com/maps/search/?api=1&query=${geo.latitude},${geo.longitude}`;
+
+  const copyLocationLink = async (row: GeoQueueRow) => {
+    if (!row.geo || row.geo.latitude == null || row.geo.longitude == null) return;
+    const url = mapsUrlFor(row.geo);
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Clipboard API can be unavailable (older browsers / non-secure context) —
+      // fall back to a temporary textarea copy.
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    setCopiedId(row.landlord_id);
+    window.setTimeout(() => setCopiedId((c) => (c === row.landlord_id ? null : c)), 2000);
+  };
+
   const scoped = useMemo(
     () => rows.filter((r) => matchesGeoPath(r, { ...path, landlordId: undefined })),
     [rows, path],
@@ -332,26 +357,54 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
                       .join(', ') || UNRECORDED}
                   </p>
                    <div className="mt-2.5 flex flex-col gap-2 min-[420px]:flex-row min-[420px]:items-center">
-                    <Button
-                      size="sm"
-                      variant={active ? 'secondary' : 'outline'}
-                       className="h-11 w-full px-3 text-xs min-[420px]:w-auto"
-                      onClick={() => onChange({ ...path, landlordId: active ? undefined : r.landlord_id })}
-                    >
-                      {active ? 'Showing this landlord' : 'Show in queue below'}
-                    </Button>
-                    {hasGps && (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${r.geo!.latitude},${r.geo!.longitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                         className="inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-md border border-border px-3 py-2 text-xs text-foreground hover:border-amber-500/60 min-[420px]:w-auto"
-                      >
-                        <Navigation className="h-3 w-3" />
-                        GPS {r.geo!.latitude!.toFixed(5)}, {r.geo!.longitude!.toFixed(5)}
-                      </a>
-                    )}
-                  </div>
+                     <Button
+                       size="sm"
+                       variant={active ? 'secondary' : 'outline'}
+                        className="h-11 w-full px-3 text-xs min-[420px]:w-auto"
+                       onClick={() => onChange({ ...path, landlordId: active ? undefined : r.landlord_id })}
+                     >
+                       {active ? 'Showing this landlord' : 'Show in queue below'}
+                     </Button>
+                     {hasGps && (
+                       <div className="flex w-full flex-col gap-2 min-[420px]:w-auto min-[420px]:flex-row">
+                         <Button
+                           asChild
+                           size="sm"
+                           className="h-12 w-full gap-2 bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 min-[420px]:w-auto"
+                         >
+                           <a
+                             href={mapsUrlFor(r.geo!)}
+                             target="_blank"
+                             rel="noreferrer"
+                             aria-label={`Open GPS for ${r.landlord_name || 'landlord'} in Google Maps`}
+                           >
+                             <Navigation className="h-4 w-4" />
+                             Open GPS
+                           </a>
+                         </Button>
+                         <Button
+                           type="button"
+                           size="sm"
+                           variant="outline"
+                           className="h-12 w-full gap-2 px-4 text-sm min-[420px]:w-auto"
+                           onClick={() => copyLocationLink(r)}
+                           aria-label={`Copy location link for ${r.landlord_name || 'landlord'}`}
+                         >
+                           {copiedId === r.landlord_id ? (
+                             <>
+                               <Check className="h-4 w-4 text-emerald-600" />
+                               Copied
+                             </>
+                           ) : (
+                             <>
+                               <Copy className="h-4 w-4" />
+                               Copy location link
+                             </>
+                           )}
+                         </Button>
+                       </div>
+                     )}
+                   </div>
                 </div>
               );
             })
