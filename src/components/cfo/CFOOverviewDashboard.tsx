@@ -423,17 +423,30 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
               onClick={() => setActiveBreakdown('cash')}
             />
+            {/* Money in Bank shows the real banked cash — the same verified
+                "Cash at Bank" line that Money We Have counts — rather than the
+                A1 accounting balance, which nets every cash movement in the book
+                and can read negative even when the bank holds money. The A1
+                ledger position stays visible as a reconciliation line. */}
             <HeroCard
               icon={<Landmark className="h-4 w-4 text-sky-50" />}
               iconBg="bg-sky-500"
-              title="Money in Bank (Position View)"
-              value={positionUnavailable ? '—' : fmt(bankCash)}
+              title="Money in Bank"
+              value={actualLoading ? '—' : fmt(actualMoney?.bankedCash ?? 0)}
               items={[
-                { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash), onSelect: () => setActualMoneyLine('banked_cash') },
-                { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash), onSelect: () => setActiveBreakdown('cash') },
+                { dot: 'bg-sky-500', label: 'Verified cash banked', value: fmt(actualMoney?.bankedCash ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
+                { dot: 'bg-sky-500', label: 'Bank alerts (reference only)', value: fmt(actualMoney?.bankReconciliation ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
+                { dot: 'bg-slate-400', label: 'Cash and Bank Balances (A1, accounting)', value: positionUnavailable ? '—' : fmt(bankCash), onSelect: () => setActiveBreakdown('cash') },
               ]}
-              onClick={() => setActiveBreakdown('cash')}
+              footer={
+                actualMoney && !actualMoney.bankedInSync
+                  ? `Financial Ops differs by ${fmt(Math.abs(actualMoney.bankedDifference))} — verify before relying on this figure`
+                  : `${actualMoney?.bankedCashCount ?? 0} verified banked deposit(s) — matches Financial Ops`
+              }
+              footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
+              onClick={() => setActualMoneyLine('banked_cash')}
             />
+
           </div>
         </Band>
 
