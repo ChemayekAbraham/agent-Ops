@@ -19,7 +19,7 @@ import {
 import { format as fmtDay, subDays } from 'date-fns';
 import { notifyVerificationResolved } from '@/lib/landlordVerificationNotify';
 import { CallButton } from './CallButton';
-import { useLandlordTenantsMap, type LandlordTenantsMap } from '@/hooks/useLandlordTenantsMap';
+import { useLandlordTenantsMap } from '@/hooks/useLandlordTenantsMap';
 
 /** Tap-to-call buttons for a landlord's tenants (empty when none recorded). */
 function TenantCallButtons({ tenants, fullWidth = false }: { tenants?: { name: string; phone: string }[]; fullWidth?: boolean }) {
