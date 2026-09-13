@@ -604,7 +604,7 @@ export function SmartphoneOrderApprovalQueue({
                   <p className="text-[11px] text-destructive">Rejected: {o.rejection_reason}</p>
                 )}
 
-                {isAgentOpsActionable(o.order_status) ? (
+                {canActOnRow(o.order_status) ? (
                   <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
@@ -614,9 +614,10 @@ export function SmartphoneOrderApprovalQueue({
                       {approve.isPending && approve.variables?.id === o.id ? (
                         <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Processing…</>
                       ) : (
-                        <><Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to COO</>
+                        <><Check className="h-3.5 w-3.5 mr-1" /> {stageActionLabel}</>
                       )}
                     </Button>
+
 
                     <Button
                       size="sm"
