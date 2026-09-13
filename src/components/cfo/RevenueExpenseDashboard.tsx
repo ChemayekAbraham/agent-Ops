@@ -91,8 +91,45 @@ export function RevenueExpenseDashboard() {
 
   const margin = data.totalRevenue > 0 ? ((data.netIncome / data.totalRevenue) * 100).toFixed(1) : '0';
 
+  const activePhoto = item !== 'all' ? welileItemImage(item) : null;
+
   return (
     <div className="space-y-4">
+      {/* Welile item filter — every figure below follows the selected item. */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filter by Welile item</p>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          {TX_ITEM_OPTIONS.map((opt) => {
+            const selected = item === opt.value;
+            const photo = opt.value !== 'all' ? welileItemImage(opt.value) : null;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setItem(opt.value)}
+                aria-pressed={selected}
+                className={cn(
+                  'flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                  selected
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-card text-muted-foreground hover:bg-muted/50',
+                )}
+              >
+                {photo && (
+                  <img src={photo} alt="" loading="lazy" width={512} height={512} className="h-5 w-5 rounded-full object-cover" />
+                )}
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        {item !== 'all' && (
+          <p className="text-[11px] text-muted-foreground">
+            Showing only records tagged {item}. Pick All items for the company-wide view.
+          </p>
+        )}
+      </div>
+
       {/* KPI */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="border-2 border-success/30"><CardContent className="p-4 text-center"><p className="text-xs text-muted-foreground uppercase tracking-wider">Revenue (30d)</p><p className="text-xl font-bold font-mono text-success">{formatUGX(data.totalRevenue)}</p></CardContent></Card>
