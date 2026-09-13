@@ -135,8 +135,8 @@ export function CollectionsProjectionPanel() {
   };
 
   return (
-    <Card className="border-border/60">
-      <CardHeader className="pb-3">
+  <Card className="border-border/60">
+    <CardHeader className="px-5 py-4 pb-2">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
@@ -163,9 +163,9 @@ export function CollectionsProjectionPanel() {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-4 px-5 pb-5 pt-0">
         {/* Horizon presets */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Horizon</span>
           {HORIZON_PRESETS.map((h) => (
             <Button
@@ -203,22 +203,22 @@ export function CollectionsProjectionPanel() {
             <Separator />
 
             {/* KPI row */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <div className="rounded-xl border border-border/60 bg-card p-3">
+            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+              <div className="rounded-xl border border-border/60 bg-card p-2.5">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Expected collections
                 </div>
                 <div className="mt-1.5 text-base sm:text-lg font-bold font-mono tabular-nums">{ugx(totals.forecast)}</div>
                 <div className="mt-0.5 text-[10px] text-muted-foreground">{horizonLabel}</div>
               </div>
-              <div className="rounded-xl border border-border/60 bg-card p-3">
+              <div className="rounded-xl border border-border/60 bg-card p-2.5">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Likely range
                 </div>
                 <div className="mt-1.5 text-base sm:text-lg font-bold font-mono tabular-nums">{compact(totals.low)} – {compact(totals.high)}</div>
                 <div className="mt-0.5 text-[10px] text-muted-foreground">low – high band</div>
               </div>
-              <div className="rounded-xl border border-border/60 bg-card p-3">
+              <div className="rounded-xl border border-border/60 bg-card p-2.5">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Daily level
                 </div>
@@ -227,7 +227,7 @@ export function CollectionsProjectionPanel() {
                   trend {data.meta.trend_weekly >= 0 ? '+' : '−'}{compact(Math.abs(data.meta.trend_weekly))} / week
                 </div>
               </div>
-              <div className="rounded-xl border border-border/60 bg-card p-3">
+              <div className="rounded-xl border border-border/60 bg-card p-2.5">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Confidence
                 </div>
@@ -251,7 +251,7 @@ export function CollectionsProjectionPanel() {
             )}
 
             {/* Actual vs forecast chart */}
-            <div className="h-[300px] w-full rounded-xl border border-border/60 bg-card p-3">
+            <div className="h-[240px] w-full rounded-xl border border-border/60 bg-card p-2.5">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -272,21 +272,21 @@ export function CollectionsProjectionPanel() {
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-border/60 bg-muted/50 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                    <th className="px-3 py-2.5 font-semibold">Period</th>
-                    <th className="px-3 py-2.5 font-semibold text-right">Forecast</th>
-                    <th className="px-3 py-2.5 font-semibold text-right">Low</th>
-                    <th className="px-3 py-2.5 font-semibold text-right">High</th>
-                    <th className="px-3 py-2.5 font-semibold">Confidence</th>
+                    <th className="px-3 py-2 font-semibold">Period</th>
+                    <th className="px-3 py-2 font-semibold text-right">Forecast</th>
+                    <th className="px-3 py-2 font-semibold text-right">Low</th>
+                    <th className="px-3 py-2 font-semibold text-right">High</th>
+                    <th className="px-3 py-2 font-semibold">Confidence</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.periods.map((p) => (
                     <tr key={p.period_start} className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors">
-                      <td className="px-3 py-2.5">{p.label}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold font-mono tabular-nums">{ugx(p.forecast_amount)}</td>
-                      <td className="px-3 py-2.5 text-right text-muted-foreground font-mono tabular-nums">{ugx(p.low)}</td>
-                      <td className="px-3 py-2.5 text-right text-muted-foreground font-mono tabular-nums">{ugx(p.high)}</td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2">{p.label}</td>
+                      <td className="px-3 py-2 text-right font-semibold font-mono tabular-nums">{ugx(p.forecast_amount)}</td>
+                      <td className="px-3 py-2 text-right text-muted-foreground font-mono tabular-nums">{ugx(p.low)}</td>
+                      <td className="px-3 py-2 text-right text-muted-foreground font-mono tabular-nums">{ugx(p.high)}</td>
+                      <td className="px-3 py-2">
                         <Badge variant="outline" className={cn('text-[10px]', QUALITY_STYLE[p.quality])}>
                           {QUALITY_LABEL[p.quality]}
                         </Badge>
@@ -298,7 +298,7 @@ export function CollectionsProjectionPanel() {
             </div>
 
             {/* Method disclosure */}
-            <details className="rounded-xl border border-border/60 bg-muted/20 p-3.5 text-[11px] text-muted-foreground">
+            <details className="rounded-xl border border-border/60 bg-muted/20 p-3 text-[11px] text-muted-foreground">
               <summary className="cursor-pointer text-[11px] font-semibold text-foreground list-none flex items-center gap-1.5">
                 <Info className="h-3.5 w-3.5" />
                 How this is calculated
