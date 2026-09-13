@@ -99,18 +99,35 @@ export default function NationalIdRejectedReminder({
         </div>
         <Button
           variant="destructive"
-          className="w-full"
-          onClick={() => setResubmitOpen((v) => !v)}
+          size="lg"
+          className="w-full font-bold"
+          onClick={() => {
+            if (onResubmit) {
+              onResubmit();
+            } else {
+              setResubmitOpen(true);
+            }
+          }}
         >
-          <IdCard className="w-4 h-4 mr-2" />
-          {resubmitOpen ? 'Close' : 'Resubmit my National ID'}
+          <IdCard className="w-5 h-5 mr-2" />
+          Resubmit National ID
         </Button>
-        {resubmitOpen && (
-          <NationalIdPrompt
-            blocking
-            allowResubmit
-            withdrawableBalance={Math.max(1, withdrawableBalance)}
-          />
+        {!onResubmit && resubmitOpen && (
+          <div className="space-y-2">
+            <NationalIdPrompt
+              blocking
+              allowResubmit
+              withdrawableBalance={Math.max(1, withdrawableBalance)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-muted-foreground"
+              onClick={() => setResubmitOpen(false)}
+            >
+              Hide form
+            </Button>
+          </div>
         )}
       </div>
     </div>
