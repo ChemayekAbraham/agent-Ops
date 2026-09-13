@@ -216,7 +216,7 @@ export function TenantPaymentsLocationFilters() {
               Payment activity by location
             </CardTitle>
             <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground max-w-xl">
-              Filter money received by country, region, district, town/sub-county and village. Each choice narrows the next.
+              Filter money received by country, region, district, town/sub-county and village — each filter works on its own; picking a lower level fills in the levels above it.
             </p>
           </div>
           {hasAnyFilter && (
@@ -437,7 +437,7 @@ export function TenantPaymentsLocationFilters() {
                     districtId: row?.district_id ?? s.districtId,
                     districtLabel: row?.district ?? s.districtLabel,
                     subcountyId: row?.subcounty_id ?? s.subcountyId,
-                    subcountyLabel: row?.subcounty ?? s.subcountyLabel,
+                    subcountyLabel: s.subcountyLabel,
                     village: v,
                   };
                 })
