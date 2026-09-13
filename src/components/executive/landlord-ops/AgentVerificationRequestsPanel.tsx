@@ -217,7 +217,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       }
     }
     setLoading(false);
-  }, []);
+  }, [mergeGeo]);
 
   /**
    * Decided requests (verified / rejected / cancelled) in the selected window.
@@ -253,7 +253,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
     } finally {
       setDecidedLoading(false);
     }
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, mergeGeo]);
 
   useEffect(() => { void loadDecided(); }, [loadDecided]);
 
