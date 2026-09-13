@@ -37,10 +37,13 @@ function markReminded(keys: string[]) {
 export default function NationalIdRejectedReminder({
   className,
   withdrawableBalance = 1,
+  onResubmit,
 }: {
   className?: string;
   /** Passed through to the resubmit prompt so it renders even at 0 balance. */
   withdrawableBalance?: number;
+  /** When provided, the main CTA navigates back to the National ID submission form instead of expanding inline. */
+  onResubmit?: () => void;
 }) {
   const { user } = useAuth();
   const { data: destinations } = useMyPayoutDestinations(user?.id);
