@@ -51,9 +51,16 @@ export function AutoPayoutSection({
   const amountValid = !isNaN(amountNum) && amountNum > 0;
   const needsApproval = cap !== null && amountValid && amountNum > cap;
 
+  // The Welile item this schedule pays for (Rent, Bread, Chapati, …).
+  const item = (description || '').trim();
+
   const handleSave = async () => {
     if (!recipientId) {
       toast.error('Pick a recipient first');
+      return;
+    }
+    if (!item) {
+      toast.error('Pick what you are sending (Welile Rent, Welile Bread, …)');
       return;
     }
     if (!amountValid) {
@@ -72,8 +79,8 @@ export function AutoPayoutSection({
       });
       toast.success(
         needsApproval
-          ? 'Saved. It will start sending once a finance approver signs it off.'
-          : `Set up. ${fmt(amountNum)} will now go out ${frequency}.`,
+          ? `${item} saved. It will start sending once a finance approver signs it off.`
+          : `${item} set up. ${fmt(amountNum)} will now go out ${frequency}.`,
       );
       setEnabled(false);
     } catch (e) {
@@ -103,10 +110,12 @@ export function AutoPayoutSection({
         <div className="min-w-0">
           <Label htmlFor="auto-payout" className="flex items-center gap-2">
             <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
-            Repeat this payment automatically
+            {item ? `Send ${item} automatically` : 'Repeat this payment automatically'}
           </Label>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Send the same amount to {recipientName || 'this person'} on a schedule until you stop it.
+            {item
+              ? `Send this ${item} amount to ${recipientName || 'this person'} on a schedule until you stop it.`
+              : 'Pick an item above, then set how often it should be sent.'}
           </p>
         </div>
         <Switch
@@ -182,11 +191,11 @@ export function AutoPayoutSection({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={saving || !recipientId || !amountValid}
+            disabled={saving || !recipientId || !amountValid || !item}
             className="h-11 w-full gap-2"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat className="h-4 w-4" />}
-            Save automatic payment
+            {item ? `Save automatic ${item}` : 'Save automatic payment'}
           </Button>
         </div>
       )}
@@ -201,6 +210,7 @@ export function AutoPayoutSection({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">
+                    {s.description?.trim() ? `${s.description.trim()} · ` : ''}
                     {fmt(s.amount)} to {s.recipientName || 'Welile user'}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
