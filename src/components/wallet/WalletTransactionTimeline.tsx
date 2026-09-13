@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { hapticTap } from '@/lib/haptics';
 import { generateWalletStatementPdf } from '@/lib/walletStatementPdf';
+import { UserAvatar } from '@/components/UserAvatar';
 
 export interface TimelineTransaction {
   id: string;
@@ -30,6 +31,8 @@ export interface TimelineTransaction {
   created_at: string;
   sender_name?: string;
   recipient_name?: string;
+  sender_avatar_url?: string | null;
+  recipient_avatar_url?: string | null;
   recipient_phone?: string;
 }
 
@@ -430,65 +433,46 @@ export function WalletTransactionTimeline({
                       const category = deriveCategory(tx.description, isSent);
                       const Icon = category.icon;
                       const counterparty = isSent ? tx.recipient_name : tx.sender_name;
+                      // Person-to-person transfer: lead with the other person's
+                      // photo + name so the receiver sees WHO sent the item.
+                      const isP2P = !!tx.sender_id && !!tx.recipient_id && !!counterparty;
+                      const peerAvatar = isSent ? tx.recipient_avatar_url : tx.sender_avatar_url;
                       const isLast = txIndex === dayTransactions.length - 1;
-
-                      return (
-                        <button
-                          key={tx.id}
-                          ref={(el) => {
-                            if (el) {
-                              txRefs.current.set(tx.id, el);
-                            } else {
-                              txRefs.current.delete(tx.id);
-                            }
-                          }}
-                          onClick={() => {
-                            hapticTap();
-                            onSelectTransaction(tx);
-                          }}
-                          className="relative flex w-full text-left group"
-                        >
-                          {/* Timeline rail */}
-                          <div className="absolute left-0 top-0 bottom-0 w-6 flex flex-col items-center">
-                            <div
-                              className={`h-2.5 w-2.5 rounded-full border-2 z-10 ${
-                                isSent
-                                  ? 'border-destructive bg-background'
-                                  : 'border-success bg-background'
-                              }`}
-                            />
-                            {!isLast && (
-                              <div className="w-px flex-1 bg-border/60 mt-1" />
-                            )}
-                          </div>
-
-                          {/* Card content */}
-                          <div className="flex-1 ml-5 pb-4 last:pb-0">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-3 min-w-0">
-                                <div
-                                  className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${category.colorClass}`}
-                                >
-                                  <Icon className="h-4 w-4" />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-sm font-semibold text-foreground">
-                                      {category.label}
-                                    </p>
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-[9px] px-1.5 py-0 h-4 font-medium"
+...
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3 min-w-0">
+                                  {isP2P ? (
+                                    <UserAvatar
+                                      avatarUrl={peerAvatar ?? null}
+                                      fullName={counterparty ?? ''}
+                                      size="sm"
+                                      className="h-9 w-9 shrink-0"
+                                    />
+                                  ) : (
+                                    <div
+                                      className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${category.colorClass}`}
                                     >
-                                      {isSent ? 'Sent' : 'Received'}
-                                    </Badge>
+                                      <Icon className="h-4 w-4" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className="text-sm font-semibold text-foreground">
+                                        {isP2P ? `${isSent ? 'To' : 'From'} ${counterparty}` : category.label}
+                                      </p>
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-[9px] px-1.5 py-0 h-4 font-medium"
+                                      >
+                                        {isSent ? 'Sent' : 'Received'}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                      {format(new Date(tx.created_at), 'h:mm a')}
+                                      {' · '}{category.label}
+                                    </p>
                                   </div>
-                                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                                    {format(new Date(tx.created_at), 'h:mm a')}
-                                    {counterparty ? ` · ${counterparty}` : ''}
-                                  </p>
                                 </div>
-                              </div>
 
                               <div className="text-right shrink-0">
                                 <p
