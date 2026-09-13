@@ -410,15 +410,28 @@ export default function CFODashboardPage() {
           </div>
         );
       case 'bike-leases':
+      case 'agent-products-motorbikes':
         return (
           <div className="space-y-4">
             <div>
-              <h1 className="text-xl font-bold">Bike Leases</h1>
+              <h1 className="text-xl font-bold">Welile Motorbikes</h1>
               <p className="text-sm text-muted-foreground">
-                Applications approved by the COO. Releasing one sends the money into the ordering agent's own wallet and starts daily recovery.
+                Applications approved by the COO. Releasing one sends the money into the ordering agent's own wallet and starts daily recovery. Files you have already released stay listed here and open read-only.
               </p>
             </div>
             <BikeLeaseApprovalQueue stage="cfo" />
+          </div>
+        );
+      case 'agent-products-smartphones':
+        return (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-bold">Welile Smartphones</h1>
+              <p className="text-sm text-muted-foreground">
+                Applications approved by the COO. Releasing one pays the assigned supplier and starts the agent's daily recovery. Files you have already released stay listed here and open read-only.
+              </p>
+            </div>
+            <SmartphoneOrderApprovalQueue stage="cfo" />
           </div>
         );
       case 'advances-analytics':
