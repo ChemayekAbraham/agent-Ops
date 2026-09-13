@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, Download, FileBarChart, Info, Loader2, Search } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -222,9 +223,30 @@ export function ReportsOverview() {
   /** Print the preview frame itself; only fall back if the frame is gone. */
   const downloadPdf = () => {
     if (!reportHtml) return;
+    const filename = `Welile-${reportType || "report"}-${from}_${to}`;
     if (!printReportFrame(frameRef.current)) {
-      printReportHtml(reportHtml, `Welile-${reportType || "report"}-${from}_${to}`);
+      printReportHtml(reportHtml, filename);
     }
+
+    // Bulk report print/export (agent/rent-collections/products-services/
+    // advances/team-collections) -- many rows of financial data at once,
+    // not logged before this. Plain client-side insert so the audit_logs
+    // IP-capture trigger sees the real browser IP directly. Never blocks
+    // the actual export.
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id ?? null,
+          action_type: 'pdf_report_exported',
+          table_name: 'export',
+          record_id: null,
+          metadata: { filename, report_type: reportType },
+        });
+      } catch (e) {
+        console.warn('[ReportsOverview] audit log insert failed:', e);
+      }
+    })();
   };
 
   const activeQuery =
