@@ -8,6 +8,28 @@
  * operator actually clicks "PDF".
  */
 import { savePdfWithVault } from '@/lib/pdfVault';
+import { supabase } from '@/integrations/supabase/client';
+
+// Shared choke point for the FinOps audit PDF exports (AlreadyFundedLandlordsPanel,
+// AgentRentBehaviourPanel, DailyRentReport, RecentlyVerifiedList,
+// FieldDepositVerificationQueue) -- many rows of financial/verification data
+// at once, not logged before this. Plain client-side insert so the
+// audit_logs IP-capture trigger sees the real browser IP directly. Never
+// blocks the actual download.
+async function logAuditPdfExport(filename: string, rowCount: number) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: 'pdf_report_exported',
+      table_name: 'export',
+      record_id: null,
+      metadata: { filename, row_count: rowCount },
+    });
+  } catch (e) {
+    console.warn('[pdfAuditReport] audit log insert failed:', e);
+  }
+}
 
 export interface PdfAuditMeta {
   /** Top-of-page heading (e.g. "Field Deposit Verification — Audit Report"). */
@@ -185,6 +207,8 @@ export async function downloadAuditPdf(
     label: meta.title,
     category: 'audit',
   });
+
+  void logAuditPdfExport(filename, rows.length);
 }
 
 /** Format an ISO timestamp the same way CSV exports do, for filter summaries. */
