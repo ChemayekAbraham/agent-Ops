@@ -51,9 +51,16 @@ export function AutoPayoutSection({
   const amountValid = !isNaN(amountNum) && amountNum > 0;
   const needsApproval = cap !== null && amountValid && amountNum > cap;
 
+  // The Welile item this schedule pays for (Rent, Bread, Chapati, …).
+  const item = (description || '').trim();
+
   const handleSave = async () => {
     if (!recipientId) {
       toast.error('Pick a recipient first');
+      return;
+    }
+    if (!item) {
+      toast.error('Pick what you are sending (Welile Rent, Welile Bread, …)');
       return;
     }
     if (!amountValid) {
@@ -72,8 +79,8 @@ export function AutoPayoutSection({
       });
       toast.success(
         needsApproval
-          ? 'Saved. It will start sending once a finance approver signs it off.'
-          : `Set up. ${fmt(amountNum)} will now go out ${frequency}.`,
+          ? `${item} saved. It will start sending once a finance approver signs it off.`
+          : `${item} set up. ${fmt(amountNum)} will now go out ${frequency}.`,
       );
       setEnabled(false);
     } catch (e) {
