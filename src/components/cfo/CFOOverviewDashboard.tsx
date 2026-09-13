@@ -425,7 +425,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               items={[
                 { dot: 'bg-indigo-500', label: 'MTN Mobile Money line', value: fmt(actualMoney?.mtn ?? 0), onSelect: () => setActualMoneyLine('mtn_momo') },
                 { dot: 'bg-indigo-500', label: 'Airtel Money line', value: fmt(actualMoney?.airtel ?? 0), onSelect: () => setActualMoneyLine('airtel_money') },
-                { dot: 'bg-indigo-500', label: 'Verified cash at hand (not yet banked)', value: fmt(actualMoney?.cashAtHand ?? 0), onSelect: () => setActualMoneyLine('cash_at_hand') },
+                { dot: 'bg-indigo-500', label: 'Verified cash at hand (not yet banked)', value: fmt(actualMoney?.cashAtHand ?? 0), onSelect: () => setActualMoneyLine('cash') },
                 { dot: 'bg-slate-400', label: 'Float held by agents (their wallets)', value: fmt(actualMoney?.agentFloatHeld ?? 0), onSelect: () => setActiveBreakdown('cash') },
                 { dot: 'bg-slate-400', label: 'Float with Agents (A2, accounting)', value: positionUnavailable ? '—' : fmt(position?.float ?? 0), onSelect: () => setActiveBreakdown('cash') },
                 { dot: 'bg-slate-400', label: 'Cash in Transit (A5, accounting)', value: positionUnavailable ? '—' : fmt(position?.inTransit ?? 0), onSelect: () => setActiveBreakdown('cash') },
