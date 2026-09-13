@@ -11,6 +11,7 @@ import {
   ShieldQuestion, CheckCircle2, XCircle, Phone, Loader2, UserCircle,
   MapPin, Home, Banknote, Smartphone, Calendar, Search, Building2,
   FilterX, Clock, RotateCcw, AlertTriangle, FileDown, BarChart3, Ban,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
