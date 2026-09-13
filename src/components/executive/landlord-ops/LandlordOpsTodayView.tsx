@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useLandlordOpsTotals } from '@/hooks/useLandlordOps';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
+import { useLandlordFloatOverview } from '@/hooks/useLandlordFloatOverview';
 import {
   useLandlordOpsActivity,
   useLandlordOpsRecentDecisions,
