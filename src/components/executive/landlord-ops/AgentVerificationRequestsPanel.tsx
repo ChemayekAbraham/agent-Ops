@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   ShieldQuestion, CheckCircle2, XCircle, Loader2, UserCircle,
   MapPin, Home, Banknote, Smartphone, Calendar, Search, Building2,
-  FilterX, Clock, RotateCcw, AlertTriangle, FileDown, BarChart3, Ban,
+  FilterX, Clock, RotateCcw, AlertTriangle, FileDown, BarChart3, Ban, X,
   ChevronLeft, ChevronRight, ArrowLeftRight,
 } from 'lucide-react';
 import {
@@ -544,6 +544,27 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
     [requests, decided],
   );
   const { data: tenantsByLandlord } = useLandlordTenantsMap(queueLandlordIds);
+
+  /**
+   * Sticky bottom call bar focus: the request whose details are open, else the
+   * landlord picked in the location browser, else the first row on the current
+   * page — so the call buttons follow the operator through the queue.
+   */
+  const [callBarDismissedFor, setCallBarDismissedFor] = useState<string | null>(null);
+  const callFocus = useMemo(() => {
+    const all = [...requests, ...decided];
+    if (expandedId) {
+      const hit = all.find((r) => r.id === expandedId);
+      if (hit) return hit;
+    }
+    if (geoPath.landlordId) {
+      const hit = all.find((r) => r.landlord_id === geoPath.landlordId);
+      if (hit) return hit;
+    }
+    const pageRows = isPendingList ? pagedFiltered : pagedDecided;
+    return pageRows[0] ?? null;
+  }, [expandedId, geoPath.landlordId, requests, decided, isPendingList, pagedFiltered, pagedDecided]);
+  const showCallBar = !!callFocus && callBarDismissedFor !== callFocus.id;
 
   const tabCounts = useMemo(() => ({
     pending: requests.length,
@@ -1108,9 +1129,42 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
         )}
       </div>
 
+      {/* Sticky bottom call bar — follows the focused queue record so landlord,
+          agent and tenant numbers stay one tap away while scrolling or with
+          the details open. Sits above the page-level queue shortcut on phones. */}
+      {showCallBar && callFocus && (
+        <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-[65] lg:bottom-4">
+          <div className="mx-auto w-full max-w-2xl rounded-xl border border-emerald-600/40 bg-background/95 p-2.5 shadow-xl backdrop-blur">
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-foreground">
+                Call about <span className="text-emerald-700 dark:text-emerald-300">{callFocus.landlord_name || 'Unnamed landlord'}</span>
+              </p>
+              <button
+                type="button"
+                onClick={() => setCallBarDismissedFor(callFocus.id)}
+                aria-label="Hide call bar"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-1.5 flex items-stretch gap-2 overflow-x-auto pb-0.5">
+              <CallButton phone={callFocus.landlord_phone} who="landlord" className="shrink-0" />
+              <CallButton phone={callFocus.agent_phone} who="agent" className="shrink-0" />
+              {(tenantsByLandlord?.[callFocus.landlord_id] ?? []).map((t) => (
+                <CallButton key={t.phone} phone={t.phone} who={`tenant ${t.name}`} className="shrink-0" />
+              ))}
+              {!callFocus.landlord_phone && !callFocus.agent_phone && !(tenantsByLandlord?.[callFocus.landlord_id]?.length) && (
+                <p className="py-2 text-[11px] text-muted-foreground">No phone numbers recorded for this record yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating quick toggle — Pending ⇄ Full history, once the header tabs scroll away */}
       {tabsOutOfView && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 sm:bottom-6">
+        <div className={`pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4 ${showCallBar ? 'bottom-[11.5rem] sm:bottom-24' : 'bottom-24 sm:bottom-6'}`}>
           <Button
             type="button"
             size="sm"
