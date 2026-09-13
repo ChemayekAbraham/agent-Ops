@@ -255,11 +255,31 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const filename = lc1ReportFileName(scope);
       a.href = url;
-      a.download = lc1ReportFileName(scope);
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
       toast({ title: 'Report ready', description: `${reportRows.length.toLocaleString()} chairpersons exported.` });
+
+      // Bulk export of up to 3000 LC1 chairperson verification records at
+      // once, not logged before this. Plain client-side insert so the
+      // audit_logs IP-capture trigger sees the real browser IP directly.
+      // Never blocks the actual download.
+      (async () => {
+        try {
+          const { data: { user: actor } } = await supabase.auth.getUser();
+          await supabase.from('audit_logs').insert({
+            user_id: actor?.id ?? null,
+            action_type: 'pdf_report_exported',
+            table_name: 'export',
+            record_id: null,
+            metadata: { filename, row_count: reportRows.length },
+          });
+        } catch (e) {
+          console.warn('[Lc1VerificationInboxPanel] audit log insert failed:', e);
+        }
+      })();
     } catch (e: any) {
       toast({ title: 'Export failed', description: e?.message || 'Could not build the report', variant: 'destructive' });
     } finally {
