@@ -6398,12 +6398,14 @@ export type Database = {
           action_type: string
           created_at: string | null
           id: string
+          ip_address: string | null
           metadata: Json | null
           new_values: Json | null
           old_values: Json | null
           reason: string | null
           record_id: string | null
           table_name: string | null
+          user_agent: string | null
           user_id: string | null
         }
         Insert: {
@@ -6411,12 +6413,14 @@ export type Database = {
           action_type: string
           created_at?: string | null
           id?: string
+          ip_address?: string | null
           metadata?: Json | null
           new_values?: Json | null
           old_values?: Json | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          user_agent?: string | null
           user_id?: string | null
         }
         Update: {
@@ -6424,12 +6428,14 @@ export type Database = {
           action_type?: string
           created_at?: string | null
           id?: string
+          ip_address?: string | null
           metadata?: Json | null
           new_values?: Json | null
           old_values?: Json | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          user_agent?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -11566,6 +11572,8 @@ export type Database = {
           purpose_audit: Json | null
           rejected_at: string | null
           rejection_reason: string | null
+          request_ip_address: string | null
+          request_user_agent: string | null
           status: string
           transaction_date: string | null
           transaction_id: string | null
@@ -11593,6 +11601,8 @@ export type Database = {
           purpose_audit?: Json | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          request_ip_address?: string | null
+          request_user_agent?: string | null
           status?: string
           transaction_date?: string | null
           transaction_id?: string | null
@@ -11620,6 +11630,8 @@ export type Database = {
           purpose_audit?: Json | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          request_ip_address?: string | null
+          request_user_agent?: string | null
           status?: string
           transaction_date?: string | null
           transaction_id?: string | null
@@ -14772,6 +14784,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           instalment_id: string | null
+          ip_address: string | null
           ledger_scope: string
           linked_party: string | null
           matured_at: string | null
@@ -14792,6 +14805,7 @@ export type Database = {
           sub_category: string | null
           transaction_date: string
           transaction_group_id: string | null
+          user_agent: string | null
           user_id: string | null
           wallet_bucket: string | null
           wallet_id: string | null
@@ -14809,6 +14823,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           instalment_id?: string | null
+          ip_address?: string | null
           ledger_scope?: string
           linked_party?: string | null
           matured_at?: string | null
@@ -14829,6 +14844,7 @@ export type Database = {
           sub_category?: string | null
           transaction_date?: string
           transaction_group_id?: string | null
+          user_agent?: string | null
           user_id?: string | null
           wallet_bucket?: string | null
           wallet_id?: string | null
@@ -14846,6 +14862,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           instalment_id?: string | null
+          ip_address?: string | null
           ledger_scope?: string
           linked_party?: string | null
           matured_at?: string | null
@@ -14866,6 +14883,7 @@ export type Database = {
           sub_category?: string | null
           transaction_date?: string
           transaction_group_id?: string | null
+          user_agent?: string | null
           user_id?: string | null
           wallet_bucket?: string | null
           wallet_id?: string | null
@@ -23677,6 +23695,7 @@ export type Database = {
           detail: Json | null
           duration_ms: number | null
           id: number
+          ip_address: string | null
           ms_since_start: number | null
           path: string | null
           phase: string
@@ -23690,6 +23709,7 @@ export type Database = {
           detail?: Json | null
           duration_ms?: number | null
           id?: number
+          ip_address?: string | null
           ms_since_start?: number | null
           path?: string | null
           phase: string
@@ -23703,6 +23723,7 @@ export type Database = {
           detail?: Json | null
           duration_ms?: number | null
           id?: number
+          ip_address?: string | null
           ms_since_start?: number | null
           path?: string | null
           phase?: string
@@ -27516,6 +27537,30 @@ export type Database = {
           },
         ]
       }
+      password_change_audit: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_channels: {
         Row: {
           active: boolean
@@ -28240,6 +28285,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payout_destination_verifications: {
+        Row: {
+          account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          call_outcome: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          destination_key: string
+          destination_type: string
+          first_seen_at: string
+          id: string
+          momo_number: string | null
+          name_match_score: number | null
+          name_mismatch_tokens: Json | null
+          national_id: string | null
+          national_id_name: string | null
+          provider: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          call_outcome?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          destination_key: string
+          destination_type: string
+          first_seen_at?: string
+          id?: string
+          momo_number?: string | null
+          name_match_score?: number | null
+          name_mismatch_tokens?: Json | null
+          national_id?: string | null
+          national_id_name?: string | null
+          provider?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          call_outcome?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          destination_key?: string
+          destination_type?: string
+          first_seen_at?: string
+          id?: string
+          momo_number?: string | null
+          name_match_score?: number | null
+          name_mismatch_tokens?: Json | null
+          national_id?: string | null
+          national_id_name?: string | null
+          provider?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       payout_proof_integrity_alerts: {
         Row: {
@@ -29834,8 +29951,10 @@ export type Database = {
           created_at: string
           field_name: string
           id: string
+          ip_address: string | null
           new_value: string | null
           old_value: string | null
+          user_agent: string | null
           user_id: string
         }
         Insert: {
@@ -29843,8 +29962,10 @@ export type Database = {
           created_at?: string
           field_name: string
           id?: string
+          ip_address?: string | null
           new_value?: string | null
           old_value?: string | null
+          user_agent?: string | null
           user_id: string
         }
         Update: {
@@ -29852,8 +29973,10 @@ export type Database = {
           created_at?: string
           field_name?: string
           id?: string
+          ip_address?: string | null
           new_value?: string | null
           old_value?: string | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -29916,6 +30039,7 @@ export type Database = {
           monthly_rent: number | null
           must_change_password: boolean | null
           national_id: string | null
+          national_id_name: string | null
           occupation: string | null
           ops_note: string | null
           parish: string | null
@@ -30017,6 +30141,7 @@ export type Database = {
           monthly_rent?: number | null
           must_change_password?: boolean | null
           national_id?: string | null
+          national_id_name?: string | null
           occupation?: string | null
           ops_note?: string | null
           parish?: string | null
@@ -30118,6 +30243,7 @@ export type Database = {
           monthly_rent?: number | null
           must_change_password?: boolean | null
           national_id?: string | null
+          national_id_name?: string | null
           occupation?: string | null
           ops_note?: string | null
           parish?: string | null
@@ -43889,9 +44015,11 @@ export type Database = {
           error_code: string | null
           id: string
           idempotent: boolean
+          ip_address: string | null
           race_lost: boolean
           reservation_outcome: string | null
           result_code: string
+          user_agent: string | null
           withdrawal_id: string | null
         }
         Insert: {
@@ -43903,9 +44031,11 @@ export type Database = {
           error_code?: string | null
           id?: string
           idempotent?: boolean
+          ip_address?: string | null
           race_lost?: boolean
           reservation_outcome?: string | null
           result_code: string
+          user_agent?: string | null
           withdrawal_id?: string | null
         }
         Update: {
@@ -43917,9 +44047,11 @@ export type Database = {
           error_code?: string | null
           id?: string
           idempotent?: boolean
+          ip_address?: string | null
           race_lost?: boolean
           reservation_outcome?: string | null
           result_code?: string
+          user_agent?: string | null
           withdrawal_id?: string | null
         }
         Relationships: []
@@ -44084,12 +44216,14 @@ export type Database = {
           error_message: string | null
           expired_at: string | null
           id: string
+          ip_address: string | null
           recipient_email: string | null
           recipient_id: string | null
           recipient_phone: string | null
           response: string
           status: string
           updated_at: string
+          user_agent: string | null
           withdrawal_id: string | null
         }
         Insert: {
@@ -44101,12 +44235,14 @@ export type Database = {
           error_message?: string | null
           expired_at?: string | null
           id?: string
+          ip_address?: string | null
           recipient_email?: string | null
           recipient_id?: string | null
           recipient_phone?: string | null
           response?: string
           status?: string
           updated_at?: string
+          user_agent?: string | null
           withdrawal_id?: string | null
         }
         Update: {
@@ -44118,12 +44254,14 @@ export type Database = {
           error_message?: string | null
           expired_at?: string | null
           id?: string
+          ip_address?: string | null
           recipient_email?: string | null
           recipient_id?: string | null
           recipient_phone?: string | null
           response?: string
           status?: string
           updated_at?: string
+          user_agent?: string | null
           withdrawal_id?: string | null
         }
         Relationships: []
@@ -51626,6 +51764,23 @@ export type Database = {
         Args: { p_withdrawal_id: string }
         Returns: Json
       }
+      ensure_payout_destination: {
+        Args: {
+          p_bank_account_name?: string
+          p_bank_account_number?: string
+          p_bank_name?: string
+          p_method: string
+          p_momo_name?: string
+          p_momo_number?: string
+          p_provider?: string
+          p_user_id: string
+        }
+        Returns: {
+          decision_reason: string
+          id: string
+          status: string
+        }[]
+      }
       evaluate_kyc_activity: { Args: { p_user_id: string }; Returns: Json }
       evaluate_kyc_upgrade_eligibility: {
         Args: { p_user_id: string }
@@ -51753,6 +51908,15 @@ export type Database = {
           village: string
         }[]
       }
+      finops_decide_payout_destination: {
+        Args: {
+          p_call_outcome?: string
+          p_decision: string
+          p_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       finops_edit_authorized: {
         Args: { p_action: string; p_context?: Json }
         Returns: boolean
@@ -51767,6 +51931,40 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      finops_payout_verification_counts: { Args: never; Returns: Json }
+      finops_payout_verification_queue: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: {
+          account_name: string
+          bank_account_number: string
+          bank_name: string
+          call_outcome: string
+          decided_at: string
+          decided_by_name: string
+          decision_reason: string
+          destination_type: string
+          first_seen_at: string
+          full_name: string
+          id: string
+          momo_number: string
+          name_match_score: number
+          name_mismatch_tokens: Json
+          national_id: string
+          national_id_name: string
+          provider: string
+          status: string
+          total_count: number
+          user_id: string
+          user_phone: string
+          withdrawable_balance: number
+        }[]
       }
       finops_post_merchant_evidenced_writedown: {
         Args: {
@@ -56105,6 +56303,18 @@ export type Database = {
           uses_count: number
         }[]
       }
+      my_payout_destination_status: {
+        Args: {
+          p_bank_account_number?: string
+          p_bank_name?: string
+          p_method: string
+          p_momo_number?: string
+        }
+        Returns: {
+          decision_reason: string
+          status: string
+        }[]
+      }
       my_proxy_agent_status: { Args: never; Returns: Json }
       my_proxy_agreement_record: {
         Args: never
@@ -57252,6 +57462,29 @@ export type Database = {
         }[]
       }
       payables_guard: { Args: never; Returns: undefined }
+      payout_destination_is_verified: {
+        Args: {
+          p_bank_account_number?: string
+          p_bank_name?: string
+          p_method: string
+          p_momo_number?: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      payout_destination_key: {
+        Args: {
+          p_bank_account_number?: string
+          p_bank_name?: string
+          p_method: string
+          p_momo_number?: string
+        }
+        Returns: string
+      }
+      payout_name_match_report: {
+        Args: { p_a: string; p_b: string }
+        Returns: Json
+      }
       payout_reconciliation_bucket: {
         Args: { p_missing: Json; p_settlement_state: string; p_status: string }
         Returns: string
@@ -58753,6 +58986,10 @@ export type Database = {
           p_kind: string
           p_landlord_id: string
         }
+        Returns: Json
+      }
+      submit_national_id: {
+        Args: { p_id_name: string; p_national_id: string }
         Returns: Json
       }
       submit_service_center_request: {
