@@ -187,6 +187,35 @@ export default function PayoutVerificationPanel() {
     setPage(0);
   };
 
+  const runExport = async (kind: 'csv' | 'pdf') => {
+    setExporting(kind);
+    try {
+      const {
+        fetchPayoutVerificationExportRows,
+        buildPayoutVerificationCsv,
+        buildPayoutVerificationPdf,
+        payoutExportFileName,
+        downloadBlob,
+      } = await import('@/lib/payoutVerificationExport');
+      const query = { status, search, sort };
+      const exportRows = await fetchPayoutVerificationExportRows(query);
+      if (exportRows.length === 0) {
+        toast.error('Nothing to export in this list.');
+        return;
+      }
+      const blob =
+        kind === 'csv'
+          ? new Blob([buildPayoutVerificationCsv(exportRows)], { type: 'text/csv;charset=utf-8' })
+          : await buildPayoutVerificationPdf(exportRows, query);
+      downloadBlob(blob, payoutExportFileName(query, kind));
+      toast.success(`Downloaded ${exportRows.length} destination(s).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not build the file.');
+    } finally {
+      setExporting(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Headline */}
