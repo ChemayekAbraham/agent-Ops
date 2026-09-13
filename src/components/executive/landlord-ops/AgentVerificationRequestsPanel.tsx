@@ -19,6 +19,17 @@ import { format as fmtDay, subDays } from 'date-fns';
 import { notifyVerificationResolved } from '@/lib/landlordVerificationNotify';
 import { setLandlordVerification } from '@/lib/landlord-ops/verification';
 import { generateLandlordVerificationQueuePdf } from '@/lib/landlordVerificationQueuePdf';
+import {
+  LandlordVerificationGeoBrowser,
+  matchesGeoPath,
+  type GeoPath,
+  type GeoQueueRow,
+  type LandlordGeo,
+} from './LandlordVerificationGeoBrowser';
+
+/** Location columns read for the geographic navigator (district kept for the existing badge). */
+const GEO_COLS =
+  'id, country, region, district, county, sub_county, town_council, village, cell, latitude, longitude';
 
 interface VerificationRequest {
   id: string;
