@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatUGX } from "@/lib/rentCalculations";
+import { UserAvatar } from "@/components/UserAvatar";
 import TransactionDetailDrawer from "@/components/transactions/TransactionDetailDrawer";
 import {
   TX_DATE_OPTIONS,
@@ -176,6 +177,12 @@ export function TransactionsFeed({
             const tone = txTone(row);
             const Icon = txIcon(row);
             const balanceAfter = balanceAfterById?.[row.id] ?? row.balanceAfter;
+            // Person-to-person transfer: lead with the other person's photo +
+            // name so the receiver sees exactly WHO sent (or got) the item.
+            const peer =
+              row.category === "wallet_transfer" && row.peer_name
+                ? { name: row.peer_name, avatar: row.peer_avatar_url ?? null }
+                : null;
             return (
               <button
                 key={row.id}
@@ -183,14 +190,23 @@ export function TransactionsFeed({
                 onClick={() => setSelected({ ...row, balanceAfter })}
                 className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
               >
-                <span
-                  className={cn(
-                    "flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full",
-                    tone.bubble,
-                  )}
-                >
-                  <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", tone.icon)} />
-                </span>
+                {peer ? (
+                  <UserAvatar
+                    avatarUrl={peer.avatar}
+                    fullName={peer.name}
+                    size="md"
+                    className="h-10 w-10 sm:h-12 sm:w-12 shrink-0"
+                  />
+                ) : (
+                  <span
+                    className={cn(
+                      "flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full",
+                      tone.bubble,
+                    )}
+                  >
+                    <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", tone.icon)} />
+                  </span>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="block truncate text-sm sm:text-base font-bold">{txLabel(row)}</span>
@@ -204,9 +220,15 @@ export function TransactionsFeed({
                       {isIn ? "Money In" : "Money Out"}
                     </Badge>
                   </span>
-                  <span className="block truncate text-xs sm:text-sm font-semibold uppercase text-muted-foreground">
-                    {txCounterparty(row) ?? "—"}
-                  </span>
+                  {peer ? (
+                    <span className="block truncate text-xs sm:text-sm font-bold text-foreground">
+                      {isIn ? "From" : "To"} {peer.name}
+                    </span>
+                  ) : (
+                    <span className="block truncate text-xs sm:text-sm font-semibold uppercase text-muted-foreground">
+                      {txCounterparty(row) ?? "—"}
+                    </span>
+                  )}
                   <span className="mt-1 flex items-center gap-2 flex-wrap">
                     <Badge variant="secondary" className="text-[10px] font-bold px-1.5 py-0">
                       {txMethodLabel(row)}

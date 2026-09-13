@@ -54632,6 +54632,15 @@ export type Database = {
               ward: string
             }[]
           }
+      get_transfer_peers: {
+        Args: { p_reference_ids: string[] }
+        Returns: {
+          peer_avatar_url: string
+          peer_name: string
+          peer_user_id: string
+          reference_id: string
+        }[]
+      }
       get_treasury_cash_position: { Args: { p_as_at?: string }; Returns: Json }
       get_treasury_cash_transactions: {
         Args: {
