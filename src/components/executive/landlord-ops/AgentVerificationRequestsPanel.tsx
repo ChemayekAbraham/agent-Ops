@@ -1017,6 +1017,40 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
             ))
           )
         )}
+
+        {/* Pagination */}
+        {activeRows.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60 mt-2">
+            <p className="text-[11px] text-muted-foreground">
+              Showing {safePage * PAGE_SIZE + 1}–{Math.min(activeRows.length, safePage * PAGE_SIZE + PAGE_SIZE)} of {activeRows.length}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] gap-1"
+                disabled={safePage === 0}
+                onClick={() => setPage(safePage - 1)}
+              >
+                <ChevronLeft className="h-3 w-3" />
+                Prev
+              </Button>
+              <span className="text-[11px] text-muted-foreground px-1">
+                Page {safePage + 1} of {pageCount}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] gap-1"
+                disabled={safePage >= pageCount - 1}
+                onClick={() => setPage(safePage + 1)}
+              >
+                Next
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
