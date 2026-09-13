@@ -794,7 +794,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                       </Badge>
                     )}
                   </div>
-                  {(req.landlord_phone || req.agent_phone) && (
+                  {(req.landlord_phone || req.agent_phone || tenantsByLandlord?.[req.landlord_id]?.length) && (
                     <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row">
                       <CallButton phone={req.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
                       <CallButton phone={req.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
