@@ -88,7 +88,7 @@ export default function LandlordOpsPage() {
           </Suspense>
         </main>
 
-        <div className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 flex justify-center lg:hidden">
+        <div className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[70] flex justify-center lg:hidden">
           <Button
             type="button"
             size="lg"
