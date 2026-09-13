@@ -410,16 +410,27 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           {/* Where that same cash sits — a split of "Money We Have", so it
               belongs directly beneath it rather than further down the page. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Treasury / platform cash shows the REAL money the platform holds
+                outside the bank — live MTN and Airtel line balances plus verified
+                cash collected but not yet banked — so it partitions the actual
+                "Money We Have" headline with the bank card. The A2 / A5 ledger
+                positions stay visible as reconciliation lines only: they net
+                every historical float and in-transit leg and so read far above
+                the cash actually held. */}
             <HeroCard
               icon={<Vault className="h-4 w-4 text-indigo-50" />}
               iconBg="bg-indigo-600"
               title="Money in Treasury / Platform"
-              value={positionUnavailable ? '—' : fmt(outsideBankCash)}
+              value={actualLoading ? '—' : fmt(actualMoney?.outsideBankHeld ?? 0)}
               items={[
-                { dot: 'bg-indigo-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0), onSelect: () => setActiveBreakdown('cash') },
-                { dot: 'bg-indigo-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0), onSelect: () => setActiveBreakdown('cash') },
+                { dot: 'bg-indigo-500', label: 'MTN Mobile Money line', value: fmt(actualMoney?.mtn ?? 0), onSelect: () => setActualMoneyLine('mtn_momo') },
+                { dot: 'bg-indigo-500', label: 'Airtel Money line', value: fmt(actualMoney?.airtel ?? 0), onSelect: () => setActualMoneyLine('airtel_money') },
+                { dot: 'bg-indigo-500', label: 'Verified cash at hand (not yet banked)', value: fmt(actualMoney?.cashAtHand ?? 0), onSelect: () => setActualMoneyLine('cash') },
+                { dot: 'bg-slate-400', label: 'Float held by agents (their wallets)', value: fmt(actualMoney?.agentFloatHeld ?? 0), onSelect: () => setActiveBreakdown('cash') },
+                { dot: 'bg-slate-400', label: 'Float with Agents (A2, accounting)', value: positionUnavailable ? '—' : fmt(position?.float ?? 0), onSelect: () => setActiveBreakdown('cash') },
+                { dot: 'bg-slate-400', label: 'Cash in Transit (A5, accounting)', value: positionUnavailable ? '—' : fmt(position?.inTransit ?? 0), onSelect: () => setActiveBreakdown('cash') },
               ]}
-              footer="Position view — part of Money We Have, not added to it"
+              footer="Actual cash held outside the bank — part of Money We Have, not added to it"
               footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
               onClick={() => setActiveBreakdown('cash')}
             />
