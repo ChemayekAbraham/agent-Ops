@@ -516,4 +516,23 @@ export function downloadBlob(blob: Blob, filename: string): void {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  // Bulk export of all partners nearing payout -- many rows of financial
+  // data at once, not logged before this. Plain client-side insert so the
+  // audit_logs IP-capture trigger sees the real browser IP directly. Never
+  // blocks the actual download.
+  (async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('audit_logs').insert({
+        user_id: user?.id ?? null,
+        action_type: 'pdf_report_exported',
+        table_name: 'export',
+        record_id: null,
+        metadata: { filename },
+      });
+    } catch (e) {
+      console.warn('[nearingPayoutsPdf] audit log insert failed:', e);
+    }
+  })();
 }
