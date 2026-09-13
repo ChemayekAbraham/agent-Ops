@@ -39,9 +39,6 @@ export function LedgerHealthPanel() {
   const { data: summaryData, isLoading: summaryLoading } = useQuery({
     queryKey: ['ledger-health-summary'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('exec_sql' as any, {}) // fallback to raw
-        .maybeSingle();
-      // Use direct query instead
       const res = await supabase
         .from('general_ledger')
         .select('classification, direction, amount')
