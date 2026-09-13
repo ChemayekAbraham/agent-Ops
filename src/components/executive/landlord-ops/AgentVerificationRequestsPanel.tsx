@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import { format as fmtDay, subDays } from 'date-fns';
 import { notifyVerificationResolved } from '@/lib/landlordVerificationNotify';
+import { CallButton } from './CallButton';
 import { setLandlordVerification } from '@/lib/landlord-ops/verification';
 import { generateLandlordVerificationQueuePdf } from '@/lib/landlordVerificationQueuePdf';
 import {
@@ -766,10 +767,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                       </Badge>
                     )}
                   </div>
-                  {req.landlord_phone && (
-                    <a href={`tel:${req.landlord_phone}`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 truncate mt-0.5">
-                      <Phone className="h-3 w-3 shrink-0" /> {req.landlord_phone}
-                    </a>
+                  {(req.landlord_phone || req.agent_phone) && (
+                    <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row">
+                      <CallButton phone={req.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
+                      <CallButton phone={req.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
+                    </div>
                   )}
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1 truncate">
                     <UserCircle className="h-3.5 w-3.5 shrink-0" />
@@ -885,9 +887,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                       </p>
                       <p className="text-xs font-medium text-foreground">{req.agent_name || 'Unknown agent'}</p>
                       {req.agent_phone && (
-                        <a href={`tel:${req.agent_phone}`} className="text-[11px] font-medium text-sky-600 hover:underline inline-flex items-center gap-1">
-                          <Phone className="h-3 w-3" /> {req.agent_phone}
-                        </a>
+                        <CallButton phone={req.agent_phone} who="agent" />
                       )}
                     </div>
 
@@ -1017,10 +1017,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                         </Badge>
                       )}
                     </div>
-                    {r.landlord_phone && (
-                      <a href={`tel:${r.landlord_phone}`} className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 mt-0.5">
-                        <Phone className="h-3 w-3" /> {r.landlord_phone}
-                      </a>
+                    {(r.landlord_phone || r.agent_phone) && (
+                      <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row">
+                        <CallButton phone={r.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
+                        <CallButton phone={r.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
+                      </div>
                     )}
                     <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 flex-wrap">
                       <UserCircle className="h-3.5 w-3.5" />
