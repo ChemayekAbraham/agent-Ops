@@ -172,13 +172,33 @@ export function MerchantFloatRequestsPanel() {
       const blob = await generateMerchantFloatAllocationsPdf(rows, agentTotals);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
+      const filename = `merchant-float-allocations-${new Date().toISOString().slice(0, 10)}.pdf`;
       link.href = url;
-      link.download = `merchant-float-allocations-${new Date().toISOString().slice(0, 10)}.pdf`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
       toast.success('PDF downloaded');
+
+      // Bulk export of every merchant float allocation -- many agents'
+      // names, phones and amounts -- not logged before this. Plain
+      // client-side insert so the audit_logs IP-capture trigger sees the
+      // real browser IP directly. Never blocks the actual download.
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          await supabase.from('audit_logs').insert({
+            user_id: user?.id ?? null,
+            action_type: 'pdf_report_exported',
+            table_name: 'export',
+            record_id: null,
+            metadata: { filename, row_count: rows.length },
+          });
+        } catch (e) {
+          console.warn('[MerchantFloatRequestsPanel] audit log insert failed:', e);
+        }
+      })();
     } catch (e: any) {
       toast.error(e.message || 'Could not generate PDF');
     } finally {
@@ -302,11 +322,31 @@ export function MerchantFloatRequestsPanel() {
       const agentSlug = onlyAgentId
         ? '-' + (nameByAgent.get(onlyAgentId)?.name || 'agent').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
         : '';
-      link.download = `merchant-float-statement${agentSlug}${stmtFrom ? `-${stmtFrom}` : ''}${stmtTo ? `-to-${stmtTo}` : ''}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const filename = `merchant-float-statement${agentSlug}${stmtFrom ? `-${stmtFrom}` : ''}${stmtTo ? `-to-${stmtTo}` : ''}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+      // Bulk export of merchant float statements across (potentially many)
+      // agents -- not logged before this. Plain client-side insert so the
+      // audit_logs IP-capture trigger sees the real browser IP directly.
+      // Never blocks the actual download.
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          await supabase.from('audit_logs').insert({
+            user_id: user?.id ?? null,
+            action_type: 'pdf_report_exported',
+            table_name: 'export',
+            record_id: null,
+            metadata: { filename, agent_count: entries.length, scoped_to_one_agent: !!onlyAgentId },
+          });
+        } catch (e) {
+          console.warn('[MerchantFloatRequestsPanel] audit log insert failed:', e);
+        }
+      })();
       toast.success('Statement PDF downloaded');
     } catch (e: any) {
       toast.error(e.message || 'Could not generate statement PDF');
