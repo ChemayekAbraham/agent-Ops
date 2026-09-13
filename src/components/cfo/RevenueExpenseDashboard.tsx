@@ -27,16 +27,23 @@ const PIE_COLORS = [
 ];
 
 export function RevenueExpenseDashboard() {
+  // Welile item filter: 'all' keeps the company-wide view; picking an item
+  // re-reads the same platform records restricted to entries whose text names
+  // that item, so Revenue / Expenses / Net Income / Margin all become per-item.
+  const [item, setItem] = useState<TxItemFilter>('all');
+
   const { data, isLoading } = useQuery({
-    queryKey: ['revenue-expense-dashboard'],
+    queryKey: ['revenue-expense-dashboard', item],
     queryFn: async () => {
       const startDate = startOfDay(subDays(new Date(), 29)).toISOString();
 
-      const { data: ledger, error } = await supabase
+      let query = supabase
         .from('general_ledger')
         .select('amount, direction, category, transaction_date')
         .gte('transaction_date', startDate)
         .eq('ledger_scope', 'platform');
+      if (item !== 'all') query = query.ilike('description', `%${item}%`);
+      const { data: ledger, error } = await query;
       if (error) throw error;
 
       // Totals — accumulate by category, including zero buckets so every canonical category is visible.
