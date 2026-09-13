@@ -28,6 +28,10 @@ export interface ActualMoneyHeld {
   bankedDifference: number;
   /** True when the card figure matches Financial Ops to the shilling. */
   bankedInSync: boolean;
+  /** Real float currently sitting in agent wallets (company money with agents). */
+  agentFloatHeld: number;
+  /** MTN + Airtel + verified cash at hand — real money held outside the bank. */
+  outsideBankHeld: number;
 }
 
 /**
@@ -46,18 +50,21 @@ export function useActualMoneyHeld(enabled = true) {
     staleTime: 15_000,
     refetchInterval: 30_000,
     queryFn: async (): Promise<ActualMoneyHeld> => {
-      const [phoneRes, cashRes, bankRes] = await Promise.all([
+      const [phoneRes, cashRes, bankRes, walletRes] = await Promise.all([
         supabase.rpc('get_phone_platform_reconciliation' as any),
         supabase.rpc('get_cash_at_hand_total' as any),
         supabase.rpc('get_money_at_bank_reconciliation' as any),
+        supabase.rpc('get_wallet_totals' as any),
       ]);
       if (phoneRes.error) throw phoneRes.error;
       if (cashRes.error) throw cashRes.error;
       if (bankRes.error) throw bankRes.error;
+      if (walletRes.error) throw walletRes.error;
 
       const p = (phoneRes.data ?? {}) as any;
       const c = (cashRes.data ?? {}) as any;
       const b = (bankRes.data ?? {}) as any;
+      const w = (walletRes.data ?? {}) as any;
 
       const mtn = Number(p.mtn_balance ?? 0);
       const airtel = Number(p.airtel_balance ?? 0);
