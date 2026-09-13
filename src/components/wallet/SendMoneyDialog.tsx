@@ -20,6 +20,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFirstTransactionCelebration } from '@/hooks/useFirstTransactionCelebration';
 import { useConfetti } from '@/components/Confetti';
 import { toast } from 'sonner';
+import { AutoPayoutSection } from '@/components/wallet/AutoPayoutSection';
+
 import { 
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
   Mail, UtensilsCrossed, ShoppingCart, Fuel, Car, Hotel, Stethoscope, 
