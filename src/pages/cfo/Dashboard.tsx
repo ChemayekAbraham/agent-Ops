@@ -67,6 +67,7 @@ import { WalletRetractionsFeed } from '@/components/cfo/WalletRetractionsFeed';
 import { CFOAdvancesManager } from '@/components/cfo/CFOAdvancesManager';
 import { CFOAdvanceRequestPayments } from '@/components/cfo/CFOAdvanceRequestPayments';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
+import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 import { AdvancesAnalyticsView } from '@/components/advances/AdvancesAnalyticsView';
 import { AllAdvancesReportPanel } from '@/components/advances/AllAdvancesReportPanel';
 import { DisbursedAdvancesRegister } from '@/components/cfo/DisbursedAdvancesRegister';
@@ -107,8 +108,11 @@ import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotifi
 import { useCfoApprovalAuthority } from '@/hooks/useCfoApprovalAuthority';
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
+// A parent that only discloses children (e.g. Agent Products) is not itself a
+// destination — its children are the tabs.
 const CFO_TAB_SEQUENCE = (executiveSidebarConfig.cfo ?? [])
   .flatMap((section) => section.items)
+  .flatMap((item) => (item.children?.length ? item.children : [item]))
   .filter((item) => !item.route);
 const CFO_TAB_IDS = CFO_TAB_SEQUENCE.map((i) => i.id);
 const CFO_TAB_LABELS: Record<string, string> = Object.fromEntries(
@@ -410,15 +414,28 @@ export default function CFODashboardPage() {
           </div>
         );
       case 'bike-leases':
+      case 'agent-products-motorbikes':
         return (
           <div className="space-y-4">
             <div>
-              <h1 className="text-xl font-bold">Bike Leases</h1>
+              <h1 className="text-xl font-bold">Welile Motorbikes</h1>
               <p className="text-sm text-muted-foreground">
-                Applications approved by the COO. Releasing one sends the money into the ordering agent's own wallet and starts daily recovery.
+                Applications approved by the COO. Releasing one sends the money into the ordering agent's own wallet and starts daily recovery. Files you have already released stay listed here and open read-only.
               </p>
             </div>
             <BikeLeaseApprovalQueue stage="cfo" />
+          </div>
+        );
+      case 'agent-products-smartphones':
+        return (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-bold">Welile Smartphones</h1>
+              <p className="text-sm text-muted-foreground">
+                Applications approved by the COO. Releasing one pays the assigned supplier and starts the agent's daily recovery. Files you have already released stay listed here and open read-only.
+              </p>
+            </div>
+            <SmartphoneOrderApprovalQueue stage="cfo" />
           </div>
         );
       case 'advances-analytics':

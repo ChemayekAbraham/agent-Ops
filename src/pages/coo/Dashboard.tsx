@@ -38,10 +38,11 @@ import { AgentNetworkBadge } from '@/components/executive/tenant-ops/AgentNetwor
 import {
   Activity, ClipboardList, Users, Wallet, BarChart3,
   FileText, Banknote, Handshake, UserCheck, UserPlus,
-  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike
+  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike, MonitorSmartphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
+import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 
 interface QuickNavItem {
   id: string;
@@ -71,7 +72,8 @@ const quickNavItems: QuickNavItem[] = [
   { id: 'advance-requests', label: 'Business Advances', icon: Banknote, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20', description: 'Business advances' },
   { id: 'service-centres', label: 'Service Centre Vetting', icon: Building2, color: 'bg-orange-500/10 text-orange-600 border-orange-500/20', description: 'Vet & activate' },
   { id: 'department-budgets', label: 'Department Budgets', icon: Wallet2, color: 'bg-teal-500/10 text-teal-600 border-teal-500/20', description: 'Approve to CFO' },
-  { id: 'bike-leases', label: 'Bike Leases', icon: Bike, color: 'bg-lime-500/10 text-lime-600 border-lime-500/20', description: 'Approve to CFO' },
+  { id: 'agent-products-motorbikes', label: 'Welile Motorbikes', icon: Bike, color: 'bg-lime-500/10 text-lime-600 border-lime-500/20', description: 'Approve to CFO' },
+  { id: 'agent-products-smartphones', label: 'Welile Smartphones', icon: MonitorSmartphone, color: 'bg-sky-500/10 text-sky-600 border-sky-500/20', description: 'Approve to CFO' },
   { id: 'scale-vision', label: 'At Scale (40M+)', icon: Globe2, color: 'bg-primary/10 text-primary border-primary/20', description: 'Hyperscale vision' },
 ];
 
@@ -121,12 +123,22 @@ export default function COODashboardPage() {
           </div>
         );
       case 'bike-leases':
+      case 'agent-products-motorbikes':
         return (
           <div className="space-y-3">
             {isMobile && renderBackButton('Overview')}
-            {renderSectionHeader('Bike Lease Approvals', Bike)}
-            <p className="text-sm text-muted-foreground -mt-2">Bike applications verified by Agent Ops. Your approval forwards them to the CFO for disbursement into the agent wallet.</p>
+            {renderSectionHeader('Welile Motorbikes', Bike)}
+            <p className="text-sm text-muted-foreground -mt-2">Motorbike applications verified by Agent Ops. Your approval forwards them to the CFO for disbursement — approved files stay listed here as “COO approved — awaiting CFO” and open read-only.</p>
             <BikeLeaseApprovalQueue stage="coo" />
+          </div>
+        );
+      case 'agent-products-smartphones':
+        return (
+          <div className="space-y-3">
+            {isMobile && renderBackButton('Overview')}
+            {renderSectionHeader('Welile Smartphones', MonitorSmartphone)}
+            <p className="text-sm text-muted-foreground -mt-2">Smartphone applications verified by Agent Ops. Your approval forwards them to the CFO — approved files stay listed here as “Awaiting CFO” and open read-only.</p>
+            <SmartphoneOrderApprovalQueue stage="coo" />
           </div>
         );
       case 'rent-approvals':

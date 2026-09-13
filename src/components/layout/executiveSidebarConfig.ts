@@ -123,7 +123,15 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Advance Requests', icon: HandCoins, id: 'advances' },
         { label: 'Disbursed Advances', icon: Banknote, id: 'advances-disbursed' },
         { label: 'Advance Repayments', icon: Receipt, id: 'advance-repayments' },
-        { label: 'Bike Leases', icon: Bike, id: 'bike-leases' },
+        {
+          label: 'Agent Products',
+          icon: ShoppingBag,
+          id: 'agent-products',
+          children: [
+            { label: 'Welile Motorbikes', icon: Bike, id: 'agent-products-motorbikes' },
+            { label: 'Welile Smartphones', icon: MonitorSmartphone, id: 'agent-products-smartphones' },
+          ],
+        },
       ],
     },
     {
@@ -234,6 +242,15 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Welile Operations', icon: Landmark, id: 'welile-operations' },
         { label: 'Approval History', icon: History, id: 'approval-history' },
         { label: 'Service Centre Vetting', icon: Building2, id: 'service-centres' },
+        {
+          label: 'Agent Products',
+          icon: ShoppingBag,
+          id: 'agent-products',
+          children: [
+            { label: 'Welile Motorbikes', icon: Bike, id: 'agent-products-motorbikes' },
+            { label: 'Welile Smartphones', icon: MonitorSmartphone, id: 'agent-products-smartphones' },
+          ],
+        },
         { label: 'Manual Requisitions', icon: ClipboardList, id: 'manual-requisitions' },
         { label: 'Funder Rent Plans', icon: Eye, id: 'funder-rent-plans', route: '/coo/funder-rent-plans' },
          { label: 'Department Budgets', icon: ClipboardList, id: 'department-budgets' },

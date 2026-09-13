@@ -101,7 +101,22 @@ const isAgentOpsActionable = (s: string) => s === 'pending_approval' || s === 's
  * assigned supplier directly and starts the 33% recovery plan on the agent.
  * Rejecting at any stage requires a 10+ character reason.
  */
-export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly = false, inProgressOnly = false }: { pendingOnly?: boolean; rejectedOnly?: boolean; inProgressOnly?: boolean } = {}) {
+export function SmartphoneOrderApprovalQueue({
+  pendingOnly = false,
+  rejectedOnly = false,
+  inProgressOnly = false,
+  stage: stageFilter,
+}: {
+  pendingOnly?: boolean;
+  rejectedOnly?: boolean;
+  inProgressOnly?: boolean;
+  /**
+   * Restricts the queue to one review desk. A desk sees the files waiting on it
+   * plus every file it has already signed off (those stay listed with an
+   * updated status badge and open strictly read-only).
+   */
+  stage?: 'ops' | 'coo' | 'cfo';
+} = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [rejectTarget, setRejectTarget] = useState<SmartphoneOrderRow | null>(null);
@@ -115,13 +130,25 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const approveStage: 'ops' | 'coo' | 'cfo' = !approveTarget
-    ? 'ops'
-    : isAwaitingCfo(approveTarget.order_status)
-      ? 'cfo'
-      : isAwaitingCoo(approveTarget.order_status)
-        ? 'coo'
-        : 'ops';
+  const approveStage: 'ops' | 'coo' | 'cfo' = stageFilter
+    ? stageFilter
+    : !approveTarget
+      ? 'ops'
+      : isAwaitingCfo(approveTarget.order_status)
+        ? 'cfo'
+        : isAwaitingCoo(approveTarget.order_status)
+          ? 'coo'
+          : 'ops';
+
+  /**
+   * A row may only be acted on by the desk it is currently sitting with. Once a
+   * desk has signed off, its own copy of the file becomes read-only.
+   */
+  const canActOnRow = (status: string) => {
+    if (stageFilter === 'coo') return isAwaitingCoo(status);
+    if (stageFilter === 'cfo') return isAwaitingCfo(status);
+    return isAgentOpsActionable(status);
+  };
   /** Both review stages (Agent Ops, COO) record terms and move money nowhere. */
   const isReviewStage = approveStage !== 'cfo';
   /**
@@ -132,6 +159,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   const termsLocked = approveStage !== 'ops';
 
   const openApprove = (o: SmartphoneOrderRow) => {
+    if (!canActOnRow(o.order_status)) return;
     setApproveTarget(o);
     const existing = Number(o.total_amount || 0);
     // Welile funds the down payment only, so the Access Amount is exactly the
@@ -140,6 +168,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
     const days = Number(o.access_repayment_days || 0);
     setRepaymentDays(days > 0 ? String(days) : '30');
   };
+
 
   const closeApprove = () => {
     setApproveTarget(null);
@@ -394,17 +423,21 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
     }
   };
 
-  const scoped = useMemo(
-    () =>
-      rejectedOnly
-        ? orders.filter((o) => o.order_status === 'rejected')
-        : inProgressOnly
-          ? orders.filter((o) => isAwaitingCoo(o.order_status) || isAwaitingCfo(o.order_status))
-          : pendingOnly
-            ? orders.filter((o) => isPending(o.order_status))
-            : orders,
-    [orders, pendingOnly, rejectedOnly, inProgressOnly],
-  );
+  const scoped = useMemo(() => {
+    // A desk-scoped queue keeps the files it has already signed off, so nothing
+    // disappears after approval — it simply carries a later status badge.
+    let rows = orders;
+    if (stageFilter === 'coo') {
+      rows = rows.filter((o) => isAwaitingCoo(o.order_status) || !!o.coo_approved_at);
+    } else if (stageFilter === 'cfo') {
+      rows = rows.filter((o) => isAwaitingCfo(o.order_status) || !!o.cfo_disbursed_at);
+    }
+    if (rejectedOnly) return rows.filter((o) => o.order_status === 'rejected');
+    if (inProgressOnly) return rows.filter((o) => isAwaitingCoo(o.order_status) || isAwaitingCfo(o.order_status));
+    if (pendingOnly) return rows.filter((o) => isPending(o.order_status));
+    return rows;
+  }, [orders, pendingOnly, rejectedOnly, inProgressOnly, stageFilter]);
+
 
 
   const filtered = useMemo(() => {
@@ -424,6 +457,13 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
     (approve.isPending && approve.variables?.id === id) ||
     (reject.isPending && reject.variables?.id === id);
 
+  /** What the sign-off button does at this desk. */
+  const stageActionLabel =
+    stageFilter === 'cfo'
+      ? 'Approve & pay supplier'
+      : stageFilter === 'coo'
+        ? 'Approve & send to CFO'
+        : 'Approve & send to COO';
 
   return (
     <Card>
@@ -442,16 +482,23 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
               <Badge variant="outline" className={STATUS_TONE.rejected}>{scoped.length} rejected</Badge>
             ) : (
               <>
-                {!inProgressOnly && <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>}
-                <Badge variant="outline" className={STATUS_TONE.ops_approved}>
-                  {awaitingCooCount} awaiting COO
-                </Badge>
-                <Badge variant="outline" className={STATUS_TONE.coo_approved}>
-                  {awaitingCfoCount} awaiting CFO
-                </Badge>
+                {!inProgressOnly && !stageFilter && (
+                  <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>
+                )}
+                {(!stageFilter || stageFilter === 'coo') && (
+                  <Badge variant="outline" className={STATUS_TONE.ops_approved}>
+                    {awaitingCooCount} awaiting COO
+                  </Badge>
+                )}
+                {(!stageFilter || stageFilter === 'cfo') && (
+                  <Badge variant="outline" className={STATUS_TONE.coo_approved}>
+                    {awaitingCfoCount} awaiting CFO
+                  </Badge>
+                )}
               </>
             )}
           </CardTitle>
+
 
           {filtered.length > 0 && rejectedOnly && (
             <Button
@@ -571,7 +618,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                   <p className="text-[11px] text-destructive">Rejected: {o.rejection_reason}</p>
                 )}
 
-                {isAgentOpsActionable(o.order_status) ? (
+                {canActOnRow(o.order_status) ? (
                   <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
@@ -581,9 +628,10 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                       {approve.isPending && approve.variables?.id === o.id ? (
                         <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Processing…</>
                       ) : (
-                        <><Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to COO</>
+                        <><Check className="h-3.5 w-3.5 mr-1" /> {stageActionLabel}</>
                       )}
                     </Button>
+
 
                     <Button
                       size="sm"
@@ -861,7 +909,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                   <p className="text-[11px] text-destructive">Rejected: {detailsTarget.rejection_reason}</p>
                 )}
 
-                {isAgentOpsActionable(detailsTarget.order_status) ? (
+                {canActOnRow(detailsTarget.order_status) ? (
                   <DialogFooter className="gap-2 sm:gap-2">
                     <Button
                       variant="outline"
@@ -873,30 +921,34 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                       disabled={approve.isPending}
                       onClick={() => openApprove(detailsTarget)}
                     >
-                      <Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to COO
+                      <Check className="h-3.5 w-3.5 mr-1" /> {stageActionLabel}
                     </Button>
                   </DialogFooter>
                 ) : (
                   <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium">Current progress</span>
-                      <Badge variant="outline" className={STATUS_TONE[detailsTarget.order_status] || ''}>
-                        {isAwaitingCfo(detailsTarget.order_status)
-                          ? 'Awaiting CFO Disbursement'
-                          : isAwaitingCoo(detailsTarget.order_status)
-                            ? 'Awaiting COO Approval'
-                            : statusLabel(detailsTarget.order_status)}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[10px]">Read-only</Badge>
+                        <Badge variant="outline" className={STATUS_TONE[detailsTarget.order_status] || ''}>
+                          {isAwaitingCfo(detailsTarget.order_status)
+                            ? 'Awaiting CFO Approval'
+                            : isAwaitingCoo(detailsTarget.order_status)
+                              ? 'Awaiting COO Approval'
+                              : statusLabel(detailsTarget.order_status)}
+                        </Badge>
+                      </div>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                       {isAwaitingCfo(detailsTarget.order_status)
-                        ? 'COO has approved this application. It is now with the CFO for supplier payment and cannot be modified in Agent Ops.'
+                        ? 'The COO has approved this application. It is now with the CFO for supplier payment and can only be viewed here.'
                         : isAwaitingCoo(detailsTarget.order_status)
-                          ? 'Agent Ops has approved this application. It is now with the COO for review and cannot be modified in Agent Ops.'
-                          : 'This application is no longer editable in Agent Ops.'}
+                          ? 'Agent Ops has approved this application. It is now with the COO for review and can only be viewed here.'
+                          : 'This application has already been decided and is shown for reference only.'}
                     </p>
                   </div>
                 )}
+
 
               </div>
             );
