@@ -39,7 +39,7 @@ export function AutoPayoutSection({
   amount,
   description,
 }: AutoPayoutSectionProps) {
-  const { schedules, cap, create, setState } = useAutoPayouts();
+  const { schedules, cap, create, setState, changeRecipient } = useAutoPayouts();
   const [enabled, setEnabled] = useState(false);
   const [frequency, setFrequency] = useState<AutoPayoutFrequency>('monthly');
   const [dayOfWeek, setDayOfWeek] = useState('1');
@@ -53,6 +53,15 @@ export function AutoPayoutSection({
 
   // The Welile item this schedule pays for (Rent, Bread, Chapati, …).
   const item = (description || '').trim();
+
+  // Each item pays exactly one locked receiver until the owner changes it.
+  const existing = item
+    ? schedules.find(
+        (s) => (s.description || '').trim().toLowerCase() === item.toLowerCase(),
+      )
+    : undefined;
+  const lockedToSomeoneElse = !!existing && !!recipientId && existing.recipient_id !== recipientId;
+
 
   const handleSave = async () => {
     if (!recipientId) {
