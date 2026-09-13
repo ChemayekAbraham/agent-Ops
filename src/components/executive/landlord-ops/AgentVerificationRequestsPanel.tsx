@@ -450,9 +450,10 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       (r.landlord_phone || '').toLowerCase().includes(q) ||
       (r.agent_name || '').toLowerCase().includes(q) ||
       (r.agent_phone || '').toLowerCase().includes(q) ||
-      (districtByLandlord[r.landlord_id] || '').toLowerCase().includes(q)
+      (districtByLandlord[r.landlord_id] || '').toLowerCase().includes(q) ||
+      geoText(r.landlord_id).includes(q)
     );
-  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab, inGeo]);
+  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab, inGeo, geoText]);
 
   const resubmittedCount = useMemo(
     () => requests.filter((r) => !!priorByLandlord[r.landlord_id]).length,
@@ -472,9 +473,24 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       (r.landlord_phone || '').toLowerCase().includes(q) ||
       (r.agent_name || '').toLowerCase().includes(q) ||
       (r.agent_phone || '').toLowerCase().includes(q) ||
-      (districtByLandlordAll[r.landlord_id] || '').toLowerCase().includes(q)
+      (districtByLandlordAll[r.landlord_id] || '').toLowerCase().includes(q) ||
+      geoText(r.landlord_id).includes(q)
     );
-  }, [decided, search, tab, districtByLandlordAll, inGeo]);
+  }, [decided, search, tab, districtByLandlordAll, inGeo, geoText]);
+
+  // ---- Pagination: one page index shared by the visible list, PAGE_SIZE rows per page ----
+  const isPendingList = tab === 'pending' || tab === 'resubmitted' || tab === 'all';
+  const activeRows = isPendingList ? filtered : decidedFiltered;
+  const pageCount = Math.max(1, Math.ceil(activeRows.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedFiltered = useMemo(
+    () => filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [filtered, safePage],
+  );
+  const pagedDecided = useMemo(
+    () => decidedFiltered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [decidedFiltered, safePage],
+  );
 
   const tabCounts = useMemo(() => ({
     pending: requests.length,
