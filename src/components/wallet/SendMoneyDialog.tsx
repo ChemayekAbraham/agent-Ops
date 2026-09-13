@@ -20,6 +20,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFirstTransactionCelebration } from '@/hooks/useFirstTransactionCelebration';
 import { useConfetti } from '@/components/Confetti';
 import { toast } from 'sonner';
+import { AutoPayoutSection } from '@/components/wallet/AutoPayoutSection';
+
 import { 
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
   Mail, UtensilsCrossed, ShoppingCart, Fuel, Car, Hotel, Stethoscope, 
@@ -1210,6 +1212,16 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                     </div>
                   </AnimatePresence>
                 </motion.div>
+
+                <motion.div variants={itemVariants}>
+                  <AutoPayoutSection
+                    recipientId={recipient.status === 'found' && !recipient.isSelf ? recipient.id : undefined}
+                    recipientName={recipient.status === 'found' ? recipient.name : undefined}
+                    amount={amount}
+                    description={description}
+                  />
+                </motion.div>
+
 
                 <motion.div
                   variants={itemVariants}
