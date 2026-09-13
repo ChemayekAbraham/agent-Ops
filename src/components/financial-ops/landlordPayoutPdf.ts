@@ -1,5 +1,25 @@
 import type { LandlordPayoutShareData } from './LandlordPayoutShareCard';
 import { downloadXlsx } from '@/lib/xlsxExport';
+import { supabase } from '@/integrations/supabase/client';
+
+// Bulk export of many funded landlord payouts (list/cards PDF, summary PDF)
+// at once, not logged before this. Plain client-side insert so the
+// audit_logs IP-capture trigger sees the real browser IP directly. Never
+// blocks the actual download.
+async function logPayoutPdfExport(filename: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: 'pdf_report_exported',
+      table_name: 'export',
+      record_id: null,
+      metadata: { filename },
+    });
+  } catch (e) {
+    console.warn('[landlordPayoutPdf] audit log insert failed:', e);
+  }
+}
 
 // ───────────────────────────────────────────────────────────
 // Standalone PDF builder for landlord payout cards.
@@ -372,6 +392,8 @@ export function downloadBlob(blob: Blob, filename: string) {
   link.click();
   document.body.removeChild(link);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  void logPayoutPdfExport(filename);
 }
 
 // ───────────────────────────────────────────────────────────
