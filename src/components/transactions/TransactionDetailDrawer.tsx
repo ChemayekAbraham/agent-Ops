@@ -5,7 +5,8 @@
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Download, FileSpreadsheet, X } from "lucide-react";
+import { ArrowRight, Copy, Download, FileSpreadsheet, X } from "lucide-react";
+import { welileItemImage } from "@/lib/welileItemImages";
 import { useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import {
