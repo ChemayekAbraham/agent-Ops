@@ -19,6 +19,26 @@ import {
 import { format as fmtDay, subDays } from 'date-fns';
 import { notifyVerificationResolved } from '@/lib/landlordVerificationNotify';
 import { CallButton } from './CallButton';
+import { useLandlordTenantsMap } from '@/hooks/useLandlordTenantsMap';
+
+/** Tap-to-call buttons for a landlord's tenants (empty when none recorded). */
+function TenantCallButtons({ tenants, fullWidth = false }: { tenants?: { name: string; phone: string }[]; fullWidth?: boolean }) {
+  if (!tenants?.length) return null;
+  return (
+    <>
+      {tenants.map((t) => (
+        <CallButton
+          key={t.phone}
+          phone={t.phone}
+          who={`tenant ${t.name}`}
+          className={fullWidth ? 'w-full min-[420px]:w-auto' : undefined}
+        />
+      ))}
+    </>
+  );
+}
+
+
 import { setLandlordVerification } from '@/lib/landlord-ops/verification';
 import { generateLandlordVerificationQueuePdf } from '@/lib/landlordVerificationQueuePdf';
 import {
@@ -518,6 +538,13 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
     [decidedFiltered, safePage],
   );
 
+  /** Tenants (name + phone) per landlord in the loaded queue, for tap-to-call. */
+  const queueLandlordIds = useMemo(
+    () => [...requests, ...decided].map((r) => r.landlord_id).filter(Boolean),
+    [requests, decided],
+  );
+  const { data: tenantsByLandlord } = useLandlordTenantsMap(queueLandlordIds);
+
   const tabCounts = useMemo(() => ({
     pending: requests.length,
     resubmitted: resubmittedCount,
@@ -655,7 +682,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
 
         {/* Location navigator: Country -> Region -> District -> County -> Sub-county -> Village/Cell -> landlord */}
         <div className="mt-2.5">
-          <LandlordVerificationGeoBrowser rows={geoRows} path={geoPath} onChange={setGeoPath} />
+          <LandlordVerificationGeoBrowser rows={geoRows} path={geoPath} onChange={setGeoPath} tenantsByLandlord={tenantsByLandlord} />
         </div>
 
         {/* Date range + export */}
@@ -767,10 +794,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                       </Badge>
                     )}
                   </div>
-                  {(req.landlord_phone || req.agent_phone) && (
+                  {(req.landlord_phone || req.agent_phone || tenantsByLandlord?.[req.landlord_id]?.length) && (
                     <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row">
                       <CallButton phone={req.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
                       <CallButton phone={req.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
+                      <TenantCallButtons tenants={tenantsByLandlord?.[req.landlord_id]} fullWidth />
                     </div>
                   )}
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1 truncate">
@@ -1017,10 +1045,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                         </Badge>
                       )}
                     </div>
-                    {(r.landlord_phone || r.agent_phone) && (
-                      <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row">
+                    {(r.landlord_phone || r.agent_phone || tenantsByLandlord?.[r.landlord_id]?.length) && (
+                      <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row min-[420px]:flex-wrap">
                         <CallButton phone={r.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
                         <CallButton phone={r.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
+                        <TenantCallButtons tenants={tenantsByLandlord?.[r.landlord_id]} fullWidth />
                       </div>
                     )}
                     <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 flex-wrap">

@@ -107,9 +107,11 @@ interface Props {
   rows: GeoQueueRow[];
   path: GeoPath;
   onChange: (path: GeoPath) => void;
+  /** landlord_id -> tenants with a recorded phone, for tap-to-call buttons. */
+  tenantsByLandlord?: Record<string, { name: string; phone: string }[]>;
 }
 
-export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) {
+export function LandlordVerificationGeoBrowser({ rows, path, onChange, tenantsByLandlord }: Props) {
   const [query, setQuery] = useState('');
   // Per-row "copied" feedback for the Copy location link action.
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -352,10 +354,18 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
                        .filter((v) => v !== UNRECORDED)
                        .join(', ') || UNRECORDED}
                    </p>
-                   <div className="mt-2 flex flex-col gap-2 min-[420px]:flex-row">
-                     <CallButton phone={r.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
-                     <CallButton phone={r.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
-                   </div>
+                    <div className="mt-2 flex flex-col gap-2 min-[420px]:flex-row min-[420px]:flex-wrap">
+                      <CallButton phone={r.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
+                      <CallButton phone={r.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
+                      {(tenantsByLandlord?.[r.landlord_id] ?? []).map((t) => (
+                        <CallButton
+                          key={t.phone}
+                          phone={t.phone}
+                          who={`tenant ${t.name}`}
+                          className="w-full min-[420px]:w-auto"
+                        />
+                      ))}
+                    </div>
                    <div className="mt-2.5 flex flex-col gap-2 min-[420px]:flex-row min-[420px]:items-center">
                      <Button
                        size="sm"
