@@ -588,6 +588,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
           </TabsList>
         </Tabs>
 
+        {/* Location navigator: Country -> Region -> District -> County -> Sub-county -> Village/Cell -> landlord */}
+        <div className="mt-2.5">
+          <LandlordVerificationGeoBrowser rows={geoRows} path={geoPath} onChange={setGeoPath} />
+        </div>
+
         {/* Date range + export */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
