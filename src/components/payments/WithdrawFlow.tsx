@@ -1017,6 +1017,9 @@ export default function WithdrawFlow({
       case 0:
         return (
           <div className="space-y-4">
+            {needsNationalId && (
+              <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
+            )}
             {!withdrawCtx.isLoading && !withdrawCtx.gates.canSubmit && (
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-1">
                 <div className="flex items-center gap-2">
