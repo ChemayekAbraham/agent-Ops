@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import WelileLogo from '@/components/WelileLogo';
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { LandlordOpsSidebar } from './LandlordOpsSidebar';
 import { searchLandlordOpsNav } from './landlordOpsNav';
@@ -99,8 +100,8 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
-              <div className="p-4 border-b border-border flex items-center gap-2">
-                <span className="font-black text-base tracking-tight text-[#0FA958]">WELILE</span>
+            <div className="p-4 border-b border-border flex items-center gap-2">
+                <WelileLogo showText size="sm" linkToHome={false} />
                 <span className="text-xs font-bold text-foreground">Landlord Operations</span>
               </div>
               <LandlordOpsSidebar
@@ -120,8 +121,8 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
             className="flex min-w-0 items-center gap-2"
             onClick={() => onNavigate('')}
           >
-            <span className="font-black text-base lg:text-lg tracking-tight text-[#0FA958]">WELILE</span>
-            <span className="hidden truncate text-xs font-bold text-foreground pl-1 border-l border-border sm:inline lg:text-sm">
+            <WelileLogo showText size="sm" linkToHome={false} />
+            <span className="hidden truncate text-xs font-bold text-foreground pl-2 border-l border-border sm:inline lg:text-sm">
               Landlord Operations
             </span>
           </button>
