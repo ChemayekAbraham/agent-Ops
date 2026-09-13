@@ -86,6 +86,7 @@ export function TenantPaymentsLocationFilters() {
   const [sel, setSel] = useState<Selection>(EMPTY_SELECTION);
   const [dateMode, setDateMode] = useState<'range' | 'day'>('range');
   const [day, setDay] = useState<Date | undefined>(undefined);
+  const [calOpen, setCalOpen] = useState(false);
   const [from, setFrom] = useState<string>(isoDaysAgo(30));
   const [to, setTo] = useState<string>(new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState<string>(ALL);
