@@ -100,8 +100,8 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
-              <div className="p-4 border-b border-border flex items-center gap-2">
-                <span className="font-black text-base tracking-tight text-[#0FA958]">WELILE</span>
+            <div className="p-4 border-b border-border flex items-center gap-2">
+                <WelileLogo showText size="sm" linkToHome={false} />
                 <span className="text-xs font-bold text-foreground">Landlord Operations</span>
               </div>
               <LandlordOpsSidebar
