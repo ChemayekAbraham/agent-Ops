@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
+  CalendarIcon,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -19,8 +20,10 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -81,13 +84,17 @@ const EMPTY_SELECTION: Selection = {
 
 export function TenantPaymentsLocationFilters() {
   const [sel, setSel] = useState<Selection>(EMPTY_SELECTION);
+  const [dateMode, setDateMode] = useState<'range' | 'day'>('range');
+  const [day, setDay] = useState<Date | undefined>(undefined);
   const [from, setFrom] = useState<string>(isoDaysAgo(30));
   const [to, setTo] = useState<string>(new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState<string>(ALL);
 
   const methodParam = method === ALL ? null : method;
-  const fromParam = from || null;
-  const toParam = to || null;
+  // Daily mode pins both bounds to the picked calendar day.
+  const dayIso = day ? format(day, 'yyyy-MM-dd') : null;
+  const fromParam = dateMode === 'day' ? dayIso : (from || null);
+  const toParam = dateMode === 'day' ? dayIso : (to || null);
 
   // ---- Option lists: every level is independent — each loads whether or not
   // the levels above it are selected, and narrows when parents are chosen. ----
@@ -235,31 +242,88 @@ export function TenantPaymentsLocationFilters() {
 
       <CardContent className="space-y-4 px-5 pb-5 pt-0">
         {/* Date + method filters */}
+        <div className="flex items-center gap-1.5 pb-0.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mr-1">
+            Filter by
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant={dateMode === 'range' ? 'default' : 'outline'}
+            className="h-7 px-2.5 text-[11px]"
+            onClick={() => setDateMode('range')}
+          >
+            Date range
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={dateMode === 'day' ? 'default' : 'outline'}
+            className="h-7 px-2.5 text-[11px]"
+            onClick={() => setDateMode('day')}
+          >
+            Single day
+          </Button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              From
-            </label>
-            <Input
-              type="date"
-              value={from}
-              max={to}
-              onChange={(e) => setFrom(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              To
-            </label>
-            <Input
-              type="date"
-              value={to}
-              min={from}
-              onChange={(e) => setTo(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </div>
+          {dateMode === 'day' ? (
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Day
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={`h-9 w-full justify-start text-left text-xs font-normal ${!day ? 'text-muted-foreground' : ''}`}
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                    {day ? format(day, 'PPP') : <span>Pick a day</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={day}
+                    onSelect={setDay}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-[10px] text-muted-foreground">
+                Shows payments received on this exact day only.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  From
+                </label>
+                <Input
+                  type="date"
+                  value={from}
+                  max={to}
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  To
+                </label>
+                <Input
+                  type="date"
+                  value={to}
+                  min={from}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </>
+          )}
           <div className="space-y-1.5">
             <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Payment method
@@ -582,11 +646,17 @@ export function TenantPaymentsLocationFilters() {
                 </>
               )}
             </div>
-            {(method !== ALL || from !== isoDaysAgo(30) || to !== new Date().toISOString().slice(0, 10)) && (
+            {(method !== ALL ||
+              (dateMode === 'day' && !!day) ||
+              (dateMode === 'range' && (from !== isoDaysAgo(30) || to !== new Date().toISOString().slice(0, 10)))) && (
               <p className="text-[10px] text-muted-foreground">
                 {[
                   method !== ALL ? (METHOD_LABEL[method] ?? method) : null,
-                  from && to ? `${format(new Date(from), 'dd MMM yyyy')} – ${format(new Date(to), 'dd MMM yyyy')}` : null,
+                  dateMode === 'day' && day
+                    ? format(day, 'dd MMM yyyy')
+                    : dateMode === 'range' && from && to
+                      ? `${format(new Date(from), 'dd MMM yyyy')} – ${format(new Date(to), 'dd MMM yyyy')}`
+                      : null,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
