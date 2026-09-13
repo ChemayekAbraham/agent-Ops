@@ -330,6 +330,13 @@
       "when": 1789317601349,
       "tag": "0046_lock_schedule_receiver_per_item",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789334569601,
+      "tag": "0047_payout_verification_newest_first",
+      "breakpoints": true
     }
   ]
 }
