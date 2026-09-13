@@ -340,6 +340,14 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
       }));
       if (matches.length === 1) {
         const m = matches[0];
+        if (!m.isSelf) {
+          const bad = await recipientProblem(m.id);
+          if (cancelled) return;
+          if (bad) {
+            setRecipient({ status: 'invalid', reason: bad });
+            return;
+          }
+        }
         setRecipient({
           status: 'found',
           id: m.id,
