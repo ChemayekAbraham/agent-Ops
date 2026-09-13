@@ -108,8 +108,11 @@ import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotifi
 import { useCfoApprovalAuthority } from '@/hooks/useCfoApprovalAuthority';
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
+// A parent that only discloses children (e.g. Agent Products) is not itself a
+// destination — its children are the tabs.
 const CFO_TAB_SEQUENCE = (executiveSidebarConfig.cfo ?? [])
   .flatMap((section) => section.items)
+  .flatMap((item) => (item.children?.length ? item.children : [item]))
   .filter((item) => !item.route);
 const CFO_TAB_IDS = CFO_TAB_SEQUENCE.map((i) => i.id);
 const CFO_TAB_LABELS: Record<string, string> = Object.fromEntries(
