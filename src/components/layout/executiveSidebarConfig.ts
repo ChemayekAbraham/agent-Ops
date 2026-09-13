@@ -5,7 +5,7 @@ import {
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, MapPin,
+  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -130,7 +130,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Money In',
       items: [
         { label: 'Rent Collections', icon: Receipt, id: 'rent-collections' },
-        { label: 'Payments by Location', icon: MapPin, id: 'payments-by-location' },
+        
         { label: 'Tenant Self-Repayments', icon: Receipt, id: 'tenant-self-repayments' },
         { label: 'Investor Returns', icon: TrendingUp, id: 'roi-requests' },
         { label: 'Partner Top-ups', icon: TrendingUp, id: 'partner-topups' },
