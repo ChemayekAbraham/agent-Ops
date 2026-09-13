@@ -70,6 +70,10 @@ function outcomeLabel(outcome: string | null) {
   return OUTCOME_LABELS[outcome] ?? outcome.replace(/_/g, ' ');
 }
 
+function keptLabel(bucket: string | null | undefined) {
+  return bucket === 'withdrawable' ? 'Kept in wallet (withdrawable)' : 'Kept in float';
+}
+
 function toCsv(rows: TenantSelfRepaymentRow[]) {
   const header = [
     'Paid at',
@@ -77,9 +81,10 @@ function toCsv(rows: TenantSelfRepaymentRow[]) {
     'Phone',
     'Deposited',
     'Applied to rent',
-    'Surplus kept',
+    'Kept in wallet',
+    'Kept in bucket',
     'Outcome',
-    'Balance after',
+    'Current outstanding',
     'Plan status',
     'Agent',
     'Agent commission',
@@ -100,7 +105,8 @@ function toCsv(rows: TenantSelfRepaymentRow[]) {
       r.paid_from_phone ?? '',
       r.amount_deposited ?? 0,
       r.applied_amount ?? 0,
-      r.surplus_amount ?? 0,
+      r.float_kept ?? r.surplus_amount ?? 0,
+      r.kept_bucket ?? 'float',
       outcomeLabel(r.outcome),
       r.outstanding_after ?? '',
       r.plan_status ?? '',
@@ -134,7 +140,7 @@ export function TenantSelfRepaymentsPanel({ audience = 'finance', title, descrip
         ring: 'from-emerald-500/15 to-emerald-500/0',
       },
       {
-        label: 'Kept in tenant float',
+        label: 'Kept in tenant wallets',
         value: formatUGX(totals.total_surplus),
         icon: PiggyBank,
         tone: 'text-sky-600',
