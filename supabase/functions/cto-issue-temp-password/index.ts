@@ -267,11 +267,24 @@ Deno.serve(async (req) => {
     }
 
     // 8. Audit (best effort)
+    // This insert runs via the admin (service-role) client, so the
+    // audit_logs IP-capture trigger only ever sees THIS function's own
+    // outbound call context, not the real caller's browser -- the same gap
+    // found in admin-reset-password. Captured here instead, from this
+    // function's own incoming request, and passed explicitly.
+    const clientIp =
+      (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+      req.headers.get("cf-connecting-ip") ||
+      null;
+    const userAgent = req.headers.get("user-agent") || null;
+
     admin.from("audit_logs").insert({
       user_id: caller.id,
       action_type: "cto_temp_password_issued",
       table_name: "profiles",
       record_id: targetId,
+      ip_address: clientIp,
+      user_agent: userAgent,
       metadata: {
         reason: "CTO issued temporary password + forced reset",
         target_user_id: targetId,
