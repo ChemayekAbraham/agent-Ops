@@ -11,6 +11,7 @@ import {
   ShieldQuestion, CheckCircle2, XCircle, Phone, Loader2, UserCircle,
   MapPin, Home, Banknote, Smartphone, Calendar, Search, Building2,
   FilterX, Clock, RotateCcw, AlertTriangle, FileDown, BarChart3, Ban,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
@@ -30,6 +31,9 @@ import {
 /** Location columns read for the geographic navigator (district kept for the existing badge). */
 const GEO_COLS =
   'id, country, region, district, county, sub_county, town_council, village, cell, latitude, longitude';
+
+/** Rows shown per page in the queue / history lists. */
+const PAGE_SIZE = 20;
 
 interface VerificationRequest {
   id: string;
@@ -389,6 +393,25 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   };
 
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+
+  // Any filter change restarts pagination at the first page.
+  useEffect(() => {
+    setPage(0);
+  }, [search, tab, geoPath, onlyResubmitted, fromDate, toDate]);
+
+  /** Searchable location text for a landlord (approved-dataset columns). */
+  const geoText = useCallback(
+    (landlordId: string) => {
+      const g = geoByLandlord[landlordId];
+      if (!g) return '';
+      return [g.country, g.region, g.district, g.county, g.sub_county, g.town_council, g.village, g.cell]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+    },
+    [geoByLandlord],
+  );
 
   /** Rows feeding the geographic navigator (pending + decided in range). */
   const geoRows = useMemo<GeoQueueRow[]>(() => {
@@ -430,9 +453,10 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       (r.landlord_phone || '').toLowerCase().includes(q) ||
       (r.agent_name || '').toLowerCase().includes(q) ||
       (r.agent_phone || '').toLowerCase().includes(q) ||
-      (districtByLandlord[r.landlord_id] || '').toLowerCase().includes(q)
+      (districtByLandlord[r.landlord_id] || '').toLowerCase().includes(q) ||
+      geoText(r.landlord_id).includes(q)
     );
-  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab, inGeo]);
+  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab, inGeo, geoText]);
 
   const resubmittedCount = useMemo(
     () => requests.filter((r) => !!priorByLandlord[r.landlord_id]).length,
@@ -452,9 +476,24 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       (r.landlord_phone || '').toLowerCase().includes(q) ||
       (r.agent_name || '').toLowerCase().includes(q) ||
       (r.agent_phone || '').toLowerCase().includes(q) ||
-      (districtByLandlordAll[r.landlord_id] || '').toLowerCase().includes(q)
+      (districtByLandlordAll[r.landlord_id] || '').toLowerCase().includes(q) ||
+      geoText(r.landlord_id).includes(q)
     );
-  }, [decided, search, tab, districtByLandlordAll, inGeo]);
+  }, [decided, search, tab, districtByLandlordAll, inGeo, geoText]);
+
+  // ---- Pagination: one page index shared by the visible list, PAGE_SIZE rows per page ----
+  const isPendingList = tab === 'pending' || tab === 'resubmitted' || tab === 'all';
+  const activeRows = isPendingList ? filtered : decidedFiltered;
+  const pageCount = Math.max(1, Math.ceil(activeRows.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedFiltered = useMemo(
+    () => filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [filtered, safePage],
+  );
+  const pagedDecided = useMemo(
+    () => decidedFiltered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [decidedFiltered, safePage],
+  );
 
   const tabCounts = useMemo(() => ({
     pending: requests.length,
@@ -672,7 +711,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
             No requests match “{search}”.
           </div>
         ) : (
-          filtered.map((req) => (
+          pagedFiltered.map((req) => (
             <div
               key={req.id}
               className="rounded-xl border border-amber-500/30 bg-background p-3 space-y-3 hover:border-amber-500/60 transition-colors"
@@ -925,7 +964,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               No {TAB_LABEL[tab].toLowerCase()} requests in this date range.
             </div>
           ) : (
-            decidedFiltered.map((r) => (
+            pagedDecided.map((r) => (
               <div key={r.id} className="rounded-xl border border-border bg-background p-3 space-y-1.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -977,6 +1016,40 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               </div>
             ))
           )
+        )}
+
+        {/* Pagination */}
+        {activeRows.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60 mt-2">
+            <p className="text-[11px] text-muted-foreground">
+              Showing {safePage * PAGE_SIZE + 1}–{Math.min(activeRows.length, safePage * PAGE_SIZE + PAGE_SIZE)} of {activeRows.length}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] gap-1"
+                disabled={safePage === 0}
+                onClick={() => setPage(safePage - 1)}
+              >
+                <ChevronLeft className="h-3 w-3" />
+                Prev
+              </Button>
+              <span className="text-[11px] text-muted-foreground px-1">
+                Page {safePage + 1} of {pageCount}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] gap-1"
+                disabled={safePage >= pageCount - 1}
+                onClick={() => setPage(safePage + 1)}
+              >
+                Next
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>
