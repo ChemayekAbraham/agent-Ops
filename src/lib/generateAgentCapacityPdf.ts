@@ -258,12 +258,34 @@ export function generateAgentCapacityPdf(
 }
 
 export function downloadCapacityPdf(blob: Blob, agentName: string) {
+  const filename = `Welile_Capacity_${agentName.replace(/[^A-Za-z0-9]+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `Welile_Capacity_${agentName.replace(/[^A-Za-z0-9]+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  // Used by both an agent's own self-view card and the executive capacity
+  // panel viewing another agent's record -- the latter is staff exporting
+  // someone else's performance/financial data, worth logging regardless of
+  // which caller triggered it. Plain client-side insert so the audit_logs
+  // IP-capture trigger sees the real browser IP directly. Never blocks the
+  // actual download.
+  (async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('audit_logs').insert({
+        user_id: user?.id ?? null,
+        action_type: 'pdf_report_exported',
+        table_name: 'export',
+        record_id: null,
+        metadata: { filename, agent_name: agentName },
+      });
+    } catch (e) {
+      console.warn('[generateAgentCapacityPdf] audit log insert failed:', e);
+    }
+  })();
 }
