@@ -135,6 +135,39 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
                   <p className="text-base font-extrabold leading-tight text-foreground">{peer.name}</p>
                 </div>
               )}
+              {itemPhoto && (
+                <div className="relative mt-3 w-full overflow-hidden rounded-2xl">
+                  <img
+                    src={itemPhoto}
+                    alt={row.description?.trim() || txLabel(row)}
+                    loading="lazy"
+                    width={512}
+                    height={512}
+                    className="h-36 w-full object-cover"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent p-2.5">
+                    <UserAvatar
+                      avatarUrl={isIn ? peer?.avatar ?? null : profile?.avatar_url ?? null}
+                      fullName={isIn ? peer?.name ?? other : me}
+                      size="sm"
+                      className="h-8 w-8 border-2 border-white/80"
+                    />
+                    <span className="text-[11px] font-bold text-white">
+                      {isIn ? peer?.name ?? other : me}
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-white/80" />
+                    <UserAvatar
+                      avatarUrl={isIn ? profile?.avatar_url ?? null : peer?.avatar ?? null}
+                      fullName={isIn ? me : peer?.name ?? other}
+                      size="sm"
+                      className="h-8 w-8 border-2 border-white/80"
+                    />
+                    <span className="truncate text-[11px] font-bold text-white">
+                      {isIn ? me : peer?.name ?? other}
+                    </span>
+                  </div>
+                </div>
+              )}
               <h2 className="mt-3 text-xl font-bold text-foreground">{txLabel(row)}</h2>
               <div className="mt-1 flex items-center gap-1.5">
                 <Badge
