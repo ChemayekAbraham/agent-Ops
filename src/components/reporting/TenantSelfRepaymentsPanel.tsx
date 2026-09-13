@@ -291,11 +291,13 @@ export function TenantSelfRepaymentsPanel({ audience = 'finance', title, descrip
                         <p className="font-mono font-semibold">{formatUGX(Number(r.applied_amount) || 0)}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Kept in float</p>
-                        <p className="font-mono">{formatUGX(Number(r.surplus_amount) || 0)}</p>
+                        <p className="text-muted-foreground">{keptLabel(r.kept_bucket)}</p>
+                        <p className="font-mono">{formatUGX(Number(r.float_kept ?? r.surplus_amount) || 0)}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Balance after</p>
+                        <p className="text-muted-foreground" title="Live balance on the plan today, not at the time of this payment">
+                          Current outstanding
+                        </p>
                         <p className="font-mono">{formatUGX(Number(r.outstanding_after) || 0)}</p>
                       </div>
                       <div>
