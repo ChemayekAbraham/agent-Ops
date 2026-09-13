@@ -121,12 +121,22 @@ export default function COODashboardPage() {
           </div>
         );
       case 'bike-leases':
+      case 'agent-products-motorbikes':
         return (
           <div className="space-y-3">
             {isMobile && renderBackButton('Overview')}
-            {renderSectionHeader('Bike Lease Approvals', Bike)}
-            <p className="text-sm text-muted-foreground -mt-2">Bike applications verified by Agent Ops. Your approval forwards them to the CFO for disbursement into the agent wallet.</p>
+            {renderSectionHeader('Welile Motorbikes', Bike)}
+            <p className="text-sm text-muted-foreground -mt-2">Motorbike applications verified by Agent Ops. Your approval forwards them to the CFO for disbursement — approved files stay listed here as “COO approved — awaiting CFO” and open read-only.</p>
             <BikeLeaseApprovalQueue stage="coo" />
+          </div>
+        );
+      case 'agent-products-smartphones':
+        return (
+          <div className="space-y-3">
+            {isMobile && renderBackButton('Overview')}
+            {renderSectionHeader('Welile Smartphones', MonitorSmartphone)}
+            <p className="text-sm text-muted-foreground -mt-2">Smartphone applications verified by Agent Ops. Your approval forwards them to the CFO — approved files stay listed here as “Awaiting CFO” and open read-only.</p>
+            <SmartphoneOrderApprovalQueue stage="coo" />
           </div>
         );
       case 'rent-approvals':
