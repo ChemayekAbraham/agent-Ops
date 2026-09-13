@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Download,
+  FileSpreadsheet,
   IdCard,
   Loader2,
   PhoneCall,
@@ -156,6 +158,7 @@ export default function PayoutVerificationPanel() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [active, setActive] = useState<PayoutDestinationRow | null>(null);
+  const [exporting, setExporting] = useState<'csv' | 'pdf' | null>(null);
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
@@ -296,6 +299,36 @@ export default function PayoutVerificationPanel() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Export */}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          className="flex-1 h-11 text-xs font-semibold"
+          disabled={exporting !== null}
+          onClick={() => runExport('csv')}
+        >
+          {exporting === 'csv' ? (
+            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+          ) : (
+            <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+          )}
+          Export CSV
+        </Button>
+        <Button
+          variant="outline"
+          className="flex-1 h-11 text-xs font-semibold"
+          disabled={exporting !== null}
+          onClick={() => runExport('pdf')}
+        >
+          {exporting === 'pdf' ? (
+            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-1.5" />
+          )}
+          Export PDF
+        </Button>
       </div>
 
       {/* Rows */}
