@@ -390,6 +390,25 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   };
 
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+
+  // Any filter change restarts pagination at the first page.
+  useEffect(() => {
+    setPage(0);
+  }, [search, tab, geoPath, onlyResubmitted, fromDate, toDate]);
+
+  /** Searchable location text for a landlord (approved-dataset columns). */
+  const geoText = useCallback(
+    (landlordId: string) => {
+      const g = geoByLandlord[landlordId];
+      if (!g) return '';
+      return [g.country, g.region, g.district, g.county, g.sub_county, g.town_council, g.village, g.cell]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+    },
+    [geoByLandlord],
+  );
 
   /** Rows feeding the geographic navigator (pending + decided in range). */
   const geoRows = useMemo<GeoQueueRow[]>(() => {
