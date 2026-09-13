@@ -29,7 +29,8 @@ import { downloadWithdrawalReceiptPdf, shareWithdrawalReceiptPdf } from '@/lib/w
 import { useLanguage } from '@/hooks/useLanguage';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
-import { AlertTriangle } from 'lucide-react';
+import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
+import { AlertTriangle, ShieldCheck } from 'lucide-react';
 
 /**
  * Maps a Ugandan mobile-money number to its provider based on the operator
@@ -205,6 +206,25 @@ export default function WithdrawFlow({
   //    again, making the problem worse).
   const isSubmittingRef = useRef(false);
   const clientRequestIdRef = useRef<string | null>(null);
+  const ensureClientRequestId = (): string => {
+    if (!clientRequestIdRef.current) {
+      clientRequestIdRef.current =
+        (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+    return clientRequestIdRef.current;
+  };
+
+  // ─── Withdrawal verification OTP (mobile_money / bank_transfer only) ──
+  // Closes the account-takeover gap where anyone with an open session could
+  // type in a destination they control and submit it — the code is sent to
+  // the ACCOUNT's own registered phone (not the payout number being entered),
+  // proving whoever is submitting still controls that original channel. Cash
+  // pickup has no destination-redirection surface and is exempt.
+  const walletOtp = useWalletWithdrawalOtp();
+  const [otpCode, setOtpCode] = useState('');
+  const requiresOtp = payoutMode !== 'cash';
 
   // Withdrawable = withdrawable_balance + advance_balance (advance is recoverable
   // user money). Float is operational/company money and stays locked.
@@ -402,6 +422,41 @@ export default function WithdrawFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount]);
 
+  // Issue the withdrawal-verification OTP the moment the user reaches the
+  // Verify step with a destination-bearing payout mode. Only fires once per
+  // set of details — the "details changed" effect below clears
+  // `challengeId` (forcing a fresh code) whenever anything the challenge was
+  // built from changes, so this never sends a code for stale details.
+  useEffect(() => {
+    if (!open || !user) return;
+    if (currentStep !== 4) return;
+    if (!requiresOtp) return;
+    if (walletOtp.challengeId || walletOtp.otpIssuing) return;
+    void walletOtp.issueOtp({
+      amount,
+      payout_method: payoutMode as 'mobile_money' | 'bank_transfer',
+      mobile_money_number: payoutMode === 'mobile_money' ? momoNumber.trim() : undefined,
+      mobile_money_name: payoutMode === 'mobile_money' ? momoName.trim() : undefined,
+      mobile_money_provider: payoutMode === 'mobile_money' ? momoProvider.toLowerCase() : undefined,
+      bank_name: payoutMode === 'bank_transfer' ? bankName.trim() : undefined,
+      bank_account_number: payoutMode === 'bank_transfer' ? bankAccountNumber.trim() : undefined,
+      bank_account_name: payoutMode === 'bank_transfer' ? bankAccountName.trim() : undefined,
+      reason: effectiveReason || undefined,
+      client_request_id: ensureClientRequestId(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, open, user, requiresOtp]);
+
+  // Any change to what's actually being submitted invalidates the current
+  // verification code — the next time step 4 is (re)entered, the effect
+  // above issues a fresh one tied to the new details instead of silently
+  // reusing a code sent for a different amount/destination.
+  useEffect(() => {
+    walletOtp.resetOtp();
+    setOtpCode('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amount, payoutMode, momoNumber, momoName, momoProvider, bankName, bankAccountNumber, bankAccountName, effectiveReason]);
+
   // Load the user's locked withdrawal account whenever the flow opens.
   useEffect(() => {
     if (!open || !user?.id) return;
@@ -458,6 +513,9 @@ export default function WithdrawFlow({
     setCashCodeInput('');
     setCashCodeAcknowledged(false);
     setCashCodeError(null);
+    walletOtp.resetOtp();
+    setOtpCode('');
+    clientRequestIdRef.current = null;
   };
 
   // Drive the resend cooldown countdown once a cash code is on screen.
@@ -604,7 +662,8 @@ export default function WithdrawFlow({
         // then proceed — so the button must remain clickable.
         return (
           ledgerAvailable !== null &&
-          amount <= maxAmount
+          amount <= maxAmount &&
+          (!requiresOtp || otpCode.trim().length === 6)
         );
       default: return false;
     }
@@ -657,6 +716,132 @@ export default function WithdrawFlow({
     };
   };
 
+  // Shared by both submission paths (direct RPC for cash, OTP-gated for
+  // mobile_money/bank_transfer) so a structured `{success:false,...}`
+  // rejection from submit_withdrawal_request is handled identically no
+  // matter which path produced it.
+  const applyWithdrawalRejection = async (result: { code?: string; message?: string }): Promise<false> => {
+    const code = result.code;
+    const msg = result.message || 'Withdrawal rejected.';
+    if (code === 'insufficient_funds') {
+      await refetchLedger();
+    }
+    if (code === 'forbidden') {
+      setPaymentStatus('failed');
+      setLastFailureMessage('Your account is linked to a proxy agent, so withdrawals must be processed by your assigned agent.');
+      toast.error('Withdrawals are routed via your assigned agent', {
+        description:
+          'Your account is linked to a proxy agent, so you cannot submit a withdrawal directly. Contact your assigned agent — they will process the cash-out on your behalf.',
+        duration: 10000,
+      });
+    } else if (code === 'duplicate_pending') {
+      setPaymentStatus('failed');
+      setLastFailureMessage(msg);
+      toast.error(msg, { duration: 8000 });
+      clientRequestIdRef.current = null;
+    } else {
+      setPaymentStatus('failed');
+      setLastFailureMessage(msg);
+      toast.error(msg, { duration: 8000 });
+    }
+    return false;
+  };
+
+  // Shared post-success bookkeeping — identical whether the request was
+  // created by the direct RPC call (cash) or by verify-wallet-withdrawal-otp
+  // (mobile_money / bank_transfer).
+  const applyWithdrawalSuccess = async (result: { request_id?: string; payout_code?: string | null }): Promise<true> => {
+    // Stable request ID derived from the DB UUID. NOT a transaction ID —
+    // the real provider TID is entered by Financial Ops at approval time.
+    const newId = result?.request_id ?? null;
+    const requestId = newId
+      ? `REQ-${String(newId).replace(/-/g, '').slice(0, 12).toUpperCase()}`
+      : '';
+    setWithdrawalRef(requestId);
+    setCreatedRequestId(newId);
+    setSubmittedAt(new Date());
+    const pickupCode = result?.payout_code ?? null;
+    if (payoutMode === 'cash' && pickupCode && newId) {
+      setCashPickupCode(pickupCode);
+      setCodeIssuedAt(Date.now());
+      try {
+        supabase.functions.invoke('send-transactional-email', {
+          body: {
+            templateName: 'cash-withdrawal-code',
+            idempotencyKey: `cash-code-${newId}`,
+            purpose: 'transactional',
+            data: {
+              payoutCode: pickupCode,
+              amountUgx: amount,
+              userName: (user as any)?.user_metadata?.full_name || user?.email || 'Welile user',
+              userPhone: (user as any)?.phone || (user as any)?.user_metadata?.phone || '',
+              requestReference: requestId,
+              agentLocation: 'Nearest Agent',
+              requestedAt: new Date().toISOString(),
+            },
+          },
+        }).catch((e) => console.warn('[WithdrawFlow] cash code email failed', e));
+      } catch (e) {
+        console.warn('[WithdrawFlow] cash code email dispatch threw', e);
+      }
+    }
+    // IMPORTANT: a withdrawal is NOT successful until Financial Ops
+    // approves and disburses. Keep status as `pending` and let the
+    // realtime tracker flip it to success when the DB row updates.
+    setPaymentStatus('pending');
+    toast.success(
+      'Withdrawal request submitted. Funds will be released once Financial Ops approves.',
+    );
+    // Pending withdrawals reduce spendable balance immediately (pending_holds
+    // in the strict view). Nudge the shared ops-wallet cache so every hero
+    // card / withdrawal gate on this session sees the reduced figure.
+    if (user?.id) invalidateOpsWallet(qc, user.id);
+    if (user?.id) invalidateWithdrawContext(qc, user.id);
+    onSuccess?.();
+
+    // Confirmation SMS to the requester (server-side, idempotent). Fire-and-
+    // forget — never block or fail the submission on an SMS hiccup.
+    if (newId) {
+      try {
+        supabase.functions
+          .invoke('notify-withdrawal-submitted', { body: { withdrawal_id: newId } })
+          .catch((e) => console.warn('[WithdrawFlow] submit SMS dispatch failed', e));
+      } catch (e) {
+        console.warn('[WithdrawFlow] submit SMS dispatch threw', e);
+      }
+    }
+
+    // Persist destination so the user doesn't re-type next time. Skip
+    // for cash pickup (no destination details to save) and skip when
+    // they reused an existing saved method (just bump last_used_at).
+    try {
+      if (selectedSavedId) {
+        savedMethods.touch.mutate(selectedSavedId);
+      } else if (saveAsNew && payoutMode !== 'cash') {
+        await savedMethods.create.mutateAsync({
+          payout_mode: payoutMode,
+          nickname: savedNickname.trim() || null,
+          momo_provider: payoutMode === 'mobile_money' ? momoProvider : null,
+          momo_number: payoutMode === 'mobile_money' ? momoNumber.trim() : null,
+          momo_name: payoutMode === 'mobile_money' ? momoName.trim() : null,
+          bank_name: payoutMode === 'bank_transfer' ? bankName : null,
+          bank_account_name: payoutMode === 'bank_transfer' ? bankAccountName.trim() : null,
+          bank_account_number: payoutMode === 'bank_transfer' ? bankAccountNumber.trim() : null,
+          is_default: false,
+        });
+      }
+    } catch (saveErr) {
+      console.warn('[WithdrawFlow] Could not save payout method (non-blocking):', saveErr);
+    }
+
+    // Disbursement confirmation email is sent by the approval pipeline,
+    // NOT here — funds aren't actually out yet.
+    // Submission committed — release the idempotency key so the next
+    // intentional withdrawal gets a fresh one.
+    clientRequestIdRef.current = null;
+    return true;
+  };
+
   const processWithdrawal = async (): Promise<boolean> => {
     if (!user) return false;
     if (isSubmittingRef.current) return false;
@@ -692,12 +877,7 @@ export default function WithdrawFlow({
         console.warn('[WithdrawFlow] ledger pre-check failed, proceeding to server gate', e);
       }
 
-      if (!clientRequestIdRef.current) {
-        clientRequestIdRef.current =
-          (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      }
+      const clientRequestId = ensureClientRequestId();
       // Server-side validation gate. The RPC re-checks authorization,
       // amount bounds, payout-method fields, and ledger-backed available
       // balance — so the flow stays safe even without a client PIN.
@@ -712,7 +892,7 @@ export default function WithdrawFlow({
           p_bank_name: payoutMode === 'bank_transfer' ? bankName.trim() : null,
           p_bank_account_number: payoutMode === 'bank_transfer' ? bankAccountNumber.trim() : null,
           p_bank_account_name: payoutMode === 'bank_transfer' ? bankAccountName.trim() : null,
-          p_client_request_id: clientRequestIdRef.current,
+          p_client_request_id: clientRequestId,
           p_reason: effectiveReason || null,
         },
       );
@@ -723,31 +903,9 @@ export default function WithdrawFlow({
 
       // RPC returned a structured rejection — surface friendly toast + stop.
       if (!rpcError && result && result.success === false) {
-        const code = result.code;
-        const msg = result.message || 'Withdrawal rejected.';
-        if (code === 'insufficient_funds') {
-          await refetchLedger();
-        }
-        if (code === 'forbidden') {
-          setPaymentStatus('failed');
-          setLastFailureMessage('Your account is linked to a proxy agent, so withdrawals must be processed by your assigned agent.');
-          toast.error('Withdrawals are routed via your assigned agent', {
-            description:
-              'Your account is linked to a proxy agent, so you cannot submit a withdrawal directly. Contact your assigned agent — they will process the cash-out on your behalf.',
-            duration: 10000,
-          });
-        } else if (code === 'duplicate_pending') {
-          setPaymentStatus('failed');
-          setLastFailureMessage(msg);
-          toast.error(msg, { duration: 8000 });
-          clientRequestIdRef.current = null;
-        } else {
-          setPaymentStatus('failed');
-          setLastFailureMessage(msg);
-          toast.error(msg, { duration: 8000 });
-        }
+        const rejected = await applyWithdrawalRejection(result);
         isSubmittingRef.current = false;
-        return false;
+        return rejected;
       }
 
       if (rpcError) {
@@ -816,95 +974,7 @@ export default function WithdrawFlow({
         throw new Error(requestError.message || 'Failed to submit withdrawal request');
       }
 
-      // Stable request ID derived from the DB UUID. NOT a transaction ID —
-      // the real provider TID is entered by Financial Ops at approval time.
-      const newId = result?.request_id ?? null;
-      const requestId = newId
-        ? `REQ-${String(newId).replace(/-/g, '').slice(0, 12).toUpperCase()}`
-        : '';
-      setWithdrawalRef(requestId);
-      setCreatedRequestId(newId);
-      setSubmittedAt(new Date());
-      const pickupCode = result?.payout_code ?? null;
-      if (payoutMode === 'cash' && pickupCode && newId) {
-        setCashPickupCode(pickupCode);
-        setCodeIssuedAt(Date.now());
-        try {
-          supabase.functions.invoke('send-transactional-email', {
-            body: {
-              templateName: 'cash-withdrawal-code',
-              idempotencyKey: `cash-code-${newId}`,
-              purpose: 'transactional',
-              data: {
-                payoutCode: pickupCode,
-                amountUgx: amount,
-                userName: (user as any)?.user_metadata?.full_name || user?.email || 'Welile user',
-                userPhone: (user as any)?.phone || (user as any)?.user_metadata?.phone || '',
-                requestReference: requestId,
-                agentLocation: 'Nearest Agent',
-                requestedAt: new Date().toISOString(),
-              },
-            },
-          }).catch((e) => console.warn('[WithdrawFlow] cash code email failed', e));
-        } catch (e) {
-          console.warn('[WithdrawFlow] cash code email dispatch threw', e);
-        }
-      }
-      // IMPORTANT: a withdrawal is NOT successful until Financial Ops
-      // approves and disburses. Keep status as `pending` and let the
-      // realtime tracker flip it to success when the DB row updates.
-      setPaymentStatus('pending');
-      toast.success(
-        'Withdrawal request submitted. Funds will be released once Financial Ops approves.',
-      );
-      // Pending withdrawals reduce spendable balance immediately (pending_holds
-      // in the strict view). Nudge the shared ops-wallet cache so every hero
-      // card / withdrawal gate on this session sees the reduced figure.
-      if (user?.id) invalidateOpsWallet(qc, user.id);
-      if (user?.id) invalidateWithdrawContext(qc, user.id);
-      onSuccess?.();
-
-      // Confirmation SMS to the requester (server-side, idempotent). Fire-and-
-      // forget — never block or fail the submission on an SMS hiccup.
-      if (newId) {
-        try {
-          supabase.functions
-            .invoke('notify-withdrawal-submitted', { body: { withdrawal_id: newId } })
-            .catch((e) => console.warn('[WithdrawFlow] submit SMS dispatch failed', e));
-        } catch (e) {
-          console.warn('[WithdrawFlow] submit SMS dispatch threw', e);
-        }
-      }
-
-      // Persist destination so the user doesn't re-type next time. Skip
-      // for cash pickup (no destination details to save) and skip when
-      // they reused an existing saved method (just bump last_used_at).
-      try {
-        if (selectedSavedId) {
-          savedMethods.touch.mutate(selectedSavedId);
-        } else if (saveAsNew && payoutMode !== 'cash') {
-          await savedMethods.create.mutateAsync({
-            payout_mode: payoutMode,
-            nickname: savedNickname.trim() || null,
-            momo_provider: payoutMode === 'mobile_money' ? momoProvider : null,
-            momo_number: payoutMode === 'mobile_money' ? momoNumber.trim() : null,
-            momo_name: payoutMode === 'mobile_money' ? momoName.trim() : null,
-            bank_name: payoutMode === 'bank_transfer' ? bankName : null,
-            bank_account_name: payoutMode === 'bank_transfer' ? bankAccountName.trim() : null,
-            bank_account_number: payoutMode === 'bank_transfer' ? bankAccountNumber.trim() : null,
-            is_default: false,
-          });
-        }
-      } catch (saveErr) {
-        console.warn('[WithdrawFlow] Could not save payout method (non-blocking):', saveErr);
-      }
-
-      // Disbursement confirmation email is sent by the approval pipeline,
-      // NOT here — funds aren't actually out yet.
-      // Submission committed — release the idempotency key so the next
-      // intentional withdrawal gets a fresh one.
-      clientRequestIdRef.current = null;
-      return true;
+      return await applyWithdrawalSuccess(result ?? {});
     } catch (error: any) {
       console.error('Withdrawal failed:', error);
       setPaymentStatus('failed');
@@ -913,6 +983,40 @@ export default function WithdrawFlow({
       toast.error(message);
       // Keep clientRequestIdRef so a manual retry from the user collapses
       // into the same row server-side via the unique index.
+      return false;
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  };
+
+  // OTP-gated submission path for mobile_money / bank_transfer. The
+  // withdrawal itself is created server-side inside verify-wallet-withdrawal-
+  // otp (which calls submit_withdrawal_request as this same user once the
+  // code checks out), so this only needs to hand off to the same shared
+  // success/rejection bookkeeping processWithdrawal uses for cash.
+  const verifyOtpAndSubmit = async (): Promise<boolean> => {
+    if (!user) return false;
+    if (isSubmittingRef.current) return false;
+    isSubmittingRef.current = true;
+    setLastFailureMessage(null);
+    try {
+      const result = await walletOtp.verifyAndSubmit(otpCode.trim());
+      if (!result) {
+        // walletOtp.otpError already carries the human-readable reason
+        // (incorrect code, expired, too many attempts, network issue...).
+        setLastFailureMessage(walletOtp.otpError || 'Verification failed.');
+        return false;
+      }
+      if (result.success === false) {
+        return await applyWithdrawalRejection(result);
+      }
+      return await applyWithdrawalSuccess(result);
+    } catch (error: any) {
+      console.error('OTP-gated withdrawal failed:', error);
+      setPaymentStatus('failed');
+      const message = error.message || 'Withdrawal failed. Please try again.';
+      setLastFailureMessage(message);
+      toast.error(message);
       return false;
     } finally {
       isSubmittingRef.current = false;
@@ -983,6 +1087,13 @@ export default function WithdrawFlow({
         return false;
       }
 
+      // mobile_money / bank_transfer require the code sent to the account's
+      // own registered phone before the withdrawal can submit at all.
+      if (requiresOtp && otpCode.trim().length !== 6) {
+        toast.error('Enter the 6-digit code sent to your phone.', { duration: 6000 });
+        return false;
+      }
+
       // Event-driven completion: enter the Processing screen and submit to
       // the server NOW. We DO NOT rely on ProcessingScreen's animation
       // timer — the screen is just a "working…" indicator. As soon as the
@@ -990,7 +1101,7 @@ export default function WithdrawFlow({
       setCurrentStep(5);
       setIsProcessing(true);
       setPaymentStatus('pending');
-      const ok = await processWithdrawal();
+      const ok = requiresOtp ? await verifyOtpAndSubmit() : await processWithdrawal();
       setIsProcessing(false);
       if (ok) {
         // Server confirmed — immediately show the live status receipt.
@@ -998,8 +1109,8 @@ export default function WithdrawFlow({
       } else {
         // Server rejected or threw — bounce back to Verify so the user
         // can retry. `paymentStatus` is already 'failed' (set inside
-        // processWithdrawal), and the idempotency key is preserved so a
-        // retry collapses server-side.
+        // processWithdrawal/verifyOtpAndSubmit), and the idempotency key is
+        // preserved so a retry collapses server-side.
         setCurrentStep(4);
       }
       // We managed currentStep ourselves; veto the stepper's auto-advance.
@@ -1663,6 +1774,83 @@ export default function WithdrawFlow({
               total={{ label: "You'll Receive", value: formatCurrency(amount, currency) }}
               showSecurityNote={false}
             />
+
+            {requiresOtp && (
+              <div className="space-y-3 text-left">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  <h4 className="font-semibold text-sm">Verify it's you</h4>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Code sent to</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      readOnly
+                      disabled
+                      value={walletOtp.maskedPhone ?? (walletOtp.otpIssuing ? 'Sending…' : '—')}
+                      className="h-12 text-base pl-10 bg-muted/40 cursor-not-allowed"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5" />
+                    Your account's registered number — not the {payoutMode === 'mobile_money' ? 'mobile money' : 'bank'} destination above.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="withdraw-otp">6-digit code</Label>
+                  <Input
+                    id="withdraw-otp"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="h-12 text-2xl tracking-[0.3em] text-center font-bold"
+                  />
+                  {walletOtp.otpError && (
+                    <p className="text-xs text-destructive text-center font-medium">{walletOtp.otpError}</p>
+                  )}
+                  {typeof walletOtp.attemptsLeft === 'number' && walletOtp.attemptsLeft > 0 && (
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      {walletOtp.attemptsLeft} attempt{walletOtp.attemptsLeft === 1 ? '' : 's'} left
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void walletOtp.resendOtp({
+                        amount,
+                        payout_method: payoutMode as 'mobile_money' | 'bank_transfer',
+                        mobile_money_number: payoutMode === 'mobile_money' ? momoNumber.trim() : undefined,
+                        mobile_money_name: payoutMode === 'mobile_money' ? momoName.trim() : undefined,
+                        mobile_money_provider: payoutMode === 'mobile_money' ? momoProvider.toLowerCase() : undefined,
+                        bank_name: payoutMode === 'bank_transfer' ? bankName.trim() : undefined,
+                        bank_account_number: payoutMode === 'bank_transfer' ? bankAccountNumber.trim() : undefined,
+                        bank_account_name: payoutMode === 'bank_transfer' ? bankAccountName.trim() : undefined,
+                        reason: effectiveReason || undefined,
+                        client_request_id: ensureClientRequestId(),
+                      });
+                    }}
+                    disabled={walletOtp.otpIssuing || walletOtp.cooldownSeconds > 0}
+                    className="text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:no-underline"
+                  >
+                    {walletOtp.otpIssuing
+                      ? 'Sending…'
+                      : walletOtp.cooldownSeconds > 0
+                        ? `Resend in ${walletOtp.cooldownSeconds}s`
+                        : 'Resend code'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -1800,6 +1988,8 @@ export default function WithdrawFlow({
                 setCreatedRequestId(null);
                 setPaymentStatus('pending');
                 clientRequestIdRef.current = null;
+                walletOtp.resetOtp();
+                setOtpCode('');
                 setCurrentStep(2);
                 toast.info('Previous request cancelled. Confirm the details to resubmit.');
               }}
@@ -1835,7 +2025,7 @@ export default function WithdrawFlow({
       onNext={handleNext}
       showNavigation={currentStep < 5 && !isProcessing && !isComplete}
       nextLabel={currentStep === 4 ? 'Confirm Withdrawal' : 'Continue'}
-      nextBusy={currentStep === 4 && validating}
+      nextBusy={currentStep === 4 && (validating || walletOtp.otpVerifying)}
       nextBusyLabel="Refreshing balance…"
       isProcessing={isProcessing}
       isComplete={isComplete}
