@@ -67,6 +67,7 @@ import { WalletRetractionsFeed } from '@/components/cfo/WalletRetractionsFeed';
 import { CFOAdvancesManager } from '@/components/cfo/CFOAdvancesManager';
 import { CFOAdvanceRequestPayments } from '@/components/cfo/CFOAdvanceRequestPayments';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
+import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 import { AdvancesAnalyticsView } from '@/components/advances/AdvancesAnalyticsView';
 import { AllAdvancesReportPanel } from '@/components/advances/AllAdvancesReportPanel';
 import { DisbursedAdvancesRegister } from '@/components/cfo/DisbursedAdvancesRegister';
