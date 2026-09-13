@@ -40,6 +40,27 @@ function downloadBlob(content: string, filename: string, mime: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+
+  void logAnalyticsExport(filename);
+}
+
+// Bulk export of population-wide user analytics (CSV and PDF paths), not
+// logged before this. Plain client-side insert so the audit_logs
+// IP-capture trigger sees the real browser IP directly. Never blocks the
+// actual download.
+async function logAnalyticsExport(filename: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: 'analytics_report_exported',
+      table_name: 'export',
+      record_id: null,
+      metadata: { filename },
+    });
+  } catch (e) {
+    console.warn('[UserAnalyticsView] audit log insert failed:', e);
+  }
 }
 
 function toCSV(rows: Array<Record<string, any>>): string {
@@ -250,7 +271,9 @@ export function UserAnalyticsView() {
       d.active.map((r) => [r.date, r.active_users]));
     section('Users by Role', ['Role', 'Count'], d.roles.map((r) => [r.role, r.count]));
 
-    doc.save(`user-analytics_${rangeLabel}.pdf`);
+    const pdfFilename = `user-analytics_${rangeLabel}.pdf`;
+    doc.save(pdfFilename);
+    void logAnalyticsExport(pdfFilename);
   };
 
   return (
