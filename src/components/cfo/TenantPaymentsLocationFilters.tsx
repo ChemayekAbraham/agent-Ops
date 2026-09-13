@@ -262,14 +262,14 @@ export function TenantPaymentsLocationFilters() {
             className="h-7 px-2.5 text-[11px]"
             onClick={() => setDateMode('day')}
           >
-            Single day
+            Pick by date
           </Button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           {dateMode === 'day' ? (
             <div className="space-y-1.5 sm:col-span-2">
               <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Day
+                Date
               </label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -279,7 +279,7 @@ export function TenantPaymentsLocationFilters() {
                     className={`h-9 w-full justify-start text-left text-xs font-normal ${!day ? 'text-muted-foreground' : ''}`}
                   >
                     <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                    {day ? format(day, 'PPP') : <span>Pick a day</span>}
+                    {day ? format(day, 'PPP') : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -293,7 +293,7 @@ export function TenantPaymentsLocationFilters() {
                 </PopoverContent>
               </Popover>
               <p className="text-[10px] text-muted-foreground">
-                Shows payments received on this exact day only.
+                Shows payments received on this exact date only.
               </p>
             </div>
           ) : (
