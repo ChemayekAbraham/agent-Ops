@@ -638,7 +638,27 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
         rows: [...pendingRows, ...decidedRows],
         trend: chartData,
       });
-      doc.save(`landlord-verification-${tab}-${fmtDay(new Date(), 'yyyyMMdd-HHmm')}.pdf`);
+      const filename = `landlord-verification-${tab}-${fmtDay(new Date(), 'yyyyMMdd-HHmm')}.pdf`;
+      doc.save(filename);
+
+      // Bulk export of landlord/agent verification rows -- names, phones --
+      // not logged before this. Plain client-side insert so the audit_logs
+      // IP-capture trigger sees the real browser IP directly. Never blocks
+      // the actual download.
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          await supabase.from('audit_logs').insert({
+            user_id: user?.id ?? null,
+            action_type: 'pdf_report_exported',
+            table_name: 'export',
+            record_id: null,
+            metadata: { filename, row_count: pendingRows.length + decidedRows.length },
+          });
+        } catch (e) {
+          console.warn('[AgentVerificationRequestsPanel] audit log insert failed:', e);
+        }
+      })();
     } catch (err: any) {
       toast({ title: 'Export failed', description: err?.message || 'Could not build the PDF', variant: 'destructive' });
     } finally {
