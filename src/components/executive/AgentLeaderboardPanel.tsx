@@ -156,12 +156,32 @@ export function AgentLeaderboardPanel() {
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const filename = `Welile_Agent_Growth_${periodLabel}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
       a.href = url;
-      a.download = `Welile_Agent_Growth_${periodLabel}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+
+      // Bulk export of many recruiters' names/phones and agent-growth data
+      // at once, not logged before this. Plain client-side insert so the
+      // audit_logs IP-capture trigger sees the real browser IP directly.
+      // Never blocks the actual download.
+      (async () => {
+        try {
+          const { data: { user: actor } } = await supabase.auth.getUser();
+          await supabase.from('audit_logs').insert({
+            user_id: actor?.id ?? null,
+            action_type: 'pdf_report_exported',
+            table_name: 'export',
+            record_id: null,
+            metadata: { filename, recruiter_count: (data.top_recruiters || []).length },
+          });
+        } catch (e) {
+          console.warn('[AgentLeaderboardPanel] audit log insert failed:', e);
+        }
+      })();
     } catch (err) {
       console.error('[AgentLeaderboardPanel] PDF export failed:', err);
       toast({ title: 'Export failed', description: 'Could not generate the growth report.', variant: 'destructive' });
