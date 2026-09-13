@@ -101,10 +101,30 @@ export function BacklogSweepLauncher() {
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
+    const filename = `payout-sweep-${new Date().toISOString().slice(0, 10)}.csv`;
     a.href = url;
-    a.download = `payout-sweep-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+
+    // Bulk export of every row swept -- names, amounts, balances -- not
+    // logged before this. Plain client-side insert so the audit_logs
+    // IP-capture trigger sees the real browser IP directly. Never blocks
+    // the actual download.
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id ?? null,
+          action_type: 'csv_exported',
+          table_name: 'export',
+          record_id: null,
+          metadata: { filename, row_count: result.report.length },
+        });
+      } catch (e) {
+        console.warn('[BacklogSweepDialog] audit log insert failed:', e);
+      }
+    })();
   };
 
   return (
