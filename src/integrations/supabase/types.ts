@@ -43259,6 +43259,7 @@ export type Database = {
           last_run_at: string | null
           next_run_at: string | null
           recipient_id: string
+          recipient_locked_at: string | null
           runs_completed: number
           status: string
           updated_at: string
@@ -43279,6 +43280,7 @@ export type Database = {
           last_run_at?: string | null
           next_run_at?: string | null
           recipient_id: string
+          recipient_locked_at?: string | null
           runs_completed?: number
           status?: string
           updated_at?: string
@@ -43299,6 +43301,7 @@ export type Database = {
           last_run_at?: string | null
           next_run_at?: string | null
           recipient_id?: string
+          recipient_locked_at?: string | null
           runs_completed?: number
           status?: string
           updated_at?: string
@@ -49504,6 +49507,7 @@ export type Database = {
           last_run_at: string | null
           next_run_at: string | null
           recipient_id: string
+          recipient_locked_at: string | null
           runs_completed: number
           status: string
           updated_at: string
@@ -50457,6 +50461,36 @@ export type Database = {
         }
         Returns: Json
       }
+      change_wallet_transfer_schedule_recipient: {
+        Args: { p_recipient_id: string; p_schedule_id: string }
+        Returns: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          consecutive_failures: number
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          description: string | null
+          frequency: string
+          id: string
+          last_error: string | null
+          last_run_at: string | null
+          next_run_at: string | null
+          recipient_id: string
+          recipient_locked_at: string | null
+          runs_completed: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallet_transfer_schedules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       check_archived_account_by_email: {
         Args: { p_email: string }
         Returns: {
@@ -50941,6 +50975,7 @@ export type Database = {
           last_run_at: string | null
           next_run_at: string | null
           recipient_id: string
+          recipient_locked_at: string | null
           runs_completed: number
           status: string
           updated_at: string
@@ -58589,6 +58624,7 @@ export type Database = {
           last_run_at: string | null
           next_run_at: string | null
           recipient_id: string
+          recipient_locked_at: string | null
           runs_completed: number
           status: string
           updated_at: string

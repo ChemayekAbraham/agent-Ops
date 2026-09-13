@@ -323,6 +323,13 @@
       "when": 1789316759257,
       "tag": "0045_transfer_recipient_eligibility",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1789317601349,
+      "tag": "0046_lock_schedule_receiver_per_item",
+      "breakpoints": true
     }
   ]
 }
