@@ -272,6 +272,27 @@ Never `UPDATE wallets`. Never edit the original row. `trg_enforce_wallet_correct
 `trg_enforce_correction_classification` will stop most attempts, but they are a backstop, not the
 procedure.
 
+**Drift found 2026-09-11, and it's a dangerous one — verify against the live `wallet_strict_for_user`
+before following step 2 above.** As written, "wallet leg `system_balance_correction` ...
+`classification: 'admin_correction'`" describes a **credit** (`cash_in`) to fix an under-cached
+balance. Live behaviour does not honour that. `wallet_strict_for_user` only counts an
+`admin_correction`-classified leg when `category IN ('system_balance_correction',
+'merchant_float_correction_writedown')` **and** `direction IN ('debit','cash_out')`. A `cash_in`
+leg in that classification is excluded **regardless of category** — it inserts cleanly, passes
+`trg_enforce_ledger_group_balance`, shows up in `general_ledger`, and changes the recipient's
+balance by exactly zero. There is no error. See
+[`07-tribal-knowledge.md` §6](./07-tribal-knowledge.md#6-a-bad-agent_subagents-row-can-silently-skim-an-agents-commission--and-hundreds-of-agents-can-share-the-same-bad-row)
+for the incident this was caught on.
+
+Until this is reconciled with whoever owns `wallet_strict_for_user`: use
+`classification='admin_correction'` + `category='system_balance_correction'` +
+`direction='cash_out'` only for the **debiting** leg (clawing back an erroneous credit from
+whoever wrongly received it). To **credit** a user to fix an under-cache, use
+`classification='production'` with a real earning/adjustment category from
+`ledger_category_allowlist()` and an explicit `wallet_bucket`, balanced against a `platform`-scope
+leg on the same user — indistinguishable from an organic entry, which is the only way
+`wallet_strict_for_user` currently counts a credit at all.
+
 ---
 
 ## The rent formula — keep TypeScript and SQL in step
