@@ -40,7 +40,7 @@ const AUDIENCE_COPY: Record<Audience, { title: string; description: string }> = 
   'tenant-ops': {
     title: 'Tenant Self-Repayments',
     description:
-      'Tenants paying their own rent directly. Shows what was applied to the plan, what stayed in their float and the balance left.',
+      'Tenants paying their own rent directly. Shows what was applied to the plan, what stayed in their wallet and the balance still owed.',
   },
   'agent-ops': {
     title: 'Tenant Self-Repayments (Agent Credit)',
@@ -70,6 +70,10 @@ function outcomeLabel(outcome: string | null) {
   return OUTCOME_LABELS[outcome] ?? outcome.replace(/_/g, ' ');
 }
 
+function keptLabel(bucket: string | null | undefined) {
+  return bucket === 'withdrawable' ? 'Kept in wallet (withdrawable)' : 'Kept in float';
+}
+
 function toCsv(rows: TenantSelfRepaymentRow[]) {
   const header = [
     'Paid at',
@@ -77,9 +81,10 @@ function toCsv(rows: TenantSelfRepaymentRow[]) {
     'Phone',
     'Deposited',
     'Applied to rent',
-    'Surplus kept',
+    'Kept in wallet',
+    'Kept in bucket',
     'Outcome',
-    'Balance after',
+    'Current outstanding',
     'Plan status',
     'Agent',
     'Agent commission',
@@ -100,7 +105,8 @@ function toCsv(rows: TenantSelfRepaymentRow[]) {
       r.paid_from_phone ?? '',
       r.amount_deposited ?? 0,
       r.applied_amount ?? 0,
-      r.surplus_amount ?? 0,
+      r.float_kept ?? r.surplus_amount ?? 0,
+      r.kept_bucket ?? 'float',
       outcomeLabel(r.outcome),
       r.outstanding_after ?? '',
       r.plan_status ?? '',
@@ -134,7 +140,7 @@ export function TenantSelfRepaymentsPanel({ audience = 'finance', title, descrip
         ring: 'from-emerald-500/15 to-emerald-500/0',
       },
       {
-        label: 'Kept in tenant float',
+        label: 'Kept in tenant wallets',
         value: formatUGX(totals.total_surplus),
         icon: PiggyBank,
         tone: 'text-sky-600',
@@ -285,11 +291,13 @@ export function TenantSelfRepaymentsPanel({ audience = 'finance', title, descrip
                         <p className="font-mono font-semibold">{formatUGX(Number(r.applied_amount) || 0)}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Kept in float</p>
-                        <p className="font-mono">{formatUGX(Number(r.surplus_amount) || 0)}</p>
+                        <p className="text-muted-foreground">{keptLabel(r.kept_bucket)}</p>
+                        <p className="font-mono">{formatUGX(Number(r.float_kept ?? r.surplus_amount) || 0)}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Balance after</p>
+                        <p className="text-muted-foreground" title="Live balance on the plan today, not at the time of this payment">
+                          Current outstanding
+                        </p>
                         <p className="font-mono">{formatUGX(Number(r.outstanding_after) || 0)}</p>
                       </div>
                       <div>
@@ -319,8 +327,10 @@ export function TenantSelfRepaymentsPanel({ audience = 'finance', title, descrip
                       <TableHead>Tenant</TableHead>
                       <TableHead className="text-right">Deposited</TableHead>
                       <TableHead className="text-right">Applied</TableHead>
-                      <TableHead className="text-right">Kept in float</TableHead>
-                      <TableHead className="text-right">Balance after</TableHead>
+                      <TableHead className="text-right">Kept in wallet</TableHead>
+                      <TableHead className="text-right" title="Live balance on the plan today, not at the time of this payment">
+                        Current outstanding
+                      </TableHead>
                       <TableHead>Outcome</TableHead>
                       <TableHead>Agent</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
@@ -347,7 +357,10 @@ export function TenantSelfRepaymentsPanel({ audience = 'finance', title, descrip
                           {formatUGX(Number(r.applied_amount) || 0)}
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">
-                          {formatUGX(Number(r.surplus_amount) || 0)}
+                          {formatUGX(Number(r.float_kept ?? r.surplus_amount) || 0)}
+                          {r.kept_bucket === 'withdrawable' && (
+                            <div className="text-[10px] text-muted-foreground">withdrawable</div>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">
                           {formatUGX(Number(r.outstanding_after) || 0)}

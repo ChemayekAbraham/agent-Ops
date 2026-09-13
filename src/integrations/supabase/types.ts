@@ -48207,6 +48207,8 @@ export type Database = {
           commission_total: number | null
           deposit_request_id: string | null
           external_reference: string | null
+          float_kept: number | null
+          kept_bucket: string | null
           outcome: string | null
           outstanding_after: number | null
           paid_at: string | null
