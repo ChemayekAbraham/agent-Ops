@@ -134,20 +134,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const senderId = user.id;
     const body = await req.json().catch(() => ({}));
     const { recipient_id, recipient_phone, amount, description, transfer_kind } = body as {
       recipient_id?: string;
@@ -156,6 +142,37 @@ Deno.serve(async (req) => {
       description?: string;
       transfer_kind?: string;
     };
+
+    // === Internal (server-to-server) path ===
+    // The scheduled auto-payout runner has no end-user JWT. It presents the
+    // service-role key and names the wallet owner it is acting for. Every
+    // gate below still runs exactly as for an interactive transfer.
+    const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const internalActorId = (body as { internal_actor_id?: string }).internal_actor_id;
+    const isInternal =
+      bearer === supabaseServiceKey &&
+      typeof internalActorId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(internalActorId);
+
+    let senderId: string;
+    if (isInternal) {
+      senderId = internalActorId!;
+    } else {
+      const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } }
+      });
+
+      const { data: { user }, error: userError } = await userClient.auth.getUser();
+      if (userError || !user) {
+        console.error('Auth error:', userError);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      senderId = user.id;
+    }
+
 
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
