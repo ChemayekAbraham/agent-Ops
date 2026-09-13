@@ -89,27 +89,25 @@ export function TenantPaymentsLocationFilters() {
   const fromParam = from || null;
   const toParam = to || null;
 
-  // ---- Option lists: each level is queried with the parents above it. ----
+  // ---- Option lists: every level is independent — each loads whether or not
+  // the levels above it are selected, and narrows when parents are chosen. ----
   const countryQ = usePaymentsByLocation({
     level: 'country', from: fromParam, to: toParam, method: methodParam,
   });
   const regionQ = usePaymentsByLocation(
     { level: 'region', country: sel.country, from: fromParam, to: toParam, method: methodParam },
-    !!sel.country
   );
   const districtQ = usePaymentsByLocation(
     {
       level: 'district', country: sel.country, region: sel.region,
       from: fromParam, to: toParam, method: methodParam,
     },
-    !!sel.region
   );
   const subcountyQ = usePaymentsByLocation(
     {
       level: 'subcounty', country: sel.country, region: sel.region, districtId: sel.districtId,
       from: fromParam, to: toParam, method: methodParam,
     },
-    !!sel.districtId
   );
   const villageQ = usePaymentsByLocation(
     {
@@ -117,7 +115,6 @@ export function TenantPaymentsLocationFilters() {
       districtId: sel.districtId, subcountyId: sel.subcountyId,
       from: fromParam, to: toParam, method: methodParam,
     },
-    !!sel.subcountyId
   );
 
   // ---- Results for the current (deepest) selection. ----
@@ -219,7 +216,7 @@ export function TenantPaymentsLocationFilters() {
               Payment activity by location
             </CardTitle>
             <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground max-w-xl">
-              Filter money received by country, region, district, town/sub-county and village. Each choice narrows the next.
+              Filter money received by country, region, district, town/sub-county and village — each filter works on its own; picking a lower level fills in the levels above it.
             </p>
           </div>
           {hasAnyFilter && (
@@ -315,18 +312,25 @@ export function TenantPaymentsLocationFilters() {
             </label>
             <Select
               value={sel.region ?? ALL}
-              disabled={!sel.country}
-              onValueChange={(v) =>
-                setSel((s) => ({
-                  ...s,
-                  region: v === ALL ? null : v,
-                  districtId: null, districtLabel: null,
-                  subcountyId: null, subcountyLabel: null, village: null,
-                }))
-              }
+              onValueChange={(v) => {
+                if (v === ALL) {
+                  setSel((s) => ({
+                    ...s,
+                    region: null, districtId: null, districtLabel: null,
+                    subcountyId: null, subcountyLabel: null, village: null,
+                  }));
+                  return;
+                }
+                const row = (regionQ.data?.rows ?? []).find((r) => r.label === v);
+                setSel({
+                  ...EMPTY_SELECTION,
+                  country: row?.country ?? sel.country,
+                  region: v,
+                });
+              }}
             >
               <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder={sel.country ? 'All regions' : 'Pick country first'} />
+                <SelectValue placeholder="All regions" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL} className="text-xs">All regions</SelectItem>
@@ -345,7 +349,6 @@ export function TenantPaymentsLocationFilters() {
             </label>
             <Select
               value={sel.districtId != null ? String(sel.districtId) : ALL}
-              disabled={!sel.region}
               onValueChange={(v) =>
                 setSel((s) => {
                   if (v === ALL) {
@@ -353,7 +356,8 @@ export function TenantPaymentsLocationFilters() {
                   }
                   const row = (districtQ.data?.rows ?? []).find((r) => String(r.district_id) === v);
                   return {
-                    ...s,
+                    country: row?.country ?? s.country,
+                    region: row?.region ?? s.region,
                     districtId: Number(v),
                     districtLabel: row?.label ?? null,
                     subcountyId: null, subcountyLabel: null, village: null,
@@ -362,7 +366,7 @@ export function TenantPaymentsLocationFilters() {
               }
             >
               <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder={sel.region ? 'All districts' : 'Pick region first'} />
+                <SelectValue placeholder="All districts" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL} className="text-xs">All districts</SelectItem>
@@ -383,7 +387,6 @@ export function TenantPaymentsLocationFilters() {
             </label>
             <Select
               value={sel.subcountyId != null ? String(sel.subcountyId) : ALL}
-              disabled={!sel.districtId}
               onValueChange={(v) =>
                 setSel((s) => {
                   if (v === ALL) {
@@ -391,7 +394,10 @@ export function TenantPaymentsLocationFilters() {
                   }
                   const row = (subcountyQ.data?.rows ?? []).find((r) => String(r.subcounty_id) === v);
                   return {
-                    ...s,
+                    country: row?.country ?? s.country,
+                    region: row?.region ?? s.region,
+                    districtId: row?.district_id ?? s.districtId,
+                    districtLabel: row?.district ?? s.districtLabel,
                     subcountyId: Number(v),
                     subcountyLabel: row?.label ?? null,
                     village: null,
@@ -400,7 +406,7 @@ export function TenantPaymentsLocationFilters() {
               }
             >
               <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder={sel.districtId ? 'All towns' : 'Pick district first'} />
+                <SelectValue placeholder="All towns / sub-counties" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL} className="text-xs">All towns / sub-counties</SelectItem>
@@ -421,17 +427,35 @@ export function TenantPaymentsLocationFilters() {
             </label>
             <Select
               value={sel.village ?? ALL}
-              disabled={!sel.subcountyId}
-              onValueChange={(v) => setSel((s) => ({ ...s, village: v === ALL ? null : v }))}
+              onValueChange={(v) =>
+                setSel((s) => {
+                  if (v === ALL) return { ...s, village: null };
+                  const row = (villageQ.data?.rows ?? []).find((r) => r.label === v);
+                  return {
+                    country: row?.country ?? s.country,
+                    region: row?.region ?? s.region,
+                    districtId: row?.district_id ?? s.districtId,
+                    districtLabel: row?.district ?? s.districtLabel,
+                    subcountyId: row?.subcounty_id ?? s.subcountyId,
+                    subcountyLabel: s.subcountyLabel,
+                    village: v,
+                  };
+                })
+              }
             >
               <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder={sel.subcountyId ? 'All villages' : 'Pick town first'} />
+                <SelectValue placeholder="All villages" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL} className="text-xs">All villages</SelectItem>
                 {(villageQ.data?.rows ?? []).map((r) => (
-                  <SelectItem key={r.label} value={r.label} className="text-xs">
-                    {r.label} ({r.payment_count})
+                  <SelectItem
+                    key={`${r.subcounty_id ?? 'x'}-${r.label}`}
+                    value={r.label}
+                    className="text-xs"
+                  >
+                    {r.label}
+                    {r.district ? ` — ${r.district}` : ''} ({r.payment_count})
                   </SelectItem>
                 ))}
               </SelectContent>
