@@ -121,8 +121,8 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
             className="flex min-w-0 items-center gap-2"
             onClick={() => onNavigate('')}
           >
-            <span className="font-black text-base lg:text-lg tracking-tight text-[#0FA958]">WELILE</span>
-            <span className="hidden truncate text-xs font-bold text-foreground pl-1 border-l border-border sm:inline lg:text-sm">
+            <WelileLogo showText size="sm" linkToHome={false} />
+            <span className="hidden truncate text-xs font-bold text-foreground pl-2 border-l border-border sm:inline lg:text-sm">
               Landlord Operations
             </span>
           </button>
