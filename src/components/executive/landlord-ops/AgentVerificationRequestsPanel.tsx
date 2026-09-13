@@ -390,11 +390,40 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
 
   const [search, setSearch] = useState('');
 
+  /** Rows feeding the geographic navigator (pending + decided in range). */
+  const geoRows = useMemo<GeoQueueRow[]>(() => {
+    const toRow = (r: VerificationRequest, status: string): GeoQueueRow => ({
+      landlord_id: r.landlord_id,
+      landlord_name: r.landlord_name,
+      landlord_phone: r.landlord_phone,
+      agent_name: r.agent_name,
+      agent_phone: r.agent_phone,
+      status,
+      geo: geoByLandlord[r.landlord_id] ?? null,
+    });
+    const pending = requests.map((r) => toRow(r, 'pending'));
+    const done = decided
+      .filter((r) => tab === 'all' || tab === 'pending' || tab === 'resubmitted' ? true : r.status === tab)
+      .map((r) => toRow(r, r.status));
+    return tab === 'pending' || tab === 'resubmitted' ? pending : [...pending, ...done];
+  }, [requests, decided, geoByLandlord, tab]);
+
+  /** Does this request sit inside the chosen location path? */
+  const inGeo = useCallback(
+    (landlordId: string) =>
+      matchesGeoPath(
+        { landlord_id: landlordId, landlord_name: null, landlord_phone: null, agent_name: null, agent_phone: null, status: '', geo: geoByLandlord[landlordId] ?? null },
+        geoPath,
+      ),
+    [geoByLandlord, geoPath],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = (onlyResubmitted || tab === 'resubmitted')
+    const base = ((onlyResubmitted || tab === 'resubmitted')
       ? requests.filter((r) => !!priorByLandlord[r.landlord_id])
-      : requests;
+      : requests
+    ).filter((r) => inGeo(r.landlord_id));
     if (!q) return base;
     return base.filter((r) =>
       (r.landlord_name || '').toLowerCase().includes(q) ||
@@ -403,7 +432,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       (r.agent_phone || '').toLowerCase().includes(q) ||
       (districtByLandlord[r.landlord_id] || '').toLowerCase().includes(q)
     );
-  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab]);
+  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab, inGeo]);
 
   const resubmittedCount = useMemo(
     () => requests.filter((r) => !!priorByLandlord[r.landlord_id]).length,
@@ -413,9 +442,10 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   /** Decided rows matching the current search box (read-only tabs). */
   const decidedFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const byStatus = tab === 'all' || tab === 'pending' || tab === 'resubmitted'
+    const byStatus = (tab === 'all' || tab === 'pending' || tab === 'resubmitted'
       ? decided
-      : decided.filter((r) => r.status === tab);
+      : decided.filter((r) => r.status === tab)
+    ).filter((r) => inGeo(r.landlord_id));
     if (!q) return byStatus;
     return byStatus.filter((r) =>
       (r.landlord_name || '').toLowerCase().includes(q) ||
@@ -424,7 +454,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       (r.agent_phone || '').toLowerCase().includes(q) ||
       (districtByLandlordAll[r.landlord_id] || '').toLowerCase().includes(q)
     );
-  }, [decided, search, tab, districtByLandlordAll]);
+  }, [decided, search, tab, districtByLandlordAll, inGeo]);
 
   const tabCounts = useMemo(() => ({
     pending: requests.length,
