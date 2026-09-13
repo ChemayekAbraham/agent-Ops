@@ -174,6 +174,25 @@ function download(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// Bulk export of every tenant's receivables across the whole location
+// hierarchy in one file -- logged once here for both formats. Plain
+// client-side insert so the audit_logs IP-capture trigger sees the real
+// browser IP directly. Never blocks the actual download.
+async function logReceivablesExport(format: 'csv' | 'pdf', data: ReceivablesExportData) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: 'receivables_by_location_exported',
+      table_name: 'export',
+      record_id: null,
+      metadata: { format, row_count: data.rows.length, tenant_count: data.tenantCount, total: data.total },
+    });
+  } catch (e) {
+    console.warn('[exportReceivablesByLocation] audit log insert failed:', e);
+  }
+}
+
 export function downloadReceivablesCsv(data: ReceivablesExportData) {
   const header = [
     'Level',
@@ -221,6 +240,7 @@ export function downloadReceivablesCsv(data: ReceivablesExportData) {
     new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' }),
     `Welile_Receivables_by_Location_${stamp}.csv`
   );
+  void logReceivablesExport('csv', data);
 }
 
 export async function downloadReceivablesPdf(data: ReceivablesExportData) {
@@ -315,4 +335,5 @@ export async function downloadReceivablesPdf(data: ReceivablesExportData) {
 
   const stamp = format(new Date(), 'yyyy-MM-dd_HHmm');
   doc.save(`Welile_Receivables_by_Location_${stamp}.pdf`);
+  void logReceivablesExport('pdf', data);
 }
