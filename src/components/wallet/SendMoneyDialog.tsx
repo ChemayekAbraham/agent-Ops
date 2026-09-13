@@ -331,30 +331,35 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
     };
   }, [mode, phone, email, user?.id, lookupNonce]);
 
-  const categories = [
-    { icon: UtensilsCrossed, label: 'Food', keywords: ['food', 'eat', 'lunch', 'dinner', 'breakfast', 'meal', 'chakula'] },
-    { icon: ShoppingCart, label: 'Groceries', keywords: ['groc', 'shop', 'market', 'buy', 'sugar', 'rice', 'soap'] },
-    { icon: Fuel, label: 'Fuel', keywords: ['fuel', 'petrol', 'diesel', 'gas', 'station'] },
-    { icon: Car, label: 'Transport', keywords: ['transport', 'taxi', 'fare', 'travel', 'trip', 'matatu'] },
-    { icon: Bike, label: 'Boda Boda', keywords: ['boda', 'bike', 'motorcycle', 'pikipiki', 'ride'] },
-    { icon: Hotel, label: 'Hotel', keywords: ['hotel', 'lodge', 'room', 'stay', 'accommodation', 'guest'] },
-    { icon: Stethoscope, label: 'Clinic', keywords: ['clinic', 'hospital', 'doctor', 'medical', 'health', 'medicine', 'drug'] },
-    { icon: Wrench, label: 'Mechanic', keywords: ['mechanic', 'repair', 'fix', 'garage', 'service', 'car'] },
-    { icon: Coffee, label: 'Restaurant', keywords: ['restaurant', 'cafe', 'coffee', 'drink', 'bar'] },
-    { icon: Zap, label: 'Electricity', keywords: ['electric', 'power', 'yaka', 'umeme', 'light', 'token'] },
-    { icon: Droplets, label: 'Water', keywords: ['water', 'nwsc', 'bill'] },
-    { icon: Scissors, label: 'Salon', keywords: ['salon', 'hair', 'barber', 'cut', 'beauty', 'nails'] },
-    { icon: BookOpen, label: 'School', keywords: ['school', 'fees', 'tuition', 'education', 'books', 'uniform'] },
-    { icon: Baby, label: 'Kids', keywords: ['kid', 'child', 'baby', 'diaper', 'milk'] },
-    { icon: Shirt, label: 'Clothes', keywords: ['cloth', 'shirt', 'dress', 'wear', 'shoes'] },
-  ];
+  const selectedItem = WELILE_ITEMS.find((i) => i.label === description) ?? null;
 
-  const filteredCategories = description.trim()
-    ? categories.filter(cat => 
-        cat.keywords.some(kw => description.toLowerCase().includes(kw)) ||
-        cat.label.toLowerCase().includes(description.toLowerCase())
-      )
-    : categories.slice(0, 8); // show top 8 by default
+  // Sender + receiver identity card, shown on the confirmation and success
+  // screens so both sides of the transfer are always a face and a name.
+  const PeopleCard = ({ recipientName }: { recipientName: string | null }) => (
+    <div className="rounded-lg border border-border/60 bg-background/50 p-4">
+      <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">People</p>
+      <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <UserAvatar avatarUrl={profile?.avatar_url} fullName={profile?.full_name} size="sm" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{profile?.full_name || 'You'}</p>
+            <p className="text-[11px] text-muted-foreground">Sender</p>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 text-right">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{recipientName || '—'}</p>
+            <p className="text-[11px] text-muted-foreground">Receiver</p>
+          </div>
+          <UserAvatar fullName={recipientName || 'user'} size="sm" />
+        </div>
+      </div>
+      <p className="mt-3 text-[11px] text-muted-foreground">
+        They will see your name and this item on their wallet statement.
+      </p>
+    </div>
+  );
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-UG', {
@@ -455,6 +460,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
     if (wallet && amountNum > (wallet.withdrawable || 0)) {
       return `Insufficient transferable balance. Available: ${formatCurrency(wallet.withdrawable || 0)}.`;
     }
+    if (!selectedItem) return 'Pick what you are sending (Welile Rent, Welile Bread, …).';
     return null;
   };
   const disabledReason = getDisabledReason();
@@ -580,11 +586,13 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                 transition={{ delay: 0.3 }}
                 className="text-muted-foreground text-sm text-center"
               >
-                {isFirstTx 
-                  ? `Welcome to Welile! ${formatCurrency(parseFloat(amount))} sent successfully.`
-                  : `${formatCurrency(parseFloat(amount))} transferred successfully`
-                }
+                {selectedItem
+                  ? `${selectedItem.label} of ${formatCurrency(parseFloat(amount))} sent successfully`
+                  : `${formatCurrency(parseFloat(amount))} transferred successfully`}
               </motion.p>
+              <div className="mt-4 w-full px-1">
+                <PeopleCard recipientName={recipient.status === 'found' ? recipient.name : null} />
+              </div>
             </motion.div>
           ) : confirming ? (
             <motion.div
@@ -647,13 +655,18 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                     <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Total to send</span>
                     <span className="text-lg font-bold">{formatCurrency(parseFloat(amount) || 0)}</span>
                   </div>
-                  {description.trim() && (
-                    <div className="flex items-start justify-between gap-3 border-t border-border/60 pt-2.5">
-                      <span className="text-xs uppercase tracking-wide text-muted-foreground pt-0.5">For</span>
-                      <span className="text-sm text-foreground text-right break-words">{description.trim()}</span>
+                  {selectedItem && (
+                    <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-2.5">
+                      <span className="text-xs uppercase tracking-wide text-muted-foreground">Item</span>
+                      <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <selectedItem.icon className="h-4 w-4 text-primary" />
+                        {selectedItem.label}
+                      </span>
                     </div>
                   )}
                 </div>
+
+                <PeopleCard recipientName={recipient.status === 'found' ? recipient.name : null} />
               </div>
 
               <DialogFooter className="-mx-5 -mb-5 mt-2 gap-2 border-t border-border/50 bg-background px-5 py-3 sm:gap-0">
@@ -1175,42 +1188,43 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                 </motion.div>
 
                 <motion.div variants={itemVariants} className="space-y-2">
-                  <Label htmlFor="description" className="flex items-center gap-2">
+                  <Label className="flex items-center gap-2">
                     <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                    What's this payment for?
+                    What are you sending?
                   </Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Type e.g. food, boda, school fees..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="bg-background/50 border-border/50 focus:border-primary/50 transition-all resize-none"
-                    rows={2}
-                  />
-                  <AnimatePresence mode="popLayout">
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {filteredCategories.map((cat) => (
-                        <motion.button
-                          key={cat.label}
+                  <p className="text-xs text-muted-foreground">
+                    Pick one — every Welile transfer is a payment for an item.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {WELILE_ITEMS.map((item) => {
+                      const selected = description === item.label;
+                      return (
+                        <button
+                          key={item.label}
                           type="button"
-                          layout
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.8 }}
-                          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                          onClick={() => setDescription(cat.label)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 ${
-                            description.toLowerCase() === cat.label.toLowerCase()
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-muted/50 text-foreground border-border/50 hover:bg-muted'
+                          onClick={() => setDescription(item.label)}
+                          aria-pressed={selected}
+                          className={`flex min-h-14 items-center gap-2.5 rounded-xl border-2 px-3 py-2.5 text-left transition-all active:scale-[0.98] ${
+                            selected
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border/50 bg-muted/40 hover:bg-muted'
                           }`}
                         >
-                          <cat.icon className="h-3.5 w-3.5" />
-                          {cat.label}
-                        </motion.button>
-                      ))}
-                    </div>
-                  </AnimatePresence>
+                          <span
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                              selected ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'
+                            }`}
+                          >
+                            <item.icon className="h-4.5 w-4.5" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold">{item.label}</span>
+                            <span className="block truncate text-[11px] text-muted-foreground">{item.hint}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
