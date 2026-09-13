@@ -22,8 +22,10 @@ import { cn } from "@/lib/utils";
 import { formatUGX } from "@/lib/rentCalculations";
 import { UserAvatar } from "@/components/UserAvatar";
 import TransactionDetailDrawer from "@/components/transactions/TransactionDetailDrawer";
+import WelileItemTotals from "@/components/transactions/WelileItemTotals";
 import {
   TX_DATE_OPTIONS,
+  TX_ITEM_OPTIONS,
   TX_METHOD_OPTIONS,
   TX_SERVICE_OPTIONS,
   fetchTxFeedPage,
