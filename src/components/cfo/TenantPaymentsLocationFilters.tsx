@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
+  CalendarIcon,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -19,8 +20,10 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
