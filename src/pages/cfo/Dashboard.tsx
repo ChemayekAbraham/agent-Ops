@@ -623,6 +623,18 @@ export default function CFODashboardPage() {
         }
       />
       <SwipeOnboardingHint enabled={isMobile} />
+      {!cfoApprovalLoading && !canApproveAsCfo && (
+        <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            View only for approvals
+          </p>
+          <p className="mt-0.5 text-xs text-amber-800/90 dark:text-amber-200/90">
+            You can open every report and queue here, but approving, rejecting or releasing a
+            request is reserved for the designated CFO approver. Attempts are refused by the
+            backend, not just hidden here.
+          </p>
+        </div>
+      )}
       <div {...(isMobile ? swipeHandlers : {})} className="min-h-[60vh]">
         {renderContent()}
       </div>
