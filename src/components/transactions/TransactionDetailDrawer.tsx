@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatUGX } from "@/lib/rentCalculations";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   txCounterparty,
   txIcon,
