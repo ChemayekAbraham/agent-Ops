@@ -13,6 +13,21 @@
 //
 // Cash pickups are exempt — no destination-redirection surface (physical
 // code collected in person).
+//
+// Gate ORDER matters and is deliberate: check Financial-Ops destination
+// verification FIRST, before generating or sending anything. That check
+// (ensure_payout_destination) is a ONE-TIME state per destination — once Ops
+// verifies a number/account it stays verified for every future withdrawal to
+// it. The OTP, by contrast, is required on EVERY single withdrawal regardless
+// of destination history. Checking the one-time gate first means an
+// unverified destination is rejected immediately with no SMS sent (and no
+// wasted verification code) instead of the user completing a whole OTP
+// round-trip only to have submit_withdrawal_request reject it afterwards on
+// the destination check. This call also doubles as first-time registration:
+// a brand-new destination is inserted into payout_destination_verifications
+// (status 'waiting') right here, exactly as it would be inside
+// submit_withdrawal_request — so it still enters Financial Ops' queue even
+// though the OTP path never reaches that RPC until verification succeeds.
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
@@ -107,8 +122,42 @@ Deno.serve(async (req) => {
       if (!bn || !ban || !bac) return json({ error: "Bank name, account number, and account holder name are required" }, 400);
     }
 
-    // The account's OWN registered phone (signup/login channel) — never the
-    // payout destination the user is entering right now.
+    // ── Gate 2 first: Financial-Ops destination verification (one-time). ──
+    // ensure_payout_destination both checks AND registers — a brand-new
+    // destination gets inserted as 'waiting' right here, entering the Ops
+    // queue immediately even though this OTP path never reaches
+    // submit_withdrawal_request until the code is verified.
+    const { data: destData, error: destErr } = await admin.rpc("ensure_payout_destination", {
+      p_user_id: userId,
+      p_method: method,
+      p_momo_number: method === "mobile_money" ? String(mobile_money_number).trim() : null,
+      p_momo_name: method === "mobile_money" ? String(mobile_money_name).trim() : null,
+      p_provider: method === "mobile_money" ? provider : null,
+      p_bank_name: method === "bank_transfer" ? String(bank_name).trim() : null,
+      p_bank_account_number: method === "bank_transfer" ? String(bank_account_number).trim() : null,
+      p_bank_account_name: method === "bank_transfer" ? String(bank_account_name).trim() : null,
+    });
+    if (destErr) {
+      console.error("[issue-wallet-withdrawal-otp] ensure_payout_destination error", destErr);
+      return json({ error: destErr.message ?? "Could not check payout destination" }, 500);
+    }
+    const destRow = Array.isArray(destData) ? destData[0] : destData;
+    const destStatus = destRow?.status ?? "waiting";
+    if (destStatus !== "verified") {
+      // No SMS sent, no challenge created — the withdrawal cannot succeed
+      // yet regardless of the code, so don't spend either on it.
+      return json({
+        error: destStatus === "rejected" ? "destination_rejected" : "destination_unverified",
+        message: destStatus === "rejected"
+          ? `This payout destination was rejected by Financial Ops. Reason: ${destRow?.decision_reason ?? "not stated"}. Contact support.`
+          : "This destination is not yet verified. Financial Ops will call you to confirm it belongs to you before you can withdraw here. No verification code was sent.",
+        destination_status: destStatus,
+      }, 400);
+    }
+
+    // ── Gate 1 next: OTP to the account's OWN registered phone (signup/login
+    // channel) — never the payout destination just confirmed above. Unlike
+    // the destination check, this is required on every single withdrawal.
     const { data: profile } = await admin.from("profiles").select("phone").eq("id", userId).maybeSingle();
     const accountPhone = String(profile?.phone ?? "").trim();
     if (!accountPhone || !isUgandanPhone(accountPhone)) {

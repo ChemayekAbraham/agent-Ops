@@ -1783,7 +1783,23 @@ export default function WithdrawFlow({
               showSecurityNote={false}
             />
 
-            {requiresOtp && (
+            {/* Gate 2 (Financial-Ops destination verification) is checked
+                FIRST, before any code is ever sent — it's a one-time state
+                per destination, so an unverified one is rejected here with
+                no wasted SMS. Gate 1 (this account's own-phone OTP) only
+                renders once that one-time check has actually passed, and is
+                required again on every withdrawal regardless of it. */}
+            {requiresOtp && !walletOtp.challengeId && walletOtp.otpError && (
+              <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-1 text-left">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  <h4 className="font-bold text-destructive">Destination not verified</h4>
+                </div>
+                <p className="text-sm text-destructive/90">{walletOtp.otpError}</p>
+              </div>
+            )}
+
+            {requiresOtp && walletOtp.challengeId && (
               <div className="space-y-3 text-left">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-primary" />
