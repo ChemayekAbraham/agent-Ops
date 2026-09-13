@@ -123,7 +123,15 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Advance Requests', icon: HandCoins, id: 'advances' },
         { label: 'Disbursed Advances', icon: Banknote, id: 'advances-disbursed' },
         { label: 'Advance Repayments', icon: Receipt, id: 'advance-repayments' },
-        { label: 'Bike Leases', icon: Bike, id: 'bike-leases' },
+        {
+          label: 'Agent Products',
+          icon: ShoppingBag,
+          id: 'agent-products',
+          children: [
+            { label: 'Welile Motorbikes', icon: Bike, id: 'agent-products-motorbikes' },
+            { label: 'Welile Smartphones', icon: MonitorSmartphone, id: 'agent-products-smartphones' },
+          ],
+        },
       ],
     },
     {
