@@ -17,6 +17,8 @@ export interface AutoPayout {
   last_run_at: string | null;
   last_error: string | null;
   runs_completed: number;
+  /** When this item's receiver was last locked in. */
+  recipient_locked_at: string | null;
   recipientName?: string;
 }
 
@@ -41,7 +43,7 @@ export function useAutoPayouts() {
         supabase
           .from('wallet_transfer_schedules')
           .select(
-            'id, recipient_id, amount, description, frequency, day_of_week, day_of_month, status, next_run_at, last_run_at, last_error, runs_completed',
+            'id, recipient_id, amount, description, frequency, day_of_week, day_of_month, status, next_run_at, last_run_at, last_error, runs_completed, recipient_locked_at',
           )
           .eq('user_id', user.id)
           .neq('status', 'cancelled')
@@ -114,5 +116,22 @@ export function useAutoPayouts() {
     [refresh],
   );
 
-  return { schedules, cap, loading, refresh, create, setState };
+  /**
+   * Swaps the locked receiver of an existing item schedule. Server-side the
+   * new receiver is re-checked for eligibility and the lock timestamp is
+   * refreshed, so the item keeps paying only this person until changed again.
+   */
+  const changeRecipient = useCallback(
+    async (id: string, recipientId: string) => {
+      const { error } = await (supabase.rpc as any)('change_wallet_transfer_schedule_recipient', {
+        p_schedule_id: id,
+        p_recipient_id: recipientId,
+      });
+      if (error) throw new Error(error.message);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  return { schedules, cap, loading, refresh, create, setState, changeRecipient };
 }
