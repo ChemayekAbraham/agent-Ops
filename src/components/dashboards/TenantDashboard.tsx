@@ -44,7 +44,6 @@ import {
 } from '@/components/tenant/agreement';
 import { useTenantAgreement } from '@/hooks/useTenantAgreement';
 
-import RentProcessTracker from '@/components/rent/RentProcessTracker';
 import PaymentPartnersDialog from '@/components/payments/PaymentPartnersDialog';
 
 import { MerchantCodePills } from '@/components/supporter/MerchantCodePills';
@@ -393,21 +392,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           <WidgetErrorBoundary label="Subscription status">
             <SubscriptionStatusCard userId={user.id} />
           </WidgetErrorBoundary>
-
-          {/* Rent request process tracker */}
-          {currentRentRequest && (
-            <WidgetErrorBoundary label="Rent process">
-              <RentProcessTracker
-                requestStatus={currentRentRequest.status}
-                agentVerified={currentRentRequest.agent_verified ?? undefined}
-                managerApproved={currentRentRequest.manager_verified ?? undefined}
-                supporterFunded={Boolean(currentRentRequest.supporter_id || currentRentRequest.funded_at)}
-                fundRecipientType={currentRentRequest.fund_recipient_type}
-                fundRecipientName={currentRentRequest.fund_recipient_name}
-                fundRoutedAt={currentRentRequest.fund_routed_at}
-              />
-            </WidgetErrorBoundary>
-          )}
 
           {/* Available houses — surfaced near the top of home so tenants find them first */}
           <div className="grid grid-cols-2 gap-3">
