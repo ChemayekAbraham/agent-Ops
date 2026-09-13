@@ -230,7 +230,11 @@ Deno.serve(async (req) => {
         'check_transfer_recipient_eligibility' as never,
         {
           p_recipient_id: resolvedRecipientId,
-          p_item: typeof description === 'string' && description.trim() ? description.trim() : null,
+          // Item text is validated where it is chosen (transfer dialog and the
+          // automatic-payout RPC). Here we only gate on the receiver's account
+          // so long-standing internal callers with their own description text
+          // keep working.
+          p_item: null,
           p_sender_id: senderId,
         } as never,
       );
