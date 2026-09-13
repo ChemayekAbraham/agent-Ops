@@ -107,9 +107,13 @@ export function TransactionsFeed({
   const [date, setDate] = useState<TxDateFilter>("all");
   const [service, setService] = useState<TxServiceFilter>("all");
   const [method, setMethod] = useState<TxMethodFilter>("all");
+  const [item, setItem] = useState<TxItemFilter>("all");
   const [selected, setSelected] = useState<TxFeedRow | null>(null);
 
-  const filters = useMemo(() => ({ date, service, method }), [date, service, method]);
+  const filters = useMemo(
+    () => ({ date, service, method, item }),
+    [date, service, method, item],
+  );
 
   const query = useInfiniteQuery({
     queryKey: ["tx-feed", userId ?? "", filters] as const,
