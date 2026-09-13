@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
           'check_transfer_recipient_eligibility',
           {
             p_recipient_id: s.recipient_id,
-            p_item: s.description ?? null,
+            p_item: s.description ?? null, // saved item, validated at setup
             p_sender_id: s.user_id,
           },
         );
