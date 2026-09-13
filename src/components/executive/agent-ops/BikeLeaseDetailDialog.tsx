@@ -206,7 +206,7 @@ export function BikeLeaseDetailDialog({
                   Motor Bike &amp; Financial Terms
                 </h3>
               </div>
-              {onEditPrice && (
+              {onEditPrice && canAct && (
                 <Button
                   variant="outline"
                   size="sm"
