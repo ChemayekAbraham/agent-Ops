@@ -19,6 +19,26 @@ import {
 import { format as fmtDay, subDays } from 'date-fns';
 import { notifyVerificationResolved } from '@/lib/landlordVerificationNotify';
 import { CallButton } from './CallButton';
+import { useLandlordTenantsMap, type LandlordTenantsMap } from '@/hooks/useLandlordTenantsMap';
+
+/** Tap-to-call buttons for a landlord's tenants (empty when none recorded). */
+function TenantCallButtons({ tenants, fullWidth = false }: { tenants?: { name: string; phone: string }[]; fullWidth?: boolean }) {
+  if (!tenants?.length) return null;
+  return (
+    <>
+      {tenants.map((t) => (
+        <CallButton
+          key={t.phone}
+          phone={t.phone}
+          who={`tenant ${t.name}`}
+          className={fullWidth ? 'w-full min-[420px]:w-auto' : undefined}
+        />
+      ))}
+    </>
+  );
+}
+
+export type { LandlordTenantsMap };
 import { setLandlordVerification } from '@/lib/landlord-ops/verification';
 import { generateLandlordVerificationQueuePdf } from '@/lib/landlordVerificationQueuePdf';
 import {
