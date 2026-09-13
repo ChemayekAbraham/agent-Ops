@@ -646,11 +646,17 @@ export function TenantPaymentsLocationFilters() {
                 </>
               )}
             </div>
-            {(method !== ALL || from !== isoDaysAgo(30) || to !== new Date().toISOString().slice(0, 10)) && (
+            {(method !== ALL ||
+              (dateMode === 'day' && !!day) ||
+              (dateMode === 'range' && (from !== isoDaysAgo(30) || to !== new Date().toISOString().slice(0, 10)))) && (
               <p className="text-[10px] text-muted-foreground">
                 {[
                   method !== ALL ? (METHOD_LABEL[method] ?? method) : null,
-                  from && to ? `${format(new Date(from), 'dd MMM yyyy')} – ${format(new Date(to), 'dd MMM yyyy')}` : null,
+                  dateMode === 'day' && day
+                    ? format(day, 'dd MMM yyyy')
+                    : dateMode === 'range' && from && to
+                      ? `${format(new Date(from), 'dd MMM yyyy')} – ${format(new Date(to), 'dd MMM yyyy')}`
+                      : null,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
