@@ -682,7 +682,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
 
         {/* Location navigator: Country -> Region -> District -> County -> Sub-county -> Village/Cell -> landlord */}
         <div className="mt-2.5">
-          <LandlordVerificationGeoBrowser rows={geoRows} path={geoPath} onChange={setGeoPath} />
+          <LandlordVerificationGeoBrowser rows={geoRows} path={geoPath} onChange={setGeoPath} tenantsByLandlord={tenantsByLandlord} />
         </div>
 
         {/* Date range + export */}

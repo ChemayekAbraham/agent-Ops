@@ -107,9 +107,11 @@ interface Props {
   rows: GeoQueueRow[];
   path: GeoPath;
   onChange: (path: GeoPath) => void;
+  /** landlord_id -> tenants with a recorded phone, for tap-to-call buttons. */
+  tenantsByLandlord?: Record<string, { name: string; phone: string }[]>;
 }
 
-export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) {
+export function LandlordVerificationGeoBrowser({ rows, path, onChange, tenantsByLandlord }: Props) {
   const [query, setQuery] = useState('');
   // Per-row "copied" feedback for the Copy location link action.
   const [copiedId, setCopiedId] = useState<string | null>(null);
