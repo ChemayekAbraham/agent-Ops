@@ -1045,10 +1045,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                         </Badge>
                       )}
                     </div>
-                    {(r.landlord_phone || r.agent_phone) && (
-                      <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row">
+                    {(r.landlord_phone || r.agent_phone || tenantsByLandlord?.[r.landlord_id]?.length) && (
+                      <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row min-[420px]:flex-wrap">
                         <CallButton phone={r.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
                         <CallButton phone={r.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
+                        <TenantCallButtons tenants={tenantsByLandlord?.[r.landlord_id]} fullWidth />
                       </div>
                     )}
                     <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 flex-wrap">
