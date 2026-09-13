@@ -713,7 +713,18 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                     <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-2.5">
                       <span className="text-xs uppercase tracking-wide text-muted-foreground">Item</span>
                       <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                        <selectedItem.icon className="h-4 w-4 text-primary" />
+                        {WELILE_ITEM_IMAGES[selectedItem.label] ? (
+                          <img
+                            src={WELILE_ITEM_IMAGES[selectedItem.label]}
+                            alt={selectedItem.label}
+                            loading="lazy"
+                            width={512}
+                            height={512}
+                            className="h-8 w-8 rounded-md object-cover"
+                          />
+                        ) : (
+                          <selectedItem.icon className="h-4 w-4 text-primary" />
+                        )}
                         {selectedItem.label}
                       </span>
                     </div>
