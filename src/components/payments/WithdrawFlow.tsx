@@ -101,6 +101,10 @@ export default function WithdrawFlow({
   // Migrating both dialogs onto this hook eliminates gate drift where one
   // dialog enforced a rule the other missed (e.g. the payout-freeze bug).
   const withdrawCtx = useWithdrawContext(user?.id);
+  // No National ID on file means no withdrawal: the first step is a hard stop
+  // until a correctly formatted ID and the name printed on it are submitted.
+  const myNationalId = useMyNationalId();
+  const needsNationalId = !!user?.id && !myNationalId.isLoading && !myNationalId.data?.national_id;
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
