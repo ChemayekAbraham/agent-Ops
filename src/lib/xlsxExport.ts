@@ -1,3 +1,29 @@
+import { supabase } from '@/integrations/supabase/client';
+
+// Bulk export of many rows of (usually customer/financial) data at once is
+// a real data-exfiltration risk distinct from a single receipt/statement
+// download — see the "tie every action to an IP" series. This is the one
+// shared choke point every downloadXlsx(Workbook) caller already goes
+// through, so logging it once here covers every XLSX-based bulk export in
+// the app without touching each of the ~15 call sites individually. A plain
+// client-side insert, so the audit_logs IP-capture trigger sees the real
+// browser IP directly (no service-role indirection like the edge-function
+// items in this series). Never blocks the actual download.
+async function logBulkXlsxExport(filename: string, sheetLabel: string, rowCount: number) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: 'bulk_data_exported',
+      table_name: 'xlsx_export',
+      record_id: null,
+      metadata: { filename, sheet: sheetLabel, row_count: rowCount, format: 'xlsx' },
+    });
+  } catch (e) {
+    console.warn('[xlsxExport] audit log insert failed:', e);
+  }
+}
+
 /**
  * Tiny wrapper around SheetJS for audit downloads. Mirrors the shape of
  * downloadCsv so callers can swap formats without rebuilding their payload.
@@ -37,6 +63,8 @@ export async function downloadXlsx(
   const safeSheet = sheetName.replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'Audit';
   XLSX.utils.book_append_sheet(wb, ws, safeSheet);
   XLSX.writeFile(wb, filename);
+
+  void logBulkXlsxExport(filename, safeSheet, rows.length);
 }
 
 export interface XlsxSheet {
@@ -75,4 +103,7 @@ export async function downloadXlsxWorkbook(filename: string, sheets: XlsxSheet[]
   });
 
   XLSX.writeFile(wb, filename);
+
+  const totalRows = sheets.reduce((sum, s) => sum + s.rows.length, 0);
+  void logBulkXlsxExport(filename, sheets.map((s) => s.name).join(', '), totalRows);
 }
