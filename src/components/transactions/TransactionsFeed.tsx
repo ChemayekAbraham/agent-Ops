@@ -205,6 +205,7 @@ export function TransactionsFeed({
               row.category === "wallet_transfer" && row.peer_name
                 ? { name: row.peer_name, avatar: row.peer_avatar_url ?? null }
                 : null;
+            const itemPhoto = welileItemImage(row.description);
             return (
               <button
                 key={row.id}
@@ -212,7 +213,28 @@ export function TransactionsFeed({
                 onClick={() => setSelected({ ...row, balanceAfter })}
                 className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
               >
-                {peer ? (
+                {itemPhoto ? (
+                  // Real market photo of the item, with the other person's
+                  // face tucked in the corner.
+                  <span className="relative h-10 w-10 sm:h-12 sm:w-12 shrink-0">
+                    <img
+                      src={itemPhoto}
+                      alt={row.description?.trim() || txLabel(row)}
+                      loading="lazy"
+                      width={512}
+                      height={512}
+                      className="h-full w-full rounded-xl object-cover"
+                    />
+                    {peer && (
+                      <UserAvatar
+                        avatarUrl={peer.avatar}
+                        fullName={peer.name}
+                        size="sm"
+                        className="absolute -bottom-1 -right-1 h-5 w-5 border-2 border-background sm:h-6 sm:w-6"
+                      />
+                    )}
+                  </span>
+                ) : peer ? (
                   <UserAvatar
                     avatarUrl={peer.avatar}
                     fullName={peer.name}
