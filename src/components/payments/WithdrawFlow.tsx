@@ -21,6 +21,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { UGANDA_BANKS, PAYOUT_METHODS } from '@/lib/ugandaBanks';
 import { useSavedPayoutMethods, type SavedPayoutMethod } from '@/hooks/useSavedPayoutMethods';
+import { useMyPayoutDestinations, destinationStateFor } from '@/hooks/usePayoutVerification';
+import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Star } from 'lucide-react';
 import { downloadWithdrawalReceiptPdf, shareWithdrawalReceiptPdf } from '@/lib/withdrawalReceiptPdf';
@@ -124,6 +126,11 @@ export default function WithdrawFlow({
   // Saved payout destinations — persisted across withdrawals so users
   // don't re-type MoMo / bank details every time.
   const savedMethods = useSavedPayoutMethods();
+  // Verification state of the user's own payout destinations. Financial Ops
+  // must confirm each number/account belongs to the holder before any payout
+  // is released; this only surfaces that state so nobody is surprised at
+  // submit time. The gate itself is in the database.
+  const myDestinations = useMyPayoutDestinations(userId);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
   const [saveAsNew, setSaveAsNew] = useState(true);
   const [savedNickname, setSavedNickname] = useState('');
@@ -1267,6 +1274,31 @@ export default function WithdrawFlow({
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                            {(() => {
+                              const st = destinationStateFor(myDestinations.data, {
+                                mode: m.payout_mode,
+                                momoNumber: m.momo_number,
+                                bankAccountNumber: m.bank_account_number,
+                              });
+                              const status = st?.status ?? 'waiting';
+                              return (
+                                <p
+                                  className={`text-[10px] font-bold mt-0.5 ${
+                                    status === 'verified'
+                                      ? 'text-primary'
+                                      : status === 'rejected'
+                                        ? 'text-destructive'
+                                        : 'text-amber-600'
+                                  }`}
+                                >
+                                  {status === 'verified'
+                                    ? '✓ Verified — ready for payout'
+                                    : status === 'rejected'
+                                      ? `Rejected${st?.decision_reason ? ` — ${st.decision_reason}` : ''}`
+                                      : 'Waiting for verification — Financial Ops will call you'}
+                                </p>
+                              );
+                            })()}
                           </div>
                           <button
                             type="button"
