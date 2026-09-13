@@ -130,7 +130,7 @@ export default function WithdrawFlow({
   // must confirm each number/account belongs to the holder before any payout
   // is released; this only surfaces that state so nobody is surprised at
   // submit time. The gate itself is in the database.
-  const myDestinations = useMyPayoutDestinations(userId);
+  const myDestinations = useMyPayoutDestinations(user?.id);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
   const [saveAsNew, setSaveAsNew] = useState(true);
   const [savedNickname, setSavedNickname] = useState('');
@@ -1225,6 +1225,7 @@ export default function WithdrawFlow({
         );
         return (
           <div className="space-y-5">
+            <NationalIdPrompt withdrawableBalance={maxAmount} />
             {payoutMode !== 'cash' && !(payoutMode === 'mobile_money' && lockedMomo) && compatibleSaved.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
