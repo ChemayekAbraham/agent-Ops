@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from '../_shared/cfoApprovalGate.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,6 +35,10 @@ Deno.serve(async (req) => {
       .in('role', ['cfo', 'manager', 'super_admin'])
 
     if (!roles || roles.length === 0) throw new Error('Only CFO/Manager can approve listing bonuses')
+
+    // Sole-CFO-approver gate: everyone else is read-only for approvals.
+    const cfoGate = await guardCfoApprover(serviceClient, user.id, corsHeaders)
+    if (cfoGate) return cfoGate
 
     const { approval_id, action, notes } = await req.json()
 

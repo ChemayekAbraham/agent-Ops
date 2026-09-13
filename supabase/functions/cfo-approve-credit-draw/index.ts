@@ -6,6 +6,7 @@
 //   - reject: set status='rejected' with a reason.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkTreasuryGuard } from '../_shared/treasuryGuard.ts';
+import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from '../_shared/cfoApprovalGate.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +47,10 @@ Deno.serve(async (req) => {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Sole-CFO-approver gate: everyone else is read-only for approvals.
+    const cfoGate = await guardCfoApprover(adminClient, approverId, corsHeaders);
+    if (cfoGate) return cfoGate;
 
     const body = await req.json();
     const { draw_id, action, amount: editedAmount, duration_months: editedMonths, notes, rejection_reason } = body;

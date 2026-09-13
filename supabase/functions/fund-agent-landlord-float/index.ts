@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from '../_shared/cfoApprovalGate.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,6 +35,10 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .in('role', ['cfo', 'manager', 'super_admin'])
     if (!roles || roles.length === 0) throw new Error('Insufficient permissions')
+
+    // Sole-CFO-approver gate: everyone else is read-only for approvals.
+    const cfoGate = await guardCfoApprover(serviceClient, user.id, corsHeaders)
+    if (cfoGate) return cfoGate
 
     const { rent_request_id, notes, transaction_reference, payout_method } = await req.json()
     if (!rent_request_id) throw new Error('rent_request_id is required')
