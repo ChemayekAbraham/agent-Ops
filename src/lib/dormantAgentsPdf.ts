@@ -1,4 +1,24 @@
 import { formatUGX } from '@/lib/rentCalculations';
+import { supabase } from '@/integrations/supabase/client';
+
+// Bulk export of every dormant agent's tenant data at once, not logged
+// before this. Plain client-side insert so the audit_logs IP-capture
+// trigger sees the real browser IP directly. Never blocks the actual
+// download.
+async function logDormantAgentsExport(filename: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: 'pdf_report_exported',
+      table_name: 'export',
+      record_id: null,
+      metadata: { filename },
+    });
+  } catch (e) {
+    console.warn('[dormantAgentsPdf] audit log insert failed:', e);
+  }
+}
 
 export interface DormantAgentTenant {
   rent_request_id: string;
@@ -169,5 +189,7 @@ export async function downloadDormantAgentsPdf(report: DormantAgentsReport): Pro
     );
   }
 
-  doc.save(`welile-dormant-agents-${report.as_of}-${report.silent_days}d.pdf`);
+  const filename = `welile-dormant-agents-${report.as_of}-${report.silent_days}d.pdf`;
+  doc.save(filename);
+  void logDormantAgentsExport(filename);
 }
