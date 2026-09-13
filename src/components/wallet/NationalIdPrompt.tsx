@@ -47,11 +47,21 @@ export default function NationalIdPrompt({
   withdrawableBalance,
   className,
   blocking = false,
+  allowResubmit = false,
+  title,
+  description,
 }: {
   withdrawableBalance: number;
   className?: string;
   /** Red, "you cannot continue" styling used inside the withdraw flow. */
   blocking?: boolean;
+  /**
+   * Show the form even when an ID is already on file — used after Financial Ops
+   * rejects a submission, so the person can correct and send it again.
+   */
+  allowResubmit?: boolean;
+  title?: string;
+  description?: string;
 }) {
   const { data, isLoading, refetch } = useMyNationalId();
   const submit = useSubmitNationalId();
@@ -64,7 +74,8 @@ export default function NationalIdPrompt({
   const canSave = idCheck.valid && nameCheck.valid && !submit.isPending;
 
   const alreadyDone = !!data?.national_id;
-  if (isLoading || alreadyDone || withdrawableBalance <= 0) return null;
+  if (isLoading) return null;
+  if (!allowResubmit && (alreadyDone || withdrawableBalance <= 0)) return null;
 
   const save = async () => {
     if (!idCheck.valid || !nameCheck.valid) {
