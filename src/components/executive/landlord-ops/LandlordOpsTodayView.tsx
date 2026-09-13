@@ -161,6 +161,40 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
         </p>
       </div>
 
+      {/* Landlord Float — primary register entry point */}
+      <div
+        onClick={() => onNavigate('registers/landlord-float')}
+        className="p-4 rounded-xl border border-border bg-card hover:border-primary/60 hover:shadow-sm transition-all cursor-pointer group"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Landlord Float</h2>
+              <p className="text-xs text-muted-foreground">View float held, needed, and collected by geography</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between sm:justify-end gap-3">
+            {floatWithAgents !== null && (
+              <span className="text-sm font-semibold text-foreground tabular-nums">
+                {formatUGX(floatWithAgents)} with agents
+              </span>
+            )}
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate('registers/landlord-float');
+              }}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs h-9 rounded-lg"
+            >
+              Open register <ArrowRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Top Grid: Needs Attention & Wallet Impact */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         {/* Needs Attention Column (3 cols on XL) */}
