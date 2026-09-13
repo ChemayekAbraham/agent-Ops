@@ -282,15 +282,19 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
                 key={g.label}
                 type="button"
                 onClick={() => selectAt(level, g.label)}
-                className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-16 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3 text-left transition-colors hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-[12px] font-semibold text-foreground">{g.label}</span>
-                  <span className="block text-[10px] text-muted-foreground">
+                  <span className="block truncate text-sm font-semibold text-foreground">{g.label}</span>
+                  <span className="block text-[11px] text-muted-foreground">
                     {LEVEL_LABEL[level]} · {g.landlords.size} landlord{g.landlords.size === 1 ? '' : 's'}
                   </span>
                 </span>
-                <Badge variant="outline" className="shrink-0 h-5 text-[10px]">{g.count}</Badge>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <Badge variant="outline" className="h-6 text-[11px]">{g.count}</Badge>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </span>
+
               </button>
             ))}
           </div>
