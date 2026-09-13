@@ -895,7 +895,7 @@ export function SmartphoneOrderApprovalQueue({
                   <p className="text-[11px] text-destructive">Rejected: {detailsTarget.rejection_reason}</p>
                 )}
 
-                {isAgentOpsActionable(detailsTarget.order_status) ? (
+                {canActOnRow(detailsTarget.order_status) ? (
                   <DialogFooter className="gap-2 sm:gap-2">
                     <Button
                       variant="outline"
@@ -907,30 +907,34 @@ export function SmartphoneOrderApprovalQueue({
                       disabled={approve.isPending}
                       onClick={() => openApprove(detailsTarget)}
                     >
-                      <Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to COO
+                      <Check className="h-3.5 w-3.5 mr-1" /> {stageActionLabel}
                     </Button>
                   </DialogFooter>
                 ) : (
                   <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium">Current progress</span>
-                      <Badge variant="outline" className={STATUS_TONE[detailsTarget.order_status] || ''}>
-                        {isAwaitingCfo(detailsTarget.order_status)
-                          ? 'Awaiting CFO Disbursement'
-                          : isAwaitingCoo(detailsTarget.order_status)
-                            ? 'Awaiting COO Approval'
-                            : statusLabel(detailsTarget.order_status)}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[10px]">Read-only</Badge>
+                        <Badge variant="outline" className={STATUS_TONE[detailsTarget.order_status] || ''}>
+                          {isAwaitingCfo(detailsTarget.order_status)
+                            ? 'Awaiting CFO Approval'
+                            : isAwaitingCoo(detailsTarget.order_status)
+                              ? 'Awaiting COO Approval'
+                              : statusLabel(detailsTarget.order_status)}
+                        </Badge>
+                      </div>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                       {isAwaitingCfo(detailsTarget.order_status)
-                        ? 'COO has approved this application. It is now with the CFO for supplier payment and cannot be modified in Agent Ops.'
+                        ? 'The COO has approved this application. It is now with the CFO for supplier payment and can only be viewed here.'
                         : isAwaitingCoo(detailsTarget.order_status)
-                          ? 'Agent Ops has approved this application. It is now with the COO for review and cannot be modified in Agent Ops.'
-                          : 'This application is no longer editable in Agent Ops.'}
+                          ? 'Agent Ops has approved this application. It is now with the COO for review and can only be viewed here.'
+                          : 'This application has already been decided and is shown for reference only.'}
                     </p>
                   </div>
                 )}
+
 
               </div>
             );
