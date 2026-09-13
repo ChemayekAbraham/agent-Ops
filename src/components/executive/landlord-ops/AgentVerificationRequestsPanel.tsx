@@ -602,7 +602,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   return (
     <div className="overflow-hidden rounded-lg border border-amber-500/40 bg-amber-50/40 shadow-sm dark:bg-amber-950/20 sm:rounded-2xl">
       {/* Header — always visible, never collapsible */}
-      <div className="border-b border-amber-500/20 bg-amber-500/10 p-3 sm:p-4">
+      <div ref={headerRef} className="border-b border-amber-500/20 bg-amber-500/10 p-3 sm:p-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <div className="p-2 rounded-xl bg-amber-500/15">
@@ -1077,6 +1077,22 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
           </div>
         )}
       </div>
+
+      {/* Floating quick toggle — Pending ⇄ Full history, once the header tabs scroll away */}
+      {tabsOutOfView && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 sm:bottom-6">
+          <Button
+            type="button"
+            size="sm"
+            onClick={togglePendingHistory}
+            className="pointer-events-auto h-11 gap-2 rounded-full bg-amber-600 px-5 text-xs font-semibold text-white shadow-lg shadow-amber-900/30 hover:bg-amber-700"
+            aria-label={isHistoryView ? 'Switch to pending verifications' : 'Switch to full history'}
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            {isHistoryView ? `Pending (${tabCounts.pending})` : `Full history (${tabCounts.all})`}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
