@@ -46,6 +46,24 @@ const WELILE_ITEMS = [
   { label: 'Welile Boda fees', hint: 'Boda ride', icon: Bike },
   { label: 'Welile tax', hint: 'Tax', icon: Landmark },
 ] as const;
+
+/**
+ * Asks the server whether this receiver can actually be paid (live account,
+ * not closed, not frozen, not yourself). Returns a plain-language problem to
+ * show the sender, or null when the receiver is fine. A lookup error returns
+ * null — the same gate runs again server-side before any money moves.
+ */
+async function recipientProblem(recipientId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('check_transfer_recipient_eligibility', {
+    p_recipient_id: recipientId,
+    p_item: null,
+  });
+  if (error) return null;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return row.eligible ? null : (row.reason || 'This person cannot receive money right now.');
+}
+
 import {
   loadRecipients,
   rememberRecipient,
