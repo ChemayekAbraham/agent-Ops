@@ -146,6 +146,20 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   const [exporting, setExporting] = useState(false);
   const [fromDate, setFromDate] = useState<string>(() => fmtDay(subDays(new Date(), 29), 'yyyy-MM-dd'));
   const [toDate, setToDate] = useState<string>(() => fmtDay(new Date(), 'yyyy-MM-dd'));
+  // ── Geographic navigator (read-only grouping of the rows already loaded) ──
+  const [geoByLandlord, setGeoByLandlord] = useState<Record<string, LandlordGeo>>({});
+  const [geoPath, setGeoPath] = useState<GeoPath>({});
+
+  /** Merge landlord location rows into the shared geo map (never overwrites with blanks). */
+  const mergeGeo = useCallback((locs: unknown) => {
+    const rows = (locs ?? []) as (LandlordGeo & { id: string })[];
+    if (!rows.length) return;
+    setGeoByLandlord(prev => {
+      const next = { ...prev };
+      for (const l of rows) next[l.id] = l;
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -160,8 +174,9 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       if (ids.length > 0) {
         const { data: locs } = await supabase
           .from('landlords')
-          .select('id, district')
+          .select(GEO_COLS)
           .in('id', ids);
+        mergeGeo(locs);
         setDistrictByLandlord(
           Object.fromEntries(
             ((locs ?? []) as { id: string; district: string | null }[]).map(l => [l.id, l.district || '']),
@@ -214,7 +229,8 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       setDecided(rows);
       const ids = Array.from(new Set(rows.map((r) => r.landlord_id).filter(Boolean)));
       if (ids.length > 0) {
-        const { data: locs } = await supabase.from('landlords').select('id, district').in('id', ids);
+        const { data: locs } = await supabase.from('landlords').select(GEO_COLS).in('id', ids);
+        mergeGeo(locs);
         setDistrictByLandlordAll(
           Object.fromEntries(
             ((locs ?? []) as { id: string; district: string | null }[]).map((l) => [l.id, l.district || '']),
