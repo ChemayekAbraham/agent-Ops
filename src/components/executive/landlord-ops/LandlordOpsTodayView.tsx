@@ -64,6 +64,8 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
     isLoading: countsLoading,
     errors: countErrors,
   } = useLandlordOpsBadgeCounts();
+  const { data: floatOverview } = useLandlordFloatOverview();
+  const floatWithAgents = floatOverview?.with_agents?.summary?.amount ?? null;
 
   // 'Today' | 'Last 7 days' | 'Last 30 days' — drives the activity chart and the
   // decision mix beside it, so the two always describe the same window.
