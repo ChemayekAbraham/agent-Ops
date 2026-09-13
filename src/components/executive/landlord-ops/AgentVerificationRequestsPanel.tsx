@@ -798,6 +798,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                     <div className="mt-1.5 flex flex-col gap-1.5 min-[420px]:flex-row">
                       <CallButton phone={req.landlord_phone} who="landlord" className="w-full min-[420px]:w-auto" />
                       <CallButton phone={req.agent_phone} who="agent" className="w-full min-[420px]:w-auto" />
+                      <TenantCallButtons tenants={tenantsByLandlord?.[req.landlord_id]} fullWidth />
                     </div>
                   )}
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1 truncate">
