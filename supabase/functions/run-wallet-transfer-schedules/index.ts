@@ -93,7 +93,36 @@ Deno.serve(async (req) => {
 
       let ok = false;
       let errorText: string | null = null;
+
+      // Re-check the receiver every run: an account can be closed, frozen or
+      // deleted between setup and today, and the saved item must still be a
+      // valid Welile item. A failed check counts as a failure (so repeated
+      // failures pause the schedule) and no money is attempted.
+      let eligible = true;
       try {
+        const { data: check, error: checkError } = await admin.rpc(
+          'check_transfer_recipient_eligibility',
+          {
+            p_recipient_id: s.recipient_id,
+            p_item: s.description ?? null,
+            p_sender_id: s.user_id,
+          },
+        );
+        const row = Array.isArray(check) ? check[0] : check;
+        if (checkError) {
+          eligible = false;
+          errorText = `Receiver check failed: ${checkError.message}`.slice(0, 500);
+        } else if (!row?.eligible) {
+          eligible = false;
+          errorText = String(row?.reason ?? 'This receiver cannot be paid').slice(0, 500);
+        }
+      } catch (e) {
+        eligible = false;
+        errorText = String((e as Error).message ?? e).slice(0, 500);
+      }
+
+      try {
+        if (!eligible) throw new Error(errorText ?? 'Receiver not eligible');
         const res = await fetch(`${supabaseUrl}/functions/v1/wallet-transfer`, {
           method: 'POST',
           headers: {
