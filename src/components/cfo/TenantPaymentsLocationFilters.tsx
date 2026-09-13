@@ -86,6 +86,7 @@ export function TenantPaymentsLocationFilters() {
   const [sel, setSel] = useState<Selection>(EMPTY_SELECTION);
   const [dateMode, setDateMode] = useState<'range' | 'day'>('range');
   const [day, setDay] = useState<Date | undefined>(undefined);
+  const [calOpen, setCalOpen] = useState(false);
   const [from, setFrom] = useState<string>(isoDaysAgo(30));
   const [to, setTo] = useState<string>(new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState<string>(ALL);
@@ -271,7 +272,7 @@ export function TenantPaymentsLocationFilters() {
               <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Date
               </label>
-              <Popover modal>
+              <Popover modal open={calOpen} onOpenChange={setCalOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
@@ -286,7 +287,7 @@ export function TenantPaymentsLocationFilters() {
                   <Calendar
                     mode="single"
                     selected={day}
-                    onSelect={setDay}
+                    onSelect={(d) => { setDay(d); setCalOpen(false); }}
                     initialFocus
                     className="p-3 pointer-events-auto"
                   />
