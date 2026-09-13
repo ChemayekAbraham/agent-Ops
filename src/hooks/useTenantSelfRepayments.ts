@@ -14,6 +14,12 @@ export interface TenantSelfRepaymentRow {
   external_reference: string | null;
   applied_amount: number | null;
   surplus_amount: number | null;
+  /** What actually stayed in the tenant's wallet: surplus for settled rows,
+   *  full deposit minus applied for refused rows (deposits are credited at
+   *  approval time regardless of the repayment outcome). */
+  float_kept: number | null;
+  /** Which wallet bucket the kept amount sits in ('float' | 'withdrawable'). */
+  kept_bucket: string | null;
   outcome: string | null;
   refusal_reason: string | null;
   rent_request_id: string | null;
