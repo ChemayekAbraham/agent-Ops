@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { UGANDA_BANKS, PAYOUT_METHODS } from '@/lib/ugandaBanks';
 import { useSavedPayoutMethods, type SavedPayoutMethod } from '@/hooks/useSavedPayoutMethods';
 import { useMyPayoutDestinations, destinationStateFor } from '@/hooks/usePayoutVerification';
-import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
+import NationalIdPrompt, { useMyNationalId } from '@/components/wallet/NationalIdPrompt';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Star } from 'lucide-react';
 import { downloadWithdrawalReceiptPdf, shareWithdrawalReceiptPdf } from '@/lib/withdrawalReceiptPdf';
@@ -102,6 +102,10 @@ export default function WithdrawFlow({
   // Migrating both dialogs onto this hook eliminates gate drift where one
   // dialog enforced a rule the other missed (e.g. the payout-freeze bug).
   const withdrawCtx = useWithdrawContext(user?.id);
+  // No National ID on file means no withdrawal: the first step is a hard stop
+  // until a correctly formatted ID and the name printed on it are submitted.
+  const myNationalId = useMyNationalId();
+  const needsNationalId = !!user?.id && !myNationalId.isLoading && !myNationalId.data?.national_id;
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
@@ -632,7 +636,8 @@ export default function WithdrawFlow({
     // (personal wallet) source. Landlord-float payouts use a separate
     // flow and are exempt. Threshold: today_pct < 20% with active tenants.
     switch (currentStep) {
-      case 0: return true;
+      // Verify the wallet first: no valid National ID on file, no withdrawal.
+      case 0: return !needsNationalId;
       case 1:
         // Mirror the Confirm-step pattern: keep Continue tappable even when
         // the live ledger check is still loading / failed / stale. We refetch
@@ -1123,6 +1128,9 @@ export default function WithdrawFlow({
       case 0:
         return (
           <div className="space-y-4">
+            {needsNationalId && (
+              <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
+            )}
             {!withdrawCtx.isLoading && !withdrawCtx.gates.canSubmit && (
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-1">
                 <div className="flex items-center gap-2">

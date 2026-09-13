@@ -390,7 +390,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
           {/* Verification checklist */}
           <WidgetErrorBoundary label="Verification checklist">
-            <VerificationChecklist />
+            <VerificationChecklist userId={user.id} />
           </WidgetErrorBoundary>
 
           {/* Available houses — surfaced near the top of home so tenants find them first */}
