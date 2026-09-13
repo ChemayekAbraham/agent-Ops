@@ -65,6 +65,14 @@ export interface TxFeedRow {
    * callers merge onto rows by `id` before rendering).
    */
   balanceAfter?: number | null;
+  /**
+   * For wallet_transfer rows: the person on the other side of the transfer
+   * (the sender for a received item, the receiver for a sent one). Resolved
+   * via the get_transfer_peers RPC, which only ever exposes the counterparty
+   * of a transfer the caller personally took part in.
+   */
+  peer_name?: string | null;
+  peer_avatar_url?: string | null;
 }
 
 export const TX_DATE_OPTIONS: { value: TxDateFilter; label: string }[] = [
@@ -320,6 +328,36 @@ export async function fetchTxFeedPage(
   const pageRows = fetched.slice(0, TX_PAGE_SIZE);
   const rows = pageRows.filter(isCustomerWalletLedgerEntryVisible);
   const last = pageRows[pageRows.length - 1];
+
+  // Enrich person-to-person transfers with the counterparty's name + photo so
+  // the receiver sees WHO sent each item. Best-effort: the feed still renders
+  // (name-only via linked_party) if the lookup fails.
+  const transferRefs = [
+    ...new Set(
+      rows
+        .filter((r) => r.category === "wallet_transfer" && r.reference_id)
+        .map((r) => r.reference_id as string),
+    ),
+  ];
+  if (transferRefs.length > 0) {
+    try {
+      const { data: peers } = await (supabase.rpc as any)("get_transfer_peers", {
+        p_reference_ids: transferRefs,
+      });
+      const byRef = new Map<string, { peer_name: string; peer_avatar_url: string | null }>(
+        ((peers ?? []) as any[]).map((p) => [p.reference_id as string, p]),
+      );
+      for (const r of rows) {
+        const peer = r.reference_id ? byRef.get(r.reference_id) : undefined;
+        if (peer) {
+          r.peer_name = peer.peer_name;
+          r.peer_avatar_url = peer.peer_avatar_url;
+        }
+      }
+    } catch (e) {
+      console.warn("[tx-feed] transfer peer lookup failed:", e);
+    }
+  }
 
   return { rows, nextCursor: hasMore && last ? last.transaction_date : null };
 }

@@ -17,6 +17,8 @@ interface WalletTransaction {
   created_at: string;
   sender_name?: string;
   recipient_name?: string;
+  sender_avatar_url?: string | null;
+  recipient_avatar_url?: string | null;
   recipient_phone?: string;
 }
 
@@ -36,6 +38,7 @@ type WalletProfileRow = {
   id: string;
   full_name: string | null;
   phone: string | null;
+  avatar_url: string | null;
 };
 
 export function useWallet() {
@@ -115,7 +118,7 @@ export function useWallet() {
         const { data: profiles } = userIds.length > 0
           ? await supabase
             .from('profiles')
-            .select('id, full_name, phone')
+            .select('id, full_name, phone, avatar_url')
             .in('id', userIds)
           : { data: [] };
 
@@ -126,6 +129,8 @@ export function useWallet() {
           ...t,
           sender_name: t.sender_id ? profileMap.get(t.sender_id)?.full_name || 'Unknown' : 'System',
           recipient_name: t.recipient_id ? profileMap.get(t.recipient_id)?.full_name || 'Unknown' : 'System',
+          sender_avatar_url: t.sender_id ? profileMap.get(t.sender_id)?.avatar_url ?? null : null,
+          recipient_avatar_url: t.recipient_id ? profileMap.get(t.recipient_id)?.avatar_url ?? null : null,
           recipient_phone: t.recipient_id ? profileMap.get(t.recipient_id)?.phone || '' : '',
         }));
 
