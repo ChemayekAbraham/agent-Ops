@@ -104,6 +104,7 @@ import { useSwipeSensitivity } from '@/hooks/useSwipeSensitivity';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { useCfoAdvanceDisbursementCount } from '@/hooks/useCfoAdvanceDisbursementCount';
 import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotificationsBell';
+import { useCfoApprovalAuthority } from '@/hooks/useCfoApprovalAuthority';
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
 const CFO_TAB_SEQUENCE = (executiveSidebarConfig.cfo ?? [])
