@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+
 import sendMoneyIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 import { useWallet } from '@/hooks/useWallet';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,12 +22,30 @@ import { useConfetti } from '@/components/Confetti';
 import { toast } from 'sonner';
 import { AutoPayoutSection } from '@/components/wallet/AutoPayoutSection';
 
+import { useProfile } from '@/hooks/useProfile';
+import { UserAvatar } from '@/components/UserAvatar';
+
 import { 
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
-  Mail, UtensilsCrossed, ShoppingCart, Fuel, Car, Hotel, Stethoscope, 
-  Wrench, Coffee, Zap, Droplets, Scissors, BookOpen, Baby, Shirt, PawPrint, Bike, AlertTriangle, ArrowRight,
-  Star, X, Pencil, Check, Search
+  Mail, UtensilsCrossed, Fuel, AlertTriangle, ArrowRight, Home, Egg, Gift, Landmark, Sandwich,
+  Star, X, Pencil, Check, Search, Bike
 } from 'lucide-react';
+
+/**
+ * Every Welile transfer is a payment for one of these items. The sender picks
+ * from this fixed list — no free-text reasons — and the chosen label becomes
+ * the statement description on BOTH wallet legs (handled server side).
+ */
+const WELILE_ITEMS = [
+  { label: 'Welile Rent', hint: 'Rent payment', icon: Home },
+  { label: 'Welile Bread', hint: 'Bread', icon: Sandwich },
+  { label: 'Welile Chapati', hint: 'Chapati', icon: UtensilsCrossed },
+  { label: 'Welile Eggs', hint: 'Eggs', icon: Egg },
+  { label: 'Welile Fuel', hint: 'Fuel', icon: Fuel },
+  { label: 'Welile Reward', hint: 'A reward', icon: Gift },
+  { label: 'Welile Boda fees', hint: 'Boda ride', icon: Bike },
+  { label: 'Welile tax', hint: 'Tax', icon: Landmark },
+] as const;
 import {
   loadRecipients,
   rememberRecipient,
@@ -64,6 +82,7 @@ const itemVariants = {
 export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
   const { sendMoney, wallet } = useWallet();
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { triggerCelebration, markCelebrated } = useFirstTransactionCelebration();
   const { fireSuccess } = useConfetti();
   const [phone, setPhone] = useState('');
