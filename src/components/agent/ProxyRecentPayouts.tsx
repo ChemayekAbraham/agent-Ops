@@ -167,13 +167,33 @@ export function ProxyRecentPayouts() {
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const filename = `welile-proxy-payouts-${new Date().toISOString().slice(0, 10)}.pdf`;
       a.href = url;
-      a.download = `welile-proxy-payouts-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
       toast.success('Payout list exported');
+
+      // Exports many recipients' names, phones and payout destinations at
+      // once, not logged before this. Plain client-side insert so the
+      // audit_logs IP-capture trigger sees the real browser IP directly.
+      // Never blocks the actual download.
+      (async () => {
+        try {
+          const { data: { user: actor } } = await supabase.auth.getUser();
+          await supabase.from('audit_logs').insert({
+            user_id: actor?.id ?? null,
+            action_type: 'pdf_report_exported',
+            table_name: 'export',
+            record_id: null,
+            metadata: { filename, row_count: rows.length },
+          });
+        } catch (e) {
+          console.warn('[ProxyRecentPayouts] audit log insert failed:', e);
+        }
+      })();
     } catch (e: any) {
       toast.error(e?.message || 'Could not export the payout list');
     } finally {
