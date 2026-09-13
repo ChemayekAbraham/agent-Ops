@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { AlertTriangle, ChevronDown, ChevronRight, Copy, Download, Loader2, MoreHorizontal, Plus, Trash2, UserPlus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -270,12 +271,32 @@ export default function StaffDirectory() {
     const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
+    const filename = `staff-directory-${new Date().toISOString().slice(0, 10)}.csv`;
     a.href = url;
-    a.download = `staff-directory-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+
+    // Bulk export of the entire staff directory -- emails, phones, org
+    // structure -- not logged before this. Plain client-side insert so the
+    // audit_logs IP-capture trigger sees the real browser IP directly.
+    // Never blocks the actual download.
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id ?? null,
+          action_type: 'csv_exported',
+          table_name: 'export',
+          record_id: null,
+          metadata: { filename, staff_count: visibleStaff.length },
+        });
+      } catch (e) {
+        console.warn('[StaffDirectory] audit log insert failed:', e);
+      }
+    })();
   }, [visibleStaff, assignments, positionTitleById]);
 
 
