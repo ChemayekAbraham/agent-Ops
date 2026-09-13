@@ -457,6 +457,13 @@ export function SmartphoneOrderApprovalQueue({
     (approve.isPending && approve.variables?.id === id) ||
     (reject.isPending && reject.variables?.id === id);
 
+  /** What the sign-off button does at this desk. */
+  const stageActionLabel =
+    stageFilter === 'cfo'
+      ? 'Approve & pay supplier'
+      : stageFilter === 'coo'
+        ? 'Approve & send to CFO'
+        : 'Approve & send to COO';
 
   return (
     <Card>
@@ -475,16 +482,23 @@ export function SmartphoneOrderApprovalQueue({
               <Badge variant="outline" className={STATUS_TONE.rejected}>{scoped.length} rejected</Badge>
             ) : (
               <>
-                {!inProgressOnly && <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>}
-                <Badge variant="outline" className={STATUS_TONE.ops_approved}>
-                  {awaitingCooCount} awaiting COO
-                </Badge>
-                <Badge variant="outline" className={STATUS_TONE.coo_approved}>
-                  {awaitingCfoCount} awaiting CFO
-                </Badge>
+                {!inProgressOnly && !stageFilter && (
+                  <Badge variant="secondary">{pendingCount} awaiting Agent Ops</Badge>
+                )}
+                {(!stageFilter || stageFilter === 'coo') && (
+                  <Badge variant="outline" className={STATUS_TONE.ops_approved}>
+                    {awaitingCooCount} awaiting COO
+                  </Badge>
+                )}
+                {(!stageFilter || stageFilter === 'cfo') && (
+                  <Badge variant="outline" className={STATUS_TONE.coo_approved}>
+                    {awaitingCfoCount} awaiting CFO
+                  </Badge>
+                )}
               </>
             )}
           </CardTitle>
+
 
           {filtered.length > 0 && rejectedOnly && (
             <Button
