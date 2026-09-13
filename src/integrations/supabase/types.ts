@@ -28305,6 +28305,7 @@ export type Database = {
           name_mismatch_tokens: Json | null
           national_id: string | null
           national_id_name: string | null
+          national_id_submitted_at: string | null
           provider: string | null
           status: string
           updated_at: string
@@ -28328,6 +28329,7 @@ export type Database = {
           name_mismatch_tokens?: Json | null
           national_id?: string | null
           national_id_name?: string | null
+          national_id_submitted_at?: string | null
           provider?: string | null
           status?: string
           updated_at?: string
@@ -28351,6 +28353,7 @@ export type Database = {
           name_mismatch_tokens?: Json | null
           national_id?: string | null
           national_id_name?: string | null
+          national_id_submitted_at?: string | null
           provider?: string | null
           status?: string
           updated_at?: string
@@ -43467,6 +43470,122 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      wallet_withdrawal_otp_challenges: {
+        Row: {
+          account_phone: string
+          amount: number
+          attempts: number
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          client_request_id: string
+          created_at: string
+          id: string
+          max_attempts: number
+          mobile_money_name: string | null
+          mobile_money_number: string | null
+          mobile_money_provider: string | null
+          otp_expires_at: string
+          otp_hash: string
+          payout_method: string
+          reason: string | null
+          resulting_withdrawal_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          account_phone: string
+          amount: number
+          attempts?: number
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          client_request_id: string
+          created_at?: string
+          id?: string
+          max_attempts?: number
+          mobile_money_name?: string | null
+          mobile_money_number?: string | null
+          mobile_money_provider?: string | null
+          otp_expires_at: string
+          otp_hash: string
+          payout_method: string
+          reason?: string | null
+          resulting_withdrawal_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          account_phone?: string
+          amount?: number
+          attempts?: number
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          client_request_id?: string
+          created_at?: string
+          id?: string
+          max_attempts?: number
+          mobile_money_name?: string | null
+          mobile_money_number?: string | null
+          mobile_money_provider?: string | null
+          otp_expires_at?: string
+          otp_hash?: string
+          payout_method?: string
+          reason?: string | null
+          resulting_withdrawal_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
+      wallet_withdrawal_otp_events: {
+        Row: {
+          challenge_id: string
+          created_at: string
+          detail: string | null
+          event_type: string
+          failure_reason: string | null
+          id: string
+          metadata: Json
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          created_at?: string
+          detail?: string | null
+          event_type: string
+          failure_reason?: string | null
+          id?: string
+          metadata?: Json
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          created_at?: string
+          detail?: string | null
+          event_type?: string
+          failure_reason?: string | null
+          id?: string
+          metadata?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_withdrawal_otp_events_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_withdrawal_otp_challenges"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wallets_physical: {
         Row: {
