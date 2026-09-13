@@ -269,16 +269,16 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                   {isTenantCat ? (
                     <Dialog open={tenantModalOpen} onOpenChange={setTenantModalOpen}>
                       <DialogTrigger asChild>{categoryHeader}</DialogTrigger>
-                      <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-y-auto p-0 rounded-2xl border border-border/60 shadow-2xl">
-                        <DialogHeader className="px-6 pt-6 pb-2">
-                          <DialogTitle className="text-lg sm:text-xl">{cat.label}</DialogTitle>
+                      <DialogContent className="max-w-6xl w-[92vw] max-h-[85vh] overflow-y-auto p-0 rounded-2xl border border-border/60 shadow-xl">
+                        <DialogHeader className="px-5 pt-5 pb-2">
+                          <DialogTitle className="text-base sm:text-lg">{cat.label}</DialogTitle>
                           <DialogDescription>
                             Payment activity by location and forward collections forecast for Rent Access Plans.
                           </DialogDescription>
                         </DialogHeader>
-                        <div className="px-6 pb-8 space-y-6">
+                        <div className="px-5 pb-6 space-y-4">
                           <Card className="border-border/60">
-                            <CardContent className="p-4 sm:p-5">
+                            <CardContent className="p-4">
                               <div className="flex items-start justify-between gap-4">
                                 <div className="min-w-0">
                                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">

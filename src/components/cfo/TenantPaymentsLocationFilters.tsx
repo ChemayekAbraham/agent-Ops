@@ -208,7 +208,7 @@ export function TenantPaymentsLocationFilters() {
 
   return (
     <Card className="border-border/60">
-      <CardHeader className="pb-3">
+      <CardHeader className="px-5 py-4 pb-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
@@ -233,9 +233,9 @@ export function TenantPaymentsLocationFilters() {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-4 px-5 pb-5 pt-0">
         {/* Date + method filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           <div className="space-y-1.5">
             <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               From
@@ -281,7 +281,7 @@ export function TenantPaymentsLocationFilters() {
         </div>
 
         {/* Cascading location filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
           <div className="space-y-1.5">
             <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Country
@@ -467,29 +467,29 @@ export function TenantPaymentsLocationFilters() {
 
         {/* Totals for the active filter set */}
         {summary && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-border/60 bg-card p-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <div className="rounded-xl border border-border/60 bg-card p-2.5">
               <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <Wallet className="h-3.5 w-3.5" />
                 Collected
               </div>
               <p className="mt-1.5 text-sm font-bold font-mono tabular-nums">{formatUGX(summary.total)}</p>
             </div>
-            <div className="rounded-xl border border-border/60 bg-card p-3">
+            <div className="rounded-xl border border-border/60 bg-card p-2.5">
               <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <Receipt className="h-3.5 w-3.5" />
                 Payments
               </div>
               <p className="mt-1.5 text-sm font-bold font-mono tabular-nums">{summary.payment_count}</p>
             </div>
-            <div className="rounded-xl border border-border/60 bg-card p-3">
+            <div className="rounded-xl border border-border/60 bg-card p-2.5">
               <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <Users className="h-3.5 w-3.5" />
                 Tenants paying
               </div>
               <p className="mt-1.5 text-sm font-bold font-mono tabular-nums">{summary.tenant_count}</p>
             </div>
-            <div className="rounded-xl border border-border/60 bg-card p-3">
+            <div className="rounded-xl border border-border/60 bg-card p-2.5">
               <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5" />
                 Not placed
@@ -535,7 +535,7 @@ export function TenantPaymentsLocationFilters() {
                       setSel((s) => ({ ...s, subcountyId: row.subcounty_id!, subcountyLabel: row.label, village: null }));
                     else if (resultLevel === 'village') setSel((s) => ({ ...s, village: row.label }));
                   }}
-                  className="w-full flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2.5 last:border-0 text-left hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2 last:border-0 text-left hover:bg-muted/40 transition-colors"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-[11px] sm:text-xs font-medium">{row.label}</span>
@@ -608,7 +608,7 @@ export function TenantPaymentsLocationFilters() {
               {pagedReceipts.map((p) => (
                 <div
                   key={p.payment_id}
-                  className="flex items-start sm:items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5 last:border-0"
+                  className="flex items-start sm:items-center justify-between gap-3 border-b border-border/40 px-3 py-2 last:border-0"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-[11px] sm:text-xs font-medium">
