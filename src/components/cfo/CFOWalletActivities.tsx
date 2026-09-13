@@ -220,8 +220,28 @@ export function CFOWalletActivities() {
       });
 
       const safe = (selectedUser.full_name || 'wallet').replace(/[^a-z0-9-_]+/gi, '_').slice(0, 50);
-      doc.save(`wallet-activities_${safe}_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
+      const filename = `wallet-activities_${safe}_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`;
+      doc.save(filename);
       toast.success('PDF exported');
+
+      // A CFO exporting another user's full wallet transaction history --
+      // not logged before this. Plain client-side insert so the audit_logs
+      // IP-capture trigger sees the real browser IP directly. Never blocks
+      // the actual download.
+      (async () => {
+        try {
+          const { data: { user: actor } } = await supabase.auth.getUser();
+          await supabase.from('audit_logs').insert({
+            user_id: actor?.id ?? null,
+            action_type: 'pdf_report_exported',
+            table_name: 'export',
+            record_id: selectedUser.id,
+            metadata: { filename, target_user_id: selectedUser.id, row_count: filteredEntries.length },
+          });
+        } catch (e) {
+          console.warn('[CFOWalletActivities] audit log insert failed:', e);
+        }
+      })();
     } catch (err: any) {
       console.error('[CFOWalletActivities] export failed:', err);
       toast.error(err.message || 'Failed to export PDF');
