@@ -538,6 +538,13 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
     [decidedFiltered, safePage],
   );
 
+  /** Tenants (name + phone) per landlord in the loaded queue, for tap-to-call. */
+  const queueLandlordIds = useMemo(
+    () => [...requests, ...decided].map((r) => r.landlord_id).filter(Boolean),
+    [requests, decided],
+  );
+  const { data: tenantsByLandlord } = useLandlordTenantsMap(queueLandlordIds);
+
   const tabCounts = useMemo(() => ({
     pending: requests.length,
     resubmitted: resubmittedCount,
