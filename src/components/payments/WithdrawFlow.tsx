@@ -21,8 +21,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { UGANDA_BANKS, PAYOUT_METHODS } from '@/lib/ugandaBanks';
 import { useSavedPayoutMethods, type SavedPayoutMethod } from '@/hooks/useSavedPayoutMethods';
-import { useMyPayoutDestinations, destinationStateFor } from '@/hooks/usePayoutVerification';
-import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Star } from 'lucide-react';
 import { downloadWithdrawalReceiptPdf, shareWithdrawalReceiptPdf } from '@/lib/withdrawalReceiptPdf';
@@ -30,6 +28,12 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { AlertTriangle } from 'lucide-react';
+import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
+import {
+  useMyNationalId,
+  useMyPayoutDestinations,
+  destinationStateFor,
+} from '@/hooks/usePayoutVerification';
 
 /**
  * Maps a Ugandan mobile-money number to its provider based on the operator
@@ -101,6 +105,12 @@ export default function WithdrawFlow({
   // Migrating both dialogs onto this hook eliminates gate drift where one
   // dialog enforced a rule the other missed (e.g. the payout-freeze bug).
   const withdrawCtx = useWithdrawContext(user?.id);
+  // Wallet verification: nobody moves past the first screen until their
+  // National ID is on file, and each saved destination shows its own
+  // Financial Ops verification state.
+  const myNationalId = useMyNationalId(user?.id);
+  const needsNationalId = !!user?.id && myNationalId.data ? !myNationalId.data.submitted : false;
+  const myDestinations = useMyPayoutDestinations(user?.id);
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
@@ -126,11 +136,6 @@ export default function WithdrawFlow({
   // Saved payout destinations — persisted across withdrawals so users
   // don't re-type MoMo / bank details every time.
   const savedMethods = useSavedPayoutMethods();
-  // Verification state of the user's own payout destinations. Financial Ops
-  // must confirm each number/account belongs to the holder before any payout
-  // is released; this only surfaces that state so nobody is surprised at
-  // submit time. The gate itself is in the database.
-  const myDestinations = useMyPayoutDestinations(user?.id);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
   const [saveAsNew, setSaveAsNew] = useState(true);
   const [savedNickname, setSavedNickname] = useState('');
@@ -574,7 +579,8 @@ export default function WithdrawFlow({
     // (personal wallet) source. Landlord-float payouts use a separate
     // flow and are exempt. Threshold: today_pct < 20% with active tenants.
     switch (currentStep) {
-      case 0: return true;
+      // Verify the wallet first: no National ID on file, no withdrawal.
+      case 0: return !needsNationalId;
       case 1:
         // Mirror the Confirm-step pattern: keep Continue tappable even when
         // the live ledger check is still loading / failed / stale. We refetch
@@ -1012,6 +1018,9 @@ export default function WithdrawFlow({
       case 0:
         return (
           <div className="space-y-4">
+            {needsNationalId && (
+              <NationalIdPrompt blocking maxAmount={Math.max(1, trueAvailable)} />
+            )}
             {!withdrawCtx.isLoading && !withdrawCtx.gates.canSubmit && (
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-1">
                 <div className="flex items-center gap-2">
@@ -1225,7 +1234,6 @@ export default function WithdrawFlow({
         );
         return (
           <div className="space-y-5">
-            <NationalIdPrompt withdrawableBalance={maxAmount} />
             {payoutMode !== 'cash' && !(payoutMode === 'mobile_money' && lockedMomo) && compatibleSaved.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1253,6 +1261,11 @@ export default function WithdrawFlow({
                       m.payout_mode === 'mobile_money'
                         ? m.momo_number ?? ''
                         : m.bank_account_number ?? '';
+                    const verState = destinationStateFor(myDestinations.data, {
+                      mode: m.payout_mode,
+                      momoNumber: m.momo_number ?? undefined,
+                      bankAccountNumber: m.bank_account_number ?? undefined,
+                    });
                     return (
                       <Card
                         key={m.id}
@@ -1275,31 +1288,21 @@ export default function WithdrawFlow({
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
-                            {(() => {
-                              const st = destinationStateFor(myDestinations.data, {
-                                mode: m.payout_mode,
-                                momoNumber: m.momo_number,
-                                bankAccountNumber: m.bank_account_number,
-                              });
-                              const status = st?.status ?? 'waiting';
-                              return (
-                                <p
-                                  className={`text-[10px] font-bold mt-0.5 ${
-                                    status === 'verified'
-                                      ? 'text-primary'
-                                      : status === 'rejected'
-                                        ? 'text-destructive'
-                                        : 'text-amber-600'
-                                  }`}
-                                >
-                                  {status === 'verified'
-                                    ? '✓ Verified — ready for payout'
-                                    : status === 'rejected'
-                                      ? `Rejected${st?.decision_reason ? ` — ${st.decision_reason}` : ''}`
-                                      : 'Waiting for verification — Financial Ops will call you'}
-                                </p>
-                              );
-                            })()}
+                            {verState?.status === 'verified' && (
+                              <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                ✓ Verified — ready for payout
+                              </p>
+                            )}
+                            {verState?.status === 'rejected' && (
+                              <p className="text-[11px] font-medium text-destructive">
+                                Rejected{verState.decision_reason ? ` — ${verState.decision_reason}` : ''}
+                              </p>
+                            )}
+                            {(!verState || verState.status === 'waiting') && (
+                              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                                Waiting for verification — Financial Ops will call you
+                              </p>
+                            )}
                           </div>
                           <button
                             type="button"

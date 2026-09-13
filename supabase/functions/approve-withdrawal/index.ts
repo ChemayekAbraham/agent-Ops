@@ -632,35 +632,6 @@ Deno.serve(async (req) => {
     const isCashPayout =
       wrPayoutMethod === "cash" || wrPayoutMethod === "cash_pickup";
 
-    // ── Verified payout destination gate ────────────────────────────────
-    // Third copy of the destination gate (the other two are
-    // `submit_withdrawal_request` and the `enforce_withdrawal_destination_verified`
-    // trigger). No money leaves for a phone number or bank account Financial
-    // Ops has not personally verified against the holder's National ID.
-    if (wrPayoutMethod === "mobile_money" || wrPayoutMethod === "bank_transfer") {
-      const { data: destOk, error: destErr } = await admin.rpc(
-        "payout_destination_is_verified",
-        {
-          p_user_id: (wr as any).user_id,
-          p_method: wrPayoutMethod,
-          p_momo_number: (wr as any).mobile_money_number ?? null,
-          p_bank_name: (wr as any).bank_name ?? null,
-          p_bank_account_number: (wr as any).bank_account_number ?? null,
-        },
-      );
-      if (destErr || destOk !== true) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error:
-              "This payout destination is not verified. Open Financial Ops → Verify Payout Numbers, call the holder to confirm the number and the National ID name, then approve this payout.",
-            code: "DESTINATION_UNVERIFIED",
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-    }
-
     // ── Server-side confirmation-SMS verification ───────────────────────
     // When a merchant agent settles a MoMo/bank payout they paste the raw
     // "you have sent…" SMS from their telecom/bank app. We re-parse it HERE

@@ -28305,6 +28305,7 @@ export type Database = {
           name_mismatch_tokens: Json | null
           national_id: string | null
           national_id_name: string | null
+          national_id_submitted_at: string | null
           provider: string | null
           status: string
           updated_at: string
@@ -28328,6 +28329,7 @@ export type Database = {
           name_mismatch_tokens?: Json | null
           national_id?: string | null
           national_id_name?: string | null
+          national_id_submitted_at?: string | null
           provider?: string | null
           status?: string
           updated_at?: string
@@ -28351,6 +28353,7 @@ export type Database = {
           name_mismatch_tokens?: Json | null
           national_id?: string | null
           national_id_name?: string | null
+          national_id_submitted_at?: string | null
           provider?: string | null
           status?: string
           updated_at?: string
