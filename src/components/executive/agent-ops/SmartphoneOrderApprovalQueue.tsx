@@ -423,17 +423,21 @@ export function SmartphoneOrderApprovalQueue({
     }
   };
 
-  const scoped = useMemo(
-    () =>
-      rejectedOnly
-        ? orders.filter((o) => o.order_status === 'rejected')
-        : inProgressOnly
-          ? orders.filter((o) => isAwaitingCoo(o.order_status) || isAwaitingCfo(o.order_status))
-          : pendingOnly
-            ? orders.filter((o) => isPending(o.order_status))
-            : orders,
-    [orders, pendingOnly, rejectedOnly, inProgressOnly],
-  );
+  const scoped = useMemo(() => {
+    // A desk-scoped queue keeps the files it has already signed off, so nothing
+    // disappears after approval — it simply carries a later status badge.
+    let rows = orders;
+    if (stageFilter === 'coo') {
+      rows = rows.filter((o) => isAwaitingCoo(o.order_status) || !!o.coo_approved_at);
+    } else if (stageFilter === 'cfo') {
+      rows = rows.filter((o) => isAwaitingCfo(o.order_status) || !!o.cfo_disbursed_at);
+    }
+    if (rejectedOnly) return rows.filter((o) => o.order_status === 'rejected');
+    if (inProgressOnly) return rows.filter((o) => isAwaitingCoo(o.order_status) || isAwaitingCfo(o.order_status));
+    if (pendingOnly) return rows.filter((o) => isPending(o.order_status));
+    return rows;
+  }, [orders, pendingOnly, rejectedOnly, inProgressOnly, stageFilter]);
+
 
 
   const filtered = useMemo(() => {
