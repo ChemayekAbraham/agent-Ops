@@ -167,6 +167,7 @@ export interface MyPayoutDestination {
   account_name: string | null;
   status: PayoutVerificationStatus;
   decision_reason: string | null;
+  decided_at: string | null;
 }
 
 /**
@@ -183,7 +184,7 @@ export function useMyPayoutDestinations(userId?: string | null) {
       const { data, error } = await supabase
         .from('payout_destination_verifications')
         .select(
-          'id, destination_type, provider, momo_number, bank_name, bank_account_number, account_name, status, decision_reason',
+          'id, destination_type, provider, momo_number, bank_name, bank_account_number, account_name, status, decision_reason, decided_at',
         )
         .eq('user_id', userId as string);
       if (error) throw error;
