@@ -316,6 +316,54 @@ export interface TxFeedFilters {
   date: TxDateFilter;
   service: TxServiceFilter;
   method: TxMethodFilter;
+  /** Welile item (Rent, Bread, …). Optional — defaults to every item. */
+  item?: TxItemFilter;
+}
+
+export interface WelileItemTotal {
+  item: WelileItem;
+  inAmount: number;
+  outAmount: number;
+  count: number;
+}
+
+/**
+ * Per-item money-in / money-out totals for the dashboard + statement summary.
+ * One query over the caller's own wallet transfers (same visibility filters as
+ * the feed), aggregated client side — no per-item round trip.
+ */
+export async function fetchWelileItemTotals(
+  userId: string,
+  date: TxDateFilter = "all",
+): Promise<WelileItemTotal[]> {
+  let query = applyCustomerWalletLedgerFilters(
+    supabase
+      .from("general_ledger")
+      .select("id, transaction_date, amount, direction, category, description, reference_id, linked_party, source_table, source_id, classification")
+      .eq("user_id", userId)
+      .eq("category", "wallet_transfer")
+      .in("ledger_scope", ["wallet", "bridge"]),
+  ).order("transaction_date", { ascending: false });
+
+  const floor = dateFloor(date);
+  if (floor) query = query.gte("transaction_date", floor);
+
+  const { data, error } = await query.limit(1000);
+  if (error) throw error;
+
+  const rows = ((data ?? []) as TxFeedRow[]).filter(isCustomerWalletLedgerEntryVisible);
+  const totals = new Map<WelileItem, WelileItemTotal>(
+    WELILE_ITEMS.map((i) => [i, { item: i, inAmount: 0, outAmount: 0, count: 0 }]),
+  );
+  for (const row of rows) {
+    const item = welileItemOf(row);
+    if (!item) continue;
+    const bucket = totals.get(item)!;
+    bucket.count += 1;
+    if (row.direction === "cash_in") bucket.inAmount += Number(row.amount);
+    else bucket.outAmount += Number(row.amount);
+  }
+  return [...totals.values()];
 }
 
 /**
