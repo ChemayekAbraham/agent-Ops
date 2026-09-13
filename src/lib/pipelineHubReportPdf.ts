@@ -1,5 +1,25 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+
+// Bulk export of the whole pipeline hub (many tenant/rent-request rows at
+// once), not logged before this. Plain client-side insert so the
+// audit_logs IP-capture trigger sees the real browser IP directly. Never
+// blocks the actual download.
+async function logPdfExport(filename: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id ?? null,
+      action_type: 'pdf_report_exported',
+      table_name: 'export',
+      record_id: null,
+      metadata: { filename },
+    });
+  } catch (e) {
+    console.warn('[pipelineHubReportPdf] audit log insert failed:', e);
+  }
+}
 
 /**
  * Pipeline Status Hub report generator.
@@ -259,6 +279,8 @@ export function downloadPipelineReportBlob(blob: Blob, filename: string) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  void logPdfExport(filename);
 }
 
 /**
