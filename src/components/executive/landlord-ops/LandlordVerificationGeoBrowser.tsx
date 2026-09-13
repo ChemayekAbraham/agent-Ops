@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, ChevronRight, MapPin, Navigation, Phone, UserCircle, Globe, Search, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, MapPin, Navigation, Phone, UserCircle, Globe, Search, X, Copy, Check } from 'lucide-react';
 
 export interface LandlordGeo {
   country: string | null;
