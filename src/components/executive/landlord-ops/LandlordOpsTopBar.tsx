@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import WelileLogo from '@/components/WelileLogo';
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { LandlordOpsSidebar } from './LandlordOpsSidebar';
 import { searchLandlordOpsNav } from './landlordOpsNav';
