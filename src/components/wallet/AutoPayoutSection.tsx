@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Repeat, Loader2, Play, Pause, X, ShieldCheck } from 'lucide-react';
+import { Repeat, Loader2, Play, Pause, X, ShieldCheck, Lock, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAutoPayouts, type AutoPayoutFrequency } from '@/hooks/useAutoPayouts';
 
