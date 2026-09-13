@@ -372,8 +372,28 @@ export function GeneralPayoutActivities() {
         },
       });
 
-      doc.save(`welile-payouts-${iso(window.from)}-to-${iso(window.to)}.pdf`);
+      const filename = `welile-payouts-${iso(window.from)}-to-${iso(window.to)}.pdf`;
+      doc.save(filename);
       toast.success(`Exported ${allRows.length} payouts to PDF`);
+
+      // Bulk export of every payout in the window -- names, phones, amounts
+      // -- not logged before this. Plain client-side insert so the
+      // audit_logs IP-capture trigger sees the real browser IP directly.
+      // Never blocks the actual download.
+      (async () => {
+        try {
+          const { data: { user: actor } } = await supabase.auth.getUser();
+          await supabase.from('audit_logs').insert({
+            user_id: actor?.id ?? null,
+            action_type: 'pdf_report_exported',
+            table_name: 'export',
+            record_id: null,
+            metadata: { filename, row_count: allRows.length, total_amount: totalAmount },
+          });
+        } catch (e) {
+          console.warn('[GeneralPayoutActivities] audit log insert failed:', e);
+        }
+      })();
     } catch (err: any) {
       toast.error('Could not export payouts', { description: err?.message });
     } finally {
