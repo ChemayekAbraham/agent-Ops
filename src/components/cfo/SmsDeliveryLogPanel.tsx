@@ -113,10 +113,30 @@ export function SmsDeliveryLogPanel() {
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
+    const filename = `sms-delivery-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.href = url;
-    a.download = `sms-delivery-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+
+    // Bulk export of many recipients' phone numbers and messages at once,
+    // not logged before this. Plain client-side insert so the audit_logs
+    // IP-capture trigger sees the real browser IP directly. Never blocks
+    // the actual download.
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id ?? null,
+          action_type: 'csv_exported',
+          table_name: 'sms_delivery_log',
+          record_id: null,
+          metadata: { filename, row_count: filtered.length },
+        });
+      } catch (e) {
+        console.warn('[SmsDeliveryLogPanel] audit log insert failed:', e);
+      }
+    })();
   };
 
   const handleRefreshDeliveryReports = async () => {
