@@ -400,6 +400,12 @@ export async function fetchTxFeedPage(
     if (or) query = query.or(or);
   }
 
+  // Welile item: item transfers are wallet_transfer rows carrying the item name
+  // in the description (set by the transfer edge function on both legs).
+  if (filters.item && filters.item !== "all") {
+    query = query.eq("category", "wallet_transfer").ilike("description", `%${filters.item}%`);
+  }
+
   if (cursor) query = query.lt("transaction_date", cursor);
 
   // One extra row acts as the "is there more?" probe — no count() scan.
