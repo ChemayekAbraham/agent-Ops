@@ -108,11 +108,11 @@ export default function NationalIdPrompt({
         </div>
         <div className="min-w-0">
           <p className="text-sm font-bold text-foreground">
-            {blocking ? 'Verify your wallet before you withdraw' : 'Add your National ID'}
+            {title ?? (blocking ? 'Verify your wallet before you withdraw' : 'Add your National ID')}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Your money can only be sent to a number or bank account in your own name. Enter your
-            National ID and the exact name printed on it.
+            {description ??
+              'Your money can only be sent to a number or bank account in your own name. Enter your National ID and the exact name printed on it.'}
           </p>
         </div>
       </div>
