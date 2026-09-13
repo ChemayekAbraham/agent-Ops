@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatUGX } from "@/lib/rentCalculations";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   txCounterparty,
   txIcon,
@@ -52,6 +53,12 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
   const isIn = row?.direction === "cash_in";
   const tone = row ? txTone(row) : null;
   const Icon = row ? txIcon(row) : null;
+  // Person-to-person transfer: the person on the other side (photo + name).
+  const peer =
+    row && row.category === "wallet_transfer" && row.peer_name
+      ? { name: row.peer_name, avatar: row.peer_avatar_url ?? null }
+      : null;
+
 
 
   return (
@@ -69,14 +76,31 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
               >
                 <X className="h-4 w-4" />
               </button>
-              <div
-                className={cn(
-                  "flex h-16 w-16 items-center justify-center rounded-full",
-                  tone?.bubble,
-                )}
-              >
-                {Icon && <Icon className={cn("h-7 w-7", tone?.icon)} />}
-              </div>
+              {peer ? (
+                <UserAvatar
+                  avatarUrl={peer.avatar}
+                  fullName={peer.name}
+                  size="lg"
+                  className="h-16 w-16"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    "flex h-16 w-16 items-center justify-center rounded-full",
+                    tone?.bubble,
+                  )}
+                >
+                  {Icon && <Icon className={cn("h-7 w-7", tone?.icon)} />}
+                </div>
+              )}
+              {peer && (
+                <div className="mt-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {isIn ? "Received from" : "Sent to"}
+                  </p>
+                  <p className="text-base font-extrabold leading-tight text-foreground">{peer.name}</p>
+                </div>
+              )}
               <h2 className="mt-3 text-xl font-bold text-foreground">{txLabel(row)}</h2>
               <div className="mt-1 flex items-center gap-1.5">
                 <Badge
@@ -145,8 +169,8 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
                   </span>
                 </DetailRow>
               )}
-              <DetailRow label="Beneficiary / Source" last={!row.description}>
-                {txCounterparty(row) ?? "—"}
+              <DetailRow label={peer ? (isIn ? "Sender" : "Recipient") : "Beneficiary / Source"} last={!row.description}>
+                {peer?.name ?? txCounterparty(row) ?? "—"}
               </DetailRow>
               {row.description && (
                 <DetailRow label="Details" last>

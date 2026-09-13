@@ -17,6 +17,8 @@ interface WalletTransaction {
   created_at: string;
   sender_name?: string;
   recipient_name?: string;
+  sender_avatar_url?: string | null;
+  recipient_avatar_url?: string | null;
   recipient_phone?: string;
 }
 
@@ -36,6 +38,7 @@ type WalletProfileRow = {
   id: string;
   full_name: string | null;
   phone: string | null;
+  avatar_url: string | null;
 };
 
 export function useWallet() {
@@ -115,17 +118,41 @@ export function useWallet() {
         const { data: profiles } = userIds.length > 0
           ? await supabase
             .from('profiles')
-            .select('id, full_name, phone')
+            .select('id, full_name, phone, avatar_url')
             .in('id', userIds)
           : { data: [] };
 
         const profileMap = new Map<string, WalletProfileRow>();
         ((profiles ?? []) as WalletProfileRow[]).forEach((p) => profileMap.set(p.id, p));
 
+        // Regular users can't read a counterparty's profile row through RLS,
+        // so fill any gaps via get_transfer_peers_by_ids — it only ever returns
+        // people the caller has personally exchanged transfers with.
+        const missingIds = userIds.filter((id) => !profileMap.has(id));
+        if (missingIds.length > 0) {
+          try {
+            const { data: peers } = await (supabase.rpc as any)('get_transfer_peers_by_ids', {
+              p_user_ids: missingIds,
+            });
+            ((peers ?? []) as any[]).forEach((p) => {
+              profileMap.set(p.peer_user_id as string, {
+                id: p.peer_user_id as string,
+                full_name: p.peer_name ?? null,
+                phone: null,
+                avatar_url: p.peer_avatar_url ?? null,
+              });
+            });
+          } catch (e) {
+            console.warn('[useWallet] transfer peer lookup failed:', e);
+          }
+        }
+
         const enrichedTransactions = filteredData.map(t => ({
           ...t,
           sender_name: t.sender_id ? profileMap.get(t.sender_id)?.full_name || 'Unknown' : 'System',
           recipient_name: t.recipient_id ? profileMap.get(t.recipient_id)?.full_name || 'Unknown' : 'System',
+          sender_avatar_url: t.sender_id ? profileMap.get(t.sender_id)?.avatar_url ?? null : null,
+          recipient_avatar_url: t.recipient_id ? profileMap.get(t.recipient_id)?.avatar_url ?? null : null,
           recipient_phone: t.recipient_id ? profileMap.get(t.recipient_id)?.phone || '' : '',
         }));
 
