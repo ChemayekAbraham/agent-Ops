@@ -46,6 +46,41 @@ export type TxServiceFilter =
   | "returns";
 export type TxMethodFilter = "all" | "mobile_money" | "p2p" | "bank";
 
+/**
+ * Welile items — the fixed list a sender picks from on the transfer screen
+ * (mirrors public.welile_transfer_items() server side). An item transfer is a
+ * `wallet_transfer` ledger row whose description carries the item name, so the
+ * item filter is a category + description match, never a new column.
+ */
+export const WELILE_ITEMS = [
+  "Welile Rent",
+  "Welile Bread",
+  "Welile Chapati",
+  "Welile Eggs",
+  "Welile Fuel",
+  "Welile Reward",
+  "Welile Boda fees",
+  "Welile tax",
+] as const;
+
+export type WelileItem = (typeof WELILE_ITEMS)[number];
+export type TxItemFilter = "all" | WelileItem;
+
+export const TX_ITEM_OPTIONS: { value: TxItemFilter; label: string }[] = [
+  { value: "all", label: "All items" },
+  ...WELILE_ITEMS.map((i) => ({ value: i as TxItemFilter, label: i })),
+];
+
+/** The Welile item an entry represents, or null when it isn't an item transfer. */
+export function welileItemOf(row: {
+  category: string;
+  description: string | null;
+}): WelileItem | null {
+  if (row.category !== "wallet_transfer") return null;
+  const haystack = (row.description ?? "").toLowerCase();
+  return WELILE_ITEMS.find((i) => haystack.includes(i.toLowerCase())) ?? null;
+}
+
 export interface TxFeedRow {
   id: string;
   transaction_date: string;
