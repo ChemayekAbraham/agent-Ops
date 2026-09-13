@@ -89,27 +89,25 @@ export function TenantPaymentsLocationFilters() {
   const fromParam = from || null;
   const toParam = to || null;
 
-  // ---- Option lists: each level is queried with the parents above it. ----
+  // ---- Option lists: every level is independent — each loads whether or not
+  // the levels above it are selected, and narrows when parents are chosen. ----
   const countryQ = usePaymentsByLocation({
     level: 'country', from: fromParam, to: toParam, method: methodParam,
   });
   const regionQ = usePaymentsByLocation(
     { level: 'region', country: sel.country, from: fromParam, to: toParam, method: methodParam },
-    !!sel.country
   );
   const districtQ = usePaymentsByLocation(
     {
       level: 'district', country: sel.country, region: sel.region,
       from: fromParam, to: toParam, method: methodParam,
     },
-    !!sel.region
   );
   const subcountyQ = usePaymentsByLocation(
     {
       level: 'subcounty', country: sel.country, region: sel.region, districtId: sel.districtId,
       from: fromParam, to: toParam, method: methodParam,
     },
-    !!sel.districtId
   );
   const villageQ = usePaymentsByLocation(
     {
@@ -117,7 +115,6 @@ export function TenantPaymentsLocationFilters() {
       districtId: sel.districtId, subcountyId: sel.subcountyId,
       from: fromParam, to: toParam, method: methodParam,
     },
-    !!sel.subcountyId
   );
 
   // ---- Results for the current (deepest) selection. ----
