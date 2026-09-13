@@ -154,6 +154,39 @@ Deno.serve(async (req) => {
       body: JSON.stringify({ title: "👤 Employee Registered", body: "Activity: new employee", url: "/dashboard/manager" }),
     }).catch(() => {});
 
+    // Permanent, actor-attributed record. This action creates a staff auth
+    // account with an assigned role -- previously it had no audit trail at
+    // all beyond a fire-and-forget manager notification, and never recorded
+    // WHO performed it. Same pattern as admin-reset-password: this edge
+    // function has the real client IP on its own incoming request.
+    const clientIp =
+      (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+      req.headers.get("cf-connecting-ip") ||
+      null;
+    const userAgent = req.headers.get("user-agent") || null;
+
+    try {
+      await adminClient.from("audit_logs").insert({
+        user_id: caller.id,
+        action_type: "staff_account_created",
+        table_name: "staff_profiles",
+        record_id: userId,
+        ip_address: clientIp,
+        user_agent: userAgent,
+        metadata: {
+          target_user_id: userId,
+          created_by: created_by || caller.id,
+          role_assigned: staffRole,
+          employee_id,
+          department: department || "General",
+          position: position || "Staff",
+        },
+      });
+    } catch (auditErr) {
+      // Telemetry must never block a staff account that already exists.
+      console.error("register-employee: audit insert failed:", auditErr);
+    }
+
 
     return new Response(
       JSON.stringify({ success: true, user_id: userId, employee_id }),
