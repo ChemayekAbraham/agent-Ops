@@ -28,6 +28,12 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { AlertTriangle } from 'lucide-react';
+import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
+import {
+  useMyNationalId,
+  useMyPayoutDestinations,
+  destinationStateFor,
+} from '@/hooks/usePayoutVerification';
 
 /**
  * Maps a Ugandan mobile-money number to its provider based on the operator
