@@ -91,8 +91,6 @@ export function RevenueExpenseDashboard() {
 
   const margin = data.totalRevenue > 0 ? ((data.netIncome / data.totalRevenue) * 100).toFixed(1) : '0';
 
-  const activePhoto = item !== 'all' ? welileItemImage(item) : null;
-
   return (
     <div className="space-y-4">
       {/* Welile item filter — every figure below follows the selected item. */}
