@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { fontSizeOptions, useFontSize, type FontSize } from '@/hooks/useFontSize';
+import { useFontSize, type FontSize } from '@/hooks/useFontSize';
 import WelileLogo from '@/components/WelileLogo';
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { LandlordOpsSidebar } from './LandlordOpsSidebar';
@@ -22,6 +22,11 @@ interface TopBarProps {
 }
 
 const KAMPALA = 'Africa/Kampala';
+const MOBILE_FONT_SIZE_OPTIONS: { value: FontSize; label: string }[] = [
+  { value: 'small', label: 'Small' },
+  { value: 'large', label: 'Default' },
+  { value: 'extra-large', label: 'Large' },
+];
 
 function formatKampalaDate(d: Date) {
   return d.toLocaleDateString('en-GB', {
@@ -227,13 +232,13 @@ export function LandlordOpsTopBar({ activePath, onNavigate, badges }: TopBarProp
             </PopoverTrigger>
             <PopoverContent align="end" className="w-60 p-3">
               <p className="mb-2 text-sm font-semibold">Text size</p>
-              <div className="grid grid-cols-2 gap-2">
-                {fontSizeOptions.map((option) => (
+              <div className="grid grid-cols-3 gap-2">
+                {MOBILE_FONT_SIZE_OPTIONS.map((option) => (
                   <Button
                     key={option.value}
                     type="button"
                     variant={fontSize === option.value ? 'default' : 'outline'}
-                    className="h-11 justify-start px-3"
+                    className="h-12 px-2"
                     onClick={() => setFontSize(option.value as FontSize)}
                   >
                     {option.label}
