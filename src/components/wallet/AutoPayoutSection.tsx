@@ -110,10 +110,12 @@ export function AutoPayoutSection({
         <div className="min-w-0">
           <Label htmlFor="auto-payout" className="flex items-center gap-2">
             <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
-            Repeat this payment automatically
+            {item ? `Send ${item} automatically` : 'Repeat this payment automatically'}
           </Label>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Send the same amount to {recipientName || 'this person'} on a schedule until you stop it.
+            {item
+              ? `Send this ${item} amount to ${recipientName || 'this person'} on a schedule until you stop it.`
+              : 'Pick an item above, then set how often it should be sent.'}
           </p>
         </div>
         <Switch
