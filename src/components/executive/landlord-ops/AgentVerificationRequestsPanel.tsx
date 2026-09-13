@@ -164,6 +164,28 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   // ── Geographic navigator (read-only grouping of the rows already loaded) ──
   const [geoByLandlord, setGeoByLandlord] = useState<Record<string, LandlordGeo>>({});
   const [geoPath, setGeoPath] = useState<GeoPath>({});
+  // Floating Pending ⇄ History quick toggle: shown once the header tabs have
+  // scrolled out of view so reviewers can switch lists without scrolling back.
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [tabsOutOfView, setTabsOutOfView] = useState(false);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setTabsOutOfView(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  const isHistoryView = tab === 'verified' || tab === 'rejected' || tab === 'cancelled' || tab === 'all';
+  const togglePendingHistory = useCallback(() => {
+    setTab((current) => (
+      current === 'verified' || current === 'rejected' || current === 'cancelled' || current === 'all'
+        ? 'pending'
+        : 'all'
+    ));
+  }, []);
 
   /** Merge landlord location rows into the shared geo map (never overwrites with blanks). */
   const mergeGeo = useCallback((locs: unknown) => {
