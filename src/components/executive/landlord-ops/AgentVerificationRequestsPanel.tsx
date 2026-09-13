@@ -545,6 +545,27 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   );
   const { data: tenantsByLandlord } = useLandlordTenantsMap(queueLandlordIds);
 
+  /**
+   * Sticky bottom call bar focus: the request whose details are open, else the
+   * landlord picked in the location browser, else the first row on the current
+   * page — so the call buttons follow the operator through the queue.
+   */
+  const [callBarDismissedFor, setCallBarDismissedFor] = useState<string | null>(null);
+  const callFocus = useMemo(() => {
+    const all = [...requests, ...decided];
+    if (expandedId) {
+      const hit = all.find((r) => r.id === expandedId);
+      if (hit) return hit;
+    }
+    if (geoPath.landlordId) {
+      const hit = all.find((r) => r.landlord_id === geoPath.landlordId);
+      if (hit) return hit;
+    }
+    const pageRows = isPendingList ? pagedFiltered : pagedDecided;
+    return pageRows[0] ?? null;
+  }, [expandedId, geoPath.landlordId, requests, decided, isPendingList, pagedFiltered, pagedDecided]);
+  const showCallBar = !!callFocus && callBarDismissedFor !== callFocus.id;
+
   const tabCounts = useMemo(() => ({
     pending: requests.length,
     resubmitted: resubmittedCount,
