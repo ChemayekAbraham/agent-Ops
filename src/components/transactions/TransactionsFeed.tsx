@@ -22,8 +22,10 @@ import { cn } from "@/lib/utils";
 import { formatUGX } from "@/lib/rentCalculations";
 import { UserAvatar } from "@/components/UserAvatar";
 import TransactionDetailDrawer from "@/components/transactions/TransactionDetailDrawer";
+import WelileItemTotals from "@/components/transactions/WelileItemTotals";
 import {
   TX_DATE_OPTIONS,
+  TX_ITEM_OPTIONS,
   TX_METHOD_OPTIONS,
   TX_SERVICE_OPTIONS,
   fetchTxFeedPage,
@@ -36,6 +38,7 @@ import {
   txTone,
   type TxDateFilter,
   type TxFeedRow,
+  type TxItemFilter,
   type TxMethodFilter,
   type TxServiceFilter,
 } from "@/lib/transactionsFeed";
@@ -104,9 +107,13 @@ export function TransactionsFeed({
   const [date, setDate] = useState<TxDateFilter>("all");
   const [service, setService] = useState<TxServiceFilter>("all");
   const [method, setMethod] = useState<TxMethodFilter>("all");
+  const [item, setItem] = useState<TxItemFilter>("all");
   const [selected, setSelected] = useState<TxFeedRow | null>(null);
 
-  const filters = useMemo(() => ({ date, service, method }), [date, service, method]);
+  const filters = useMemo(
+    () => ({ date, service, method, item }),
+    [date, service, method, item],
+  );
 
   const query = useInfiniteQuery({
     queryKey: ["tx-feed", userId ?? "", filters] as const,
@@ -146,7 +153,22 @@ export function TransactionsFeed({
             options={TX_METHOD_OPTIONS}
             onChange={(v) => setMethod(v as TxMethodFilter)}
           />
+          <FilterPill
+            label="Item"
+            value={item}
+            options={TX_ITEM_OPTIONS}
+            onChange={(v) => setItem(v as TxItemFilter)}
+          />
         </div>
+      )}
+
+      {showFilters && (
+        <WelileItemTotals
+          userId={userId}
+          date={date}
+          selected={item}
+          onSelect={setItem}
+        />
       )}
 
       {query.isLoading && (
