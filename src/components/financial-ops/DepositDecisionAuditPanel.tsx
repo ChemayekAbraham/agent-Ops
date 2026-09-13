@@ -151,10 +151,30 @@ export function DepositDecisionAuditPanel() {
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
+    const filename = `deposit-decision-audit-${format(new Date(), 'yyyyMMdd-HHmm')}.csv`;
     a.href = url;
-    a.download = `deposit-decision-audit-${format(new Date(), 'yyyyMMdd-HHmm')}.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+
+    // Bulk export of many deposit-decision audit rows at once, not logged
+    // before this. Plain client-side insert so the audit_logs IP-capture
+    // trigger sees the real browser IP directly. Never blocks the actual
+    // download.
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id ?? null,
+          action_type: 'csv_exported',
+          table_name: 'deposit_decision_audit',
+          record_id: null,
+          metadata: { filename, row_count: filtered.length },
+        });
+      } catch (e) {
+        console.warn('[DepositDecisionAuditPanel] audit log insert failed:', e);
+      }
+    })();
   };
 
   return (
