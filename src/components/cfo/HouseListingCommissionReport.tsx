@@ -120,11 +120,31 @@ export function HouseListingCommissionReport() {
     const blob = new Blob(['\uFEFF' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
+    const filename = `house_listing_commission_${new Date().toISOString().slice(0, 10)}.csv`;
     link.href = url;
-    link.download = `house_listing_commission_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
     toast.success('Report exported');
+
+    // Bulk export of commission by agent -- names, phones, amounts -- not
+    // logged before this. Plain client-side insert so the audit_logs
+    // IP-capture trigger sees the real browser IP directly. Never blocks
+    // the actual download.
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id ?? null,
+          action_type: 'csv_exported',
+          table_name: 'export',
+          record_id: null,
+          metadata: { filename, agent_count: data.by_agent.length },
+        });
+      } catch (e) {
+        console.warn('[HouseListingCommissionReport] audit log insert failed:', e);
+      }
+    })();
   };
 
   const [pdfBusy, setPdfBusy] = useState(false);
