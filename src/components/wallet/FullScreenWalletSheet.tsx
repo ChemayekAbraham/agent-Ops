@@ -155,6 +155,8 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             <div className="p-4 space-y-4">
+              {/* National ID — required before any payout can be released */}
+              <NationalIdPrompt withdrawableBalance={realWithdrawableBalance} />
               {/* Wallet Statement section */}
               <div ref={statementSectionRef} id="wallet-statement-section" className="scroll-mt-4">
                 <img
