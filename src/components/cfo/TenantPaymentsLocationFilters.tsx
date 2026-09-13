@@ -271,7 +271,7 @@ export function TenantPaymentsLocationFilters() {
               <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Date
               </label>
-              <Popover modal>
+              <Popover modal open={calOpen} onOpenChange={setCalOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
@@ -286,7 +286,7 @@ export function TenantPaymentsLocationFilters() {
                   <Calendar
                     mode="single"
                     selected={day}
-                    onSelect={setDay}
+                    onSelect={(d) => { setDay(d); setCalOpen(false); }}
                     initialFocus
                     className="p-3 pointer-events-auto"
                   />
