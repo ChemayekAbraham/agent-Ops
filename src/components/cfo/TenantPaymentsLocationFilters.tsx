@@ -271,7 +271,7 @@ export function TenantPaymentsLocationFilters() {
               <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Date
               </label>
-              <Popover>
+              <Popover modal>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
