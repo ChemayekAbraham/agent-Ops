@@ -2059,6 +2059,7 @@ export default function WithdrawFlow({
       <NationalIdRejectedReminder
         className="mb-4"
         withdrawableBalance={Math.max(1, maxAmount)}
+        onResubmit={() => setCurrentStep(0)}
       />
       {renderStep()}
     </StepperModal>
