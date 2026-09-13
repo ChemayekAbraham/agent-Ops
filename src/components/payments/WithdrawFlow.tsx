@@ -1129,7 +1129,6 @@ export default function WithdrawFlow({
       case 0:
         return (
           <div className="space-y-4">
-            <NationalIdRejectedReminder />
             {needsNationalId && (
               <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
             )}
@@ -2040,6 +2039,11 @@ export default function WithdrawFlow({
       isProcessing={isProcessing}
       isComplete={isComplete}
     >
+      {/* Rejection banner — pinned above every step until the user resubmits. */}
+      <NationalIdRejectedReminder
+        className="mb-4"
+        withdrawableBalance={Math.max(1, maxAmount)}
+      />
       {renderStep()}
     </StepperModal>
   );

@@ -1,114 +1,115 @@
 /**
- * National ID rejection reminder.
+ * National ID rejection banner.
  *
- * When Financial Ops rejects a payout destination (wrong ID, name mismatch,
- * unreachable on the phone), the person must send their National ID details
- * again before any withdrawal can be released. This shows the reason they were
- * given, reminds them once per decision with a toast, and lets them resubmit
- * on the spot. Read-only + RPC submit; nothing here writes wallet state.
+ * Shown whenever Financial Ops has rejected one of the user's payout
+ * destinations (or their National ID verification failed). The banner is
+ * persistent — it renders on every step of the withdraw flow until the user
+ * resubmits — and fires a one-time toast per decision so the user is told
+ * the moment they open the wallet.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, IdCard } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePayoutVerification';
+import { useMyPayoutDestinations } from '@/hooks/usePayoutVerification';
+import { Button } from '@/components/ui/button';
 import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
 
 const REMINDED_KEY = 'welile-nid-rejection-reminded';
 
-function labelFor(d: MyPayoutDestination): string {
-  if (d.destination_type === 'mobile_money') {
-    return `${d.provider ?? 'Mobile money'} ${d.momo_number ?? ''}`.trim();
-  }
-  return `${d.bank_name ?? 'Bank account'} ${d.bank_account_number ?? ''}`.trim();
-}
-
-/** Marks are stored per rejection so a new decision reminds again. */
-function markKey(d: MyPayoutDestination): string {
-  return `${d.id}:${d.decided_at ?? ''}`;
-}
-
-function alreadyReminded(keys: string[]): Set<string> {
+function loadReminded(): string[] {
   try {
-    const raw = localStorage.getItem(REMINDED_KEY);
-    const seen = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
-    return seen;
+    return JSON.parse(localStorage.getItem(REMINDED_KEY) ?? '[]') as string[];
   } catch {
-    return new Set<string>(keys.length ? [] : []);
+    return [];
   }
 }
 
-export default function NationalIdRejectedReminder({ className }: { className?: string }) {
+function markReminded(keys: string[]) {
+  try {
+    const existing = loadReminded();
+    localStorage.setItem(REMINDED_KEY, JSON.stringify([...new Set([...existing, ...keys])]));
+  } catch {
+    /* storage unavailable — banner still shows */
+  }
+}
+
+export default function NationalIdRejectedReminder({
+  className,
+  withdrawableBalance = 1,
+}: {
+  className?: string;
+  /** Passed through to the resubmit prompt so it renders even at 0 balance. */
+  withdrawableBalance?: number;
+}) {
   const { user } = useAuth();
-  const { data } = useMyPayoutDestinations(user?.id);
-  const [open, setOpen] = useState(false);
+  const { data: destinations } = useMyPayoutDestinations(user?.id);
+  const [resubmitOpen, setResubmitOpen] = useState(false);
 
-  const rejected = useMemo(() => (data ?? []).filter((d) => d.status === 'rejected'), [data]);
+  const rejected = useMemo(
+    () => (destinations ?? []).filter((d) => d.status === 'rejected'),
+    [destinations],
+  );
 
-  // One toast per rejection decision, so people are nudged even if they never
-  // scroll down to the card.
+  // One toast per decision; a new decision (different decided_at) reminds again.
   useEffect(() => {
     if (!rejected.length) return;
-    const seen = alreadyReminded(rejected.map(markKey));
-    const fresh = rejected.filter((d) => !seen.has(markKey(d)));
+    const reminded = loadReminded();
+    const fresh = rejected.filter((d) => !reminded.includes(`${d.id}:${d.decided_at ?? ''}`));
     if (!fresh.length) return;
-    toast.error('Your National ID was not accepted', {
-      description: 'Send your National ID number and the name on it again to unlock withdrawals.',
-      duration: 10_000,
-      action: { label: 'Fix it', onClick: () => setOpen(true) },
-    });
-    fresh.forEach((d) => seen.add(markKey(d)));
-    try {
-      localStorage.setItem(REMINDED_KEY, JSON.stringify([...seen].slice(-50)));
-    } catch {
-      /* storage full or blocked — the card below is still shown */
+    for (const d of fresh.slice(0, 2)) {
+      toast.error('National ID verification failed', {
+        description:
+          d.decision_reason ??
+          'Financial Ops could not confirm your National ID. Please resubmit to keep withdrawing.',
+        duration: 12_000,
+      });
     }
+    markReminded(fresh.map((d) => `${d.id}:${d.decided_at ?? ''}`));
   }, [rejected]);
 
   if (!rejected.length) return null;
 
+  const reasons = [...new Set(rejected.map((d) => d.decision_reason).filter(Boolean))] as string[];
+
   return (
-    <div className={`rounded-2xl border-2 border-destructive/50 bg-destructive/5 p-4 space-y-3 ${className ?? ''}`}>
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-xl bg-destructive/15 flex items-center justify-center shrink-0">
-          <AlertTriangle className="h-5 w-5 text-destructive" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-foreground">Your National ID was not accepted</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            You cannot be paid until this is fixed. Send your National ID number and the exact name
-            printed on it again.
-          </p>
-          <ul className="mt-2 space-y-1">
-            {rejected.map((d) => (
-              <li key={d.id} className="text-xs">
-                <span className="font-semibold text-foreground">{labelFor(d)}</span>
-                {d.decision_reason ? (
-                  <span className="text-muted-foreground"> — {d.decision_reason}</span>
-                ) : null}
-              </li>
+    <div className={className} role="alert">
+      <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-5 h-5 text-destructive" />
+          </div>
+          <div className="flex-1 min-w-0 space-y-1">
+            <h4 className="font-bold text-destructive leading-tight">
+              National ID verification failed
+            </h4>
+            <p className="text-sm text-destructive/90">
+              Your {rejected.length > 1 ? `${rejected.length} payout numbers/accounts are` : 'payout number/account is'}{' '}
+              blocked until you resubmit your National ID and Financial Ops confirms it.
+            </p>
+            {reasons.map((r) => (
+              <p key={r} className="text-xs text-destructive/80 italic">
+                Reason given: {r}
+              </p>
             ))}
-          </ul>
+          </div>
         </div>
+        <Button
+          variant="destructive"
+          className="w-full"
+          onClick={() => setResubmitOpen((v) => !v)}
+        >
+          <IdCard className="w-4 h-4 mr-2" />
+          {resubmitOpen ? 'Close' : 'Resubmit my National ID'}
+        </Button>
+        {resubmitOpen && (
+          <NationalIdPrompt
+            blocking
+            allowResubmit
+            withdrawableBalance={Math.max(1, withdrawableBalance)}
+          />
+        )}
       </div>
-      <Button
-        variant={open ? 'outline' : 'default'}
-        className="w-full h-11"
-        onClick={() => setOpen((v) => !v)}
-      >
-        {open ? <ChevronUp className="h-4 w-4 mr-1.5" /> : <ChevronDown className="h-4 w-4 mr-1.5" />}
-        {open ? 'Hide' : 'Send my National ID again'}
-      </Button>
-      {open && (
-        <NationalIdPrompt
-          allowResubmit
-          blocking
-          withdrawableBalance={1}
-          title="Send your National ID again"
-          description="Check every character against your card. The name must match the name on your mobile money number or bank account."
-        />
-      )}
     </div>
   );
 }

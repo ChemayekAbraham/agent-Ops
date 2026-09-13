@@ -168,8 +168,6 @@ export interface MyPayoutDestination {
   status: PayoutVerificationStatus;
   decision_reason: string | null;
   decided_at: string | null;
-  national_id_submitted_at: string | null;
-  first_seen_at: string | null;
 }
 
 /**
@@ -186,13 +184,9 @@ export function useMyPayoutDestinations(userId?: string | null) {
       const { data, error } = await supabase
         .from('payout_destination_verifications')
         .select(
-          'id, destination_type, provider, momo_number, bank_name, bank_account_number, account_name, status, decision_reason, decided_at, national_id_submitted_at, first_seen_at',
+          'id, destination_type, provider, momo_number, bank_name, bank_account_number, account_name, status, decision_reason, decided_at',
         )
-        .eq('user_id', userId as string)
-        // Newest submitted National ID first — matches the FinOps queue so the
-        // withdraw prompt and the review queue always tell the same story.
-        .order('national_id_submitted_at', { ascending: false, nullsFirst: false })
-        .order('first_seen_at', { ascending: false, nullsFirst: false });
+        .eq('user_id', userId as string);
       if (error) throw error;
       return (data ?? []) as unknown as MyPayoutDestination[];
     },

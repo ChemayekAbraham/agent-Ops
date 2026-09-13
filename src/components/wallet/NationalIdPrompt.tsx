@@ -48,20 +48,13 @@ export default function NationalIdPrompt({
   className,
   blocking = false,
   allowResubmit = false,
-  title,
-  description,
 }: {
   withdrawableBalance: number;
   className?: string;
   /** Red, "you cannot continue" styling used inside the withdraw flow. */
   blocking?: boolean;
-  /**
-   * Show the form even when an ID is already on file — used after Financial Ops
-   * rejects a submission, so the person can correct and send it again.
-   */
+  /** Keep rendering even when an ID is already on file — used after a rejection. */
   allowResubmit?: boolean;
-  title?: string;
-  description?: string;
 }) {
   const { data, isLoading, refetch } = useMyNationalId();
   const submit = useSubmitNationalId();
@@ -74,8 +67,7 @@ export default function NationalIdPrompt({
   const canSave = idCheck.valid && nameCheck.valid && !submit.isPending;
 
   const alreadyDone = !!data?.national_id;
-  if (isLoading) return null;
-  if (!allowResubmit && (alreadyDone || withdrawableBalance <= 0)) return null;
+  if (isLoading || (alreadyDone && !allowResubmit) || withdrawableBalance <= 0) return null;
 
   const save = async () => {
     if (!idCheck.valid || !nameCheck.valid) {
@@ -108,11 +100,11 @@ export default function NationalIdPrompt({
         </div>
         <div className="min-w-0">
           <p className="text-sm font-bold text-foreground">
-            {title ?? (blocking ? 'Verify your wallet before you withdraw' : 'Add your National ID')}
+            {blocking ? 'Verify your wallet before you withdraw' : 'Add your National ID'}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {description ??
-              'Your money can only be sent to a number or bank account in your own name. Enter your National ID and the exact name printed on it.'}
+            Your money can only be sent to a number or bank account in your own name. Enter your
+            National ID and the exact name printed on it.
           </p>
         </div>
       </div>
