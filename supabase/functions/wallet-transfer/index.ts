@@ -220,6 +220,46 @@ Deno.serve(async (req) => {
       );
     }
 
+    // === Receiver eligibility gate ===
+    // One shared definition (check_transfer_recipient_eligibility): the
+    // receiver must have a live, non-frozen, non-deleted Welile account that
+    // is not the sender, and the item must be a real Welile item. Applies to
+    // manual sends and to automatic payouts alike.
+    try {
+      const { data: eligCheck, error: eligError } = await adminClient.rpc(
+        'check_transfer_recipient_eligibility' as never,
+        {
+          p_recipient_id: resolvedRecipientId,
+          // Item text is validated where it is chosen (transfer dialog and the
+          // automatic-payout RPC). Here we only gate on the receiver's account
+          // so long-standing internal callers with their own description text
+          // keep working.
+          p_item: null,
+          p_sender_id: senderId,
+        } as never,
+      );
+      const eligRow = (Array.isArray(eligCheck) ? eligCheck[0] : eligCheck) as
+        | { eligible?: boolean; reason?: string | null }
+        | null;
+      if (eligError) {
+        return new Response(
+          JSON.stringify({ error: 'Could not verify the receiver. Please try again.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (!eligRow?.eligible) {
+        return new Response(
+          JSON.stringify({ error: eligRow?.reason || 'This receiver cannot be paid' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (_e) {
+      return new Response(
+        JSON.stringify({ error: 'Could not verify the receiver. Please try again.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount > 100000000) {
       if (shouldSample(shadowConfig)) {
         runShadowAudit('wallet-transfer', { senderId, resolvedRecipientId, amount }, false,

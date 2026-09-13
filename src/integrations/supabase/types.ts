@@ -50529,6 +50529,15 @@ export type Database = {
           id: string
         }[]
       }
+      check_transfer_recipient_eligibility: {
+        Args: { p_item?: string; p_recipient_id: string; p_sender_id?: string }
+        Returns: {
+          display_name: string
+          eligible: boolean
+          has_wallet: boolean
+          reason: string
+        }[]
+      }
       claim_deposit_bridge_events: {
         Args: { p_batch_size?: number; p_worker_id: string }
         Returns: {
@@ -59665,6 +59674,7 @@ export type Database = {
         Args: { p_amount: number }
         Returns: number
       }
+      welile_transfer_items: { Args: never; Returns: string[] }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json

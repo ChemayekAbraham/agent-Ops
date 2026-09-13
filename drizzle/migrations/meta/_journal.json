@@ -316,6 +316,13 @@
       "when": 1789315944173,
       "tag": "0044_transfer_peers_by_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1789316759257,
+      "tag": "0045_transfer_recipient_eligibility",
+      "breakpoints": true
     }
   ]
 }
