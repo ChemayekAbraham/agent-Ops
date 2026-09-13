@@ -66,7 +66,34 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
       ? { name: row.peer_name, avatar: row.peer_avatar_url ?? null }
       : null;
 
+  const { profile } = useProfile();
+  const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
 
+  const me = profile?.full_name?.trim() || "Me";
+  const other = peer?.name ?? txCounterparty(row!) ?? "—";
+
+  const handleDownload = async (kind: "pdf" | "xlsx") => {
+    if (!row) return;
+    const data: TransferReceiptData = {
+      item: row.description?.trim() || txLabel(row),
+      amount: Number(row.amount),
+      date: new Date(row.transaction_date),
+      sender: isIn ? other : me,
+      receiver: isIn ? me : other,
+      reference: row.reference_id ?? row.id,
+      method: txMethodLabel(row),
+    };
+    setBusy(kind);
+    try {
+      if (kind === "pdf") await downloadTransferReceiptPdf(data);
+      else await downloadTransferReceiptXlsx(data);
+      toast.success("Receipt downloaded");
+    } catch {
+      toast.error("Could not prepare the receipt. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
