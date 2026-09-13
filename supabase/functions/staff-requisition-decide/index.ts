@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { creditRequisitionWallet } from "../_shared/requisitionWalletCredit.ts";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,6 +75,14 @@ Deno.serve(async (req) => {
     }
     if (row.requester_id === actor.id && !roles.some((r: string) => OVERRIDE_ROLES.has(r))) {
       return json({ error: "self_approval_blocked", message: "You cannot decide your own requisition." }, 403);
+    }
+
+    // CFO-stage decisions are restricted to the designated CFO approver.
+    if (row.current_approver_role === "cfo" && !(await isCfoApprover(admin, actor.id))) {
+      return json({
+        error: "cfo_approver_required",
+        message: "Only the designated CFO approver may approve CFO requests.",
+      }, 403);
     }
 
     const { data: actorProfile } = await admin

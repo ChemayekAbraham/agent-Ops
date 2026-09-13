@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { creditRequisitionWallet } from '../_shared/requisitionWalletCredit.ts';
+import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,6 +64,7 @@ Deno.serve(async (req) => {
     if (isManual) {
       if (before.workflow_stage !== 'cfo' || before.status !== 'pending_cfo') return json({ error: 'already_decided' }, 409);
       if (!callerRoles.has('cfo') && !isPrivileged) return json({ error: 'cfo_required' }, 403);
+      if (!(await isCfoApprover(admin, userId))) return json({ error: 'cfo_approver_required', message: 'Only the designated CFO approver may approve CFO requests.' }, 403);
     } else if (![...callerRoles].some((role) => ['cfo', 'manager', 'super_admin'].includes(role))) {
       return json({ error: 'forbidden' }, 403);
     }
