@@ -32,6 +32,9 @@ import {
 const GEO_COLS =
   'id, country, region, district, county, sub_county, town_council, village, cell, latitude, longitude';
 
+/** Rows shown per page in the queue / history lists. */
+const PAGE_SIZE = 20;
+
 interface VerificationRequest {
   id: string;
   landlord_id: string;
@@ -708,7 +711,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
             No requests match “{search}”.
           </div>
         ) : (
-          filtered.map((req) => (
+          pagedFiltered.map((req) => (
             <div
               key={req.id}
               className="rounded-xl border border-amber-500/30 bg-background p-3 space-y-3 hover:border-amber-500/60 transition-colors"
@@ -961,7 +964,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               No {TAB_LABEL[tab].toLowerCase()} requests in this date range.
             </div>
           ) : (
-            decidedFiltered.map((r) => (
+            pagedDecided.map((r) => (
               <div key={r.id} className="rounded-xl border border-border bg-background p-3 space-y-1.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
