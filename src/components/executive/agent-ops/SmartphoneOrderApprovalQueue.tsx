@@ -130,13 +130,25 @@ export function SmartphoneOrderApprovalQueue({
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const approveStage: 'ops' | 'coo' | 'cfo' = !approveTarget
-    ? 'ops'
-    : isAwaitingCfo(approveTarget.order_status)
-      ? 'cfo'
-      : isAwaitingCoo(approveTarget.order_status)
-        ? 'coo'
-        : 'ops';
+  const approveStage: 'ops' | 'coo' | 'cfo' = stageFilter
+    ? stageFilter
+    : !approveTarget
+      ? 'ops'
+      : isAwaitingCfo(approveTarget.order_status)
+        ? 'cfo'
+        : isAwaitingCoo(approveTarget.order_status)
+          ? 'coo'
+          : 'ops';
+
+  /**
+   * A row may only be acted on by the desk it is currently sitting with. Once a
+   * desk has signed off, its own copy of the file becomes read-only.
+   */
+  const canActOnRow = (status: string) => {
+    if (stageFilter === 'coo') return isAwaitingCoo(status);
+    if (stageFilter === 'cfo') return isAwaitingCfo(status);
+    return isAgentOpsActionable(status);
+  };
   /** Both review stages (Agent Ops, COO) record terms and move money nowhere. */
   const isReviewStage = approveStage !== 'cfo';
   /**
@@ -147,6 +159,7 @@ export function SmartphoneOrderApprovalQueue({
   const termsLocked = approveStage !== 'ops';
 
   const openApprove = (o: SmartphoneOrderRow) => {
+    if (!canActOnRow(o.order_status)) return;
     setApproveTarget(o);
     const existing = Number(o.total_amount || 0);
     // Welile funds the down payment only, so the Access Amount is exactly the
@@ -155,6 +168,7 @@ export function SmartphoneOrderApprovalQueue({
     const days = Number(o.access_repayment_days || 0);
     setRepaymentDays(days > 0 ? String(days) : '30');
   };
+
 
   const closeApprove = () => {
     setApproveTarget(null);
