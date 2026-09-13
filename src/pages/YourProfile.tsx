@@ -3,13 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, BadgeCheck, Phone, Mail, IdCard, MapPin, Calendar, ShieldAlert,
-  Settings as SettingsIcon, Smartphone, Loader2, UserRound,
+  Smartphone, Loader2, Globe, Shield, Pencil,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { FlipCard, FlipCardFront, FlipCardBack } from '@/components/ui/flip-card';
 import { UserAvatar } from '@/components/UserAvatar';
 import { BusinessAdvanceStatusHero } from '@/components/tenant/BusinessAdvanceStatusHero';
 import { format } from 'date-fns';
@@ -21,6 +20,8 @@ import { format } from 'date-fns';
  * Read-only by design: every field shown here already has a governed edit
  * surface (Settings, the profile completion gate, KYC). This screen answers
  * "what does Welile hold about me?" without duplicating those write paths.
+ *
+ * Visual design inspired by Airbnb's profile screen.
  */
 export default function YourProfile() {
   const navigate = useNavigate();
@@ -55,123 +56,212 @@ export default function YourProfile() {
     return bits.length ? bits.join(', ') : '—';
   }, [profile]);
 
+  const firstName = useMemo(() => {
+    if (!profile?.full_name) return 'You';
+    return profile.full_name.split(' ').pop() || profile.full_name;
+  }, [profile]);
+
+  const memberYears = useMemo(() => {
+    if (!profile?.created_at) return 0;
+    const diff = Date.now() - new Date(profile.created_at).getTime();
+    return Math.max(0, Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000)));
+  }, [profile]);
+
+  const memberLabel = useMemo(() => {
+    if (!profile?.created_at) return '—';
+    const months = Math.floor((Date.now() - new Date(profile.created_at).getTime()) / (30.44 * 24 * 60 * 60 * 1000));
+    if (months < 1) return 'New member';
+    if (months < 12) return `${months} month${months > 1 ? 's' : ''}`;
+    return `${memberYears} year${memberYears !== 1 ? 's' : ''}`;
+  }, [profile, memberYears]);
+
   const payout = useMemo(() => {
     if (!profile?.mobile_money_number) return null;
     return `${profile.mobile_money_number}${profile.mobile_money_provider ? ` (${profile.mobile_money_provider})` : ''}`;
   }, [profile]);
 
-  const rows: { icon: typeof Phone; label: string; value: string }[] = [
-    { icon: UserRound, label: 'Full name', value: txt(profile?.full_name) },
-    { icon: Phone, label: 'Phone number', value: txt(profile?.phone) },
-    { icon: Mail, label: 'Email address', value: txt(profile?.email) },
-    { icon: IdCard, label: 'National ID', value: txt(profile?.national_id) },
-    { icon: MapPin, label: 'Location', value: location },
-    { icon: Smartphone, label: 'Mobile money', value: payout || 'Not on file' },
-    { icon: Calendar, label: 'Member since', value: dt(profile?.created_at) },
-    { icon: Calendar, label: 'Last active', value: dt(profile?.last_active_at, true) },
-  ];
-
   return (
     <div className="min-h-screen bg-background pb-28">
-      <header className="sticky top-0 z-20 bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
+      {/* Clean header — Airbnb style: back arrow left, Edit right */}
+      <header className="sticky top-0 z-20 bg-background px-4 py-3 flex items-center justify-between border-b border-border/40">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => navigate(-1)}
           aria-label="Go back"
-          className="h-10 w-10 text-primary-foreground/90 hover:text-primary-foreground hover:bg-white/10 rounded-xl"
+          className="h-10 w-10 rounded-full hover:bg-muted"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-base font-semibold">Your Profile</h1>
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/settings')}
+          className="text-sm font-semibold underline underline-offset-2 hover:bg-transparent hover:text-foreground"
+        >
+          Edit
+        </Button>
       </header>
 
-      <main className="px-4 py-4 space-y-4 max-w-2xl mx-auto">
+      <main className="px-4 py-6 space-y-6 max-w-lg mx-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading your profile…
           </div>
         ) : (
           <>
-            <Card className="rounded-2xl overflow-hidden">
-              <CardContent className="p-5 flex items-center gap-4">
-                <UserAvatar
-                  fullName={profile?.full_name || 'You'}
-                  avatarUrl={profile?.avatar_url || undefined}
-                  size="lg"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-lg font-semibold truncate">{txt(profile?.full_name)}</p>
-                  <p className="text-sm text-muted-foreground truncate">{txt(profile?.phone)}</p>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                    {profile?.verified ? (
-                      <Badge className="gap-1"><BadgeCheck className="h-3 w-3" /> Verified</Badge>
-                    ) : (
-                      <Badge variant="secondary">Unverified</Badge>
+            {/* ─── Hero flip card: front = avatar+stats, back = contact details ─── */}
+            <FlipCard className="h-52 w-full">
+              <FlipCardFront className="rounded-2xl border border-border/60 bg-card shadow-sm p-6">
+                <div className="flex items-center gap-6 h-full">
+                  {/* Avatar + name column */}
+                  <div className="flex flex-col items-center text-center shrink-0">
+                    <div className="relative">
+                      <UserAvatar
+                        fullName={profile?.full_name || 'You'}
+                        avatarUrl={profile?.avatar_url || undefined}
+                        size="lg"
+                        className="h-20 w-20 text-2xl"
+                      />
+                      {profile?.verified && (
+                        <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
+                          <BadgeCheck className="h-4 w-4 text-primary-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-lg font-bold mt-3">{firstName}</p>
+                    <p className="text-xs text-muted-foreground">{txt(profile?.district)}{profile?.region ? `, ${profile.region}` : ''}</p>
+                  </div>
+
+                  {/* Stats column — Airbnb style */}
+                  <div className="flex-1 flex flex-col gap-3 pl-4 border-l border-border/40">
+                    {role && (
+                      <div>
+                        <p className="text-xl font-extrabold leading-none capitalize">{role.replace(/_/g, ' ')}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Role</p>
+                      </div>
                     )}
-                    {profile?.whatsapp_verified && <Badge variant="outline">WhatsApp verified</Badge>}
-                    {role && <Badge variant="outline" className="capitalize">{role.replace(/_/g, ' ')}</Badge>}
+                    <div className="border-t border-border/30 pt-2">
+                      <p className="text-xl font-extrabold leading-none">{profile?.verified ? '✓' : '—'}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Verified</p>
+                    </div>
+                    <div className="border-t border-border/30 pt-2">
+                      <p className="text-xl font-extrabold leading-none">{memberLabel}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">On Welile</p>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                <p className="absolute bottom-2 right-3 text-[10px] text-muted-foreground/50">Hover to see details</p>
+              </FlipCardFront>
 
-            {/* Live tracker for any in-flight / active Business Advance */}
-            <BusinessAdvanceStatusHero />
+              <FlipCardBack className="rounded-2xl overflow-hidden shadow-lg">
+                <div className="relative h-full w-full p-6 flex flex-col justify-between"
+                  style={{
+                    background: 'linear-gradient(135deg, #7c3aed 0%, #c026d3 35%, #e11d48 70%, #f97316 100%)',
+                  }}
+                >
+                  {/* Subtle decorative pattern */}
+                  <div className="absolute inset-0 opacity-10" style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 5c-1.5 0-2.7.8-3.4 2l-1.5 2.6c-.3.5-.8.9-1.4 1l-3 .4c-1.4.2-2.5 1.2-2.8 2.5-.3 1.3.2 2.7 1.3 3.5l2.2 1.7c.4.3.7.8.8 1.3l.5 3c.2 1.4 1.3 2.5 2.7 2.7 1.3.2 2.7-.4 3.4-1.5L20 21l1.7 2.2c.7 1 2 1.7 3.4 1.5 1.3-.2 2.4-1.3 2.7-2.7l.5-3c.1-.5.4-1 .8-1.3l2.2-1.7c1-1 1.5-2.2 1.3-3.5-.3-1.3-1.4-2.3-2.8-2.5l-3-.4c-.5-.1-1-.5-1.4-1L23.4 7c-.7-1.2-2-2-3.4-2z' fill='%23ffffff' fill-opacity='0.3'/%3E%3C/svg%3E")`,
+                    backgroundSize: '40px 40px',
+                  }} />
 
-            {profile?.is_frozen && (
-
-              <Card className="rounded-2xl border-destructive/40 bg-destructive/5">
-                <CardContent className="p-4 flex gap-3">
-                  <ShieldAlert className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-semibold text-destructive">This account is restricted</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {txt(profile.frozen_reason)} Contact support to resolve this.
+                  {/* Top section: Name + verified status */}
+                  <div className="relative z-10">
+                    <p className="text-xl font-bold text-white">{firstName}</p>
+                    <p className="text-white/80 text-sm mt-0.5">
+                      {profile?.verified
+                        ? `Verified since ${dt(profile?.created_at)}`
+                        : 'Verification pending'}
                     </p>
                   </div>
-                </CardContent>
-              </Card>
+
+                  {/* Bottom section: trust message + photo */}
+                  <div className="relative z-10 flex items-end justify-between gap-4">
+                    <p className="text-white/90 text-xs leading-relaxed max-w-[65%]">
+                      Trust is the cornerstone of Welile's community, and identity verification is part of how we build it.
+                    </p>
+                    <UserAvatar
+                      fullName={profile?.full_name || 'You'}
+                      avatarUrl={profile?.avatar_url || undefined}
+                      size="lg"
+                      className="h-16 w-16 text-xl rounded-lg border-2 border-white/30 shrink-0"
+                    />
+                  </div>
+                </div>
+              </FlipCardBack>
+            </FlipCard>
+
+            {/* ─── Frozen account alert ─── */}
+            {profile?.is_frozen && (
+              <div className="flex gap-3 p-4 rounded-2xl border border-destructive/30 bg-destructive/5">
+                <ShieldAlert className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-destructive">This account is restricted</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {txt(profile.frozen_reason)} Contact support to resolve this.
+                  </p>
+                </div>
+              </div>
             )}
 
-            <Card className="rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Personal information</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ul className="divide-y">
-                  {rows.map(r => (
-                    <li key={r.label} className="flex items-start gap-3 px-4 py-3">
-                      <div className="p-1.5 rounded-lg bg-primary/10 shrink-0">
-                        <r.icon className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{r.label}</p>
-                        <p className="text-sm font-medium break-words">{r.value}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            {/* ─── Business advance tracker ─── */}
+            <BusinessAdvanceStatusHero />
 
+            {/* ─── Info rows — Airbnb style: icon + label, clean dividers ─── */}
+            <div className="space-y-0">
+              {[
+                { icon: Phone, text: txt(profile?.phone) },
+                { icon: Mail, text: txt(profile?.email) },
+                { icon: MapPin, text: location },
+                { icon: IdCard, text: profile?.national_id ? 'ID on file' : 'No ID on file' },
+                { icon: Smartphone, text: payout || 'Mobile money not set up' },
+                { icon: Globe, text: profile?.whatsapp_verified ? 'WhatsApp verified' : 'WhatsApp not verified' },
+                { icon: Shield, text: profile?.verified ? 'Identity verified' : 'Identity not verified' },
+              ].map((row, i) => (
+                <div key={i} className="flex items-center gap-4 py-4 border-b border-border/30 last:border-b-0">
+                  <row.icon className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <p className="text-sm text-foreground">{row.text}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* ─── Roles section ─── */}
             {roles && roles.length > 1 && (
-              <Card className="rounded-2xl">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">You can access</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-1.5">
-                  {roles.map(r => (
-                    <Badge key={r} variant={r === role ? 'default' : 'outline'} className="capitalize">
-                      {r.replace(/_/g, ' ')}
-                    </Badge>
-                  ))}
-                </CardContent>
-              </Card>
+              <>
+                <div className="border-t border-border/30 pt-6">
+                  <p className="text-lg font-semibold mb-3">Your roles</p>
+                  <div className="flex flex-wrap gap-2">
+                    {roles.map(r => (
+                      <span
+                        key={r}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium capitalize ${
+                          r === role
+                            ? 'bg-foreground text-background'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {r.replace(/_/g, ' ')}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
 
-            <Button variant="outline" className="w-full h-12 rounded-xl gap-2" onClick={() => navigate('/settings')}>
-              <SettingsIcon className="h-4 w-4" /> Edit details in Settings
+            {/* ─── Member since footer ─── */}
+            <div className="border-t border-border/30 pt-6">
+              <p className="text-xs text-muted-foreground">
+                Member since {dt(profile?.created_at)} · Last active {dt(profile?.last_active_at, true)}
+              </p>
+            </div>
+
+            {/* ─── Bottom CTA ─── */}
+            <Button
+              variant="outline"
+              className="w-full h-12 rounded-full gap-2 font-semibold"
+              onClick={() => navigate('/settings')}
+            >
+              <Pencil className="h-4 w-4" /> Edit profile
             </Button>
           </>
         )}

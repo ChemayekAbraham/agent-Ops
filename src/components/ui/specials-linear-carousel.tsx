@@ -1,23 +1,23 @@
 "use client";
 
-import React, { createContext, useEffect, useRef, useState } from "react";
-import type { ImgHTMLAttributes } from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "motion/react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  createContext,
+  useContext,
+} from "react";
+
 import { cn } from "@/lib/utils";
+import { motion } from "motion/react";
+import type { ImgHTMLAttributes } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface CarouselProps {
   items: React.JSX.Element[];
   initialScroll?: number;
 }
 
-export type SpecialsCard = {
-  src: string;
-  title: string;
-  category?: string;
-  content?: React.ReactNode;
-};
 
 export const CarouselContext = createContext<{
   onCardClose: (index: number) => void;
@@ -33,165 +33,265 @@ export const Carousel = ({
   autoplay = false,
   autoplaySpeed = 0.5,
 }: CarouselProps & { autoplay?: boolean; autoplaySpeed?: number }) => {
-  const carouselRef = useRef<HTMLDivElement | null>(null);
-  const animationRef = useRef<number | null>(null);
+  const carouselRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeftState, setScrollLeftState] = useState(0);
-
-  // Duplicate items so the scroll can loop seamlessly.
+  const animationRef = useRef<number>(null);
+  // Duplicate items to create infinite effect
   const loopedItems = [
     ...items,
-    ...items.map((item, i) =>
-      React.cloneElement(item, { key: `${item.key ?? i}-duplicate` }),
+    ...items.map((item) =>
+      React.cloneElement(item, {
+        key: item.key + "-duplicate",
+        index: items.indexOf(item) + items.length,
+      }),
     ),
   ];
 
   useEffect(() => {
-    if (carouselRef.current) carouselRef.current.scrollLeft = initialScroll;
+    if (carouselRef.current) {
+      carouselRef.current.scrollLeft = initialScroll;
+      checkScrollability();
+    }
   }, [initialScroll]);
 
+  // Auto-scroll logic
   useEffect(() => {
-    if (!autoplay || isHovered || isDragging) {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    if (!autoplay || isHovered) {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current!);
       return;
     }
+
     const scroll = () => {
-      const el = carouselRef.current;
-      if (el) {
-        el.scrollLeft += autoplaySpeed;
-        if (el.scrollLeft >= el.scrollWidth / 2) el.scrollLeft = 0;
+      if (carouselRef.current) {
+        // Scroll by speed
+        carouselRef.current.scrollLeft += autoplaySpeed;
+
+        const scrollWidth = carouselRef.current.scrollWidth;
+
+        if (carouselRef.current.scrollLeft >= scrollWidth / 2) {
+          carouselRef.current.scrollLeft = 0;
+        }
+
+        checkScrollability();
         animationRef.current = requestAnimationFrame(scroll);
       }
     };
+
     animationRef.current = requestAnimationFrame(scroll);
+
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [autoplay, autoplaySpeed, isHovered, isDragging]);
+  }, [autoplay, autoplaySpeed, isHovered]);
 
-  const step = (dir: -1 | 1) => {
-    const el = carouselRef.current;
-    if (!el) return;
-    el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.8), behavior: "smooth" });
+  const checkScrollability = () => {
+    if (carouselRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth);
+    }
+  };
+
+  const scrollLeft = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollTo({ left: 0, behavior: "smooth" });
+    }
+  };
+
+  const scrollRight = () => {
+    if (carouselRef.current) {
+      const container = carouselRef.current;
+      container.scrollTo({ left: container.scrollWidth, behavior: "smooth" });
+    }
+  };
+
+  const handleCardClose = (index: number) => {
+    if (carouselRef.current) {
+      const cardWidth = isMobile() ? 230 : 320; // (md:w-80)
+      const gap = isMobile() ? 4 : 8;
+      const scrollPosition = (cardWidth + gap) * (index + 1);
+      carouselRef.current.scrollTo({
+        left: scrollPosition,
+        behavior: "smooth",
+      });
+      setCurrentIndex(index);
+    }
+  };
+
+  const isMobile = () => {
+    return window && window.innerWidth < 768;
+  };
+
+  // Drag to scroll logic
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeftState, setScrollLeftState] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setStartX(e.pageX - (carouselRef.current?.offsetLeft || 0));
+    setScrollLeftState(carouselRef.current?.scrollLeft || 0);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - (carouselRef.current?.offsetLeft || 0);
+    const walk = (x - startX) * 2; // Scroll-fast
+    if (carouselRef.current) {
+      carouselRef.current.scrollLeft = scrollLeftState - walk;
+    }
   };
 
   return (
-    <div className="relative w-full">
+    <CarouselContext.Provider
+      value={{ onCardClose: handleCardClose, currentIndex }}
+    >
       <div
-        ref={carouselRef}
-        className={cn(
-          "flex w-full overflow-x-auto overscroll-x-contain scroll-smooth py-2 no-scrollbar",
-          isDragging ? "cursor-grabbing" : "cursor-grab",
-        )}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => {
-          setIsHovered(false);
-          setIsDragging(false);
-        }}
+        className="relative w-full mx-auto"
         onTouchStart={() => setIsHovered(true)}
         onTouchEnd={() => setIsHovered(false)}
-        onMouseDown={(e) => {
-          setIsDragging(true);
-          setStartX(e.pageX - (carouselRef.current?.offsetLeft || 0));
-          setScrollLeftState(carouselRef.current?.scrollLeft || 0);
-        }}
-        onMouseUp={() => setIsDragging(false)}
-        onMouseMove={(e) => {
-          if (!isDragging || !carouselRef.current) return;
-          e.preventDefault();
-          const x = e.pageX - (carouselRef.current.offsetLeft || 0);
-          carouselRef.current.scrollLeft = scrollLeftState - (x - startX) * 2;
-        }}
       >
-        <div className="flex flex-row gap-3 pl-1 pr-4">
-          {loopedItems.map((item, index) => (
-            <motion.div
-              key={`carousel-item-${index}`}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: Math.min(index, 6) * 0.05, ease: "easeOut" }}
-              className="rounded-2xl"
-            >
-              {item}
-            </motion.div>
-          ))}
+        <div
+          className={cn(
+            "flex w-full overflow-x-scroll overscroll-x-auto scroll-smooth py-4 [scrollbar-width:none] cursor-grab active:cursor-grabbing",
+            isDragging && "cursor-grabbing scroll-auto",
+          )}
+          ref={carouselRef}
+          onScroll={checkScrollability}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+        >
+          <div
+            className={cn(
+              "absolute right-0 z-1000 h-auto w-[5%] overflow-hidden bg-gradient-to-l from-white dark:from-background to-transparent pointer-events-none",
+            )}
+          ></div>
+
+          <div className={cn("flex flex-row justify-start gap-4")}>
+            {loopedItems.map((item, index) => (
+              <motion.div
+                initial={{
+                  opacity: 0,
+                  y: 20,
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                transition={{
+                  duration: 0.5,
+                  delay: 0.2 * (index % items.length),
+                  ease: "easeOut",
+                }}
+                key={"card" + index}
+                className="rounded-3xl"
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+              >
+                {item}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-center gap-3 mt-2">
+          <button
+            className="relative z-40 flex h-8 w-8 items-center justify-center rounded-full bg-card border border-border hover:bg-muted disabled:opacity-50 transition-colors"
+            onClick={scrollLeft}
+            disabled={!canScrollLeft}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <button
+            className="relative z-40 flex h-8 w-8 items-center justify-center rounded-full bg-card border border-border hover:bg-muted disabled:opacity-50 transition-colors"
+            onClick={scrollRight}
+            disabled={!canScrollRight}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
         </div>
       </div>
-
-      <div className="pointer-events-none absolute inset-y-0 left-0 right-0 hidden items-center justify-between px-1 sm:flex">
-        <button
-          type="button"
-          aria-label="Previous"
-          onClick={() => step(-1)}
-          className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background/90 shadow-sm backdrop-blur transition hover:bg-background"
-        >
-          <ChevronLeft className="h-4 w-4 text-foreground" />
-        </button>
-        <button
-          type="button"
-          aria-label="Next"
-          onClick={() => step(1)}
-          className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background/90 shadow-sm backdrop-blur transition hover:bg-background"
-        >
-          <ChevronRight className="h-4 w-4 text-foreground" />
-        </button>
-      </div>
-    </div>
+    </CarouselContext.Provider>
   );
+};
+
+export type SpecialsCard = {
+  src: string;
+  title: string;
+  category?: string;
+  content?: React.ReactNode;
 };
 
 export const Card = ({
   card,
   index,
+  layout = false,
   onClick,
+  showOverlay = false,
 }: {
   card: SpecialsCard;
-  index?: number;
+  index: number;
+  layout?: boolean;
   onClick?: () => void;
+  showOverlay?: boolean;
 }) => {
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-
   return (
-    <>
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={card.title}
-        className="relative block h-56 w-[220px] shrink-0 overflow-hidden rounded-2xl border border-border bg-muted/40 text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-64 sm:w-[260px]"
-      >
-        <BlurImage
-          src={card.src}
-          alt={card.title}
-          className="h-full w-full object-contain"
-          onClick={(e) => {
-            e.stopPropagation();
-            setLightboxOpen(true);
-          }}
-        />
-        {(card.category || card.content) && (
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2 pt-6">
+    <motion.button
+      layoutId={layout ? `card-${card.title}-${index}` : undefined}
+      className="relative z-10 flex h-44 w-40 flex-col items-start justify-end overflow-hidden rounded-2xl bg-gray-100 shadow-lg md:h-52 md:w-56 dark:bg-neutral-900"
+      onClick={onClick}
+    >
+      {showOverlay && (
+        <>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+          <div className="relative z-40 p-8 w-full">
             {card.category && (
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/80">
+              <motion.p
+                layoutId={layout ? `category-${card.category}-${index}` : undefined}
+                className="text-left font-mono text-sm font-medium text-white md:text-base"
+              >
                 {card.category}
-              </p>
+              </motion.p>
             )}
-            {card.content}
+            <motion.p
+              layoutId={layout ? `title-${card.title}-${index}` : undefined}
+              className="mt-2 max-w-xs text-left font-mono text-xl font-semibold [text-wrap:balance] text-white md:text-3xl"
+            >
+              {card.title}
+            </motion.p>
           </div>
-        )}
-      </button>
-      <Lightbox
+        </>
+      )}
+      <img
         src={card.src}
         alt={card.title}
-        isOpen={lightboxOpen}
-        onClose={() => setLightboxOpen(false)}
+        className="absolute inset-0 z-10 w-full h-full object-cover"
       />
-    </>
+    </motion.button>
   );
 };
 
+
 export const BlurImage = ({
+  height,
+  width,
   src,
   className,
   alt,
@@ -201,90 +301,20 @@ export const BlurImage = ({
   return (
     <img
       className={cn(
-        "transition-opacity duration-300",
-        isLoading ? "opacity-0" : "opacity-100",
+        "h-full w-full transition duration-300",
+        isLoading ? "blur-sm" : "blur-0",
         className,
       )}
       onLoad={() => setLoading(false)}
-      src={src}
+      src={src as string}
+      width={width}
+      height={height}
       loading="lazy"
       decoding="async"
-      alt={alt}
+      alt={alt ? alt : "Background of a beautiful view"}
       {...rest}
     />
   );
-};
-
-const Lightbox = ({
-  src,
-  alt,
-  isOpen,
-  onClose,
-}: {
-  src: string;
-  alt: string;
-  isOpen: boolean;
-  onClose: () => void;
-}) => {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [isOpen, onClose]);
-
-  if (!mounted) return null;
-
-  const content = (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
-          onClick={onClose}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Expanded view of ${alt}`}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20"
-          >
-            <X className="h-5 w-5" />
-          </button>
-          <motion.img
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            src={src}
-            alt={alt}
-            className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-
-  return createPortal(content, document.body);
 };
 
 export default Carousel;
