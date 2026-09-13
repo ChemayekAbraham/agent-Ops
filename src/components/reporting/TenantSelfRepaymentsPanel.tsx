@@ -327,8 +327,10 @@ export function TenantSelfRepaymentsPanel({ audience = 'finance', title, descrip
                       <TableHead>Tenant</TableHead>
                       <TableHead className="text-right">Deposited</TableHead>
                       <TableHead className="text-right">Applied</TableHead>
-                      <TableHead className="text-right">Kept in float</TableHead>
-                      <TableHead className="text-right">Balance after</TableHead>
+                      <TableHead className="text-right">Kept in wallet</TableHead>
+                      <TableHead className="text-right" title="Live balance on the plan today, not at the time of this payment">
+                        Current outstanding
+                      </TableHead>
                       <TableHead>Outcome</TableHead>
                       <TableHead>Agent</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
@@ -355,7 +357,10 @@ export function TenantSelfRepaymentsPanel({ audience = 'finance', title, descrip
                           {formatUGX(Number(r.applied_amount) || 0)}
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">
-                          {formatUGX(Number(r.surplus_amount) || 0)}
+                          {formatUGX(Number(r.float_kept ?? r.surplus_amount) || 0)}
+                          {r.kept_bucket === 'withdrawable' && (
+                            <div className="text-[10px] text-muted-foreground">withdrawable</div>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">
                           {formatUGX(Number(r.outstanding_after) || 0)}
