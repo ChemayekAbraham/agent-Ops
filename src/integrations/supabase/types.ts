@@ -44298,6 +44298,8 @@ export type Database = {
           reason: string | null
           receipt_token: string | null
           rejection_reason: string | null
+          request_ip_address: string | null
+          request_user_agent: string | null
           settlement_attempts: number
           settlement_checked_at: string | null
           settlement_missing_legs: Json
@@ -44371,6 +44373,8 @@ export type Database = {
           reason?: string | null
           receipt_token?: string | null
           rejection_reason?: string | null
+          request_ip_address?: string | null
+          request_user_agent?: string | null
           settlement_attempts?: number
           settlement_checked_at?: string | null
           settlement_missing_legs?: Json
@@ -44444,6 +44448,8 @@ export type Database = {
           reason?: string | null
           receipt_token?: string | null
           rejection_reason?: string | null
+          request_ip_address?: string | null
+          request_user_agent?: string | null
           settlement_attempts?: number
           settlement_checked_at?: string | null
           settlement_missing_legs?: Json
