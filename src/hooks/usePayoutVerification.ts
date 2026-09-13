@@ -167,6 +167,8 @@ export interface MyPayoutDestination {
   account_name: string | null;
   status: PayoutVerificationStatus;
   decision_reason: string | null;
+  national_id_submitted_at: string | null;
+  first_seen_at: string | null;
 }
 
 /**
