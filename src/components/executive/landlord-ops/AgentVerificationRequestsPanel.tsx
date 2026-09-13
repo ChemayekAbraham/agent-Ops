@@ -578,9 +578,9 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   if (loading || (requests.length === 0 && decided.length === 0)) return null;
 
   return (
-    <div className="rounded-2xl border border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20 shadow-sm overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-amber-500/40 bg-amber-50/40 shadow-sm dark:bg-amber-950/20 sm:rounded-2xl">
       {/* Header — always visible, never collapsible */}
-      <div className="p-4 border-b border-amber-500/20 bg-amber-500/10">
+      <div className="border-b border-amber-500/20 bg-amber-500/10 p-3 sm:p-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <div className="p-2 rounded-xl bg-amber-500/15">
@@ -602,24 +602,27 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search landlord, agent or district…"
-              className="pl-8 h-8 text-xs bg-background/80"
+              className="h-11 bg-background/80 pl-9 pr-10 text-sm sm:h-9 sm:text-xs"
             />
             {search && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear queue search"
+                className="absolute right-0 top-0 h-11 w-11 text-muted-foreground sm:h-9 sm:w-9"
               >
-                <FilterX className="h-3 w-3" />
-              </button>
+                <FilterX className="h-4 w-4" />
+              </Button>
             )}
           </div>
         </div>
         {/* Tabs — pending, resubmitted and the read-only decision history */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as QueueTab)} className="mt-3">
-          <TabsList className="h-auto flex-wrap justify-start gap-1 bg-background/70 p-1">
+          <TabsList className="grid h-auto grid-cols-2 gap-1 bg-background/70 p-1 sm:flex sm:flex-wrap sm:justify-start">
             {(['pending', 'resubmitted', 'verified', 'rejected', 'cancelled', 'all'] as QueueTab[]).map((t) => (
-              <TabsTrigger key={t} value={t} className="h-7 text-[11px] px-2.5 gap-1.5">
+              <TabsTrigger key={t} value={t} className="min-h-11 gap-1.5 px-2.5 text-xs sm:min-h-8 sm:text-[11px]">
                 {TAB_LABEL[t]}
                 <Badge variant="secondary" className="h-4 px-1 text-[9px]">{tabCounts[t]}</Badge>
               </TabsTrigger>
@@ -633,19 +636,19 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
         </div>
 
         {/* Date range + export */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5">
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 sm:flex">
             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <Input type="date" value={fromDate} max={toDate} onChange={(e) => setFromDate(e.target.value)} className="h-7 w-[135px] text-[11px] bg-background/80" />
+            <Input type="date" value={fromDate} max={toDate} onChange={(e) => setFromDate(e.target.value)} className="h-11 min-w-0 bg-background/80 px-2 text-xs sm:h-8 sm:w-[135px]" />
             <span className="text-[11px] text-muted-foreground">to</span>
-            <Input type="date" value={toDate} min={fromDate} onChange={(e) => setToDate(e.target.value)} className="h-7 w-[135px] text-[11px] bg-background/80" />
+            <Input type="date" value={toDate} min={fromDate} onChange={(e) => setToDate(e.target.value)} className="h-11 min-w-0 bg-background/80 px-2 text-xs sm:h-8 sm:w-[135px]" />
           </div>
           {([['7d', 6], ['30d', 29], ['90d', 89]] as [string, number][]).map(([label, days]) => (
             <Button
               key={label}
               size="sm"
               variant="outline"
-              className="h-7 text-[10px] px-2"
+              className="h-11 text-xs sm:h-8 sm:text-[10px]"
               onClick={() => {
                 setFromDate(fmtDay(subDays(new Date(), days), 'yyyy-MM-dd'));
                 setToDate(fmtDay(new Date(), 'yyyy-MM-dd'));
@@ -654,11 +657,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               Last {label}
             </Button>
           ))}
-          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5" onClick={() => setShowChart((v) => !v)}>
+          <Button size="sm" variant="outline" className="h-11 gap-1.5 text-xs sm:h-8 sm:text-[10px]" onClick={() => setShowChart((v) => !v)}>
             <BarChart3 className="h-3 w-3" />
             {showChart ? 'Hide chart' : 'Show chart'}
           </Button>
-          <Button size="sm" className="h-7 text-[10px] gap-1.5 ml-auto" disabled={exporting} onClick={handleExportPdf}>
+          <Button size="sm" className="h-11 gap-1.5 text-xs sm:ml-auto sm:h-8 sm:text-[10px]" disabled={exporting} onClick={handleExportPdf}>
             {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
             Export PDF
           </Button>
@@ -705,7 +708,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       </div>
 
       {/* Proper list — not nested in a collapsible */}
-      <div className="p-3 space-y-2">
+      <div className="space-y-2 p-2.5 sm:p-3">
         {(tab === 'verified' || tab === 'rejected' || tab === 'cancelled') ? null : filtered.length === 0 ? (
           <div className="text-center py-6 text-xs text-muted-foreground">
             No requests match “{search}”.
@@ -714,11 +717,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
           pagedFiltered.map((req) => (
             <div
               key={req.id}
-              className="rounded-xl border border-amber-500/30 bg-background p-3 space-y-3 hover:border-amber-500/60 transition-colors"
+              className="space-y-3 rounded-lg border border-amber-500/30 bg-background p-3 transition-colors hover:border-amber-500/60 sm:rounded-xl"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className="font-bold text-sm text-foreground truncate">
                       {req.landlord_name || 'Unnamed landlord'}
                     </p>
@@ -777,7 +780,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               <Button
                 size="sm"
                 variant={expandedId === req.id ? 'secondary' : 'default'}
-                className="w-full"
+                className="h-11 w-full"
                 onClick={() => openDetails(req)}
               >
                 <Search className="h-3.5 w-3.5 mr-1" />
@@ -867,7 +870,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                     </div>
 
                     {/* Finance & contact metadata */}
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-1 border-t border-amber-500/20">
+                          <div className="grid grid-cols-1 gap-x-3 gap-y-2 border-t border-amber-500/20 pt-2 min-[420px]:grid-cols-2">
                       <div>
                         <p className="text-[9px] uppercase tracking-wide text-muted-foreground flex items-center gap-1"><Banknote className="h-3 w-3" /> Monthly rent</p>
                         <p className="text-[11px] font-medium">{fmtUgx(d?.monthly_rent)}</p>
@@ -911,7 +914,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                           placeholder="Add a comment explaining why this landlord is rejected (min 10 characters)…"
                           className="min-h-[64px] text-sm"
                         />
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 min-[420px]:flex-row">
                           <Button size="sm" variant="destructive" className="flex-1" disabled={busyId === req.id} onClick={() => handleReject(req)}>
                             {busyId === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
                             Confirm reject
@@ -934,7 +937,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                             className="min-h-[56px] text-sm"
                           />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 min-[420px]:flex-row">
                         <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" disabled={busyId === req.id} onClick={() => handleVerify(req)}>
                           {busyId === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
                           Verify landlord
@@ -1020,15 +1023,15 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
 
         {/* Pagination */}
         {activeRows.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60 mt-2">
+          <div className="mt-2 flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[11px] text-muted-foreground">
               Showing {safePage * PAGE_SIZE + 1}–{Math.min(activeRows.length, safePage * PAGE_SIZE + PAGE_SIZE)} of {activeRows.length}
             </p>
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-[11px] gap-1"
+                className="h-11 gap-1 text-xs sm:h-8 sm:text-[11px]"
                 disabled={safePage === 0}
                 onClick={() => setPage(safePage - 1)}
               >
@@ -1041,7 +1044,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-[11px] gap-1"
+                className="h-11 gap-1 text-xs sm:h-8 sm:text-[11px]"
                 disabled={safePage >= pageCount - 1}
                 onClick={() => setPage(safePage + 1)}
               >

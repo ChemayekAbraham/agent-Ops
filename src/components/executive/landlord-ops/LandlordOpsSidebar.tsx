@@ -13,8 +13,8 @@ export function LandlordOpsSidebar({ activePath, onNavigate, badges = {}, classN
   const cleanActive = activePath.replace(/^\//, '').replace(/^landlord-ops\/?/, '');
 
   return (
-    <nav className={cn('w-56 lg:w-60 shrink-0 border-r border-border bg-card flex flex-col h-full text-xs select-none', className)}>
-      <ScrollArea className="flex-1 py-3 px-2.5">
+    <nav className={cn('w-full lg:w-60 shrink-0 border-r border-border bg-card flex flex-col h-full text-sm lg:text-xs select-none', className)}>
+      <ScrollArea className="flex-1 py-3 px-3 lg:px-2.5">
         <div className="space-y-4">
           {LANDLORD_OPS_SECTIONS.map((section, idx) => (
             <div key={section.title || `section-${idx}`} className="space-y-0.5">
@@ -34,7 +34,7 @@ export function LandlordOpsSidebar({ activePath, onNavigate, badges = {}, classN
                       key={item.key}
                       onClick={() => onNavigate(item.path)}
                       className={cn(
-                        'flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium transition-all group text-left',
+                        'flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2.5 font-medium transition-all group text-left lg:min-h-0 lg:px-2.5 lg:py-1.5',
                         isActive
                           ? 'bg-[#E8F8EE] text-[#0FA958] dark:bg-emerald-950/50 dark:text-emerald-400 font-bold shadow-xs'
                           : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'

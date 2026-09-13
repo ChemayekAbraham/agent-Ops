@@ -75,7 +75,7 @@ export default function LandlordOpsPage() {
           />
         </aside>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 min-w-0">
+        <main className="flex-1 overflow-y-auto p-2.5 sm:p-4 lg:p-6 min-w-0 overscroll-contain">
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-64">

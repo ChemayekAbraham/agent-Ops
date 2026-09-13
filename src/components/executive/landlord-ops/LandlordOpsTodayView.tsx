@@ -151,11 +151,11 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
   };
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in-50 duration-200">
+    <div className="space-y-4 pb-10 sm:space-y-6 sm:pb-12 animate-in fade-in-50 duration-200">
       {/* Header */}
       <div>
         <p className="text-xs text-muted-foreground font-medium">Landlord Ops / Today</p>
-        <h1 className="text-2xl font-extrabold tracking-tight text-foreground mt-0.5">
+        <h1 className="text-xl font-extrabold tracking-tight text-foreground mt-0.5 sm:text-2xl">
           Today's Landlord Operations
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -166,11 +166,11 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
       {/* Landlord Verification Queue — primary action */}
       <div
         onClick={() => onNavigate('verify/landlords')}
-        className="rounded-xl border border-primary/20 bg-primary p-5 text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer group"
+        className="rounded-lg border border-primary/20 bg-primary p-4 text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer group sm:p-5"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-primary-foreground/10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 rounded-lg bg-primary-foreground/10 sm:p-3">
               <UserCheck className="h-7 w-7" />
             </div>
             <div>
@@ -180,8 +180,8 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:gap-4">
+            <div className="text-left sm:text-right">
               <p className="text-3xl font-black tabular-nums">
                 {num(pendingLandlords, countErrors.landlords)}
               </p>
@@ -194,7 +194,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 e.stopPropagation();
                 onNavigate('verify/landlords');
               }}
-              className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-bold text-sm h-11 px-5 rounded-lg shadow-sm"
+              className="h-12 flex-1 bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-bold text-sm px-5 rounded-lg shadow-sm sm:h-11 sm:flex-none"
             >
               Review now <ArrowRight className="h-4 w-4 ml-1.5" />
             </Button>
@@ -206,7 +206,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
 
       <div
         onClick={() => onNavigate('registers/landlord-float')}
-        className="p-4 rounded-xl border border-border bg-card hover:border-primary/60 hover:shadow-sm transition-all cursor-pointer group"
+        className="p-4 rounded-lg border border-border bg-card hover:border-primary/60 hover:shadow-sm transition-all cursor-pointer group"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -218,7 +218,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
               <p className="text-xs text-muted-foreground">View float held, needed, and collected by geography</p>
             </div>
           </div>
-          <div className="flex items-center justify-between sm:justify-end gap-3">
+          <div className="flex flex-col items-stretch gap-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between sm:justify-end sm:gap-3">
             {floatWithAgents !== null && (
               <span className="text-sm font-semibold text-foreground tabular-nums">
                 {formatUGX(floatWithAgents)} with agents
@@ -229,7 +229,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 e.stopPropagation();
                 onNavigate('registers/landlord-float');
               }}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs h-9 rounded-lg"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs h-11 rounded-lg sm:h-9"
             >
               Open register <ArrowRight className="h-3.5 w-3.5 ml-1" />
             </Button>
@@ -238,7 +238,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
       </div>
 
       {/* Top Grid: Needs Attention & Wallet Impact */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4">
         {/* Needs Attention Column (3 cols on XL) */}
         <div className="xl:col-span-3 space-y-2.5">
           <div className="flex items-center justify-between">
