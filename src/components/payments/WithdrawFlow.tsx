@@ -1261,6 +1261,11 @@ export default function WithdrawFlow({
                       m.payout_mode === 'mobile_money'
                         ? m.momo_number ?? ''
                         : m.bank_account_number ?? '';
+                    const verState = destinationStateFor(myDestinations.data, {
+                      mode: m.payout_mode,
+                      momoNumber: m.momo_number ?? undefined,
+                      bankAccountNumber: m.bank_account_number ?? undefined,
+                    });
                     return (
                       <Card
                         key={m.id}
@@ -1283,6 +1288,21 @@ export default function WithdrawFlow({
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                            {verState?.status === 'verified' && (
+                              <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                ✓ Verified — ready for payout
+                              </p>
+                            )}
+                            {verState?.status === 'rejected' && (
+                              <p className="text-[11px] font-medium text-destructive">
+                                Rejected{verState.decision_reason ? ` — ${verState.decision_reason}` : ''}
+                              </p>
+                            )}
+                            {(!verState || verState.status === 'waiting') && (
+                              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                                Waiting for verification — Financial Ops will call you
+                              </p>
+                            )}
                           </div>
                           <button
                             type="button"
