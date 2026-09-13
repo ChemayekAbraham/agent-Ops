@@ -55817,6 +55817,7 @@ export type Database = {
         }
         Returns: number
       }
+      my_location_correction_status: { Args: never; Returns: Json }
       my_partner_lead_agents: {
         Args: never
         Returns: {
@@ -58970,6 +58971,34 @@ export type Database = {
       user_can_access_landlord: {
         Args: { _landlord_id: string; _user_id: string }
         Returns: boolean
+      }
+      user_location_correction_progress: { Args: never; Returns: Json }
+      user_location_corrections: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          approved_path: string
+          corrected_at: string
+          corrected_by: string
+          corrected_by_name: string
+          correction_status: string
+          full_name: string
+          is_tenant: boolean
+          legacy_district: string
+          legacy_parish: string
+          legacy_region: string
+          legacy_sub_county: string
+          legacy_village: string
+          phone: string
+          roles: string[]
+          total_count: number
+          ug_village_id: number
+          user_id: string
+        }[]
       }
       user_wallet_strict: {
         Args: { p_user_id: string }
