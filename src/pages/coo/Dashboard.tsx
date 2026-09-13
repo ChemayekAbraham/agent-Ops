@@ -72,7 +72,8 @@ const quickNavItems: QuickNavItem[] = [
   { id: 'advance-requests', label: 'Business Advances', icon: Banknote, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20', description: 'Business advances' },
   { id: 'service-centres', label: 'Service Centre Vetting', icon: Building2, color: 'bg-orange-500/10 text-orange-600 border-orange-500/20', description: 'Vet & activate' },
   { id: 'department-budgets', label: 'Department Budgets', icon: Wallet2, color: 'bg-teal-500/10 text-teal-600 border-teal-500/20', description: 'Approve to CFO' },
-  { id: 'bike-leases', label: 'Bike Leases', icon: Bike, color: 'bg-lime-500/10 text-lime-600 border-lime-500/20', description: 'Approve to CFO' },
+  { id: 'agent-products-motorbikes', label: 'Welile Motorbikes', icon: Bike, color: 'bg-lime-500/10 text-lime-600 border-lime-500/20', description: 'Approve to CFO' },
+  { id: 'agent-products-smartphones', label: 'Welile Smartphones', icon: MonitorSmartphone, color: 'bg-sky-500/10 text-sky-600 border-sky-500/20', description: 'Approve to CFO' },
   { id: 'scale-vision', label: 'At Scale (40M+)', icon: Globe2, color: 'bg-primary/10 text-primary border-primary/20', description: 'Hyperscale vision' },
 ];
 
