@@ -12,7 +12,7 @@ import {
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
 import { TenantRentRequestCard } from '@/components/tenant/TenantRentRequestCard';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
-import { formatUGX } from '@/lib/rentCalculations';
+
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
 import { ReactNode } from 'react';
@@ -31,9 +31,11 @@ import { useWallet } from '@/hooks/useWallet';
 import { hapticTap } from '@/lib/haptics';
 import AiIdButton from '@/components/ai-id/AiIdButton';
 
-import { InviteAndEarnCard } from '@/components/shared/InviteAndEarnCard';
+
 import { SubscriptionStatusCard } from '@/components/tenant/SubscriptionStatusCard';
 import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
+import { RentPlanSummaryCard } from '@/components/tenant/RentPlanSummaryCard';
+import { PaymentTimeline } from '@/components/tenant/PaymentTimeline';
 
 import { RentRequestButton } from '@/components/tenant/RentRequestButton';
 import RentRequestForm from '@/components/tenant/RentRequestForm';
@@ -57,7 +59,6 @@ import { Button } from '@/components/ui/button';
 import { ShareBreadDialog } from '@/components/tenant/ShareBreadDialog';
 import {
   useBreadReceiptPrice,
-  useBreadReceiptHistory,
 } from '@/hooks/useBreadReceiptPrice';
 import { WelileReceiptDialog } from '@/components/tenant/WelileReceiptDialog';
 import { ClaimBreadDialog } from '@/components/tenant/ClaimBreadDialog';
@@ -67,7 +68,7 @@ import { RentDiscountCarousel } from '@/components/tenant/RentDiscountCarousel';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
-import { MissionBanner } from '@/components/mission/MissionBanner';
+
 
 interface TenantDashboardProps {
   user: User;
@@ -216,13 +217,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
     }
     wasSyncingRef.current = breadPrice.syncing;
   }, [breadPrice.syncing]);
-  const breadHistory = useBreadReceiptHistory();
-  // "Updated" indicator: re-renders every 30s so relative time stays fresh.
-  const [nowTick, setNowTick] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNowTick(Date.now()), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
+
 
   const handleAcceptAgreement = async () => {
     setIsAcceptingAgreement(true);
@@ -325,7 +320,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto pb-nav">
-        <main className="px-4 py-5 space-y-5 animate-fade-in max-w-lg mx-auto flex flex-col min-h-full">
+        <main className="px-4 py-6 space-y-6 animate-fade-in max-w-lg mx-auto flex flex-col min-h-full">
           {/* Offline Notice */}
           {!isOnline && (
             <div className="animate-fade-in flex items-center gap-2.5 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20">
@@ -340,7 +335,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           {/* Terms Acceptance Notice */}
           <TenantAgreementNotice onAcceptClick={() => setShowAgreementModal(true)} />
 
-          <MissionBanner dashboardRole="tenant" />
+
 
           {/* Profile Row */}
           <div className="animate-fade-in flex items-center gap-3">
@@ -393,6 +388,11 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <SubscriptionStatusCard userId={user.id} />
           </WidgetErrorBoundary>
 
+          {/* Verification checklist */}
+          <WidgetErrorBoundary label="Verification checklist">
+            <VerificationChecklist />
+          </WidgetErrorBoundary>
+
           {/* Available houses — surfaced near the top of home so tenants find them first */}
           <div className="grid grid-cols-2 gap-3">
             <WidgetErrorBoundary label="Find a house">
@@ -402,6 +402,17 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
               <TenantRentRequestCard userId={user.id} />
             </WidgetErrorBoundary>
           </div>
+
+          {/* Rent Plan summary — rent limit, usage, behaviour score */}
+          <WidgetErrorBoundary label="Rent plan summary">
+            <RentPlanSummaryCard />
+          </WidgetErrorBoundary>
+
+          {/* Recent payment activity timeline */}
+          <WidgetErrorBoundary label="Payment timeline">
+            <PaymentTimeline />
+          </WidgetErrorBoundary>
+
           <WidgetErrorBoundary label="Suggested houses">
             <SuggestedHousesCard userId={user.id} onViewAll={goToAllHouses} />
           </WidgetErrorBoundary>
@@ -414,64 +425,10 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
                   ? Math.max(0, (breadPrice.basePrice - breadPrice.reducedPrice) / breadPrice.basePrice)
                   : 0
               }
-              onSelectHouse={() => { hapticTap(); openHousesSheet(); }}
             />
           </div>
 
-          {/* Mini receipt history — last 5 receipts that affected bread price */}
-          {breadHistory.length > 0 && (
-            <div className="rounded-xl border border-border/60 bg-card px-3 py-2.5">
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Recent receipts
-                </p>
-                <span className="text-[10px] text-muted-foreground">
-                  Last {breadHistory.length}
-                </span>
-              </div>
-              <ul className="divide-y divide-border/50">
-                {breadHistory.map((entry) => (
-                  <li
-                    key={`${entry.number}-${entry.savedAt}`}
-                    className="flex items-center justify-between gap-2 py-1.5 text-[11px]"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-mono text-[11px] font-semibold text-foreground truncate">
-                        {entry.number}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatUGX(entry.amount)} ·{' '}
-                        {new Date(entry.savedAt).toLocaleString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      {entry.freeBreads > 0 ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-bold">
-                          {entry.freeBreads}× FREE
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-bold">
-                          {formatUGX(entry.reducedPrice)}
-                        </span>
-                      )}
-                      <p className="text-[9px] text-muted-foreground mt-0.5">
-                        +{formatUGX(entry.credit)} credit
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
 
-
-          {/* Invite & Earn — kept on home for growth */}
-          <InviteAndEarnCard variant="tenant" compact />
         </main>
       </div>
 

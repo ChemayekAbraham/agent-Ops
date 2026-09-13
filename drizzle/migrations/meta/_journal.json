@@ -330,6 +330,27 @@
       "when": 1789317601349,
       "tag": "0046_lock_schedule_receiver_per_item",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789332442207,
+      "tag": "0047_payout_destination_verifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1789332558230,
+      "tag": "0048_payout_destination_verification_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1789332651983,
+      "tag": "0049_withdrawal_requires_verified_destination",
+      "breakpoints": true
     }
   ]
 }

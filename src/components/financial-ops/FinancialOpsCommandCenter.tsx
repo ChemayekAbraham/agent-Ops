@@ -172,6 +172,8 @@ const FinancialOpsPulseStrip = lz(() => import('./FinancialOpsPulseStrip'), 'Fin
 const LiquidityForecastPanel = lz(() => import('./LiquidityForecastPanel'), 'LiquidityForecastPanel');
 const DailyWalletReportsPanel = lz(() => import('./DailyWalletReportsPanel'), 'DailyWalletReportsPanel');
 const StaleWithdrawalHoldsPanel = lz(() => import('@/components/cfo/StaleWithdrawalHoldsPanel'), 'StaleWithdrawalHoldsPanel');
+const PayoutVerificationPanel = lazy(() => import('./PayoutVerificationPanel'));
+const PayoutVerificationCallout = lazy(() => import('./PayoutVerificationCallout'));
 import { 
   ShieldCheck, Banknote, ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Menu, X,
   ClipboardList, Search, Scale, Shield, Gauge, BookOpen, TrendingUp, FileText,
@@ -202,7 +204,8 @@ type Tool =
   | 'liquidity_forecast'
   | 'reports'
   | 'stale_withdrawal_holds'
-  | 'wallet_buckets';
+  | 'wallet_buckets'
+  | 'payout_verification';
 // Extend Tool type via union above; add new tools:
 
 
@@ -216,6 +219,7 @@ type MoreAction =
   | { kind: 'view'; id: Exclude<View, 'home'>; label: string; desc: string; icon: typeof Gauge };
 
 const moreActions: MoreAction[] = [
+  { kind: 'tool', id: 'payout_verification', label: 'Verify Payout Numbers', desc: 'Call each holder and confirm the mobile money number or bank account is theirs and matches their National ID. Nobody is paid until you verify.', icon: ShieldCheck },
   { kind: 'tool', id: 'liquidity_forecast', label: 'Liquidity Forecast', desc: 'Withdrawable across all wallets today + ROI due per day for the next 7–60 days, so you can pre-fund before payouts.', icon: CalendarClock },
   { kind: 'tool', id: 'reports', label: 'Reports', desc: 'Daily Wallet Financial Summary Reports — auto-generated at 00:00 EAT from the ledger. View, filter, regenerate & download PDF/Excel/CSV.', icon: FileText },
   { kind: 'tool', id: 'earnings_explainer', label: 'How Did They Earn?', desc: 'Plain-English breakdown of every UGX that landed in a user\u2019s wallet — grouped by source (commissions, deposits, ROI, payroll, corrections) with counts and samples.', icon: Sparkles },
@@ -501,6 +505,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         )}
         {activeTool === 'mismatch_metrics' && <MismatchMetricsPanel />}
         {activeTool === 'bridge_health' && <DepositBridgeHealthPanel />}
+        {activeTool === 'payout_verification' && <PayoutVerificationPanel />}
         {activeTool === 'stale_withdrawal_holds' && <StaleWithdrawalHoldsPanel />}
         {activeTool === 'withdrawal_history' && <WithdrawalHistoryStatement />}
         {activeTool === 'funded_tenants' && <FundedTenantsList />}
@@ -574,7 +579,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
     {
       title: 'Daily Operations',
       items: moreActions.filter(a => [
-        'email_tx', 'deposits', 'stale_withdrawal_holds', 'cash_codes', 'auto_credit_review', 'merchant_float'
+        'payout_verification', 'email_tx', 'deposits', 'stale_withdrawal_holds', 'cash_codes', 'auto_credit_review', 'merchant_float'
       ].includes(a.id as string)),
     },
     {
@@ -1093,6 +1098,9 @@ function FinOpsHome({
           </button>
         </div>
       </div>
+
+      {/* Verified payout destinations — nobody is paid to an unverified number */}
+      <PayoutVerificationCallout onOpen={() => onOpenTool('payout_verification')} />
 
       {/* Above-the-fold highest frequency daily operations */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">

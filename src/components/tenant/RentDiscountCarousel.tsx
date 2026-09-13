@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
-import { BadgePercent } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { BadgePercent, X } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
 import { Carousel, Card, type SpecialsCard } from '@/components/ui/specials-linear-carousel';
+import { AnimatePresence, motion } from 'motion/react';
 import promoRetire from '@/assets/promo-retire-excuses.jpg.asset.json';
 import promoSalary from '@/assets/promo-salary-gone.jpg.asset.json';
 import promoPocket from '@/assets/promo-pocket-change.jpg.asset.json';
@@ -29,9 +30,10 @@ interface RentDiscountCarouselProps {
   onSelectHouse?: () => void;
 }
 
-export function RentDiscountCarousel({ discountPct, onSelectHouse }: RentDiscountCarouselProps) {
+export function RentDiscountCarousel({ discountPct }: RentDiscountCarouselProps) {
   const pct = useMemo(() => Math.max(0, Math.min(0.5, discountPct)), [discountPct]);
   const pctLabel = `${Math.round(pct * 100)}%`;
+  const [expanded, setExpanded] = useState<SpecialsCard | null>(null);
 
   const cards = PROMOS.map((card, index) => (
     <Card
@@ -40,28 +42,62 @@ export function RentDiscountCarousel({ discountPct, onSelectHouse }: RentDiscoun
       index={index}
       onClick={() => {
         hapticTap();
-        onSelectHouse?.();
+        setExpanded(card);
       }}
     />
   ));
 
   return (
-    <section className="space-y-2" aria-label="Welile rent offers">
-      <div className="flex items-center justify-between px-1">
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
-            <BadgePercent className="h-4 w-4 text-emerald-600" />
-            Use your {pctLabel} on rent
-          </p>
-          <p className="text-[11px] text-muted-foreground">
-            Apply the same discount to your monthly rent at any available house.
-          </p>
+    <>
+      <section className="space-y-2" aria-label="Welile rent offers">
+        <div className="flex items-center justify-between px-1">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              <BadgePercent className="h-4 w-4 text-emerald-600" />
+              Use your {pctLabel} on rent
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Apply the same discount to your monthly rent at any available house.
+            </p>
+          </div>
         </div>
-      </div>
-      <div className="-mx-4 px-4">
-        <Carousel items={cards} autoplay autoplaySpeed={0.4} />
-      </div>
-    </section>
+        <div className="-mx-4 px-4">
+          <Carousel items={cards} autoplay autoplaySpeed={1} />
+        </div>
+      </section>
+
+      {/* Expanded image overlay */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setExpanded(null)}
+          >
+            <button
+              className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+              onClick={() => setExpanded(null)}
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <motion.img
+              src={expanded.src}
+              alt={expanded.title}
+              className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl"
+              initial={{ scale: 0.7, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.7, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
