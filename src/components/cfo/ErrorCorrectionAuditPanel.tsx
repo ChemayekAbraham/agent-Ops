@@ -191,10 +191,32 @@ export function ErrorCorrectionAuditPanel() {
     const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
+    const filename = `error-corrections-last-${days}d.csv`;
     a.href = url;
-    a.download = `error-corrections-last-${days}d.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+
+    // Bulk export of every wallet correction in the window -- amounts,
+    // before/after balances, target phone numbers -- not logged before
+    // this (each underlying row records its own IP, but the export action
+    // itself did not). Plain client-side insert so the audit_logs
+    // IP-capture trigger sees the real browser IP directly. Never blocks
+    // the actual download.
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id ?? null,
+          action_type: 'csv_exported',
+          table_name: 'error_correction_audit',
+          record_id: null,
+          metadata: { filename, row_count: rows.length },
+        });
+      } catch (e) {
+        console.warn('[ErrorCorrectionAuditPanel] audit log insert failed:', e);
+      }
+    })();
   };
 
   const totals = report.data?.totals;
