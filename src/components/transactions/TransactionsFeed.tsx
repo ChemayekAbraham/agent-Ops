@@ -23,6 +23,7 @@ import { formatUGX } from "@/lib/rentCalculations";
 import { UserAvatar } from "@/components/UserAvatar";
 import TransactionDetailDrawer from "@/components/transactions/TransactionDetailDrawer";
 import WelileItemTotals from "@/components/transactions/WelileItemTotals";
+import { welileItemImage } from "@/lib/welileItemImages";
 import {
   TX_DATE_OPTIONS,
   TX_ITEM_OPTIONS,
