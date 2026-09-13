@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  ShieldQuestion, CheckCircle2, XCircle, Phone, Loader2, UserCircle,
+  ShieldQuestion, CheckCircle2, XCircle, Loader2, UserCircle,
   MapPin, Home, Banknote, Smartphone, Calendar, Search, Building2,
   FilterX, Clock, RotateCcw, AlertTriangle, FileDown, BarChart3, Ban,
   ChevronLeft, ChevronRight, ArrowLeftRight,
