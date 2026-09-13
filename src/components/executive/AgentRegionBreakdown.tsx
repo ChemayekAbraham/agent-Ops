@@ -113,7 +113,27 @@ export function AgentRegionBreakdown({ verifiedOnly = false }: { verifiedOnly?: 
         4: { halign: 'right' },
       },
     });
-    doc.save(`agents-by-region_${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`);
+    const filename = `agents-by-region_${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`;
+    doc.save(filename);
+
+    // Bulk export of every agent grouped by region/district, not logged
+    // before this. Plain client-side insert so the audit_logs IP-capture
+    // trigger sees the real browser IP directly. Never blocks the actual
+    // download.
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id ?? null,
+          action_type: 'pdf_report_exported',
+          table_name: 'export',
+          record_id: null,
+          metadata: { filename, row_count: (data ?? []).length },
+        });
+      } catch (e) {
+        console.warn('[AgentRegionBreakdown] audit log insert failed:', e);
+      }
+    })();
   };
 
   if (isLoading) {
