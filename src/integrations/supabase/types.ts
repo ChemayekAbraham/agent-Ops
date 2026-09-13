@@ -6398,12 +6398,14 @@ export type Database = {
           action_type: string
           created_at: string | null
           id: string
+          ip_address: string | null
           metadata: Json | null
           new_values: Json | null
           old_values: Json | null
           reason: string | null
           record_id: string | null
           table_name: string | null
+          user_agent: string | null
           user_id: string | null
         }
         Insert: {
@@ -6411,12 +6413,14 @@ export type Database = {
           action_type: string
           created_at?: string | null
           id?: string
+          ip_address?: string | null
           metadata?: Json | null
           new_values?: Json | null
           old_values?: Json | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          user_agent?: string | null
           user_id?: string | null
         }
         Update: {
@@ -6424,12 +6428,14 @@ export type Database = {
           action_type?: string
           created_at?: string | null
           id?: string
+          ip_address?: string | null
           metadata?: Json | null
           new_values?: Json | null
           old_values?: Json | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          user_agent?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -11566,6 +11572,8 @@ export type Database = {
           purpose_audit: Json | null
           rejected_at: string | null
           rejection_reason: string | null
+          request_ip_address: string | null
+          request_user_agent: string | null
           status: string
           transaction_date: string | null
           transaction_id: string | null
@@ -11593,6 +11601,8 @@ export type Database = {
           purpose_audit?: Json | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          request_ip_address?: string | null
+          request_user_agent?: string | null
           status?: string
           transaction_date?: string | null
           transaction_id?: string | null
@@ -11620,6 +11630,8 @@ export type Database = {
           purpose_audit?: Json | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          request_ip_address?: string | null
+          request_user_agent?: string | null
           status?: string
           transaction_date?: string | null
           transaction_id?: string | null
@@ -14772,6 +14784,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           instalment_id: string | null
+          ip_address: string | null
           ledger_scope: string
           linked_party: string | null
           matured_at: string | null
@@ -14792,6 +14805,7 @@ export type Database = {
           sub_category: string | null
           transaction_date: string
           transaction_group_id: string | null
+          user_agent: string | null
           user_id: string | null
           wallet_bucket: string | null
           wallet_id: string | null
@@ -14809,6 +14823,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           instalment_id?: string | null
+          ip_address?: string | null
           ledger_scope?: string
           linked_party?: string | null
           matured_at?: string | null
@@ -14829,6 +14844,7 @@ export type Database = {
           sub_category?: string | null
           transaction_date?: string
           transaction_group_id?: string | null
+          user_agent?: string | null
           user_id?: string | null
           wallet_bucket?: string | null
           wallet_id?: string | null
@@ -14846,6 +14862,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           instalment_id?: string | null
+          ip_address?: string | null
           ledger_scope?: string
           linked_party?: string | null
           matured_at?: string | null
@@ -14866,6 +14883,7 @@ export type Database = {
           sub_category?: string | null
           transaction_date?: string
           transaction_group_id?: string | null
+          user_agent?: string | null
           user_id?: string | null
           wallet_bucket?: string | null
           wallet_id?: string | null
@@ -23677,6 +23695,7 @@ export type Database = {
           detail: Json | null
           duration_ms: number | null
           id: number
+          ip_address: string | null
           ms_since_start: number | null
           path: string | null
           phase: string
@@ -23690,6 +23709,7 @@ export type Database = {
           detail?: Json | null
           duration_ms?: number | null
           id?: number
+          ip_address?: string | null
           ms_since_start?: number | null
           path?: string | null
           phase: string
@@ -23703,6 +23723,7 @@ export type Database = {
           detail?: Json | null
           duration_ms?: number | null
           id?: number
+          ip_address?: string | null
           ms_since_start?: number | null
           path?: string | null
           phase?: string
@@ -27516,6 +27537,30 @@ export type Database = {
           },
         ]
       }
+      password_change_audit: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_channels: {
         Row: {
           active: boolean
@@ -29834,8 +29879,10 @@ export type Database = {
           created_at: string
           field_name: string
           id: string
+          ip_address: string | null
           new_value: string | null
           old_value: string | null
+          user_agent: string | null
           user_id: string
         }
         Insert: {
@@ -29843,8 +29890,10 @@ export type Database = {
           created_at?: string
           field_name: string
           id?: string
+          ip_address?: string | null
           new_value?: string | null
           old_value?: string | null
+          user_agent?: string | null
           user_id: string
         }
         Update: {
@@ -29852,8 +29901,10 @@ export type Database = {
           created_at?: string
           field_name?: string
           id?: string
+          ip_address?: string | null
           new_value?: string | null
           old_value?: string | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -43889,9 +43940,11 @@ export type Database = {
           error_code: string | null
           id: string
           idempotent: boolean
+          ip_address: string | null
           race_lost: boolean
           reservation_outcome: string | null
           result_code: string
+          user_agent: string | null
           withdrawal_id: string | null
         }
         Insert: {
@@ -43903,9 +43956,11 @@ export type Database = {
           error_code?: string | null
           id?: string
           idempotent?: boolean
+          ip_address?: string | null
           race_lost?: boolean
           reservation_outcome?: string | null
           result_code: string
+          user_agent?: string | null
           withdrawal_id?: string | null
         }
         Update: {
@@ -43917,9 +43972,11 @@ export type Database = {
           error_code?: string | null
           id?: string
           idempotent?: boolean
+          ip_address?: string | null
           race_lost?: boolean
           reservation_outcome?: string | null
           result_code?: string
+          user_agent?: string | null
           withdrawal_id?: string | null
         }
         Relationships: []
@@ -44084,12 +44141,14 @@ export type Database = {
           error_message: string | null
           expired_at: string | null
           id: string
+          ip_address: string | null
           recipient_email: string | null
           recipient_id: string | null
           recipient_phone: string | null
           response: string
           status: string
           updated_at: string
+          user_agent: string | null
           withdrawal_id: string | null
         }
         Insert: {
@@ -44101,12 +44160,14 @@ export type Database = {
           error_message?: string | null
           expired_at?: string | null
           id?: string
+          ip_address?: string | null
           recipient_email?: string | null
           recipient_id?: string | null
           recipient_phone?: string | null
           response?: string
           status?: string
           updated_at?: string
+          user_agent?: string | null
           withdrawal_id?: string | null
         }
         Update: {
@@ -44118,12 +44179,14 @@ export type Database = {
           error_message?: string | null
           expired_at?: string | null
           id?: string
+          ip_address?: string | null
           recipient_email?: string | null
           recipient_id?: string | null
           recipient_phone?: string | null
           response?: string
           status?: string
           updated_at?: string
+          user_agent?: string | null
           withdrawal_id?: string | null
         }
         Relationships: []
