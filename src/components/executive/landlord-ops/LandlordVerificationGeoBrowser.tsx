@@ -7,10 +7,11 @@
  * and reports the chosen path back so the queue below filters to it. Recorded
  * location text is never rewritten; blanks are grouped as "Not recorded".
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, MapPin, Navigation, Phone, UserCircle, Globe } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, ChevronRight, MapPin, Navigation, Phone, UserCircle, Globe, Search, X } from 'lucide-react';
 
 export interface LandlordGeo {
   country: string | null;
@@ -108,12 +109,15 @@ interface Props {
 }
 
 export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) {
+  const [query, setQuery] = useState('');
   const scoped = useMemo(
     () => rows.filter((r) => matchesGeoPath(r, { ...path, landlordId: undefined })),
     [rows, path],
   );
 
   const level = nextLevel(path);
+
+  useEffect(() => setQuery(''), [level, path.landlordId]);
 
   const groups = useMemo(() => {
     if (level === 'landlord') return [];
@@ -151,63 +155,120 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
     onChange(next);
   };
 
+  const goBack = () => {
+    if (path.landlordId) {
+      onChange({ ...path, landlordId: undefined });
+      return;
+    }
+    const selected = LEVELS.filter((lvl) => path[lvl as keyof GeoPath]);
+    const previous = selected[selected.length - 1];
+    if (!previous) return;
+    const next = { ...path };
+    delete next[previous];
+    onChange(next);
+  };
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleGroups = normalizedQuery
+    ? groups.filter((group) => group.label.toLowerCase().includes(normalizedQuery))
+    : groups;
+  const visibleLandlords = normalizedQuery
+    ? scoped.filter((row) =>
+        [row.landlord_name, row.landlord_phone, row.agent_name, row.agent_phone]
+          .some((value) => clean(value).toLowerCase().includes(normalizedQuery)))
+    : scoped;
+  const hasPath = crumbs.length > 0 || !!path.landlordId;
+
   return (
-    <div className="rounded-xl border border-amber-500/25 bg-background/70 p-2.5 space-y-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Browse by location
-        </span>
-        <button
-          type="button"
-          onClick={() => onChange({})}
-          className="text-[11px] font-medium text-foreground hover:underline"
-        >
+    <div className="rounded-lg border border-amber-500/25 bg-background/70 p-3 space-y-3 sm:rounded-xl">
+      <div className="flex items-center gap-2">
+        {hasPath ? (
+          <Button type="button" variant="outline" size="sm" className="h-11 shrink-0 gap-1.5 px-3 sm:h-9" onClick={goBack}>
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+        ) : (
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 sm:h-9 sm:w-9">
+            <Globe className="h-4 w-4" />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-foreground">
+            {level === 'landlord' ? 'Choose a landlord' : `Choose ${LEVEL_LABEL[level].toLowerCase()}`}
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {crumbs.length ? crumbs.map((crumb) => crumb.value).join(' › ') : 'All locations'}
+          </p>
+        </div>
+        <Badge variant="secondary" className="h-6 shrink-0 text-[10px]">
+          {scoped.length} request{scoped.length === 1 ? '' : 's'}
+        </Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Path</span>
+        <Button type="button" variant="ghost" size="sm" onClick={() => onChange({})} className="h-8 px-2 text-[11px]">
           All locations
-        </button>
+        </Button>
         {crumbs.map((c) => (
           <span key={c.label} className="flex items-center gap-1.5">
             <ChevronRight className="h-3 w-3 text-muted-foreground" />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => onChange(c.path)}
-              className="text-[11px] font-medium text-foreground hover:underline"
+              className="h-8 px-2 text-[11px]"
               title={c.label}
             >
               {c.value}
-            </button>
+            </Button>
           </span>
         ))}
         {path.landlordId && (
           <span className="flex items-center gap-1.5">
             <ChevronRight className="h-3 w-3 text-muted-foreground" />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => onChange({ ...path, landlordId: undefined })}
-              className="text-[11px] font-medium text-foreground hover:underline"
+              className="h-8 px-2 text-[11px]"
             >
               Selected landlord
-            </button>
+            </Button>
           </span>
         )}
-        <Badge variant="secondary" className="ml-auto h-5 text-[10px]">
-          {scoped.length} request{scoped.length === 1 ? '' : 's'}
-        </Badge>
+      </div>
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={level === 'landlord' ? 'Search landlord, agent or phone' : `Search ${LEVEL_LABEL[level].toLowerCase()}`}
+          aria-label="Search the current location level"
+          className="h-11 bg-background pl-9 pr-10 text-sm"
+        />
+        {query && (
+          <Button type="button" variant="ghost" size="icon" aria-label="Clear location search" className="absolute right-0 top-0 h-11 w-11" onClick={() => setQuery('')}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {level !== 'landlord' ? (
-        groups.length === 0 ? (
+        visibleGroups.length === 0 ? (
           <p className="py-3 text-center text-[11px] text-muted-foreground">
-            No requests recorded in this area.
+            {query ? 'No locations match your search.' : 'No requests recorded in this area.'}
           </p>
         ) : (
-          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-            {groups.map((g) => (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleGroups.map((g) => (
               <button
                 key={g.label}
                 type="button"
                 onClick={() => selectAt(level, g.label)}
-                className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 py-2 text-left transition-colors hover:border-amber-500/60"
+                className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-[12px] font-semibold text-foreground">{g.label}</span>
@@ -222,16 +283,16 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
         )
       ) : (
         <div className="space-y-1.5">
-          {scoped.length === 0 ? (
-            <p className="py-3 text-center text-[11px] text-muted-foreground">No landlords here.</p>
+          {visibleLandlords.length === 0 ? (
+            <p className="py-3 text-center text-[11px] text-muted-foreground">{query ? 'No landlords match your search.' : 'No landlords here.'}</p>
           ) : (
-            scoped.map((r) => {
+            visibleLandlords.map((r) => {
               const hasGps = r.geo?.latitude != null && r.geo?.longitude != null;
               const active = path.landlordId === r.landlord_id;
               return (
                 <div
                   key={`${r.landlord_id}-${r.status}`}
-                  className={`rounded-lg border px-2.5 py-2 ${active ? 'border-amber-500/70 bg-amber-500/5' : 'border-border bg-background'}`}
+                  className={`rounded-lg border px-3 py-3 ${active ? 'border-amber-500/70 bg-amber-500/5' : 'border-border bg-background'}`}
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[12px] font-semibold text-foreground">
@@ -252,11 +313,11 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
                       .filter((v) => v !== UNRECORDED)
                       .join(', ') || UNRECORDED}
                   </p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                   <div className="mt-2.5 flex flex-col gap-2 min-[420px]:flex-row min-[420px]:items-center">
                     <Button
                       size="sm"
                       variant={active ? 'secondary' : 'outline'}
-                      className="h-6 px-2 text-[10px]"
+                       className="h-11 w-full px-3 text-xs min-[420px]:w-auto"
                       onClick={() => onChange({ ...path, landlordId: active ? undefined : r.landlord_id })}
                     >
                       {active ? 'Showing this landlord' : 'Show in queue below'}
@@ -266,7 +327,7 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange }: Props) 
                         href={`https://www.google.com/maps/search/?api=1&query=${r.geo!.latitude},${r.geo!.longitude}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:border-amber-500/60"
+                         className="inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-md border border-border px-3 py-2 text-xs text-foreground hover:border-amber-500/60 min-[420px]:w-auto"
                       >
                         <Navigation className="h-3 w-3" />
                         GPS {r.geo!.latitude!.toFixed(5)}, {r.geo!.longitude!.toFixed(5)}
