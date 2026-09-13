@@ -181,8 +181,29 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
               )}
             </div>
 
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="h-12 rounded-2xl text-sm font-bold"
+                disabled={busy !== null}
+                onClick={() => handleDownload("pdf")}
+              >
+                <Download className="mr-1.5 h-4 w-4" />
+                {busy === "pdf" ? "Preparing…" : "PDF receipt"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 rounded-2xl text-sm font-bold"
+                disabled={busy !== null}
+                onClick={() => handleDownload("xlsx")}
+              >
+                <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+                {busy === "xlsx" ? "Preparing…" : "Excel receipt"}
+              </Button>
+            </div>
+
             <Button
-              className="mt-5 h-14 w-full rounded-2xl text-base font-bold"
+              className="mt-2 h-14 w-full rounded-2xl text-base font-bold"
               onClick={() => onOpenChange(false)}
             >
               Dismiss Receipt
