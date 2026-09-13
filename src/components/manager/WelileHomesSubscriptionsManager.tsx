@@ -134,16 +134,19 @@ export function WelileHomesSubscriptionsManager() {
     },
   });
 
-  // Apply interest mutation
+  // Apply interest mutation. Calls the RPC directly -- there is no
+  // 'apply-welile-homes-interest' edge function; the logic lives in
+  // apply_welile_homes_monthly_interest(), which returns the updated row
+  // count as a plain integer (not an { updated_count } object).
   const applyInterestMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('apply-welile-homes-interest');
+      const { data, error } = await supabase.rpc('apply_welile_homes_monthly_interest');
       if (error) throw error;
-      return data;
+      return data as number;
     },
-    onSuccess: (data) => {
+    onSuccess: (updatedCount) => {
       queryClient.invalidateQueries({ queryKey: ['welile-homes-subscriptions'] });
-      toast.success(`Applied 5% interest to ${data?.updated_count || 0} subscriptions`);
+      toast.success(`Applied 5% interest to ${updatedCount ?? 0} subscriptions`);
     },
     onError: (error) => {
       toast.error('Failed to apply interest: ' + error.message);
