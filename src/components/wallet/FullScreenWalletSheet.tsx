@@ -29,6 +29,7 @@ import { AnimatedBalance } from './AnimatedBalance';
 import { NfcCardSetupDialog } from './NfcCardSetupDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { UserAvatar } from '@/components/UserAvatar';
 import { hapticTap } from '@/lib/haptics';
