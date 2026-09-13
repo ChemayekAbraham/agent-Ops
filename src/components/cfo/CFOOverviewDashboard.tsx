@@ -51,6 +51,13 @@ const fmtShort = (n: number) => {
   return n.toFixed(0);
 };
 
+const fmtShare = (value: number, total: number) => {
+  if (total <= 0) return '0% of Money We Have';
+  const percentage = (value / total) * 100;
+  const formatted = Number.isInteger(percentage) ? percentage.toFixed(0) : percentage.toFixed(1);
+  return `${formatted}% of Money We Have`;
+};
+
 export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps) {
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
@@ -70,7 +77,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
   const { data: actualMoney, isLoading: actualLoading, dataUpdatedAt: actualUpdatedAt } = useActualMoneyHeld();
-  const { data: merchantOwed, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed();
+  const { data: merchantOwed, isLoading: merchantOwedLoading, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed();
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
   const [moneyWeHaveOpen, setMoneyWeHaveOpen] = useState(false);
@@ -261,6 +268,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                   <p className="mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight text-foreground">
                     {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
                   </p>
+                  <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+                    {actualLoading ? '—' : fmtShare(actualMoneyTotal, actualMoneyTotal)}
+                  </p>
                 </button>
 
                 <Dialog open={moneyWeHaveOpen} onOpenChange={setMoneyWeHaveOpen}>
@@ -281,6 +291,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                       <p className="text-[11px] font-medium text-muted-foreground">Money We Have</p>
                       <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums tracking-tight text-foreground">
                         {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
+                      </p>
+                      <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                        {actualLoading ? '—' : fmtShare(actualMoneyTotal, actualMoneyTotal)}
                       </p>
                     </div>
 
@@ -384,6 +397,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               iconBg="bg-orange-500"
               title="Money We Owe"
               value={fmt(moneyWeOweTotal)}
+              percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeOweTotal, actualMoneyTotal)}
               items={[
                 { dot: 'bg-orange-500', label: 'Merchant Float Bucket (held by merchant agents)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
               { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
@@ -395,6 +409,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               iconBg="bg-blue-600"
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
+              percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeCanUse, actualMoneyTotal)}
               items={[
                 { dot: 'bg-blue-500', label: 'Money We Have', value: fmt(actualMoneyTotal), onSelect: () => setActualMoneyLine('mtn_momo') },
                 { dot: 'bg-orange-500', label: 'Less Money We Owe', value: fmt(moneyWeOweTotal), onSelect: () => setMerchantOwedOpen(true) },
@@ -422,6 +437,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               iconBg="bg-indigo-600"
               title="Money in Treasury / Platform"
               value={actualLoading ? '—' : fmt(actualMoney?.outsideBankHeld ?? 0)}
+              percentageLabel={actualLoading ? '—' : fmtShare(actualMoney?.outsideBankHeld ?? 0, actualMoneyTotal)}
               items={[
                 { dot: 'bg-indigo-500', label: 'MTN Mobile Money line', value: fmt(actualMoney?.mtn ?? 0), onSelect: () => setActualMoneyLine('mtn_momo') },
                 { dot: 'bg-indigo-500', label: 'Airtel Money line', value: fmt(actualMoney?.airtel ?? 0), onSelect: () => setActualMoneyLine('airtel_money') },
@@ -444,6 +460,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               iconBg="bg-sky-500"
               title="Money in Bank"
               value={actualLoading ? '—' : fmt(actualMoney?.bankedCash ?? 0)}
+              percentageLabel={actualLoading ? '—' : fmtShare(actualMoney?.bankedCash ?? 0, actualMoneyTotal)}
               items={[
                 { dot: 'bg-sky-500', label: 'Verified cash banked', value: fmt(actualMoney?.bankedCash ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
                 { dot: 'bg-sky-500', label: 'Bank alerts (reference only)', value: fmt(actualMoney?.bankReconciliation ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
@@ -720,11 +737,12 @@ function Band({ title, subtitle, open, onToggle, children }: {
  * rows and a reconciling total. No figure is derived here: every value is
  * passed in already computed.
  */
-function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onClick }: {
+function HeroCard({ icon, iconBg, title, value, percentageLabel, items, footer, footerTone, onClick }: {
   icon: React.ReactNode;
   iconBg: string;
   title: string;
   value: string;
+  percentageLabel?: string;
   items: { dot: string; label: string; value: string; onSelect?: () => void }[];
   footer?: string;
   footerTone?: string;
@@ -760,6 +778,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
           >
             {value}
           </p>
+          {percentageLabel ? <p className="mt-2 text-[11px] font-medium text-muted-foreground">{percentageLabel}</p> : null}
           {footer ? <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p> : null}
         </button>
       </div>
@@ -779,6 +798,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
             <p className={`mt-1 text-xl sm:text-2xl font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}>
               {value}
             </p>
+            {percentageLabel ? <p className="mt-1 text-[11px] font-medium text-muted-foreground">{percentageLabel}</p> : null}
           </div>
 
           <div className="space-y-1">
