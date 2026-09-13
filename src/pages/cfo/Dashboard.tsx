@@ -121,6 +121,7 @@ export default function CFODashboardPage() {
   const isMobile = useIsMobile();
   const { threshold: swipeThreshold, setThreshold: setSwipeThreshold } = useSwipeSensitivity('cfo');
   const advanceDisbursementCount = useCfoAdvanceDisbursementCount();
+  const { canApprove: canApproveAsCfo, loading: cfoApprovalLoading } = useCfoApprovalAuthority();
 
   const goToOffset = (delta: number) => {
     const current = CFO_TAB_IDS.indexOf(activeTab);
