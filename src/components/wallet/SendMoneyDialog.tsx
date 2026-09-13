@@ -1263,13 +1263,26 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                               : 'border-border/50 bg-muted/40 hover:bg-muted'
                           }`}
                         >
-                          <span
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                              selected ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'
-                            }`}
-                          >
-                            <item.icon className="h-4.5 w-4.5" />
-                          </span>
+                          {WELILE_ITEM_IMAGES[item.label] ? (
+                            <img
+                              src={WELILE_ITEM_IMAGES[item.label]}
+                              alt={item.label}
+                              loading="lazy"
+                              width={512}
+                              height={512}
+                              className={`h-11 w-11 shrink-0 rounded-lg object-cover ${
+                                selected ? 'ring-2 ring-primary' : ''
+                              }`}
+                            />
+                          ) : (
+                            <span
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                                selected ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'
+                              }`}
+                            >
+                              <item.icon className="h-4.5 w-4.5" />
+                            </span>
+                          )}
                           <span className="min-w-0">
                             <span className="block truncate text-sm font-semibold">{item.label}</span>
                             <span className="block truncate text-[11px] text-muted-foreground">{item.hint}</span>

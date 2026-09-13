@@ -66,6 +66,9 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
       ? { name: row.peer_name, avatar: row.peer_avatar_url ?? null }
       : null;
 
+  // Real market photo of the item this transfer paid for.
+  const itemPhoto = welileItemImage(row?.description);
+
   const { profile } = useProfile();
   const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
 
