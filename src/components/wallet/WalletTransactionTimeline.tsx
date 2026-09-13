@@ -438,7 +438,39 @@ export function WalletTransactionTimeline({
                       const isP2P = !!tx.sender_id && !!tx.recipient_id && !!counterparty;
                       const peerAvatar = isSent ? tx.recipient_avatar_url : tx.sender_avatar_url;
                       const isLast = txIndex === dayTransactions.length - 1;
-...
+
+                      return (
+                        <button
+                          key={tx.id}
+                          ref={(el) => {
+                            if (el) {
+                              txRefs.current.set(tx.id, el);
+                            } else {
+                              txRefs.current.delete(tx.id);
+                            }
+                          }}
+                          onClick={() => {
+                            hapticTap();
+                            onSelectTransaction(tx);
+                          }}
+                          className="relative flex w-full text-left group"
+                        >
+                          {/* Timeline rail */}
+                          <div className="absolute left-0 top-0 bottom-0 w-6 flex flex-col items-center">
+                            <div
+                              className={`h-2.5 w-2.5 rounded-full border-2 z-10 ${
+                                isSent
+                                  ? 'border-destructive bg-background'
+                                  : 'border-success bg-background'
+                              }`}
+                            />
+                            {!isLast && (
+                              <div className="w-px flex-1 bg-border/60 mt-1" />
+                            )}
+                          </div>
+
+                          {/* Card content */}
+                          <div className="flex-1 ml-5 pb-4 last:pb-0">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-start gap-3 min-w-0">
                                   {isP2P ? (
