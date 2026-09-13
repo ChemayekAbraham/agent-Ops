@@ -19,6 +19,17 @@ import { format as fmtDay, subDays } from 'date-fns';
 import { notifyVerificationResolved } from '@/lib/landlordVerificationNotify';
 import { setLandlordVerification } from '@/lib/landlord-ops/verification';
 import { generateLandlordVerificationQueuePdf } from '@/lib/landlordVerificationQueuePdf';
+import {
+  LandlordVerificationGeoBrowser,
+  matchesGeoPath,
+  type GeoPath,
+  type GeoQueueRow,
+  type LandlordGeo,
+} from './LandlordVerificationGeoBrowser';
+
+/** Location columns read for the geographic navigator (district kept for the existing badge). */
+const GEO_COLS =
+  'id, country, region, district, county, sub_county, town_council, village, cell, latitude, longitude';
 
 interface VerificationRequest {
   id: string;
@@ -146,6 +157,20 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   const [exporting, setExporting] = useState(false);
   const [fromDate, setFromDate] = useState<string>(() => fmtDay(subDays(new Date(), 29), 'yyyy-MM-dd'));
   const [toDate, setToDate] = useState<string>(() => fmtDay(new Date(), 'yyyy-MM-dd'));
+  // ── Geographic navigator (read-only grouping of the rows already loaded) ──
+  const [geoByLandlord, setGeoByLandlord] = useState<Record<string, LandlordGeo>>({});
+  const [geoPath, setGeoPath] = useState<GeoPath>({});
+
+  /** Merge landlord location rows into the shared geo map (never overwrites with blanks). */
+  const mergeGeo = useCallback((locs: unknown) => {
+    const rows = (locs ?? []) as (LandlordGeo & { id: string })[];
+    if (!rows.length) return;
+    setGeoByLandlord(prev => {
+      const next = { ...prev };
+      for (const l of rows) next[l.id] = l;
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -160,8 +185,9 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       if (ids.length > 0) {
         const { data: locs } = await supabase
           .from('landlords')
-          .select('id, district')
+          .select(GEO_COLS)
           .in('id', ids);
+        mergeGeo(locs);
         setDistrictByLandlord(
           Object.fromEntries(
             ((locs ?? []) as { id: string; district: string | null }[]).map(l => [l.id, l.district || '']),
@@ -191,7 +217,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       }
     }
     setLoading(false);
-  }, []);
+  }, [mergeGeo]);
 
   /**
    * Decided requests (verified / rejected / cancelled) in the selected window.
@@ -214,7 +240,8 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       setDecided(rows);
       const ids = Array.from(new Set(rows.map((r) => r.landlord_id).filter(Boolean)));
       if (ids.length > 0) {
-        const { data: locs } = await supabase.from('landlords').select('id, district').in('id', ids);
+        const { data: locs } = await supabase.from('landlords').select(GEO_COLS).in('id', ids);
+        mergeGeo(locs);
         setDistrictByLandlordAll(
           Object.fromEntries(
             ((locs ?? []) as { id: string; district: string | null }[]).map((l) => [l.id, l.district || '']),
@@ -226,7 +253,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
     } finally {
       setDecidedLoading(false);
     }
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, mergeGeo]);
 
   useEffect(() => { void loadDecided(); }, [loadDecided]);
 
@@ -363,11 +390,40 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
 
   const [search, setSearch] = useState('');
 
+  /** Rows feeding the geographic navigator (pending + decided in range). */
+  const geoRows = useMemo<GeoQueueRow[]>(() => {
+    const toRow = (r: VerificationRequest, status: string): GeoQueueRow => ({
+      landlord_id: r.landlord_id,
+      landlord_name: r.landlord_name,
+      landlord_phone: r.landlord_phone,
+      agent_name: r.agent_name,
+      agent_phone: r.agent_phone,
+      status,
+      geo: geoByLandlord[r.landlord_id] ?? null,
+    });
+    const pending = requests.map((r) => toRow(r, 'pending'));
+    const done = decided
+      .filter((r) => tab === 'all' || tab === 'pending' || tab === 'resubmitted' ? true : r.status === tab)
+      .map((r) => toRow(r, r.status));
+    return tab === 'pending' || tab === 'resubmitted' ? pending : [...pending, ...done];
+  }, [requests, decided, geoByLandlord, tab]);
+
+  /** Does this request sit inside the chosen location path? */
+  const inGeo = useCallback(
+    (landlordId: string) =>
+      matchesGeoPath(
+        { landlord_id: landlordId, landlord_name: null, landlord_phone: null, agent_name: null, agent_phone: null, status: '', geo: geoByLandlord[landlordId] ?? null },
+        geoPath,
+      ),
+    [geoByLandlord, geoPath],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = (onlyResubmitted || tab === 'resubmitted')
+    const base = ((onlyResubmitted || tab === 'resubmitted')
       ? requests.filter((r) => !!priorByLandlord[r.landlord_id])
-      : requests;
+      : requests
+    ).filter((r) => inGeo(r.landlord_id));
     if (!q) return base;
     return base.filter((r) =>
       (r.landlord_name || '').toLowerCase().includes(q) ||
@@ -376,7 +432,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       (r.agent_phone || '').toLowerCase().includes(q) ||
       (districtByLandlord[r.landlord_id] || '').toLowerCase().includes(q)
     );
-  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab]);
+  }, [requests, search, districtByLandlord, onlyResubmitted, priorByLandlord, tab, inGeo]);
 
   const resubmittedCount = useMemo(
     () => requests.filter((r) => !!priorByLandlord[r.landlord_id]).length,
@@ -386,9 +442,10 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
   /** Decided rows matching the current search box (read-only tabs). */
   const decidedFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const byStatus = tab === 'all' || tab === 'pending' || tab === 'resubmitted'
+    const byStatus = (tab === 'all' || tab === 'pending' || tab === 'resubmitted'
       ? decided
-      : decided.filter((r) => r.status === tab);
+      : decided.filter((r) => r.status === tab)
+    ).filter((r) => inGeo(r.landlord_id));
     if (!q) return byStatus;
     return byStatus.filter((r) =>
       (r.landlord_name || '').toLowerCase().includes(q) ||
@@ -397,7 +454,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
       (r.agent_phone || '').toLowerCase().includes(q) ||
       (districtByLandlordAll[r.landlord_id] || '').toLowerCase().includes(q)
     );
-  }, [decided, search, tab, districtByLandlordAll]);
+  }, [decided, search, tab, districtByLandlordAll, inGeo]);
 
   const tabCounts = useMemo(() => ({
     pending: requests.length,
@@ -530,6 +587,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
             ))}
           </TabsList>
         </Tabs>
+
+        {/* Location navigator: Country -> Region -> District -> County -> Sub-county -> Village/Cell -> landlord */}
+        <div className="mt-2.5">
+          <LandlordVerificationGeoBrowser rows={geoRows} path={geoPath} onChange={setGeoPath} />
+        </div>
 
         {/* Date range + export */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
