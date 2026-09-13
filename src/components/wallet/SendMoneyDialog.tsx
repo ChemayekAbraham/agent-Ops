@@ -1211,6 +1211,16 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   </AnimatePresence>
                 </motion.div>
 
+                <motion.div variants={itemVariants}>
+                  <AutoPayoutSection
+                    recipientId={recipient.status === 'found' && !recipient.isSelf ? recipient.id : undefined}
+                    recipientName={recipient.status === 'found' ? recipient.name : undefined}
+                    amount={amount}
+                    description={description}
+                  />
+                </motion.div>
+
+
                 <motion.div
                   variants={itemVariants}
                   className="-mx-5 -mb-5 mt-2 border-t border-border/50 bg-background px-5 py-3"
