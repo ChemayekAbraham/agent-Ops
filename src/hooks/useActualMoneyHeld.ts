@@ -125,6 +125,8 @@ export function useActualMoneyHeld(enabled = true) {
         finOpsBankedCount: banked.length,
         bankedDifference,
         bankedInSync: Math.abs(bankedDifference) < 1,
+        agentFloatHeld: Number(w.total_float ?? 0),
+        outsideBankHeld: mtn + airtel + cashAtHand,
       };
     },
   });
