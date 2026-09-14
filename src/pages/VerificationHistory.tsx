@@ -244,23 +244,20 @@ export default function VerificationHistoryPage() {
                     file={e.original}
                     label="Selfie sent for verification"
                     caption="Full, uncropped photo kept for Financial Ops"
-                    takenAt={when(e.submittedAt)}
-                    onOpen={(p) => { setActualSize(false); setPreview(p); }}
+                    onOpen={() => openPhoto(photoIndexOf.get(`${e.id}:original`) ?? 0)}
                   />
                   <Thumb
                     file={e.cropped}
                     label="Cropped profile picture"
                     caption="The version you confirmed as your profile picture"
-                    takenAt={when(e.submittedAt)}
                     round
-                    onOpen={(p) => { setActualSize(false); setPreview(p); }}
+                    onOpen={() => openPhoto(photoIndexOf.get(`${e.id}:cropped`) ?? 0)}
                   />
                   <Thumb
                     file={e.nationalId}
                     label="National ID photo"
                     caption="Photo of the ID card sent with this selfie"
-                    takenAt={when(e.submittedAt)}
-                    onOpen={(p) => { setActualSize(false); setPreview(p); }}
+                    onOpen={() => openPhoto(photoIndexOf.get(`${e.id}:nationalId`) ?? 0)}
                   />
                 </div>
               </div>
