@@ -526,6 +526,13 @@
       "when": 1789378641818,
       "tag": "0074_agent_weekly_champion_team",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1789393732796,
+      "tag": "0075_payout_verification_real_submissions_first",
+      "breakpoints": true
     }
   ]
 }
