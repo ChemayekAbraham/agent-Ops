@@ -24,6 +24,7 @@ import {
 import { parsePayoutConfirmationSms } from '@/utils/smsParser';
 import { usePayoutsUiEnabled } from '@/hooks/usePayoutsUiEnabled';
 import { humanizeWithdrawalError } from '@/lib/withdrawalErrorText';
+import { withTimeout } from '@/lib/authValidation';
 import {
   beginAuthCriticalSection,
   endAuthCriticalSection,
@@ -183,31 +184,65 @@ export function WithdrawalPayoutCard({
       // The withdrawal stays in its original status (pending / approved) and
       // simply returns to the unclaimed pool. We log the release reason for
       // audit so repeated releases by the same agent can be flagged.
-      const { data: { user } } = await supabase.auth.getUser();
-      const { error: relErr } = await supabase
-        .from('withdrawal_requests')
-        .update({
-          assigned_cashout_agent_id: null,
-          dispatched_at: null,
-        } as any)
-        .eq('id', withdrawal.id);
+      //
+      // Every call here is wrapped in withTimeout: merchants are on phones,
+      // on Ugandan mobile networks (the same lesson the 2026-09-12 claim
+      // incident already taught this codebase once). Without a timeout, a
+      // dropped connection mid-request left this button spinning forever
+      // with Cancel disabled -- confirmed live 2026-09-14 on a real
+      // UGX 2,400,000 release attempt that never reached the database at
+      // all (verified directly: the row's assignment was untouched).
+      const { data: { user } } = await withTimeout(Promise.resolve(supabase.auth.getUser()), 15_000);
+      const { error: relErr } = await withTimeout(
+        Promise.resolve(
+          supabase
+            .from('withdrawal_requests')
+            .update({
+              assigned_cashout_agent_id: null,
+              dispatched_at: null,
+            } as any)
+            .eq('id', withdrawal.id),
+        ),
+        15_000,
+      );
       if (relErr) throw relErr;
+
+      // The claim's reserved merchant float must be released in the same
+      // breath, or it stays locked against this agent with zero trace --
+      // the same gap fixed in release_stale_cashout_claims() (2026-09-14),
+      // this is the manual-release counterpart of that same bug.
+      try {
+        await withTimeout(
+          Promise.resolve(
+            supabase.rpc('release_merchant_float', {
+              p_withdrawal_id: withdrawal.id,
+              p_reason: 'manual_release_to_queue',
+            }),
+          ),
+          15_000,
+        );
+      } catch (floatErr) {
+        console.warn('[withdrawal-release] float release failed', floatErr);
+      }
 
       // Audit the release (mandatory 10+ char reason already enforced above).
       try {
-        await supabase.from('audit_logs').insert({
-          user_id: user?.id ?? null,
-          action_type: 'merchant_payout_released',
-          table_name: 'withdrawal_requests',
-          record_id: withdrawal.id,
-          reason: composed.slice(0, 500),
-          metadata: {
-            amount: Number(withdrawal.amount || 0),
-            payout_method: withdrawal.payout_method,
-            previous_status: withdrawal.status,
-            released_at: new Date().toISOString(),
-          },
-        });
+        await withTimeout(
+          Promise.resolve(supabase.from('audit_logs').insert({
+            user_id: user?.id ?? null,
+            action_type: 'merchant_payout_released',
+            table_name: 'withdrawal_requests',
+            record_id: withdrawal.id,
+            reason: composed.slice(0, 500),
+            metadata: {
+              amount: Number(withdrawal.amount || 0),
+              payout_method: withdrawal.payout_method,
+              previous_status: withdrawal.status,
+              released_at: new Date().toISOString(),
+            },
+          })),
+          10_000,
+        );
       } catch (auditErr) {
         console.warn('[withdrawal-release] audit log failed', auditErr);
       }
@@ -227,7 +262,7 @@ export function WithdrawalPayoutCard({
       setRejectNotes('');
       qc.invalidateQueries({ queryKey: ['cashout-agent-all-withdrawals'] });
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e?.message || 'Release failed — check your connection and try again');
     } finally {
       setRejecting(false);
     }

@@ -14,6 +14,7 @@ import {
   Building2,
   Camera,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -53,13 +54,9 @@ import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhoto
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   last9,
-  useAdoptNationalIdName,
   useHolderNameHistory,
   useDecidePayoutDestination,
   useRevertHolderName,
-  useSetHolderName,
-
-
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
   type PayoutDestinationRow,
@@ -219,24 +216,12 @@ function NameChangeHistory({ userId }: { userId: string }) {
 
 /**
  * Shown when the names do not match. The name printed on the National ID is
- * spelled out, and Financial Ops either takes it as-is or types the final
- * name themselves before marking the payout verified.
+ * spelled out; there is nothing to tap here — tapping Verify automatically
+ * adopts the ID name as the account name.
  */
-function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSaved: () => void }) {
-  const adopt = useAdoptNationalIdName();
-  const setName = useSetHolderName();
+function IdNameMismatchCard({ row }: { row: PayoutDestinationRow }) {
   const idName = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
-  const alreadySame = !!idName && idName.toLowerCase() === accountName.toLowerCase();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(idName || accountName);
-  const busy = adopt.isPending || setName.isPending;
-  const cleaned = draft.trim();
-
-  useEffect(() => {
-    setEditing(false);
-    setDraft(idName || accountName);
-  }, [row.id, idName, accountName]);
 
   return (
     <div className="mx-5 mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
@@ -245,90 +230,16 @@ function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSav
       </p>
       <p className="mt-1.5 text-lg font-bold leading-tight text-foreground">{idName || 'Not read yet'}</p>
       <p className="mt-0.5 text-xs text-muted-foreground">On the account now: {accountName || '—'}</p>
-
-      {editing ? (
-        <div className="mt-3 space-y-2">
-          <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground" htmlFor={`final-name-${row.id}`}>
-            Final name for this payout
-          </label>
-          <Input
-            id={`final-name-${row.id}`}
-            value={draft}
-            autoFocus
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Type the name exactly as printed on the ID"
-            className="h-12 rounded-xl text-base font-semibold"
-          />
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
-              disabled={busy}
-              onClick={() => {
-                setDraft(idName || accountName);
-                setEditing(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
-              disabled={busy || cleaned.length < 3 || cleaned === accountName}
-              onClick={async () => {
-                try {
-                  const res = await setName.mutateAsync({ id: row.id, fullName: cleaned });
-                  toast.success(`Name set to ${res.full_name ?? cleaned}.`);
-                  setEditing(false);
-                  onSaved();
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : 'Could not save the name.');
-                }
-              }}
-            >
-              {setName.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <UserCheck className="mr-2 h-4 w-4" />
-              )}
-              Save this name
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 flex gap-2">
-          <Button
-            className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
-            disabled={busy || alreadySame || idName.length < 3}
-            onClick={async () => {
-              try {
-                const res = await adopt.mutateAsync({ id: row.id });
-                toast.success(`Name changed to ${res.full_name ?? idName}.`);
-                onSaved();
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : 'Could not change the name.');
-              }
-            }}
-          >
-            {adopt.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <UserCheck className="mr-2 h-4 w-4" />
-            )}
-            {alreadySame ? 'Already using the ID name' : 'Use the ID name'}
-          </Button>
-          <Button
-            variant="outline"
-            className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
-            disabled={busy}
-            onClick={() => setEditing(true)}
-          >
-            Change
-          </Button>
-        </div>
+      {idName.length >= 3 && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+          <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+          Tapping Verify will make this the account name automatically.
+        </p>
       )}
     </div>
   );
 }
+
 
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
@@ -754,9 +665,12 @@ export default function PayoutVerificationPanel() {
               <p className="mt-1 truncate text-sm font-bold text-foreground">{row.full_name || '—'}</p>
               <p className="text-[10px] text-muted-foreground">Name on the account</p>
             </div>
-            <div className={`rounded-2xl border p-3 ${row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8 ? 'border-amber-500/50 bg-amber-500/10' : 'border-border bg-card'}`}>
+            <div className={`rounded-2xl border p-3 ${row.duplicate_id_user_id ? 'border-destructive/60 bg-destructive/10' : row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8 ? 'border-amber-500/50 bg-amber-500/10' : 'border-border bg-card'}`}>
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">National ID name</p>
               <p className="mt-1 truncate text-sm font-bold text-foreground">{row.national_id_name || '—'}</p>
+              {row.national_id && (
+                <p className="truncate text-[10px] font-medium text-muted-foreground">ID {row.national_id}</p>
+              )}
               <p className="text-[10px] text-muted-foreground">
                 {row.national_id_name
                   ? row.name_match_score !== null && row.name_match_score < 0.8
@@ -764,12 +678,57 @@ export default function PayoutVerificationPanel() {
                     : 'Matches the selfie name'
                   : 'Not read from the ID yet'}
               </p>
+              {row.duplicate_id_user_id && (
+                <p role="alert" className="mt-1.5 rounded-lg bg-destructive/15 px-2 py-1 text-[10px] font-bold text-destructive">
+                  Duplicate National ID rejected — this ID already belongs to {row.duplicate_id_name || 'another account'}.
+                </p>
+              )}
             </div>
           </div>
 
+          {/* Same National ID on another account — rejected automatically */}
+          {row.duplicate_id_user_id && (
+            <div
+              role="alert"
+              className="mx-5 mt-3 flex items-start gap-3 rounded-2xl border-2 border-destructive bg-destructive/10 p-3"
+            >
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-sm font-black uppercase tracking-wide text-destructive">
+                  {row.status === 'rejected'
+                    ? 'Rejected — duplicate National ID'
+                    : 'Same National ID on another account'}
+                </p>
+                <p className="mt-0.5 text-xs text-destructive/90">
+                  {row.status === 'rejected'
+                    ? `Rejected because this National ID already belongs to ${row.duplicate_id_name || 'another account'}. One National ID may only be used by one account.`
+                    : `This ID already belongs to ${row.duplicate_id_name || 'another account'}. It cannot be verified — the decision is rejected automatically.`}
+                </p>
+                {(row.duplicate_id_accounts?.length ?? 0) > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-destructive/80">
+                      {(row.duplicate_id_accounts?.length ?? 0) === 1
+                        ? 'Account already using this ID'
+                        : 'Accounts already using this ID'}
+                    </p>
+                    {row.duplicate_id_accounts?.map((acc) => (
+                      <ConflictingAccountRow key={acc.user_id} account={acc} />
+                    ))}
+                  </div>
+                )}
+                {row.status === 'rejected' && row.decision_reason && (
+                  <p className="mt-1.5 rounded-lg bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive/80">
+                    Recorded reason: {row.decision_reason}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+
           {/* Names do not match: show the ID name and let it become the holder's name */}
           {row.name_match_score !== null && row.name_match_score < 0.8 && (
-            <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
+            <IdNameMismatchCard row={row} />
           )}
 
           {/* Audit trail of name replacements */}
@@ -831,22 +790,43 @@ export default function PayoutVerificationPanel() {
             </Button>
             <Button
               className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
-              disabled={!photosReady}
+              disabled={!photosReady || !!row.duplicate_id_user_id}
               onClick={() => setDeciding(true)}
             >
               <CheckCircle2 className="mr-2 h-5 w-5" /> Verify payout
             </Button>
           </div>
-          {!photosReady && (
+          {!!row.duplicate_id_user_id && (
+            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
+              <ShieldAlert className="h-3.5 w-3.5" />
+              Cannot verify — duplicate National ID
+            </p>
+          )}
+          {!photosReady && !row.duplicate_id_user_id && (
             <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
               <AlertTriangle className="h-3.5 w-3.5" />
               Waiting for their National ID photo and selfie
             </p>
           )}
-          {row.decision_reason && (
-            <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
-              Last note: {row.decision_reason}
-            </p>
+          {row.decision_reason && !row.duplicate_id_user_id && (
+            row.decision_reason.toLowerCase().startsWith('automatically rejected: this national id') ? (
+              <div
+                role="alert"
+                className="mx-5 mb-4 flex items-start gap-3 rounded-2xl border-2 border-destructive bg-destructive/10 p-3"
+              >
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-sm font-black uppercase tracking-wide text-destructive">
+                    Rejected — duplicate National ID
+                  </p>
+                  <p className="mt-0.5 text-xs text-destructive/90">{row.decision_reason}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
+                Last note: {row.decision_reason}
+              </p>
+            )
           )}
 
           {/* Queue navigation */}
@@ -898,6 +878,86 @@ export default function PayoutVerificationPanel() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * One account that already holds this National ID. Tapping the row opens a
+ * drawer with the account's full details (name, phone, ID, created date).
+ */
+function ConflictingAccountRow({
+  account,
+}: {
+  account: {
+    user_id: string;
+    full_name: string | null;
+    phone: string | null;
+    national_id: string | null;
+    created_at?: string | null;
+  };
+}) {
+  const [open, setOpen] = useState(false);
+  const created = account.created_at
+    ? new Date(account.created_at).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Unknown';
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-destructive/40 bg-background/70">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-destructive/10"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-foreground">
+            {account.full_name || 'Unnamed account'}
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {account.phone || 'No phone'}
+            {account.national_id ? ` • ID ${account.national_id}` : ''}
+          </p>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-destructive transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
+        <span className="sr-only">{open ? 'Hide account details' : 'Show account details'}</span>
+      </button>
+
+      {open && (
+        <dl className="grid gap-1.5 border-t border-destructive/30 bg-destructive/5 px-2.5 py-2 text-[11px]">
+          <div className="flex items-start justify-between gap-3">
+            <dt className="font-bold uppercase tracking-wide text-muted-foreground">Name</dt>
+            <dd className="min-w-0 truncate text-right font-semibold text-foreground">
+              {account.full_name || '—'}
+            </dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt className="font-bold uppercase tracking-wide text-muted-foreground">Phone</dt>
+            <dd className="min-w-0 truncate text-right font-semibold text-foreground">
+              {account.phone || '—'}
+            </dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt className="font-bold uppercase tracking-wide text-muted-foreground">National ID</dt>
+            <dd className="min-w-0 truncate text-right font-semibold text-foreground">
+              {account.national_id || '—'}
+            </dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt className="font-bold uppercase tracking-wide text-muted-foreground">Created</dt>
+            <dd className="min-w-0 truncate text-right font-semibold text-foreground">{created}</dd>
+          </div>
+        </dl>
+      )}
     </div>
   );
 }

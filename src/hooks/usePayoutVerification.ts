@@ -11,6 +11,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
+import { DUPLICATE_NATIONAL_ID_MESSAGE, isDuplicateNationalIdError } from '@/lib/nationalId';
 
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
@@ -41,7 +42,20 @@ export interface PayoutDestinationRow {
   withdrawable_balance: number;
   /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
   name_source: 'national_id' | 'verified' | null;
+  /** Set when this National ID already belongs to another account (auto-rejected). */
+  duplicate_id_user_id: string | null;
+  duplicate_id_name: string | null;
+  duplicate_id_accounts:
+    | {
+        user_id: string;
+        full_name: string | null;
+        phone: string | null;
+        national_id: string | null;
+        created_at?: string | null;
+      }[]
+    | null;
   total_count: number;
+
 }
 
 export interface PayoutVerificationCounts {
@@ -144,6 +158,18 @@ export function useDecidePayoutDestination() {
           const url = (res.data as { avatar_url?: string } | null)?.avatar_url;
           if (url) publishAvatarUpdate(input.userId, url);
         } catch { /* profile picture update is best-effort */ }
+      }
+
+      // Tell the holder their account is verified and they can withdraw now.
+      // Best-effort: a failed notice must never fail the decision.
+      const autoRejected = (data as { auto_rejected_duplicate_id?: boolean } | null)
+        ?.auto_rejected_duplicate_id;
+      if (input.decision === 'verified' && !autoRejected) {
+        try {
+          await supabase.functions.invoke('notify-identity-verified', {
+            body: { destinationId: input.id },
+          });
+        } catch { /* confirmation message is best-effort */ }
       }
 
       return { ...((data ?? {}) as Record<string, unknown>), id: input.id } as {
@@ -310,9 +336,19 @@ export function useSubmitNationalId() {
         p_national_id: input.nationalId,
         p_id_name: input.idName,
       });
-      if (error) throw new Error(error.message);
+      // A duplicate National ID is rejected by the database unique index
+      // (23505) even if every other check passed — surface it plainly.
+      if (error) {
+        if (isDuplicateNationalIdError(error)) throw new Error(DUPLICATE_NATIONAL_ID_MESSAGE);
+        throw new Error(error.message);
+      }
       const res = (data ?? {}) as { success?: boolean; message?: string };
-      if (!res.success) throw new Error(res.message || 'Could not save your National ID.');
+      if (!res.success) {
+        if (res.message && isDuplicateNationalIdError(res.message)) {
+          throw new Error(DUPLICATE_NATIONAL_ID_MESSAGE);
+        }
+        throw new Error(res.message || 'Could not save your National ID.');
+      }
       return res;
     },
     onSuccess: () => {
