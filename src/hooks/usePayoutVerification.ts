@@ -203,6 +203,7 @@ export function useSetHolderName() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
       qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
     },
   });
 }
