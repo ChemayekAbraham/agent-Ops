@@ -983,6 +983,12 @@ export default function PayoutVerificationPanel() {
               Verify is off — the name could not be read from the National ID. Ask for a clearer ID photo.
             </p>
           )}
+          {photosReady && idBackMissing && (
+            <p role="alert" className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Verify is off — ask the user to upload the back of their National ID.
+            </p>
+          )}
           {row.decision_reason && (
             <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
               Last note: {row.decision_reason}
