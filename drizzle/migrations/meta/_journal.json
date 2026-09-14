@@ -519,6 +519,13 @@
       "when": 1789378484235,
       "tag": "0073_hr_staff_revoke_employee_role_on_exit",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1789378641818,
+      "tag": "0074_agent_weekly_champion_team",
+      "breakpoints": true
     }
   ]
 }
