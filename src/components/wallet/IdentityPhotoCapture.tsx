@@ -111,6 +111,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const { user } = useAuth();
   const mine = useMyIdentityPhotos();
   const submit = useSubmitIdentityPhotos();
+  const submitNid = useSubmitNationalId();
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
@@ -120,6 +121,38 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [pendingSelfie, setPendingSelfie] = useState<File | null>(null);
   const [previewSelfie, setPreviewSelfie] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // What we read off the ID card photo.
+  const [reading, setReading] = useState(false);
+  const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [savingDetails, setSavingDetails] = useState(false);
+
+  const readIdPhoto = async (file: File) => {
+    setReading(true);
+    setIdReading(null);
+    setReadError(null);
+    const res = await readNationalIdPhoto(file);
+    if ('error' in res && res.error) setReadError(res.error);
+    else setIdReading(res as NationalIdReading);
+    setReading(false);
+  };
+
+  const saveDetectedDetails = async () => {
+    if (!idReading?.full_name) return;
+    setSavingDetails(true);
+    try {
+      await submitNid.mutateAsync({
+        nationalId: idReading.id_number || '',
+        idName: idReading.full_name,
+      });
+      toast.success('Saved the names and number we read from your ID.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not save those details.');
+    } finally {
+      setSavingDetails(false);
+    }
+  };
 
   // Whatever is already archived is reused instead of asked for again, so a
   // partial submission (e.g. selfie stored, ID shot missing) only requires the
@@ -133,6 +166,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const haveId = !!idPhoto || !!storedIdPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
   const ready = haveId && haveSelfie;
+
+  const verdict = idNameVerdict(idReading?.name_match_score ?? null);
+
 
   const handleSave = async () => {
     if (!user?.id || !ready) return;
