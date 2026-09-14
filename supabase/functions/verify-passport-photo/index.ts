@@ -22,6 +22,11 @@ const err = (msg: string, status = 400) => json({ error: msg }, status);
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Roles allowed to check a photo on someone ELSE's behalf (they register tenants). */
+const REGISTRAR_ROLES = ["agent", "senior_agent", "sub_agent", "agent_ops", "tenant_ops", "manager", "super_admin"];
+
 /** Decode a `data:image/...;base64,...` URL (or bare base64) into bytes + mime. */
 function decodeImage(input: string): { bytes: Uint8Array; mime: string } | null {
   const m = /^data:([a-zA-Z0-9/+.-]+);base64,(.*)$/s.exec(input.trim());
@@ -69,13 +74,38 @@ Deno.serve(async (req) => {
   const { data: authData, error: authErr } = await admin.auth.getUser(token);
   if (authErr || !authData?.user) return err("Sign in to continue", 401);
 
-  let body: { image_base64?: unknown };
+  let body: { image_base64?: unknown; source?: unknown; subject_user_id?: unknown };
   try {
     body = await req.json();
   } catch {
     return err("Invalid request body");
   }
   if (typeof body.image_base64 !== "string" || !body.image_base64) return err("No photo was sent");
+
+  /* Whose face is this?
+     Self-onboarding: the caller's own. An agent registering a tenant: the
+     tenant's, and usually the tenant has no account yet — so the row is filed
+     under the agent and `link_identity_photo_fingerprint` moves it across once
+     the rent request exists. A browser-supplied subject is only honoured for
+     someone allowed to register tenants; everyone else gets their own id. */
+  const callerId = authData.user.id;
+  const source = typeof body.source === "string" && body.source.trim()
+    ? body.source.trim().slice(0, 40)
+    : "tenant_onboarding";
+  const claimedSubject = typeof body.subject_user_id === "string" && UUID_RE.test(body.subject_user_id)
+    ? body.subject_user_id
+    : null;
+
+  let subjectId = callerId;
+  if (claimedSubject && claimedSubject !== callerId) {
+    const { data: roles } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId)
+      .eq("enabled", true)
+      .in("role", REGISTRAR_ROLES);
+    if (roles && roles.length > 0) subjectId = claimedSubject;
+  }
 
   const decoded = decodeImage(body.image_base64);
   if (!decoded) return err("That photo could not be read");
@@ -143,9 +173,10 @@ Deno.serve(async (req) => {
     const { error: fpErr } = await admin
       .from("identity_photo_fingerprints")
       .upsert({
-        user_id: authData.user.id,
+        user_id: subjectId,
+        checked_by: callerId,
         sha256,
-        source: "tenant_onboarding",
+        source,
         verdict,
         score: typeof payload.score === "number" ? payload.score : null,
         is_face: isFace,
