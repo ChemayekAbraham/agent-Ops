@@ -36,6 +36,8 @@ import { template as smsFailureAlertTemplate } from './sms-failure-alert.tsx'
 import { template as dailyAgentCardTemplate } from './daily-agent-card.tsx'
 import { template as subAgentInviteTemplate } from './sub-agent-invite.tsx'
 import { template as residenceVerificationStatusTemplate } from './residence-verification-status.tsx'
+import { template as identityNameAdoptedTemplate } from './identity-name-adopted.tsx'
+
 import { template as portfolioRequestConfirmationTemplate } from './portfolio-request-confirmation.tsx'
 import { template as portfolioRequestTeamAlertTemplate } from './portfolio-request-team-alert.tsx'
 import { template as standingOrderCreatedTemplate } from './standing-order-created.tsx'
