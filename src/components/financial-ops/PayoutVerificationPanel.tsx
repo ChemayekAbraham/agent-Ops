@@ -680,6 +680,10 @@ export default function PayoutVerificationPanel() {
             <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
           )}
 
+          {/* Audit trail of name replacements */}
+          <NameChangeHistory userId={row.user_id} />
+
+
 
           {/* Contact actions */}
           <div className="grid grid-cols-2 gap-2 px-5 pt-3">
