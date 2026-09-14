@@ -563,6 +563,12 @@ export default function PayoutVerificationPanel() {
             })()}
           </div>
 
+          {/* Names do not match: show the ID name and let it become the holder's name */}
+          {row.name_match_score !== null && row.name_match_score < 0.8 && (
+            <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
+          )}
+
+
           {/* Contact actions */}
           <div className="grid grid-cols-2 gap-2 px-5 pt-3">
             {row.user_phone && (
