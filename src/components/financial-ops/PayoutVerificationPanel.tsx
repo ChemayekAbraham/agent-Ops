@@ -767,6 +767,26 @@ export default function PayoutVerificationPanel() {
             </div>
           </div>
 
+          {/* Same National ID on another account — rejected automatically */}
+          {row.duplicate_id_user_id && (
+            <div
+              role="alert"
+              className="mx-5 mt-3 flex items-start gap-3 rounded-2xl border-2 border-destructive bg-destructive/10 p-3"
+            >
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-sm font-black uppercase tracking-wide text-destructive">
+                  Same National ID on another account
+                </p>
+                <p className="mt-0.5 text-xs text-destructive/90">
+                  This ID already belongs to {row.duplicate_id_name || 'another account'}. It cannot be
+                  verified — the decision is rejected automatically.
+                </p>
+              </div>
+            </div>
+          )}
+
+
           {/* Names do not match: show the ID name and let it become the holder's name */}
           {row.name_match_score !== null && row.name_match_score < 0.8 && (
             <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
