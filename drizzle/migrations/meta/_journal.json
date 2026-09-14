@@ -442,6 +442,13 @@
       "when": 1789374789817,
       "tag": "0062_smartphone_full_payment_order",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1789375208537,
+      "tag": "0063_payout_verification_ready_first_sort",
+      "breakpoints": true
     }
   ]
 }
