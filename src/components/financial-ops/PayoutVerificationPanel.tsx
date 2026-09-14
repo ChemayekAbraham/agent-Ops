@@ -553,7 +553,12 @@ export default function PayoutVerificationPanel() {
   // are confident about — a doubtful read is flagged, never used as the name.
   const idNameConfidence = assessIdNameConfidence(row?.national_id_name);
   const idNameUnreadable = !!idPath && !idNameConfidence.confident;
-  const verifyBlocked = !photosReady || idNameUnreadable;
+  // One National ID and one phone number verify one account only: every later
+  // account is a double submission and can never be verified.
+  const isDouble = row?.double_submission === true;
+  const doubleWhat = row?.double_kind === 'phone' ? 'phone number' : 'National ID';
+  const verifyBlocked = !photosReady || idNameUnreadable || isDouble;
+
 
   const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
 
