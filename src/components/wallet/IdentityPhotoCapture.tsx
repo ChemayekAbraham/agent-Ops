@@ -361,6 +361,20 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           />
         )}
 
+        {!ready && (
+          <p className="text-xs text-muted-foreground">
+            Still needed:{' '}
+            {[
+              !haveId ? 'front of your National ID' : null,
+              !haveIdBack ? 'back of your National ID' : null,
+              !haveSelfie ? 'your selfie' : null,
+            ]
+              .filter(Boolean)
+              .join(', ')}
+            .
+          </p>
+        )}
+
 
         <Button className="w-full" disabled={!ready || saving} onClick={handleSave}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
