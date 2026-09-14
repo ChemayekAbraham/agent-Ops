@@ -498,11 +498,13 @@ export default function FindAHouse() {
     sort: sortKey === 'nearest' ? undefined : sortKey,
     // Page through EVERY matching listing — no fixed cap.
     paginate: true,
-    // Fetch a large first page so the map pins and the district/sub-county/
-    // village dropdowns see the full result set immediately — not just the
-    // first 24 rows the infinite-scroll sentinel would otherwise load.
-    pageSize: 500,
-    enabled: hasSharedLocation || !geo.loading,
+    // Show the first screen of cards fast; infinite scroll loads more as
+    // the user scrolls. Map view can lazy-load a lightweight pins query
+    // when opened (id + lat/lng only).
+    pageSize: 24,
+    // Start fetching immediately — don't wait for GPS. When geolocation
+    // resolves, the list re-sorts by distance client-side.
+    enabled: true,
   });
 
   // Exact listed-house counts (verified + not-yet-verified) for the active
