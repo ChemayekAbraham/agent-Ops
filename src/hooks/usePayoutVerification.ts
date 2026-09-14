@@ -146,7 +146,12 @@ export function useDecidePayoutDestination() {
         } catch { /* profile picture update is best-effort */ }
       }
 
-      return { ...(data as Record<string, unknown> ?? {}), id: input.id };
+      return { ...((data ?? {}) as Record<string, unknown>), id: input.id } as {
+        id: string;
+        status?: string;
+        full_name?: string | null;
+        name_source?: string | null;
+      };
     },
     onSuccess: (data) => {
       // Show the adopted verified name on the row instantly, before the
