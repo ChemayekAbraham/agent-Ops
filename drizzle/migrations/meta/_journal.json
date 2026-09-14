@@ -400,6 +400,13 @@
       "when": 1789371031345,
       "tag": "0056_merchant_claim_requires_id_and_selfie_submitted",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1789371631147,
+      "tag": "0057_finops_unverified_withdrawals_view",
+      "breakpoints": true
     }
   ]
 }
