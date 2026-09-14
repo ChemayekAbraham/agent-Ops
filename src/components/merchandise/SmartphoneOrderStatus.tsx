@@ -212,6 +212,32 @@ export default function SmartphoneOrderStatus({
     [orders, selectedId],
   );
 
+  // Reducing-balance repayment schedule for the order on screen.
+  const { data: scheduleRows = [] } = useQuery<ScheduleRow[]>({
+    queryKey: ['smartphone-repayment-schedule', selected?.id],
+    enabled: !!selected?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('smartphone_repayment_schedules')
+        .select('month_index, period_start, period_end, total_due, daily_deduction')
+        .eq('sale_id', selected!.id)
+        .order('month_index', { ascending: true });
+      if (error) throw error;
+      return (data || []) as ScheduleRow[];
+    },
+  });
+
+  const currentScheduleRow = useMemo(() => {
+    if (!scheduleRows.length) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    return (
+      scheduleRows.find((r) => r.period_start <= today && r.period_end >= today) ??
+      (today < scheduleRows[0].period_start ? scheduleRows[0] : scheduleRows[scheduleRows.length - 1])
+    );
+  }, [scheduleRows]);
+
+
   const handleCancel = async () => {
     if (!cancelTarget) return;
     setCancelling(true);
