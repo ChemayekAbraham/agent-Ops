@@ -69,7 +69,6 @@ import {
   useHolderNameHistory,
   useDecidePayoutDestination,
   useRevertHolderName,
-  useSetHolderName,
 
 
   usePayoutVerificationCounts,
