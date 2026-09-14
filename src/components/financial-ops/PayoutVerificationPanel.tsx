@@ -1132,6 +1132,16 @@ export default function PayoutVerificationPanel() {
               Verify is off — {idNameConfidence.reason} Ask for a clearer ID photo.
             </p>
           )}
+          {(() => {
+            const reason = blockedReasonFor(row);
+            if (!reason) return null;
+            return (
+              <p className={`-mt-1 flex items-start justify-center gap-1.5 px-5 pb-4 text-center text-xs font-medium ${reason.tone}`}>
+                <reason.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span>{reason.text}</span>
+              </p>
+            );
+          })()}
           {row.decision_reason && (
             <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
               Last note: {row.decision_reason}
