@@ -41,6 +41,11 @@ export interface PayoutDestinationRow {
   withdrawable_balance: number;
   /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
   name_source: 'national_id' | 'verified' | null;
+  /** True when this account is NOT the first holder of its National ID or phone number. */
+  double_submission: boolean;
+  double_kind: 'national_id' | 'phone' | null;
+  double_of_user_id: string | null;
+  double_of_name: string | null;
   total_count: number;
 }
 
@@ -50,6 +55,7 @@ export interface PayoutVerificationCounts {
   rejected: number;
   mismatch: number;
   no_id: number;
+  double: number;
   waiting_balance: number;
 }
 
