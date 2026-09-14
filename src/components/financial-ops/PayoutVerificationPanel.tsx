@@ -714,7 +714,7 @@ export default function PayoutVerificationPanel() {
 
           {/* Names do not match: show the ID name and let it become the holder's name */}
           {row.name_match_score !== null && row.name_match_score < 0.8 && (
-            <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
+            <IdNameMismatchCard row={row} />
           )}
 
           {/* Audit trail of name replacements */}
