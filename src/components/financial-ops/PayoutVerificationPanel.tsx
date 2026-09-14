@@ -218,6 +218,102 @@ function NameChangeHistory({ userId }: { userId: string }) {
 
 
 /**
+ * Everything the system read off each side of the National ID photo, when it
+ * was read, and what matched or failed against the account details.
+ */
+function IdReadingAuditTrail({ userId }: { userId: string }) {
+  const { data, isLoading } = useNationalIdOcrReads(userId);
+  if (isLoading || !data || data.length === 0) return null;
+
+  const stamp = (v: string) =>
+    new Date(v).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  const check = (label: string, ok: boolean | null) => {
+    if (ok === null) return (
+      <li key={label} className="flex items-center gap-1.5 text-muted-foreground">
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> {label}: not checked
+      </li>
+    );
+    return (
+      <li
+        key={label}
+        className={
+          ok
+            ? 'flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400'
+            : 'flex items-center gap-1.5 text-destructive'
+        }
+      >
+        {ok ? (
+          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+        ) : (
+          <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+        )}
+        {label}: {ok ? 'matched' : 'failed'}
+      </li>
+    );
+  };
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+        <ScanLine className="h-3.5 w-3.5" aria-hidden="true" /> What was read on the ID ({data.length})
+      </p>
+      <ul className="mt-2 space-y-2">
+        {data.map((r) => (
+          <li key={r.id} className="rounded-xl bg-background/70 px-3 py-2">
+            <p className="text-sm font-semibold leading-tight text-foreground">
+              {r.side === 'back' ? 'Back of ID' : 'Front of ID'}
+              <span className="ml-2 text-xs font-normal text-muted-foreground">{stamp(r.read_at)}</span>
+            </p>
+            <dl className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+              {r.extracted_name && (
+                <div>
+                  Name read: <span className="font-semibold text-foreground">{r.extracted_name}</span>
+                </div>
+              )}
+              {r.extracted_id_number && (
+                <div>
+                  ID number read:{' '}
+                  <span className="font-semibold text-foreground">{r.extracted_id_number}</span>
+                </div>
+              )}
+              {r.extracted_date_of_birth && <div>Date of birth read: {r.extracted_date_of_birth}</div>}
+              {r.account_name && <div>Account name on file: {r.account_name}</div>}
+            </dl>
+            <ul className="mt-1.5 space-y-0.5 text-xs">
+              {check('Name', r.name_matched)}
+              {check('ID number', r.id_number_matched)}
+              {check('Card was readable', r.readable)}
+              {check('Looks like a National ID', r.is_national_id)}
+            </ul>
+            {r.failure_reason && (
+              <p className="mt-1 text-xs font-medium text-destructive">{r.failure_reason}</p>
+            )}
+            {r.extracted_text && (
+              <details className="mt-1.5">
+                <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
+                  Full text read from this side
+                </summary>
+                <pre className="mt-1 whitespace-pre-wrap break-words rounded-lg bg-muted p-2 text-xs text-foreground">
+                  {r.extracted_text}
+                </pre>
+              </details>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
+/**
  * Shown when the names do not match. The name printed on the National ID is
  * spelled out, and Financial Ops either takes it as-is or types the final
  * name themselves before marking the payout verified.
