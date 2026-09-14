@@ -793,7 +793,7 @@ export default function PayoutVerificationPanel() {
                       </a>
                       {waLink(r.momo_number) && (
                         <a
-                          href={waLink(r.momo_number) as string}
+                          href={waLink(r.momo_number, `Hello, this is Welile Financial Ops contacting you about a payout number registered in your name.`) as string}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-600/50 text-emerald-700 h-12 text-sm font-bold"
