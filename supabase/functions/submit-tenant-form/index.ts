@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateFullName, mapProfileFullNameDbError, FULL_NAME_ERROR } from "../_shared/validateFullName.ts";
+import { guardAgentAssistedSignup, attachAgentSignupUser } from "../_shared/agentSignupGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,6 +117,25 @@ Deno.serve(async (req) => {
       userId = existingByPhone[0].id;
       isExisting = true;
     } else {
+      // Anti-bot guard: this form is unauthenticated (only a shareable token
+      // gates it) and a token allows up to 50 submissions over 72 hours with
+      // no other throttle -- without this, a script holding one valid token
+      // could mass-create fake tenants in seconds. Keyed on the token's own
+      // agent_id (already validated above) since there is no logged-in actor
+      // to key on. Same server-side burst cap (5/hour, 15/day) as the
+      // authenticated register-tenant flow. See
+      // docs/HANDOVER/22-signup-entry-points-hardening.md.
+      const guard = await guardAgentAssistedSignup(supabaseAdmin as any, {
+        req,
+        actorUserId: agent_id,
+        email: null,
+        phone: cleanPhone,
+        targetRole: "tenant",
+      });
+      if (!guard.allowed) {
+        return err(guard.reason || "This registration link is temporarily rate-limited. Please try again later.", 429);
+      }
+
       const tempPassword = crypto.randomUUID().slice(0, 12) + "Aa1!";
       const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email: virtualEmail, password: tempPassword, email_confirm: true,
@@ -129,6 +149,7 @@ Deno.serve(async (req) => {
         else return err(`Failed to create tenant: ${createErr.message}`, 500);
       } else {
         userId = authData.user.id;
+        await attachAgentSignupUser(supabaseAdmin as any, guard.attempt_id, userId);
         const { error: profileUpdateErr } = await supabaseAdmin
           .from("profiles")
           .update({ full_name, phone: cleanPhone })
