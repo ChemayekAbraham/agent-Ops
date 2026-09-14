@@ -712,6 +712,18 @@ export default function PayoutVerificationPanel() {
   const [photosAvailable, setPhotosAvailable] = useState<Record<string, boolean>>({});
   // Name tap → read-only profile sheet for that person.
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  // Tap-through detail drawer: the compact list row that was tapped.
+  const [detailRow, setDetailRow] = useState<PayoutDestinationRow | null>(null);
+
+  // Lock body scroll while the full-screen drawer is open.
+  useEffect(() => {
+    if (!detailRow) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [detailRow]);
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
