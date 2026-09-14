@@ -51,16 +51,31 @@ returns a 429 with a clear message instead of silently succeeding.
 
 No database migration was needed — this is edge-function-only code, deployed on push.
 
+## Hardened further (2026-09-14, same day)
+
+Per explicit request to make the signup-velocity guard as strict as possible,
+`20260914170000_harden_signup_velocity_guard.sql` lowered `handle_new_user()`'s cap
+from 15 signups/hour to a **dual window: 5/hour OR 10/24-hours** from the same
+referral link — matching the same standard already trusted in production for the
+agent-assisted paths (`record_agent_assisted_signup`: 5/hour, 15/day). Confirmed safe
+for legitimate high-volume agent recruitment: those flows create the auth user via
+`auth.admin.createUser()` without `referrer_id` in `raw_user_meta_data`, so this
+branch of `handle_new_user()` never runs for them at all — they're governed
+exclusively by their own, separate caps.
+
 ## What's still open
 
 - **The general public signup form is still only client-guarded against a script that
-  skips the client entirely.** The DB-trigger velocity guard added in `20260914150000`
-  closes the specific "one referrer, many signups" shape of abuse, but a bot ring with
-  no `referrer_id` at all, or spread thin across many low-volume referrer identities,
-  would not trip it. The complete fix for that is a CAPTCHA/Turnstile gate on Supabase
-  Auth's own signup endpoint (configured in the Supabase dashboard's Auth → Attack
-  Protection settings) — this cannot be done from application code and has not been
-  done.
+  skips the client entirely.** The DB-trigger velocity guard closes the specific "one
+  referrer, many signups" shape of abuse, but a bot ring with no `referrer_id` at all,
+  or spread thin across many low-volume referrer identities (or many different device
+  fingerprints/IPs each under the per-referrer cap), would not trip it. **The complete
+  fix — a CAPTCHA/Turnstile gate on Supabase Auth's own signup endpoint — is
+  configured in the Supabase Dashboard (Authentication → Attack Protection), not in
+  this codebase, and requires a free hCaptcha or Cloudflare Turnstile site key/secret
+  that only a project owner can generate. This has NOT been done and cannot be done
+  from here** — no tool in this environment has Supabase Dashboard/Management-API
+  access. Flagged directly to Josh with setup steps; his call whether/when to do it.
 - **`register-tenant` accepts an arbitrary `email` from the request body.** Its 5/hour,
   15/day cap is real and would have blocked the volume seen in the incident already
   fixed, but it's worth knowing this path *can* produce a Gmail-pattern fake account too,
