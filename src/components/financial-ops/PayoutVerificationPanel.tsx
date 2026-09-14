@@ -21,6 +21,7 @@ import {
   IdCard,
   Loader2,
   MessageCircle,
+  MessageSquare,
   PhoneCall,
   Search,
   ShieldAlert,
