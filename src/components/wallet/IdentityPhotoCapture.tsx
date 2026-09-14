@@ -156,6 +156,27 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [readError, setReadError] = useState<string | null>(null);
   const [savingDetails, setSavingDetails] = useState(false);
 
+  // Automatic blur / glare / contrast check, per photo.
+  const [idQuality, setIdQuality] = useState<PhotoQualityResult | null>(null);
+  const [selfieQuality, setSelfieQuality] = useState<PhotoQualityResult | null>(null);
+  const [checkingId, setCheckingId] = useState(false);
+  const [checkingSelfie, setCheckingSelfie] = useState(false);
+
+  /** Scores the shot; a failed photo is announced so the person retakes it. */
+  const gradePhoto = async (
+    file: File,
+    label: string,
+    setChecking: (v: boolean) => void,
+    setQuality: (r: PhotoQualityResult) => void,
+  ): Promise<PhotoQualityResult> => {
+    setChecking(true);
+    const result = await checkPhotoQuality(file);
+    setQuality(result);
+    setChecking(false);
+    if (!result.ok) toast.error(retakeMessage(label, result));
+    return result;
+  };
+
   const readIdPhoto = async (file: File) => {
     setReading(true);
     setIdReading(null);
