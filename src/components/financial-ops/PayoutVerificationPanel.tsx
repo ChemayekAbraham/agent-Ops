@@ -385,16 +385,22 @@ function DecisionDialog({
   const [reason, setReason] = useState('');
   const [callOutcome, setCallOutcome] = useState('');
   const [decision, setDecision] = useState<'verified' | 'rejected'>('verified');
-  const verifyBlocked = !photosReady || idNameUnreadable;
+  const isDouble = row?.double_submission === true;
+  const doubleWhat = row?.double_kind === 'phone' ? 'phone number' : 'National ID';
+  const verifyBlocked = !photosReady || idNameUnreadable || isDouble;
 
   useEffect(() => {
-    setDecision(!photosReady || idNameUnreadable ? 'rejected' : 'verified');
+    setDecision(!photosReady || idNameUnreadable || isDouble ? 'rejected' : 'verified');
     setReason('');
     setCallOutcome('');
-  }, [row, photosReady, idNameUnreadable]);
+  }, [row, photosReady, idNameUnreadable, isDouble]);
 
   const submit = async () => {
     if (!row) return;
+    if (decision === 'verified' && isDouble) {
+      toast.error(`Double submission — this ${doubleWhat} already verifies another account. Only the first account may use it.`);
+      return;
+    }
     if (decision === 'verified' && !photosReady) {
       toast.error('Both the National ID photo and the selfie must be on file before verifying.');
       return;
