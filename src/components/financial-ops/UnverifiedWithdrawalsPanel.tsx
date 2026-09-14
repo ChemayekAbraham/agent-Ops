@@ -70,6 +70,24 @@ function MissingChips({ row }: { row: UnverifiedWithdrawalRow }) {
   );
 }
 
+/** Colourblind-friendly outcome badge: icon + plain words, never colour alone. */
+function StatusBadge({ badge }: { badge: UnverifiedWithdrawalRow['badge'] }) {
+  const label = badgeLabel(badge);
+  const Icon = badge === 'verified' ? BadgeCheck : badge === 'needs_review' ? AlertTriangle : Clock;
+  const tone =
+    badge === 'verified'
+      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+      : badge === 'needs_review'
+        ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+        : 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400';
+  return (
+    <Badge variant="outline" className={`gap-1 ${tone}`} role="status" aria-label={`Status: ${label}`}>
+      <Icon className="h-3 w-3" aria-hidden />
+      {label}
+    </Badge>
+  );
+}
+
 function Row({ row }: { row: UnverifiedWithdrawalRow }) {
   const call = telHref(row.phone ?? row.mobile_money_number);
   return (
@@ -82,6 +100,7 @@ function Row({ row }: { row: UnverifiedWithdrawalRow }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <p className="truncate text-base font-semibold">{row.full_name ?? 'Unknown user'}</p>
+            <StatusBadge badge={row.badge} />
             <Badge
               variant="outline"
               className="gap-1 border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400"
