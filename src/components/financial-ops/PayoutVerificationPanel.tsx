@@ -972,7 +972,7 @@ export default function PayoutVerificationPanel() {
             <Button
               className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
               disabled={verifyBlocked || quickVerify.isPending}
-              onClick={() => runQuickVerify(row)}
+              onClick={() => setConfirmingVerify(row)}
             >
               {quickVerify.isPending ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
