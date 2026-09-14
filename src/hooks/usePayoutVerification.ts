@@ -245,6 +245,29 @@ export function useSetHolderName() {
   });
 }
 
+/**
+ * Admin rollback: put back the name a National ID adoption (or a manual
+ * override) replaced. Admin-only (CFO / super admin) inside the database.
+ */
+export function useRevertHolderName() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { auditId: string; reason?: string }) => {
+      const { data, error } = await supabase.rpc('finops_revert_holder_name', {
+        p_audit_id: input.auditId,
+        p_reason: input.reason ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as { success?: boolean; full_name?: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
+    },
+  });
+}
+
 export interface HolderNameChange {
   id: string;
   changed_at: string;
@@ -254,6 +277,7 @@ export interface HolderNameChange {
   new_name: string | null;
   source: string | null;
   reason: string | null;
+  can_revert: boolean | null;
 }
 
 /**
