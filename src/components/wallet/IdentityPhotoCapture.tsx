@@ -155,6 +155,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [savingDetails, setSavingDetails] = useState(false);
+  // The person agrees the exact name on the ID becomes their account name.
+  const [nameConsent, setNameConsent] = useState(false);
+
 
   // Automatic blur / glare / contrast check, per photo.
   const [idQuality, setIdQuality] = useState<PhotoQualityResult | null>(null);
