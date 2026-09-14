@@ -76,6 +76,30 @@ function ShotTile({ label, hint, file, onPick, onClear, disabled }: ShotTileProp
   );
 }
 
+/** Thumbnail of a photo already archived in the verification history. */
+function StoredShot({ path, label, note }: { path: string; label: string; note: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    identityPhotoUrl(path).then((u) => { if (live) setUrl(u); });
+    return () => { live = false; };
+  }, [path]);
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border bg-muted/40 p-3">
+      {url ? (
+        <img src={url} alt={label} className="h-16 w-16 rounded-md border object-cover" />
+      ) : (
+        <div className="h-16 w-16 animate-pulse rounded-md bg-muted" />
+      )}
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{label} already on file</p>
+        <p className="text-xs text-muted-foreground">{note}</p>
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   /** Shown on the withdraw gate; hidden once both photos are on file. */
   compact?: boolean;
@@ -95,21 +119,34 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [previewSelfie, setPreviewSelfie] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const alreadyDone = !!mine.data?.national_id_photo_path && !!mine.data?.selfie_photo_path;
+  // Whatever is already archived is reused instead of asked for again, so a
+  // partial submission (e.g. selfie stored, ID shot missing) only requires the
+  // missing half and the stored original selfie stays the verification copy.
+  const storedIdPath = mine.data?.national_id_photo_path ?? null;
+  const storedSelfiePath = mine.data?.selfie_photo_path ?? null;
+
+  const alreadyDone = !!storedIdPath && !!storedSelfiePath;
   if (alreadyDone) return null;
 
-  const ready = !!idPhoto && !!selfieOriginal && !!selfieCropped;
+  const haveId = !!idPhoto || !!storedIdPath;
+  const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
+  const ready = haveId && haveSelfie;
 
   const handleSave = async () => {
-    if (!user?.id || !idPhoto || !selfieOriginal || !selfieCropped) return;
+    if (!user?.id || !ready) return;
     setSaving(true);
     try {
-      // Archive the ORIGINALS in the private verification bucket.
-      const idPath = await uploadIdentityPhoto(user.id, 'national-id', idPhoto);
-      const selfiePath = await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal);
+      // Archive the ORIGINALS in the private verification bucket; reuse the
+      // stored original when the user is only filling in the missing shot.
+      const idPath = idPhoto
+        ? await uploadIdentityPhoto(user.id, 'national-id', idPhoto)
+        : storedIdPath!;
+      const selfiePath = selfieOriginal
+        ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
+        : storedSelfiePath!;
       await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
       // The cropped copy is only the profile picture — best effort.
-      const avatar = await setSelfieAsProfilePhoto(user.id, selfieCropped);
+      const avatar = selfieCropped ? await setSelfieAsProfilePhoto(user.id, selfieCropped) : null;
       toast.success(
         avatar
           ? 'Photos received. Your original photo is saved for verification and your cropped photo is now your profile picture.'
@@ -124,6 +161,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       setSaving(false);
     }
   };
+
 
   return (
     <Card className={compact ? 'border-2 border-destructive' : undefined}>
