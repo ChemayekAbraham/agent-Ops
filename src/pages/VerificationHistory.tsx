@@ -48,14 +48,7 @@ function Thumb({
       {file?.url ? (
         <button
           type="button"
-          onClick={() =>
-            onOpen({
-              url: file.url!,
-              label,
-              takenAt,
-              fileName: file.path.split('/').pop() || 'verification-photo.jpg',
-            })
-          }
+          onClick={onOpen}
           className="block w-full"
           aria-label={`Open ${label} in full resolution`}
         >
