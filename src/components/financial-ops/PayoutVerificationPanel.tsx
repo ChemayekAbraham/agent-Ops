@@ -120,6 +120,23 @@ function readinessBadge(photosReady: boolean): {
 }
 
 /**
+ * Where the name on the account came from: adopted from the National ID, or
+ * confirmed/set by a reviewer when the selfie was verified. Returns null when
+ * the name has never been touched, so no badge shows.
+ */
+function nameSourceBadge(source: PayoutDestinationRow['name_source']): {
+  label: string;
+  Icon: typeof Camera;
+  classes: string;
+} | null {
+  if (source === 'national_id')
+    return { label: 'ID name', Icon: IdCard, classes: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/40' };
+  if (source === 'verified')
+    return { label: 'Verified name', Icon: UserCheck, classes: 'bg-violet-500/15 text-violet-700 ring-1 ring-inset ring-violet-500/40' };
+  return null;
+}
+
+/**
  * Every time the name on the account was replaced by the name read from the
  * National ID (or corrected by hand), it is recorded in the audit log. This
  * shows that trail: who changed it, when, and from what to what.
@@ -634,6 +651,20 @@ export default function PayoutVerificationPanel() {
                 <span
                   role="status"
                   aria-label={`Readiness: ${badge.label}`}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
+                >
+                  <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {badge.label}
+                </span>
+              );
+            })()}
+            {(() => {
+              const badge = nameSourceBadge(row.name_source);
+              if (!badge) return null;
+              return (
+                <span
+                  role="status"
+                  aria-label={`Name source: ${badge.label}`}
                   className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
                 >
                   <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
