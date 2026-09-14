@@ -109,6 +109,22 @@ export default function VerificationHistoryPage() {
     return list;
   }, [entries]);
 
+  // Maps "<entryId>:<kind>" to that photo's index in flatPhotos.
+  const photoIndexOf = useMemo(() => {
+    const map = new Map<string, number>();
+    let i = 0;
+    for (const e of entries) {
+      for (const [kind, file] of [
+        ['original', e.original],
+        ['cropped', e.cropped],
+        ['nationalId', e.nationalId],
+      ] as const) {
+        if (file?.url) map.set(`${e.id}:${kind}`, i++);
+      }
+    }
+    return map;
+  }, [entries]);
+
   const preview = previewIndex !== null ? flatPhotos[previewIndex] ?? null : null;
 
   const openPhoto = (index: number) => {
