@@ -41,11 +41,7 @@ export interface PayoutDestinationRow {
   withdrawable_balance: number;
   /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
   name_source: 'national_id' | 'verified' | null;
-  /** Set when this National ID already belongs to another account (auto-rejected). */
-  duplicate_id_user_id: string | null;
-  duplicate_id_name: string | null;
   total_count: number;
-
 }
 
 export interface PayoutVerificationCounts {
@@ -148,18 +144,6 @@ export function useDecidePayoutDestination() {
           const url = (res.data as { avatar_url?: string } | null)?.avatar_url;
           if (url) publishAvatarUpdate(input.userId, url);
         } catch { /* profile picture update is best-effort */ }
-      }
-
-      // Tell the holder their account is verified and they can withdraw now.
-      // Best-effort: a failed notice must never fail the decision.
-      const autoRejected = (data as { auto_rejected_duplicate_id?: boolean } | null)
-        ?.auto_rejected_duplicate_id;
-      if (input.decision === 'verified' && !autoRejected) {
-        try {
-          await supabase.functions.invoke('notify-identity-verified', {
-            body: { destinationId: input.id },
-          });
-        } catch { /* confirmation message is best-effort */ }
       }
 
       return { ...((data ?? {}) as Record<string, unknown>), id: input.id } as {

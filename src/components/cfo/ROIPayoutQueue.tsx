@@ -2,14 +2,14 @@ import { useState, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { CheckCircle, XCircle, Loader2, User, Wallet, Pencil, TrendingUp } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, User, Wallet, Pencil } from 'lucide-react';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
 
@@ -141,179 +141,143 @@ export function ROIPayoutQueue() {
     );
   }
 
+  if (operations.length === 0) {
+    return (
+      <div className="rounded-lg border py-6 text-center text-sm text-muted-foreground">
+        No COO-approved ROI payouts waiting for CFO approval.
+      </div>
+    );
+  }
+
   return (
-    <Card className="overflow-hidden rounded-2xl border-border/70 shadow-sm">
-      <CardHeader className="pb-0 space-y-0 p-0">
-        {/* Title band */}
-        <div className="flex items-start justify-between gap-4 flex-wrap px-5 pt-5 pb-4">
-          <div className="flex items-start gap-3.5 min-w-0">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25">
-              <TrendingUp className="h-6 w-6" />
-            </span>
-            <div className="min-w-0 space-y-1">
-              <CardTitle className="text-xl sm:text-2xl font-extrabold tracking-tight">
-                ROI Payout Queue
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                COO-approved ROI payouts waiting for CFO approval.
-              </p>
-              <div className="flex items-center gap-4 flex-wrap pt-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Wallet className="h-3.5 w-3.5" />
-                  {operations.length} payout{operations.length === 1 ? '' : 's'} in queue
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </CardHeader>
+    <div className="space-y-3">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        {operations.length} ROI payout{operations.length === 1 ? '' : 's'} ready for CFO approval
+      </p>
 
-      <CardContent className="space-y-4 p-5">
-        {operations.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No COO-approved ROI payouts waiting for CFO approval.
-          </div>
-        ) : (
-          <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
-            <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
-              <table className="w-full text-sm min-w-[48rem]">
-                <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-border/70 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-                    <th className="w-10 px-2 py-2 text-center font-semibold">#</th>
-                    <th className="px-2 py-2 text-left font-semibold">Payee</th>
-                    <th className="px-2 py-2 text-left font-semibold">Recipient</th>
-                    <th className="px-2 py-2 text-right font-semibold">Amount</th>
-                    <th className="px-2 py-2 text-left font-semibold">Submitted</th>
-                    <th className="px-2 py-2 text-left font-semibold">Status</th>
-                    <th className="px-2 py-2 text-right font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {operations.map((op, index) => {
-                    const meta = op.metadata as Record<string, any> | null;
-                    const isProxy = !!op.target_wallet_user_id;
-                    const rejReason = rejectionReasons[op.id] || '';
-                    const editedRaw = editedAmounts[op.id];
-                    const hasEdit = editedRaw !== undefined && editedRaw !== '';
-                    const editedAmount = hasEdit ? Math.round(Number(editedRaw)) : op.amount;
-                    const editValid = !hasEdit || (Number.isFinite(editedAmount) && editedAmount > 0);
-                    const amountChanged = hasEdit && editValid && editedAmount !== op.amount;
-                    const rowNumber = index + 1;
+      <div className="rounded-lg border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Payee</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead>Submitted</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {operations.map(op => {
+              const meta = op.metadata as Record<string, any> | null;
+              const isProxy = !!op.target_wallet_user_id;
+              const rejReason = rejectionReasons[op.id] || '';
+              const editedRaw = editedAmounts[op.id];
+              const hasEdit = editedRaw !== undefined && editedRaw !== '';
+              const editedAmount = hasEdit ? Math.round(Number(editedRaw)) : op.amount;
+              const editValid = !hasEdit || (Number.isFinite(editedAmount) && editedAmount > 0);
+              const amountChanged = hasEdit && editValid && editedAmount !== op.amount;
 
-                    return (
-                      <Fragment key={op.id}>
-                        <tr className="border-b border-border/70 last:border-0 hover:bg-muted/40 transition-colors">
-                          <td className="w-10 px-2 py-2.5 align-middle text-center">
-                            <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-muted/60 text-[10px] font-medium text-muted-foreground">
-                              {rowNumber}
-                            </span>
-                          </td>
-                          <td className="px-2 py-2.5 align-middle">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <User className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-semibold">{meta?.partner_name || getName(op.user_id)}</span>
-                            </div>
-                            {op.description && (
-                              <p className="text-xs text-muted-foreground mt-1 max-w-md">{op.description}</p>
-                            )}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle">
-                            {isProxy ? (
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Wallet className="h-4 w-4 text-primary" />
-                                <span className="font-semibold text-primary">{meta?.target_agent_name || getName(op.target_wallet_user_id)}</span>
-                                <Badge variant="outline" className="text-xs">Proxy Agent</Badge>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle text-right">
-                            <p className="font-bold text-primary">{formatUGX(editValid ? editedAmount : op.amount)}</p>
-                            {amountChanged && (
-                              <p className="text-[11px] text-muted-foreground">
-                                Original: <span className="line-through">{formatUGX(op.amount)}</span>
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
-                            {format(new Date(op.created_at), 'dd MMM yyyy, HH:mm')}
-                            <br />
-                            Ref: {op.reference_id || '—'}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle">
-                            <Badge variant="secondary">COO Approved</Badge>
-                          </td>
-                          <td className="px-2 py-2.5 align-middle text-right whitespace-nowrap">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => approveMutation.mutate({ opId: op.id, overrideAmount: amountChanged ? editedAmount : undefined })}
-                                disabled={approveMutation.isPending || !editValid}
-                              >
-                                {approveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CheckCircle className="h-3.5 w-3.5 mr-1" />}
-                                {amountChanged ? `Approve ${formatUGX(editedAmount)}` : 'Approve'}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                disabled={rejReason.length < 10 || rejectMutation.isPending}
-                                onClick={() => rejectMutation.mutate({ opId: op.id, reason: rejReason })}
-                              >
-                                {rejectMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
-                                Reject
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
+              return (
+                <Fragment key={op.id}>
+                  <TableRow>
+                    <TableCell>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-semibold">{meta?.partner_name || getName(op.user_id)}</span>
+                        {isProxy && (
+                          <>
+                            <span className="text-muted-foreground">→</span>
+                            <Wallet className="h-4 w-4 text-primary" />
+                            <span className="font-semibold text-primary">{meta?.target_agent_name || getName(op.target_wallet_user_id)}</span>
+                            <Badge variant="outline" className="text-xs">Proxy Agent</Badge>
+                          </>
+                        )}
+                      </div>
+                      {op.description && (
+                        <p className="text-xs text-muted-foreground mt-1 max-w-md">{op.description}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <p className="font-bold text-primary">{formatUGX(editValid ? editedAmount : op.amount)}</p>
+                      {amountChanged && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Original: <span className="line-through">{formatUGX(op.amount)}</span>
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(op.created_at), 'dd MMM yyyy, HH:mm')}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">Ref: {op.reference_id || '—'}</p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">COO Approved</Badge>
+                    </TableCell>
+                  </TableRow>
 
-                        <tr className="border-b border-border/70 bg-muted/30">
-                          <td colSpan={7} className="px-2 py-3">
-                            <div className="grid gap-4 md:grid-cols-[240px_1fr_320px] items-start">
-                              {/* CFO-editable payout amount */}
-                              <div className="space-y-2">
-                                <Label className="text-[11px] flex items-center gap-1 text-muted-foreground">
-                                  <Pencil className="h-3 w-3" /> Payout amount (editable)
-                                </Label>
-                                <Input
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={1}
-                                  value={editedRaw ?? String(op.amount)}
-                                  onChange={e => setEditedAmounts(prev => ({ ...prev, [op.id]: e.target.value }))}
-                                  className="h-9 text-sm font-mono"
-                                />
-                                {!editValid && (
-                                  <p className="text-[11px] text-destructive">Enter a valid amount greater than 0.</p>
-                                )}
-                              </div>
+                  <TableRow className="bg-muted/30">
+                    <TableCell colSpan={4}>
+                      <div className="grid gap-4 md:grid-cols-[240px_1fr_320px] items-start">
+                        {/* CFO-editable payout amount */}
+                        <div className="space-y-2">
+                          <Label className="text-[11px] flex items-center gap-1 text-muted-foreground">
+                            <Pencil className="h-3 w-3" /> Payout amount (editable)
+                          </Label>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            value={editedRaw ?? String(op.amount)}
+                            onChange={e => setEditedAmounts(prev => ({ ...prev, [op.id]: e.target.value }))}
+                            className="h-9 text-sm font-mono"
+                          />
+                          {!editValid && (
+                            <p className="text-[11px] text-destructive">Enter a valid amount greater than 0.</p>
+                          )}
+                          <Button
+                            size="sm"
+                            className="w-full md:w-auto"
+                            onClick={() => approveMutation.mutate({ opId: op.id, overrideAmount: amountChanged ? editedAmount : undefined })}
+                            disabled={approveMutation.isPending || !editValid}
+                          >
+                            {approveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CheckCircle className="h-3.5 w-3.5 mr-1" />}
+                            {amountChanged ? `Approve ${formatUGX(editedAmount)}` : 'Approve'}
+                          </Button>
+                        </div>
 
-                              {/* Rejection reason */}
-                              <div className="space-y-2">
-                                <Label className="text-[11px] text-muted-foreground">Rejection reason (min 10 chars)</Label>
-                                <Textarea
-                                  placeholder="Why is this payout being rejected?"
-                                  value={rejReason}
-                                  onChange={e => setRejectionReasons(prev => ({ ...prev, [op.id]: e.target.value }))}
-                                  className="text-xs min-h-[60px]"
-                                  rows={2}
-                                />
-                              </div>
+                        {/* Rejection reason */}
+                        <div className="space-y-2">
+                          <Label className="text-[11px] text-muted-foreground">Rejection reason (min 10 chars)</Label>
+                          <Textarea
+                            placeholder="Why is this payout being rejected?"
+                            value={rejReason}
+                            onChange={e => setRejectionReasons(prev => ({ ...prev, [op.id]: e.target.value }))}
+                            className="text-xs min-h-[60px]"
+                            rows={2}
+                          />
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="w-full md:w-auto"
+                            disabled={rejReason.length < 10 || rejectMutation.isPending}
+                            onClick={() => rejectMutation.mutate({ opId: op.id, reason: rejReason })}
+                          >
+                            {rejectMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
+                            Reject
+                          </Button>
+                        </div>
 
-                              {/* Treasury impact */}
-                              <TreasuryImpactBanner payoutAmount={editValid ? editedAmount : op.amount} />
-                            </div>
-                          </td>
-                        </tr>
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                        {/* Treasury impact */}
+                        <TreasuryImpactBanner payoutAmount={editValid ? editedAmount : op.amount} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </Fragment>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }

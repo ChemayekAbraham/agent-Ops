@@ -16,7 +16,7 @@ import { HouseListing } from '@/hooks/useHouseListings';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+
 import { WhatsAppAgentButton } from '@/components/tenant/WhatsAppAgentButton';
 import { ShareHouseButton } from '@/components/tenant/ShareHouseButton';
 import { useHouseReviews } from '@/hooks/useHouseReviews';
@@ -31,7 +31,7 @@ import NearbyAmenities from '@/components/house/NearbyAmenities';
 import { MoveInOfferBadge } from '@/components/house/MoveInOfferBadge';
 import { motion } from 'framer-motion';
 import {
-  Home, MapPin, DoorOpen, Droplets, Zap, ShieldCheck, Car, Sofa,
+  Home, DoorOpen, Droplets, Zap, ShieldCheck, Car, Sofa,
   ChevronLeft, ChevronRight, Clock, ExternalLink, Share2, Check, ArrowLeft, Star,
   Eye, Navigation, Copy, MessageCircle, Video,
 } from 'lucide-react';
@@ -544,70 +544,105 @@ export default function HouseDetail() {
         </div>
 
         {/* ── Content ── */}
-        <main className="max-w-2xl mx-auto px-4 space-y-5 mt-[5px] relative z-10">
-          {/* Title card — overlaps hero slightly */}
+        <main className="max-w-2xl mx-auto px-4 space-y-6 mt-5 relative z-10">
+          {/* Title — large, clean, centered like Airbnb */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-card rounded-2xl border border-border shadow-lg p-4 space-y-2"
           >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <h1 className="font-bold text-lg leading-snug text-wrap-balance">{listing.title}</h1>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <p className="text-sm text-muted-foreground truncate">
-                    {listing.address}, {listing.region}{listing.district ? `, ${listing.district}` : ''}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                {isPending ? (
-                  <Badge variant="outline" className="text-[10px] bg-warning/15 text-warning border-warning/30 gap-0.5">
-                    <Clock className="h-3 w-3" /> Pending
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px] bg-success/15 text-success border-success/30 gap-0.5">
-                    <ShieldCheck className="h-3 w-3" /> Verified
-                  </Badge>
-                )}
-                <Badge variant="secondary" className="text-[10px]">{categoryLabel}</Badge>
-              </div>
-            </div>
-
-            {/* Rating summary inline */}
-            {summary.totalReviews > 0 && (
-              <div className="flex items-center gap-1.5 text-sm">
-                <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                <span className="font-bold">{summary.averageRating.toFixed(1)}</span>
-                <span className="text-muted-foreground">· {summary.totalReviews} review{summary.totalReviews !== 1 ? 's' : ''}</span>
-              </div>
-            )}
+            <h1 className="font-bold text-2xl leading-tight">{listing.title}</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {categoryLabel} in {listing.region}{listing.district ? `, ${listing.district}` : ''}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {listing.number_of_rooms} room{listing.number_of_rooms > 1 ? 's' : ''} · {listing.address}
+            </p>
           </motion.div>
 
-          {/* ── Daily Rate — hero CTA card ── */}
+          {/* Rating badge — Airbnb 3-column */}
+          {summary.totalReviews > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center justify-center gap-0 rounded-xl border border-border overflow-hidden"
+            >
+              <div className="flex-1 flex flex-col items-center py-3 px-2">
+                <span className="text-xl font-bold">{summary.averageRating.toFixed(2)}</span>
+                <div className="flex gap-0.5 mt-0.5">
+                  {[1,2,3,4,5].map(i => (
+                    <Star key={i} className={`h-3 w-3 ${i <= Math.round(summary.averageRating) ? 'fill-foreground text-foreground' : 'text-muted-foreground/30'}`} />
+                  ))}
+                </div>
+              </div>
+              <div className="w-px h-12 bg-border" />
+              <div className="flex-1 flex flex-col items-center py-3 px-2">
+                <span className="text-lg">🏆</span>
+                <span className="text-[11px] font-bold leading-tight text-center">Top<br />Rated</span>
+              </div>
+              <div className="w-px h-12 bg-border" />
+              <div className="flex-1 flex flex-col items-center py-3 px-2">
+                <span className="text-xl font-bold">{summary.totalReviews}</span>
+                <span className="text-[11px] text-muted-foreground font-medium">Review{summary.totalReviews !== 1 ? 's' : ''}</span>
+              </div>
+            </motion.div>
+          )}
+
+          <div className="border-t border-border" />
+
+          {/* ── Agent card — Airbnb host style ── */}
+          {listing.agent_name && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center gap-3"
+            >
+              <div className="w-12 h-12 rounded-full bg-foreground text-background flex items-center justify-center font-bold text-lg">
+                {listing.agent_name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-base">Listed by {listing.agent_name}</p>
+                <p className="text-sm text-muted-foreground">Welile Agent</p>
+              </div>
+            </motion.div>
+          )}
+
+          <div className="border-t border-border" />
+
+          {/* ── Daily Rate — Airbnb price section ── */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-2xl border-2 border-success/30 bg-gradient-to-br from-success/15 via-success/5 to-transparent p-5"
+            transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           >
-            <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold mb-1">Daily Rent</p>
-            <p className="text-4xl font-black text-success leading-none">{formatUGX(listing.daily_rate)}</p>
-            <p className="text-sm text-muted-foreground mt-1 font-medium">per day · pay as you stay</p>
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <VisitBadge reviewCount={summary.totalReviews} />
-              <PriceComparison region={listing.region} category={listing.house_category} dailyRate={listing.daily_rate} houseId={listing.id} />
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold">{formatUGX(listing.daily_rate)}</span>
+                <span className="text-sm text-muted-foreground">/ day</span>
+              </div>
+              <p className="text-sm text-muted-foreground">Pay as you stay · no commitment</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <VisitBadge reviewCount={summary.totalReviews} />
+                <PriceComparison region={listing.region} category={listing.house_category} dailyRate={listing.daily_rate} houseId={listing.id} />
+              </div>
+              <MoveInOfferBadge variant="banner" className="mt-2" />
+              {listing.agent_phone && (
+                <div className="pt-2">
+                  <WhatsAppAgentButton phone={listing.agent_phone} agentName={listing.agent_name} houseTitle={listing.title} />
+                </div>
+              )}
             </div>
-            <MoveInOfferBadge variant="banner" className="mt-4" />
           </motion.div>
+
+          <div className="border-t border-border" />
 
           {/* ── Share row ── */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ delay: 0.12, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           >
             <ShareHouseButton
               listingId={listing.id}
@@ -623,30 +658,45 @@ export default function HouseDetail() {
             />
           </motion.div>
 
-          {/* ── Room & Amenities grid ── */}
+          <div className="border-t border-border" />
+
+          {/* ── What this place offers — clean list ── */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ delay: 0.14, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             className="space-y-3"
           >
-            <h2 className="font-bold text-sm text-foreground">What this place offers</h2>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/50 border border-border">
-                <DoorOpen className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-bold text-sm">{listing.number_of_rooms}</p>
-                  <p className="text-[11px] text-muted-foreground">Room{listing.number_of_rooms > 1 ? 's' : ''}</p>
-                </div>
+            <h2 className="font-semibold text-lg">What this place offers</h2>
+            <div className="space-y-0">
+              <div className="flex items-center gap-3 py-3 border-b border-border/50">
+                <DoorOpen className="h-6 w-6 text-muted-foreground" />
+                <span className="text-sm">{listing.number_of_rooms} Room{listing.number_of_rooms > 1 ? 's' : ''}</span>
               </div>
               {amenities.map((a, i) => (
-                <div key={i} className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/50 border border-border">
-                  <a.icon className={`h-5 w-5 ${a.color}`} />
-                  <p className="font-medium text-sm">{a.label}</p>
+                <div key={i} className="flex items-center gap-3 py-3 border-b border-border/50 last:border-b-0">
+                  <a.icon className="h-6 w-6 text-muted-foreground" />
+                  <span className="text-sm">{a.label}</span>
                 </div>
               ))}
             </div>
           </motion.div>
+
+          {isPending && (
+            <div className="flex items-center gap-2 text-sm text-warning">
+              <Clock className="h-4 w-4" />
+              <span>This listing is pending verification</span>
+            </div>
+          )}
+
+          {!isPending && (
+            <div className="flex items-center gap-2 text-sm text-success">
+              <ShieldCheck className="h-4 w-4" />
+              <span>Verified listing</span>
+            </div>
+          )}
+
+          <div className="border-t border-border" />
 
           {/* ── Description ── */}
           {listing.description && (
@@ -752,30 +802,6 @@ export default function HouseDetail() {
 
           {/* ── Nearby Amenities ── */}
           <NearbyAmenities latitude={listing.latitude} longitude={listing.longitude} />
-
-          {/* ── Agent card ── */}
-          {listing.agent_name && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="rounded-2xl border border-border bg-card p-4"
-            >
-              <h2 className="font-bold text-sm text-foreground mb-3">Your Agent</h2>
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-base">
-                  {listing.agent_name.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm truncate">{listing.agent_name}</p>
-                  <p className="text-xs text-muted-foreground">Welile Agent · Tap below to chat</p>
-                </div>
-              </div>
-              <div className="mt-3">
-                <WhatsAppAgentButton phone={listing.agent_phone} agentName={listing.agent_name} houseTitle={listing.title} />
-              </div>
-            </motion.div>
-          )}
 
           {/* ── Q&A ── */}
           <HouseQASection houseId={listing.id} agentId={listing.agent_id} />

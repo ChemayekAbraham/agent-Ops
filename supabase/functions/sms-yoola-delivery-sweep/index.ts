@@ -40,19 +40,12 @@ function extractYoolaMessageId(providerMessageId: string | null, providerRespons
   return firstString(yoolaResponse?.message_id, yoolaResponse?.messageId, yoolaResponse?.id, recipient?.message_id, recipient?.messageId);
 }
 
-function mapYoolaStatus(rawStatus: unknown): { status: "delivered" | "failed" | "sent" | "pending"; error: string | null } {
+function mapYoolaStatus(rawStatus: unknown): { status: "delivered" | "failed" | "pending"; error: string | null } {
   const normalized = String(rawStatus ?? "").trim().toLowerCase();
   if (["delivered", "success"].includes(normalized)) return { status: "delivered", error: null };
   if (["failed", "rejected", "undelivered", "expired", "blocked"].includes(normalized)) {
     return { status: "failed", error: `Yoola delivery report: ${normalized || "failed"}` };
   }
-  // Yoola's delivery report for this account/route effectively never
-  // progresses past "sent" (confirmed against production: tens of thousands
-  // of checked rows, zero ever reached "delivered"). "sent" means the carrier
-  // accepted the message — the strongest confirmation this integration ever
-  // returns — so treat it as resolved rather than leaving it "pending"
-  // forever, which the traffic rollup then miscounts as a failure.
-  if (normalized === "sent") return { status: "sent", error: null };
   return {
     status: "pending",
     error: normalized ? `Yoola delivery report still shows ${normalized}; handset delivery not confirmed yet` : null,

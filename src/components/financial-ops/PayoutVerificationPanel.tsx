@@ -384,11 +384,13 @@ function HeroPhoto({
 function DecisionDialog({
   row,
   photosReady,
+  idNameUnreadable,
   onClose,
   onSaved,
 }: {
   row: PayoutDestinationRow | null;
   photosReady: boolean;
+  idNameUnreadable: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -396,17 +398,22 @@ function DecisionDialog({
   const [reason, setReason] = useState('');
   const [callOutcome, setCallOutcome] = useState('');
   const [decision, setDecision] = useState<'verified' | 'rejected'>('verified');
+  const verifyBlocked = !photosReady || idNameUnreadable;
 
   useEffect(() => {
-    setDecision(photosReady ? 'verified' : 'rejected');
+    setDecision(!photosReady || idNameUnreadable ? 'rejected' : 'verified');
     setReason('');
     setCallOutcome('');
-  }, [row, photosReady]);
+  }, [row, photosReady, idNameUnreadable]);
 
   const submit = async () => {
     if (!row) return;
     if (decision === 'verified' && !photosReady) {
       toast.error('Both the National ID photo and the selfie must be on file before verifying.');
+      return;
+    }
+    if (decision === 'verified' && idNameUnreadable) {
+      toast.error('The name could not be read from the National ID photo. Ask for a clearer photo — until then this payout can only be rejected.');
       return;
     }
     if (reason.trim().length < 10) {
@@ -445,7 +452,7 @@ function DecisionDialog({
             type="button"
             variant={decision === 'verified' ? 'default' : 'outline'}
             className="flex-1"
-            disabled={!photosReady}
+            disabled={verifyBlocked}
             onClick={() => setDecision('verified')}
           >
             <CheckCircle2 className="h-4 w-4 mr-1.5" /> Verify
@@ -463,6 +470,12 @@ function DecisionDialog({
           <p className="flex items-center gap-1.5 text-xs text-amber-600">
             <AlertTriangle className="h-3.5 w-3.5" />
             Verify unlocks once both photos are on file. Reject stays available.
+          </p>
+        )}
+        {photosReady && idNameUnreadable && (
+          <p role="alert" className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            No name could be read from the National ID photo. Ask for a clearer photo — until then this payout can only be rejected.
           </p>
         )}
         <div className="space-y-2">
@@ -536,6 +549,9 @@ export default function PayoutVerificationPanel() {
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
   const photosReady = !!idPath && !!selfiePath;
+  // Verify must stay off until the ID photo has been read and produced a name.
+  const idNameUnreadable = !!idPath && (row?.national_id_name || '').trim().length < 3;
+  const verifyBlocked = !photosReady || idNameUnreadable;
 
   const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
 
@@ -754,46 +770,33 @@ export default function PayoutVerificationPanel() {
               <p className="mt-1 truncate text-sm font-bold text-foreground">{row.full_name || '—'}</p>
               <p className="text-[10px] text-muted-foreground">Name on the account</p>
             </div>
-            <div className={`rounded-2xl border p-3 ${row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8 ? 'border-amber-500/50 bg-amber-500/10' : 'border-border bg-card'}`}>
+            <div
+              className={`rounded-2xl border p-3 ${
+                idNameUnreadable
+                  ? 'border-destructive/50 bg-destructive/10'
+                  : row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8
+                    ? 'border-amber-500/50 bg-amber-500/10'
+                    : 'border-border bg-card'
+              }`}
+            >
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">National ID name</p>
               <p className="mt-1 truncate text-sm font-bold text-foreground">{row.national_id_name || '—'}</p>
-              <p className="text-[10px] text-muted-foreground">
-                {row.national_id_name
-                  ? row.name_match_score !== null && row.name_match_score < 0.8
-                    ? 'Does not match the selfie name'
-                    : 'Matches the selfie name'
-                  : 'Not read from the ID yet'}
-              </p>
+              {idNameUnreadable ? (
+                <p role="alert" className="mt-0.5 flex items-start gap-1 text-[10px] font-semibold text-destructive">
+                  <AlertTriangle className="mt-px h-3 w-3 shrink-0" aria-hidden="true" />
+                  Could not read the name on this National ID photo. Ask for a clearer photo — Verify stays off until a name is read.
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  {row.national_id_name
+                    ? row.name_match_score !== null && row.name_match_score < 0.8
+                      ? 'Does not match the selfie name'
+                      : 'Matches the selfie name'
+                    : 'Not read from the ID yet'}
+                </p>
+              )}
             </div>
           </div>
-
-          {/* Same National ID on another account — rejected automatically */}
-          {row.duplicate_id_user_id && (
-            <div
-              role="alert"
-              className="mx-5 mt-3 flex items-start gap-3 rounded-2xl border-2 border-destructive bg-destructive/10 p-3"
-            >
-              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="text-sm font-black uppercase tracking-wide text-destructive">
-                  {row.status === 'rejected'
-                    ? 'Rejected — duplicate National ID'
-                    : 'Same National ID on another account'}
-                </p>
-                <p className="mt-0.5 text-xs text-destructive/90">
-                  {row.status === 'rejected'
-                    ? `Rejected because this National ID already belongs to ${row.duplicate_id_name || 'another account'}. One National ID may only be used by one account.`
-                    : `This ID already belongs to ${row.duplicate_id_name || 'another account'}. It cannot be verified — the decision is rejected automatically.`}
-                </p>
-                {row.status === 'rejected' && row.decision_reason && (
-                  <p className="mt-1.5 rounded-lg bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive/80">
-                    Recorded reason: {row.decision_reason}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
 
           {/* Names do not match: show the ID name and let it become the holder's name */}
           {row.name_match_score !== null && row.name_match_score < 0.8 && (
@@ -859,43 +862,28 @@ export default function PayoutVerificationPanel() {
             </Button>
             <Button
               className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
-              disabled={!photosReady || !!row.duplicate_id_user_id}
+              disabled={verifyBlocked}
               onClick={() => setDeciding(true)}
             >
               <CheckCircle2 className="mr-2 h-5 w-5" /> Verify payout
             </Button>
           </div>
-          {!!row.duplicate_id_user_id && (
-            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
-              <ShieldAlert className="h-3.5 w-3.5" />
-              Cannot verify — duplicate National ID
-            </p>
-          )}
-          {!photosReady && !row.duplicate_id_user_id && (
+          {!photosReady && (
             <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
               <AlertTriangle className="h-3.5 w-3.5" />
               Waiting for their National ID photo and selfie
             </p>
           )}
-          {row.decision_reason && !row.duplicate_id_user_id && (
-            row.decision_reason.toLowerCase().startsWith('automatically rejected: this national id') ? (
-              <div
-                role="alert"
-                className="mx-5 mb-4 flex items-start gap-3 rounded-2xl border-2 border-destructive bg-destructive/10 p-3"
-              >
-                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
-                <div className="min-w-0">
-                  <p className="text-sm font-black uppercase tracking-wide text-destructive">
-                    Rejected — duplicate National ID
-                  </p>
-                  <p className="mt-0.5 text-xs text-destructive/90">{row.decision_reason}</p>
-                </div>
-              </div>
-            ) : (
-              <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
-                Last note: {row.decision_reason}
-              </p>
-            )
+          {photosReady && idNameUnreadable && (
+            <p role="alert" className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Verify is off — the name could not be read from the National ID. Ask for a clearer ID photo.
+            </p>
+          )}
+          {row.decision_reason && (
+            <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
+              Last note: {row.decision_reason}
+            </p>
           )}
 
           {/* Queue navigation */}
@@ -928,6 +916,7 @@ export default function PayoutVerificationPanel() {
       <DecisionDialog
         row={deciding ? row : null}
         photosReady={photosReady}
+        idNameUnreadable={idNameUnreadable}
         onClose={() => setDeciding(false)}
         onSaved={() => goTo(position)}
       />
