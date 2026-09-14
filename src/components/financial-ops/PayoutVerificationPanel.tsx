@@ -13,6 +13,7 @@ import {
   ArrowUpDown,
   BadgeCheck,
   Building2,
+  Calendar as CalendarIcon,
   Camera,
   CheckCircle2,
   ChevronLeft,
@@ -659,6 +660,73 @@ export default function PayoutVerificationPanel() {
               <SelectItem value="balance">Biggest balance</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Filter from date"
+                className={`h-9 rounded-lg border border-border bg-card px-3 text-xs font-semibold ${dateFrom ? 'text-foreground' : 'text-muted-foreground'}`}
+              >
+                <CalendarIcon className="mr-1.5 inline h-3.5 w-3.5" />
+                {dateFrom ? format(dateFrom, 'dd MMM yyyy') : 'From date'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateFrom}
+                onSelect={(d) => { setDateFrom(d); setPage(0); setIndex(0); }}
+                initialFocus
+                className="pointer-events-auto p-3"
+              />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Filter to date"
+                className={`h-9 rounded-lg border border-border bg-card px-3 text-xs font-semibold ${dateTo ? 'text-foreground' : 'text-muted-foreground'}`}
+              >
+                <CalendarIcon className="mr-1.5 inline h-3.5 w-3.5" />
+                {dateTo ? format(dateTo, 'dd MMM yyyy') : 'To date'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateTo}
+                onSelect={(d) => { setDateTo(d); setPage(0); setIndex(0); }}
+                initialFocus
+                className="pointer-events-auto p-3"
+              />
+            </PopoverContent>
+          </Popover>
+          <Select
+            value={userType}
+            onValueChange={(v) => { setUserType(v as PayoutQueueUserType); setPage(0); setIndex(0); }}
+          >
+            <SelectTrigger className="h-9 w-auto shrink-0 rounded-lg border-border bg-card px-3 text-xs font-semibold" aria-label="Filter by person type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="all">All people</SelectItem>
+              <SelectItem value="funder">Funders</SelectItem>
+              <SelectItem value="tenant">Tenants</SelectItem>
+              <SelectItem value="other">Others</SelectItem>
+            </SelectContent>
+          </Select>
+          {(dateFrom || dateTo || userType !== 'all') && (
+            <button
+              type="button"
+              onClick={() => { setDateFrom(undefined); setDateTo(undefined); setUserType('all'); setPage(0); setIndex(0); }}
+              className="h-9 rounded-lg px-2 text-xs font-semibold text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Clear
+            </button>
+          )}
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {FILTERS.map((f) => {
