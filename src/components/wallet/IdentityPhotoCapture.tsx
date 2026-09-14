@@ -152,7 +152,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           label="Selfie"
           hint="Face the camera in good light."
           file={selfieOriginal}
-          onPick={(f) => setPendingSelfie(f)}
+          onPick={(f) => { setSelfieOriginal(f); setSelfieCropped(null); setPendingSelfie(f); }}
           onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); }}
           disabled={saving}
         />
@@ -181,7 +181,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           }}
           onConfirm={() => {
             // Lock in: the original for verification, the crop for the avatar.
-            if (pendingSelfieRefHack) { /* no-op, keeps linters honest */ }
             setSelfieCropped(previewSelfie);
             setPreviewSelfie(null);
           }}
@@ -190,5 +189,3 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     </Card>
   );
 }
-
-const pendingSelfieRefHack = false;
