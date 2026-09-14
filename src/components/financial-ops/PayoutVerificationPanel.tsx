@@ -319,9 +319,11 @@ export default function PayoutVerificationPanel() {
   const [page, setPage] = useState(0);
   const [active, setActive] = useState<PayoutDestinationRow | null>(null);
   const [photosAvailable, setPhotosAvailable] = useState<Record<string, boolean>>({});
+  const [showAuditLog, setShowAuditLog] = useState(false);
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
+  const decisionLog = usePayoutDecisionLog(showAuditLog);
 
   const total = queue.data?.total ?? 0;
   const rows = queue.data?.rows ?? [];
@@ -521,6 +523,18 @@ export default function PayoutVerificationPanel() {
                   </p>
                   {r.decision_reason && (
                     <p className="text-xs text-muted-foreground">Note: {r.decision_reason}</p>
+                  )}
+                  {r.decided_at && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5 border-t border-border/60 pt-2">
+                      <History className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        {r.status === 'verified' ? 'Approved' : 'Rejected'} by{' '}
+                        <span className="font-semibold text-foreground">
+                          {r.decided_by_name || 'Financial Ops'}
+                        </span>{' '}
+                        on {formatDecisionTime(r.decided_at)}
+                      </span>
+                    </p>
                   )}
                 </div>
 
