@@ -7,7 +7,7 @@
  * through the queue without returning to a list. The verification gate itself
  * lives in the database and the approve-withdrawal function.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -56,6 +56,7 @@ import {
   useHolderNameHistory,
   useDecidePayoutDestination,
   useRevertHolderName,
+  useFinopsSetNationalId,
 
 
 
@@ -65,6 +66,8 @@ import {
   type PayoutQueueFilter,
   type PayoutQueueSort,
 } from '@/hooks/usePayoutVerification';
+import { readNationalIdPhoto } from '@/lib/nationalIdOcr';
+import { normalizeNationalId, NATIONAL_ID_MAX_LENGTH } from '@/lib/nationalId';
 
 const FILTERS: { id: PayoutQueueFilter; label: string }[] = [
   { id: 'waiting', label: 'Waiting' },
@@ -248,6 +251,144 @@ function IdNameMismatchCard({ row }: { row: PayoutDestinationRow }) {
   );
 }
 
+
+
+/**
+ * The National ID number, editable by Financial Ops. Correcting the number
+ * re-reads the ID photo and the name printed on it becomes the account name
+ * straight away — nothing else to tap. Duplicate IDs are refused by the
+ * database and the reason is shown right under the field.
+ */
+function NationalIdEditor({
+  row,
+  idPath,
+}: {
+  row: PayoutDestinationRow;
+  idPath: string | null;
+}) {
+  const setId = useFinopsSetNationalId();
+  const [value, setValue] = useState(row.national_id || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const dirty = useRef(false);
+  const runRef = useRef(0);
+
+  // Reset whenever a different case comes into focus.
+  useEffect(() => {
+    setValue(row.national_id || '');
+    setError(null);
+    setNote(null);
+    dirty.current = false;
+  }, [row.id, row.national_id]);
+
+  // Auto-apply shortly after typing stops — no Save button.
+  useEffect(() => {
+    if (!dirty.current) return;
+    const next = normalizeNationalId(value);
+    const current = normalizeNationalId(row.national_id || '');
+    if (next === current) return;
+    if (next.length < 6) {
+      setError('A National ID needs at least 6 letters or numbers.');
+      return;
+    }
+    setError(null);
+    const run = ++runRef.current;
+    const timer = window.setTimeout(async () => {
+      setBusy(true);
+      setNote('Re-reading the National ID…');
+      try {
+        // Fresh read of the ID photo, so the name follows the corrected number.
+        let idName: string | null = null;
+        let score: number | null = null;
+        if (idPath) {
+          const url = await identityPhotoUrl(idPath);
+          if (url) {
+            const blob = await fetch(url).then((r) => r.blob());
+            const file = new File([blob], 'national-id.jpg', { type: blob.type || 'image/jpeg' });
+            const read = await readNationalIdPhoto(file);
+            if (!('error' in read) || !read.error) {
+              idName = (read as { full_name?: string }).full_name?.trim() || null;
+              score = (read as { name_match_score?: number | null }).name_match_score ?? null;
+            }
+          }
+        }
+        if (run !== runRef.current) return;
+        const res = await setId.mutateAsync({
+          id: row.id,
+          nationalId: next,
+          idName,
+          nameMatchScore: score,
+        });
+        if (res.success === false) {
+          setError(res.message || 'Could not save that National ID.');
+          setNote(null);
+          toast.error(res.message || 'Could not save that National ID.');
+          return;
+        }
+        setNote(
+          res.name_adopted
+            ? `Account name updated to ${res.full_name}`
+            : idName
+              ? 'National ID saved. The name on the ID already matches the account name.'
+              : 'National ID saved. No name could be read from the ID photo.',
+        );
+        if (res.name_adopted) toast.success(`Account name updated to ${res.full_name}`);
+      } catch (e) {
+        setNote(null);
+        setError(e instanceof Error ? e.message : 'Could not save that National ID.');
+      } finally {
+        if (run === runRef.current) setBusy(false);
+      }
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [value, row.id, row.national_id, idPath, setId]);
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-border bg-card p-3">
+      <label
+        htmlFor={`nid-${row.id}`}
+        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground"
+      >
+        <IdCard className="h-3.5 w-3.5" aria-hidden="true" /> National ID number
+      </label>
+      <div className="mt-1.5 flex items-center gap-2">
+        <Input
+          id={`nid-${row.id}`}
+          value={value}
+          onChange={(e) => {
+            dirty.current = true;
+            setValue(normalizeNationalId(e.target.value));
+          }}
+          maxLength={NATIONAL_ID_MAX_LENGTH}
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-invalid={!!error}
+          aria-describedby={`nid-status-${row.id}`}
+          className="h-11 flex-1 text-sm font-bold tracking-wider"
+          placeholder="CM12345678ABCD"
+        />
+        {busy && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden="true" />}
+      </div>
+      <p id={`nid-status-${row.id}`} aria-live="polite" className="mt-1.5 text-[11px]">
+        {error ? (
+          <span className="flex items-center gap-1.5 font-semibold text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> {error}
+          </span>
+        ) : note ? (
+          <span className="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
+            <UserCheck className="h-3.5 w-3.5" aria-hidden="true" /> {note}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">
+            Correct the number and the name on the ID becomes the account name automatically.
+          </span>
+        )}
+      </p>
+    </div>
+  );
+}
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
 function HeroPhoto({
@@ -696,6 +837,8 @@ export default function PayoutVerificationPanel() {
               </p>
             </div>
           </div>
+
+          <NationalIdEditor row={row} idPath={idPath} />
 
           {/* Same National ID on another account — rejected automatically */}
           {row.duplicate_id_user_id && (
