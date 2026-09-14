@@ -24,6 +24,7 @@ import {
   Loader2,
   MessageCircle,
   PhoneCall,
+  ScanLine,
   Search,
   ShieldAlert,
   Smartphone,
@@ -55,6 +56,7 @@ import {
   last9,
   useAdoptNationalIdName,
   useHolderNameHistory,
+  useNationalIdOcrReads,
   useDecidePayoutDestination,
   useRevertHolderName,
   useSetHolderName,
@@ -900,6 +902,8 @@ export default function PayoutVerificationPanel() {
           )}
 
           {/* Audit trail of name replacements */}
+          <IdReadingAuditTrail userId={row.user_id} />
+
           <NameChangeHistory userId={row.user_id} />
 
 
