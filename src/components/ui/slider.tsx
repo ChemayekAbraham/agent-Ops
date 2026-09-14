@@ -58,7 +58,7 @@ const Slider = React.forwardRef<
   const renderThumb = (value: number) => {
     const thumb = (
       <SliderPrimitive.Thumb
-        className="block h-3.5 w-3.5 rounded-full border-2 border-foreground bg-background shadow-sm transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-ring/40 data-[disabled]:cursor-not-allowed"
+        className="block h-2.5 w-2.5 rounded-full bg-foreground shadow-sm transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-ring/40 data-[disabled]:cursor-not-allowed"
         onPointerDown={handlePointerDown}
       />
     );
