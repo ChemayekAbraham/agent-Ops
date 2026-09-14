@@ -123,6 +123,11 @@ export default function WithdrawFlow({
     !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
 
   const [currentStep, setCurrentStep] = useState(0);
+  // Set when the user taps "Resubmit National ID" on the rejection banner: the
+  // first step then shows the ID form and the photo capture even though an ID
+  // and photos are already on file (they were rejected).
+  const [resubmitIdentity, setResubmitIdentity] = useState(false);
+
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
   // Reason / purpose the user selects for this withdrawal. The stored reason
@@ -1156,10 +1161,17 @@ export default function WithdrawFlow({
       case 0:
         return (
           <div className="space-y-4">
-            {needsNationalId && (
-              <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
+            {(needsNationalId || resubmitIdentity) && (
+              <NationalIdPrompt
+                blocking
+                allowResubmit={resubmitIdentity}
+                withdrawableBalance={Math.max(1, maxAmount)}
+              />
             )}
-            {!needsNationalId && needsIdentityPhotos && <IdentityPhotoCapture compact />}
+            {((!needsNationalId && needsIdentityPhotos) || resubmitIdentity) && (
+              <IdentityPhotoCapture compact />
+            )}
+
             {!withdrawCtx.isLoading && !withdrawCtx.gates.canSubmit && (
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-1">
                 <div className="flex items-center gap-2">
@@ -2087,7 +2099,11 @@ export default function WithdrawFlow({
       <NationalIdRejectedReminder
         className="mb-4"
         withdrawableBalance={Math.max(1, maxAmount)}
-        onResubmit={() => setCurrentStep(0)}
+        onResubmit={() => {
+          setResubmitIdentity(true);
+          setCurrentStep(0);
+        }}
+
       />
       {renderStep()}
     </StepperModal>
