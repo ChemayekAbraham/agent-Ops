@@ -461,6 +461,15 @@ export interface MyPayoutDestination {
   status: PayoutVerificationStatus;
   decision_reason: string | null;
   decided_at: string | null;
+  /** Timeline fields — when the account appeared, when the ID arrived and
+   *  how the ID name compared with the name on this account. */
+  first_seen_at: string | null;
+  created_at: string | null;
+  national_id: string | null;
+  national_id_name: string | null;
+  national_id_submitted_at: string | null;
+  name_match_score: number | null;
+  name_mismatch_tokens: unknown;
 }
 
 /**
@@ -477,7 +486,7 @@ export function useMyPayoutDestinations(userId?: string | null) {
       const { data, error } = await supabase
         .from('payout_destination_verifications')
         .select(
-          'id, destination_type, provider, momo_number, bank_name, bank_account_number, account_name, status, decision_reason, decided_at',
+          'id, destination_type, provider, momo_number, bank_name, bank_account_number, account_name, status, decision_reason, decided_at, first_seen_at, created_at, national_id, national_id_name, national_id_submitted_at, name_match_score, name_mismatch_tokens',
         )
         .eq('user_id', userId as string);
       if (error) throw error;

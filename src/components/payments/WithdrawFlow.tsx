@@ -23,6 +23,7 @@ import { UGANDA_BANKS, PAYOUT_METHODS } from '@/lib/ugandaBanks';
 import { useSavedPayoutMethods, type SavedPayoutMethod } from '@/hooks/useSavedPayoutMethods';
 import { useMyPayoutDestinations, destinationStateFor } from '@/hooks/usePayoutVerification';
 import { useIsFunderWithPortfolio } from '@/hooks/useIsFunderWithPortfolio';
+import DestinationVerificationTimeline from '@/components/payments/DestinationVerificationTimeline';
 import NationalIdPrompt, { useMyNationalId } from '@/components/wallet/NationalIdPrompt';
 import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
 import { useMyIdentityPhotos } from '@/hooks/useIdentityPhotos';
@@ -1730,8 +1731,15 @@ export default function WithdrawFlow({
                     {myDestinations.isFetching ? 'Checking…' : 'Check again'}
                   </Button>
                 )}
+                <div className="pt-1">
+                  <DestinationVerificationTimeline
+                    destination={activeDestination}
+                    accountName={payoutMode === 'mobile_money' ? momoName : bankAccountName}
+                  />
+                </div>
               </div>
             )}
+
 
             {payoutMode !== 'cash' && !selectedSavedId && (
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-3">
