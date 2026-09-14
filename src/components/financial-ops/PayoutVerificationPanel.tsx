@@ -1013,6 +1013,82 @@ export default function PayoutVerificationPanel() {
         </div>
       )}
 
+      {/* Waiting list — every case on this page, with pagination when long */}
+      {!queue.isLoading && !queue.isError && total > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Waiting list · {total} {total === 1 ? 'person' : 'people'}
+            </p>
+            <p className="text-xs font-semibold text-muted-foreground">
+              Page {page + 1} of {Math.max(1, Math.ceil(total / PAYOUT_VERIFICATION_PAGE_SIZE))}
+            </p>
+          </div>
+          <ul className="divide-y divide-border">
+            {rows.map((r, i) => {
+              const isCurrent = i === index;
+              return (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    onClick={() => setIndex(i)}
+                    aria-current={isCurrent}
+                    className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
+                      isCurrent ? 'bg-primary/10' : 'hover:bg-muted/50'
+                    }`}
+                  >
+                    <span className="w-7 shrink-0 text-center text-xs font-bold text-muted-foreground">
+                      {page * PAYOUT_VERIFICATION_PAGE_SIZE + i + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold text-foreground">
+                        {r.full_name || 'Name not recorded'}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {r.destination_type === 'mobile_money'
+                          ? `${r.provider ?? 'Mobile money'} · ${r.momo_number ?? ''}`
+                          : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim()}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs font-bold text-foreground">
+                      {formatUGX(r.withdrawable_balance)}
+                    </span>
+                    <ChevronRight className={`h-4 w-4 shrink-0 ${isCurrent ? 'text-primary' : 'text-muted-foreground/40'}`} aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {total > PAYOUT_VERIFICATION_PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1"
+                disabled={page <= 0}
+                onClick={() => { setPage(page - 1); setIndex(0); }}
+                aria-label="Previous page of the waiting list"
+              >
+                <ChevronLeft className="h-4 w-4" /> Previous page
+              </Button>
+              <p className="text-xs font-semibold text-muted-foreground" aria-live="polite">
+                {page * PAYOUT_VERIFICATION_PAGE_SIZE + 1}–{Math.min(total, (page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE)} of {total}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1"
+                disabled={(page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE >= total}
+                onClick={() => { setPage(page + 1); setIndex(0); }}
+                aria-label="Next page of the waiting list"
+              >
+                Next page <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       <DecisionDialog
         row={deciding ? row : null}
         photosReady={photosReady}
