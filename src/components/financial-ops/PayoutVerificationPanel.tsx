@@ -472,6 +472,12 @@ function DecisionDialog({
             Verify unlocks once both photos are on file. Reject stays available.
           </p>
         )}
+        {photosReady && idNameUnreadable && (
+          <p role="alert" className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            No name could be read from the National ID photo. Ask for a clearer photo — until then this payout can only be rejected.
+          </p>
+        )}
         <div className="space-y-2">
           <Input
             value={callOutcome}
