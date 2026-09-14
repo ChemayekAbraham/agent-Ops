@@ -485,270 +485,214 @@ export function InvestmentCalculator() {
   return (
     <div className="space-y-3 sm:space-y-6">
       <GooeyFilter />
-      {/* Hero Card - Compact on mobile */}
-      <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary/15 to-success/10 p-px">
-        <Card className="border-0 bg-background/90 backdrop-blur-sm overflow-hidden">
-          <CardContent className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-            {/* Compact Header */}
-            <div className="text-center space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/10 border border-success/20">
-                <Heart className="h-3 w-3 text-success" />
-                <span className="text-[10px] font-bold text-success uppercase tracking-wider">15% Monthly Rewards</span>
-              </div>
-              
-              <h1 className="text-xl sm:text-3xl font-black tracking-tight">
-                Earnings <span className="text-success">Calculator</span> 📊
-              </h1>
-              
-              <p className="text-muted-foreground text-xs sm:text-sm max-w-lg mx-auto">
-                {mode === 'invest'
-                  ? 'Enter an amount and duration to project your earnings'
-                  : 'Set your earnings goal and see how much to contribute'}
-              </p>
+      {/* Calculator — minimalistic flat card */}
+      <div className="rounded-xl border border-border/40 bg-card">
+        <div className="p-4 sm:p-6 space-y-5">
+
+          {/* Mode toggle — clean pill switcher */}
+          <div className="max-w-sm mx-auto">
+            <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-muted/50">
+              <button
+                type="button"
+                onClick={() => setMode('invest')}
+                className={`py-2.5 rounded-md text-xs font-semibold transition-all ${
+                  mode === 'invest'
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                I have an amount
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('earn')}
+                className={`py-2.5 rounded-md text-xs font-semibold transition-all ${
+                  mode === 'earn'
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                I have a goal
+              </button>
             </div>
+          </div>
 
-            {/* Exchange Rate - Single line on mobile */}
-            <div className="flex items-center justify-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted/50 border border-border text-xs">
-                <DollarSign className="h-3 w-3 text-success" />
-                <span>1 USD = <span className="font-bold text-success">{usdRate.toLocaleString()}</span> UGX</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 ml-0.5"
-                  onClick={handleRefreshRates}
-                  disabled={isRefreshingRates}
-                >
-                  {isRefreshingRates || isLoadingRates ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3" />
-                  )}
-                </Button>
-              </div>
-              {currency.code !== 'UGX' && (
-                <Badge variant="outline" className="text-[10px] gap-1">
-                  {currency.flag} {currency.code}
-                </Badge>
-              )}
-            </div>
-
-            {/* Calculator Input - Compact */}
-            <div className="space-y-3 sm:space-y-5 max-w-md mx-auto">
-              {/* Mode toggle */}
-              <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/60 border border-border">
-                <button
-                  type="button"
-                  onClick={() => setMode('invest')}
-                  className={`min-h-[40px] rounded-lg text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-colors ${
-                    mode === 'invest'
-                      ? 'bg-primary text-primary-foreground shadow'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  I have an amount
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode('earn')}
-                  className={`min-h-[40px] rounded-lg text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-colors ${
-                    mode === 'earn'
-                      ? 'bg-primary text-primary-foreground shadow'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  I have a goal
-                </button>
-              </div>
-
-              {mode === 'invest' ? (
-                /* Investment Amount */
-                <div className="space-y-1.5">
-                  <Label className="text-center block text-[11px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    I want to invest
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs sm:text-sm text-muted-foreground font-bold">
-                      UGX
-                    </span>
-                    <Input
-                      type="text"
-                      value={investAmount.toLocaleString()}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value.replace(/,/g, '')) || 0;
-                        setInvestAmount(Math.max(0, Math.min(value, 300000000)));
-                      }}
-                      className="pl-11 sm:pl-14 text-lg sm:text-2xl font-black h-12 sm:h-16 bg-background border-2 border-primary/30 focus:border-primary rounded-xl text-center"
-                    />
-                  </div>
-                  <Slider
-                    value={[investAmount]}
-                    onValueChange={([value]) => setInvestAmount(value)}
-                    min={50000}
-                    max={300000000}
-                    step={50000}
-                    showTooltip
-                    tooltipContent={(value) => `UGX ${value.toLocaleString()}`}
-                    className="py-2 sm:py-3"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>50K</span>
-                    <span className="text-primary flex items-center gap-0.5">
-                      <Zap className="h-2.5 w-2.5" /> Slide to adjust
-                    </span>
-                    <span>300M</span>
-                  </div>
-                </div>
-              ) : (
-                /* Earnings Goal */
-                <div className="space-y-1.5">
-                  <Label className="text-center block text-[11px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    I want to earn monthly
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs sm:text-sm text-muted-foreground font-bold">
-                      UGX
-                    </span>
-                    <Input
-                      type="text"
-                      value={desiredEarnings.toLocaleString()}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value.replace(/,/g, '')) || 0;
-                        setDesiredEarnings(Math.max(0, Math.min(value, 30000000000)));
-                      }}
-                      className="pl-11 sm:pl-14 text-lg sm:text-2xl font-black h-12 sm:h-16 bg-background border-2 border-primary/30 focus:border-primary rounded-xl text-center"
-                    />
-                  </div>
-                  <Slider
-                    value={[desiredEarnings]}
-                    onValueChange={([value]) => setDesiredEarnings(value)}
-                    min={50000}
-                    max={30000000000}
-                    step={100000}
-                    showTooltip
-                    tooltipContent={(value) => `UGX ${value.toLocaleString()}`}
-                    className="py-2 sm:py-3"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>50K</span>
-                    <span className="text-primary flex items-center gap-0.5">
-                      <Zap className="h-2.5 w-2.5" /> Slide to adjust
-                    </span>
-                    <span>30B</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Duration */}
-              <div className="space-y-1.5">
-                <Label className="text-center block text-[11px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Duration: {duration} Months
+          {/* Input section */}
+          <div className="space-y-4 max-w-sm mx-auto">
+            {mode === 'invest' ? (
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Contribution amount
                 </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">
+                    UGX
+                  </span>
+                  <Input
+                    type="text"
+                    value={investAmount.toLocaleString()}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value.replace(/,/g, '')) || 0;
+                      setInvestAmount(Math.max(0, Math.min(value, 300000000)));
+                    }}
+                    className="pl-12 text-xl font-bold h-14 rounded-lg border-border/60 text-center"
+                  />
+                </div>
                 <Slider
-                  value={[duration]}
-                  onValueChange={([value]) => setDuration(value)}
-                  min={1}
-                  max={24}
-                  step={1}
+                  value={[investAmount]}
+                  onValueChange={([value]) => setInvestAmount(value)}
+                  min={50000}
+                  max={300000000}
+                  step={50000}
                   showTooltip
-                  tooltipContent={(value) => `${value} Month${value === 1 ? '' : 's'}`}
-                  className="py-1.5"
+                  tooltipContent={(value) => `UGX ${value.toLocaleString()}`}
+                  className="py-2"
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>1 Month</span>
-                  <span>24 Months</span>
+                  <span>50K</span>
+                  <span>300M</span>
                 </div>
               </div>
-
-              {/* Toggles - Stacked on mobile for better touch */}
+            ) : (
               <div className="space-y-2">
-                <button
-                  onClick={() => setIsCompounding(!isCompounding)}
-                  className="flex items-center justify-between w-full gap-2 p-3 rounded-xl bg-muted/50 border border-border min-h-[44px] active:bg-muted/80 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <RefreshCw className={`h-4 w-4 shrink-0 ${isCompounding ? 'text-success' : 'text-muted-foreground'}`} />
-                    <span className="text-sm font-medium text-left">Reinvest Rewards</span>
-                  </div>
-                  <Toggle
-                    checked={isCompounding}
-                    onCheckedChange={setIsCompounding}
-                    variant="success"
-                    className="pointer-events-none"
+                <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Monthly earnings goal
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">
+                    UGX
+                  </span>
+                  <Input
+                    type="text"
+                    value={desiredEarnings.toLocaleString()}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value.replace(/,/g, '')) || 0;
+                      setDesiredEarnings(Math.max(0, Math.min(value, 30000000000)));
+                    }}
+                    className="pl-12 text-xl font-bold h-14 rounded-lg border-border/60 text-center"
                   />
-                </button>
-                <button
-                  onClick={() => setShowComparison(!showComparison)}
-                  className="flex items-center justify-between w-full gap-2 p-3 rounded-xl bg-muted/50 border border-border min-h-[44px] active:bg-muted/80 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <GitCompare className={`h-4 w-4 shrink-0 ${showComparison ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <span className="text-sm font-medium text-left">Compare Mode</span>
-                  </div>
-                  <Toggle
-                    checked={showComparison}
-                    onCheckedChange={setShowComparison}
-                    variant="default"
-                    className="pointer-events-none"
-                  />
-                </button>
+                </div>
+                <Slider
+                  value={[desiredEarnings]}
+                  onValueChange={([value]) => setDesiredEarnings(value)}
+                  min={50000}
+                  max={30000000000}
+                  step={100000}
+                  showTooltip
+                  tooltipContent={(value) => `UGX ${value.toLocaleString()}`}
+                  className="py-2"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>50K</span>
+                  <span>30B</span>
+                </div>
+              </div>
+            )}
+
+            {/* Duration */}
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                Duration · {duration} month{duration !== 1 ? 's' : ''}
+              </Label>
+              <Slider
+                value={[duration]}
+                onValueChange={([value]) => setDuration(value)}
+                min={1}
+                max={24}
+                step={1}
+                showTooltip
+                tooltipContent={(value) => `${value} month${value === 1 ? '' : 's'}`}
+                className="py-1.5"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>1</span>
+                <span>24</span>
               </div>
             </div>
 
-            {/* Results - 2 cards side by side */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-4 max-w-2xl mx-auto">
-              <div className="p-3 sm:p-5 rounded-xl bg-primary/10 border border-primary/20 text-center">
-                <div className="inline-flex p-1.5 rounded-lg bg-primary/20 mb-1.5">
-                  <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+            {/* Toggles — flat rows */}
+            <div className="space-y-1">
+              <button
+                onClick={() => setIsCompounding(!isCompounding)}
+                className="flex items-center justify-between w-full py-3 border-b border-border/20"
+              >
+                <div className="flex items-center gap-2.5">
+                  <RefreshCw className={`h-4 w-4 ${isCompounding ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                  <span className="text-sm">Reinvest returns</span>
                 </div>
-                <p className="text-[10px] sm:text-xs font-bold text-primary uppercase mb-1">Contribute</p>
-                <AnimatePresence mode="wait">
-                  <motion.div 
-                    key={calculations.requiredContribution}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    <p className="text-sm sm:text-xl font-black break-all leading-tight">
-                      {formatUGX(calculations.requiredContribution)}
-                    </p>
-                    {currency.code !== 'UGX' && (
-                      <p className="text-[10px] sm:text-xs font-semibold text-primary mt-0.5">
-                        ≈ {formatAmount(calculations.requiredContribution)}
-                      </p>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-1">One-time</p>
-              </div>
-              
-              <div className="p-3 sm:p-5 rounded-xl bg-success/10 border border-success/20 text-center">
-                <div className="inline-flex p-1.5 rounded-lg bg-success/20 mb-1.5">
-                  <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-success" />
+                <Toggle
+                  checked={isCompounding}
+                  onCheckedChange={setIsCompounding}
+                  variant="success"
+                  className="pointer-events-none"
+                />
+              </button>
+              <button
+                onClick={() => setShowComparison(!showComparison)}
+                className="flex items-center justify-between w-full py-3"
+              >
+                <div className="flex items-center gap-2.5">
+                  <GitCompare className={`h-4 w-4 ${showComparison ? 'text-foreground' : 'text-muted-foreground'}`} />
+                  <span className="text-sm">Compare scenarios</span>
                 </div>
-                <p className="text-[10px] sm:text-xs font-bold text-success uppercase mb-1">
-                  {isCompounding ? `Earn (${duration}mo)` : "Monthly"}
-                </p>
-                <AnimatePresence mode="wait">
-                  <motion.div 
-                    key={`${isCompounding}-${projections[projections.length - 1]?.totalEarnings}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    <p className="text-sm sm:text-xl font-black text-success break-all leading-tight">
-                      {formatUGX(isCompounding ? projections[projections.length - 1]?.totalEarnings || 0 : calculations.monthlyReward)}
-                    </p>
-                    {currency.code !== 'UGX' && (
-                      <p className="text-[10px] sm:text-xs font-semibold text-success mt-0.5">
-                        ≈ {formatAmount(isCompounding ? projections[projections.length - 1]?.totalEarnings || 0 : calculations.monthlyReward)}
-                      </p>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-1">
-                  {isCompounding ? 'Reinvested 🚀' : 'Every month 🎉'}
-                </p>
-              </div>
+                <Toggle
+                  checked={showComparison}
+                  onCheckedChange={setShowComparison}
+                  variant="default"
+                  className="pointer-events-none"
+                />
+              </button>
             </div>
+          </div>
+
+          {/* Results — two clean stat boxes */}
+          <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+            <div className="p-4 rounded-xl border border-border/40 bg-muted/20">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Contribute</p>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={calculations.requiredContribution}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <p className="text-lg font-bold tabular-nums leading-tight break-all">
+                    {formatUGX(calculations.requiredContribution)}
+                  </p>
+                  {currency.code !== 'UGX' && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      ≈ {formatAmount(calculations.requiredContribution)}
+                    </p>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+              <p className="text-[9px] text-muted-foreground mt-1">One-time</p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-950/20">
+              <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                {isCompounding ? `Earn (${duration}mo)` : 'Monthly'}
+              </p>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${isCompounding}-${projections[projections.length - 1]?.totalEarnings}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums break-all leading-tight">
+                    {formatUGX(isCompounding ? projections[projections.length - 1]?.totalEarnings || 0 : calculations.monthlyReward)}
+                  </p>
+                  {currency.code !== 'UGX' && (
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-500 mt-0.5">
+                      ≈ {formatAmount(isCompounding ? projections[projections.length - 1]?.totalEarnings || 0 : calculations.monthlyReward)}
+                    </p>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+              <p className="text-[9px] text-muted-foreground mt-1">
+                {isCompounding ? 'Reinvested' : 'Every month'}
+              </p>
+            </div>
+          </div>
 
             {/* Action Buttons - Collapsible on mobile */}
             <Collapsible open={showActions} onOpenChange={setShowActions}>
@@ -976,8 +920,7 @@ export function InvestmentCalculator() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </CardContent>
-        </Card>
+        </div>
       </div>
 
       {/* Projection Table & Chart */}
