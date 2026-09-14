@@ -57213,6 +57213,10 @@ export type Database = {
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
       normalize_momo_tid: { Args: { p_tid: string }; Returns: string }
+      normalize_national_id_fuzzy: {
+        Args: { p_value: string }
+        Returns: string
+      }
       normalize_payout_bank_id: { Args: { p_name: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
       normalize_phone_9: { Args: { p_phone: string }; Returns: string }
