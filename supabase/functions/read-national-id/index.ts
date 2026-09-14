@@ -112,14 +112,21 @@ Deno.serve(async (req) => {
             content:
               "You read Ugandan National ID cards. Return ONLY the printed details, never guesses. " +
               'Reply with JSON: {"full_name":string,"surname":string,"given_names":string,' +
-              '"id_number":string,"date_of_birth":string,"is_national_id":boolean,"readable":boolean}. ' +
+              '"id_number":string,"date_of_birth":string,"is_national_id":boolean,"readable":boolean,' +
+              '"printed_text":string}. ' +
+              "printed_text is every line of text you can read on the card, newline separated. " +
               "Use an empty string for anything not clearly legible. " +
               "is_national_id is false when the photo is not an identity card.",
           },
           {
             role: "user",
             content: [
-              { type: "text", text: "Read the names and ID number on this card." },
+              {
+                type: "text",
+                text: side === "back"
+                  ? "This is the BACK of the card. Read every printed line, plus the card/document number and any names if shown."
+                  : "This is the FRONT of the card. Read the names and ID number on this card, plus every printed line.",
+              },
               { type: "image_url", image_url: { url: dataUrl } },
             ],
           },
