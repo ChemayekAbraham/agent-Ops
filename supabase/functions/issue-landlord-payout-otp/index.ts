@@ -4,6 +4,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // Validates float, creates an OTP challenge, sends SMS to landlord.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { confirmYoolaDelivery, extractYoolaMessageId } from "../_shared/yoolaDeliveryConfirm.ts";
+import { resolveTrustedClientIp, getClientUserAgent } from "../_shared/resolveClientIp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -511,11 +512,8 @@ Deno.serve(async (req) => {
         if (updErr) {
           console.warn("[issue-landlord-payout-otp] landlord phone update failed (non-critical):", updErr.message);
         } else {
-          const clientIp =
-            (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
-            req.headers.get("cf-connecting-ip") ||
-            null;
-          const userAgent = req.headers.get("user-agent") || null;
+          const clientIp = resolveTrustedClientIp(req);
+          const userAgent = getClientUserAgent(req);
           try {
             await admin.from("audit_logs").insert({
               user_id: agentId,
