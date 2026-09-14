@@ -79,6 +79,67 @@ export function payoutQueueErrorMessage(raw: string | null | undefined): string 
   return raw || 'Something went wrong while loading the list.';
 }
 
+/** Everything the screen needs to explain a failed queue request. */
+export interface PayoutQueueDiagnostics {
+  endpoint: string;
+  params: Record<string, unknown> | null;
+  httpStatus: number | null;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+  rawMessage: string;
+  signedInUserId: string | null;
+  attemptedAt: string;
+  durationMs: number;
+}
+
+/** Error carrying the request diagnostics alongside the plain-language message. */
+export class PayoutQueueError extends Error {
+  diagnostics: PayoutQueueDiagnostics;
+  constructor(message: string, diagnostics: PayoutQueueDiagnostics) {
+    super(message);
+    this.name = 'PayoutQueueError';
+    this.diagnostics = diagnostics;
+  }
+}
+
+type RpcErrorLike = {
+  message?: string | null;
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  status?: number | null;
+};
+
+async function buildQueueError(
+  endpoint: string,
+  params: Record<string, unknown> | null,
+  error: RpcErrorLike,
+  startedAt: number,
+): Promise<PayoutQueueError> {
+  let signedInUserId: string | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    signedInUserId = data.user?.id ?? null;
+  } catch {
+    signedInUserId = null;
+  }
+  const raw = error.message ?? '';
+  return new PayoutQueueError(payoutQueueErrorMessage(raw), {
+    endpoint,
+    params,
+    httpStatus: typeof error.status === 'number' ? error.status : null,
+    code: error.code ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+    rawMessage: raw || String(error),
+    signedInUserId,
+    attemptedAt: new Date().toISOString(),
+    durationMs: Math.round(performance.now() - startedAt),
+  });
+}
+
+
 /** Live counts for the badge and the filter chips. */
 export function usePayoutVerificationCounts(enabled = true) {
   return useQuery({
