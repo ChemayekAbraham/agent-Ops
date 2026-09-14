@@ -384,6 +384,75 @@ function HeroPhoto({
   );
 }
 
+/**
+ * Shown when no name could be read from the National ID photo: Financial Ops
+ * can put a clearer photo in its place, and the name extraction is retried on
+ * the new photo straight away.
+ */
+function ReUploadIdPhotoCard({ row }: { row: PayoutDestinationRow }) {
+  const replace = useReplaceNationalIdPhoto();
+  const inputId = `reupload-id-${row.id}`;
+
+  const onPick = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const res = await replace.mutateAsync({
+        id: row.id,
+        userId: row.user_id,
+        file,
+        currentNationalId: row.national_id,
+      });
+      if (res.name_read) {
+        toast.success(`Name read from the new photo: ${res.national_id_name}. It is now the account name.`);
+      } else {
+        toast.error(res.message || 'The new photo still could not be read. Ask for a clearer one.');
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not upload that photo.');
+    }
+  };
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-destructive">
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> No name on the ID photo
+      </p>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        Put a clearer photo of the National ID in its place — the name is read again automatically.
+      </p>
+      <input
+        id={inputId}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        disabled={replace.isPending}
+        onChange={(e) => {
+          const file = e.target.files?.[0] ?? null;
+          e.target.value = '';
+          void onPick(file);
+        }}
+      />
+      <Button
+        asChild={!replace.isPending}
+        disabled={replace.isPending}
+        className="mt-3 h-12 w-full rounded-xl text-xs font-bold uppercase tracking-widest"
+      >
+        {replace.isPending ? (
+          <span className="flex items-center justify-center">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Reading the new photo…
+          </span>
+        ) : (
+          <label htmlFor={inputId} className="cursor-pointer">
+            <Camera className="mr-2 inline h-4 w-4" aria-hidden="true" /> Re-upload ID photo
+          </label>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+
+
 function DecisionDialog({
   row,
   photosReady,
