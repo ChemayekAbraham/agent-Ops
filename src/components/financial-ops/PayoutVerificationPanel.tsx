@@ -89,6 +89,40 @@ function PhoneAccountBadge({ info, loading }: { info: PhoneAccountInfo | undefin
 }
 
 /**
+ * Tap-friendly call + SMS chips for any phone number. Normalises to Ugandan
+ * +256 format so every badge is consistently diallable on a smartphone.
+ */
+function PhoneActionChips({
+  phone,
+  label,
+}: {
+  phone: string | null | undefined;
+  label?: string;
+}) {
+  const k = last9(phone);
+  if (!k) {
+    return <span className="text-xs text-muted-foreground">No {label ?? 'phone'}</span>;
+  }
+  const full = `+256${k}`;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <a
+        href={`tel:${full}`}
+        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary active:bg-primary/20 min-h-[34px]"
+      >
+        <PhoneCall className="h-3.5 w-3.5" /> {full}
+      </a>
+      <a
+        href={`sms:${full}`}
+        className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1.5 text-xs font-bold text-emerald-700 active:bg-emerald-200 min-h-[34px] dark:bg-emerald-900/30 dark:text-emerald-400"
+      >
+        <MessageSquare className="h-3.5 w-3.5" /> SMS
+      </a>
+    </div>
+  );
+}
+
+/**
  * The National ID card photo and the selfie the holder recorded, shown under
  * their name so the operator compares the face before tapping Verify. Tapping
  * a thumbnail opens the full photo in a new tab (short-lived signed link).
