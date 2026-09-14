@@ -145,8 +145,17 @@ function nameSourceBadge(source: PayoutDestinationRow['name_source']): {
  * National ID (or corrected by hand), it is recorded in the audit log. This
  * shows that trail: who changed it, when, and from what to what.
  */
+function nameChangeSourceLabel(source: string | null): string {
+  if (source === 'financial_ops_manual_override') return 'Typed by hand';
+  if (source === 'admin_rollback') return 'Put back by an administrator';
+  return 'Taken from the National ID';
+}
+
 function NameChangeHistory({ userId }: { userId: string }) {
   const { data, isLoading } = useHolderNameHistory(userId);
+  const { roles } = useAuth();
+  const revert = useRevertHolderName();
+  const isAdmin = roles.includes('super_admin') || roles.includes('cfo');
   if (isLoading || !data || data.length === 0) return null;
 
   return (
@@ -162,7 +171,7 @@ function NameChangeHistory({ userId }: { userId: string }) {
               <span className="text-emerald-700 dark:text-emerald-400">{h.new_name || '—'}</span>
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {h.source === 'financial_ops_manual_override' ? 'Typed by hand' : 'Taken from the National ID'} ·{' '}
+              {nameChangeSourceLabel(h.source)} ·{' '}
               {h.changed_by_name || 'Financial Ops'} ·{' '}
               {new Date(h.changed_at).toLocaleString('en-GB', {
                 day: '2-digit',
@@ -173,6 +182,33 @@ function NameChangeHistory({ userId }: { userId: string }) {
               })}
             </p>
             {h.reason && <p className="mt-0.5 text-xs italic text-muted-foreground">{h.reason}</p>}
+            {isAdmin && h.can_revert && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2 h-8 gap-1.5 rounded-full text-xs"
+                disabled={revert.isPending}
+                onClick={() => {
+                  if (!window.confirm(`Put the name back to "${h.old_name}"?`)) return;
+                  revert.mutate(
+                    { auditId: h.id },
+                    {
+                      onSuccess: (res) =>
+                        toast.success(`Name put back to ${res.full_name || h.old_name}`),
+                      onError: (err: Error) => toast.error(err.message),
+                    },
+                  );
+                }}
+              >
+                {revert.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                Put this name back
+              </Button>
+            )}
           </li>
         ))}
       </ul>
