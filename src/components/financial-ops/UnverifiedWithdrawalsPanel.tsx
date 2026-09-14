@@ -143,10 +143,26 @@ function Row({ row }: { row: UnverifiedWithdrawalRow }) {
   );
 }
 
+const FILTER_OPTIONS: { value: UnverifiedBadgeFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'needs_review', label: 'Needs review' },
+  { value: 'verified', label: 'Verified' },
+];
+
+const SORT_OPTIONS: { value: UnverifiedSort; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'biggest', label: 'Biggest amount' },
+  { value: 'smallest', label: 'Smallest amount' },
+];
+
 export default function UnverifiedWithdrawalsPanel() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
-  const { data, isLoading, isError, error } = useUnverifiedWithdrawals(search, page);
+  const [filter, setFilter] = useState<UnverifiedBadgeFilter>('all');
+  const [sort, setSort] = useState<UnverifiedSort>('newest');
+  const { data, isLoading, isError, error } = useUnverifiedWithdrawals(search, page, filter, sort);
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / UNVERIFIED_WITHDRAWALS_PAGE_SIZE));
@@ -185,6 +201,40 @@ export default function UnverifiedWithdrawalsPanel() {
             <X className="h-4 w-4" aria-hidden />
           </button>
         ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              aria-pressed={filter === opt.value}
+              onClick={() => { setFilter(opt.value); setPage(0); }}
+              className={`min-h-[40px] rounded-full border px-4 text-sm font-medium transition-colors ${
+                filter === opt.value
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'bg-background text-foreground hover:bg-muted'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <label className="ml-auto flex min-h-[40px] items-center gap-2 rounded-full border bg-background px-3 text-sm">
+          <ArrowUpDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+          <span className="sr-only">Sort payouts</span>
+          <select
+            value={sort}
+            onChange={(e) => { setSort(e.target.value as UnverifiedSort); setPage(0); }}
+            className="bg-transparent text-sm font-medium outline-none"
+            aria-label="Sort payouts"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {isLoading ? (
