@@ -533,6 +533,13 @@
       "when": 1789393732796,
       "tag": "0075_payout_verification_real_submissions_first",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1789393778438,
+      "tag": "0076_restore_payout_decision_events_and_return",
+      "breakpoints": true
     }
   ]
 }
