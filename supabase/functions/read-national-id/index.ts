@@ -53,8 +53,24 @@ Deno.serve(async (req) => {
     if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => null) as
-      | { imageBase64?: string; storagePath?: string }
+      | { imageBase64?: string; storagePath?: string; side?: string; targetUserId?: string }
       | null;
+
+    const side = body?.side === "back" ? "back" : "front";
+
+    /** Records every read attempt so Financial Ops can audit what was seen. */
+    const logRead = async (row: Record<string, unknown>) => {
+      try {
+        await adminClient.from("national_id_ocr_reads").insert({
+          user_id: user.id,
+          side,
+          storage_path: body?.storagePath ?? null,
+          ...row,
+        });
+      } catch (e) {
+        console.error("read-national-id audit log failed", e);
+      }
+    };
 
     let dataUrl: string | null = null;
 
