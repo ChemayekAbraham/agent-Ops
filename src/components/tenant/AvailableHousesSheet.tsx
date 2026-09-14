@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import houseSearchingIllustration from '@/assets/House_searching-bro-2.svg.asset.json';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useMapLinkAnnouncer } from '@/hooks/useMapLinkAnnouncer';
+
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, MapPin, Droplets, Zap, ShieldCheck, Car, Sofa, Home, DoorOpen, ChevronLeft, ChevronRight, Clock, ExternalLink, ZoomIn, Navigation, X, List, Map as MapIcon, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, MapPin, Droplets, Zap, ShieldCheck, Car, Sofa, Home, DoorOpen, ChevronLeft, ChevronRight, Clock, ExternalLink, ZoomIn, X, List, Map as MapIcon, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
 import { ArrowUpDown, BedDouble } from 'lucide-react';
 import { AgentContactBar } from '@/components/tenant/AgentContactBar';
 import { GetDirectionsButton } from '@/components/tenant/GetDirectionsButton';
@@ -228,7 +228,7 @@ function HouseCard({ listing, highlighted = false, onOpen }: { listing: HouseLis
 
 export function AvailableHousesSheet({ open, onOpenChange }: AvailableHousesSheetProps) {
   const geo = useGeolocation(true);
-  const announceMap = useMapLinkAnnouncer();
+  
   const navigate = useNavigate();
   const [searchText, setSearchText] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('All Regions');
@@ -875,32 +875,6 @@ export function AvailableHousesSheet({ open, onOpenChange }: AvailableHousesShee
         </div>
         )}
         </div>
-        {view === 'list' && (() => {
-          const target = filtered.find(l => l.latitude && l.longitude);
-          const mapHref = target
-            ? `https://www.google.com/maps/search/?api=1&query=${target.latitude},${target.longitude}`
-            : (hasGPS
-                ? `https://www.google.com/maps/search/?api=1&query=${geo.latitude},${geo.longitude}`
-                : `https://www.google.com/maps/search/?api=1&query=houses+for+rent+${encodeURIComponent(selectedRegion !== 'All Regions' ? selectedRegion : 'Uganda')}`);
-          const label = target
-            ? `Open ${filtered.length > 1 ? 'nearest house' : target.title} in Google Maps`
-            : 'Open Google Maps';
-          return (
-            <div className="sticky bottom-0 left-0 right-0 z-10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 bg-gradient-to-t from-background via-background/95 to-background/0 md:hidden">
-              <a
-                href={mapHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => announceMap(label)}
-                aria-label={`${label} (opens in a new tab)`}
-                className="flex items-center justify-center gap-2.5 w-full min-h-[56px] px-6 py-4 rounded-full bg-primary text-primary-foreground font-bold text-base shadow-xl active:scale-[0.98] transition-transform touch-manipulation focus:outline-none focus-visible:ring-4 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                <Navigation className="h-5 w-5" />
-                Tap to open in Google Maps
-              </a>
-            </div>
-          );
-        })()}
       </SheetContent>
     </Sheet>
   );
