@@ -30090,6 +30090,7 @@ export type Database = {
           funder_verified_by: string | null
           has_smartphone: boolean
           id: string
+          identity_photos_submitted_at: string | null
           is_frozen: boolean
           is_seller: boolean
           landmark: string | null
@@ -30106,6 +30107,7 @@ export type Database = {
           must_change_password: boolean | null
           national_id: string | null
           national_id_name: string | null
+          national_id_photo_path: string | null
           occupation: string | null
           ops_note: string | null
           parish: string | null
@@ -30126,6 +30128,7 @@ export type Database = {
           residence_lng: number | null
           residence_updated_at: string | null
           routing_preferences: Json
+          selfie_photo_path: string | null
           seller_application_status: string | null
           signup_source: string | null
           smartphone_source: string | null
@@ -30192,6 +30195,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id: string
+          identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
           landmark?: string | null
@@ -30208,6 +30212,7 @@ export type Database = {
           must_change_password?: boolean | null
           national_id?: string | null
           national_id_name?: string | null
+          national_id_photo_path?: string | null
           occupation?: string | null
           ops_note?: string | null
           parish?: string | null
@@ -30228,6 +30233,7 @@ export type Database = {
           residence_lng?: number | null
           residence_updated_at?: string | null
           routing_preferences?: Json
+          selfie_photo_path?: string | null
           seller_application_status?: string | null
           signup_source?: string | null
           smartphone_source?: string | null
@@ -30294,6 +30300,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id?: string
+          identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
           landmark?: string | null
@@ -30310,6 +30317,7 @@ export type Database = {
           must_change_password?: boolean | null
           national_id?: string | null
           national_id_name?: string | null
+          national_id_photo_path?: string | null
           occupation?: string | null
           ops_note?: string | null
           parish?: string | null
@@ -30330,6 +30338,7 @@ export type Database = {
           residence_lng?: number | null
           residence_updated_at?: string | null
           routing_preferences?: Json
+          selfie_photo_path?: string | null
           seller_application_status?: string | null
           signup_source?: string | null
           smartphone_source?: string | null
@@ -59222,6 +59231,10 @@ export type Database = {
       subagent_listing_count: {
         Args: { p_sub_agent_id: string }
         Returns: number
+      }
+      submit_identity_photos: {
+        Args: { p_id_photo_path: string; p_selfie_path: string }
+        Returns: Json
       }
       submit_landlord_agreement: {
         Args: {
