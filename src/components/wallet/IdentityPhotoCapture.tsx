@@ -376,6 +376,22 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                     Ops will check this on the call.
                   </p>
                 )}
+                {idReading.full_name && (
+                  <label className="flex cursor-pointer items-start gap-2 rounded-lg border bg-muted/40 p-3 text-xs">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                      checked={nameConsent}
+                      disabled={saving}
+                      onChange={(e) => setNameConsent(e.target.checked)}
+                    />
+                    <span>
+                      I agree that my account name becomes{' '}
+                      <span className="font-semibold">{idReading.full_name}</span> — exactly as
+                      printed on my National ID.
+                    </span>
+                  </label>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -386,6 +402,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                   {savingDetails ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Use these details
                 </Button>
+
               </>
             ) : (
               <p className="text-xs text-amber-600">
