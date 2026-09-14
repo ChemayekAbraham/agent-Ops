@@ -875,32 +875,6 @@ export function AvailableHousesSheet({ open, onOpenChange }: AvailableHousesShee
         </div>
         )}
         </div>
-        {view === 'list' && (() => {
-          const target = filtered.find(l => l.latitude && l.longitude);
-          const mapHref = target
-            ? `https://www.google.com/maps/search/?api=1&query=${target.latitude},${target.longitude}`
-            : (hasGPS
-                ? `https://www.google.com/maps/search/?api=1&query=${geo.latitude},${geo.longitude}`
-                : `https://www.google.com/maps/search/?api=1&query=houses+for+rent+${encodeURIComponent(selectedRegion !== 'All Regions' ? selectedRegion : 'Uganda')}`);
-          const label = target
-            ? `Open ${filtered.length > 1 ? 'nearest house' : target.title} in Google Maps`
-            : 'Open Google Maps';
-          return (
-            <div className="sticky bottom-0 left-0 right-0 z-10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 bg-gradient-to-t from-background via-background/95 to-background/0 md:hidden">
-              <a
-                href={mapHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => announceMap(label)}
-                aria-label={`${label} (opens in a new tab)`}
-                className="flex items-center justify-center gap-2.5 w-full min-h-[56px] px-6 py-4 rounded-full bg-primary text-primary-foreground font-bold text-base shadow-xl active:scale-[0.98] transition-transform touch-manipulation focus:outline-none focus-visible:ring-4 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                <Navigation className="h-5 w-5" />
-                Tap to open in Google Maps
-              </a>
-            </div>
-          );
-        })()}
       </SheetContent>
     </Sheet>
   );
