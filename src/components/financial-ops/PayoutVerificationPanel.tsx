@@ -12,11 +12,13 @@ import {
   AlertTriangle,
   BadgeCheck,
   Building2,
+  Camera,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
   HelpCircle,
+  Image,
   Loader2,
   MessageCircle,
   PhoneCall,
@@ -96,6 +98,17 @@ function statusBadge(row: PayoutDestinationRow): {
   if (row.name_match_score !== null && row.name_match_score < 0.5)
     return { label: 'Needs review', Icon: AlertTriangle, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
   return { label: 'Pending', Icon: Clock, classes: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/40' };
+}
+
+/** Photos-ready badge so operators instantly know which cases can be actioned. */
+function readinessBadge(photosReady: boolean): {
+  label: string;
+  Icon: typeof Camera;
+  classes: string;
+} {
+  return photosReady
+    ? { label: 'Ready', Icon: Camera, classes: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/40' }
+    : { label: 'Pending photos', Icon: Image, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
 }
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
@@ -423,6 +436,19 @@ export default function PayoutVerificationPanel() {
                 <span
                   role="status"
                   aria-label={`Verification status: ${badge.label}`}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
+                >
+                  <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {badge.label}
+                </span>
+              );
+            })()}
+            {(() => {
+              const badge = readinessBadge(photosReady);
+              return (
+                <span
+                  role="status"
+                  aria-label={`Readiness: ${badge.label}`}
                   className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
                 >
                   <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
