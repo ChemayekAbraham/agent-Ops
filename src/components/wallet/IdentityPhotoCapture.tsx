@@ -214,7 +214,15 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   const haveId = !!idPhoto || !!storedIdPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
-  const ready = haveId && haveSelfie;
+  // A freshly taken photo must pass the automatic quality check first.
+  const idQualityOk = !idPhoto || idQuality?.ok === true;
+  const selfieQualityOk = !selfieOriginal || selfieQuality?.ok === true;
+  const failedShots = [
+    idPhoto && idQuality && !idQuality.ok ? 'National ID photo' : null,
+    selfieOriginal && selfieQuality && !selfieQuality.ok ? 'Selfie' : null,
+  ].filter(Boolean) as string[];
+  const checkingPhotos = checkingId || checkingSelfie;
+  const ready = haveId && haveSelfie && idQualityOk && selfieQualityOk && !checkingPhotos;
 
   const verdict = idNameVerdict(idReading?.name_match_score ?? null);
 
