@@ -15,7 +15,7 @@ export interface TenantPaymentEntry {
  * Read-only — no wallet or ledger writes happen here.
  */
 export function useTenantPaymentHistory(limit = 20) {
-  return useQuery<PaymentEntry[]>({
+  return useQuery<TenantPaymentEntry[]>({
     queryKey: ['tenant-payment-history', limit],
     staleTime: 30_000,
     queryFn: async () => {
