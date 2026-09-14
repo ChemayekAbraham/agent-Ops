@@ -25,8 +25,10 @@ import {
   Search,
   ShieldAlert,
   Smartphone,
+  UserCheck,
   X,
   XCircle,
+
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -47,7 +49,9 @@ import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhoto
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   last9,
+  useAdoptNationalIdName,
   useDecidePayoutDestination,
+
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
   type PayoutDestinationRow,
@@ -110,6 +114,52 @@ function readinessBadge(photosReady: boolean): {
     ? { label: 'Ready', Icon: Camera, classes: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/40' }
     : { label: 'Pending photos', Icon: Image, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
 }
+
+/**
+ * Shown only when the names do not match: the name printed on the National ID
+ * is spelled out, and one tap makes it the holder's name on the account.
+ */
+function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSaved: () => void }) {
+  const adopt = useAdoptNationalIdName();
+  const idName = (row.national_id_name || '').trim();
+  const accountName = (row.full_name || row.account_name || '').trim();
+  const alreadySame = idName.toLowerCase() === accountName.toLowerCase();
+
+  if (!idName) return null;
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Name on the National ID
+      </p>
+      <p className="mt-1.5 text-lg font-bold leading-tight text-foreground">{idName}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        On the account now: {accountName || '—'}
+      </p>
+      <Button
+        className="mt-3 h-12 w-full rounded-xl text-xs font-bold uppercase tracking-widest"
+        disabled={adopt.isPending || alreadySame}
+        onClick={async () => {
+          try {
+            const res = await adopt.mutateAsync({ id: row.id });
+            toast.success(`Name changed to ${res.full_name ?? idName}.`);
+            onSaved();
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Could not change the name.');
+          }
+        }}
+      >
+        {adopt.isPending ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <UserCheck className="mr-2 h-4 w-4" />
+        )}
+        {alreadySame ? 'Already using the ID name' : 'Use the ID name'}
+      </Button>
+    </div>
+  );
+}
+
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
 function HeroPhoto({
@@ -512,6 +562,12 @@ export default function PayoutVerificationPanel() {
               );
             })()}
           </div>
+
+          {/* Names do not match: show the ID name and let it become the holder's name */}
+          {row.name_match_score !== null && row.name_match_score < 0.8 && (
+            <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
+          )}
+
 
           {/* Contact actions */}
           <div className="grid grid-cols-2 gap-2 px-5 pt-3">

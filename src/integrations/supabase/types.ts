@@ -52257,6 +52257,10 @@ export type Database = {
           village: string
         }[]
       }
+      finops_adopt_national_id_name: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: Json
+      }
       finops_decide_payout_destination: {
         Args: {
           p_call_outcome?: string
