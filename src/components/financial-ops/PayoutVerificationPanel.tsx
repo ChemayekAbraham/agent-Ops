@@ -7,7 +7,7 @@
  * unverified destination can be submitted or approved (gate is in the
  * database and in the approve-withdrawal function).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -45,6 +45,71 @@ import {
   type PayoutQueueFilter,
   type PayoutQueueSort,
 } from '@/hooks/usePayoutVerification';
+import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
+
+/**
+ * The National ID card photo and the selfie the holder recorded, shown under
+ * their name so the operator compares the face before tapping Verify. Tapping
+ * a thumbnail opens the full photo in a new tab (short-lived signed link).
+ */
+function IdentityPhotosStrip({ userId }: { userId: string }) {
+  const photos = useIdentityPhotosFor(userId);
+  const [idUrl, setIdUrl] = useState<string | null>(null);
+  const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
+  const idPath = photos.data?.national_id_photo_path ?? null;
+  const selfiePath = photos.data?.selfie_photo_path ?? null;
+
+  useEffect(() => {
+    let alive = true;
+    setIdUrl(null);
+    setSelfieUrl(null);
+    if (idPath) identityPhotoUrl(idPath).then((u) => alive && setIdUrl(u));
+    if (selfiePath) identityPhotoUrl(selfiePath).then((u) => alive && setSelfieUrl(u));
+    return () => {
+      alive = false;
+    };
+  }, [idPath, selfiePath]);
+
+  if (photos.isLoading) {
+    return (
+      <div className="flex gap-2">
+        <Skeleton className="h-20 w-16 rounded-lg" />
+        <Skeleton className="h-20 w-16 rounded-lg" />
+      </div>
+    );
+  }
+
+  if (!idPath && !selfiePath) {
+    return (
+      <p className="text-xs text-amber-600 flex items-center gap-1.5">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        No ID photo or selfie yet — ask them to record both in the app before verifying.
+      </p>
+    );
+  }
+
+  const shot = (url: string | null, label: string) =>
+    url ? (
+      <a href={url} target="_blank" rel="noreferrer" className="block shrink-0">
+        <img
+          src={url}
+          alt={label}
+          loading="lazy"
+          className="h-20 w-16 rounded-lg object-cover border border-border"
+        />
+        <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
+      </a>
+    ) : (
+      <div className="shrink-0">
+        <div className="h-20 w-16 rounded-lg border border-dashed border-border flex items-center justify-center">
+          <IdCard className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
+      </div>
+    );
+
+  return <div className="flex gap-3">{shot(idUrl, 'National ID')}{shot(selfieUrl, 'Selfie')}</div>;
+}
 
 const FILTERS: { id: PayoutQueueFilter; label: string }[] = [
   { id: 'waiting', label: 'Waiting' },
