@@ -121,6 +121,7 @@ export function usePayoutVerificationQueue(opts: {
   return useQuery({
     queryKey: ['payout-verification-queue', status, search, sort, page, dateFrom, dateTo, userType],
     enabled,
+    retry: false,
     queryFn: async (): Promise<{ rows: PayoutDestinationRow[]; total: number }> => {
       const { data, error } = await supabase.rpc('finops_payout_verification_queue', {
         p_status: status,
