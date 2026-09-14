@@ -645,7 +645,15 @@ export default function SupporterDashboard({
       
       <Dialog open={showCalculator} onOpenChange={setShowCalculator}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0 [&>button]:fixed [&>button]:right-4 [&>button]:top-4 [&>button]:z-[200] [&>button]:bg-background/90 [&>button]:shadow-md">
-          <DialogHeader className="p-4 pb-0">
+          <div className="flex items-center justify-center px-4 pt-6 pb-2">
+            <img
+              src={calculatorIllustration.url}
+              alt="Earnings calculator"
+              loading="lazy"
+              className="h-28 w-auto sm:h-36"
+            />
+          </div>
+          <DialogHeader className="p-4 pb-0 pt-0">
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <Calculator className="h-4 w-4" />
               Earnings Calculator
