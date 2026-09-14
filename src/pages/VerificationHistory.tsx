@@ -203,6 +203,26 @@ export default function VerificationHistoryPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [previewIndex, flatPhotos]);
 
+  // Preload the neighbouring photos while one is open so swiping or stepping
+  // to the next/previous thumbnail renders instantly from cache.
+  useEffect(() => {
+    if (previewIndex === null || flatPhotos.length < 2) return;
+    const neighbors = [previewIndex - 1, previewIndex + 1]
+      .map((i) => (i + flatPhotos.length) % flatPhotos.length)
+      .map((i) => flatPhotos[i]?.url)
+      .filter((u): u is string => !!u);
+    const warmers = neighbors.map((url) => {
+      const img = new Image();
+      img.src = url;
+      return img;
+    });
+    return () => {
+      warmers.forEach((img) => {
+        img.src = '';
+      });
+    };
+  }, [previewIndex, flatPhotos]);
+
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4 pb-24">
       <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(-1)}>
