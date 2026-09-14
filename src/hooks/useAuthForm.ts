@@ -624,29 +624,45 @@ export function useAuthForm() {
       return;
     }
 
-    toast({
-      title: 'Account Created!',
-      description: 'Welcome to Welile',
-    });
     saveLocationInBackground();
     // Attribution captured in signup metadata — clear the stored source so it
     // can't leak onto a later, unrelated signup on the same device.
     try { localStorage.removeItem(SIGNUP_SOURCE_KEY); } catch { /* ignore */ }
 
-    // If the session was not returned, sign the real-email user in so the
-    // auth-state redirect hooks fire and send them to the dashboard.
+    // Email verification is MANDATORY for real-email signups. GoTrue returns
+    // no session until the confirmation link is clicked, and we must never
+    // paper over that by signing the user in — doing so would let unconfirmed
+    // (potentially fake) email accounts straight into the app.
+    if (hasRealEmail && !data?.session) {
+      setIsLoading(false);
+      setEmailConfirmationSent(authEmail);
+      toast({
+        title: 'Confirm your email to finish',
+        description: `We sent a confirmation link to ${authEmail}. Open it, then sign in.`,
+      });
+      return;
+    }
+
+    toast({
+      title: 'Account Created!',
+      description: 'Welcome to Welile',
+    });
+
+    // Phone-only (synthetic email) accounts are created pre-confirmed server
+    // side, so a missing session here is just a client-side race — sign in.
     if (!data?.session) {
       const { error: signInError } = await signIn(authEmail, password);
       if (signInError) {
         setIsLoading(false);
         toast({
-          title: 'Check your email',
-          description: 'Please confirm your account before signing in.',
+          title: 'Almost there',
+          description: 'Your account was created. Please sign in to continue.',
         });
         return;
       }
     }
     setIsLoading(false);
+
   };
 
   const handleSignInSubmit = async () => {
