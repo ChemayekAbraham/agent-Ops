@@ -27,6 +27,7 @@ import {
   Search,
   ShieldAlert,
   Smartphone,
+  Undo2,
   UserCheck,
   X,
   XCircle,
@@ -54,6 +55,7 @@ import {
   useAdoptNationalIdName,
   useHolderNameHistory,
   useDecidePayoutDestination,
+  useRevertHolderName,
   useSetHolderName,
 
 
