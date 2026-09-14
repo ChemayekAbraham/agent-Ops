@@ -53,6 +53,7 @@ interface IdentityPhotosStripProps {
   userId: string;
   holderName?: string | null;
   verificationStatus?: string | null;
+  onPhotosAvailable?: (available: boolean) => void;
 }
 
 /**
@@ -62,7 +63,7 @@ interface IdentityPhotosStripProps {
  * without leaving the queue. Badges make the upload and decision status
  * scannable at a glance.
  */
-function IdentityPhotosStrip({ userId, holderName, verificationStatus }: IdentityPhotosStripProps) {
+function IdentityPhotosStrip({ userId, holderName, verificationStatus, onPhotosAvailable }: IdentityPhotosStripProps) {
   const photos = useIdentityPhotosFor(userId);
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
@@ -70,6 +71,11 @@ function IdentityPhotosStrip({ userId, holderName, verificationStatus }: Identit
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
+  const bothAvailable = !!idPath && !!selfiePath;
+
+  useEffect(() => {
+    onPhotosAvailable?.(bothAvailable);
+  }, [bothAvailable, onPhotosAvailable]);
 
   useEffect(() => {
     let alive = true;
