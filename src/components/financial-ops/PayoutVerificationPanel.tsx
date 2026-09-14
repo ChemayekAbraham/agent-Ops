@@ -731,6 +731,13 @@ export default function PayoutVerificationPanel() {
   const total = queue.data?.total ?? 0;
   const rows = queue.data?.rows ?? [];
 
+  // Keep the open drawer showing fresh queue data after refetches.
+  useEffect(() => {
+    if (!detailRow) return;
+    const fresh = rows.find((r) => r.id === detailRow.id);
+    if (fresh && fresh !== detailRow) setDetailRow(fresh);
+  }, [rows, detailRow]);
+
   // One batched lookup for every phone on the page (account phone + payout
   // number): does this number have a Welile account, and whose?
   const pagePhones = useMemo(
