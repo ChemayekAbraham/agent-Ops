@@ -313,8 +313,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       setIdPhoto(null);
       setSelfieOriginal(null);
       setSelfieCropped(null);
+      setSendError(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not send your photos. Please try again.');
+      const message = sendFailureMessage(e);
+      setSendError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
