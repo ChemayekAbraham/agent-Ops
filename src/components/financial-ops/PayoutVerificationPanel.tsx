@@ -85,10 +85,12 @@ function DecisionDialog({
     try {
       await decide.mutateAsync({
         id: row.id,
+        userId: row.user_id,
         decision,
         reason: reason.trim(),
         callOutcome: callOutcome.trim() || undefined,
       });
+
       toast.success(decision === 'verified' ? 'Destination verified.' : 'Destination rejected.');
       setReason('');
       setCallOutcome('');

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, ShieldCheck, Loader2, X } from 'lucide-react';
+import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -11,9 +11,12 @@ import {
   setSelfieAsProfilePhoto,
   identityPhotoUrl,
 } from '@/hooks/useIdentityPhotos';
+import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
+import { readNationalIdPhoto, idNameVerdict, type NationalIdReading } from '@/lib/nationalIdOcr';
 
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
+
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -111,6 +114,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const { user } = useAuth();
   const mine = useMyIdentityPhotos();
   const submit = useSubmitIdentityPhotos();
+  const submitNid = useSubmitNationalId();
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
@@ -120,6 +124,38 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [pendingSelfie, setPendingSelfie] = useState<File | null>(null);
   const [previewSelfie, setPreviewSelfie] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // What we read off the ID card photo.
+  const [reading, setReading] = useState(false);
+  const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [savingDetails, setSavingDetails] = useState(false);
+
+  const readIdPhoto = async (file: File) => {
+    setReading(true);
+    setIdReading(null);
+    setReadError(null);
+    const res = await readNationalIdPhoto(file);
+    if ('error' in res && res.error) setReadError(res.error);
+    else setIdReading(res as NationalIdReading);
+    setReading(false);
+  };
+
+  const saveDetectedDetails = async () => {
+    if (!idReading?.full_name) return;
+    setSavingDetails(true);
+    try {
+      await submitNid.mutateAsync({
+        nationalId: idReading.id_number || '',
+        idName: idReading.full_name,
+      });
+      toast.success('Saved the names and number we read from your ID.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not save those details.');
+    } finally {
+      setSavingDetails(false);
+    }
+  };
 
   // Whatever is already archived is reused instead of asked for again, so a
   // partial submission (e.g. selfie stored, ID shot missing) only requires the
@@ -133,6 +169,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const haveId = !!idPhoto || !!storedIdPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
   const ready = haveId && haveSelfie;
+
+  const verdict = idNameVerdict(idReading?.name_match_score ?? null);
+
 
   const handleSave = async () => {
     if (!user?.id || !ready) return;
@@ -193,11 +232,75 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             label="National ID photo"
             hint="All four corners visible, no glare."
             file={idPhoto}
-            onPick={setIdPhoto}
-            onClear={() => setIdPhoto(null)}
+            onPick={(f) => { setIdPhoto(f); void readIdPhoto(f); }}
+            onClear={() => { setIdPhoto(null); setIdReading(null); setReadError(null); }}
+
             disabled={saving}
           />
         )}
+
+        {reading && (
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Reading the names on your ID…
+          </div>
+        )}
+
+        {!reading && readError && (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
+            {readError}
+          </p>
+        )}
+
+        {!reading && idReading && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <ScanLine className="h-4 w-4 text-primary" />
+              What we read on your ID
+            </p>
+            {idReading.readable ? (
+              <>
+                <p className="text-sm">
+                  Names: <span className="font-semibold">{idReading.full_name}</span>
+                </p>
+                {idReading.id_number && (
+                  <p className="text-sm">
+                    ID number: <span className="font-semibold">{idReading.id_number}</span>
+                  </p>
+                )}
+                {verdict === 'match' && (
+                  <p className="flex items-center gap-2 text-xs text-emerald-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    These names match your account name.
+                  </p>
+                )}
+                {(verdict === 'partial' || verdict === 'mismatch') && (
+                  <p className="flex items-center gap-2 text-xs text-amber-600">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    These names differ from your account name ({idReading.account_name}). Financial
+                    Ops will check this on the call.
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={savingDetails || !idReading.full_name}
+                  onClick={saveDetectedDetails}
+                >
+                  {savingDetails ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Use these details
+                </Button>
+              </>
+            ) : (
+              <p className="text-xs text-amber-600">
+                The card was hard to read. Retake the photo in better light, or type your details.
+              </p>
+            )}
+          </div>
+        )}
+
+
 
         {storedSelfiePath ? (
           <StoredShot
