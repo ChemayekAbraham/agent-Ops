@@ -206,6 +206,8 @@ const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
 const LedgerEntryDeepLinkPage = lazy(() => import('./pages/LedgerEntryDeepLink'));
 const VerificationRequestDetailPage = lazy(() => import('./pages/VerificationRequestDetail'));
+const VerificationHistoryPage = lazy(() => import('./pages/VerificationHistory'));
+
 const PhantomDriftDetailPage = lazy(() => import('./pages/cfo/PhantomDriftDetail'));
 const COODashboardPage = lazy(() => import('./pages/coo/Dashboard'));
 const HRDashboardPage = lazy(() => import('./pages/hr/Dashboard'));
@@ -487,6 +489,8 @@ function AppRoutes() {
           <Route path="/dashboard/agents/leaderboard" element={<AgentLeaderboard />} />
           <Route path="/dashboard/*" element={<DashboardRedirect />} />
           <Route path="/verification-request/:id" element={<VerificationRequestDetailPage />} />
+          <Route path="/verification-history" element={<VerificationHistoryPage />} />
+
           {/* Dev-only Playwright harnesses — stripped from production builds. */}
           {import.meta.env.DEV && (
             <Route

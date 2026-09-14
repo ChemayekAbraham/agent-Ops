@@ -162,6 +162,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           {saving ? 'Sending…' : 'Send my photos for verification'}
         </Button>
 
+        <a
+          href="/verification-history"
+          className="block text-center text-xs text-muted-foreground underline"
+        >
+          See my verification history
+        </a>
+
+
         <SelfieCropDialog
           file={pendingSelfie}
           onCancel={() => setPendingSelfie(null)}
