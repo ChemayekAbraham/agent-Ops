@@ -43,6 +43,8 @@ export interface PayoutDestinationRow {
   withdrawable_balance: number;
   /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
   name_source: 'national_id' | 'verified' | null;
+  /** True once the back of the National ID is saved. Verification is blocked without it. */
+  id_back_photo_ready?: boolean | null;
   total_count: number;
 }
 
