@@ -326,9 +326,19 @@ export function useSubmitNationalId() {
         p_national_id: input.nationalId,
         p_id_name: input.idName,
       });
-      if (error) throw new Error(error.message);
+      // A duplicate National ID is rejected by the database unique index
+      // (23505) even if every other check passed — surface it plainly.
+      if (error) {
+        if (isDuplicateNationalIdError(error)) throw new Error(DUPLICATE_NATIONAL_ID_MESSAGE);
+        throw new Error(error.message);
+      }
       const res = (data ?? {}) as { success?: boolean; message?: string };
-      if (!res.success) throw new Error(res.message || 'Could not save your National ID.');
+      if (!res.success) {
+        if (res.message && isDuplicateNationalIdError(res.message)) {
+          throw new Error(DUPLICATE_NATIONAL_ID_MESSAGE);
+        }
+        throw new Error(res.message || 'Could not save your National ID.');
+      }
       return res;
     },
     onSuccess: () => {
