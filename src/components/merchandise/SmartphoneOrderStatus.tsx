@@ -398,6 +398,42 @@ export default function SmartphoneOrderStatus({
                     {meta.label}
                   </Badge>
                 </div>
+                {scheduleRows.length > 0 && (
+                  <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2 space-y-1.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-[11px] font-semibold">Your daily repayment</p>
+                      {currentScheduleRow && (
+                        <p className="text-sm font-bold tabular-nums text-green-600">
+                          {formatUGX(Number(currentScheduleRow.daily_deduction || 0))}/day
+                        </p>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      The amount reduces every month as your balance comes down.
+                    </p>
+                    <div className="rounded-md border border-border bg-background/60 overflow-hidden">
+                      <div className="grid grid-cols-3 gap-1 px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        <span>Month</span>
+                        <span className="text-right">Amount</span>
+                        <span className="text-right">Per day</span>
+                      </div>
+                      {scheduleRows.map((r) => (
+                        <div
+                          key={r.month_index}
+                          className={`grid grid-cols-3 gap-1 border-t border-border px-2 py-1 text-[11px] tabular-nums ${
+                            currentScheduleRow?.month_index === r.month_index ? 'bg-primary/5 font-medium' : ''
+                          }`}
+                        >
+                          <span className="text-muted-foreground">
+                            {format(new Date(r.period_start), 'MMM yyyy')}
+                          </span>
+                          <span className="text-right">{formatUGX(Number(r.total_due || 0))}</span>
+                          <span className="text-right">{formatUGX(Number(r.daily_deduction || 0))}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {isMoBanjaIphone(null, o.item_name) && (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-2 space-y-1">
                     <p className="text-[11px] font-semibold">
