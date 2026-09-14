@@ -708,6 +708,26 @@ export default function PayoutVerificationPanel() {
             })()}
           </div>
 
+          {/* Both names side by side — the person in the selfie vs the National ID */}
+          <div className="mx-5 mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-border bg-card p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Selfie name</p>
+              <p className="mt-1 truncate text-sm font-bold text-foreground">{row.full_name || '—'}</p>
+              <p className="text-[10px] text-muted-foreground">Name on the account</p>
+            </div>
+            <div className={`rounded-2xl border p-3 ${row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8 ? 'border-amber-500/50 bg-amber-500/10' : 'border-border bg-card'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">National ID name</p>
+              <p className="mt-1 truncate text-sm font-bold text-foreground">{row.national_id_name || '—'}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {row.national_id_name
+                  ? row.name_match_score !== null && row.name_match_score < 0.8
+                    ? 'Does not match the selfie name'
+                    : 'Matches the selfie name'
+                  : 'Not read from the ID yet'}
+              </p>
+            </div>
+          </div>
+
           {/* Names do not match: show the ID name and let it become the holder's name */}
           {row.name_match_score !== null && row.name_match_score < 0.8 && (
             <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
