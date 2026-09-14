@@ -185,7 +185,7 @@ export function usePayoutVerificationQueue(opts: {
     enabled,
     retry: false,
     queryFn: async (): Promise<{ rows: PayoutDestinationRow[]; total: number }> => {
-      const { data, error } = await supabase.rpc('finops_payout_verification_queue', {
+      const params = {
         p_status: status,
         p_search: search.trim() || null,
         p_sort: sort,
@@ -194,8 +194,10 @@ export function usePayoutVerificationQueue(opts: {
         p_date_from: dateFrom || null,
         p_date_to: dateTo || null,
         p_user_type: userType === 'all' ? null : userType,
-      });
-      if (error) throw new Error(payoutQueueErrorMessage(error.message));
+      };
+      const startedAt = performance.now();
+      const { data, error } = await supabase.rpc('finops_payout_verification_queue', params);
+      if (error) throw await buildQueueError('finops_payout_verification_queue', params, error, startedAt);
       const rows = ((data ?? []) as unknown[]).map((r) => {
         const row = r as Record<string, unknown>;
         const tokens = row.name_mismatch_tokens;
