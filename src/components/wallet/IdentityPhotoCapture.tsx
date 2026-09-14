@@ -12,6 +12,7 @@ import {
   identityPhotoUrl,
 } from '@/hooks/useIdentityPhotos';
 import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
+import { useIdentityAlreadyVerified } from '@/hooks/useIdentityAlreadyVerified';
 import { readNationalIdPhoto, idNameVerdict, type NationalIdReading } from '@/lib/nationalIdOcr';
 import { checkPhotoQuality, retakeMessage, type PhotoQualityResult } from '@/lib/imageQuality';
 import { imageFingerprint } from '@/lib/imageFingerprint';
