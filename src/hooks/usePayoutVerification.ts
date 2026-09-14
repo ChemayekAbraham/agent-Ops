@@ -137,6 +137,7 @@ export function useDecidePayoutDestination() {
   });
 }
 
+/** One decision entry for the Financial Ops audit log. */
 export interface PayoutDecisionLogRow {
   id: string;
   user_id: string;
@@ -154,18 +155,32 @@ export interface PayoutDecisionLogRow {
   decided_at: string;
 }
 
+export interface PayoutDecisionLogFilters {
+  search?: string;
+  decision?: 'verified' | 'rejected' | 'all';
+  from?: string; // YYYY-MM-DD
+  to?: string; // YYYY-MM-DD
+}
+
 /**
- * Read-only audit feed of every verification decision Financial Ops has made:
- * who decided, the decision (verified/rejected) and when. Financial Ops,
- * CFO, manager and super_admin only (enforced in the RPC).
+ * Newest-first record of every verify/reject decision, searchable by holder
+ * name, number or decider, filterable by decision and decision date.
  */
-export function usePayoutDecisionLog(enabled = true, limit = 50) {
+export function usePayoutDecisionLog(enabled: boolean, filters: PayoutDecisionLogFilters, limit = 100) {
+  const search = (filters.search ?? '').trim();
+  const decision = filters.decision && filters.decision !== 'all' ? filters.decision : null;
   return useQuery({
-    queryKey: ['payout-decision-log', limit],
+    queryKey: ['payout-decision-log', search, decision, filters.from ?? '', filters.to ?? '', limit],
     enabled,
     staleTime: 30_000,
     queryFn: async (): Promise<PayoutDecisionLogRow[]> => {
-      const { data, error } = await supabase.rpc('finops_payout_decision_log', { p_limit: limit });
+      const { data, error } = await supabase.rpc('finops_payout_decision_log', {
+        p_limit: limit,
+        p_search: search || null,
+        p_decision: decision,
+        p_from: filters.from ? new Date(`${filters.from}T00:00:00`).toISOString() : null,
+        p_to: filters.to ? new Date(`${filters.to}T00:00:00`).toISOString() : null,
+      });
       if (error) throw error;
       return (data ?? []) as unknown as PayoutDecisionLogRow[];
     },

@@ -7,7 +7,7 @@
  * unverified destination can be submitted or approved (gate is in the
  * database and in the approve-withdrawal function).
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -16,10 +16,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   History,
   IdCard,
   Loader2,
-  Maximize2,
   PhoneCall,
   Search,
   ShieldAlert,
@@ -38,7 +38,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ImageLightbox } from '@/components/marketplace/ImageLightbox';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
@@ -47,35 +46,34 @@ import {
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
   type PayoutDestinationRow,
+  type PayoutDecisionLogRow,
   type PayoutQueueFilter,
   type PayoutQueueSort,
 } from '@/hooks/usePayoutVerification';
 import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
 
-interface IdentityPhotosStripProps {
-  userId: string;
-  holderName?: string | null;
-  verificationStatus?: string | null;
-  onPhotosAvailable?: (available: boolean) => void;
-}
-
 /**
  * The National ID card photo and the selfie the holder recorded, shown under
  * their name so the operator compares the face before tapping Verify. Tapping
- * a thumbnail opens a zoomable lightbox so the operator can inspect details
- * without leaving the queue. Badges make the upload and decision status
- * scannable at a glance.
+ * a thumbnail opens the full photo in a new tab (short-lived signed link).
+ * `onPhotosAvailable` reports whether BOTH photos exist — the query polls
+ * while they're missing, so the parent re-enables Verify the moment the
+ * holder finishes recording, without a refresh.
  */
-function IdentityPhotosStrip({ userId, holderName, verificationStatus, onPhotosAvailable }: IdentityPhotosStripProps) {
+function IdentityPhotosStrip({
+  userId,
+  onPhotosAvailable,
+}: {
+  userId: string;
+  onPhotosAvailable?: (available: boolean) => void;
+}) {
   const photos = useIdentityPhotosFor(userId);
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
-  const bothAvailable = !!idPath && !!selfiePath;
 
+  const bothAvailable = !!idPath && !!selfiePath;
   useEffect(() => {
     onPhotosAvailable?.(bothAvailable);
   }, [bothAvailable, onPhotosAvailable]);
@@ -91,17 +89,6 @@ function IdentityPhotosStrip({ userId, holderName, verificationStatus, onPhotosA
     };
   }, [idPath, selfiePath]);
 
-  const lightboxImages = [
-    ...(idUrl ? [{ id: 'national-id', image_url: idUrl }] : []),
-    ...(selfieUrl ? [{ id: 'selfie', image_url: selfieUrl }] : []),
-  ];
-
-  const openAt = (index: number) => {
-    if (lightboxImages.length === 0) return;
-    setLightboxIndex(index);
-    setLightboxOpen(true);
-  };
-
   if (photos.isLoading) {
     return (
       <div className="flex gap-2">
@@ -111,101 +98,36 @@ function IdentityPhotosStrip({ userId, holderName, verificationStatus, onPhotosA
     );
   }
 
-  const decisionBadge = (() => {
-    const s = verificationStatus ?? 'waiting';
-    if (s === 'verified') {
-      return { label: 'Identity approved', icon: <BadgeCheck className="h-3 w-3" />, tone: 'bg-primary/10 text-primary' as const };
-    }
-    if (s === 'rejected') {
-      return { label: 'Identity rejected', icon: <X className="h-3 w-3" />, tone: 'bg-destructive/10 text-destructive' as const };
-    }
-    return { label: 'Identity awaiting verification', icon: <AlertTriangle className="h-3 w-3" />, tone: 'bg-amber-500/15 text-amber-600' as const };
-  })();
-
-  const photoBadge = (received: boolean, label: string) =>
-    received ? (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-primary/10 text-primary">
-        <CheckCircle2 className="h-3 w-3" /> {label} received
-      </span>
-    ) : (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-destructive/10 text-destructive">
-        <X className="h-3 w-3" /> {label} missing
-      </span>
-    );
-
   if (!idPath && !selfiePath) {
     return (
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-2">
-          {photoBadge(false, 'National ID')}
-          {photoBadge(false, 'Selfie')}
-          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${decisionBadge.tone}`}>
-            {decisionBadge.icon} {decisionBadge.label}
-          </span>
-        </div>
-        <p className="text-xs text-amber-600 flex items-center gap-1.5">
-          <AlertTriangle className="h-3.5 w-3.5" />
-          No ID photo or selfie yet — ask them to record both in the app before verifying.
-        </p>
-      </div>
+      <p className="text-xs text-amber-600 flex items-center gap-1.5">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        No ID photo or selfie yet — ask them to record both in the app before verifying.
+      </p>
     );
   }
 
-  const shot = (
-    url: string | null,
-    label: string,
-    index: number,
-    placeholderIcon: ReactNode,
-  ) =>
+  const shot = (url: string | null, label: string) =>
     url ? (
-      <button
-        type="button"
-        onClick={() => openAt(index)}
-        className="block shrink-0 group relative text-left"
-        aria-label={`Open ${label} in lightbox`}
-      >
+      <a href={url} target="_blank" rel="noreferrer" className="block shrink-0">
         <img
           src={url}
           alt={label}
           loading="lazy"
-          className="h-20 w-16 rounded-lg object-cover border border-border group-hover:opacity-90 transition-opacity"
+          className="h-20 w-16 rounded-lg object-cover border border-border"
         />
-        <div className="absolute right-1 top-1 rounded bg-background/80 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Maximize2 className="h-3 w-3 text-foreground" />
-        </div>
         <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
-      </button>
+      </a>
     ) : (
       <div className="shrink-0">
         <div className="h-20 w-16 rounded-lg border border-dashed border-border flex items-center justify-center">
-          {placeholderIcon}
+          <IdCard className="h-4 w-4 text-muted-foreground" />
         </div>
         <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
       </div>
     );
 
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        {photoBadge(!!idPath, 'National ID')}
-        {photoBadge(!!selfiePath, 'Selfie')}
-        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${decisionBadge.tone}`}>
-          {decisionBadge.icon} {decisionBadge.label}
-        </span>
-      </div>
-      <div className="flex gap-3">
-        {shot(idUrl, 'National ID', 0, <IdCard className="h-4 w-4 text-muted-foreground" />)}
-        {shot(selfieUrl, 'Selfie', idUrl ? 1 : 0, <Smartphone className="h-4 w-4 text-muted-foreground" />)}
-      </div>
-      <ImageLightbox
-        images={lightboxImages}
-        initialIndex={lightboxIndex}
-        open={lightboxOpen}
-        onClose={() => setLightboxOpen(false)}
-        productName={holderName ? `${holderName} — verification photos` : 'Verification photos'}
-      />
-    </div>
-  );
+  return <div className="flex gap-3">{shot(idUrl, 'National ID')}{shot(selfieUrl, 'Selfie')}</div>;
 }
 
 const FILTERS: { id: PayoutQueueFilter; label: string }[] = [
@@ -311,17 +233,158 @@ function DecisionDialog({
   );
 }
 
-/** "14 Sep 2026, 08:41" — audit-friendly local timestamp for decisions. */
-function formatDecisionTime(iso: string): string {
+/** "14 Sep 2026, 08:41" */
+function formatDecisionTime(iso: string | null): string {
+  if (!iso) return '';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+/**
+ * Collapsible, filterable audit trail of every verification decision —
+ * searchable by holder name / number / decider, filterable by decision
+ * (approved or rejected) and by decision date range. Newest first.
+ */
+function DecisionAuditLog() {
+  const [open, setOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [decision, setDecision] = useState<'all' | 'verified' | 'rejected'>('all');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const log = usePayoutDecisionLog(open, { search, decision, from, to });
+  const rows = log.data ?? [];
+
+  const applySearch = () => setSearch(searchInput);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-2 p-4"
+      >
+        <span className="flex items-center gap-2 text-sm font-bold text-foreground">
+          <History className="h-4 w-4 text-primary" />
+          Decision audit log
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-border p-4 space-y-3">
+      <DecisionAuditLog />
+
+      {/* Filters */}
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+              onBlur={applySearch}
+              placeholder="Search holder, number or who decided"
+              className="pl-8 h-11 text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            {(['all', 'verified', 'rejected'] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDecision(d)}
+                className={`flex-1 rounded-lg border px-3 h-10 text-xs font-semibold capitalize ${
+                  decision === d ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'
+                }`}
+              >
+                {d === 'all' ? 'All decisions' : d}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-[10px] font-semibold text-muted-foreground mb-1">From</label>
+              <Input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="h-11 text-sm"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-[10px] font-semibold text-muted-foreground mb-1">To</label>
+              <Input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="h-11 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Rows */}
+          {log.isLoading ? (
+            <div className="space-y-2">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-14 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : log.isError ? (
+            <p className="text-xs text-destructive">
+              Could not load the audit log. {log.error instanceof Error ? log.error.message : ''}
+            </p>
+          ) : rows.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              No decisions match these filters.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {rows.map((r: PayoutDecisionLogRow) => {
+                const dest =
+                  r.destination_type === 'mobile_money'
+                    ? `${r.provider ?? 'Mobile money'} · ${r.momo_number ?? ''}`
+                    : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
+                return (
+                  <div key={r.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate">
+                          {r.full_name || 'Name not recorded'}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">{dest}</p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                          r.status === 'verified'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-destructive/10 text-destructive'
+                        }`}
+                      >
+                        {r.status === 'verified' ? 'Approved' : 'Rejected'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      by <span className="font-semibold text-foreground">{r.decided_by_name || 'Financial Ops'}</span>
+                      {' · '}
+                      {formatDecisionTime(r.decided_at)}
+                    </p>
+                    {r.decision_reason && (
+                      <p className="text-[11px] text-muted-foreground">Reason: {r.decision_reason}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PayoutVerificationPanel() {
@@ -331,12 +394,13 @@ export default function PayoutVerificationPanel() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [active, setActive] = useState<PayoutDestinationRow | null>(null);
+  // Per-row photo readiness; each photo strip reports here and the photo
+  // query polls while shots are missing, so Verify turns on by itself the
+  // moment both photos land — no refresh.
   const [photosAvailable, setPhotosAvailable] = useState<Record<string, boolean>>({});
-  const [showAuditLog, setShowAuditLog] = useState(false);
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
-  const decisionLog = usePayoutDecisionLog(showAuditLog);
 
   const total = queue.data?.total ?? 0;
   const rows = queue.data?.rows ?? [];
@@ -387,70 +451,6 @@ export default function PayoutVerificationPanel() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Decision audit log — who decided what, and when */}
-      <div className="rounded-2xl border border-border bg-card">
-        <button
-          type="button"
-          onClick={() => setShowAuditLog((v) => !v)}
-          className="w-full flex items-center justify-between gap-3 p-4"
-        >
-          <span className="flex items-center gap-2 text-sm font-bold text-foreground">
-            <History className="h-4 w-4 text-primary" />
-            Decision audit log
-          </span>
-          <ChevronDown
-            className={`h-4 w-4 text-muted-foreground transition-transform ${showAuditLog ? 'rotate-180' : ''}`}
-          />
-        </button>
-        {showAuditLog && (
-          <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
-            {decisionLog.isLoading ? (
-              <div className="space-y-2">
-                {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full rounded-xl" />
-                ))}
-              </div>
-            ) : decisionLog.isError ? (
-              <p className="text-xs text-destructive">Could not load the decision log.</p>
-            ) : (decisionLog.data ?? []).length === 0 ? (
-              <p className="text-xs text-muted-foreground">No decisions recorded yet.</p>
-            ) : (
-              (decisionLog.data ?? []).map((d) => {
-                const dest =
-                  d.destination_type === 'mobile_money'
-                    ? `${d.provider ?? 'Mobile money'} · ${d.momo_number ?? ''}`
-                    : `${d.bank_name ?? ''} ${d.bank_account_number ?? ''}`.trim();
-                return (
-                  <div key={d.id} className="rounded-xl bg-muted/40 p-3 space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold text-foreground truncate">
-                        {d.full_name || 'Name not recorded'} · {dest}
-                      </p>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                          d.status === 'verified'
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-destructive/10 text-destructive'
-                        }`}
-                      >
-                        {d.status === 'verified' ? 'Approved' : 'Rejected'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      By <span className="font-semibold text-foreground">{d.decided_by_name || 'Financial Ops'}</span>{' '}
-                      on {formatDecisionTime(d.decided_at)}
-                    </p>
-                    {d.decision_reason && (
-                      <p className="text-[11px] text-muted-foreground">Reason: {d.decision_reason}</p>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
       </div>
 
       {/* Filters */}
@@ -560,10 +560,8 @@ export default function PayoutVerificationPanel() {
 
                 <IdentityPhotosStrip
                   userId={r.user_id}
-                  holderName={r.full_name}
-                  verificationStatus={r.status}
-                  onPhotosAvailable={(available) =>
-                    setPhotosAvailable((prev) => ({ ...prev, [r.id]: available }))
+                  onPhotosAvailable={(a) =>
+                    setPhotosAvailable((m) => (m[r.id] === a ? m : { ...m, [r.id]: a }))
                   }
                 />
 
@@ -601,18 +599,6 @@ export default function PayoutVerificationPanel() {
                   {r.decision_reason && (
                     <p className="text-xs text-muted-foreground">Note: {r.decision_reason}</p>
                   )}
-                  {r.decided_at && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1.5 border-t border-border/60 pt-2">
-                      <History className="h-3.5 w-3.5 shrink-0" />
-                      <span>
-                        {r.status === 'verified' ? 'Approved' : 'Rejected'} by{' '}
-                        <span className="font-semibold text-foreground">
-                          {r.decided_by_name || 'Financial Ops'}
-                        </span>{' '}
-                        on {formatDecisionTime(r.decided_at)}
-                      </span>
-                    </p>
-                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -633,6 +619,15 @@ export default function PayoutVerificationPanel() {
                     </a>
                   )}
                 </div>
+
+                {r.decided_at && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {r.status === 'verified' ? 'Approved' : r.status === 'rejected' ? 'Rejected' : 'Decided'} by{' '}
+                    <span className="font-semibold text-foreground">{r.decided_by_name || 'Financial Ops'}</span>
+                    {' on '}
+                    {formatDecisionTime(r.decided_at)}
+                  </p>
+                )}
 
                 {r.status !== 'verified' || r.name_match_score === null ? (
                   <Button

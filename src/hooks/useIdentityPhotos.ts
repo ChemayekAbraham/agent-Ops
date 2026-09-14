@@ -37,6 +37,13 @@ export function useIdentityPhotosFor(userId?: string | null) {
     queryKey: ['my-identity-photos', userId],
     enabled: !!userId,
     staleTime: 60_000,
+    // While either photo is missing, keep checking so the verification panel
+    // (and the Verify button) update the moment the user finishes recording —
+    // no page refresh needed. Once both exist, poll quietly to catch retakes.
+    refetchInterval: (query) => {
+      const d = query.state.data;
+      return d?.national_id_photo_path && d?.selfie_photo_path ? 120_000 : 8_000;
+    },
     queryFn: async (): Promise<MyIdentityPhotos | null> => {
       const { data, error } = await supabase
         .from('profiles')
