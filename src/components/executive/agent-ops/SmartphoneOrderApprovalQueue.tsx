@@ -312,7 +312,7 @@ export function SmartphoneOrderApprovalQueue({
     onSuccess: (data: any, variables) => {
       if (data?.stage === 'cfo') {
         toast.success(
-          `${formatUGX(Number(data?.total_amount || 0))} paid to the assigned supplier. ${formatUGX(Number(data?.payment_projection || 0))} (33%) recovery plan activated on the agent. The agent has been notified.`,
+          `${formatUGX(Number(data?.total_amount || 0))} paid to the assigned supplier. Recovery plan activated on the agent: ${formatUGX(Number(data?.payment_projection || 0))} charge, first daily ${formatUGX(Number(data?.daily_amount || 0))} (28% monthly, reducing). The agent has been notified.`,
         );
         // Fire-and-forget: tell the applying agent the down payment is with the
         // supplier and share the supplier's contact for tracking.
@@ -681,7 +681,10 @@ export function SmartphoneOrderApprovalQueue({
           </DialogHeader>
           {detailsTarget && (() => {
             const total = Number(detailsTarget.total_amount || 0);
-            const projection = Number(detailsTarget.payment_projection || Math.round(total * 0.33));
+            const totalRepayable = Number(detailsTarget.total_repayable || 0);
+            const projection = Number(
+              detailsTarget.payment_projection || Math.max(0, totalRepayable - total),
+            );
             const rows: Array<[string, string]> = [
               ['Agent', detailsTarget.client_name || 'Agent'],
               ['Phone number', detailsTarget.client_phone || '—'],
@@ -694,7 +697,7 @@ export function SmartphoneOrderApprovalQueue({
                   : 'Phone amount',
                 formatUGX(total),
               ],
-              ['Projection (33%)', formatUGX(projection)],
+              ['Charge (28%/month, reducing)', formatUGX(projection)],
               ['Access Amount (down payment)', formatUGX(total)],
               ['Amount paid', formatUGX(Number(detailsTarget.amount_paid || 0))],
 
@@ -702,12 +705,18 @@ export function SmartphoneOrderApprovalQueue({
             ];
             const savedDaily = Number(detailsTarget.access_daily_amount || 0);
             const savedDays = Number(detailsTarget.access_repayment_days || 0);
+            const savedMonths = Number(detailsTarget.advance_period_months || 0);
             if (savedDaily > 0) {
-              rows.push(['Daily deduction', `${formatUGX(savedDaily)} / day`]);
+              rows.push(['First daily deduction', `${formatUGX(savedDaily)} / day (reduces monthly)`]);
             }
             if (savedDays > 0) {
-              rows.push(['Repayment period', `${savedDays} days`]);
-              if (savedDaily > 0) rows.push(['Total payable', formatUGX(savedDaily * savedDays)]);
+              rows.push([
+                'Repayment period',
+                savedMonths > 0 ? `${savedMonths} months (${savedDays} days)` : `${savedDays} days`,
+              ]);
+            }
+            if (totalRepayable > 0) {
+              rows.push(['Total payable', formatUGX(totalRepayable)]);
             }
 
             return (
