@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { cacheProfile, getCachedProfile } from '@/lib/offlineDataStorage';
+import { subscribeAvatarUpdates } from '@/lib/avatarSync';
 
 interface Profile {
   id: string;
