@@ -98,6 +98,8 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'daily-agent-card': dailyAgentCardTemplate,
   'sub-agent-invite': subAgentInviteTemplate,
   'residence-verification-status': residenceVerificationStatusTemplate,
+  'identity-name-adopted': identityNameAdoptedTemplate,
+
   'portfolio-request-confirmation': portfolioRequestConfirmationTemplate,
   'portfolio-request-team-alert': portfolioRequestTeamAlertTemplate,
   'standing-order-created': standingOrderCreatedTemplate,
