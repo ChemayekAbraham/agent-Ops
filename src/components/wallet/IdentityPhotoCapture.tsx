@@ -253,6 +253,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   const alreadyDone = !!storedIdPath && !!storedSelfiePath;
   if (alreadyDone) return null;
+  // Verified once means verified for good — nothing more to send.
+  if (alreadyVerified.data === true) return null;
 
   const haveId = !!idPhoto || !!storedIdPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
