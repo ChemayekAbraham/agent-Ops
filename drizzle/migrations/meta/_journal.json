@@ -554,6 +554,13 @@
       "when": 1789396156812,
       "tag": "0078_identity_double_submission_first_account_only",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1789396505173,
+      "tag": "0079_index_normalized_national_id_and_phone",
+      "breakpoints": true
     }
   ]
 }
