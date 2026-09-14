@@ -554,6 +554,13 @@
       "when": 1789386535906,
       "tag": "0078_capture_national_id_back_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1789387019587,
+      "tag": "0079_finops_set_national_id",
+      "breakpoints": true
     }
   ]
 }

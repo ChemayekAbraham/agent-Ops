@@ -52496,6 +52496,15 @@ export type Database = {
         }
         Returns: Json
       }
+      finops_set_national_id: {
+        Args: {
+          p_id: string
+          p_name_match_score?: number
+          p_national_id: string
+          p_national_id_name?: string
+        }
+        Returns: Json
+      }
       finops_sync_merchant_desk_float_cache: {
         Args: { p_desk_id: string; p_reason: string }
         Returns: Json
