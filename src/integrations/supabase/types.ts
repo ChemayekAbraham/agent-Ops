@@ -36830,6 +36830,59 @@ export type Database = {
         }
         Relationships: []
       }
+      smartphone_repayment_schedules: {
+        Row: {
+          charge_due: number
+          created_at: string
+          daily_deduction: number
+          days_in_period: number
+          id: string
+          month_index: number
+          opening_principal: number
+          period_end: string
+          period_start: string
+          principal_due: number
+          sale_id: string
+          total_due: number
+        }
+        Insert: {
+          charge_due?: number
+          created_at?: string
+          daily_deduction?: number
+          days_in_period: number
+          id?: string
+          month_index: number
+          opening_principal?: number
+          period_end: string
+          period_start: string
+          principal_due?: number
+          sale_id: string
+          total_due?: number
+        }
+        Update: {
+          charge_due?: number
+          created_at?: string
+          daily_deduction?: number
+          days_in_period?: number
+          id?: string
+          month_index?: number
+          opening_principal?: number
+          period_end?: string
+          period_start?: string
+          principal_due?: number
+          sale_id?: string
+          total_due?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartphone_repayment_schedules_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "merchandise_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smartphone_test_allowlist: {
         Row: {
           active: boolean
@@ -59382,9 +59435,37 @@ export type Database = {
           rank: number
         }[]
       }
+      smartphone_monthly_charge_pct: { Args: never; Returns: number }
       smartphone_period_days: { Args: { p_months: number }; Returns: number }
       smartphone_period_markup: { Args: { p_months: number }; Returns: number }
+      smartphone_plan_daily_for_date: {
+        Args: { p_date?: string; p_sale_id: string }
+        Returns: number
+      }
       smartphone_rank_cap: { Args: { p_rank: number }; Returns: number }
+      smartphone_rebuild_repayment_schedule: {
+        Args: {
+          p_amount: number
+          p_months: number
+          p_sale_id: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      smartphone_reducing_schedule: {
+        Args: { p_amount: number; p_months: number; p_start?: string }
+        Returns: {
+          charge_due: number
+          daily_deduction: number
+          days_in_period: number
+          month_index: number
+          opening_principal: number
+          period_end: string
+          period_start: string
+          principal_due: number
+          total_due: number
+        }[]
+      }
       smoke_promissory_commissions: {
         Args: { p_agent_id: string; p_partner_id: string }
         Returns: Json
