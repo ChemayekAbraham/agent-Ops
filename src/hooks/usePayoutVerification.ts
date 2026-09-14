@@ -77,17 +77,23 @@ export function usePayoutVerificationCounts(enabled = true) {
   });
 }
 
+/** Person-type filter for the queue: funders (hold a portfolio), tenants, or everyone else. */
+export type PayoutQueueUserType = 'all' | 'funder' | 'tenant' | 'other';
+
 /** One page of destinations for the given filter/search/sort. */
 export function usePayoutVerificationQueue(opts: {
   status: PayoutQueueFilter;
   search: string;
   sort: PayoutQueueSort;
   page: number;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  userType?: PayoutQueueUserType;
   enabled?: boolean;
 }) {
-  const { status, search, sort, page, enabled = true } = opts;
+  const { status, search, sort, page, dateFrom, dateTo, userType = 'all', enabled = true } = opts;
   return useQuery({
-    queryKey: ['payout-verification-queue', status, search, sort, page],
+    queryKey: ['payout-verification-queue', status, search, sort, page, dateFrom, dateTo, userType],
     enabled,
     queryFn: async (): Promise<{ rows: PayoutDestinationRow[]; total: number }> => {
       const { data, error } = await supabase.rpc('finops_payout_verification_queue', {
@@ -96,6 +102,9 @@ export function usePayoutVerificationQueue(opts: {
         p_sort: sort,
         p_limit: PAYOUT_VERIFICATION_PAGE_SIZE,
         p_offset: page * PAYOUT_VERIFICATION_PAGE_SIZE,
+        p_date_from: dateFrom || null,
+        p_date_to: dateTo || null,
+        p_user_type: userType === 'all' ? null : userType,
       });
       if (error) throw error;
       const rows = ((data ?? []) as unknown[]).map((r) => {

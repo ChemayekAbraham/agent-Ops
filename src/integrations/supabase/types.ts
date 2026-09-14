@@ -52669,11 +52669,14 @@ export type Database = {
       finops_payout_verification_counts: { Args: never; Returns: Json }
       finops_payout_verification_queue: {
         Args: {
+          p_date_from?: string
+          p_date_to?: string
           p_limit?: number
           p_offset?: number
           p_search?: string
           p_sort?: string
           p_status?: string
+          p_user_type?: string
         }
         Returns: {
           account_name: string

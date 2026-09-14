@@ -13,6 +13,7 @@ import {
   ArrowUpDown,
   BadgeCheck,
   Building2,
+  Calendar as CalendarIcon,
   Camera,
   CheckCircle2,
   ChevronLeft,
@@ -35,6 +36,7 @@ import {
 
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -54,6 +56,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useUserAvatars } from '@/hooks/useUserAvatars';
 import { useAuth } from '@/hooks/useAuth';
@@ -74,6 +78,7 @@ import {
   type PayoutVerificationCounts,
   type PayoutQueueFilter,
   type PayoutQueueSort,
+  type PayoutQueueUserType,
 } from '@/hooks/usePayoutVerification';
 
 const FILTERS: { id: PayoutQueueFilter; label: string; countKey?: keyof PayoutVerificationCounts }[] = [
@@ -543,13 +548,24 @@ export default function PayoutVerificationPanel() {
   }, []);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [userType, setUserType] = useState<PayoutQueueUserType>('all');
   const [page, setPage] = useState(0);
   const [index, setIndex] = useState(0);
   const [deciding, setDeciding] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
 
   const counts = usePayoutVerificationCounts();
-  const queue = usePayoutVerificationQueue({ status, search, sort, page });
+  const queue = usePayoutVerificationQueue({
+    status,
+    search,
+    sort,
+    page,
+    dateFrom: dateFrom ? format(dateFrom, 'yyyy-MM-dd') : null,
+    dateTo: dateTo ? format(dateTo, 'yyyy-MM-dd') : null,
+    userType,
+  });
 
   const total = queue.data?.total ?? 0;
   const rows = useMemo(() => queue.data?.rows ?? [], [queue.data?.rows]);
@@ -644,6 +660,73 @@ export default function PayoutVerificationPanel() {
               <SelectItem value="balance">Biggest balance</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Filter from date"
+                className={`h-9 rounded-lg border border-border bg-card px-3 text-xs font-semibold ${dateFrom ? 'text-foreground' : 'text-muted-foreground'}`}
+              >
+                <CalendarIcon className="mr-1.5 inline h-3.5 w-3.5" />
+                {dateFrom ? format(dateFrom, 'dd MMM yyyy') : 'From date'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateFrom}
+                onSelect={(d) => { setDateFrom(d); setPage(0); setIndex(0); }}
+                initialFocus
+                className="pointer-events-auto p-3"
+              />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Filter to date"
+                className={`h-9 rounded-lg border border-border bg-card px-3 text-xs font-semibold ${dateTo ? 'text-foreground' : 'text-muted-foreground'}`}
+              >
+                <CalendarIcon className="mr-1.5 inline h-3.5 w-3.5" />
+                {dateTo ? format(dateTo, 'dd MMM yyyy') : 'To date'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateTo}
+                onSelect={(d) => { setDateTo(d); setPage(0); setIndex(0); }}
+                initialFocus
+                className="pointer-events-auto p-3"
+              />
+            </PopoverContent>
+          </Popover>
+          <Select
+            value={userType}
+            onValueChange={(v) => { setUserType(v as PayoutQueueUserType); setPage(0); setIndex(0); }}
+          >
+            <SelectTrigger className="h-9 w-auto shrink-0 rounded-lg border-border bg-card px-3 text-xs font-semibold" aria-label="Filter by person type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="all">All people</SelectItem>
+              <SelectItem value="funder">Funders</SelectItem>
+              <SelectItem value="tenant">Tenants</SelectItem>
+              <SelectItem value="other">Others</SelectItem>
+            </SelectContent>
+          </Select>
+          {(dateFrom || dateTo || userType !== 'all') && (
+            <button
+              type="button"
+              onClick={() => { setDateFrom(undefined); setDateTo(undefined); setUserType('all'); setPage(0); setIndex(0); }}
+              className="h-9 rounded-lg px-2 text-xs font-semibold text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Clear
+            </button>
+          )}
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {FILTERS.map((f) => {
