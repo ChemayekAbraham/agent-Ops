@@ -547,6 +547,13 @@
       "when": 1789391055312,
       "tag": "0076_national_id_ocr_reads_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1789392991902,
+      "tag": "0077_funder_portfolio_identity_gate_exemption",
+      "breakpoints": true
     }
   ]
 }

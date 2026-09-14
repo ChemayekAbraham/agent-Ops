@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
+import { useIsFunderWithPortfolio } from '@/hooks/useIsFunderWithPortfolio';
 import {
   NATIONAL_ID_MAX_LENGTH,
   normalizeNationalId,
@@ -56,6 +57,10 @@ export default function NationalIdPrompt({
   /** Keep rendering even when an ID is already on file — used after a rejection. */
   allowResubmit?: boolean;
 }) {
+  const { user } = useAuth();
+  // Funders holding an investor portfolio are exempt — their identity and
+  // payout details were captured with the portfolio.
+  const funder = useIsFunderWithPortfolio(user?.id);
   const { data, isLoading, refetch } = useMyNationalId();
   const submit = useSubmitNationalId();
   const [id, setId] = useState('');
@@ -67,7 +72,14 @@ export default function NationalIdPrompt({
   const canSave = idCheck.valid && nameCheck.valid && !submit.isPending;
 
   const alreadyDone = !!data?.national_id;
-  if (isLoading || (alreadyDone && !allowResubmit) || withdrawableBalance <= 0) return null;
+  if (
+    isLoading ||
+    funder.isLoading ||
+    funder.isFunder ||
+    (alreadyDone && !allowResubmit) ||
+    withdrawableBalance <= 0
+  )
+    return null;
 
   const save = async () => {
     if (!idCheck.valid || !nameCheck.valid) {

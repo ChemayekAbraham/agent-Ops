@@ -30300,6 +30300,7 @@ export type Database = {
           funder_verified_by: string | null
           has_smartphone: boolean
           id: string
+          id_name_change_consent_at: string | null
           identity_photos_submitted_at: string | null
           is_frozen: boolean
           is_seller: boolean
@@ -30406,6 +30407,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id: string
+          id_name_change_consent_at?: string | null
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
@@ -30512,6 +30514,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id?: string
+          id_name_change_consent_at?: string | null
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
@@ -59891,6 +59894,15 @@ export type Database = {
             }
             Returns: Json
           }
+        | {
+            Args: {
+              p_id_back_photo_path: string
+              p_id_photo_path: string
+              p_name_change_consent: boolean
+              p_selfie_path: string
+            }
+            Returns: Json
+          }
       submit_landlord_agreement: {
         Args: {
           p_details: Json
@@ -60421,6 +60433,10 @@ export type Database = {
       }
       user_can_access_landlord: {
         Args: { _landlord_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_is_funder_with_portfolio: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
       user_location_correction_progress: { Args: never; Returns: Json }
