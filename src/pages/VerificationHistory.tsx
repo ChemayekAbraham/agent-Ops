@@ -130,16 +130,32 @@ export default function VerificationHistoryPage() {
 
   const preview = previewIndex !== null ? flatPhotos[previewIndex] ?? null : null;
 
+  // Toggling resolution records the choice against the photo being viewed.
+  const toggleActualSize = () => {
+    setActualSize((v) => {
+      const next = !v;
+      const p = previewIndex !== null ? flatPhotos[previewIndex] : null;
+      if (p) resolutionMemory.current.set(p.fileName, next);
+      return next;
+    });
+  };
+  // Moving to a photo restores its last-used resolution (default: fit).
+  const restoreResolution = (index: number) => {
+    const p = flatPhotos[index];
+    setActualSize(p ? (resolutionMemory.current.get(p.fileName) ?? false) : false);
+  };
+
   const openPhoto = (index: number) => {
-    setActualSize(false);
     setPreviewIndex(index);
+    restoreResolution(index);
   };
   const stepPhoto = (delta: number) => {
     setPreviewIndex((cur) => {
       if (cur === null || flatPhotos.length === 0) return cur;
-      return (cur + delta + flatPhotos.length) % flatPhotos.length;
+      const next = (cur + delta + flatPhotos.length) % flatPhotos.length;
+      restoreResolution(next);
+      return next;
     });
-    setActualSize(false);
   };
 
   // Keyboard controls: ←/→ move between thumbnails, F toggles resolution,
