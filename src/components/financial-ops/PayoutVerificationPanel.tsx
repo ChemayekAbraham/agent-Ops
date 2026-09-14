@@ -52,15 +52,17 @@ import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhoto
 interface IdentityPhotosStripProps {
   userId: string;
   holderName?: string | null;
+  verificationStatus?: string | null;
 }
 
 /**
  * The National ID card photo and the selfie the holder recorded, shown under
  * their name so the operator compares the face before tapping Verify. Tapping
  * a thumbnail opens a zoomable lightbox so the operator can inspect details
- * without leaving the queue.
+ * without leaving the queue. Badges make the upload and decision status
+ * scannable at a glance.
  */
-function IdentityPhotosStrip({ userId, holderName }: IdentityPhotosStripProps) {
+function IdentityPhotosStrip({ userId, holderName, verificationStatus }: IdentityPhotosStripProps) {
   const photos = useIdentityPhotosFor(userId);
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
@@ -100,12 +102,43 @@ function IdentityPhotosStrip({ userId, holderName }: IdentityPhotosStripProps) {
     );
   }
 
+  const decisionBadge = (() => {
+    const s = verificationStatus ?? 'waiting';
+    if (s === 'verified') {
+      return { label: 'Identity approved', icon: <BadgeCheck className="h-3 w-3" />, tone: 'bg-primary/10 text-primary' as const };
+    }
+    if (s === 'rejected') {
+      return { label: 'Identity rejected', icon: <X className="h-3 w-3" />, tone: 'bg-destructive/10 text-destructive' as const };
+    }
+    return { label: 'Identity awaiting verification', icon: <AlertTriangle className="h-3 w-3" />, tone: 'bg-amber-500/15 text-amber-600' as const };
+  })();
+
+  const photoBadge = (received: boolean, label: string) =>
+    received ? (
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-primary/10 text-primary">
+        <CheckCircle2 className="h-3 w-3" /> {label} received
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-destructive/10 text-destructive">
+        <X className="h-3 w-3" /> {label} missing
+      </span>
+    );
+
   if (!idPath && !selfiePath) {
     return (
-      <p className="text-xs text-amber-600 flex items-center gap-1.5">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        No ID photo or selfie yet — ask them to record both in the app before verifying.
-      </p>
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          {photoBadge(false, 'National ID')}
+          {photoBadge(false, 'Selfie')}
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${decisionBadge.tone}`}>
+            {decisionBadge.icon} {decisionBadge.label}
+          </span>
+        </div>
+        <p className="text-xs text-amber-600 flex items-center gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          No ID photo or selfie yet — ask them to record both in the app before verifying.
+        </p>
+      </div>
     );
   }
 
@@ -143,7 +176,14 @@ function IdentityPhotosStrip({ userId, holderName }: IdentityPhotosStripProps) {
     );
 
   return (
-    <>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {photoBadge(!!idPath, 'National ID')}
+        {photoBadge(!!selfiePath, 'Selfie')}
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${decisionBadge.tone}`}>
+          {decisionBadge.icon} {decisionBadge.label}
+        </span>
+      </div>
       <div className="flex gap-3">
         {shot(idUrl, 'National ID', 0, <IdCard className="h-4 w-4 text-muted-foreground" />)}
         {shot(selfieUrl, 'Selfie', idUrl ? 1 : 0, <Smartphone className="h-4 w-4 text-muted-foreground" />)}
@@ -155,7 +195,7 @@ function IdentityPhotosStrip({ userId, holderName }: IdentityPhotosStripProps) {
         onClose={() => setLightboxOpen(false)}
         productName={holderName ? `${holderName} — verification photos` : 'Verification photos'}
       />
-    </>
+    </div>
   );
 }
 
@@ -429,7 +469,7 @@ export default function PayoutVerificationPanel() {
                   </span>
                 </div>
 
-                <IdentityPhotosStrip userId={r.user_id} holderName={r.full_name} />
+                <IdentityPhotosStrip userId={r.user_id} holderName={r.full_name} verificationStatus={r.status} />
 
                 <div className="rounded-xl bg-muted/40 p-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
