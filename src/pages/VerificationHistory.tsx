@@ -302,6 +302,23 @@ export default function VerificationHistoryPage() {
           {preview && (
             <div
               className={`max-h-[70vh] w-full rounded-lg bg-muted/40 ${actualSize ? 'overflow-auto' : 'overflow-hidden'}`}
+              onTouchStart={(e) => {
+                const t = e.touches[0];
+                touchStart.current = { x: t.clientX, y: t.clientY };
+              }}
+              onTouchEnd={(e) => {
+                const start = touchStart.current;
+                touchStart.current = null;
+                // While zoomed to full resolution the photo itself scrolls —
+                // swiping there pans the image, it must not change photos.
+                if (!start || actualSize || flatPhotos.length < 2) return;
+                const t = e.changedTouches[0];
+                const dx = t.clientX - start.x;
+                const dy = t.clientY - start.y;
+                if (Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                  stepPhoto(dx < 0 ? 1 : -1);
+                }
+              }}
             >
               <img
                 src={preview.url}
