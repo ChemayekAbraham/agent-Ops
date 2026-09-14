@@ -713,10 +713,11 @@ export default function PayoutVerificationPanel() {
 
       // Move on to the next case. Under a filtered list (Waiting, Mismatch,
       // No ID, Double) the verified row leaves the queue, so the next case
-      // slides into the same position on its own; under All / Verified the row
-      // stays put, so step forward one position explicitly.
-      const willLeaveList = status !== 'all' && status !== 'verified';
-      if (!willLeaveList && position < total) goTo(position);
+      // A decided case leaves every queue cache immediately (see the mutation),
+      // so the next person slides into the same position on their own. When the
+      // decision happened on the very last case, step back one so a case is
+      // always on screen.
+      if (position > 1 && position >= total) goTo(position - 2);
 
       queue.refetch();
       counts.refetch();
