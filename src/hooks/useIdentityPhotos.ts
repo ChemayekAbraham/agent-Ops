@@ -266,3 +266,63 @@ export function useVerificationHistory(userId: string | null | undefined) {
   });
 }
 
+
+/** One Financial Ops decision on a payout destination, for the audit export. */
+export interface IdentityVerificationDecision {
+  id: string;
+  destination_type: string | null;
+  provider: string | null;
+  momo_number: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  account_name: string | null;
+  national_id: string | null;
+  national_id_name: string | null;
+  status: string;
+  decision_reason: string | null;
+  decided_at: string | null;
+  national_id_submitted_at: string | null;
+  created_at: string | null;
+}
+
+/** One recorded read of an ID photo (front or back), for the audit export. */
+export interface IdentityVerificationRead {
+  side: string;
+  read_at: string | null;
+  extracted_name: string | null;
+  extracted_id_number: string | null;
+  readable: boolean | null;
+  is_national_id: boolean | null;
+  name_matched: boolean | null;
+  id_number_matched: boolean | null;
+  failure_reason: string | null;
+}
+
+/**
+ * Everything the audit PDF needs beyond the photos themselves: the recorded
+ * photo reads and every Financial Ops decision with its reason. Read-only —
+ * RLS restricts both sources to the owner plus finance roles.
+ */
+export function useIdentityVerificationAudit(userId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['identity-verification-audit', userId],
+    enabled: !!userId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const [decisions, reads] = await Promise.all([
+        supabase
+          .from('payout_destination_verifications')
+          .select(
+            'id, destination_type, provider, momo_number, bank_name, bank_account_number, account_name, national_id, national_id_name, status, decision_reason, decided_at, national_id_submitted_at, created_at',
+          )
+          .eq('user_id', userId!)
+          .order('created_at', { ascending: false }),
+        supabase.rpc('finops_national_id_ocr_reads', { p_user_id: userId! }),
+      ]);
+      return {
+        decisions: (decisions.data ?? []) as unknown as IdentityVerificationDecision[],
+        reads: (reads.error ? [] : ((reads.data ?? []) as unknown as IdentityVerificationRead[])),
+      };
+    },
+  });
+}
