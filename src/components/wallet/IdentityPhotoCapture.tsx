@@ -244,7 +244,17 @@ export default function IdentityPhotoCapture({
         onCancel={() => setPendingSelfie(null)}
         onConfirm={(cropped) => {
           setPendingSelfie(null);
-          setSelfie({ file: cropped, preview: URL.createObjectURL(cropped) });
+          setPreviewSelfie(cropped);
+        }}
+      />
+
+      <SelfieProfilePreviewDialog
+        file={previewSelfie}
+        open={!!previewSelfie}
+        onCancel={() => setPreviewSelfie(null)}
+        onConfirm={(confirmed) => {
+          setPreviewSelfie(null);
+          setSelfie({ file: confirmed, preview: URL.createObjectURL(confirmed) });
         }}
       />
 
