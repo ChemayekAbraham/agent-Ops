@@ -440,7 +440,13 @@ export default function PayoutVerificationPanel() {
               const sig = matchSignal(row.name_match_score);
               return (
                 <>
-                  <span className={`h-3 w-3 shrink-0 rounded-full ${sig.dot}`} aria-hidden="true" />
+                  <span
+                    role="img"
+                    aria-label={`Name match result: ${sig.label}`}
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${sig.dot} text-white`}
+                  >
+                    <sig.Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm font-bold ${sig.text}`}>{sig.label}</p>
                     <p className="truncate text-xs text-muted-foreground">
