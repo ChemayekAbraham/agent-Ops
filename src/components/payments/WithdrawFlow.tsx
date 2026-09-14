@@ -24,6 +24,8 @@ import { useSavedPayoutMethods, type SavedPayoutMethod } from '@/hooks/useSavedP
 import { useMyPayoutDestinations, destinationStateFor } from '@/hooks/usePayoutVerification';
 import NationalIdPrompt, { useMyNationalId } from '@/components/wallet/NationalIdPrompt';
 import NationalIdRejectedReminder from '@/components/wallet/NationalIdRejectedReminder';
+import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
+import { useMyIdentityPhotos } from '@/hooks/useIdentityPhotos';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Star } from 'lucide-react';
 import { downloadWithdrawalReceiptPdf, shareWithdrawalReceiptPdf } from '@/lib/withdrawalReceiptPdf';
@@ -107,6 +109,13 @@ export default function WithdrawFlow({
   // until a correctly formatted ID and the name printed on it are submitted.
   const myNationalId = useMyNationalId();
   const needsNationalId = !!user?.id && !myNationalId.isLoading && !myNationalId.data?.national_id;
+  // Identity photos: a picture of the National ID card and a selfie, required
+  // the moment someone taps Withdraw.
+  const myIdentityPhotos = useMyIdentityPhotos();
+  const needsIdentityPhotos =
+    !!user?.id &&
+    !myIdentityPhotos.isLoading &&
+    !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
