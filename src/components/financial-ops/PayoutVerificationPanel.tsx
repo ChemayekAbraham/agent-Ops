@@ -278,7 +278,9 @@ function DecisionAuditLog() {
 
       {open && (
         <div className="border-t border-border p-4 space-y-3">
-          {/* Filters */}
+      <DecisionAuditLog />
+
+      {/* Filters */}
           <div className="relative">
             <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
             <Input
@@ -556,7 +558,12 @@ export default function PayoutVerificationPanel() {
                   </span>
                 </div>
 
-                <IdentityPhotosStrip userId={r.user_id} />
+                <IdentityPhotosStrip
+                  userId={r.user_id}
+                  onPhotosAvailable={(a) =>
+                    setPhotosAvailable((m) => (m[r.id] === a ? m : { ...m, [r.id]: a }))
+                  }
+                />
 
                 <div className="rounded-xl bg-muted/40 p-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
