@@ -459,6 +459,13 @@ function DecisionDialog({
             <X className="h-4 w-4 mr-1.5" /> Reject
           </Button>
         </div>
+        {isDouble && (
+          <p role="alert" className="flex items-start gap-1.5 text-xs font-semibold text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Double submission — this {doubleWhat} already belongs to{' '}
+            {row?.double_of_name || 'another account'}. Only the first account may be verified.
+          </p>
+        )}
         {!photosReady && (
           <p className="flex items-center gap-1.5 text-xs text-amber-600">
             <AlertTriangle className="h-3.5 w-3.5" />
