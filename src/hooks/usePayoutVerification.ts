@@ -192,6 +192,12 @@ export function usePayoutVerificationQueue(opts: {
     queryKey: ['payout-verification-queue', status, search, sort, page, dateFrom, dateTo, userType],
     enabled,
     retry: false,
+    staleTime: 15_000,
+    // Self-refreshing queue: no page reload needed, and a failed load retries on its own.
+    refetchInterval: PAYOUT_VERIFICATION_POLL_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     queryFn: async (): Promise<{ rows: PayoutDestinationRow[]; total: number }> => {
       const params = {
         p_status: status,
