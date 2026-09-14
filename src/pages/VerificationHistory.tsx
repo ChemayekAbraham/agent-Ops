@@ -292,6 +292,19 @@ export default function VerificationHistoryPage() {
             </div>
           )}
 
+          {flatPhotos.length > 1 && (
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" size="sm" onClick={() => stepPhoto(-1)}>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Previous
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => stepPhoto(1)}>
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <Button variant="outline" size="sm" onClick={() => setActualSize((v) => !v)}>
               {actualSize ? <Minimize2 className="mr-2 h-4 w-4" /> : <Maximize2 className="mr-2 h-4 w-4" />}
@@ -310,6 +323,13 @@ export default function VerificationHistoryPage() {
               </a>
             </Button>
           </div>
+
+          <p className="text-center text-[11px] text-muted-foreground">
+            Keyboard: <kbd className="rounded border px-1">←</kbd> <kbd className="rounded border px-1">→</kbd> move
+            between photos · <kbd className="rounded border px-1">F</kbd> fit/full resolution ·{' '}
+            <kbd className="rounded border px-1">O</kbd> open in new tab · <kbd className="rounded border px-1">D</kbd>{' '}
+            download · <kbd className="rounded border px-1">Esc</kbd> close
+          </p>
         </DialogContent>
       </Dialog>
 
