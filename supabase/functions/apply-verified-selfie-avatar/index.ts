@@ -97,6 +97,8 @@ Deno.serve(async (req) => {
       reason: "Selfie verified by Financial Ops; profile picture updated automatically",
       new_values: {
         selfie_path: selfiePath,
+        source_path: sourcePath,
+
         avatar_path: avatarPath,
         avatar_url: avatarUrl,
         previous_avatar_url: profile?.avatar_url ?? null,
