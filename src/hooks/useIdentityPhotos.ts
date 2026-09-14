@@ -48,7 +48,7 @@ export function useMyIdentityPhotos() {
       if (!uid) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('national_id_photo_path, selfie_photo_path, identity_photos_submitted_at')
+        .select(IDENTITY_PHOTO_COLUMNS)
         .eq('id', uid)
         .maybeSingle();
       if (error) throw error;
