@@ -1250,6 +1250,8 @@ export function useAuthForm() {
     isForgotPhone, setIsForgotPhone,
     email, setEmail,
     signupEmail, setSignupEmail,
+    emailConfirmationSent, setEmailConfirmationSent,
+
     password, setPassword,
     confirmPassword, setConfirmPassword,
     showConfirmPassword, setShowConfirmPassword,
