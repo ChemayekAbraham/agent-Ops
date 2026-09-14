@@ -50382,6 +50382,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      auto_verify_matching_payout_destinations: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       award_agent_listing_campaign_bonus: {
         Args: { p_agent_id: string }
         Returns: Json

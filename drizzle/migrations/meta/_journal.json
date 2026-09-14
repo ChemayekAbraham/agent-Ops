@@ -603,6 +603,13 @@
       "when": 1789400406022,
       "tag": "0085_identity_submit_once_verified_block",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1789400668456,
+      "tag": "0086_auto_verify_matching_id_name_payouts",
+      "breakpoints": true
     }
   ]
 }
