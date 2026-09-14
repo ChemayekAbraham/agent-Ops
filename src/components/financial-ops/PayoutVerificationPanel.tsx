@@ -680,7 +680,9 @@ export default function PayoutVerificationPanel() {
                     >
                       {r.full_name || 'Name not recorded'}
                     </button>
-                    <p className="text-xs text-muted-foreground">{r.user_phone || 'No account phone'}</p>
+                    <div className="mt-1.5">
+                      <PhoneActionChips phone={r.user_phone} label="account phone" />
+                    </div>
                     <div className="mt-1">
                       <PhoneAccountBadge
                         info={accountFor(r.user_phone)}
