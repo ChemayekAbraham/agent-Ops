@@ -17,6 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
 import {
+  DUPLICATE_NATIONAL_ID_MESSAGE,
+  isDuplicateNationalIdError,
   NATIONAL_ID_MAX_LENGTH,
   normalizeNationalId,
   validateNationalId,
@@ -61,6 +63,10 @@ export default function NationalIdPrompt({
   const [id, setId] = useState('');
   const [name, setName] = useState('');
   const [touched, setTouched] = useState<{ id: boolean; name: boolean }>({ id: false, name: false });
+  // Set when the database refuses the ID because another account already
+  // holds it (unique index) — shown inline under the ID field, not only as a
+  // toast, because the toast disappears.
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
   const idCheck = validateNationalId(id);
   const nameCheck = validateNationalIdName(name);
@@ -75,12 +81,18 @@ export default function NationalIdPrompt({
       toast.error(idCheck.error || nameCheck.error || 'Check your National ID details.');
       return;
     }
+    setDuplicateError(null);
     try {
       await submit.mutateAsync({ nationalId: idCheck.value, idName: nameCheck.value });
       toast.success('National ID saved. Financial Ops will confirm it against your payout number.');
       await refetch();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save your National ID.');
+      if (isDuplicateNationalIdError(e)) {
+        setDuplicateError(DUPLICATE_NATIONAL_ID_MESSAGE);
+        toast.error(DUPLICATE_NATIONAL_ID_MESSAGE);
+      } else {
+        toast.error(e instanceof Error ? e.message : 'Could not save your National ID.');
+      }
     }
   };
 
@@ -113,7 +125,10 @@ export default function NationalIdPrompt({
           <Label className="text-xs">National ID number</Label>
           <Input
             value={id}
-            onChange={(e) => setId(normalizeNationalId(e.target.value))}
+            onChange={(e) => {
+              setId(normalizeNationalId(e.target.value));
+              setDuplicateError(null);
+            }}
             onBlur={() => setTouched((t) => ({ ...t, id: true }))}
             placeholder="CM12345678ABCD"
             className="h-11 text-sm tracking-wider"
@@ -122,9 +137,13 @@ export default function NationalIdPrompt({
             autoCorrect="off"
             spellCheck={false}
             maxLength={NATIONAL_ID_MAX_LENGTH}
-            aria-invalid={touched.id && !idCheck.valid}
+            aria-invalid={!!duplicateError || (touched.id && !idCheck.valid)}
           />
-          {touched.id && idCheck.error ? (
+          {duplicateError ? (
+            <p className="text-[11px] font-semibold text-destructive mt-1" role="alert">
+              {duplicateError}
+            </p>
+          ) : touched.id && idCheck.error ? (
             <p className="text-[11px] text-destructive mt-1">{idCheck.error}</p>
           ) : (
             <p className="text-[11px] text-muted-foreground mt-1">
