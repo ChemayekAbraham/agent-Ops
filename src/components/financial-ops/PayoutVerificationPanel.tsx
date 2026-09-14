@@ -525,6 +525,7 @@ export default function PayoutVerificationPanel() {
   const [page, setPage] = useState(0);
   const [index, setIndex] = useState(0);
   const [deciding, setDeciding] = useState(false);
+  const [confirmingVerify, setConfirmingVerify] = useState<PayoutDestinationRow | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
 
   const quickVerify = useDecidePayoutDestination();
