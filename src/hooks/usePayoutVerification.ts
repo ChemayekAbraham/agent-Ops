@@ -146,9 +146,39 @@ export function useDecidePayoutDestination() {
         } catch { /* profile picture update is best-effort */ }
       }
 
-      return data;
+      return { ...(data as Record<string, unknown> ?? {}), id: input.id };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Show the adopted verified name on the row instantly, before the
+      // refetch lands, so the operator sees the result without waiting.
+      const newName = typeof data?.full_name === 'string' ? data.full_name : null;
+      const newSource = data?.name_source === 'national_id' || data?.name_source === 'verified'
+        ? (data.name_source as PayoutDestinationRow['name_source'])
+        : null;
+      const newStatus = typeof data?.status === 'string' ? data.status : null;
+      if (newName || newStatus) {
+        qc.setQueriesData<{ rows: PayoutDestinationRow[]; total: number }>(
+          { queryKey: ['payout-verification-queue'] },
+          (old) =>
+            old
+              ? {
+                  ...old,
+                  rows: old.rows.map((r) =>
+                    r.id === data.id
+                      ? {
+                          ...r,
+                          ...(newName ? { full_name: newName } : {}),
+                          ...(newSource ? { name_source: newSource } : {}),
+                          ...(newStatus === 'verified' || newStatus === 'rejected'
+                            ? { status: newStatus as PayoutDestinationRow['status'] }
+                            : {}),
+                        }
+                      : r,
+                  ),
+                }
+              : old,
+        );
+      }
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
       qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
       qc.invalidateQueries({ queryKey: ['payout-decision-log'] });
