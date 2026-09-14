@@ -57,12 +57,22 @@ Deno.serve(async (req) => {
     const selfiePath = profile?.selfie_photo_path;
     if (!selfiePath) return json({ skipped: "no_selfie" });
 
+    // Prefer the crop the holder confirmed for their profile picture; fall back
+    // to the stored original selfie when no crop was archived.
+    let sourcePath = selfiePath;
+    const { data: objects } = await adminClient.storage
+      .from("identity-verification")
+      .list(targetId, { limit: 100, sortBy: { column: "name", order: "desc" } });
+    const crop = (objects ?? []).find((o) => o.name.startsWith("profile-crop-"));
+    if (crop) sourcePath = `${targetId}/${crop.name}`;
+
     const { data: file, error: dlErr } = await adminClient.storage
       .from("identity-verification")
-      .download(selfiePath);
+      .download(sourcePath);
     if (dlErr || !file) return json({ error: "Could not open the stored selfie." }, 400);
 
-    const ext = (selfiePath.split(".").pop() || "jpg").toLowerCase();
+    const ext = (sourcePath.split(".").pop() || "jpg").toLowerCase();
+
     const avatarPath = `${targetId}/avatar.${ext}`;
     const { error: upErr } = await adminClient.storage
       .from("avatars")
