@@ -51078,6 +51078,7 @@ export type Database = {
         Returns: Json
       }
       claim_partner_lead_invite: { Args: { p_code: string }; Returns: Json }
+      claim_tenant_referrer: { Args: { p_referrer_id: string }; Returns: Json }
       claim_withdrawal_verified: {
         Args: {
           p_momo_name?: string
@@ -52471,6 +52472,10 @@ export type Database = {
           p_evidence_note?: string
           p_reason: string
         }
+        Returns: Json
+      }
+      finops_replace_national_id_photo: {
+        Args: { p_id: string; p_photo_path: string }
         Returns: Json
       }
       finops_revert_holder_name: {
