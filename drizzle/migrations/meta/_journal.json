@@ -393,6 +393,13 @@
       "when": 1789370767403,
       "tag": "0055_gate_merchant_claim_and_dispatch_on_id_verified",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1789371031345,
+      "tag": "0056_merchant_claim_requires_id_and_selfie_submitted",
+      "breakpoints": true
     }
   ]
 }
