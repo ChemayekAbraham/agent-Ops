@@ -260,7 +260,9 @@ function DecisionDialog({
 
 export default function PayoutVerificationPanel() {
   const [status, setStatus] = useState<PayoutQueueFilter>('waiting');
-  const [sort, setSort] = useState<PayoutQueueSort>('balance');
+  // Financial Ops should see people who have already submitted their National ID
+  // and selfie first, because those cases can be actioned immediately.
+  const [sort, setSort] = useState<PayoutQueueSort>('ready_first');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
