@@ -71,6 +71,12 @@ export default function ForceResetPasswordGate() {
         return;
       }
 
+      // Fire-and-forget: the trigger-based IP capture used elsewhere can't
+      // see this write (it goes through GoTrue directly, never PostgREST),
+      // so this edge function call, from this same browser request, is the
+      // only place the real IP is available.
+      supabase.functions.invoke('record-password-change').catch(() => {});
+
       const { error: flagErr } = await supabase
         .from('profiles')
         .update({ must_change_password: false })

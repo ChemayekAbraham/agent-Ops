@@ -595,7 +595,7 @@ export default function Settings() {
                                     if (signInError) { toast.error('Current password is incorrect'); setChangingPassword(false); return; }
                                     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
                                     if (updateError) toast.error('Failed: ' + updateError.message);
-                                    else { toast.success('Password updated!'); setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword(''); setShowPasswordForm(false); }
+                                    else { supabase.functions.invoke('record-password-change').catch(() => {}); toast.success('Password updated!'); setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword(''); setShowPasswordForm(false); }
                                   } catch { toast.error('An error occurred'); }
                                   setChangingPassword(false);
                                 }}>{changingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Update Password</Button>

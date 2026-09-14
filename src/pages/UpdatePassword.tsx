@@ -97,6 +97,11 @@ export default function UpdatePassword() {
           variant: 'destructive'
         });
       } else {
+        // Fire-and-forget: the trigger-based IP capture used elsewhere can't
+        // see this write (it goes through GoTrue directly, never PostgREST),
+        // so this edge function call, from this same browser request, is
+        // the only place the real IP is available.
+        supabase.functions.invoke('record-password-change').catch(() => {});
         setIsSuccess(true);
         toast({
           title: 'Password Updated!',
