@@ -738,6 +738,13 @@ export default function PayoutVerificationPanel() {
             )}
           </Button>
         </div>
+        <p className="text-[11px] text-muted-foreground" aria-live="polite">
+          {queue.isFetching
+            ? 'Checking for new cases…'
+            : queue.dataUpdatedAt
+              ? `Updated ${new Date(queue.dataUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · refreshes on its own`
+              : 'Refreshes on its own'}
+        </p>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
