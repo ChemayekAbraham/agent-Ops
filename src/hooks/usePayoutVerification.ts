@@ -276,7 +276,23 @@ export function useDecidePayoutDestination() {
         ? (data.name_source as PayoutDestinationRow['name_source'])
         : null;
       const newStatus = typeof data?.status === 'string' ? data.status : null;
-      if (newName || newStatus) {
+      if (newStatus === 'verified' || newStatus === 'rejected') {
+        // A decided case leaves every queue immediately — the operator sees the
+        // next person slide in without waiting for the refetch. The invalidate
+        // below brings the row back in the lists where it belongs (e.g. All,
+        // Verified) with its fresh status.
+        qc.setQueriesData<{ rows: PayoutDestinationRow[]; total: number }>(
+          { queryKey: ['payout-verification-queue'] },
+          (old) =>
+            old
+              ? {
+                  ...old,
+                  rows: old.rows.filter((r) => r.id !== data.id),
+                  total: Math.max(0, old.total - (old.rows.some((r) => r.id === data.id) ? 1 : 0)),
+                }
+              : old,
+        );
+      } else if (newName || newStatus) {
         qc.setQueriesData<{ rows: PayoutDestinationRow[]; total: number }>(
           { queryKey: ['payout-verification-queue'] },
           (old) =>
@@ -289,9 +305,6 @@ export function useDecidePayoutDestination() {
                           ...r,
                           ...(newName ? { full_name: newName } : {}),
                           ...(newSource ? { name_source: newSource } : {}),
-                          ...(newStatus === 'verified' || newStatus === 'rejected'
-                            ? { status: newStatus as PayoutDestinationRow['status'] }
-                            : {}),
                         }
                       : r,
                   ),
