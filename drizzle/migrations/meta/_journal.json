@@ -414,6 +414,13 @@
       "when": 1789372039757,
       "tag": "0058_finops_unverified_withdrawals_filter_sort",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1789372237325,
+      "tag": "0059_finops_unverified_withdrawals_verified_filter",
+      "breakpoints": true
     }
   ]
 }
