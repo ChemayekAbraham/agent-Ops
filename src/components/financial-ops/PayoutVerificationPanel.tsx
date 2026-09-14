@@ -280,7 +280,7 @@ function formatDecisionTime(iso: string | null): string {
  * searchable by holder name / number / decider, filterable by decision
  * (approved or rejected) and by decision date range. Newest first.
  */
-function DecisionAuditLog() {
+function DecisionAuditLog({ onOpenProfile }: { onOpenProfile?: (userId: string) => void }) {
   const [open, setOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -321,9 +321,7 @@ function DecisionAuditLog() {
 
       {open && (
         <div className="border-t border-border p-4 space-y-3">
-      <DecisionAuditLog />
-
-      {/* Filters */}
+          {/* Filters */}
           <div className="relative">
             <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
             <Input
