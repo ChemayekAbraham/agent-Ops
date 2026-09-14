@@ -23,15 +23,13 @@ const MAX_BYTES = 10 * 1024 * 1024;
 interface ShotTileProps {
   label: string;
   hint: string;
-  /** Plain-language "how to take it" pointers shown right above the camera button. */
-  tips?: string[];
   file: File | null;
   onPick: (file: File) => void;
   onClear: () => void;
   disabled?: boolean;
 }
 
-function ShotTile({ label, hint, tips, file, onPick, onClear, disabled }: ShotTileProps) {
+function ShotTile({ label, hint, file, onPick, onClear, disabled }: ShotTileProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = file ? URL.createObjectURL(file) : null;
 
@@ -51,17 +49,6 @@ function ShotTile({ label, hint, tips, file, onPick, onClear, disabled }: ShotTi
 
       {preview && (
         <img src={preview} alt={`${label} preview`} className="h-40 w-full rounded-md object-cover" />
-      )}
-
-      {!file && tips && tips.length > 0 && (
-        <ul className="space-y-1 rounded-md bg-muted/50 p-2">
-          {tips.map((t) => (
-            <li key={t} className="flex items-start gap-2 text-xs text-muted-foreground">
-              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-              <span>{t}</span>
-            </li>
-          ))}
-        </ul>
       )}
 
       <input
@@ -131,7 +118,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
-  const [idBackPhoto, setIdBackPhoto] = useState<File | null>(null);
   const [selfieOriginal, setSelfieOriginal] = useState<File | null>(null);
   // The cropped copy — profile picture only.
   const [selfieCropped, setSelfieCropped] = useState<File | null>(null);
@@ -175,16 +161,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // partial submission (e.g. selfie stored, ID shot missing) only requires the
   // missing half and the stored original selfie stays the verification copy.
   const storedIdPath = mine.data?.national_id_photo_path ?? null;
-  const storedIdBackPath = mine.data?.national_id_back_photo_path ?? null;
   const storedSelfiePath = mine.data?.selfie_photo_path ?? null;
 
-  const alreadyDone = !!storedIdPath && !!storedIdBackPath && !!storedSelfiePath;
+  const alreadyDone = !!storedIdPath && !!storedSelfiePath;
   if (alreadyDone) return null;
 
   const haveId = !!idPhoto || !!storedIdPath;
-  const haveIdBack = !!idBackPhoto || !!storedIdBackPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
-  const ready = haveId && haveIdBack && haveSelfie;
+  const ready = haveId && haveSelfie;
 
   const verdict = idNameVerdict(idReading?.name_match_score ?? null);
 
@@ -198,13 +182,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const idPath = idPhoto
         ? await uploadIdentityPhoto(user.id, 'national-id', idPhoto)
         : storedIdPath!;
-      const idBackPath = idBackPhoto
-        ? await uploadIdentityPhoto(user.id, 'national-id-back', idBackPhoto)
-        : storedIdBackPath;
       const selfiePath = selfieOriginal
         ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
         : storedSelfiePath!;
-      const res = await submit.mutateAsync({ idPhotoPath: idPath, selfiePath, idBackPath });
+      const res = await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
       if (res && res.success === false) {
         throw new Error(res.message || 'Could not send your photos. Please try again.');
       }
@@ -219,7 +200,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           : 'Photos received. Financial Ops will verify them shortly.',
       );
       setIdPhoto(null);
-      setIdBackPhoto(null);
       setSelfieOriginal(null);
       setSelfieCropped(null);
     } catch (e) {
@@ -240,28 +220,20 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Three photos: the <span className="font-semibold">front</span> of your National ID, the{' '}
-          <span className="font-semibold">back</span> of it, and a selfie. Your original selfie is kept
-          in your verification history for Financial Ops; the version you crop becomes your profile
-          picture.
+          Take a clear photo of your National ID and a selfie. Your original selfie is kept in your
+          verification history for Financial Ops; the version you crop becomes your profile picture.
         </p>
 
         {storedIdPath ? (
           <StoredShot
             path={storedIdPath}
-            label="Front of your National ID"
+            label="National ID photo"
             note="This saved photo will be used for this verification."
           />
         ) : (
           <ShotTile
-            label="Step 1 — Front of your National ID"
-            hint="The side with your photo and your names."
-            tips={[
-              'Lay the card flat on a dark table and stand over it.',
-              'Fill the frame — all four corners inside the picture.',
-              'Bright, even light. Move away from lamps and windows so there is no shine on the card.',
-              'Hold steady until the names are sharp enough for you to read them yourself.',
-            ]}
+            label="National ID photo"
+            hint="All four corners visible, no glare."
             file={idPhoto}
             onPick={(f) => { setIdPhoto(f); void readIdPhoto(f); }}
             onClear={() => { setIdPhoto(null); setIdReading(null); setReadError(null); }}
@@ -333,28 +305,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
 
 
-        {storedIdBackPath ? (
-          <StoredShot
-            path={storedIdBackPath}
-            label="Back of your National ID"
-            note="This saved photo will be used for this verification."
-          />
-        ) : (
-          <ShotTile
-            label="Step 2 — Back of your National ID"
-            hint="Turn the card over: the side with the barcode and card number."
-            tips={[
-              'Same flat surface, same light — just flip the card over.',
-              'The barcode and the card number must be fully inside the frame.',
-              'Check the picture before you continue: if the small print is blurred, take it again.',
-            ]}
-            file={idBackPhoto}
-            onPick={setIdBackPhoto}
-            onClear={() => setIdBackPhoto(null)}
-            disabled={saving}
-          />
-        )}
-
         {storedSelfiePath ? (
           <StoredShot
             path={storedSelfiePath}
@@ -363,13 +313,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           />
         ) : (
           <ShotTile
-            label="Step 3 — Your selfie"
-            hint="Your face, matching the photo on the ID."
-            tips={[
-              'Face a window or open light — never with a bright light behind you.',
-              'No hat, no sunglasses, no face cover.',
-              'Hold the phone at eye level, head and shoulders in the frame.',
-            ]}
+            label="Selfie"
+            hint="Face the camera in good light."
             file={selfieOriginal}
             onPick={(f) => { setSelfieOriginal(f); setSelfieCropped(null); setPendingSelfie(f); }}
             onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); }}
@@ -377,20 +322,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           />
         )}
 
-
-        {!ready && (
-          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
-            Still needed:{' '}
-            {[
-              !haveId ? 'front of your National ID' : null,
-              !haveIdBack ? 'back of your National ID' : null,
-              !haveSelfie ? 'your selfie' : null,
-            ]
-              .filter(Boolean)
-              .join(', ')}
-            .
-          </p>
-        )}
 
         <Button className="w-full" disabled={!ready || saving} onClick={handleSave}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

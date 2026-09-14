@@ -526,41 +526,6 @@
       "when": 1789378641818,
       "tag": "0074_agent_weekly_champion_team",
       "breakpoints": true
-    },
-    {
-      "idx": 75,
-      "version": "7",
-      "when": 1789382236676,
-      "tag": "0075_auto_reject_duplicate_national_id",
-      "breakpoints": true
-    },
-    {
-      "idx": 76,
-      "version": "7",
-      "when": 1789385943069,
-      "tag": "0076_auto_reject_unreadable_id_name",
-      "breakpoints": true
-    },
-    {
-      "idx": 77,
-      "version": "7",
-      "when": 1789385965926,
-      "tag": "0077_agent_subagents_insert_pending_only",
-      "breakpoints": true
-    },
-    {
-      "idx": 78,
-      "version": "7",
-      "when": 1789386535906,
-      "tag": "0078_capture_national_id_back_photo",
-      "breakpoints": true
-    },
-    {
-      "idx": 79,
-      "version": "7",
-      "when": 1789387019587,
-      "tag": "0079_finops_set_national_id",
-      "breakpoints": true
     }
   ]
 }

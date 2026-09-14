@@ -41,11 +41,7 @@ export interface PayoutDestinationRow {
   withdrawable_balance: number;
   /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
   name_source: 'national_id' | 'verified' | null;
-  /** Set when this National ID already belongs to another account (auto-rejected). */
-  duplicate_id_user_id: string | null;
-  duplicate_id_name: string | null;
   total_count: number;
-
 }
 
 export interface PayoutVerificationCounts {
@@ -150,18 +146,6 @@ export function useDecidePayoutDestination() {
         } catch { /* profile picture update is best-effort */ }
       }
 
-      // Tell the holder their account is verified and they can withdraw now.
-      // Best-effort: a failed notice must never fail the decision.
-      const autoRejected = (data as { auto_rejected_duplicate_id?: boolean } | null)
-        ?.auto_rejected_duplicate_id;
-      if (input.decision === 'verified' && !autoRejected) {
-        try {
-          await supabase.functions.invoke('notify-identity-verified', {
-            body: { destinationId: input.id },
-          });
-        } catch { /* confirmation message is best-effort */ }
-      }
-
       return { ...((data ?? {}) as Record<string, unknown>), id: input.id } as {
         id: string;
         status?: string;
@@ -255,47 +239,6 @@ export function useSetHolderName() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
-      qc.invalidateQueries({ queryKey: ['profile'] });
-      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
-    },
-  });
-}
-
-/**
- * Financial Ops corrects the National ID number. The database stores the new
- * number and, when a fresh name was read off the ID photo, adopts that name as
- * the account name in the same call — no extra tap. Duplicate IDs are refused.
- */
-export function useFinopsSetNationalId() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: {
-      id: string;
-      nationalId: string;
-      idName?: string | null;
-      nameMatchScore?: number | null;
-    }) => {
-      const { data, error } = await supabase.rpc('finops_set_national_id', {
-        p_id: input.id,
-        p_national_id: input.nationalId,
-        p_national_id_name: input.idName ?? null,
-        p_name_match_score: input.nameMatchScore ?? null,
-      });
-      if (error) throw new Error(error.message);
-      return (data ?? {}) as {
-        success?: boolean;
-        duplicate?: boolean;
-        duplicate_of_name?: string | null;
-        message?: string;
-        national_id?: string;
-        national_id_name?: string | null;
-        name_adopted?: boolean;
-        full_name?: string | null;
-      };
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
-      qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
       qc.invalidateQueries({ queryKey: ['profile'] });
       qc.invalidateQueries({ queryKey: ['holder-name-history'] });
     },
