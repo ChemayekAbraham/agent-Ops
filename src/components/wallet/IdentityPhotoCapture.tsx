@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import {
+  setSelfieAsProfilePhoto,
   uploadIdentityPhoto,
   useMyIdentityPhotos,
   useSubmitIdentityPhotos,
@@ -171,7 +172,14 @@ export default function IdentityPhotoCapture({
         idPhotoPath: paths['national-id'],
         selfiePath: paths.selfie,
       });
-      toast.success('Photos received. Financial Ops will check your identity.');
+      // The selfie becomes their profile picture too (best-effort: a failure
+      // here must not undo a successful verification submission).
+      const avatarUrl = await setSelfieAsProfilePhoto(user.id, selfie.file);
+      toast.success(
+        avatarUrl
+          ? 'Photos received. Your selfie is now your profile picture.'
+          : 'Photos received. Financial Ops will check your identity.',
+      );
       await refetch();
       onDone?.();
     } catch (e) {
@@ -195,7 +203,8 @@ export default function IdentityPhotoCapture({
           <p className="text-sm font-bold text-foreground">Verify your identity to withdraw</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             Take a clear photo of your National ID card and a selfie of your face. Financial Ops
-            checks that the face on the card is yours before your money is sent.
+            checks that the face on the card is yours before your money is sent. Your selfie also
+            becomes your profile picture.
           </p>
         </div>
       </div>
