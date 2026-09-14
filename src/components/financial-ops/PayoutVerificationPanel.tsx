@@ -869,180 +869,58 @@ export default function PayoutVerificationPanel() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {rows.map((r) => {
             const tone = matchTone(r.name_match_score);
             const isMomo = r.destination_type === 'mobile_money';
-            const dest = isMomo ? r.momo_number : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
+            const dest = isMomo
+              ? `${r.provider ?? 'Mobile money'} · ${r.momo_number ?? ''}`
+              : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
             return (
-              <div key={r.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => r.user_id && setProfileUserId(r.user_id)}
-                      className="block max-w-full text-left text-sm font-bold text-foreground truncate underline decoration-primary/50 underline-offset-2 active:text-primary"
-                    >
-                      {r.full_name || 'Name not recorded'}
-                    </button>
-                    <div className="mt-1.5">
-                      <PhoneActionChips phone={r.user_phone} label="account phone" />
-                    </div>
-                    <div className="mt-1">
-                      <PhoneAccountBadge
-                        info={accountFor(r.user_phone)}
-                        loading={phoneAccounts.isLoading && !!r.user_phone}
-                      />
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      r.status === 'verified'
-                        ? 'bg-primary/10 text-primary'
-                        : r.status === 'rejected'
-                          ? 'bg-destructive/10 text-destructive'
-                          : 'bg-amber-500/15 text-amber-600'
-                    }`}
-                  >
-                    {r.status}
-                  </span>
-                </div>
-
-                <IdentityPhotosStrip
-                  userId={r.user_id}
-                  onPhotosAvailable={(a) =>
-                    setPhotosAvailable((m) => (m[r.id] === a ? m : { ...m, [r.id]: a }))
-                  }
-                />
-
-                <div className="rounded-xl bg-muted/40 p-3 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-                    {isMomo ? <Smartphone className="h-4 w-4 text-primary" /> : <Building2 className="h-4 w-4 text-primary" />}
-                    {isMomo ? (
-                      <span className="truncate">{r.provider ?? 'Mobile money'}</span>
-                    ) : (
-                      <span className="truncate">{dest}</span>
-                    )}
-                  </div>
-                  {isMomo && <PhoneActionChips phone={r.momo_number} label="payout number" />}
-                  {isMomo && (
-                    <PhoneAccountBadge
-                      info={accountFor(r.momo_number)}
-                      loading={phoneAccounts.isLoading && !!r.momo_number}
-                    />
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Name on the {isMomo ? 'number' : 'account'}:{' '}
-                    <span className="font-semibold text-foreground">{r.account_name || 'Not given'}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <IdCard className="h-3.5 w-3.5" />
-                    National ID:{' '}
-                    <span className="font-semibold text-foreground">
-                      {r.national_id ? `${r.national_id} · ${r.national_id_name ?? '—'}` : 'Not submitted'}
-                    </span>
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.className}`}>
-                      {tone.label}
-                    </span>
-                    {(r.name_mismatch_tokens ?? []).length > 0 && (
-                      <span className="text-[10px] text-muted-foreground">
-                        Different words: {(r.name_mismatch_tokens ?? []).join(', ')}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs font-bold text-foreground">
-                    Withdrawable balance: {formatUGX(r.withdrawable_balance)}
-                  </p>
-                  {r.decision_reason && (
-                    <p className="text-xs text-muted-foreground">Note: {r.decision_reason}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2">
-                  {r.user_phone && (
-                    <a
-                      href={`tel:${r.user_phone}`}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground h-12 text-sm font-bold"
-                    >
-                      <PhoneCall className="h-4 w-4" /> Call {r.full_name?.split(' ')[0] || 'holder'}
-                    </a>
-                  )}
-                  {waLink(r.user_phone) && (
-                    <a
-                      href={waLink(r.user_phone, `Hello ${r.full_name?.split(' ')[0] || 'there'}, this is Welile Financial Ops.`) as string}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white h-12 text-sm font-bold"
-                    >
-                      <MessageCircle className="h-4 w-4" /> WhatsApp
-                    </a>
-                  )}
-                  {isMomo && r.momo_number && last9(r.momo_number) !== last9(r.user_phone) && (
-                    <>
-                      <a
-                        href={`tel:${r.momo_number}`}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 text-primary h-12 text-sm font-bold"
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setDetailRow(r)}
+                className="w-full rounded-2xl border border-border bg-card p-3.5 text-left active:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-foreground truncate">
+                        {r.full_name || 'Name not recorded'}
+                      </p>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                          r.status === 'verified'
+                            ? 'bg-primary/10 text-primary'
+                            : r.status === 'rejected'
+                              ? 'bg-destructive/10 text-destructive'
+                              : 'bg-amber-500/15 text-amber-600'
+                        }`}
                       >
-                        <PhoneCall className="h-4 w-4" /> Call payout number
-                      </a>
-                      {waLink(r.momo_number) && (
-                        <a
-                          href={waLink(r.momo_number, `Hello, this is Welile Financial Ops contacting you about a payout number registered in your name.`) as string}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-600/50 text-emerald-700 h-12 text-sm font-bold"
-                        >
-                          <MessageCircle className="h-4 w-4" /> WhatsApp payout number
-                        </a>
+                        {r.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                      {isMomo ? (
+                        <Smartphone className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      ) : (
+                        <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" />
                       )}
-                    </>
-                  )}
+                      {dest || 'No destination recorded'}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.className}`}>
+                        {tone.label}
+                      </span>
+                      <span className="text-xs font-bold text-foreground">
+                        {formatUGX(r.withdrawable_balance)}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
                 </div>
-
-                {r.decided_at && (
-                  <p className="text-[11px] text-muted-foreground">
-                    {r.status === 'verified' ? 'Approved' : r.status === 'rejected' ? 'Rejected' : 'Decided'} by{' '}
-                    <span className="font-semibold text-foreground">{r.decided_by_name || 'Financial Ops'}</span>
-                    {' on '}
-                    {formatDecisionTime(r.decided_at)}
-                  </p>
-                )}
-
-                {r.status !== 'verified' || r.name_match_score === null ? (
-                  <Button
-                    className="w-full h-11"
-                    onClick={() => setActive(r)}
-                    disabled={!photosAvailable[r.id]}
-                  >
-                    Verify or reject
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full h-11"
-                    onClick={() => setActive(r)}
-                    disabled={!photosAvailable[r.id]}
-                  >
-                    Change decision
-                  </Button>
-                )}
-
-                {photosAvailable[r.id] === false && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Both a National ID photo and a selfie must be uploaded before verifying.
-                  </p>
-                )}
-
-                {r.national_id === null && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Ask them to submit their National ID in the app before verifying.
-                  </p>
-                )}
-              </div>
+              </button>
             );
           })}
         </div>
