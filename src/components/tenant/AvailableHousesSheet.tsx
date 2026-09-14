@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import houseSearchingIllustration from '@/assets/House_searching-bro-2.svg.asset.json';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useMapLinkAnnouncer } from '@/hooks/useMapLinkAnnouncer';
+
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, MapPin, Droplets, Zap, ShieldCheck, Car, Sofa, Home, DoorOpen, ChevronLeft, ChevronRight, Clock, ExternalLink, ZoomIn, Navigation, X, List, Map as MapIcon, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, MapPin, Droplets, Zap, ShieldCheck, Car, Sofa, Home, DoorOpen, ChevronLeft, ChevronRight, Clock, ExternalLink, ZoomIn, X, List, Map as MapIcon, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
 import { ArrowUpDown, BedDouble } from 'lucide-react';
 import { AgentContactBar } from '@/components/tenant/AgentContactBar';
 import { GetDirectionsButton } from '@/components/tenant/GetDirectionsButton';
@@ -228,7 +228,7 @@ function HouseCard({ listing, highlighted = false, onOpen }: { listing: HouseLis
 
 export function AvailableHousesSheet({ open, onOpenChange }: AvailableHousesSheetProps) {
   const geo = useGeolocation(true);
-  const announceMap = useMapLinkAnnouncer();
+  
   const navigate = useNavigate();
   const [searchText, setSearchText] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('All Regions');
