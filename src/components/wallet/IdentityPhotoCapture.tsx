@@ -378,6 +378,20 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         )}
 
 
+        {!ready && (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
+            Still needed:{' '}
+            {[
+              !haveId ? 'front of your National ID' : null,
+              !haveIdBack ? 'back of your National ID' : null,
+              !haveSelfie ? 'your selfie' : null,
+            ]
+              .filter(Boolean)
+              .join(', ')}
+            .
+          </p>
+        )}
+
         <Button className="w-full" disabled={!ready || saving} onClick={handleSave}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {saving ? 'Sending…' : 'Send my photos for verification'}
