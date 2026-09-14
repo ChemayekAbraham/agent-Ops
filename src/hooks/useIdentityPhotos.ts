@@ -11,6 +11,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { optimizeImage } from '@/lib/imageOptimizer';
 
 export const IDENTITY_BUCKET = 'identity-verification';
 export type IdentityPhotoKind = 'national-id' | 'selfie';
@@ -64,15 +65,36 @@ function extensionFor(file: File): string {
   return 'jpg';
 }
 
-/** Uploads one photo into the caller's own folder and returns its path. */
+/**
+ * Uploads one photo into the caller's own folder and returns its path.
+ *
+ * Compressed client-side before it ever reaches storage — raw camera shots
+ * from a phone routinely run 3-10MB, and these are captured directly via
+ * `capture=` on a file input (see IdentityPhotoCapture.tsx), so nothing
+ * upstream already shrinks them. Same resize+re-encode (WebP with JPEG
+ * fallback) already used for other document photos in this codebase; the
+ * ID card gets the higher-quality setting used for other legibility-
+ * sensitive documents (passports) so small print stays readable, the
+ * selfie gets the standard setting since it only needs to be
+ * face-recognizable. This upload gates withdrawal, so a compression
+ * failure (corrupt/unusual image, no canvas support) falls back to the
+ * original file rather than blocking a legitimate submission.
+ */
 export async function uploadIdentityPhoto(
   userId: string,
   kind: IdentityPhotoKind,
   file: File,
 ): Promise<string> {
-  const path = `${userId}/${kind}-${Date.now()}.${extensionFor(file)}`;
-  const { error } = await supabase.storage.from(IDENTITY_BUCKET).upload(path, file, {
-    contentType: file.type || 'image/jpeg',
+  const optimizedFile = await optimizeImage(file, {
+    maxWidth: 1200,
+    maxHeight: 1200,
+    quality: kind === 'national-id' ? 0.85 : 0.8,
+  })
+    .then((r) => r.file)
+    .catch(() => file);
+  const path = `${userId}/${kind}-${Date.now()}.${extensionFor(optimizedFile)}`;
+  const { error } = await supabase.storage.from(IDENTITY_BUCKET).upload(path, optimizedFile, {
+    contentType: optimizedFile.type || 'image/jpeg',
     upsert: true,
   });
   if (error) throw new Error(error.message);
@@ -120,10 +142,19 @@ export async function identityPhotoUrl(path?: string | null): Promise<string | n
  * best-effort.
  */
 export async function setSelfieAsProfilePhoto(userId: string, file: File): Promise<string | null> {
-  const path = `${userId}/avatar.${extensionFor(file)}`;
+  // Compressed and downsized for avatar display (400px is generous for how
+  // large an avatar ever actually renders) — no reason to push a multi-MB
+  // camera shot into a public, globally-served bucket. Best-effort: if
+  // optimisation fails for any reason, fall back to the raw file rather than
+  // losing the avatar entirely — this path must never block the identity
+  // verification submission it rides alongside.
+  const avatarFile = await optimizeImage(file, { maxWidth: 400, maxHeight: 400, quality: 0.8 })
+    .then((r) => r.file)
+    .catch(() => file);
+  const path = `${userId}/avatar.${extensionFor(avatarFile)}`;
   await supabase.storage.from('avatars').remove([path]);
-  const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, {
-    contentType: file.type || 'image/jpeg',
+  const { error: upErr } = await supabase.storage.from('avatars').upload(path, avatarFile, {
+    contentType: avatarFile.type || 'image/jpeg',
     upsert: true,
   });
   if (upErr) return null;
