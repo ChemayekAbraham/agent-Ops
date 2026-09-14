@@ -849,7 +849,7 @@ export default function PayoutVerificationPanel() {
             </Button>
             <Button
               className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
-              disabled={!photosReady}
+              disabled={verifyBlocked}
               onClick={() => setDeciding(true)}
             >
               <CheckCircle2 className="mr-2 h-5 w-5" /> Verify payout
@@ -859,6 +859,12 @@ export default function PayoutVerificationPanel() {
             <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
               <AlertTriangle className="h-3.5 w-3.5" />
               Waiting for their National ID photo and selfie
+            </p>
+          )}
+          {photosReady && idNameUnreadable && (
+            <p role="alert" className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Verify is off — the name could not be read from the National ID. Ask for a clearer ID photo.
             </p>
           )}
           {row.decision_reason && (
