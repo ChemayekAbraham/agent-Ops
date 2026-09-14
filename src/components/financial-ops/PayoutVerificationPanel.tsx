@@ -113,7 +113,7 @@ function IdentityPhotosStrip({ userId, holderName }: IdentityPhotosStripProps) {
     url: string | null,
     label: string,
     index: number,
-    placeholderIcon: React.ReactNode,
+    placeholderIcon: ReactNode,
   ) =>
     url ? (
       <button
