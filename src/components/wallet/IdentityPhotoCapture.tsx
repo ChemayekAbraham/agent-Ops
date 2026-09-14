@@ -130,6 +130,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [savingDetails, setSavingDetails] = useState(false);
+  // Inline refusal when the ID number read off the card already belongs to
+  // another account (database unique index). Toasts vanish; this stays put.
+  const [duplicateIdError, setDuplicateIdError] = useState<string | null>(null);
 
   const readIdPhoto = async (file: File) => {
     setReading(true);
@@ -144,6 +147,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const saveDetectedDetails = async () => {
     if (!idReading?.full_name) return;
     setSavingDetails(true);
+    setDuplicateIdError(null);
     try {
       await submitNid.mutateAsync({
         nationalId: idReading.id_number || '',
@@ -151,7 +155,12 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       });
       toast.success('Saved the names and number we read from your ID.');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save those details.');
+      if (isDuplicateNationalIdError(e)) {
+        setDuplicateIdError(DUPLICATE_NATIONAL_ID_MESSAGE);
+        toast.error(DUPLICATE_NATIONAL_ID_MESSAGE);
+      } else {
+        toast.error(e instanceof Error ? e.message : 'Could not save those details.');
+      }
     } finally {
       setSavingDetails(false);
     }
@@ -294,6 +303,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                   {savingDetails ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Use these details
                 </Button>
+                {duplicateIdError && (
+                  <p
+                    className="rounded-lg border border-destructive/50 bg-destructive/10 p-2 text-xs font-semibold text-destructive"
+                    role="alert"
+                  >
+                    {duplicateIdError}
+                  </p>
+                )}
               </>
             ) : (
               <p className="text-xs text-amber-600">
