@@ -72,8 +72,29 @@ function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, check
           onPick(f);
         }}
       />
+      {checking && (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Checking this photo…
+        </p>
+      )}
+
+      {!checking && file && quality && !quality.ok && (
+        <p className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{retakeMessage(label, quality)}</span>
+        </p>
+      )}
+
+      {!checking && file && quality?.ok && (
+        <p className="flex items-center gap-2 text-xs text-emerald-600">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          This photo is clear.
+        </p>
+      )}
+
       <Button
-        variant={file ? 'outline' : 'default'}
+        variant={file && quality?.ok ? 'outline' : 'default'}
         className="w-full"
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
