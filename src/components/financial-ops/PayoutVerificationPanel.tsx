@@ -546,8 +546,10 @@ export default function PayoutVerificationPanel() {
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
   const photosReady = !!idPath && !!selfiePath;
-  // Verify must stay off until the ID photo has been read and produced a name.
-  const idNameUnreadable = !!idPath && (row?.national_id_name || '').trim().length < 3;
+  // Verify must stay off until the ID photo has been read and produced a name we
+  // are confident about — a doubtful read is flagged, never used as the name.
+  const idNameConfidence = assessIdNameConfidence(row?.national_id_name);
+  const idNameUnreadable = !!idPath && !idNameConfidence.confident;
   const verifyBlocked = !photosReady || idNameUnreadable;
 
   const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
