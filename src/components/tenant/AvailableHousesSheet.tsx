@@ -425,8 +425,9 @@ export function AvailableHousesSheet({ open, onOpenChange }: AvailableHousesShee
           <img
             src={houseSearchingIllustration.url}
             alt="House searching illustration"
-            className="mx-auto h-44 w-auto object-contain"
+            className="mx-auto h-20 w-auto object-contain"
           />
+
           <div className="flex items-center justify-between gap-2">
             <SheetTitle className="flex items-center gap-2">
               <Home className="h-5 w-5 text-primary" />
