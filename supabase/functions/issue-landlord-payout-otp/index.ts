@@ -484,6 +484,15 @@ Deno.serve(async (req) => {
     // the corrected mobile money number is saved for future payouts. The agent
     // edits this number on the form; we update it here (frontend stays "dumb").
     // Non-critical: a failure here must not block the OTP send.
+    //
+    // This write goes through the service-role client, so the guard_landlord_
+    // agreement_backed_changes trigger on `landlords` sees no auth.uid() and
+    // logs the resulting landlord_material_change_applied row with a null
+    // actor -- even though the real actor (the agent running this OTP flow)
+    // is known right here as `agentId`. Explicitly attribute it: this edge
+    // function is the actual trust boundary that received the real inbound
+    // request, so the IP captured from req.headers here is trustworthy,
+    // unlike the internal service-role call to Postgres that follows it.
     try {
       const { data: existingLandlord } = await admin
         .from("landlords")
@@ -501,6 +510,32 @@ Deno.serve(async (req) => {
           .eq("id", landlord_id);
         if (updErr) {
           console.warn("[issue-landlord-payout-otp] landlord phone update failed (non-critical):", updErr.message);
+        } else {
+          const clientIp =
+            (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+            req.headers.get("cf-connecting-ip") ||
+            null;
+          const userAgent = req.headers.get("user-agent") || null;
+          try {
+            await admin.from("audit_logs").insert({
+              user_id: agentId,
+              action_type: "landlord_momo_number_corrected_by_agent",
+              table_name: "landlords",
+              record_id: landlord_id,
+              ip_address: clientIp,
+              user_agent: userAgent,
+              old_values: { mobile_money_number: currentMoMo },
+              new_values: { mobile_money_number: landlord_phone },
+              metadata: {
+                actor_type: "agent",
+                reason: "agent edited landlord MoMo number on the payout OTP form; persisted for future payouts",
+                source: "issue-landlord-payout-otp",
+                challenge_id: challenge.id,
+              },
+            });
+          } catch (auditErr) {
+            console.warn("[issue-landlord-payout-otp] audit log insert failed (non-critical):", auditErr);
+          }
         }
       }
     } catch (e) {
