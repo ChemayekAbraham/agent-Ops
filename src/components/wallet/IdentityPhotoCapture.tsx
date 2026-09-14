@@ -248,13 +248,13 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         {storedIdPath ? (
           <StoredShot
             path={storedIdPath}
-            label="National ID photo"
+            label="Front of your National ID"
             note="This saved photo will be used for this verification."
           />
         ) : (
           <ShotTile
-            label="National ID photo"
-            hint="All four corners visible, no glare."
+            label="Front of your National ID"
+            hint="Side with your photo and names. All four corners visible, no glare."
             file={idPhoto}
             onPick={(f) => { setIdPhoto(f); void readIdPhoto(f); }}
             onClear={() => { setIdPhoto(null); setIdReading(null); setReadError(null); }}
@@ -262,6 +262,24 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             disabled={saving}
           />
         )}
+
+        {storedIdBackPath ? (
+          <StoredShot
+            path={storedIdBackPath}
+            label="Back of your National ID"
+            note="This saved photo will be used for this verification."
+          />
+        ) : (
+          <ShotTile
+            label="Back of your National ID"
+            hint="Turn the card over. Lay it flat and make sure the small print is sharp."
+            file={idBackPhoto}
+            onPick={setIdBackPhoto}
+            onClear={() => setIdBackPhoto(null)}
+            disabled={saving}
+          />
+        )}
+
 
         {reading && (
           <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
