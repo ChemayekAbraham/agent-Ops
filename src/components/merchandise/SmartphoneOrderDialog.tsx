@@ -334,8 +334,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   supplier directly; you receive the phone, not cash.
                 </li>
                 <li>
-                  <span className="font-medium text-foreground">Repayment:</span> a fixed daily amount is
-                  deducted from your Welile Wallet over the period you choose (3, 6, 9 or 12 months).
+                  <span className="font-medium text-foreground">Repayment:</span> a daily amount is deducted
+                  from your Welile Wallet over the period you choose (3, 6, 9 or 12 months). The amount
+                  reduces every month as your balance comes down.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Deductions start:</span> 7 days after your
@@ -361,21 +362,42 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             )}
 
             {paymentMethod === 'installments' && dailyAmount > 0 && (
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
-                <p className="text-xs text-muted-foreground">
-                  {osType === 'ios' ? 'Daily repayment to Welile' : 'Daily repayment'}
-                </p>
-                <p className="text-2xl font-bold tabular-nums text-green-600">
-                  {formatUGX(dailyAmount)}
-                  <span className="text-sm font-medium text-green-600">/day</span>
-                </p>
-                <p className="text-[11px] font-bold text-muted-foreground">
-                  {period.days} days · {formatUGX(totalRepayable)} in total. Deductions start 7 days after your
-                  phone is released.
-                  {osType === 'ios'
-                    ? ` This covers Welile only — you also pay ${MO_BANJA.partner} weekly, directly to them.`
-                    : ''}
-                </p>
+              <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                <div className="text-center space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    {osType === 'ios' ? 'Daily repayment to Welile — first month' : 'Daily repayment — first month'}
+                  </p>
+                  <p className="text-2xl font-bold tabular-nums text-green-600">
+                    {formatUGX(dailyAmount)}
+                    <span className="text-sm font-medium text-green-600">/day</span>
+                  </p>
+                  <p className="text-[11px] font-bold text-muted-foreground">
+                    Reduces to {formatUGX(lastDaily)}/day in your last month · {scheduleDays} days ·{' '}
+                    {formatUGX(totalRepayable)} in total. Deductions start 7 days after your phone is
+                    released.
+                    {osType === 'ios'
+                      ? ` This covers Welile only — you also pay ${MO_BANJA.partner} weekly, directly to them.`
+                      : ''}
+                  </p>
+                </div>
+
+                <div className="rounded-md border border-border bg-background/60 overflow-hidden">
+                  <div className="grid grid-cols-3 gap-1 px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span>Month</span>
+                    <span className="text-right">Amount</span>
+                    <span className="text-right">Per day</span>
+                  </div>
+                  {scheduleRows.map((r) => (
+                    <div
+                      key={r.monthIndex}
+                      className="grid grid-cols-3 gap-1 border-t border-border px-2 py-1.5 text-[11px] tabular-nums"
+                    >
+                      <span className="text-muted-foreground">Month {r.monthIndex}</span>
+                      <span className="text-right font-medium">{formatUGX(r.totalDue)}</span>
+                      <span className="text-right font-medium">{formatUGX(r.dailyDeduction)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
