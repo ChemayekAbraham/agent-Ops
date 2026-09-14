@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Camera, ShieldCheck, Loader2, X } from 'lucide-react';
@@ -9,7 +9,9 @@ import {
   useSubmitIdentityPhotos,
   uploadIdentityPhoto,
   setSelfieAsProfilePhoto,
+  identityPhotoUrl,
 } from '@/hooks/useIdentityPhotos';
+
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
 
