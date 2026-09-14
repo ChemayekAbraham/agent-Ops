@@ -90,10 +90,14 @@ BEGIN
     RETURN jsonb_build_object('linked', false, 'reason', 'not_your_request');
   END IF;
 
-  -- The row the caller's own check produced.
+  -- The row the caller's own check produced. The `checked_by IS NULL` arm
+  -- covers a check run by an edge function deployed before `checked_by`
+  -- existed: such a row is filed under the caller themselves, so it is
+  -- unambiguously theirs and safe to claim.
   SELECT id INTO v_temp
     FROM public.identity_photo_fingerprints
-   WHERE sha256 = p_sha256 AND checked_by = v_uid
+   WHERE sha256 = p_sha256
+     AND (checked_by = v_uid OR (checked_by IS NULL AND user_id = v_uid))
    ORDER BY checked_at DESC
    LIMIT 1;
 
@@ -122,7 +126,11 @@ BEGIN
   UPDATE public.identity_photo_fingerprints
      SET user_id         = v_tenant,
          rent_request_id = COALESCE(p_rent_request_id, rent_request_id),
-         photo_url       = COALESCE(p_photo_url, photo_url)
+         photo_url       = COALESCE(p_photo_url, photo_url),
+         -- Only the agent flow reaches this RPC, so an unattributed row being
+         -- claimed here was captured by the caller during a registration.
+         checked_by      = COALESCE(checked_by, v_uid),
+         source          = CASE WHEN checked_by IS NULL THEN 'agent_rent_request' ELSE source END
    WHERE id = v_temp;
 
   RETURN jsonb_build_object('linked', true, 'merged', false, 'user_id', v_tenant);
