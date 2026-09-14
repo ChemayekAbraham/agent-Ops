@@ -798,45 +798,68 @@ export default function PayoutVerificationPanel() {
         </div>
       </div>
 
-      {/* Filters — sticky so they stay within thumb reach on a phone */}
-      <div className="sticky top-0 z-20 -mx-1 flex gap-2 overflow-x-auto bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        {FILTERS.map((f) => {
-          const n = countFor(f.id);
-          const selected = status === f.id;
-          return (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => {
-                setStatus(f.id);
-                setPage(0);
-              }}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                selected
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-card text-foreground hover:bg-muted/50'
-              }`}
-            >
-              {f.label}
-              {n !== null && n > 0 ? ` (${n})` : ''}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Search + sort */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
+      {/* Search + filters — sticky so they stay within thumb reach on a phone */}
+      <div className="sticky top-0 z-20 -mx-1 space-y-2 bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        {/* Search: filter the whole queue by holder name or payout number */}
+        <div className="relative">
           <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && applySearch()}
             onBlur={applySearch}
-            placeholder="Search name, number, account or National ID"
-            className="pl-8 h-11 text-sm"
+            placeholder="Filter by holder name or payout number"
+            className="pl-8 pr-8 h-11 text-sm"
+            aria-label="Filter payout verifications by holder name or payout number"
           />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput('');
+                setSearch('');
+                setPage(0);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
+        {search && (
+          <p className="text-xs text-muted-foreground">
+            Showing results for "<span className="font-semibold text-foreground">{search}</span>"
+          </p>
+        )}
+
+        {/* Status filter chips */}
+        <div className="flex gap-2 overflow-x-auto">
+          {FILTERS.map((f) => {
+            const n = countFor(f.id);
+            const selected = status === f.id;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => {
+                  setStatus(f.id);
+                  setPage(0);
+                }}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  selected
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-foreground hover:bg-muted/50'
+                }`}
+              >
+                {f.label}
+                {n !== null && n > 0 ? ` (${n})` : ''}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sort */}
         <div className="flex gap-2">
           {(['balance', 'oldest'] as PayoutQueueSort[]).map((s) => (
             <button
@@ -846,7 +869,7 @@ export default function PayoutVerificationPanel() {
                 setSort(s);
                 setPage(0);
               }}
-              className={`flex-1 sm:flex-none rounded-lg border px-3 h-11 text-xs font-semibold ${
+              className={`flex-1 rounded-lg border px-3 h-11 text-xs font-semibold ${
                 sort === s ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'
               }`}
             >
