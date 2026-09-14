@@ -21,6 +21,7 @@ import {
   IdCard,
   Loader2,
   MessageCircle,
+  MessageSquare,
   PhoneCall,
   Search,
   ShieldAlert,
@@ -84,6 +85,40 @@ function PhoneAccountBadge({ info, loading }: { info: PhoneAccountInfo | undefin
       <UserRound className="h-3 w-3" />
       Has account{info.account_name ? ` — ${info.account_name}` : ''}
     </span>
+  );
+}
+
+/**
+ * Tap-friendly call + SMS chips for any phone number. Normalises to Ugandan
+ * +256 format so every badge is consistently diallable on a smartphone.
+ */
+function PhoneActionChips({
+  phone,
+  label,
+}: {
+  phone: string | null | undefined;
+  label?: string;
+}) {
+  const k = last9(phone);
+  if (!k) {
+    return <span className="text-xs text-muted-foreground">No {label ?? 'phone'}</span>;
+  }
+  const full = `+256${k}`;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <a
+        href={`tel:${full}`}
+        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary active:bg-primary/20 min-h-[34px]"
+      >
+        <PhoneCall className="h-3.5 w-3.5" /> {full}
+      </a>
+      <a
+        href={`sms:${full}`}
+        className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1.5 text-xs font-bold text-emerald-700 active:bg-emerald-200 min-h-[34px] dark:bg-emerald-900/30 dark:text-emerald-400"
+      >
+        <MessageSquare className="h-3.5 w-3.5" /> SMS
+      </a>
+    </div>
   );
 }
 
@@ -400,7 +435,7 @@ function DecisionAuditLog({ onOpenProfile }: { onOpenProfile?: (userId: string) 
                     ? `${r.provider ?? 'Mobile money'} · ${r.momo_number ?? ''}`
                     : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
                 return (
-                  <div key={r.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-1">
+                  <div key={r.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <button
@@ -422,6 +457,9 @@ function DecisionAuditLog({ onOpenProfile }: { onOpenProfile?: (userId: string) 
                         {r.status === 'verified' ? 'Approved' : 'Rejected'}
                       </span>
                     </div>
+                    {r.destination_type === 'mobile_money' && r.momo_number && (
+                      <PhoneActionChips phone={r.momo_number} />
+                    )}
                     <p className="text-[11px] text-muted-foreground">
                       by <span className="font-semibold text-foreground">{r.decided_by_name || 'Financial Ops'}</span>
                       {' · '}
@@ -645,7 +683,9 @@ export default function PayoutVerificationPanel() {
                     >
                       {r.full_name || 'Name not recorded'}
                     </button>
-                    <p className="text-xs text-muted-foreground">{r.user_phone || 'No account phone'}</p>
+                    <div className="mt-1.5">
+                      <PhoneActionChips phone={r.user_phone} label="account phone" />
+                    </div>
                     <div className="mt-1">
                       <PhoneAccountBadge
                         info={accountFor(r.user_phone)}
@@ -674,12 +714,15 @@ export default function PayoutVerificationPanel() {
                 />
 
                 <div className="rounded-xl bg-muted/40 p-3 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
                     {isMomo ? <Smartphone className="h-4 w-4 text-primary" /> : <Building2 className="h-4 w-4 text-primary" />}
-                    <span className="truncate">
-                      {isMomo ? `${r.provider ?? 'Mobile money'} · ${dest}` : dest}
-                    </span>
+                    {isMomo ? (
+                      <span className="truncate">{r.provider ?? 'Mobile money'}</span>
+                    ) : (
+                      <span className="truncate">{dest}</span>
+                    )}
                   </div>
+                  {isMomo && <PhoneActionChips phone={r.momo_number} label="payout number" />}
                   {isMomo && (
                     <PhoneAccountBadge
                       info={accountFor(r.momo_number)}
