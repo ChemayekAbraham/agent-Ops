@@ -56,6 +56,10 @@ export default function NationalIdPrompt({
   /** Keep rendering even when an ID is already on file — used after a rejection. */
   allowResubmit?: boolean;
 }) {
+  const { user } = useAuth();
+  // Funders holding an investor portfolio are exempt — their identity and
+  // payout details were captured with the portfolio.
+  const funder = useIsFunderWithPortfolio(user?.id);
   const { data, isLoading, refetch } = useMyNationalId();
   const submit = useSubmitNationalId();
   const [id, setId] = useState('');
