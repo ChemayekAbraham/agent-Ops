@@ -1672,6 +1672,67 @@ export default function WithdrawFlow({
               </>
             )}
 
+            {/* Auto-verification status for the destination being used.
+                Nothing beyond this step opens until it reads "verified". */}
+            {payoutMode !== 'cash' && destinationIdentified && destinationStatus !== 'exempt' && (
+              <div
+                className={`rounded-lg border-2 p-4 space-y-1 ${
+                  destinationStatus === 'verified'
+                    ? 'border-primary bg-primary/10'
+                    : destinationStatus === 'rejected'
+                      ? 'border-destructive bg-destructive/10'
+                      : 'border-amber-500 bg-amber-500/10'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {destinationStatus === 'verified' ? (
+                    <ShieldCheck className="w-4 h-4 text-primary" />
+                  ) : (
+                    <AlertTriangle
+                      className={`w-4 h-4 ${
+                        destinationStatus === 'rejected' ? 'text-destructive' : 'text-amber-600'
+                      }`}
+                    />
+                  )}
+                  <h4
+                    className={`font-bold ${
+                      destinationStatus === 'verified'
+                        ? 'text-primary'
+                        : destinationStatus === 'rejected'
+                          ? 'text-destructive'
+                          : 'text-amber-700'
+                    }`}
+                  >
+                    {destinationStatus === 'verified'
+                      ? 'Verified — you can withdraw to this account'
+                      : destinationStatus === 'rejected'
+                        ? 'This account was not accepted'
+                        : 'Not verified yet'}
+                  </h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {destinationStatus === 'verified'
+                    ? 'The name on your National ID matches the name on this account, so it verified by itself. You can keep withdrawing to it.'
+                    : destinationStatus === 'rejected'
+                      ? activeDestination?.decision_reason ||
+                        'Use an account in your own name, or send a clear photo of your National ID again.'
+                      : 'This account verifies by itself as soon as the name on your National ID matches the name on this number or account. Send your National ID photo and selfie, or use an account in the exact name on your ID. Until then this withdrawal cannot continue.'}
+                </p>
+                {destinationStatus !== 'verified' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => void myDestinations.refetch()}
+                    disabled={myDestinations.isFetching}
+                  >
+                    {myDestinations.isFetching ? 'Checking…' : 'Check again'}
+                  </Button>
+                )}
+              </div>
+            )}
+
             {payoutMode !== 'cash' && !selectedSavedId && (
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-3">
                 <label className="flex items-start gap-2 cursor-pointer">
