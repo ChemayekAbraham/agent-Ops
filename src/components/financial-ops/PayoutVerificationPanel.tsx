@@ -67,12 +67,13 @@ import {
   type PayoutQueueSort,
 } from '@/hooks/usePayoutVerification';
 
-const FILTERS: { id: PayoutQueueFilter; label: string }[] = [
-  { id: 'waiting', label: 'Waiting' },
-  { id: 'mismatch', label: 'Mismatch' },
-  { id: 'no_id', label: 'No ID' },
-  { id: 'verified', label: 'Verified' },
-  { id: 'rejected', label: 'Rejected' },
+const FILTERS: { id: PayoutQueueFilter; label: string; countKey?: keyof PayoutVerificationCounts }[] = [
+  { id: 'waiting', label: 'Waiting', countKey: 'waiting' },
+  { id: 'mismatch', label: 'Mismatch', countKey: 'mismatch' },
+  { id: 'no_id', label: 'No ID', countKey: 'no_id' },
+  { id: 'verified', label: 'Verified', countKey: 'verified' },
+  { id: 'rejected', label: 'Rejected', countKey: 'rejected' },
+  { id: 'all', label: 'All' },
 ];
 
 function waHref(phone: string | null | undefined, text: string): string | null {
@@ -615,19 +616,25 @@ export default function PayoutVerificationPanel() {
               aria-label="Search by name or number"
             />
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              const order: PayoutQueueSort[] = ['ready_first', 'balance', 'newest', 'oldest'];
-              const next = order[(order.indexOf(sort) + 1) % order.length];
-              setSort(next);
+          <Select
+            value={sort}
+            onValueChange={(v) => {
+              setSort(v as PayoutQueueSort);
               setPage(0);
               setIndex(0);
             }}
-            className="h-10 shrink-0 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground"
           >
-            {sort === 'ready_first' ? 'Ready first' : sort === 'balance' ? 'Biggest first' : sort === 'newest' ? 'Newest first' : 'Oldest first'}
-          </button>
+            <SelectTrigger className="h-10 w-auto shrink-0 gap-1.5 rounded-lg border-border bg-card px-3 text-xs font-semibold" aria-label="Sort the waiting list">
+              <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="ready_first">Ready first</SelectItem>
+              <SelectItem value="newest">Newest first</SelectItem>
+              <SelectItem value="oldest">Oldest first</SelectItem>
+              <SelectItem value="balance">Biggest balance</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {FILTERS.map((f) => {
