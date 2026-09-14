@@ -533,6 +533,13 @@
       "when": 1789390648050,
       "tag": "0075_proxy_agent_id_gate_exemptions",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1789392120860,
+      "tag": "0076_identity_submission_name_consent_waiting",
+      "breakpoints": true
     }
   ]
 }

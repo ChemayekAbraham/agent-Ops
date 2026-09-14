@@ -155,6 +155,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [savingDetails, setSavingDetails] = useState(false);
+  // The person agrees the exact name on the ID becomes their account name.
+  const [nameConsent, setNameConsent] = useState(false);
+
 
   // Automatic blur / glare / contrast check, per photo.
   const [idQuality, setIdQuality] = useState<PhotoQualityResult | null>(null);
@@ -239,7 +242,26 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const selfiePath = selfieOriginal
         ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
         : storedSelfiePath!;
-      const res = await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
+
+      // With consent, the name read off the ID is recorded first so the account
+      // name can be switched to the exact ID name in the same step.
+      if (nameConsent && idReading?.full_name) {
+        try {
+          await submitNid.mutateAsync({
+            nationalId: idReading.id_number || '',
+            idName: idReading.full_name,
+          });
+        } catch {
+          // Recording the number can fail (e.g. unreadable number); the photos
+          // still go in and Financial Ops fills the gap.
+        }
+      }
+
+      const res = await submit.mutateAsync({
+        idPhotoPath: idPath,
+        selfiePath,
+        nameChangeConsent: nameConsent,
+      });
       if (res && res.success === false) {
         throw new Error(res.message || 'Could not send your photos. Please try again.');
       }
@@ -249,9 +271,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         : null;
 
       toast.success(
-        avatar
-          ? 'Photos received. Your original photo is saved for verification and your cropped photo is now your profile picture.'
-          : 'Photos received. Financial Ops will verify them shortly.',
+        res?.name_changed
+          ? `Photos received. Your account name is now ${res.full_name}, exactly as on your ID.`
+          : avatar
+            ? 'Photos received. Your original photo is saved for verification and your cropped photo is now your profile picture.'
+            : 'Photos received. Financial Ops will verify them shortly.',
       );
       setIdPhoto(null);
       setSelfieOriginal(null);
@@ -262,6 +286,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       setSaving(false);
     }
   };
+
 
 
   return (
@@ -351,6 +376,22 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                     Ops will check this on the call.
                   </p>
                 )}
+                {idReading.full_name && (
+                  <label className="flex cursor-pointer items-start gap-2 rounded-lg border bg-muted/40 p-3 text-xs">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                      checked={nameConsent}
+                      disabled={saving}
+                      onChange={(e) => setNameConsent(e.target.checked)}
+                    />
+                    <span>
+                      I agree that my account name becomes{' '}
+                      <span className="font-semibold">{idReading.full_name}</span> — exactly as
+                      printed on my National ID.
+                    </span>
+                  </label>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -361,6 +402,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                   {savingDetails ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Use these details
                 </Button>
+
               </>
             ) : (
               <p className="text-xs text-amber-600">

@@ -30300,6 +30300,7 @@ export type Database = {
           funder_verified_by: string | null
           has_smartphone: boolean
           id: string
+          id_name_change_consent_at: string | null
           identity_photos_submitted_at: string | null
           is_frozen: boolean
           is_seller: boolean
@@ -30406,6 +30407,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id: string
+          id_name_change_consent_at?: string | null
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
@@ -30512,6 +30514,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id?: string
+          id_name_change_consent_at?: string | null
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
@@ -59887,6 +59890,15 @@ export type Database = {
             Args: {
               p_id_back_photo_path?: string
               p_id_photo_path: string
+              p_selfie_path: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_id_back_photo_path: string
+              p_id_photo_path: string
+              p_name_change_consent: boolean
               p_selfie_path: string
             }
             Returns: Json
