@@ -50,6 +50,7 @@ import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   last9,
   useAdoptNationalIdName,
+  useHolderNameHistory,
   useDecidePayoutDestination,
   useSetHolderName,
 
