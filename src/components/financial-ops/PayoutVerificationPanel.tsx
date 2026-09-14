@@ -891,7 +891,7 @@ export default function PayoutVerificationPanel() {
               {idNameUnreadable ? (
                 <p role="alert" className="mt-0.5 flex items-start gap-1 text-[10px] font-semibold text-destructive">
                   <AlertTriangle className="mt-px h-3 w-3 shrink-0" aria-hidden="true" />
-                  Could not read the name on this National ID photo. Ask for a clearer photo — Verify stays off until a name is read.
+                  {idNameConfidence.reason} The account name was left unchanged and Verify stays off until a clear name is read.
                 </p>
               ) : (
                 <p className="text-[10px] text-muted-foreground">
