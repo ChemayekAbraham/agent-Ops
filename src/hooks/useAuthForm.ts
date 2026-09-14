@@ -59,6 +59,9 @@ export function useAuthForm() {
   // (which is reused by the forgot-password / forgot-phone flows) so the two
   // never overwrite each other.
   const [signupEmail, setSignupEmail] = useState('');
+  // Set when a real-email signup is waiting on the mandatory confirmation link.
+  const [emailConfirmationSent, setEmailConfirmationSent] = useState<string | null>(null);
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
