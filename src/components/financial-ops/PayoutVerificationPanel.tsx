@@ -60,10 +60,16 @@ import {
 import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
 import { UserProfileDrilldown } from '@/components/ops/UserProfileDrilldown';
 
-/** wa.me chat link for a Ugandan number (256 + last 9 digits). */
-function waLink(phone: string | null | undefined): string | null {
+/**
+ * wa.me chat link for a Ugandan number (256 + last 9 digits).
+ * Optional `text` prefills the message body in WhatsApp.
+ */
+function waLink(phone: string | null | undefined, text?: string): string | null {
   const k = last9(phone);
-  return k ? `https://wa.me/256${k}` : null;
+  if (!k) return null;
+  const base = `https://wa.me/256${k}`;
+  if (!text) return base;
+  return `${base}?text=${encodeURIComponent(text)}`;
 }
 
 /**
@@ -769,7 +775,7 @@ export default function PayoutVerificationPanel() {
                   )}
                   {waLink(r.user_phone) && (
                     <a
-                      href={waLink(r.user_phone) as string}
+                      href={waLink(r.user_phone, `Hello ${r.full_name?.split(' ')[0] || 'there'}, this is Welile Financial Ops.`) as string}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white h-12 text-sm font-bold"
@@ -787,7 +793,7 @@ export default function PayoutVerificationPanel() {
                       </a>
                       {waLink(r.momo_number) && (
                         <a
-                          href={waLink(r.momo_number) as string}
+                          href={waLink(r.momo_number, `Hello, this is Welile Financial Ops contacting you about a payout number registered in your name.`) as string}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-600/50 text-emerald-700 h-12 text-sm font-bold"
