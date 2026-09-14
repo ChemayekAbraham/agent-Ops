@@ -289,9 +289,22 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             label="National ID photo"
             hint="All four corners visible, no glare."
             file={idPhoto}
-            onPick={(f) => { setIdPhoto(f); void readIdPhoto(f); }}
-            onClear={() => { setIdPhoto(null); setIdReading(null); setReadError(null); }}
-
+            quality={idQuality}
+            checking={checkingId}
+            onPick={(f) => {
+              setIdPhoto(f);
+              setIdReading(null);
+              setReadError(null);
+              void gradePhoto(f, 'National ID photo', setCheckingId, setIdQuality).then((r) => {
+                if (r.ok) void readIdPhoto(f);
+              });
+            }}
+            onClear={() => {
+              setIdPhoto(null);
+              setIdReading(null);
+              setReadError(null);
+              setIdQuality(null);
+            }}
             disabled={saving}
           />
         )}
