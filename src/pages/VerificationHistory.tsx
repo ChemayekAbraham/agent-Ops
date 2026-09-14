@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -83,6 +83,9 @@ export default function VerificationHistoryPage() {
   const history = useVerificationHistory(viewUserId);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [actualSize, setActualSize] = useState(false);
+  // Remembers the fit/full choice per photo (keyed by file name) so switching
+  // thumbnails restores however each image was last viewed.
+  const resolutionMemory = useRef(new Map<string, boolean>());
 
 
   const entries = useMemo(() => history.data ?? [], [history.data]);
@@ -127,16 +130,32 @@ export default function VerificationHistoryPage() {
 
   const preview = previewIndex !== null ? flatPhotos[previewIndex] ?? null : null;
 
+  // Toggling resolution records the choice against the photo being viewed.
+  const toggleActualSize = () => {
+    setActualSize((v) => {
+      const next = !v;
+      const p = previewIndex !== null ? flatPhotos[previewIndex] : null;
+      if (p) resolutionMemory.current.set(p.fileName, next);
+      return next;
+    });
+  };
+  // Moving to a photo restores its last-used resolution (default: fit).
+  const restoreResolution = (index: number) => {
+    const p = flatPhotos[index];
+    setActualSize(p ? (resolutionMemory.current.get(p.fileName) ?? false) : false);
+  };
+
   const openPhoto = (index: number) => {
-    setActualSize(false);
     setPreviewIndex(index);
+    restoreResolution(index);
   };
   const stepPhoto = (delta: number) => {
     setPreviewIndex((cur) => {
       if (cur === null || flatPhotos.length === 0) return cur;
-      return (cur + delta + flatPhotos.length) % flatPhotos.length;
+      const next = (cur + delta + flatPhotos.length) % flatPhotos.length;
+      restoreResolution(next);
+      return next;
     });
-    setActualSize(false);
   };
 
   // Keyboard controls: ←/→ move between thumbnails, F toggles resolution,
@@ -156,7 +175,7 @@ export default function VerificationHistoryPage() {
         case 'f':
         case 'F':
           ev.preventDefault();
-          setActualSize((v) => !v);
+          toggleActualSize();
           break;
         case 'o':
         case 'O': {
@@ -328,7 +347,7 @@ export default function VerificationHistoryPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setActualSize((v) => !v)}
+                onClick={() => toggleActualSize()}
                 aria-pressed={actualSize}
                 aria-label={
                   actualSize
