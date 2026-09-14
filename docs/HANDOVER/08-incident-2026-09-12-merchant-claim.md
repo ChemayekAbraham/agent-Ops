@@ -91,7 +91,9 @@ The payout simply vanishes from the screen while the merchant is still working i
 UGX 1,000,300 payout for Lukodda Joseph was claimed and silently taken back **five times** between
 19:17 and 23:10 EAT.
 
-**This cause is NOT fixed.** See [§ Still broken](#still-broken).
+**The float-release half of this was fixed 2026-09-14** (`20260914230000`) — see the updated
+[§ Still broken](#still-broken) item 1. The claim-disappears-silently / no-merchant-notification part
+is still exactly as described here.
 
 ## Cause 4 — three claim paths, only one reserved float
 
@@ -226,6 +228,19 @@ SELECT string_agg(p.oid::regprocedure::text, ', ')
 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.prokind = 'f'
   AND pg_get_functiondef(p.oid) LIKE '%claim_race_lost%';
+
+-- Still broken item 1 (float leak on stale release), fixed 20260914230000.
+-- Expect true. If false, the fix has regressed.
+SELECT position('release_merchant_float' in pg_get_functiondef(
+  'public.release_stale_cashout_claims()'::regprocedure)) > 0 AS stale_release_frees_float;
+
+-- Zero orphans: a reservation still 'reserved' whose withdrawal is no longer
+-- assigned to that (or any) agent. Expect zero rows. If any come back, the
+-- fix above is not running, or a new code path has reintroduced the leak.
+SELECT r.id AS reservation_id, r.withdrawal_id, r.reserved_amount
+FROM public.merchant_float_reservations r
+JOIN public.withdrawal_requests w ON w.id = r.withdrawal_id
+WHERE r.state = 'reserved' AND w.assigned_cashout_agent_id IS NULL;
 ```
 
 ```sql
@@ -263,7 +278,7 @@ WHERE w.status IN ('pending','requested','manager_approved','cfo_approved','appr
 
 | # | Problem | Evidence |
 |---|---|---|
-| 1 | **The 45-minute stale release still revokes claims silently and still leaves float locked.** It took Emma Maiso's UGX 95,000 at 01:40 EAT on 2026-09-12; her UGX 27,000 reservation stayed `reserved`. The repair exists as `20260911210000` but is **not applied**. | `release_stale_cashout_claims()` has no `release_merchant_float` call |
+| 1 | **FIXED 2026-09-14 (`20260914230000`).** The 45-minute stale release now calls `release_merchant_float()` for every withdrawal it returns to the pool. Two independent production audits on 2026-09-14 found this gap was still live and not dormant — a second, different real instance (a different withdrawal, `4551f812-...`, UGX 20,700, claimed 2026-09-13 14:14:57 UTC) was found stuck in exactly this state ~17 hours later and manually released via the canonical `release_merchant_float()` RPC (not a hand-edit — verified via a full reserved-but-unassigned scan that it was the only orphan, and confirmed `state = 'released'` afterward) before the fix was written. Re-run the query in [§ Is the fix still live](#is-the-fix-still-live) to confirm `release_merchant_float` still appears in this function's body — it did not, twice, for over 48 hours after this was first documented. Still remains: claim release still does not notify the merchant. | `release_stale_cashout_claims()` |
 | 2 | **Manual "Release back to queue"** clears the assignment without releasing float. | `WithdrawalPayoutCard.tsx` |
 | 3 | **Merchants can still write claim fields directly** — the RLS UPDATE policy on `withdrawal_requests` permits it. | policy `"Active merchant agents can claim or release payouts"` |
 | 4 | **1,575 completed payouts sit `unsettled` with `missing: merchant_telecom_charge`**, oldest 2026-07-16. 1,574 predate this fix, so it is long-standing, not a regression. Likely a false positive for zero-float merchants, who have no float leg to find. | `settlement_missing_legs` |
@@ -276,8 +291,12 @@ WHERE w.status IN ('pending','requested','manager_approved','cfo_approved','appr
 
 - **Do not diagnose this class of failure as "network issues".** A weak network is the *trigger*; the
   damage was server-side. Read `withdrawal_claim_attempts` before asking the merchant anything.
-- **Do not "clean up" reservation rows by hand.** An orphaned reservation is released by claiming the
-  row (the claim function repoints it) or by the 48-hour sweep — never by editing state.
+- **Do not hand-write a raw `UPDATE merchant_float_reservations SET state = ...`.** If you find an
+  orphaned `reserved` row whose withdrawal is no longer assigned to any agent, release it through
+  `release_merchant_float(withdrawal_id, reason)` — it is idempotent, refuses if the reservation was
+  already consumed, and is the same function `release_stale_cashout_claims()` now calls automatically
+  (see item 1, fixed 2026-09-14). Verify the withdrawal really is unassigned with zero settlement
+  progress first, exactly as the automated sweep's own WHERE clause does.
 - **Do not assume a migration in the repo is applied — or that it is not.** Both have happened within
   24 hours. Verify the live objects, every time.
 - **Do not widen the claim RPC's response** to include another desk's customer data. `mine` returns
