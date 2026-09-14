@@ -399,7 +399,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
           {/* Rent Plan summary — rent limit, usage, behaviour score */}
           <WidgetErrorBoundary label="Rent plan summary">
-            <RentPlanSummaryCard />
+            <RentPlanSummaryCard onViewDetails={() => navigate('/dashboard/rent-plan')} />
           </WidgetErrorBoundary>
 
           {/* Recent payment activity timeline */}
