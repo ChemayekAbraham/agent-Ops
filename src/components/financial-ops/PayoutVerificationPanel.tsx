@@ -775,7 +775,7 @@ export default function PayoutVerificationPanel() {
                   )}
                   {waLink(r.user_phone) && (
                     <a
-                      href={waLink(r.user_phone) as string}
+                      href={waLink(r.user_phone, `Hello ${r.full_name?.split(' ')[0] || 'there'}, this is Welile Financial Ops.`) as string}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white h-12 text-sm font-bold"
