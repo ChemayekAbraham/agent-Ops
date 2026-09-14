@@ -1,6 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export type NationalIdSide = 'front' | 'back';
+
 export interface NationalIdReading {
+  side?: NationalIdSide;
+  printed_text?: string;
   full_name: string;
   surname: string;
   given_names: string;
@@ -11,6 +15,7 @@ export interface NationalIdReading {
   account_name: string;
   account_national_id: string | null;
   name_match_score: number | null;
+  failure_reason?: string | null;
   error?: string;
 }
 
