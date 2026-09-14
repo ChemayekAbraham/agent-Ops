@@ -14,6 +14,7 @@ import {
 import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
 import { readNationalIdPhoto, idNameVerdict, type NationalIdReading } from '@/lib/nationalIdOcr';
 import { checkPhotoQuality, retakeMessage, type PhotoQualityResult } from '@/lib/imageQuality';
+import { imageFingerprint } from '@/lib/imageFingerprint';
 
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';

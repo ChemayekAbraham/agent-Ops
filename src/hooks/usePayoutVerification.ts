@@ -43,7 +43,7 @@ export interface PayoutDestinationRow {
   name_source: 'national_id' | 'verified' | null;
   /** True when this account is NOT the first holder of its National ID or phone number. */
   double_submission: boolean;
-  double_kind: 'national_id' | 'phone' | null;
+  double_kind: 'national_id' | 'phone' | 'face' | 'id_photo' | null;
   double_of_user_id: string | null;
   double_of_name: string | null;
   total_count: number;

@@ -19,7 +19,14 @@ export type BlockedReason = {
 
 /** Why this case cannot be verified right now, in the reviewer's own words. */
 export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | null {
-  const what = row.double_kind === 'phone' ? 'phone number' : 'National ID';
+  const what =
+    row.double_kind === 'phone'
+      ? 'phone number'
+      : row.double_kind === 'face'
+        ? 'face'
+        : row.double_kind === 'id_photo'
+          ? 'ID photo'
+          : 'National ID';
 
   if (row.status === 'verified') {
     return {
