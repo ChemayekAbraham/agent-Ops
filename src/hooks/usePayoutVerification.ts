@@ -181,6 +181,30 @@ export function useAdoptNationalIdName() {
 
 
 
+/**
+ * Manual override: Financial Ops confirms or corrects the final holder name
+ * before the payout is marked verified. Finance-gated inside the database.
+ */
+export function useSetHolderName() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; fullName: string; reason?: string; applyNow?: boolean }) => {
+      const { data, error } = await supabase.rpc('finops_set_holder_name', {
+        p_id: input.id,
+        p_full_name: input.fullName,
+        p_reason: input.reason ?? null,
+        p_apply_now: input.applyNow ?? true,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as { success?: boolean; full_name?: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+}
+
 /** The signed-in user's own National ID submission. */
 export function useSubmitNationalId() {
   const qc = useQueryClient();
