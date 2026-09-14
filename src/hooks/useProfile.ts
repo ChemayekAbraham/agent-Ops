@@ -144,5 +144,23 @@ export function useProfile() {
     return () => window.removeEventListener('online', onOnline);
   }, [user, refreshProfile]);
 
+  // A new profile picture must show up instantly, without waiting for the
+  // 1-minute profile cache to expire (and in every other open tab too).
+  useEffect(() => {
+    if (!user) return;
+    return subscribeAvatarUpdates(({ userId, avatarUrl }) => {
+      if (userId !== user.id) return;
+      setProfile(prev => {
+        const next = prev ? { ...prev, avatar_url: avatarUrl } : prev;
+        if (next) {
+          profileCache = { data: next, userId: user.id, timestamp: Date.now() };
+          try { localStorage.setItem(LS_KEY_PREFIX + user.id, JSON.stringify(next)); } catch {}
+          void cacheProfile(next);
+        }
+        return next;
+      });
+    });
+  }, [user]);
+
   return { profile, loading, refreshProfile, isOfflineData };
 }
