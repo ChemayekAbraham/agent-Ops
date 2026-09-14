@@ -1087,6 +1087,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             {!isMerchant && (
               <>
               <LastWeekWinnerOverlay />
+              <WeeklyChampionTeamDialog />
               <TenantLocationCorrectionPopup agentId={user.id} />
               <ListRegisterEarnDialog
                 onListHouse={() => {
