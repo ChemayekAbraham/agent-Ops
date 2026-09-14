@@ -46,7 +46,13 @@ export interface PayoutDestinationRow {
   duplicate_id_user_id: string | null;
   duplicate_id_name: string | null;
   duplicate_id_accounts:
-    | { user_id: string; full_name: string | null; phone: string | null; national_id: string | null }[]
+    | {
+        user_id: string;
+        full_name: string | null;
+        phone: string | null;
+        national_id: string | null;
+        created_at?: string | null;
+      }[]
     | null;
   total_count: number;
 
