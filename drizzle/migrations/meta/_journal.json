@@ -428,6 +428,13 @@
       "when": 1789372855828,
       "tag": "0060_finops_payout_status_timeline",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1789373281683,
+      "tag": "0061_landlord_payout_legs_exempt_from_merchant_id_gate",
+      "breakpoints": true
     }
   ]
 }

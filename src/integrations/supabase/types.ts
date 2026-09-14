@@ -60424,6 +60424,14 @@ export type Database = {
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      withdrawal_merchant_id_gate: {
+        Args: {
+          p_landlord_payout_id?: string
+          p_reason?: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json
