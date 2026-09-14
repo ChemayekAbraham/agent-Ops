@@ -383,12 +383,29 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             label="Selfie"
             hint="Face the camera in good light."
             file={selfieOriginal}
-            onPick={(f) => { setSelfieOriginal(f); setSelfieCropped(null); setPendingSelfie(f); }}
-            onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); }}
+            quality={selfieQuality}
+            checking={checkingSelfie}
+            onPick={(f) => {
+              setSelfieOriginal(f);
+              setSelfieCropped(null);
+              void gradePhoto(f, 'Selfie', setCheckingSelfie, setSelfieQuality).then((r) => {
+                if (r.ok) setPendingSelfie(f);
+              });
+            }}
+            onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); setSelfieQuality(null); }}
             disabled={saving}
           />
         )}
 
+        {failedShots.length > 0 && (
+          <p className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Please retake: {failedShots.join(' and ')}. We cannot send photos that are blurry, shiny
+              or too dark — Financial Ops would only reject them.
+            </span>
+          </p>
+        )}
 
         <Button className="w-full" disabled={!ready || saving} onClick={handleSave}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
