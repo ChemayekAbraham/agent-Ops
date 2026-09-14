@@ -884,6 +884,20 @@ export default function PayoutVerificationPanel() {
             </div>
           </div>
 
+          {/* Back of the National ID not on file: verification stays blocked */}
+          {idBackMissing && (
+            <div role="alert" className="mx-5 mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
+              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Back of the National ID missing
+              </p>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Ask {row.full_name ?? 'this person'} to upload a photo of the back of their National ID.
+                Verify stays off until it is saved.
+              </p>
+            </div>
+          )}
+
+
           {/* No name on the ID photo: replace the photo and read it again */}
           {idNameUnreadable && <ReUploadIdPhotoCard row={row} />}
 
