@@ -51,6 +51,8 @@ import {
   last9,
   useAdoptNationalIdName,
   useDecidePayoutDestination,
+  useSetHolderName,
+
 
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
