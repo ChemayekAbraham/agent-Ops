@@ -95,6 +95,68 @@ const FILTERS: { id: PayoutQueueFilter; label: string; countKey?: keyof PayoutVe
   { id: 'all', label: 'All' },
 ];
 
+/** Full technical detail of a failed queue request, for on-screen diagnosis. */
+function QueueDiagnostics({ error }: { error: unknown }) {
+  const [open, setOpen] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const diag = error instanceof PayoutQueueError ? error.diagnostics : null;
+  const plain = error instanceof Error ? error.message : String(error);
+
+  const lines: { label: string; value: string }[] = [
+    { label: 'Request', value: diag ? `database function · ${diag.endpoint}` : 'database function · finops_payout_verification_queue' },
+    { label: 'Status', value: diag?.httpStatus != null ? `HTTP ${diag.httpStatus}` : 'no HTTP status returned' },
+    { label: 'Error code', value: diag?.code || '—' },
+    { label: 'Exact error', value: diag?.rawMessage || plain },
+    { label: 'Details', value: diag?.details || '—' },
+    { label: 'Hint', value: diag?.hint || '—' },
+    { label: 'Signed-in account', value: diag?.signedInUserId || 'not signed in / unknown' },
+    { label: 'Attempted at', value: diag ? `${diag.attemptedAt} (${diag.durationMs} ms)` : '—' },
+    {
+      label: 'Filters sent',
+      value: diag?.params ? JSON.stringify(diag.params, null, 0) : '—',
+    },
+  ];
+
+  const copyAll = async () => {
+    try {
+      await navigator.clipboard.writeText(lines.map((l) => `${l.label}: ${l.value}`).join('\n'));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Could not copy. Select the text and copy it by hand.');
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-destructive/30 bg-background/70 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="text-xs font-semibold text-foreground underline underline-offset-2"
+        >
+          {open ? 'Hide technical details' : 'Show technical details'}
+        </button>
+        {open ? (
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={copyAll}>
+            {copied ? 'Copied' : 'Copy details'}
+          </Button>
+        ) : null}
+      </div>
+      {open ? (
+        <dl className="mt-2 space-y-1.5">
+          {lines.map((l) => (
+            <div key={l.label} className="grid grid-cols-[8.5rem_1fr] gap-2">
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{l.label}</dt>
+              <dd className="break-all font-mono text-[11px] leading-snug text-foreground">{l.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </div>
+  );
+}
+
 function waHref(phone: string | null | undefined, text: string): string | null {
   const digits = last9(phone);
   if (!digits) return null;
