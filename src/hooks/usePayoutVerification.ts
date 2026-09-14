@@ -154,6 +154,30 @@ export function useDecidePayoutDestination() {
   });
 }
 
+/**
+ * Adopt the name printed on the National ID as the holder's name.
+ * Finance-gated inside the database; the profile write happens there.
+ */
+export function useAdoptNationalIdName() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; reason?: string }) => {
+      const { data, error } = await supabase.rpc('finops_adopt_national_id_name', {
+        p_id: input.id,
+        p_reason: input.reason ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as { success?: boolean; full_name?: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+}
+
+
+
 
 /** The signed-in user's own National ID submission. */
 export function useSubmitNationalId() {
