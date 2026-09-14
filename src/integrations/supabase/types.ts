@@ -60135,6 +60135,16 @@ export type Database = {
           total_repayment: number
         }[]
       }
+      tenant_payment_history: {
+        Args: { p_limit?: number }
+        Returns: {
+          amount: number
+          id: string
+          method: string
+          paid_at: string
+          rent_request_id: string
+        }[]
+      }
       tenant_rent_intake_decide: {
         Args: {
           p_action: string

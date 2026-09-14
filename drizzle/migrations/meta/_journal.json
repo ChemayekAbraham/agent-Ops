@@ -631,6 +631,13 @@
       "when": 1789413898014,
       "tag": "0089_tenant_rent_plan_detail",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1789414341213,
+      "tag": "0090_tenant_payment_history",
+      "breakpoints": true
     }
   ]
 }
