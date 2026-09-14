@@ -2,40 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import {
-  useIdentityVerificationAudit,
-  useVerificationHistory,
-  type VerificationHistoryFile,
-} from '@/hooks/useIdentityPhotos';
-import {
-  generateIdentityVerificationHistoryPdf,
-  type IdentityPdfPhoto,
-} from '@/lib/identityVerificationHistoryPdf';
-import { toast } from 'sonner';
+import { useVerificationHistory, type VerificationHistoryFile } from '@/hooks/useIdentityPhotos';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText, ImageOff, Loader2, Maximize2, Minimize2, ShieldCheck } from 'lucide-react';
-
-/** Inlines a signed photo URL so it can be embedded in the PDF. Best-effort. */
-async function toDataUrl(url: string | null): Promise<string | null> {
-  if (!url) return null;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return await new Promise<string | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-}
+import { ChevronLeft, ChevronRight, Download, ExternalLink, ImageOff, Maximize2, Minimize2, ShieldCheck } from 'lucide-react';
 
 /** One photo opened in the full-resolution viewer. */
 interface ViewerPhoto {
@@ -117,76 +90,6 @@ export default function VerificationHistoryPage() {
 
 
   const entries = useMemo(() => history.data ?? [], [history.data]);
-  const audit = useIdentityVerificationAudit(viewUserId);
-  const [exporting, setExporting] = useState(false);
-
-  // Builds the auditing PDF: every submission's front / back / selfie photos,
-  // what each ID read produced, and every Financial Ops decision with reason.
-  const exportPdf = async () => {
-    if (!viewUserId || exporting) return;
-    setExporting(true);
-    try {
-      const submissions = await Promise.all(
-        entries.map(async (e) => {
-          const pairs: { label: string; file: VerificationHistoryFile | null }[] = [
-            { label: 'Front of National ID', file: e.nationalId },
-            { label: 'Back of National ID', file: e.nationalIdBack },
-            { label: 'Selfie', file: e.original },
-          ];
-          const photos: IdentityPdfPhoto[] = await Promise.all(
-            pairs.map(async (p) => ({
-              label: p.label,
-              path: p.file?.path ?? null,
-              savedAt: p.file?.createdAt ?? e.submittedAt ?? null,
-              dataUrl: await toDataUrl(p.file?.url ?? null),
-            })),
-          );
-          return { submittedAt: e.submittedAt, photos };
-        }),
-      );
-
-      const decisions = (audit.data?.decisions ?? []).map((d) => ({
-        destination:
-          d.destination_type === 'bank'
-            ? [d.bank_name, d.bank_account_number].filter(Boolean).join(' · ') || 'Bank account'
-            : [d.provider, d.momo_number].filter(Boolean).join(' · ') || 'Mobile money',
-        status: d.status,
-        decisionReason: d.decision_reason,
-        nationalId: d.national_id,
-        nationalIdName: d.national_id_name,
-        accountName: d.account_name,
-        submittedAt: d.national_id_submitted_at ?? d.created_at,
-        decidedAt: d.decided_at,
-      }));
-
-      const reads = (audit.data?.reads ?? []).map((r) => ({
-        side: r.side,
-        readAt: r.read_at,
-        nameRead: r.extracted_name,
-        idNumberRead: r.extracted_id_number,
-        readable: r.readable,
-        isNationalId: r.is_national_id,
-        nameMatched: r.name_matched,
-        idNumberMatched: r.id_number_matched,
-        failureReason: r.failure_reason,
-      }));
-
-      const doc = generateIdentityVerificationHistoryPdf({
-        personName: profile?.full_name ?? null,
-        personPhone: profile?.phone ?? null,
-        userId: viewUserId,
-        submissions,
-        reads,
-        decisions,
-      });
-      doc.save(`identity-verification-${viewUserId.slice(0, 8)}-${Date.now()}.pdf`);
-      toast.success('Verification history saved as a PDF');
-    } catch {
-      toast.error('Could not build the PDF. Please try again.');
-    } finally {
-      setExporting(false);
-    }
-  };
 
   // Flat list of every viewable photo, in the order the thumbnails appear,
   // so the keyboard can move between them without clicking.
@@ -205,8 +108,7 @@ export default function VerificationHistoryPage() {
       };
       push(e.original, 'Selfie sent for verification');
       push(e.cropped, 'Cropped profile picture');
-      push(e.nationalId, 'Front of National ID');
-      push(e.nationalIdBack, 'Back of National ID');
+      push(e.nationalId, 'National ID photo');
     }
     return list;
   }, [entries]);
@@ -220,7 +122,6 @@ export default function VerificationHistoryPage() {
         ['original', e.original],
         ['cropped', e.cropped],
         ['nationalId', e.nationalId],
-        ['nationalIdBack', e.nationalIdBack],
       ] as const) {
         if (file?.url) map.set(`${e.id}:${kind}`, i++);
       }
@@ -335,20 +236,6 @@ export default function VerificationHistoryPage() {
             <ShieldCheck className="h-5 w-5 text-primary" />
             Verification history
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full sm:w-auto"
-            onClick={exportPdf}
-            disabled={exporting || history.isLoading || entries.length === 0}
-          >
-            {exporting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
-            )}
-            {exporting ? 'Building PDF…' : 'Download PDF for auditing'}
-          </Button>
           <p className="text-xs text-muted-foreground">
             Every photo you sent for verification is kept here with the date it was sent. The full
             photo is what Financial Ops checks; the round one is the picture you cropped and now use
@@ -408,15 +295,9 @@ export default function VerificationHistoryPage() {
                   />
                   <Thumb
                     file={e.nationalId}
-                    label="Front of National ID"
-                    caption="Front of the ID card sent with this selfie"
+                    label="National ID photo"
+                    caption="Photo of the ID card sent with this selfie"
                     onOpen={() => openPhoto(photoIndexOf.get(`${e.id}:nationalId`) ?? 0)}
-                  />
-                  <Thumb
-                    file={e.nationalIdBack}
-                    label="Back of National ID"
-                    caption="Back of the ID card sent with this selfie"
-                    onOpen={() => openPhoto(photoIndexOf.get(`${e.id}:nationalIdBack`) ?? 0)}
                   />
                 </div>
               </div>

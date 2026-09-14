@@ -24,7 +24,6 @@ import {
   Loader2,
   MessageCircle,
   PhoneCall,
-  ScanLine,
   Search,
   ShieldAlert,
   Smartphone,
@@ -54,12 +53,9 @@ import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhoto
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   last9,
-  useAdoptNationalIdName,
   useHolderNameHistory,
-  useNationalIdOcrReads,
   useDecidePayoutDestination,
   useRevertHolderName,
-  useSetHolderName,
 
 
   usePayoutVerificationCounts,
@@ -220,121 +216,14 @@ function NameChangeHistory({ userId }: { userId: string }) {
 
 
 /**
- * Everything the system read off each side of the National ID photo, when it
- * was read, and what matched or failed against the account details.
+ * Information only. The name printed on the National ID is spelled out; the
+ * system adopts it automatically when the payout is verified, so no manual
+ * name action is offered here.
  */
-function IdReadingAuditTrail({ userId }: { userId: string }) {
-  const { data, isLoading } = useNationalIdOcrReads(userId);
-  if (isLoading || !data || data.length === 0) return null;
-
-  const stamp = (v: string) =>
-    new Date(v).toLocaleString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-  const check = (label: string, ok: boolean | null) => {
-    if (ok === null) return (
-      <li key={label} className="flex items-center gap-1.5 text-muted-foreground">
-        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> {label}: not checked
-      </li>
-    );
-    return (
-      <li
-        key={label}
-        className={
-          ok
-            ? 'flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400'
-            : 'flex items-center gap-1.5 text-destructive'
-        }
-      >
-        {ok ? (
-          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-        ) : (
-          <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
-        )}
-        {label}: {ok ? 'matched' : 'failed'}
-      </li>
-    );
-  };
-
-  return (
-    <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
-      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-        <ScanLine className="h-3.5 w-3.5" aria-hidden="true" /> What was read on the ID ({data.length})
-      </p>
-      <ul className="mt-2 space-y-2">
-        {data.map((r) => (
-          <li key={r.id} className="rounded-xl bg-background/70 px-3 py-2">
-            <p className="text-sm font-semibold leading-tight text-foreground">
-              {r.side === 'back' ? 'Back of ID' : 'Front of ID'}
-              <span className="ml-2 text-xs font-normal text-muted-foreground">{stamp(r.read_at)}</span>
-            </p>
-            <dl className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-              {r.extracted_name && (
-                <div>
-                  Name read: <span className="font-semibold text-foreground">{r.extracted_name}</span>
-                </div>
-              )}
-              {r.extracted_id_number && (
-                <div>
-                  ID number read:{' '}
-                  <span className="font-semibold text-foreground">{r.extracted_id_number}</span>
-                </div>
-              )}
-              {r.extracted_date_of_birth && <div>Date of birth read: {r.extracted_date_of_birth}</div>}
-              {r.account_name && <div>Account name on file: {r.account_name}</div>}
-            </dl>
-            <ul className="mt-1.5 space-y-0.5 text-xs">
-              {check('Name', r.name_matched)}
-              {check('ID number', r.id_number_matched)}
-              {check('Card was readable', r.readable)}
-              {check('Looks like a National ID', r.is_national_id)}
-            </ul>
-            {r.failure_reason && (
-              <p className="mt-1 text-xs font-medium text-destructive">{r.failure_reason}</p>
-            )}
-            {r.extracted_text && (
-              <details className="mt-1.5">
-                <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
-                  Full text read from this side
-                </summary>
-                <pre className="mt-1 whitespace-pre-wrap break-words rounded-lg bg-muted p-2 text-xs text-foreground">
-                  {r.extracted_text}
-                </pre>
-              </details>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-
-/**
- * Shown when the names do not match. The name printed on the National ID is
- * spelled out, and Financial Ops either takes it as-is or types the final
- * name themselves before marking the payout verified.
- */
-function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSaved: () => void }) {
-  const adopt = useAdoptNationalIdName();
-  const setName = useSetHolderName();
+function IdNameMismatchCard({ row }: { row: PayoutDestinationRow }) {
   const idName = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
   const alreadySame = !!idName && idName.toLowerCase() === accountName.toLowerCase();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(idName || accountName);
-  const busy = adopt.isPending || setName.isPending;
-  const cleaned = draft.trim();
-
-  useEffect(() => {
-    setEditing(false);
-    setDraft(idName || accountName);
-  }, [row.id, idName, accountName]);
 
   return (
     <div className="mx-5 mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
@@ -343,90 +232,15 @@ function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSav
       </p>
       <p className="mt-1.5 text-lg font-bold leading-tight text-foreground">{idName || 'Not read yet'}</p>
       <p className="mt-0.5 text-xs text-muted-foreground">On the account now: {accountName || '—'}</p>
-
-      {editing ? (
-        <div className="mt-3 space-y-2">
-          <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground" htmlFor={`final-name-${row.id}`}>
-            Final name for this payout
-          </label>
-          <Input
-            id={`final-name-${row.id}`}
-            value={draft}
-            autoFocus
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Type the name exactly as printed on the ID"
-            className="h-12 rounded-xl text-base font-semibold"
-          />
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
-              disabled={busy}
-              onClick={() => {
-                setDraft(idName || accountName);
-                setEditing(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
-              disabled={busy || cleaned.length < 3 || cleaned === accountName}
-              onClick={async () => {
-                try {
-                  const res = await setName.mutateAsync({ id: row.id, fullName: cleaned });
-                  toast.success(`Name set to ${res.full_name ?? cleaned}.`);
-                  setEditing(false);
-                  onSaved();
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : 'Could not save the name.');
-                }
-              }}
-            >
-              {setName.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <UserCheck className="mr-2 h-4 w-4" />
-              )}
-              Save this name
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 flex gap-2">
-          <Button
-            className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
-            disabled={busy || alreadySame || idName.length < 3}
-            onClick={async () => {
-              try {
-                const res = await adopt.mutateAsync({ id: row.id });
-                toast.success(`Name changed to ${res.full_name ?? idName}.`);
-                onSaved();
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : 'Could not change the name.');
-              }
-            }}
-          >
-            {adopt.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <UserCheck className="mr-2 h-4 w-4" />
-            )}
-            {alreadySame ? 'Already using the ID name' : 'Use the ID name'}
-          </Button>
-          <Button
-            variant="outline"
-            className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
-            disabled={busy}
-            onClick={() => setEditing(true)}
-          >
-            Change
-          </Button>
-        </div>
-      )}
+      <p className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-400">
+        {alreadySame
+          ? 'The account already uses the name on the ID.'
+          : 'Verifying this payout will set the account name to the name on the ID automatically.'}
+      </p>
     </div>
   );
 }
+
 
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
@@ -898,12 +712,10 @@ export default function PayoutVerificationPanel() {
 
           {/* Names do not match: show the ID name and let it become the holder's name */}
           {row.name_match_score !== null && row.name_match_score < 0.8 && (
-            <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
+            <IdNameMismatchCard row={row} />
           )}
 
           {/* Audit trail of name replacements */}
-          <IdReadingAuditTrail userId={row.user_id} />
-
           <NameChangeHistory userId={row.user_id} />
 
 

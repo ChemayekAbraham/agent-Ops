@@ -53,24 +53,8 @@ Deno.serve(async (req) => {
     if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => null) as
-      | { imageBase64?: string; storagePath?: string; side?: string; targetUserId?: string }
+      | { imageBase64?: string; storagePath?: string }
       | null;
-
-    const side = body?.side === "back" ? "back" : "front";
-
-    /** Records every read attempt so Financial Ops can audit what was seen. */
-    const logRead = async (row: Record<string, unknown>) => {
-      try {
-        await adminClient.from("national_id_ocr_reads").insert({
-          user_id: user.id,
-          side,
-          storage_path: body?.storagePath ?? null,
-          ...row,
-        });
-      } catch (e) {
-        console.error("read-national-id audit log failed", e);
-      }
-    };
 
     let dataUrl: string | null = null;
 
@@ -112,21 +96,14 @@ Deno.serve(async (req) => {
             content:
               "You read Ugandan National ID cards. Return ONLY the printed details, never guesses. " +
               'Reply with JSON: {"full_name":string,"surname":string,"given_names":string,' +
-              '"id_number":string,"date_of_birth":string,"is_national_id":boolean,"readable":boolean,' +
-              '"printed_text":string}. ' +
-              "printed_text is every line of text you can read on the card, newline separated. " +
+              '"id_number":string,"date_of_birth":string,"is_national_id":boolean,"readable":boolean}. ' +
               "Use an empty string for anything not clearly legible. " +
               "is_national_id is false when the photo is not an identity card.",
           },
           {
             role: "user",
             content: [
-              {
-                type: "text",
-                text: side === "back"
-                  ? "This is the BACK of the card. Read every printed line, plus the card/document number and any names if shown."
-                  : "This is the FRONT of the card. Read the names and ID number on this card, plus every printed line.",
-              },
+              { type: "text", text: "Read the names and ID number on this card." },
               { type: "image_url", image_url: { url: dataUrl } },
             ],
           },
@@ -144,7 +121,6 @@ Deno.serve(async (req) => {
         ? "Automatic ID reading is unavailable. You can still type your details."
         : "Could not read that photo automatically. You can still type your details.";
       console.error("read-national-id gateway error", status, detail.slice(0, 400));
-      await logRead({ readable: false, failure_reason: message });
       return json({ error: message, status }, status === 429 ? 429 : 200);
     }
 
@@ -170,45 +146,15 @@ Deno.serve(async (req) => {
 
     const accountName = String(profile?.full_name ?? "");
     const score = fullName && accountName ? nameMatchScore(fullName, accountName) : null;
-    const isNationalId = parsed.is_national_id !== false;
-    const readable = parsed.readable !== false && (!!fullName || side === "back");
-    const printedText = String(parsed.printed_text ?? "").trim();
-    const accountNid = String(profile?.national_id ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-
-    const failure = !isNationalId
-      ? "The photo does not look like a National ID card."
-      : !readable
-      ? "Nothing on the card could be read clearly."
-      : side === "front" && !fullName
-      ? "No name could be read on the front of the card."
-      : null;
-
-    await logRead({
-      extracted_text: printedText || null,
-      extracted_name: fullName || null,
-      extracted_id_number: idNumber || null,
-      extracted_date_of_birth: String(parsed.date_of_birth ?? "").trim() || null,
-      account_name: accountName || null,
-      account_national_id: profile?.national_id ?? null,
-      name_match_score: score,
-      name_matched: score == null ? null : score >= 0.8,
-      id_number_matched: idNumber && accountNid ? idNumber === accountNid : null,
-      readable,
-      is_national_id: isNationalId,
-      failure_reason: failure,
-    });
 
     return json({
-      side,
-      printed_text: printedText,
       full_name: fullName,
       surname: String(parsed.surname ?? "").trim(),
       given_names: String(parsed.given_names ?? "").trim(),
       id_number: idNumber,
       date_of_birth: String(parsed.date_of_birth ?? "").trim(),
-      is_national_id: isNationalId,
-      readable: side === "front" ? readable && !!fullName : readable,
-      failure_reason: failure,
+      is_national_id: parsed.is_national_id !== false,
+      readable: parsed.readable !== false && !!fullName,
       account_name: accountName,
       account_national_id: profile?.national_id ?? null,
       name_match_score: score,
