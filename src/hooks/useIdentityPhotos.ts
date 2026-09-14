@@ -65,7 +65,7 @@ export function useIdentityPhotosFor(userId: string | null | undefined) {
     queryFn: async (): Promise<MyIdentityPhotos | null> => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('national_id_photo_path, selfie_photo_path, identity_photos_submitted_at')
+        .select(IDENTITY_PHOTO_COLUMNS)
         .eq('id', userId!)
         .maybeSingle();
       if (error) throw error;
@@ -73,7 +73,9 @@ export function useIdentityPhotosFor(userId: string | null | undefined) {
     },
     refetchInterval: (query) => {
       const d = query.state.data as MyIdentityPhotos | null | undefined;
-      return d?.national_id_photo_path && d?.selfie_photo_path ? 120_000 : 8_000;
+      return d?.national_id_photo_path && d?.national_id_back_photo_path && d?.selfie_photo_path
+        ? 120_000
+        : 8_000;
     },
   });
 }
