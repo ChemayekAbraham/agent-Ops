@@ -77,6 +77,7 @@ export function usePayoutVerificationCounts(enabled = true) {
         rejected: Number(row.rejected ?? 0),
         mismatch: Number(row.mismatch ?? 0),
         no_id: Number(row.no_id ?? 0),
+        double: Number(row.double ?? 0),
         waiting_balance: Number(row.waiting_balance ?? 0),
       };
     },
