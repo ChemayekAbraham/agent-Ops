@@ -410,17 +410,19 @@ export default function PayoutVerificationPanel() {
                 </p>
               </div>
             </div>
-            <span
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                row.status === 'verified'
-                  ? 'bg-primary/10 text-primary'
-                  : row.status === 'rejected'
-                    ? 'bg-destructive/10 text-destructive'
-                    : 'bg-amber-500/15 text-amber-600'
-              }`}
-            >
-              {row.status}
-            </span>
+            {(() => {
+              const badge = statusBadge(row);
+              return (
+                <span
+                  role="status"
+                  aria-label={`Verification status: ${badge.label}`}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
+                >
+                  <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {badge.label}
+                </span>
+              );
+            })()}
           </div>
 
           {/* Photos — the hero of the screen */}
