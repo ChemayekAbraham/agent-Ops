@@ -457,6 +457,9 @@ function DecisionAuditLog({ onOpenProfile }: { onOpenProfile?: (userId: string) 
                         {r.status === 'verified' ? 'Approved' : 'Rejected'}
                       </span>
                     </div>
+                    {r.destination_type === 'mobile_money' && r.momo_number && (
+                      <PhoneActionChips phone={r.momo_number} />
+                    )}
                     <p className="text-[11px] text-muted-foreground">
                       by <span className="font-semibold text-foreground">{r.decided_by_name || 'Financial Ops'}</span>
                       {' · '}
