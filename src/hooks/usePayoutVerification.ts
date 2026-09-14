@@ -132,6 +132,42 @@ export function useDecidePayoutDestination() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
       qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
+      qc.invalidateQueries({ queryKey: ['payout-decision-log'] });
+    },
+  });
+}
+
+export interface PayoutDecisionLogRow {
+  id: string;
+  user_id: string;
+  full_name: string | null;
+  user_phone: string | null;
+  destination_type: 'mobile_money' | 'bank_transfer';
+  provider: string | null;
+  momo_number: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  account_name: string | null;
+  status: PayoutVerificationStatus;
+  decision_reason: string | null;
+  decided_by_name: string | null;
+  decided_at: string;
+}
+
+/**
+ * Read-only audit feed of every verification decision Financial Ops has made:
+ * who decided, the decision (verified/rejected) and when. Financial Ops,
+ * CFO, manager and super_admin only (enforced in the RPC).
+ */
+export function usePayoutDecisionLog(enabled = true, limit = 50) {
+  return useQuery({
+    queryKey: ['payout-decision-log', limit],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<PayoutDecisionLogRow[]> => {
+      const { data, error } = await supabase.rpc('finops_payout_decision_log', { p_limit: limit });
+      if (error) throw error;
+      return (data ?? []) as unknown as PayoutDecisionLogRow[];
     },
   });
 }
