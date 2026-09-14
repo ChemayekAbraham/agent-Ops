@@ -266,11 +266,18 @@ export default function VerificationHistoryPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreviewIndex(null)}>
         <DialogContent className="max-w-3xl p-3">
           <DialogHeader className="space-y-1 text-left">
             <DialogTitle className="text-base">{preview?.label}</DialogTitle>
-            <p className="text-xs text-muted-foreground">{preview?.takenAt}</p>
+            <p className="text-xs text-muted-foreground">
+              {preview?.takenAt}
+              {previewIndex !== null && flatPhotos.length > 1 && (
+                <span className="ml-2">
+                  · Photo {previewIndex + 1} of {flatPhotos.length}
+                </span>
+              )}
+            </p>
           </DialogHeader>
 
           {preview && (
