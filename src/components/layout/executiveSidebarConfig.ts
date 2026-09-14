@@ -85,7 +85,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Security Logs', icon: Lock, id: 'security' },
         { label: 'Platform Controls', icon: SlidersHorizontal, id: 'platform-controls' },
         { label: 'Agent Freeze', icon: Snowflake, id: 'agent-freeze' },
-        { label: 'KYC Level Override', icon: ShieldCheck, id: 'kyc-level' },
+        { label: 'KYC & ID Overrides', icon: ShieldCheck, id: 'kyc-level' },
         { label: 'Reset Password', icon: KeyRound, id: 'password-reset' },
         { label: 'Merchant Invites', icon: HandCoins, id: 'merchant-invites' },
         { label: 'Developer Tools', icon: Wrench, id: 'tools' },
