@@ -61,6 +61,24 @@ export interface PayoutVerificationCounts {
 
 export const PAYOUT_VERIFICATION_PAGE_SIZE = 20;
 
+/** Turns a server error into a plain sentence a reviewer can act on. */
+export function payoutQueueErrorMessage(raw: string | null | undefined): string {
+  const m = (raw ?? '').toLowerCase();
+  if (m.includes('financial ops only')) {
+    return 'This account is not allowed to review payouts. Ask for the Financial Ops permission to be switched on for the account you are signed in with, then sign out and back in.';
+  }
+  if (m.includes('jwt') || m.includes('not authenticated') || m.includes('invalid claim')) {
+    return 'Your session has expired. Sign out and sign back in, then open this page again.';
+  }
+  if (m.includes('timeout') || m.includes('canceling statement')) {
+    return 'The list took too long to load. Narrow it with a date range or a search, then try again.';
+  }
+  if (m.includes('failed to fetch') || m.includes('network')) {
+    return 'No connection to the server. Check the internet and try again.';
+  }
+  return raw || 'Something went wrong while loading the list.';
+}
+
 /** Live counts for the badge and the filter chips. */
 export function usePayoutVerificationCounts(enabled = true) {
   return useQuery({
