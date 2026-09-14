@@ -649,6 +649,21 @@ export default function PayoutVerificationPanel() {
     if (index >= rows.length) setIndex(0);
   }, [rows.length, index]);
 
+  // Whenever the active case changes (Verify, Next, Previous, or list tap),
+  // bring the focus card into view so the next person is immediately visible.
+  useEffect(() => {
+    if (skipInitialScrollRef.current) {
+      skipInitialScrollRef.current = false;
+      return;
+    }
+    const el = focusCardRef.current;
+    if (!el) return;
+    // Defer one frame so the new card has rendered and layout is stable.
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [row?.id]);
+
   const position = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + index + 1;
 
   const goTo = (nextGlobal: number) => {
