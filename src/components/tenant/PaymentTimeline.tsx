@@ -16,7 +16,7 @@ export interface PaymentEntry {
 }
 
 interface PaymentTimelineProps {
-  /** Payment entries to display. Will come from backend. */
+  /** Payment entries to display. When omitted, the tenant's own history is loaded. */
   entries?: PaymentEntry[];
   /** Max entries to show */
   limit?: number;
