@@ -35,7 +35,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatUGX } from '@/lib/rentCalculations';
+import { useUserAvatars } from '@/hooks/useUserAvatars';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   useDecidePayoutDestination,
@@ -162,6 +164,8 @@ export default function PayoutVerificationPanel() {
 
   const total = queue.data?.total ?? 0;
   const rows = queue.data?.rows ?? [];
+  // Faces beside the names, kept current the moment anyone's picture changes.
+  const { avatarFor } = useUserAvatars(rows.map((r) => r.user_id));
   const pageCount = Math.max(1, Math.ceil(total / PAYOUT_VERIFICATION_PAGE_SIZE));
   const from = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + 1;
   const to = Math.min(total, (page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE);
@@ -297,11 +301,19 @@ export default function PayoutVerificationPanel() {
             return (
               <div key={r.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground truncate">
-                      {r.full_name || 'Name not recorded'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{r.user_phone || 'No account phone'}</p>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar className="h-10 w-10 shrink-0 border border-border">
+                      <AvatarImage src={avatarFor(r.user_id) ?? undefined} alt={r.full_name || 'Holder photo'} />
+                      <AvatarFallback className="text-xs font-bold">
+                        {(r.full_name || '?').trim().charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">
+                        {r.full_name || 'Name not recorded'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{r.user_phone || 'No account phone'}</p>
+                    </div>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
