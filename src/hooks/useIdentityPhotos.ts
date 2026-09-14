@@ -19,10 +19,11 @@ import { publishAvatarUpdate } from '@/lib/avatarSync';
 
 export const IDENTITY_BUCKET = 'identity-verification';
 
-export type IdentityPhotoKind = 'national-id' | 'selfie';
+export type IdentityPhotoKind = 'national-id' | 'national-id-back' | 'selfie';
 
 export interface MyIdentityPhotos {
   national_id_photo_path: string | null;
+  national_id_back_photo_path: string | null;
   selfie_photo_path: string | null;
   identity_photos_submitted_at: string | null;
 }
