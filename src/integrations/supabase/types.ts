@@ -44657,6 +44657,33 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_id_gate_exemptions: {
+        Row: {
+          active: boolean
+          agent_user_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          reason: string
+        }
+        Insert: {
+          active?: boolean
+          agent_user_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason: string
+        }
+        Update: {
+          active?: boolean
+          agent_user_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       withdrawal_notification_log: {
         Row: {
           amount: number
