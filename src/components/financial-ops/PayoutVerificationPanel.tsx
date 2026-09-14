@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  HelpCircle,
   Loader2,
   MessageCircle,
   PhoneCall,
@@ -22,6 +24,7 @@ import {
   ShieldAlert,
   Smartphone,
   X,
+  XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
