@@ -186,6 +186,11 @@ function highlightPhone(text: string | null | undefined, query: string): ReactNo
  */
 // Minimum keystrokes before the landlord search runs — mirrors the LC1 search.
 const MIN_QUERY_CHARS = 3;
+// Hard ceiling on a single search request. Without this, a stalled request on
+// a slow/flaky connection never resolves and never rejects, so the UI is left
+// showing "Searching…" forever with no way out (see the 2026-09-14 Shakirah
+// report — the request just hung, it wasn't a "no results" case).
+const SEARCH_TIMEOUT_MS = 12000;
 
 export function LandlordSearchSelect({
   value,
@@ -216,6 +221,14 @@ export function LandlordSearchSelect({
   // dropped and when, so the UI can show "Cancelled 'xyz' · 3s ago" until the
   // next search resolves.
   const [cancelledInfo, setCancelledInfo] = useState<{ query: string; at: number } | null>(null);
+  // True when the most recent search hit SEARCH_TIMEOUT_MS without resolving —
+  // distinct from "results.length === 0", which means the search actually came
+  // back with nothing. Conflating the two risks an agent registering a
+  // duplicate landlord after a merely-stalled search.
+  const [searchFailed, setSearchFailed] = useState(false);
+  // Bumped to manually re-run the search after a timeout, without requiring
+  // the agent to retype the query.
+  const [retryTick, setRetryTick] = useState(0);
   // Ticks once a second while a cancellation note is showing so the elapsed
   // "…s ago" counter stays live.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -315,9 +328,20 @@ export function LandlordSearchSelect({
     const controller = new AbortController();
     const { signal } = controller;
     // Per-request state so the cleanup can tell whether this fetch had already
-    // finished (no flash) or was still in flight when superseded (flash).
-    const reqState = { settled: false };
+    // finished (no flash) or was still in flight when superseded (flash), and
+    // whether it was OUR timeout (not a supersession) that ended it.
+    const reqState = { settled: false, timedOut: false };
     const isAborted = () => signal.aborted || myId !== reqIdRef.current;
+    setSearchFailed(false);
+    const timeoutId = setTimeout(() => {
+      if (reqState.settled || myId !== reqIdRef.current) return;
+      reqState.timedOut = true;
+      controller.abort();
+      setLoading(false);
+      setResults([]);
+      setCancelledInfo(null);
+      setSearchFailed(true);
+    }, SEARCH_TIMEOUT_MS);
     const run = async () => {
       setLoading(true);
       try {
@@ -339,29 +363,35 @@ export function LandlordSearchSelect({
           setCancelledInfo(null);
         }
       } catch (err) {
-        if (isAborted()) return;
+        if (reqState.timedOut) return; // Already surfaced by the timeout above.
+        if (isAborted()) return; // Superseded by a newer query — not a failure.
         // No ILIKE fallback: the trigram RPC is the only search path.
         // A cross-table ILIKE on `landlords` (or `landlords_directory`) with
         // ORDER BY name + LIMIT bypasses the trigram index and pins the DB CPU
-        // at 100% under load, so we surface an empty result instead.
+        // at 100% under load, so we surface a failure state instead — never
+        // silently treat a request error as "no matches", which would invite
+        // registering a duplicate landlord for someone who already exists.
         console.warn('[LandlordSearchSelect] search_landlords_fuzzy failed', err);
-        if (!isAborted()) setResults([]);
+        setResults([]);
+        setSearchFailed(true);
       } finally {
+        clearTimeout(timeoutId);
         reqState.settled = true;
-        if (!isAborted()) setLoading(false);
+        if (!isAborted() && !reqState.timedOut) setLoading(false);
       }
     };
     run();
     return () => {
+      clearTimeout(timeoutId);
       controller.abort();
       // If this request was still loading when it got superseded, record the
       // query that was dropped so a persistent note can show which search was
       // cancelled and how long ago.
-      if (!reqState.settled && debounced) {
+      if (!reqState.settled && !reqState.timedOut && debounced) {
         setCancelledInfo({ query: debounced, at: Date.now() });
       }
     };
-  }, [debounced, panelOpen, threshold, registeredBy]);
+  }, [debounced, panelOpen, threshold, registeredBy, retryTick]);
 
   // Keep the elapsed "…s ago" counter live while a cancellation note is shown.
   useEffect(() => {
@@ -378,9 +408,12 @@ export function LandlordSearchSelect({
     };
   }, [cancelledInfo]);
 
-  // Drop the cancellation note when the search box is emptied.
+  // Drop the cancellation/failure notes when the search box is emptied.
   useEffect(() => {
-    if (!query.trim()) setCancelledInfo(null);
+    if (!query.trim()) {
+      setCancelledInfo(null);
+      setSearchFailed(false);
+    }
   }, [query]);
 
   const triggerLabel = useMemo(() => {
@@ -398,8 +431,16 @@ export function LandlordSearchSelect({
   // Below MIN_QUERY_CHARS nothing has been searched yet, so neither the
   // "no landlords in the system" nor the "no match" state applies.
   const needsMoreChars = query.trim().length < MIN_QUERY_CHARS;
+  // A stalled/errored request is NOT the same as "searched and found nothing" —
+  // keep it out of isSearchEmpty so the UI never offers to register a
+  // duplicate landlord over what was actually a connection problem.
   const isSearchEmpty =
-    !busy && !needsMoreChars && results.length === 0 && debounced.length >= MIN_QUERY_CHARS;
+    !busy &&
+    !needsMoreChars &&
+    !searchFailed &&
+    results.length === 0 &&
+    debounced.length >= MIN_QUERY_CHARS;
+  const isSearchFailed = !busy && !needsMoreChars && searchFailed && results.length === 0;
 
   // Compose a location subtitle from the most specific available fields.
   const locationLine = (l: LandlordOption) =>
@@ -698,6 +739,34 @@ export function LandlordSearchSelect({
                   Register this as a new landlord
                 </Button>
               )}
+            </div>
+          )}
+
+          {/* Search stalled or errored — deliberately NOT the "no matches" state,
+              so an agent never registers a duplicate landlord over what was
+              actually a connection problem. */}
+          {!loading && isSearchFailed && (
+            <div className="px-3 py-4 space-y-3">
+              <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 flex items-start gap-2.5">
+                <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-warning">Search didn't finish</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                    This looks like a connection problem, not a missing landlord. Check your
+                    connection and try again before registering a new one.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full gap-1.5 text-xs"
+                onClick={() => setRetryTick((t) => t + 1)}
+              >
+                <Search className="h-3.5 w-3.5" />
+                Retry search
+              </Button>
             </div>
           )}
 
