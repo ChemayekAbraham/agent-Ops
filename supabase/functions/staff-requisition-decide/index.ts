@@ -2,7 +2,6 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { creditRequisitionWallet } from "../_shared/requisitionWalletCredit.ts";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
-import { maySendRequisitionSms } from "../_shared/requisitionSmsPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -313,9 +312,6 @@ async function notifyRequester(admin: any, row: any, message: string) {
   try {
     const { data: p } = await admin.from("profiles").select("phone, full_name").eq("id", row.requester_id).maybeSingle();
     if (p?.phone) {
-      // The requester always gets the in-app notification above; the text
-      // message is restricted to senior/finance roles.
-      if (!(await maySendRequisitionSms(admin, row.requester_id))) return;
       await sendSMS(p.phone, `Welile: ${message}`, {
         admin,
         source: "staff-requisition-decide",

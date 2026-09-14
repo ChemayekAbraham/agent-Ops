@@ -1,6 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
-import { requisitionSmsRecipients } from "../_shared/requisitionSmsPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -274,15 +273,11 @@ async function notifyApprovers(admin: any, approverRole: string, row: any, reque
       .select("id, full_name, phone, email")
       .in("id", ids);
 
-    // Everyone above was notified in-app. Only senior/finance roles get the
-    // text message — see _shared/requisitionSmsPolicy.ts.
-    const smsAllowed = await requisitionSmsRecipients(admin, ids);
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     for (const p of profiles || []) {
-      if (p.phone && smsAllowed.has(p.id)) {
+      if (p.phone) {
         try {
           await sendSMS(p.phone, `Welile: Requisition ${row.requisition_code} (${fmtUGX(Number(row.amount))}) from ${requesterName} awaits your review.`, {
             admin,

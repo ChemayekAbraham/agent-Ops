@@ -144,7 +144,19 @@ export function useDecidePayoutDestination() {
         } catch { /* profile picture update is best-effort */ }
       }
 
+      // Now that the owner is ID-verified, their open withdrawals become
+      // visible + claimable to merchant agents — tell the merchants.
+      // Best-effort: never fails the decision itself.
+      if (input.decision === 'verified' && input.userId) {
+        try {
+          await supabase.functions.invoke('notify-merchants-verified-withdrawals', {
+            body: { user_id: input.userId },
+          });
+        } catch { /* merchant dispatch is best-effort */ }
+      }
+
       return data;
+
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });

@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   UNVERIFIED_WITHDRAWALS_PAGE_SIZE,
+  badgeLabel,
   missingPieces,
   useUnverifiedWithdrawals,
+  type UnverifiedBadgeFilter,
+  type UnverifiedSort,
   type UnverifiedWithdrawalRow,
 } from '@/hooks/useUnverifiedWithdrawals';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -13,10 +16,13 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertTriangle,
+  ArrowUpDown,
   Banknote,
+  BadgeCheck,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
   EyeOff,
   Phone,
   Search,
@@ -64,6 +70,24 @@ function MissingChips({ row }: { row: UnverifiedWithdrawalRow }) {
   );
 }
 
+/** Colourblind-friendly outcome badge: icon + plain words, never colour alone. */
+function StatusBadge({ badge }: { badge: UnverifiedWithdrawalRow['badge'] }) {
+  const label = badgeLabel(badge);
+  const Icon = badge === 'verified' ? BadgeCheck : badge === 'needs_review' ? AlertTriangle : Clock;
+  const tone =
+    badge === 'verified'
+      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+      : badge === 'needs_review'
+        ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+        : 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400';
+  return (
+    <Badge variant="outline" className={`gap-1 ${tone}`} role="status" aria-label={`Status: ${label}`}>
+      <Icon className="h-3 w-3" aria-hidden />
+      {label}
+    </Badge>
+  );
+}
+
 function Row({ row }: { row: UnverifiedWithdrawalRow }) {
   const call = telHref(row.phone ?? row.mobile_money_number);
   return (
@@ -76,6 +100,7 @@ function Row({ row }: { row: UnverifiedWithdrawalRow }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <p className="truncate text-base font-semibold">{row.full_name ?? 'Unknown user'}</p>
+            <StatusBadge badge={row.badge} />
             <Badge
               variant="outline"
               className="gap-1 border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400"
@@ -118,10 +143,26 @@ function Row({ row }: { row: UnverifiedWithdrawalRow }) {
   );
 }
 
+const FILTER_OPTIONS: { value: UnverifiedBadgeFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'needs_review', label: 'Needs review' },
+  { value: 'verified', label: 'Verified' },
+];
+
+const SORT_OPTIONS: { value: UnverifiedSort; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'biggest', label: 'Biggest amount' },
+  { value: 'smallest', label: 'Smallest amount' },
+];
+
 export default function UnverifiedWithdrawalsPanel() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
-  const { data, isLoading, isError, error } = useUnverifiedWithdrawals(search, page);
+  const [filter, setFilter] = useState<UnverifiedBadgeFilter>('all');
+  const [sort, setSort] = useState<UnverifiedSort>('newest');
+  const { data, isLoading, isError, error } = useUnverifiedWithdrawals(search, page, filter, sort);
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / UNVERIFIED_WITHDRAWALS_PAGE_SIZE));
@@ -162,6 +203,40 @@ export default function UnverifiedWithdrawalsPanel() {
         ) : null}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              aria-pressed={filter === opt.value}
+              onClick={() => { setFilter(opt.value); setPage(0); }}
+              className={`min-h-[40px] rounded-full border px-4 text-sm font-medium transition-colors ${
+                filter === opt.value
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'bg-background text-foreground hover:bg-muted'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <label className="ml-auto flex min-h-[40px] items-center gap-2 rounded-full border bg-background px-3 text-sm">
+          <ArrowUpDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+          <span className="sr-only">Sort payouts</span>
+          <select
+            value={sort}
+            onChange={(e) => { setSort(e.target.value as UnverifiedSort); setPage(0); }}
+            className="bg-transparent text-sm font-medium outline-none"
+            aria-label="Sort payouts"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       {isLoading ? (
         <div className="space-y-3" aria-busy="true">
           {[0, 1, 2].map((i) => <Skeleton key={i} className="h-28 w-full rounded-2xl" />)}
@@ -173,12 +248,17 @@ export default function UnverifiedWithdrawalsPanel() {
       ) : total === 0 ? (
         <p className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
           <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
-          Nothing here — every open withdrawal belongs to a verified person.
+          {filter === 'all'
+            ? 'Nothing here — every open withdrawal belongs to a verified person.'
+            : filter === 'verified'
+              ? 'No verified payouts are open right now.'
+              : `No payouts currently marked ${badgeLabel(filter === 'needs_review' ? 'needs_review' : 'pending').toLowerCase()}.`}
         </p>
       ) : (
         <>
           <p className="text-sm text-muted-foreground" role="status">
-            {total} request{total === 1 ? '' : 's'} waiting on verification
+            {total} request{total === 1 ? '' : 's'}
+            {filter === 'all' ? ' waiting on verification' : ` marked ${badgeLabel(filter === 'needs_review' ? 'needs_review' : filter).toLowerCase()}`}
           </p>
           <ul className="space-y-3">
             {rows.map((r) => <Row key={r.id} row={r} />)}
