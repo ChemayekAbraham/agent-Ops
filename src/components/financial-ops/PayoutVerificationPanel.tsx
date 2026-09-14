@@ -20,10 +20,12 @@ import {
   History,
   IdCard,
   Loader2,
+  MessageCircle,
   PhoneCall,
   Search,
   ShieldAlert,
   Smartphone,
+  UserRound,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -42,16 +44,48 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   PAYOUT_DECISION_LOG_PAGE_SIZE,
   PAYOUT_VERIFICATION_PAGE_SIZE,
+  last9,
   useDecidePayoutDestination,
   usePayoutDecisionLog,
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
+  usePhoneAccountLookup,
   type PayoutDestinationRow,
   type PayoutDecisionLogRow,
   type PayoutQueueFilter,
   type PayoutQueueSort,
+  type PhoneAccountInfo,
 } from '@/hooks/usePayoutVerification';
 import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
+import { UserProfileDrilldown } from '@/components/ops/UserProfileDrilldown';
+
+/** wa.me chat link for a Ugandan number (256 + last 9 digits). */
+function waLink(phone: string | null | undefined): string | null {
+  const k = last9(phone);
+  return k ? `https://wa.me/256${k}` : null;
+}
+
+/**
+ * Small pill under a phone number saying whether that number has a Welile
+ * account, and whose — so the operator immediately knows if a payout number
+ * belongs to the holder's own account or to someone else entirely.
+ */
+function PhoneAccountBadge({ info, loading }: { info: PhoneAccountInfo | undefined; loading: boolean }) {
+  if (loading) return <Skeleton className="h-5 w-28 rounded-full" />;
+  if (!info?.has_account) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+        <X className="h-3 w-3" /> No account in system
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+      <UserRound className="h-3 w-3" />
+      Has account{info.account_name ? ` — ${info.account_name}` : ''}
+    </span>
+  );
+}
 
 /**
  * The National ID card photo and the selfie the holder recorded, shown under
