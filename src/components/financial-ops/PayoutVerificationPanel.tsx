@@ -452,7 +452,7 @@ function DecisionDialog({
             type="button"
             variant={decision === 'verified' ? 'default' : 'outline'}
             className="flex-1"
-            disabled={!photosReady}
+            disabled={verifyBlocked}
             onClick={() => setDecision('verified')}
           >
             <CheckCircle2 className="h-4 w-4 mr-1.5" /> Verify
