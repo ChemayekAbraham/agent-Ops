@@ -152,6 +152,7 @@ export function useDecidePayoutDestination() {
       qc.invalidateQueries({ queryKey: ['payout-decision-log'] });
       // A verified decision also adopts the National ID name as the profile name.
       qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
     },
   });
 }
