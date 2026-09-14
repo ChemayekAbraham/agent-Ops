@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { UGANDA_BANKS, PAYOUT_METHODS } from '@/lib/ugandaBanks';
 import { useSavedPayoutMethods, type SavedPayoutMethod } from '@/hooks/useSavedPayoutMethods';
 import { useMyPayoutDestinations, destinationStateFor } from '@/hooks/usePayoutVerification';
+import { useIsFunderWithPortfolio } from '@/hooks/useIsFunderWithPortfolio';
 import NationalIdPrompt, { useMyNationalId } from '@/components/wallet/NationalIdPrompt';
 import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
 import { useMyIdentityPhotos } from '@/hooks/useIdentityPhotos';
@@ -163,6 +164,9 @@ export default function WithdrawFlow({
     void myDestinations.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user?.id]);
+  // Funders holding a portfolio are exempt from the identity / destination
+  // gates (server-side truth); mirror that here so they see no blockers.
+  const funderExempt = useIsFunderWithPortfolio(user?.id);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
   const [saveAsNew, setSaveAsNew] = useState(true);
   const [savedNickname, setSavedNickname] = useState('');
@@ -189,6 +193,35 @@ export default function WithdrawFlow({
   const [bankName, setBankName] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
+
+  // ---- Auto-verification gate -------------------------------------------
+  // A destination becomes `verified` on its own the moment the name read on
+  // the National ID matches the name on the number / bank account. Until that
+  // has happened, the flow stops at the destination step and says why. Cash
+  // pickup carries no destination, and portfolio funders are exempt.
+  const activeDestination = destinationStateFor(myDestinations.data, {
+    mode: payoutMode,
+    momoNumber,
+    bankAccountNumber,
+  });
+  const destinationIdentified =
+    payoutMode === 'cash' ||
+    (payoutMode === 'mobile_money'
+      ? momoNumber.replace(/\D/g, '').length >= 9
+      : bankAccountNumber.replace(/\D/g, '').length >= 5);
+  const destinationGateExempt = payoutMode === 'cash' || funderExempt.data === true;
+  const destinationStatus: 'exempt' | 'verified' | 'waiting' | 'rejected' | 'unknown' =
+    destinationGateExempt
+      ? 'exempt'
+      : activeDestination?.status === 'verified'
+        ? 'verified'
+        : activeDestination?.status === 'rejected'
+          ? 'rejected'
+          : activeDestination
+            ? 'waiting'
+            : 'unknown';
+  const destinationAllowed = destinationStatus === 'exempt' || destinationStatus === 'verified';
+
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -683,6 +716,9 @@ export default function WithdrawFlow({
       case 3: {
         // A reason is required — custom reason must not be blank.
         if (!effectiveReason) return false;
+        // The rest of the flow only opens once this destination has
+        // auto-verified (ID name == name on the number / account).
+        if (!destinationAllowed) return false;
         if (payoutMode === 'mobile_money') return momoNumber.trim().length >= 9 && momoName.trim().length >= 2;
         if (payoutMode === 'bank_transfer') return !!bankName && bankAccountName.trim().length >= 2 && bankAccountNumber.trim().length >= 5;
         if (payoutMode === 'cash') return true;
@@ -1634,6 +1670,67 @@ export default function WithdrawFlow({
                   </div>
                 </div>
               </>
+            )}
+
+            {/* Auto-verification status for the destination being used.
+                Nothing beyond this step opens until it reads "verified". */}
+            {payoutMode !== 'cash' && destinationIdentified && destinationStatus !== 'exempt' && (
+              <div
+                className={`rounded-lg border-2 p-4 space-y-1 ${
+                  destinationStatus === 'verified'
+                    ? 'border-primary bg-primary/10'
+                    : destinationStatus === 'rejected'
+                      ? 'border-destructive bg-destructive/10'
+                      : 'border-amber-500 bg-amber-500/10'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {destinationStatus === 'verified' ? (
+                    <ShieldCheck className="w-4 h-4 text-primary" />
+                  ) : (
+                    <AlertTriangle
+                      className={`w-4 h-4 ${
+                        destinationStatus === 'rejected' ? 'text-destructive' : 'text-amber-600'
+                      }`}
+                    />
+                  )}
+                  <h4
+                    className={`font-bold ${
+                      destinationStatus === 'verified'
+                        ? 'text-primary'
+                        : destinationStatus === 'rejected'
+                          ? 'text-destructive'
+                          : 'text-amber-700'
+                    }`}
+                  >
+                    {destinationStatus === 'verified'
+                      ? 'Verified — you can withdraw to this account'
+                      : destinationStatus === 'rejected'
+                        ? 'This account was not accepted'
+                        : 'Not verified yet'}
+                  </h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {destinationStatus === 'verified'
+                    ? 'The name on your National ID matches the name on this account, so it verified by itself. You can keep withdrawing to it.'
+                    : destinationStatus === 'rejected'
+                      ? activeDestination?.decision_reason ||
+                        'Use an account in your own name, or send a clear photo of your National ID again.'
+                      : 'This account verifies by itself as soon as the name on your National ID matches the name on this number or account. Send your National ID photo and selfie, or use an account in the exact name on your ID. Until then this withdrawal cannot continue.'}
+                </p>
+                {destinationStatus !== 'verified' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => void myDestinations.refetch()}
+                    disabled={myDestinations.isFetching}
+                  >
+                    {myDestinations.isFetching ? 'Checking…' : 'Check again'}
+                  </Button>
+                )}
+              </div>
             )}
 
             {payoutMode !== 'cash' && !selectedSavedId && (
