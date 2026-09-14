@@ -185,7 +185,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const selfiePath = selfieOriginal
         ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
         : storedSelfiePath!;
-      await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
+      const res = await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
+      if (res && res.success === false) {
+        throw new Error(res.message || 'Could not send your photos. Please try again.');
+      }
       // The cropped copy is only the profile picture — best effort.
       const avatar = selfieCropped
         ? await setSelfieAsProfilePhoto(user.id, selfieCropped, selfiePath)
