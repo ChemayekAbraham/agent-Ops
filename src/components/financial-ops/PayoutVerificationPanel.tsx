@@ -13,8 +13,10 @@ import {
   BadgeCheck,
   Building2,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  History,
   IdCard,
   Loader2,
   Maximize2,
@@ -41,6 +43,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   useDecidePayoutDestination,
+  usePayoutDecisionLog,
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
   type PayoutDestinationRow,
