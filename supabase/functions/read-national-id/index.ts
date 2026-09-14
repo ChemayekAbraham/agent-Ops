@@ -170,8 +170,37 @@ Deno.serve(async (req) => {
 
     const accountName = String(profile?.full_name ?? "");
     const score = fullName && accountName ? nameMatchScore(fullName, accountName) : null;
+    const isNationalId = parsed.is_national_id !== false;
+    const readable = parsed.readable !== false && (!!fullName || side === "back");
+    const printedText = String(parsed.printed_text ?? "").trim();
+    const accountNid = String(profile?.national_id ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+    const failure = !isNationalId
+      ? "The photo does not look like a National ID card."
+      : !readable
+      ? "Nothing on the card could be read clearly."
+      : side === "front" && !fullName
+      ? "No name could be read on the front of the card."
+      : null;
+
+    await logRead({
+      extracted_text: printedText || null,
+      extracted_name: fullName || null,
+      extracted_id_number: idNumber || null,
+      extracted_date_of_birth: String(parsed.date_of_birth ?? "").trim() || null,
+      account_name: accountName || null,
+      account_national_id: profile?.national_id ?? null,
+      name_match_score: score,
+      name_matched: score == null ? null : score >= 0.8,
+      id_number_matched: idNumber && accountNid ? idNumber === accountNid : null,
+      readable,
+      is_national_id: isNationalId,
+      failure_reason: failure,
+    });
 
     return json({
+      side,
+      printed_text: printedText,
       full_name: fullName,
       surname: String(parsed.surname ?? "").trim(),
       given_names: String(parsed.given_names ?? "").trim(),
