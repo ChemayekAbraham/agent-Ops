@@ -54,6 +54,10 @@ interface SmartphoneOrderRow {
   disbursed_amount?: number | null;
   access_daily_amount?: number | null;
   access_repayment_days?: number | null;
+  advance_period_months?: number | null;
+  advance_markup_pct?: number | null;
+  total_repayable?: number | null;
+  repayment_starts_on?: string | null;
   supplier_id?: string | null;
   supplier_name?: string | null;
 }
