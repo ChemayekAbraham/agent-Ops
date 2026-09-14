@@ -47275,6 +47275,14 @@ export type Database = {
         }
         Relationships: []
       }
+      v_identity_double_users: {
+        Row: {
+          first_user_id: string | null
+          kind: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       v_landlord_call_summary: {
         Row: {
           call_count: number | null
