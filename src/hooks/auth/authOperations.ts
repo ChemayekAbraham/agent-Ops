@@ -7,6 +7,26 @@ import { revokeCurrentDevicePush } from '@/lib/webPush';
 import { preflightSignup, attachSignupUser } from '@/lib/signupGuard';
 import { getStoredAttributionToken } from '@/lib/campaignAttribution';
 
+// ── Client-side phone sanity checks ─────────────────────────────────────
+// Catches obviously fake / bot-generated numbers before they reach the API.
+const UG_PHONE_RE = /^\+256[37][0-9]{8}$/;
+
+function isObviouslyFakePhone(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 10) return 'Please enter a valid phone number.';
+  // Reject all-same-digit numbers like 0777777777
+  if (/^(\d)\1{7,}$/.test(digits.slice(-8))) return 'Please enter a real phone number.';
+  // Reject obvious ascending/descending sequences like 123456789
+  const last8 = digits.slice(-8);
+  let ascending = true, descending = true;
+  for (let i = 1; i < last8.length; i++) {
+    if (Number(last8[i]) !== Number(last8[i - 1]) + 1) ascending = false;
+    if (Number(last8[i]) !== Number(last8[i - 1]) - 1) descending = false;
+  }
+  if (ascending || descending) return 'Please enter a real phone number.';
+  return null;
+}
+
 // Maintenance lock removed 2026-05-08 — was silently returning a fake
 // "Welile is under maintenance" error on every sign-in / sign-up unless
 // the URL contained `?admin=c10`, which made password logins and
@@ -21,6 +41,11 @@ export async function signUp(
   signupSource?: string,
   referrerId?: string,
 ) {
+  // ── Phone sanity check ──────────────────────────────────────────────
+  const phoneIssue = isObviouslyFakePhone(phone);
+  if (phoneIssue) {
+    return { data: null, error: new Error(phoneIssue) as Error };
+  }
   const guard = await preflightSignup({ email, phone });
   if (!guard.allowed) {
     return { data: null, error: new Error(guard.reason || 'Sign-up is temporarily unavailable from this device or network. Please try again tomorrow.') as Error };
@@ -64,6 +89,11 @@ export async function signUp(
 }
 
 export async function signUpWithoutRole(email: string, password: string, fullName: string, phone: string, referrerId?: string, intendedRole?: string, signupSource?: string) {
+  // ── Phone sanity check ──────────────────────────────────────────────
+  const phoneIssue = isObviouslyFakePhone(phone);
+  if (phoneIssue) {
+    return { data: null, error: new Error(phoneIssue) as Error };
+  }
   const guard = await preflightSignup({ email, phone });
   if (!guard.allowed) {
     return { data: null, error: new Error(guard.reason || 'Sign-up is temporarily unavailable from this device or network. Please try again tomorrow.') as Error };
