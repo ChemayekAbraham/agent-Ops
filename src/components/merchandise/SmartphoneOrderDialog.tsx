@@ -97,17 +97,28 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     setCatalogId('');
   }, [osType]);
 
+  // Deductions begin 7 days after the phone is released, so the schedule the
+  // applicant sees is anchored there too.
+  const startDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
   const period = months ? PERIODS.find((p) => String(p.months) === months) : undefined;
-  const schedule = period ? smartphoneSchedule(price, period.months) : { total: 0, daily: 0 };
-  const totalRepayable = schedule.total;
-  const dailyAmount = schedule.daily;
+  const schedule = period ? smartphoneSchedule(price, period.months, startDate) : null;
+  const totalRepayable = schedule?.total ?? 0;
+  const dailyAmount = schedule?.daily ?? 0;
+  const lastDaily = schedule?.dailyLast ?? 0;
+  const scheduleDays = schedule?.days ?? 0;
+  const scheduleRows = schedule?.schedule.rows ?? [];
 
   // Applications are open to every agent — only a duplicate open application
   // stops a submission. Portfolio and document checks are review inputs shown
   // to the Agent Ops manager, never a block here.
   const hasOpenApplication = !!eligibility?.has_open_application;
   const canSubmit =
-    !hasOpenApplication && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!months);
+    !hasOpenApplication && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!period);
 
   const reset = () => {
     setOsType('android');
@@ -122,11 +133,18 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
       toast.error('Select a phone from the catalogue');
       return;
     }
+    if (paymentMethod === 'installments' && !period) {
+      toast.error('Choose a repayment period');
+      return;
+    }
     setSubmitting(true);
-    const { error } = await db.rpc('agent_order_smartphone', {
-      p_catalog_id: selected.id,
-      p_period_months: period.months,
-    });
+    const { error } =
+      paymentMethod === 'full'
+        ? await db.rpc('agent_order_smartphone_full', { p_catalog_id: selected.id })
+        : await db.rpc('agent_order_smartphone', {
+            p_catalog_id: selected.id,
+            p_period_months: period!.months,
+          });
     setSubmitting(false);
     if (error) {
       toast.error(error.message || 'Could not submit your application');
