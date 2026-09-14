@@ -130,6 +130,39 @@ function StoredShot({ path, label, note }: { path: string; label: string; note: 
   );
 }
 
+/**
+ * Turns whatever came back from the server into one sentence the person can
+ * act on. Anything unrecognised keeps its own wording rather than being
+ * swallowed, so nothing ever fails silently.
+ */
+function sendFailureMessage(e: unknown): string {
+  const raw = e instanceof Error ? e.message : typeof e === 'string' ? e : '';
+  const t = raw.toLowerCase();
+  if (!raw) return 'Your photos could not be sent. Please check your internet and try again.';
+  if (t.includes('three') || t.includes('3 times') || t.includes('rate') || t.includes('limit')) {
+    return 'You have already sent your ID and selfie three times this week. Please wait until next week, or call support to look at your case.';
+  }
+  if (t.includes('already') && t.includes('national id')) {
+    return 'This National ID is already used by another account. One ID can verify one account only.';
+  }
+  if (t.includes('back')) {
+    return 'The back of your National ID is still missing. Take a photo of the back of the card and send again.';
+  }
+  if (t.includes('best candidate') || t.includes('function') || t.includes('schema')) {
+    return 'Your photos reached us but the request was incomplete, so nothing was saved. Please tap send once more.';
+  }
+  if (t.includes('fetch') || t.includes('network') || t.includes('timeout') || t.includes('failed to send')) {
+    return 'Your internet dropped while sending. Your photos were not saved — please try again on a better connection.';
+  }
+  if (t.includes('permission') || t.includes('denied') || t.includes('jwt') || t.includes('auth')) {
+    return 'You were signed out while sending. Please sign in again and resend your photos.';
+  }
+  if (t.includes('storage') || t.includes('upload') || t.includes('size') || t.includes('large')) {
+    return 'One of the photos could not be uploaded. Take it again a bit closer and smaller, then send.';
+  }
+  return raw;
+}
+
 interface Props {
   /** Shown on the withdraw gate; hidden once both photos are on file. */
   compact?: boolean;
@@ -149,6 +182,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [pendingSelfie, setPendingSelfie] = useState<File | null>(null);
   const [previewSelfie, setPreviewSelfie] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  // Stays on screen until the person fixes it — a toast alone disappears and
+  // people were left thinking nothing happened.
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // What we read off the ID card photo.
   const [reading, setReading] = useState(false);
@@ -224,12 +260,33 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const checkingPhotos = checkingId || checkingSelfie;
   const ready = haveId && haveSelfie && idQualityOk && selfieQualityOk && !checkingPhotos;
 
+  // Spelled out on screen so nobody stares at a dead button wondering why.
+  const blockers = [
+    !haveId ? 'Take a photo of your National ID.' : null,
+    !storedSelfiePath && !selfieOriginal ? 'Take a selfie.' : null,
+    !storedSelfiePath && selfieOriginal && !selfieCropped
+      ? 'Finish choosing your profile picture from the selfie you took.'
+      : null,
+    idPhoto && idQuality && !idQuality.ok ? 'Retake the National ID photo — it did not pass the photo check.' : null,
+    selfieOriginal && selfieQuality && !selfieQuality.ok ? 'Retake the selfie — it did not pass the photo check.' : null,
+    checkingPhotos ? 'Checking your photos — this takes a moment.' : null,
+  ].filter(Boolean) as string[];
+
   const verdict = idNameVerdict(idReading?.name_match_score ?? null);
 
 
   const handleSave = async () => {
-    if (!user?.id || !ready) return;
+    if (!user?.id) return;
+    if (!ready) {
+      setSendError(
+        blockers.length > 0
+          ? `Your photos cannot be sent yet: ${blockers.join(' ')}`
+          : 'Your photos cannot be sent yet. Please check both photos above.',
+      );
+      return;
+    }
     setSaving(true);
+    setSendError(null);
     try {
       // Archive the ORIGINALS in the private verification bucket; reuse the
       // stored original when the user is only filling in the missing shot.
@@ -256,8 +313,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       setIdPhoto(null);
       setSelfieOriginal(null);
       setSelfieCropped(null);
+      setSendError(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not send your photos. Please try again.');
+      const message = sendFailureMessage(e);
+      setSendError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -407,7 +467,34 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </p>
         )}
 
-        <Button className="w-full" disabled={!ready || saving} onClick={handleSave}>
+        {sendError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive"
+          >
+            <p className="flex items-start gap-2 font-semibold">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>Your photos were not sent</span>
+            </p>
+            <p className="mt-1 font-medium">{sendError}</p>
+            <p className="mt-1 text-destructive/80">
+              Nothing was lost. Fix the point above and tap send again.
+            </p>
+          </div>
+        )}
+
+        {!sendError && blockers.length > 0 && (
+          <div className="rounded-lg border bg-muted/40 p-3 text-xs">
+            <p className="font-semibold">Before you can send:</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+              {blockers.map((b) => (
+                <li key={b}>{b}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <Button className="w-full" disabled={saving} onClick={handleSave}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {saving ? 'Sending…' : 'Send my photos for verification'}
         </Button>
