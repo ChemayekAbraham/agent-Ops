@@ -53,6 +53,19 @@ interface SmartphoneOrder {
   access_accepted_at: string | null;
   rejection_reason: string | null;
   rejected_at: string | null;
+  total_repayable?: number | null;
+  access_daily_amount?: number | null;
+  access_repayment_days?: number | null;
+  advance_period_months?: number | null;
+  repayment_starts_on?: string | null;
+}
+
+interface ScheduleRow {
+  month_index: number;
+  period_start: string;
+  period_end: string;
+  total_due: number | null;
+  daily_deduction: number | null;
 }
 
 const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; className: string }> = {
@@ -80,8 +93,14 @@ function normalizeStatus(value: unknown): OrderStatus {
 }
 
 
-/** Access Fee = smartphone cost plus the 1.33× markup shown to agents. */
-const accessFee = (unitPrice: number) => Math.round(Number(unitPrice) * 1.33);
+/**
+ * Amount owed to Welile: the reducing-balance total once the application has
+ * been priced, otherwise the device amount on its own.
+ */
+const accessFee = (o: { unit_price: number; total_repayable?: number | null }) =>
+  Math.round(
+    Number(o.total_repayable || 0) > 0 ? Number(o.total_repayable) : Number(o.unit_price || 0),
+  );
 
 
 interface Props {
@@ -138,7 +157,7 @@ export default function SmartphoneOrderStatus({
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_sales')
-        .select('id, item_name, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at, rejection_reason, rejected_at')
+        .select('id, item_name, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at, rejection_reason, rejected_at, total_repayable, access_daily_amount, access_repayment_days, advance_period_months, repayment_starts_on')
         .eq('customer_id', userId)
         .in('item_name', itemNames)
         .order('created_at', { ascending: false });
@@ -201,6 +220,32 @@ export default function SmartphoneOrderStatus({
     [orders, selectedId],
   );
 
+  // Reducing-balance repayment schedule for the order on screen.
+  const { data: scheduleRows = [] } = useQuery<ScheduleRow[]>({
+    queryKey: ['smartphone-repayment-schedule', selected?.id],
+    enabled: !!selected?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('smartphone_repayment_schedules')
+        .select('month_index, period_start, period_end, total_due, daily_deduction')
+        .eq('sale_id', selected!.id)
+        .order('month_index', { ascending: true });
+      if (error) throw error;
+      return (data || []) as ScheduleRow[];
+    },
+  });
+
+  const currentScheduleRow = useMemo(() => {
+    if (!scheduleRows.length) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    return (
+      scheduleRows.find((r) => r.period_start <= today && r.period_end >= today) ??
+      (today < scheduleRows[0].period_start ? scheduleRows[0] : scheduleRows[scheduleRows.length - 1])
+    );
+  }, [scheduleRows]);
+
+
   const handleCancel = async () => {
     if (!cancelTarget) return;
     setCancelling(true);
@@ -232,7 +277,7 @@ export default function SmartphoneOrderStatus({
 
   const getReceipt = (o: SmartphoneOrder) => ({
     orderId: o.id,
-    amount: accessFee(o.unit_price),
+    amount: accessFee(o),
     outstanding: Number(o.amount_outstanding),
     status: normalizeStatus(o.order_status),
     orderedAt: new Date(o.created_at),
@@ -274,7 +319,7 @@ export default function SmartphoneOrderStatus({
           idempotencyKey: `smartphone-order-receipt-${o.id}-${status}`,
           templateData: {
             recipient_name: profile?.full_name || o.client_name || 'there',
-            amount: accessFee(o.unit_price),
+            amount: accessFee(o),
             outstanding: Number(o.amount_outstanding),
             currency: 'UGX',
             order_status: status,
@@ -346,7 +391,7 @@ export default function SmartphoneOrderStatus({
             <SelectContent>
               {orders.map((o) => (
                 <SelectItem key={o.id} value={o.id} className="text-xs">
-                  {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(accessFee(o.unit_price))} ·{' '}
+                  {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(accessFee(o))} ·{' '}
                   {STATUS_META[normalizeStatus(o.order_status)].label}
                 </SelectItem>
               ))}
@@ -367,7 +412,7 @@ export default function SmartphoneOrderStatus({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold">{formatUGX(accessFee(o.unit_price))}</p>
+                    <p className="text-sm font-semibold">{formatUGX(accessFee(o))}</p>
                     <p className="text-[11px] text-muted-foreground">
                       Ordered {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')}
                       {Number(o.amount_outstanding) > 0
@@ -387,6 +432,42 @@ export default function SmartphoneOrderStatus({
                     {meta.label}
                   </Badge>
                 </div>
+                {scheduleRows.length > 0 && (
+                  <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2 space-y-1.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-[11px] font-semibold">Your daily repayment</p>
+                      {currentScheduleRow && (
+                        <p className="text-sm font-bold tabular-nums text-green-600">
+                          {formatUGX(Number(currentScheduleRow.daily_deduction || 0))}/day
+                        </p>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      The amount reduces every month as your balance comes down.
+                    </p>
+                    <div className="rounded-md border border-border bg-background/60 overflow-hidden">
+                      <div className="grid grid-cols-3 gap-1 px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        <span>Month</span>
+                        <span className="text-right">Amount</span>
+                        <span className="text-right">Per day</span>
+                      </div>
+                      {scheduleRows.map((r) => (
+                        <div
+                          key={r.month_index}
+                          className={`grid grid-cols-3 gap-1 border-t border-border px-2 py-1 text-[11px] tabular-nums ${
+                            currentScheduleRow?.month_index === r.month_index ? 'bg-primary/5 font-medium' : ''
+                          }`}
+                        >
+                          <span className="text-muted-foreground">
+                            {format(new Date(r.period_start), 'MMM yyyy')}
+                          </span>
+                          <span className="text-right">{formatUGX(Number(r.total_due || 0))}</span>
+                          <span className="text-right">{formatUGX(Number(r.daily_deduction || 0))}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {isMoBanjaIphone(null, o.item_name) && (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-2 space-y-1">
                     <p className="text-[11px] font-semibold">
@@ -499,7 +580,7 @@ export default function SmartphoneOrderStatus({
               <AlertDialogTitle>Delete this order?</AlertDialogTitle>
               <AlertDialogDescription className="text-xs">
                 {cancelTarget
-                  ? `Your ${formatUGX(accessFee(cancelTarget.unit_price))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
+                  ? `Your ${formatUGX(accessFee(cancelTarget))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
                   : null}
               </AlertDialogDescription>
             </AlertDialogHeader>

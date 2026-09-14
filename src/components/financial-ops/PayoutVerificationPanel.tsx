@@ -7,24 +7,31 @@
  * through the queue without returning to a list. The verification gate itself
  * lives in the database and the approve-withdrawal function.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
   Building2,
+  Camera,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
   HelpCircle,
+  History,
+  IdCard,
+  Image,
   Loader2,
   MessageCircle,
   PhoneCall,
   Search,
   ShieldAlert,
   Smartphone,
+  Undo2,
+  UserCheck,
   X,
   XCircle,
+
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -41,11 +48,18 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useUserAvatars } from '@/hooks/useUserAvatars';
+import { useAuth } from '@/hooks/useAuth';
 import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   last9,
+  useAdoptNationalIdName,
+  useHolderNameHistory,
   useDecidePayoutDestination,
+  useRevertHolderName,
+  useSetHolderName,
+
+
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
   type PayoutDestinationRow,
@@ -97,6 +111,225 @@ function statusBadge(row: PayoutDestinationRow): {
     return { label: 'Needs review', Icon: AlertTriangle, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
   return { label: 'Pending', Icon: Clock, classes: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/40' };
 }
+
+/** Photos-ready badge so operators instantly know which cases can be actioned. */
+function readinessBadge(photosReady: boolean): {
+  label: string;
+  Icon: typeof Camera;
+  classes: string;
+} {
+  return photosReady
+    ? { label: 'Ready', Icon: Camera, classes: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/40' }
+    : { label: 'Pending photos', Icon: Image, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
+}
+
+/**
+ * Where the name on the account came from: adopted from the National ID, or
+ * confirmed/set by a reviewer when the selfie was verified. Returns null when
+ * the name has never been touched, so no badge shows.
+ */
+function nameSourceBadge(source: PayoutDestinationRow['name_source']): {
+  label: string;
+  Icon: typeof Camera;
+  classes: string;
+} | null {
+  if (source === 'national_id')
+    return { label: 'ID name', Icon: IdCard, classes: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/40' };
+  if (source === 'verified')
+    return { label: 'Verified name', Icon: UserCheck, classes: 'bg-violet-500/15 text-violet-700 ring-1 ring-inset ring-violet-500/40' };
+  return null;
+}
+
+/**
+ * Every time the name on the account was replaced by the name read from the
+ * National ID (or corrected by hand), it is recorded in the audit log. This
+ * shows that trail: who changed it, when, and from what to what.
+ */
+function nameChangeSourceLabel(source: string | null): string {
+  if (source === 'financial_ops_manual_override') return 'Typed by hand';
+  if (source === 'admin_rollback') return 'Put back by an administrator';
+  return 'Taken from the National ID';
+}
+
+function NameChangeHistory({ userId }: { userId: string }) {
+  const { data, isLoading } = useHolderNameHistory(userId);
+  const { roles } = useAuth();
+  const revert = useRevertHolderName();
+  const isAdmin = roles.includes('super_admin') || roles.includes('cfo');
+  if (isLoading || !data || data.length === 0) return null;
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+        <History className="h-3.5 w-3.5" aria-hidden="true" /> Name changes ({data.length})
+      </p>
+      <ul className="mt-2 space-y-2">
+        {data.map((h) => (
+          <li key={h.id} className="rounded-xl bg-background/70 px-3 py-2">
+            <p className="text-sm font-semibold leading-tight text-foreground">
+              {h.old_name || '—'} <span aria-hidden="true">→</span>{' '}
+              <span className="text-emerald-700 dark:text-emerald-400">{h.new_name || '—'}</span>
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {nameChangeSourceLabel(h.source)} ·{' '}
+              {h.changed_by_name || 'Financial Ops'} ·{' '}
+              {new Date(h.changed_at).toLocaleString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </p>
+            {h.reason && <p className="mt-0.5 text-xs italic text-muted-foreground">{h.reason}</p>}
+            {isAdmin && h.can_revert && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2 h-8 gap-1.5 rounded-full text-xs"
+                disabled={revert.isPending}
+                onClick={() => {
+                  if (!window.confirm(`Put the name back to "${h.old_name}"?`)) return;
+                  revert.mutate(
+                    { auditId: h.id },
+                    {
+                      onSuccess: (res) =>
+                        toast.success(`Name put back to ${res.full_name || h.old_name}`),
+                      onError: (err: Error) => toast.error(err.message),
+                    },
+                  );
+                }}
+              >
+                {revert.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                Put this name back
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
+/**
+ * Shown when the names do not match. The name printed on the National ID is
+ * spelled out, and Financial Ops either takes it as-is or types the final
+ * name themselves before marking the payout verified.
+ */
+function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSaved: () => void }) {
+  const adopt = useAdoptNationalIdName();
+  const setName = useSetHolderName();
+  const idName = (row.national_id_name || '').trim();
+  const accountName = (row.full_name || row.account_name || '').trim();
+  const alreadySame = !!idName && idName.toLowerCase() === accountName.toLowerCase();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(idName || accountName);
+  const busy = adopt.isPending || setName.isPending;
+  const cleaned = draft.trim();
+
+  useEffect(() => {
+    setEditing(false);
+    setDraft(idName || accountName);
+  }, [row.id, idName, accountName]);
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Name on the National ID
+      </p>
+      <p className="mt-1.5 text-lg font-bold leading-tight text-foreground">{idName || 'Not read yet'}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">On the account now: {accountName || '—'}</p>
+
+      {editing ? (
+        <div className="mt-3 space-y-2">
+          <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground" htmlFor={`final-name-${row.id}`}>
+            Final name for this payout
+          </label>
+          <Input
+            id={`final-name-${row.id}`}
+            value={draft}
+            autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Type the name exactly as printed on the ID"
+            className="h-12 rounded-xl text-base font-semibold"
+          />
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
+              disabled={busy}
+              onClick={() => {
+                setDraft(idName || accountName);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
+              disabled={busy || cleaned.length < 3 || cleaned === accountName}
+              onClick={async () => {
+                try {
+                  const res = await setName.mutateAsync({ id: row.id, fullName: cleaned });
+                  toast.success(`Name set to ${res.full_name ?? cleaned}.`);
+                  setEditing(false);
+                  onSaved();
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : 'Could not save the name.');
+                }
+              }}
+            >
+              {setName.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <UserCheck className="mr-2 h-4 w-4" />
+              )}
+              Save this name
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 flex gap-2">
+          <Button
+            className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
+            disabled={busy || alreadySame || idName.length < 3}
+            onClick={async () => {
+              try {
+                const res = await adopt.mutateAsync({ id: row.id });
+                toast.success(`Name changed to ${res.full_name ?? idName}.`);
+                onSaved();
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : 'Could not change the name.');
+              }
+            }}
+          >
+            {adopt.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <UserCheck className="mr-2 h-4 w-4" />
+            )}
+            {alreadySame ? 'Already using the ID name' : 'Use the ID name'}
+          </Button>
+          <Button
+            variant="outline"
+            className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
+            disabled={busy}
+            onClick={() => setEditing(true)}
+          >
+            Change
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
 function HeroPhoto({
@@ -258,9 +491,33 @@ function DecisionDialog({
   );
 }
 
+const SORT_STORAGE_KEY = 'finops-payout-verification-sort';
+const SORT_OPTIONS: PayoutQueueSort[] = ['ready_first', 'balance', 'newest', 'oldest'];
+
+function readStoredSort(): PayoutQueueSort {
+  try {
+    const stored = window.localStorage.getItem(SORT_STORAGE_KEY);
+    if (stored && (SORT_OPTIONS as string[]).includes(stored)) return stored as PayoutQueueSort;
+  } catch {
+    // storage unavailable — fall through to default
+  }
+  return 'ready_first';
+}
+
 export default function PayoutVerificationPanel() {
   const [status, setStatus] = useState<PayoutQueueFilter>('waiting');
-  const [sort, setSort] = useState<PayoutQueueSort>('balance');
+  // Financial Ops should see people who have already submitted their National ID
+  // and selfie first, because those cases can be actioned immediately. The last
+  // chosen sort is remembered per user/device so it survives refreshes.
+  const [sort, setSortState] = useState<PayoutQueueSort>(readStoredSort);
+  const setSort = useCallback((next: PayoutQueueSort) => {
+    setSortState(next);
+    try {
+      window.localStorage.setItem(SORT_STORAGE_KEY, next);
+    } catch {
+      // storage unavailable — in-memory state still updates
+    }
+  }, []);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
@@ -345,13 +602,15 @@ export default function PayoutVerificationPanel() {
           <button
             type="button"
             onClick={() => {
-              setSort(sort === 'balance' ? 'oldest' : 'balance');
+              const order: PayoutQueueSort[] = ['ready_first', 'balance', 'newest', 'oldest'];
+              const next = order[(order.indexOf(sort) + 1) % order.length];
+              setSort(next);
               setPage(0);
               setIndex(0);
             }}
             className="h-10 shrink-0 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground"
           >
-            {sort === 'balance' ? 'Biggest first' : 'Oldest first'}
+            {sort === 'ready_first' ? 'Ready first' : sort === 'balance' ? 'Biggest first' : sort === 'newest' ? 'Newest first' : 'Oldest first'}
           </button>
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
@@ -426,6 +685,33 @@ export default function PayoutVerificationPanel() {
                 </span>
               );
             })()}
+            {(() => {
+              const badge = readinessBadge(photosReady);
+              return (
+                <span
+                  role="status"
+                  aria-label={`Readiness: ${badge.label}`}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
+                >
+                  <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {badge.label}
+                </span>
+              );
+            })()}
+            {(() => {
+              const badge = nameSourceBadge(row.name_source);
+              if (!badge) return null;
+              return (
+                <span
+                  role="status"
+                  aria-label={`Name source: ${badge.label}`}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
+                >
+                  <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {badge.label}
+                </span>
+              );
+            })()}
           </div>
 
           {/* Photos — the hero of the screen */}
@@ -460,6 +746,64 @@ export default function PayoutVerificationPanel() {
               );
             })()}
           </div>
+
+          {/* Both names side by side — the person in the selfie vs the National ID */}
+          <div className="mx-5 mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-border bg-card p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Selfie name</p>
+              <p className="mt-1 truncate text-sm font-bold text-foreground">{row.full_name || '—'}</p>
+              <p className="text-[10px] text-muted-foreground">Name on the account</p>
+            </div>
+            <div className={`rounded-2xl border p-3 ${row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8 ? 'border-amber-500/50 bg-amber-500/10' : 'border-border bg-card'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">National ID name</p>
+              <p className="mt-1 truncate text-sm font-bold text-foreground">{row.national_id_name || '—'}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {row.national_id_name
+                  ? row.name_match_score !== null && row.name_match_score < 0.8
+                    ? 'Does not match the selfie name'
+                    : 'Matches the selfie name'
+                  : 'Not read from the ID yet'}
+              </p>
+            </div>
+          </div>
+
+          {/* Same National ID on another account — rejected automatically */}
+          {row.duplicate_id_user_id && (
+            <div
+              role="alert"
+              className="mx-5 mt-3 flex items-start gap-3 rounded-2xl border-2 border-destructive bg-destructive/10 p-3"
+            >
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-sm font-black uppercase tracking-wide text-destructive">
+                  {row.status === 'rejected'
+                    ? 'Rejected — duplicate National ID'
+                    : 'Same National ID on another account'}
+                </p>
+                <p className="mt-0.5 text-xs text-destructive/90">
+                  {row.status === 'rejected'
+                    ? `Rejected because this National ID already belongs to ${row.duplicate_id_name || 'another account'}. One National ID may only be used by one account.`
+                    : `This ID already belongs to ${row.duplicate_id_name || 'another account'}. It cannot be verified — the decision is rejected automatically.`}
+                </p>
+                {row.status === 'rejected' && row.decision_reason && (
+                  <p className="mt-1.5 rounded-lg bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive/80">
+                    Recorded reason: {row.decision_reason}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+
+          {/* Names do not match: show the ID name and let it become the holder's name */}
+          {row.name_match_score !== null && row.name_match_score < 0.8 && (
+            <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
+          )}
+
+          {/* Audit trail of name replacements */}
+          <NameChangeHistory userId={row.user_id} />
+
+
 
           {/* Contact actions */}
           <div className="grid grid-cols-2 gap-2 px-5 pt-3">
@@ -515,22 +859,43 @@ export default function PayoutVerificationPanel() {
             </Button>
             <Button
               className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
-              disabled={!photosReady}
+              disabled={!photosReady || !!row.duplicate_id_user_id}
               onClick={() => setDeciding(true)}
             >
               <CheckCircle2 className="mr-2 h-5 w-5" /> Verify payout
             </Button>
           </div>
-          {!photosReady && (
+          {!!row.duplicate_id_user_id && (
+            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
+              <ShieldAlert className="h-3.5 w-3.5" />
+              Cannot verify — duplicate National ID
+            </p>
+          )}
+          {!photosReady && !row.duplicate_id_user_id && (
             <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
               <AlertTriangle className="h-3.5 w-3.5" />
               Waiting for their National ID photo and selfie
             </p>
           )}
-          {row.decision_reason && (
-            <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
-              Last note: {row.decision_reason}
-            </p>
+          {row.decision_reason && !row.duplicate_id_user_id && (
+            row.decision_reason.toLowerCase().startsWith('automatically rejected: this national id') ? (
+              <div
+                role="alert"
+                className="mx-5 mb-4 flex items-start gap-3 rounded-2xl border-2 border-destructive bg-destructive/10 p-3"
+              >
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-sm font-black uppercase tracking-wide text-destructive">
+                    Rejected — duplicate National ID
+                  </p>
+                  <p className="mt-0.5 text-xs text-destructive/90">{row.decision_reason}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
+                Last note: {row.decision_reason}
+              </p>
+            )
           )}
 
           {/* Queue navigation */}

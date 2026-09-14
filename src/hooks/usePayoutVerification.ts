@@ -15,7 +15,7 @@ import { publishAvatarUpdate } from '@/lib/avatarSync';
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
 export type PayoutQueueFilter = PayoutVerificationStatus | 'all' | 'mismatch' | 'no_id';
-export type PayoutQueueSort = 'oldest' | 'balance';
+export type PayoutQueueSort = 'ready_first' | 'newest' | 'oldest' | 'balance';
 
 export interface PayoutDestinationRow {
   id: string;
@@ -39,7 +39,13 @@ export interface PayoutDestinationRow {
   decided_at: string | null;
   first_seen_at: string;
   withdrawable_balance: number;
+  /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
+  name_source: 'national_id' | 'verified' | null;
+  /** Set when this National ID already belongs to another account (auto-rejected). */
+  duplicate_id_user_id: string | null;
+  duplicate_id_name: string | null;
   total_count: number;
+
 }
 
 export interface PayoutVerificationCounts {
@@ -144,15 +150,171 @@ export function useDecidePayoutDestination() {
         } catch { /* profile picture update is best-effort */ }
       }
 
-      return data;
+      // Tell the holder their account is verified and they can withdraw now.
+      // Best-effort: a failed notice must never fail the decision.
+      const autoRejected = (data as { auto_rejected_duplicate_id?: boolean } | null)
+        ?.auto_rejected_duplicate_id;
+      if (input.decision === 'verified' && !autoRejected) {
+        try {
+          await supabase.functions.invoke('notify-identity-verified', {
+            body: { destinationId: input.id },
+          });
+        } catch { /* confirmation message is best-effort */ }
+      }
+
+      return { ...((data ?? {}) as Record<string, unknown>), id: input.id } as {
+        id: string;
+        status?: string;
+        full_name?: string | null;
+        name_source?: string | null;
+      };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Show the adopted verified name on the row instantly, before the
+      // refetch lands, so the operator sees the result without waiting.
+      const newName = typeof data?.full_name === 'string' ? data.full_name : null;
+      const newSource = data?.name_source === 'national_id' || data?.name_source === 'verified'
+        ? (data.name_source as PayoutDestinationRow['name_source'])
+        : null;
+      const newStatus = typeof data?.status === 'string' ? data.status : null;
+      if (newName || newStatus) {
+        qc.setQueriesData<{ rows: PayoutDestinationRow[]; total: number }>(
+          { queryKey: ['payout-verification-queue'] },
+          (old) =>
+            old
+              ? {
+                  ...old,
+                  rows: old.rows.map((r) =>
+                    r.id === data.id
+                      ? {
+                          ...r,
+                          ...(newName ? { full_name: newName } : {}),
+                          ...(newSource ? { name_source: newSource } : {}),
+                          ...(newStatus === 'verified' || newStatus === 'rejected'
+                            ? { status: newStatus as PayoutDestinationRow['status'] }
+                            : {}),
+                        }
+                      : r,
+                  ),
+                }
+              : old,
+        );
+      }
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
       qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
       qc.invalidateQueries({ queryKey: ['payout-decision-log'] });
+      // A verified decision also adopts the National ID name as the profile name.
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
     },
   });
 }
+
+/**
+ * Adopt the name printed on the National ID as the holder's name.
+ * Finance-gated inside the database; the profile write happens there.
+ */
+export function useAdoptNationalIdName() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; reason?: string }) => {
+      const { data, error } = await supabase.rpc('finops_adopt_national_id_name', {
+        p_id: input.id,
+        p_reason: input.reason ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as { success?: boolean; full_name?: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
+    },
+  });
+}
+
+
+
+
+/**
+ * Manual override: Financial Ops confirms or corrects the final holder name
+ * before the payout is marked verified. Finance-gated inside the database.
+ */
+export function useSetHolderName() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; fullName: string; reason?: string; applyNow?: boolean }) => {
+      const { data, error } = await supabase.rpc('finops_set_holder_name', {
+        p_id: input.id,
+        p_full_name: input.fullName,
+        p_reason: input.reason ?? null,
+        p_apply_now: input.applyNow ?? true,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as { success?: boolean; full_name?: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
+    },
+  });
+}
+
+/**
+ * Admin rollback: put back the name a National ID adoption (or a manual
+ * override) replaced. Admin-only (CFO / super admin) inside the database.
+ */
+export function useRevertHolderName() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { auditId: string; reason?: string }) => {
+      const { data, error } = await supabase.rpc('finops_revert_holder_name', {
+        p_audit_id: input.auditId,
+        p_reason: input.reason ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as { success?: boolean; full_name?: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
+    },
+  });
+}
+
+export interface HolderNameChange {
+  id: string;
+  changed_at: string;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  old_name: string | null;
+  new_name: string | null;
+  source: string | null;
+  reason: string | null;
+  can_revert: boolean | null;
+}
+
+/**
+ * Audit trail of every holder-name change made from the National ID (OCR
+ * adoption, manual override, or the name applied at verification time).
+ * Read-only and gated to Financial Ops / CFO / super admin in the database.
+ */
+export function useHolderNameHistory(userId?: string | null) {
+  return useQuery({
+    queryKey: ['holder-name-history', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('finops_holder_name_history', {
+        p_user_id: userId as string,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as HolderNameChange[];
+    },
+  });
+}
+
 
 
 /** The signed-in user's own National ID submission. */

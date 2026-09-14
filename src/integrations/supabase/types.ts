@@ -28361,6 +28361,9 @@ export type Database = {
           decision_reason: string | null
           destination_key: string
           destination_type: string
+          final_name_override: string | null
+          final_name_override_at: string | null
+          final_name_override_by: string | null
           first_seen_at: string
           id: string
           momo_number: string | null
@@ -28385,6 +28388,9 @@ export type Database = {
           decision_reason?: string | null
           destination_key: string
           destination_type: string
+          final_name_override?: string | null
+          final_name_override_at?: string | null
+          final_name_override_by?: string | null
           first_seen_at?: string
           id?: string
           momo_number?: string | null
@@ -28409,6 +28415,9 @@ export type Database = {
           decision_reason?: string | null
           destination_key?: string
           destination_type?: string
+          final_name_override?: string | null
+          final_name_override_at?: string | null
+          final_name_override_by?: string | null
           first_seen_at?: string
           id?: string
           momo_number?: string | null
@@ -36829,6 +36838,59 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      smartphone_repayment_schedules: {
+        Row: {
+          charge_due: number
+          created_at: string
+          daily_deduction: number
+          days_in_period: number
+          id: string
+          month_index: number
+          opening_principal: number
+          period_end: string
+          period_start: string
+          principal_due: number
+          sale_id: string
+          total_due: number
+        }
+        Insert: {
+          charge_due?: number
+          created_at?: string
+          daily_deduction?: number
+          days_in_period: number
+          id?: string
+          month_index: number
+          opening_principal?: number
+          period_end: string
+          period_start: string
+          principal_due?: number
+          sale_id: string
+          total_due?: number
+        }
+        Update: {
+          charge_due?: number
+          created_at?: string
+          daily_deduction?: number
+          days_in_period?: number
+          id?: string
+          month_index?: number
+          opening_principal?: number
+          period_end?: string
+          period_start?: string
+          principal_due?: number
+          sale_id?: string
+          total_due?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartphone_repayment_schedules_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "merchandise_sales"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       smartphone_test_allowlist: {
         Row: {
@@ -49516,6 +49578,10 @@ export type Database = {
         Args: { p_catalog_id: string; p_period_months: number }
         Returns: Json
       }
+      agent_order_smartphone_full: {
+        Args: { p_catalog_id: string }
+        Returns: Json
+      }
       agent_order_spiro_bike: { Args: { p_amount: number }; Returns: Json }
       agent_order_spiro_bike_lease: {
         Args: {
@@ -51863,6 +51929,10 @@ export type Database = {
           new_withdrawable: number
         }[]
       }
+      duplicate_national_id_owner: {
+        Args: { p_national_id: string; p_user_id: string }
+        Returns: string
+      }
       edit_welile_home_enrollment: {
         Args: {
           p_agent_id: string
@@ -52200,6 +52270,10 @@ export type Database = {
           village: string
         }[]
       }
+      finops_adopt_national_id_name: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: Json
+      }
       finops_decide_payout_destination: {
         Args: {
           p_call_outcome?: string
@@ -52212,6 +52286,20 @@ export type Database = {
       finops_edit_authorized: {
         Args: { p_action: string; p_context?: Json }
         Returns: boolean
+      }
+      finops_holder_name_history: {
+        Args: { p_user_id: string }
+        Returns: {
+          can_revert: boolean
+          changed_at: string
+          changed_by: string
+          changed_by_name: string
+          id: string
+          new_name: string
+          old_name: string
+          reason: string
+          source: string
+        }[]
       }
       finops_manual_float_credit: {
         Args: {
@@ -52304,6 +52392,17 @@ export type Database = {
         }
         Returns: number
       }
+      finops_payout_status_timeline: {
+        Args: { p_user_id: string; p_withdrawal_id?: string }
+        Returns: {
+          actor_name: string
+          badge: string
+          detail: string
+          kind: string
+          label: string
+          occurred_at: string
+        }[]
+      }
       finops_payout_verification_counts: { Args: never; Returns: Json }
       finops_payout_verification_queue: {
         Args: {
@@ -52322,12 +52421,15 @@ export type Database = {
           decided_by_name: string
           decision_reason: string
           destination_type: string
+          duplicate_id_name: string
+          duplicate_id_user_id: string
           first_seen_at: string
           full_name: string
           id: string
           momo_number: string
           name_match_score: number
           name_mismatch_tokens: Json
+          name_source: string
           national_id: string
           national_id_name: string
           provider: string
@@ -52364,6 +52466,19 @@ export type Database = {
           p_desk_id: string
           p_evidence_note?: string
           p_reason: string
+        }
+        Returns: Json
+      }
+      finops_revert_holder_name: {
+        Args: { p_audit_id: string; p_reason?: string }
+        Returns: Json
+      }
+      finops_set_holder_name: {
+        Args: {
+          p_apply_now?: boolean
+          p_full_name: string
+          p_id: string
+          p_reason?: string
         }
         Returns: Json
       }
@@ -53177,6 +53292,10 @@ export type Database = {
       get_agent_vouch_limit_ugx: {
         Args: { p_agent_id: string }
         Returns: number
+      }
+      get_agent_weekly_champion_team: {
+        Args: { p_week_start?: string }
+        Returns: Json
       }
       get_agent_weekly_growth_forecast: {
         Args: { p_ref?: string }
@@ -59371,9 +59490,37 @@ export type Database = {
           rank: number
         }[]
       }
+      smartphone_monthly_charge_pct: { Args: never; Returns: number }
       smartphone_period_days: { Args: { p_months: number }; Returns: number }
       smartphone_period_markup: { Args: { p_months: number }; Returns: number }
+      smartphone_plan_daily_for_date: {
+        Args: { p_date?: string; p_sale_id: string }
+        Returns: number
+      }
       smartphone_rank_cap: { Args: { p_rank: number }; Returns: number }
+      smartphone_rebuild_repayment_schedule: {
+        Args: {
+          p_amount: number
+          p_months: number
+          p_sale_id: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      smartphone_reducing_schedule: {
+        Args: { p_amount: number; p_months: number; p_start?: string }
+        Returns: {
+          charge_due: number
+          daily_deduction: number
+          days_in_period: number
+          month_index: number
+          opening_principal: number
+          period_end: string
+          period_start: string
+          principal_due: number
+          total_due: number
+        }[]
+      }
       smoke_promissory_commissions: {
         Args: { p_agent_id: string; p_partner_id: string }
         Returns: Json
@@ -60413,6 +60560,14 @@ export type Database = {
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      withdrawal_merchant_id_gate: {
+        Args: {
+          p_landlord_payout_id?: string
+          p_reason?: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json

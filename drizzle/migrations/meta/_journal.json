@@ -421,6 +421,118 @@
       "when": 1789372237325,
       "tag": "0059_finops_unverified_withdrawals_verified_filter",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1789373922792,
+      "tag": "0060_hr_staff_require_employee_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1789374630156,
+      "tag": "0061_smartphone_reducing_balance_repayment",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1789374789817,
+      "tag": "0062_smartphone_full_payment_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1789375208537,
+      "tag": "0063_payout_verification_ready_first_sort",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1789375920432,
+      "tag": "0064_finops_adopt_national_id_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1789376232686,
+      "tag": "0065_finops_verify_adopts_national_id_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1789376384963,
+      "tag": "0066_finops_manual_holder_name_override",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1789376456443,
+      "tag": "0067_decide_payout_uses_final_name_override",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1789376729142,
+      "tag": "0068_finops_holder_name_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1789377027628,
+      "tag": "0069_payout_queue_name_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1789377459831,
+      "tag": "0070_decide_payout_returns_verified_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1789377921225,
+      "tag": "0071_limit_identity_photo_submissions_to_3_per_week",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1789378209216,
+      "tag": "0072_finops_revert_holder_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1789378484235,
+      "tag": "0073_hr_staff_revoke_employee_role_on_exit",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1789378641818,
+      "tag": "0074_agent_weekly_champion_team",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1789382236676,
+      "tag": "0075_auto_reject_duplicate_national_id",
+      "breakpoints": true
     }
   ]
 }

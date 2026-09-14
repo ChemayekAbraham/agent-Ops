@@ -97,17 +97,28 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     setCatalogId('');
   }, [osType]);
 
+  // Deductions begin 7 days after the phone is released, so the schedule the
+  // applicant sees is anchored there too.
+  const startDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
   const period = months ? PERIODS.find((p) => String(p.months) === months) : undefined;
-  const schedule = period ? smartphoneSchedule(price, period.months) : { total: 0, daily: 0 };
-  const totalRepayable = schedule.total;
-  const dailyAmount = schedule.daily;
+  const schedule = period ? smartphoneSchedule(price, period.months, startDate) : null;
+  const totalRepayable = schedule?.total ?? 0;
+  const dailyAmount = schedule?.daily ?? 0;
+  const lastDaily = schedule?.dailyLast ?? 0;
+  const scheduleDays = schedule?.days ?? 0;
+  const scheduleRows = schedule?.schedule.rows ?? [];
 
   // Applications are open to every agent — only a duplicate open application
   // stops a submission. Portfolio and document checks are review inputs shown
   // to the Agent Ops manager, never a block here.
   const hasOpenApplication = !!eligibility?.has_open_application;
   const canSubmit =
-    !hasOpenApplication && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!months);
+    !hasOpenApplication && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!period);
 
   const reset = () => {
     setOsType('android');
@@ -122,11 +133,18 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
       toast.error('Select a phone from the catalogue');
       return;
     }
+    if (paymentMethod === 'installments' && !period) {
+      toast.error('Choose a repayment period');
+      return;
+    }
     setSubmitting(true);
-    const { error } = await db.rpc('agent_order_smartphone', {
-      p_catalog_id: selected.id,
-      p_period_months: period.months,
-    });
+    const { error } =
+      paymentMethod === 'full'
+        ? await db.rpc('agent_order_smartphone_full', { p_catalog_id: selected.id })
+        : await db.rpc('agent_order_smartphone', {
+            p_catalog_id: selected.id,
+            p_period_months: period!.months,
+          });
     setSubmitting(false);
     if (error) {
       toast.error(error.message || 'Could not submit your application');
@@ -316,8 +334,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   supplier directly; you receive the phone, not cash.
                 </li>
                 <li>
-                  <span className="font-medium text-foreground">Repayment:</span> a fixed daily amount is
-                  deducted from your Welile Wallet over the period you choose (3, 6, 9 or 12 months).
+                  <span className="font-medium text-foreground">Repayment:</span> a daily amount is deducted
+                  from your Welile Wallet over the period you choose (3, 6, 9 or 12 months). The amount
+                  reduces every month as your balance comes down.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Deductions start:</span> 7 days after your
@@ -343,21 +362,42 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             )}
 
             {paymentMethod === 'installments' && dailyAmount > 0 && (
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
-                <p className="text-xs text-muted-foreground">
-                  {osType === 'ios' ? 'Daily repayment to Welile' : 'Daily repayment'}
-                </p>
-                <p className="text-2xl font-bold tabular-nums text-green-600">
-                  {formatUGX(dailyAmount)}
-                  <span className="text-sm font-medium text-green-600">/day</span>
-                </p>
-                <p className="text-[11px] font-bold text-muted-foreground">
-                  {period.days} days · {formatUGX(totalRepayable)} in total. Deductions start 7 days after your
-                  phone is released.
-                  {osType === 'ios'
-                    ? ` This covers Welile only — you also pay ${MO_BANJA.partner} weekly, directly to them.`
-                    : ''}
-                </p>
+              <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                <div className="text-center space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    {osType === 'ios' ? 'Daily repayment to Welile — first month' : 'Daily repayment — first month'}
+                  </p>
+                  <p className="text-2xl font-bold tabular-nums text-green-600">
+                    {formatUGX(dailyAmount)}
+                    <span className="text-sm font-medium text-green-600">/day</span>
+                  </p>
+                  <p className="text-[11px] font-bold text-muted-foreground">
+                    Reduces to {formatUGX(lastDaily)}/day in your last month · {scheduleDays} days ·{' '}
+                    {formatUGX(totalRepayable)} in total. Deductions start 7 days after your phone is
+                    released.
+                    {osType === 'ios'
+                      ? ` This covers Welile only — you also pay ${MO_BANJA.partner} weekly, directly to them.`
+                      : ''}
+                  </p>
+                </div>
+
+                <div className="rounded-md border border-border bg-background/60 overflow-hidden">
+                  <div className="grid grid-cols-3 gap-1 px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span>Month</span>
+                    <span className="text-right">Amount</span>
+                    <span className="text-right">Per day</span>
+                  </div>
+                  {scheduleRows.map((r) => (
+                    <div
+                      key={r.monthIndex}
+                      className="grid grid-cols-3 gap-1 border-t border-border px-2 py-1.5 text-[11px] tabular-nums"
+                    >
+                      <span className="text-muted-foreground">Month {r.monthIndex}</span>
+                      <span className="text-right font-medium">{formatUGX(r.totalDue)}</span>
+                      <span className="text-right font-medium">{formatUGX(r.dailyDeduction)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

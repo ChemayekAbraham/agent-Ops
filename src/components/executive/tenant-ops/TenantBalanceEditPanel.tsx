@@ -189,7 +189,9 @@ function BalanceEditForm({ row, onDone }: { row: TenantRentRow; onDone: () => vo
       return data;
     },
     onSuccess: () => {
-      toast.success('Tenant balance updated — agent daily target recalculated');
+      toast.success('Sent to the CFO for approval', {
+        description: "Nothing changes on this tenant's plan until the CFO approves it.",
+      });
       qc.invalidateQueries({ queryKey: ['ops-tenant-rents'] });
       qc.invalidateQueries({ queryKey: ['ops-balance-history', row.rent_request_id] });
       qc.invalidateQueries({ queryKey: ['welile-mission-placements'] });
@@ -200,7 +202,7 @@ function BalanceEditForm({ row, onDone }: { row: TenantRentRow; onDone: () => vo
     onError: (e: any) => toast.error(e?.message || 'Failed to update balance'),
   });
 
-  const canSave = (rentChanged || balChanged) && reason.trim().length >= 10 && !mutation.isPending;
+  const canSave = (rentChanged || balChanged) && reason.trim().length >= 20 && !mutation.isPending;
 
   return (
     <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 space-y-2.5">
@@ -215,21 +217,21 @@ function BalanceEditForm({ row, onDone }: { row: TenantRentRow; onDone: () => vo
         </div>
       </div>
       <p className="text-[10px] text-muted-foreground">
-        Changing the rent amount recalculates the daily repayment, which updates the agent's daily collection target. Setting the balance to 0 removes this tenant from the agent's target.
+        This is a request, not a change. The CFO must approve it before the tenant's plan moves. Changing the rent amount recalculates the daily repayment and the agent's daily target; setting the balance to 0 removes this tenant from that target.
       </p>
       <div>
-        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Reason (required, min 10 chars)</label>
+        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Reason for the CFO (required, min 20 chars)</label>
         <Textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Why is this correction being made?"
+          placeholder="Explain the correction — the CFO reads this before approving."
           className="text-sm mt-0.5 min-h-[60px]"
         />
       </div>
       <div className="flex items-center gap-2">
         <Button size="sm" className="h-8 text-xs gap-1 flex-1" disabled={!canSave} onClick={() => mutation.mutate()}>
           {mutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          Save correction
+          Send for CFO approval
         </Button>
         <Button size="sm" variant="ghost" className="h-8 text-xs gap-1" onClick={onDone} disabled={mutation.isPending}>
           <X className="h-3.5 w-3.5" /> Cancel
