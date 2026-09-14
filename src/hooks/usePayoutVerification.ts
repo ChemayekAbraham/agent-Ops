@@ -39,6 +39,8 @@ export interface PayoutDestinationRow {
   decided_at: string | null;
   first_seen_at: string;
   withdrawable_balance: number;
+  /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
+  name_source: 'national_id' | 'verified' | null;
   total_count: number;
 }
 
