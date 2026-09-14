@@ -174,3 +174,51 @@ export const HEAT_LABEL: Record<HeatLevel, string> = {
   green: '80–99%',
   dark_green: '100% or more',
 };
+
+/* ------------------------------------------------------------------ *
+ * Weekly champion team (Monday celebration)
+ * ------------------------------------------------------------------ */
+
+export interface ChampionCollector {
+  position: number;
+  agent_id: string;
+  name: string;
+  collected_amount: number;
+  payments: number;
+  is_me: boolean;
+}
+
+export interface ChampionTeam {
+  parent_agent_id: string;
+  team_name: string;
+  is_my_team: boolean;
+  expected_amount: number;
+  collected_amount: number;
+  performance_percentage: number | null;
+  active_collectors: number;
+  total_members: number;
+  consistency_days: number | null;
+}
+
+export interface WeeklyChampion {
+  week_start: string;
+  week_end: string;
+  has_champion: boolean;
+  team?: ChampionTeam;
+  top_collectors?: ChampionCollector[];
+  error?: string;
+}
+
+/** Last completed week's #1 team plus its three best collectors. */
+export function useWeeklyChampionTeam(enabled = true) {
+  return useQuery({
+    queryKey: ['agent-weekly-champion-team'],
+    enabled,
+    staleTime: 30 * 60 * 1000,
+    queryFn: async (): Promise<WeeklyChampion> => {
+      const { data, error } = await supabase.rpc('get_agent_weekly_champion_team', {});
+      if (error) throw error;
+      return data as unknown as WeeklyChampion;
+    },
+  });
+}
