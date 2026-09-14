@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
 import { ThemeColorSync } from "@/components/ThemeColorSync";
+import AvatarSyncBridge from "@/components/system/AvatarSyncBridge";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { PullToRefresh } from "@/components/PullToRefresh";
