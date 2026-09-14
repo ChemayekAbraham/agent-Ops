@@ -239,6 +239,69 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           />
         )}
 
+        {reading && (
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Reading the names on your ID…
+          </div>
+        )}
+
+        {!reading && readError && (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
+            {readError}
+          </p>
+        )}
+
+        {!reading && idReading && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <ScanLine className="h-4 w-4 text-primary" />
+              What we read on your ID
+            </p>
+            {idReading.readable ? (
+              <>
+                <p className="text-sm">
+                  Names: <span className="font-semibold">{idReading.full_name}</span>
+                </p>
+                {idReading.id_number && (
+                  <p className="text-sm">
+                    ID number: <span className="font-semibold">{idReading.id_number}</span>
+                  </p>
+                )}
+                {verdict === 'match' && (
+                  <p className="flex items-center gap-2 text-xs text-emerald-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    These names match your account name.
+                  </p>
+                )}
+                {(verdict === 'partial' || verdict === 'mismatch') && (
+                  <p className="flex items-center gap-2 text-xs text-amber-600">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    These names differ from your account name ({idReading.account_name}). Financial
+                    Ops will check this on the call.
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={savingDetails || !idReading.full_name}
+                  onClick={saveDetectedDetails}
+                >
+                  {savingDetails ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Use these details
+                </Button>
+              </>
+            ) : (
+              <p className="text-xs text-amber-600">
+                The card was hard to read. Retake the photo in better light, or type your details.
+              </p>
+            )}
+          </div>
+        )}
+
+
+
         {storedSelfiePath ? (
           <StoredShot
             path={storedSelfiePath}
