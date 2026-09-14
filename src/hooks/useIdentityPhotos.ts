@@ -103,6 +103,9 @@ export function useSubmitIdentityPhotos() {
       selfiePath: string;
       idBackPhotoPath?: string | null;
       nameChangeConsent?: boolean;
+      /** Local perceptual fingerprints — used to spot the same face/ID twice. */
+      selfieHash?: string | null;
+      idHash?: string | null;
     }) => {
       // Always send the full argument set: the database holds several
       // overloads of this function, and a two-argument call is ambiguous, so
@@ -114,6 +117,13 @@ export function useSubmitIdentityPhotos() {
         p_name_change_consent: paths.nameChangeConsent ?? false,
       });
       if (error) throw error;
+      // Best effort: a missing fingerprint must never block a submission.
+      if (paths.selfieHash || paths.idHash) {
+        await supabase.rpc('record_identity_image_hashes', {
+          p_selfie_hash: paths.selfieHash ?? null,
+          p_id_hash: paths.idHash ?? null,
+        });
+      }
       return data as { success?: boolean; message?: string } | null;
     },
     onSuccess: () => {

@@ -14,6 +14,7 @@ import {
 import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
 import { readNationalIdPhoto, idNameVerdict, type NationalIdReading } from '@/lib/nationalIdOcr';
 import { checkPhotoQuality, retakeMessage, type PhotoQualityResult } from '@/lib/imageQuality';
+import { imageFingerprint } from '@/lib/imageFingerprint';
 
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
@@ -296,7 +297,18 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const selfiePath = selfieOriginal
         ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
         : storedSelfiePath!;
-      const res = await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
+      // Fingerprints of the face and the ID card, so the same person cannot
+      // appear twice in the verification queue under different accounts.
+      const [selfieHash, idHash] = await Promise.all([
+        imageFingerprint(selfieOriginal),
+        imageFingerprint(idPhoto),
+      ]);
+      const res = await submit.mutateAsync({
+        idPhotoPath: idPath,
+        selfiePath,
+        selfieHash,
+        idHash,
+      });
       if (res && res.success === false) {
         throw new Error(res.message || 'Could not send your photos. Please try again.');
       }

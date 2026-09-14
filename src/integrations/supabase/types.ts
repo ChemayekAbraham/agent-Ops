@@ -30300,6 +30300,7 @@ export type Database = {
           funder_verified_by: string | null
           has_smartphone: boolean
           id: string
+          id_image_hash: string | null
           id_name_change_consent_at: string | null
           identity_photos_submitted_at: string | null
           is_frozen: boolean
@@ -30340,6 +30341,7 @@ export type Database = {
           residence_lng: number | null
           residence_updated_at: string | null
           routing_preferences: Json
+          selfie_image_hash: string | null
           selfie_photo_path: string | null
           seller_application_status: string | null
           signup_source: string | null
@@ -30407,6 +30409,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id: string
+          id_image_hash?: string | null
           id_name_change_consent_at?: string | null
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
@@ -30447,6 +30450,7 @@ export type Database = {
           residence_lng?: number | null
           residence_updated_at?: string | null
           routing_preferences?: Json
+          selfie_image_hash?: string | null
           selfie_photo_path?: string | null
           seller_application_status?: string | null
           signup_source?: string | null
@@ -30514,6 +30518,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id?: string
+          id_image_hash?: string | null
           id_name_change_consent_at?: string | null
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
@@ -30554,6 +30559,7 @@ export type Database = {
           residence_lng?: number | null
           residence_updated_at?: string | null
           routing_preferences?: Json
+          selfie_image_hash?: string | null
           selfie_photo_path?: string | null
           seller_application_status?: string | null
           signup_source?: string | null
@@ -58864,6 +58870,10 @@ export type Database = {
           p_source_table: string
         }
         Returns: string
+      }
+      record_identity_image_hashes: {
+        Args: { p_id_hash?: string; p_selfie_hash?: string }
+        Returns: Json
       }
       record_landlord_receipt_sms: {
         Args: { p_error?: string; p_ok: boolean; p_receipt_id: string }

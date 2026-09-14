@@ -64,6 +64,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { assessIdNameConfidence } from '@/lib/idNameConfidence';
+import { doubleSubmissionLabel } from '@/lib/doubleSubmission';
 import { supabase } from '@/integrations/supabase/client';
 import { PayoutQueueBlockedList, blockedReasonFor } from './PayoutQueueBlockedList';
 
@@ -453,7 +454,7 @@ function DecisionDialog({
   const [callOutcome, setCallOutcome] = useState('');
   const [decision, setDecision] = useState<'verified' | 'rejected'>('verified');
   const isDouble = row?.double_submission === true;
-  const doubleWhat = row?.double_kind === 'phone' ? 'phone number' : 'National ID';
+  const doubleWhat = doubleSubmissionLabel(row?.double_kind);
   const verifyBlocked = !photosReady || idNameUnreadable || isDouble;
 
   useEffect(() => {
@@ -638,7 +639,7 @@ export default function PayoutVerificationPanel() {
   // One National ID and one phone number verify one account only: every later
   // account is a double submission and can never be verified.
   const isDouble = row?.double_submission === true;
-  const doubleWhat = row?.double_kind === 'phone' ? 'phone number' : 'National ID';
+  const doubleWhat = doubleSubmissionLabel(row?.double_kind);
   const verifyBlocked = !photosReady || idNameUnreadable || isDouble;
 
 

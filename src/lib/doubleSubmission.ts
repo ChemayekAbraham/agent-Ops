@@ -40,3 +40,19 @@ export function foldedCharacters(value: string | null | undefined): string[] {
   }
   return out;
 }
+
+export type DoubleSubmissionKind = 'national_id' | 'phone' | 'face' | 'id_photo' | null | undefined;
+
+/** Plain words for what was matched, used everywhere the reason is shown. */
+export function doubleSubmissionLabel(kind: DoubleSubmissionKind): string {
+  switch (kind) {
+    case 'phone':
+      return 'phone number';
+    case 'face':
+      return 'face';
+    case 'id_photo':
+      return 'ID photo';
+    default:
+      return 'National ID';
+  }
+}
