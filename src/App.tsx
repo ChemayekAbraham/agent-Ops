@@ -206,6 +206,8 @@ const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
 const LedgerEntryDeepLinkPage = lazy(() => import('./pages/LedgerEntryDeepLink'));
 const VerificationRequestDetailPage = lazy(() => import('./pages/VerificationRequestDetail'));
+const VerificationHistoryPage = lazy(() => import('./pages/VerificationHistory'));
+
 const PhantomDriftDetailPage = lazy(() => import('./pages/cfo/PhantomDriftDetail'));
 const COODashboardPage = lazy(() => import('./pages/coo/Dashboard'));
 const HRDashboardPage = lazy(() => import('./pages/hr/Dashboard'));
