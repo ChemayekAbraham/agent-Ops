@@ -51,6 +51,8 @@ import {
   last9,
   useAdoptNationalIdName,
   useDecidePayoutDestination,
+  useSetHolderName,
+
 
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
@@ -116,46 +118,114 @@ function readinessBadge(photosReady: boolean): {
 }
 
 /**
- * Shown only when the names do not match: the name printed on the National ID
- * is spelled out, and one tap makes it the holder's name on the account.
+ * Shown when the names do not match. The name printed on the National ID is
+ * spelled out, and Financial Ops either takes it as-is or types the final
+ * name themselves before marking the payout verified.
  */
 function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSaved: () => void }) {
   const adopt = useAdoptNationalIdName();
+  const setName = useSetHolderName();
   const idName = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
-  const alreadySame = idName.toLowerCase() === accountName.toLowerCase();
+  const alreadySame = !!idName && idName.toLowerCase() === accountName.toLowerCase();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(idName || accountName);
+  const busy = adopt.isPending || setName.isPending;
+  const cleaned = draft.trim();
 
-  if (!idName) return null;
+  useEffect(() => {
+    setEditing(false);
+    setDraft(idName || accountName);
+  }, [row.id, idName, accountName]);
 
   return (
     <div className="mx-5 mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
       <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">
         <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Name on the National ID
       </p>
-      <p className="mt-1.5 text-lg font-bold leading-tight text-foreground">{idName}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">
-        On the account now: {accountName || '—'}
-      </p>
-      <Button
-        className="mt-3 h-12 w-full rounded-xl text-xs font-bold uppercase tracking-widest"
-        disabled={adopt.isPending || alreadySame}
-        onClick={async () => {
-          try {
-            const res = await adopt.mutateAsync({ id: row.id });
-            toast.success(`Name changed to ${res.full_name ?? idName}.`);
-            onSaved();
-          } catch (e) {
-            toast.error(e instanceof Error ? e.message : 'Could not change the name.');
-          }
-        }}
-      >
-        {adopt.isPending ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <UserCheck className="mr-2 h-4 w-4" />
-        )}
-        {alreadySame ? 'Already using the ID name' : 'Use the ID name'}
-      </Button>
+      <p className="mt-1.5 text-lg font-bold leading-tight text-foreground">{idName || 'Not read yet'}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">On the account now: {accountName || '—'}</p>
+
+      {editing ? (
+        <div className="mt-3 space-y-2">
+          <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground" htmlFor={`final-name-${row.id}`}>
+            Final name for this payout
+          </label>
+          <Input
+            id={`final-name-${row.id}`}
+            value={draft}
+            autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Type the name exactly as printed on the ID"
+            className="h-12 rounded-xl text-base font-semibold"
+          />
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
+              disabled={busy}
+              onClick={() => {
+                setDraft(idName || accountName);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
+              disabled={busy || cleaned.length < 3 || cleaned === accountName}
+              onClick={async () => {
+                try {
+                  const res = await setName.mutateAsync({ id: row.id, fullName: cleaned });
+                  toast.success(`Name set to ${res.full_name ?? cleaned}.`);
+                  setEditing(false);
+                  onSaved();
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : 'Could not save the name.');
+                }
+              }}
+            >
+              {setName.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <UserCheck className="mr-2 h-4 w-4" />
+              )}
+              Save this name
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 flex gap-2">
+          <Button
+            className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
+            disabled={busy || alreadySame || idName.length < 3}
+            onClick={async () => {
+              try {
+                const res = await adopt.mutateAsync({ id: row.id });
+                toast.success(`Name changed to ${res.full_name ?? idName}.`);
+                onSaved();
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : 'Could not change the name.');
+              }
+            }}
+          >
+            {adopt.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <UserCheck className="mr-2 h-4 w-4" />
+            )}
+            {alreadySame ? 'Already using the ID name' : 'Use the ID name'}
+          </Button>
+          <Button
+            variant="outline"
+            className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
+            disabled={busy}
+            onClick={() => setEditing(true)}
+          >
+            Change
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

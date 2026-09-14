@@ -28361,6 +28361,9 @@ export type Database = {
           decision_reason: string | null
           destination_key: string
           destination_type: string
+          final_name_override: string | null
+          final_name_override_at: string | null
+          final_name_override_by: string | null
           first_seen_at: string
           id: string
           momo_number: string | null
@@ -28385,6 +28388,9 @@ export type Database = {
           decision_reason?: string | null
           destination_key: string
           destination_type: string
+          final_name_override?: string | null
+          final_name_override_at?: string | null
+          final_name_override_by?: string | null
           first_seen_at?: string
           id?: string
           momo_number?: string | null
@@ -28409,6 +28415,9 @@ export type Database = {
           decision_reason?: string | null
           destination_key?: string
           destination_type?: string
+          final_name_override?: string | null
+          final_name_override_at?: string | null
+          final_name_override_by?: string | null
           first_seen_at?: string
           id?: string
           momo_number?: string | null
@@ -52436,6 +52445,15 @@ export type Database = {
           p_desk_id: string
           p_evidence_note?: string
           p_reason: string
+        }
+        Returns: Json
+      }
+      finops_set_holder_name: {
+        Args: {
+          p_apply_now?: boolean
+          p_full_name: string
+          p_id: string
+          p_reason?: string
         }
         Returns: Json
       }
