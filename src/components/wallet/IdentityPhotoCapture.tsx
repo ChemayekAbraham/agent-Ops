@@ -231,9 +231,19 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Take a clear photo of your National ID and a selfie. Your original selfie is kept in your
-          verification history for Financial Ops; the version you crop becomes your profile picture.
+          Take a photo of the front of your National ID, a photo of the back, and a selfie. Your
+          original selfie is kept in your verification history for Financial Ops; the version you
+          crop becomes your profile picture.
         </p>
+
+        {!!storedIdPath && !!storedSelfiePath && !storedIdBackPath && (
+          <p className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm font-medium text-destructive">
+            We still need a photo of the <span className="font-bold">back</span> of your National ID.
+            Financial Ops cannot verify you — and you cannot withdraw — until it is saved.
+          </p>
+        )}
+
+
 
         {storedIdPath ? (
           <StoredShot
