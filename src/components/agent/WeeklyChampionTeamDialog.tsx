@@ -92,8 +92,7 @@ export function WeeklyChampionTeamDialog() {
           <DialogTitle className="text-xl">{team.team_name}</DialogTitle>
           <DialogDescription>
             {team.is_my_team ? 'Your team topped the league last week.' : 'They topped the league last week.'}{' '}
-            Week of {team.performance_percentage != null ? '' : ''}
-            {data.week_start} to {data.week_end}.
+            Week of {data.week_start} to {data.week_end}.
           </DialogDescription>
         </DialogHeader>
 
