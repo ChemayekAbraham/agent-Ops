@@ -51,6 +51,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { DoubleSubmissionReasonPanel } from '@/components/financial-ops/DoubleSubmissionReasonPanel';
+
 import {
   Select,
   SelectContent,
@@ -961,18 +963,16 @@ export default function PayoutVerificationPanel() {
           </div>
 
           {isDouble && (
-            <div role="alert" className="mx-5 mt-1 rounded-2xl border border-destructive/40 bg-destructive/10 p-4">
-              <p className="flex items-center gap-1.5 text-sm font-bold text-destructive">
-                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-                Double submission — cannot be verified
-              </p>
-              <p className="mt-1 text-xs font-medium text-destructive/90">
-                This {doubleWhat} is already used by {row.double_of_name || 'an earlier account'}. One
-                {doubleWhat === 'phone number' ? ' phone number' : ' National ID'} verifies one account only,
-                and only the first account may be verified.
-              </p>
-            </div>
+            <DoubleSubmissionReasonPanel
+              userId={row.user_id}
+              thisName={row.full_name || row.account_name}
+              thisPhone={row.user_phone}
+              thisNationalId={row.national_id}
+              kind={row.double_kind}
+              firstName={row.double_of_name}
+            />
           )}
+
 
 
           {/* Photos — the hero of the screen */}
