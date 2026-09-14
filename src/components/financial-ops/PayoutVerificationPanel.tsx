@@ -916,6 +916,7 @@ export default function PayoutVerificationPanel() {
       <DecisionDialog
         row={deciding ? row : null}
         photosReady={photosReady}
+        idNameUnreadable={idNameUnreadable}
         onClose={() => setDeciding(false)}
         onSaved={() => goTo(position)}
       />
