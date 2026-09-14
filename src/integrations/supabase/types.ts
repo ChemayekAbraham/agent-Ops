@@ -52474,6 +52474,10 @@ export type Database = {
         }
         Returns: Json
       }
+      finops_replace_national_id_photo: {
+        Args: { p_id: string; p_photo_path: string }
+        Returns: Json
+      }
       finops_revert_holder_name: {
         Args: { p_audit_id: string; p_reason?: string }
         Returns: Json
