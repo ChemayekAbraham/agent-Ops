@@ -311,6 +311,19 @@ function DecisionDialog({
   );
 }
 
+/** "14 Sep 2026, 08:41" — audit-friendly local timestamp for decisions. */
+function formatDecisionTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default function PayoutVerificationPanel() {
   const [status, setStatus] = useState<PayoutQueueFilter>('waiting');
   const [sort, setSort] = useState<PayoutQueueSort>('balance');
@@ -374,6 +387,70 @@ export default function PayoutVerificationPanel() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Decision audit log — who decided what, and when */}
+      <div className="rounded-2xl border border-border bg-card">
+        <button
+          type="button"
+          onClick={() => setShowAuditLog((v) => !v)}
+          className="w-full flex items-center justify-between gap-3 p-4"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <History className="h-4 w-4 text-primary" />
+            Decision audit log
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground transition-transform ${showAuditLog ? 'rotate-180' : ''}`}
+          />
+        </button>
+        {showAuditLog && (
+          <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
+            {decisionLog.isLoading ? (
+              <div className="space-y-2">
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                ))}
+              </div>
+            ) : decisionLog.isError ? (
+              <p className="text-xs text-destructive">Could not load the decision log.</p>
+            ) : (decisionLog.data ?? []).length === 0 ? (
+              <p className="text-xs text-muted-foreground">No decisions recorded yet.</p>
+            ) : (
+              (decisionLog.data ?? []).map((d) => {
+                const dest =
+                  d.destination_type === 'mobile_money'
+                    ? `${d.provider ?? 'Mobile money'} · ${d.momo_number ?? ''}`
+                    : `${d.bank_name ?? ''} ${d.bank_account_number ?? ''}`.trim();
+                return (
+                  <div key={d.id} className="rounded-xl bg-muted/40 p-3 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-foreground truncate">
+                        {d.full_name || 'Name not recorded'} · {dest}
+                      </p>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                          d.status === 'verified'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-destructive/10 text-destructive'
+                        }`}
+                      >
+                        {d.status === 'verified' ? 'Approved' : 'Rejected'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      By <span className="font-semibold text-foreground">{d.decided_by_name || 'Financial Ops'}</span>{' '}
+                      on {formatDecisionTime(d.decided_at)}
+                    </p>
+                    {d.decision_reason && (
+                      <p className="text-[11px] text-muted-foreground">Reason: {d.decision_reason}</p>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
 
       {/* Filters */}
