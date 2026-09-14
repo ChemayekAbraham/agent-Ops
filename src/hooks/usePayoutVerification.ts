@@ -123,6 +123,7 @@ export function usePayoutVerificationQueue(opts: {
           withdrawable_balance: Number(row.withdrawable_balance ?? 0),
           total_count: Number(row.total_count ?? 0),
           name_mismatch_tokens: Array.isArray(tokens) ? (tokens as string[]) : [],
+          double_submission: row.double_submission === true,
         } as PayoutDestinationRow;
       });
       return { rows, total: rows[0]?.total_count ?? 0 };
