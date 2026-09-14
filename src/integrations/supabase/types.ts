@@ -52421,6 +52421,7 @@ export type Database = {
           decided_by_name: string
           decision_reason: string
           destination_type: string
+          duplicate_id_accounts: Json
           duplicate_id_name: string
           duplicate_id_user_id: string
           first_seen_at: string

@@ -785,6 +785,29 @@ export default function PayoutVerificationPanel() {
                     ? `Rejected because this National ID already belongs to ${row.duplicate_id_name || 'another account'}. One National ID may only be used by one account.`
                     : `This ID already belongs to ${row.duplicate_id_name || 'another account'}. It cannot be verified — the decision is rejected automatically.`}
                 </p>
+                {(row.duplicate_id_accounts?.length ?? 0) > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-destructive/80">
+                      {(row.duplicate_id_accounts?.length ?? 0) === 1
+                        ? 'Account already using this ID'
+                        : 'Accounts already using this ID'}
+                    </p>
+                    {row.duplicate_id_accounts?.map((acc) => (
+                      <div
+                        key={acc.user_id}
+                        className="rounded-xl border border-destructive/40 bg-background/70 px-2.5 py-1.5"
+                      >
+                        <p className="truncate text-sm font-bold text-foreground">
+                          {acc.full_name || 'Unnamed account'}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {acc.phone || 'No phone'}
+                          {acc.national_id ? ` • ID ${acc.national_id}` : ''}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {row.status === 'rejected' && row.decision_reason && (
                   <p className="mt-1.5 rounded-lg bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive/80">
                     Recorded reason: {row.decision_reason}
