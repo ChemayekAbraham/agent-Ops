@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Clock } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Clock, Loader2 } from 'lucide-react';
+import { useTenantPaymentHistory } from '@/hooks/useTenantPaymentHistory';
 
 export interface PaymentEntry {
   id: string;
