@@ -133,7 +133,7 @@ export function usePayoutVerificationQueue(opts: {
         p_date_to: dateTo || null,
         p_user_type: userType === 'all' ? null : userType,
       });
-      if (error) throw error;
+      if (error) throw new Error(payoutQueueErrorMessage(error.message));
       const rows = ((data ?? []) as unknown[]).map((r) => {
         const row = r as Record<string, unknown>;
         const tokens = row.name_mismatch_tokens;
