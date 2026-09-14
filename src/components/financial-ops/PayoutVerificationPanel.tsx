@@ -783,8 +783,12 @@ export default function PayoutVerificationPanel() {
       {queue.isLoading ? (
         <Skeleton className="h-[28rem] w-full rounded-[2rem]" />
       ) : queue.isError ? (
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-          Could not load the queue. {queue.error instanceof Error ? queue.error.message : ''}
+        <div className="space-y-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <p className="font-semibold">The list could not be loaded</p>
+          <p>{queue.error instanceof Error ? queue.error.message : 'Something went wrong.'}</p>
+          <Button size="sm" variant="outline" onClick={() => queue.refetch()}>
+            Try again
+          </Button>
         </div>
       ) : !row ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center">
