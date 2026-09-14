@@ -776,12 +776,20 @@ export default function PayoutVerificationPanel() {
               <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
               <div className="min-w-0">
                 <p className="text-sm font-black uppercase tracking-wide text-destructive">
-                  Same National ID on another account
+                  {row.status === 'rejected'
+                    ? 'Rejected — duplicate National ID'
+                    : 'Same National ID on another account'}
                 </p>
                 <p className="mt-0.5 text-xs text-destructive/90">
-                  This ID already belongs to {row.duplicate_id_name || 'another account'}. It cannot be
-                  verified — the decision is rejected automatically.
+                  {row.status === 'rejected'
+                    ? `Rejected because this National ID already belongs to ${row.duplicate_id_name || 'another account'}. One National ID may only be used by one account.`
+                    : `This ID already belongs to ${row.duplicate_id_name || 'another account'}. It cannot be verified — the decision is rejected automatically.`}
                 </p>
+                {row.status === 'rejected' && row.decision_reason && (
+                  <p className="mt-1.5 rounded-lg bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive/80">
+                    Recorded reason: {row.decision_reason}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -851,22 +859,43 @@ export default function PayoutVerificationPanel() {
             </Button>
             <Button
               className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
-              disabled={!photosReady}
+              disabled={!photosReady || !!row.duplicate_id_user_id}
               onClick={() => setDeciding(true)}
             >
               <CheckCircle2 className="mr-2 h-5 w-5" /> Verify payout
             </Button>
           </div>
-          {!photosReady && (
+          {!!row.duplicate_id_user_id && (
+            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
+              <ShieldAlert className="h-3.5 w-3.5" />
+              Cannot verify — duplicate National ID
+            </p>
+          )}
+          {!photosReady && !row.duplicate_id_user_id && (
             <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
               <AlertTriangle className="h-3.5 w-3.5" />
               Waiting for their National ID photo and selfie
             </p>
           )}
-          {row.decision_reason && (
-            <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
-              Last note: {row.decision_reason}
-            </p>
+          {row.decision_reason && !row.duplicate_id_user_id && (
+            row.decision_reason.toLowerCase().startsWith('automatically rejected: this national id') ? (
+              <div
+                role="alert"
+                className="mx-5 mb-4 flex items-start gap-3 rounded-2xl border-2 border-destructive bg-destructive/10 p-3"
+              >
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-sm font-black uppercase tracking-wide text-destructive">
+                    Rejected — duplicate National ID
+                  </p>
+                  <p className="mt-0.5 text-xs text-destructive/90">{row.decision_reason}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
+                Last note: {row.decision_reason}
+              </p>
+            )
           )}
 
           {/* Queue navigation */}
