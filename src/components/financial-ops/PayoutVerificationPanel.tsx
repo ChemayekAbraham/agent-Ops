@@ -48,6 +48,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useUserAvatars } from '@/hooks/useUserAvatars';
+import { useAuth } from '@/hooks/useAuth';
 import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
