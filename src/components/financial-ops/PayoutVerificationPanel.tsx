@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Clock,
   HelpCircle,
+  History,
   Image,
   Loader2,
   MessageCircle,
@@ -50,6 +51,7 @@ import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   last9,
   useAdoptNationalIdName,
+  useHolderNameHistory,
   useDecidePayoutDestination,
   useSetHolderName,
 
@@ -116,6 +118,47 @@ function readinessBadge(photosReady: boolean): {
     ? { label: 'Ready', Icon: Camera, classes: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/40' }
     : { label: 'Pending photos', Icon: Image, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
 }
+
+/**
+ * Every time the name on the account was replaced by the name read from the
+ * National ID (or corrected by hand), it is recorded in the audit log. This
+ * shows that trail: who changed it, when, and from what to what.
+ */
+function NameChangeHistory({ userId }: { userId: string }) {
+  const { data, isLoading } = useHolderNameHistory(userId);
+  if (isLoading || !data || data.length === 0) return null;
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+        <History className="h-3.5 w-3.5" aria-hidden="true" /> Name changes ({data.length})
+      </p>
+      <ul className="mt-2 space-y-2">
+        {data.map((h) => (
+          <li key={h.id} className="rounded-xl bg-background/70 px-3 py-2">
+            <p className="text-sm font-semibold leading-tight text-foreground">
+              {h.old_name || '—'} <span aria-hidden="true">→</span>{' '}
+              <span className="text-emerald-700 dark:text-emerald-400">{h.new_name || '—'}</span>
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {h.source === 'financial_ops_manual_override' ? 'Typed by hand' : 'Taken from the National ID'} ·{' '}
+              {h.changed_by_name || 'Financial Ops'} ·{' '}
+              {new Date(h.changed_at).toLocaleString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </p>
+            {h.reason && <p className="mt-0.5 text-xs italic text-muted-foreground">{h.reason}</p>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 
 /**
  * Shown when the names do not match. The name printed on the National ID is
@@ -637,6 +680,10 @@ export default function PayoutVerificationPanel() {
           {row.name_match_score !== null && row.name_match_score < 0.8 && (
             <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
           )}
+
+          {/* Audit trail of name replacements */}
+          <NameChangeHistory userId={row.user_id} />
+
 
 
           {/* Contact actions */}
