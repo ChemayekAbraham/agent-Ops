@@ -66,21 +66,19 @@ export default function SelfieCropDialog({
     y: Math.min(0, Math.max(FRAME - dispH, o.y)),
   });
 
-  // Re-centre whenever a new photo arrives or the zoom changes size.
+  // Centre the photo when it first loads, then keep it inside the frame as
+  // the zoom changes.
   useEffect(() => {
     if (!nat) return;
-    setOffset((prev) => {
-      const centred = { x: (FRAME - dispW) / 2, y: (FRAME - dispH) / 2 };
-      return prev.x === 0 && prev.y === 0 ? centred : clamp(prev);
-    });
+    setOffset({ x: (FRAME - nat.w * baseScale) / 2, y: (FRAME - nat.h * baseScale) / 2 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nat, dispW, dispH]);
+  }, [nat]);
 
   useEffect(() => {
     if (!nat) return;
-    setOffset({ x: (FRAME - dispW) / 2, y: (FRAME - dispH) / 2 });
+    setOffset((prev) => clamp(prev));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nat]);
+  }, [zoom]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
