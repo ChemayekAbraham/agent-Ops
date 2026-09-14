@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FolderOpen, Camera, FileImage, Loader2, ExternalLink, AlertTriangle, Upload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { publishAvatarUpdate } from '@/lib/avatarSync';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { optimizeImage } from '@/lib/imageOptimizer';

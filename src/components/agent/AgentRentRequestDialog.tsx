@@ -85,6 +85,7 @@ import {
   Undo2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { publishAvatarUpdate } from '@/lib/avatarSync';
 import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { formatUGX, calculateRentRepayment } from '@/lib/rentCalculations';
 import { hapticSuccess } from '@/lib/haptics';
