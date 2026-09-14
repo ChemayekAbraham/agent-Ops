@@ -248,12 +248,17 @@ export default function UnverifiedWithdrawalsPanel() {
       ) : total === 0 ? (
         <p className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
           <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
-          Nothing here — every open withdrawal belongs to a verified person.
+          {filter === 'all'
+            ? 'Nothing here — every open withdrawal belongs to a verified person.'
+            : filter === 'verified'
+              ? 'No verified payouts are open right now.'
+              : `No payouts currently marked ${badgeLabel(filter === 'needs_review' ? 'needs_review' : 'pending').toLowerCase()}.`}
         </p>
       ) : (
         <>
           <p className="text-sm text-muted-foreground" role="status">
-            {total} request{total === 1 ? '' : 's'} waiting on verification
+            {total} request{total === 1 ? '' : 's'}
+            {filter === 'all' ? ' waiting on verification' : ` marked ${badgeLabel(filter === 'needs_review' ? 'needs_review' : filter).toLowerCase()}`}
           </p>
           <ul className="space-y-3">
             {rows.map((r) => <Row key={r.id} row={r} />)}
