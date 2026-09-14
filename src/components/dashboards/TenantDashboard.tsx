@@ -33,7 +33,6 @@ import AiIdButton from '@/components/ai-id/AiIdButton';
 
 
 import { SubscriptionStatusCard } from '@/components/tenant/SubscriptionStatusCard';
-import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
 import { RentPlanSummaryCard } from '@/components/tenant/RentPlanSummaryCard';
 import { PaymentTimeline } from '@/components/tenant/PaymentTimeline';
 
@@ -386,11 +385,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           {/* Outstanding balance / daily-charge status */}
           <WidgetErrorBoundary label="Subscription status">
             <SubscriptionStatusCard userId={user.id} />
-          </WidgetErrorBoundary>
-
-          {/* Verification checklist */}
-          <WidgetErrorBoundary label="Verification checklist">
-            <VerificationChecklist userId={user.id} />
           </WidgetErrorBoundary>
 
           {/* Available houses — surfaced near the top of home so tenants find them first */}

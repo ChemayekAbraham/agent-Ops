@@ -52304,6 +52304,17 @@ export type Database = {
         }
         Returns: number
       }
+      finops_payout_status_timeline: {
+        Args: { p_user_id: string; p_withdrawal_id?: string }
+        Returns: {
+          actor_name: string
+          badge: string
+          detail: string
+          kind: string
+          label: string
+          occurred_at: string
+        }[]
+      }
       finops_payout_verification_counts: { Args: never; Returns: Json }
       finops_payout_verification_queue: {
         Args: {
@@ -60413,6 +60424,14 @@ export type Database = {
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      withdrawal_merchant_id_gate: {
+        Args: {
+          p_landlord_payout_id?: string
+          p_reason?: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json
