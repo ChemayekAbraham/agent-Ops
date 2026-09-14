@@ -435,7 +435,7 @@ function DecisionAuditLog({ onOpenProfile }: { onOpenProfile?: (userId: string) 
                     ? `${r.provider ?? 'Mobile money'} · ${r.momo_number ?? ''}`
                     : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
                 return (
-                  <div key={r.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-1">
+                  <div key={r.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <button
