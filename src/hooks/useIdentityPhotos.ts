@@ -98,10 +98,20 @@ export async function identityPhotoUrl(path: string | null | undefined): Promise
 export function useSubmitIdentityPhotos() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (paths: { idPhotoPath: string; selfiePath: string }) => {
+    mutationFn: async (paths: {
+      idPhotoPath: string;
+      selfiePath: string;
+      idBackPhotoPath?: string | null;
+      nameChangeConsent?: boolean;
+    }) => {
+      // Always send the full argument set: the database holds several
+      // overloads of this function, and a two-argument call is ambiguous, so
+      // the submission is refused before it reaches the queue.
       const { data, error } = await supabase.rpc('submit_identity_photos', {
         p_id_photo_path: paths.idPhotoPath,
         p_selfie_path: paths.selfiePath,
+        p_id_back_photo_path: paths.idBackPhotoPath ?? null,
+        p_name_change_consent: paths.nameChangeConsent ?? false,
       });
       if (error) throw error;
       return data as { success?: boolean; message?: string } | null;
