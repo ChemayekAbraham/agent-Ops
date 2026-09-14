@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
+  PAYOUT_DECISION_LOG_PAGE_SIZE,
   PAYOUT_VERIFICATION_PAGE_SIZE,
   useDecidePayoutDestination,
   usePayoutDecisionLog,
@@ -252,11 +253,19 @@ function DecisionAuditLog() {
   const [decision, setDecision] = useState<'all' | 'verified' | 'rejected'>('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [page, setPage] = useState(0);
 
-  const log = usePayoutDecisionLog(open, { search, decision, from, to });
-  const rows = log.data ?? [];
+  const log = usePayoutDecisionLog(open, { search, decision, from, to }, page);
+  const rows = log.data?.rows ?? [];
+  const total = log.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAYOUT_DECISION_LOG_PAGE_SIZE));
+  const fromRow = total === 0 ? 0 : page * PAYOUT_DECISION_LOG_PAGE_SIZE + 1;
+  const toRow = Math.min(total, (page + 1) * PAYOUT_DECISION_LOG_PAGE_SIZE);
 
-  const applySearch = () => setSearch(searchInput);
+  const applySearch = () => {
+    setSearch(searchInput);
+    setPage(0);
+  };
 
   return (
     <div className="rounded-2xl border border-border bg-card">
@@ -297,7 +306,10 @@ function DecisionAuditLog() {
               <button
                 key={d}
                 type="button"
-                onClick={() => setDecision(d)}
+                onClick={() => {
+                  setDecision(d);
+                  setPage(0);
+                }}
                 className={`flex-1 rounded-lg border px-3 h-10 text-xs font-semibold capitalize ${
                   decision === d ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'
                 }`}
@@ -312,7 +324,10 @@ function DecisionAuditLog() {
               <Input
                 type="date"
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setPage(0);
+                }}
                 className="h-11 text-sm"
               />
             </div>
@@ -321,7 +336,10 @@ function DecisionAuditLog() {
               <Input
                 type="date"
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setPage(0);
+                }}
                 className="h-11 text-sm"
               />
             </div>
@@ -379,6 +397,36 @@ function DecisionAuditLog() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Pagination — newest decisions first */}
+          {total > 0 && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <p className="text-xs text-muted-foreground">
+                Showing {fromRow}–{toRow} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs font-semibold">
+                  {page + 1} / {pageCount}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page + 1 >= pageCount}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </div>

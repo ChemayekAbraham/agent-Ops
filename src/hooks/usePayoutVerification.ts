@@ -162,27 +162,44 @@ export interface PayoutDecisionLogFilters {
   to?: string; // YYYY-MM-DD
 }
 
+export const PAYOUT_DECISION_LOG_PAGE_SIZE = 20;
+
+
 /**
- * Newest-first record of every verify/reject decision, searchable by holder
- * name, number or decider, filterable by decision and decision date.
+ * One page of the newest-first record of every verify/reject decision,
+ * searchable by holder name, number or decider, filterable by decision and
+ * decision date. Returns the matching total so the UI can page large
+ * histories.
  */
-export function usePayoutDecisionLog(enabled: boolean, filters: PayoutDecisionLogFilters, limit = 100) {
+export function usePayoutDecisionLog(
+  enabled: boolean,
+  filters: PayoutDecisionLogFilters,
+  page: number,
+) {
   const search = (filters.search ?? '').trim();
   const decision = filters.decision && filters.decision !== 'all' ? filters.decision : null;
+  const from = filters.from ? new Date(`${filters.from}T00:00:00`).toISOString() : null;
+  const to = filters.to ? new Date(`${filters.to}T00:00:00`).toISOString() : null;
   return useQuery({
-    queryKey: ['payout-decision-log', search, decision, filters.from ?? '', filters.to ?? '', limit],
+    queryKey: ['payout-decision-log', search, decision, filters.from ?? '', filters.to ?? '', page],
     enabled,
     staleTime: 30_000,
-    queryFn: async (): Promise<PayoutDecisionLogRow[]> => {
-      const { data, error } = await supabase.rpc('finops_payout_decision_log', {
-        p_limit: limit,
-        p_search: search || null,
-        p_decision: decision,
-        p_from: filters.from ? new Date(`${filters.from}T00:00:00`).toISOString() : null,
-        p_to: filters.to ? new Date(`${filters.to}T00:00:00`).toISOString() : null,
-      });
-      if (error) throw error;
-      return (data ?? []) as unknown as PayoutDecisionLogRow[];
+    queryFn: async (): Promise<{ rows: PayoutDecisionLogRow[]; total: number }> => {
+      const rpcArgs = { p_search: search || null, p_decision: decision, p_from: from, p_to: to };
+      const [rowsRes, countRes] = await Promise.all([
+        supabase.rpc('finops_payout_decision_log', {
+          ...rpcArgs,
+          p_limit: PAYOUT_DECISION_LOG_PAGE_SIZE,
+          p_offset: page * PAYOUT_DECISION_LOG_PAGE_SIZE,
+        }),
+        supabase.rpc('finops_payout_decision_log_count', rpcArgs),
+      ]);
+      if (rowsRes.error) throw rowsRes.error;
+      if (countRes.error) throw countRes.error;
+      return {
+        rows: (rowsRes.data ?? []) as unknown as PayoutDecisionLogRow[],
+        total: Number(countRes.data ?? 0),
+      };
     },
   });
 }
