@@ -23,6 +23,39 @@ function readUtm() {
   }
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Client-side burst / bot defences (layered on top of server-side RPC guard)
+// ────────────────────────────────────────────────────────────────────────────
+const BURST_KEY = 'welile_signup_burst';
+const BURST_MAX = 3;          // max signups per window
+const BURST_WINDOW_MS = 3600_000; // 1 hour
+const COOLDOWN_KEY = 'welile_signup_cooldown';
+const COOLDOWN_MS = 15_000;   // 15 s between attempts
+
+/** Record a signup attempt timestamp. Returns true if burst limit exceeded. */
+function isBurstLimited(): boolean {
+  try {
+    const now = Date.now();
+    const raw = sessionStorage.getItem(BURST_KEY);
+    const stamps: number[] = raw ? JSON.parse(raw) : [];
+    const recent = stamps.filter(t => now - t < BURST_WINDOW_MS);
+    if (recent.length >= BURST_MAX) return true;
+    recent.push(now);
+    sessionStorage.setItem(BURST_KEY, JSON.stringify(recent));
+    return false;
+  } catch { return false; }
+}
+
+/** Returns true if the last signup was less than COOLDOWN_MS ago. */
+function isCooldownActive(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(COOLDOWN_KEY) || '0');
+    if (Date.now() - last < COOLDOWN_MS) return true;
+    sessionStorage.setItem(COOLDOWN_KEY, String(Date.now()));
+    return false;
+  } catch { return false; }
+}
+
 /**
  * Runs the server-side pre-signup rate-limit + logging check. Call this
  * IMMEDIATELY before `supabase.auth.signUp(...)` (or any equivalent account
@@ -37,6 +70,27 @@ export async function preflightSignup(params: {
   phone?: string | null;
   path?: string | null;
 }): Promise<SignupGuardResult> {
+  // ── Layer 1: client-side burst + cooldown guard ───────────────────────
+  if (isCooldownActive()) {
+    return {
+      allowed: false,
+      status: 'cooldown',
+      reason: 'Please wait a few seconds before trying again.',
+      attempt_id: null,
+      is_staff: false,
+    };
+  }
+  if (isBurstLimited()) {
+    return {
+      allowed: false,
+      status: 'burst_limited',
+      reason: 'Too many sign-up attempts. Please try again in an hour.',
+      attempt_id: null,
+      is_staff: false,
+    };
+  }
+
+  // ── Layer 2: server-side RPC guard ────────────────────────────────────
   const rawFp = await getDeviceFingerprint().catch(() => null);
   // Never send a tampered / malformed fingerprint to the server. If the
   // client-side value fails shape validation we drop it — the server will
@@ -58,11 +112,18 @@ export async function preflightSignup(params: {
     p_phone: params.phone ?? null,
   });
   if (error) {
-    // Fail-open: never block a real user because our rate-limit RPC threw.
-    // Bots hit the trigger + duplicate-account guards downstream.
+    // Fail-CLOSED: block the signup when the guard RPC fails.
+    // Previously fail-open, but bots exploit RPC timeouts to bypass the guard.
+    // Real users will see a transient error and can retry after the cooldown.
     // eslint-disable-next-line no-console
-    console.warn('[signupGuard] preflight rpc error, allowing:', error.message);
-    return { allowed: true, status: 'rpc_error', reason: null, attempt_id: null, is_staff: false };
+    console.warn('[signupGuard] preflight rpc error, BLOCKING:', error.message);
+    return {
+      allowed: false,
+      status: 'rpc_error',
+      reason: 'Sign-up is temporarily unavailable. Please try again in a moment.',
+      attempt_id: null,
+      is_staff: false,
+    };
   }
   const row = (data ?? {}) as Record<string, unknown>;
   return {

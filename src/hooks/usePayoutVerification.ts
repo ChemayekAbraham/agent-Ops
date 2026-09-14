@@ -132,6 +132,74 @@ export function useDecidePayoutDestination() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
       qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
+      qc.invalidateQueries({ queryKey: ['payout-decision-log'] });
+    },
+  });
+}
+
+/** One decision entry for the Financial Ops audit log. */
+export interface PayoutDecisionLogRow {
+  id: string;
+  user_id: string;
+  full_name: string | null;
+  user_phone: string | null;
+  destination_type: 'mobile_money' | 'bank_transfer';
+  provider: string | null;
+  momo_number: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  account_name: string | null;
+  status: PayoutVerificationStatus;
+  decision_reason: string | null;
+  decided_by_name: string | null;
+  decided_at: string;
+}
+
+export interface PayoutDecisionLogFilters {
+  search?: string;
+  decision?: 'verified' | 'rejected' | 'all';
+  from?: string; // YYYY-MM-DD
+  to?: string; // YYYY-MM-DD
+}
+
+export const PAYOUT_DECISION_LOG_PAGE_SIZE = 20;
+
+
+/**
+ * One page of the newest-first record of every verify/reject decision,
+ * searchable by holder name, number or decider, filterable by decision and
+ * decision date. Returns the matching total so the UI can page large
+ * histories.
+ */
+export function usePayoutDecisionLog(
+  enabled: boolean,
+  filters: PayoutDecisionLogFilters,
+  page: number,
+) {
+  const search = (filters.search ?? '').trim();
+  const decision = filters.decision && filters.decision !== 'all' ? filters.decision : null;
+  const from = filters.from ? new Date(`${filters.from}T00:00:00`).toISOString() : null;
+  const to = filters.to ? new Date(`${filters.to}T00:00:00`).toISOString() : null;
+  return useQuery({
+    queryKey: ['payout-decision-log', search, decision, filters.from ?? '', filters.to ?? '', page],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<{ rows: PayoutDecisionLogRow[]; total: number }> => {
+      const rpcArgs = { p_search: search || null, p_decision: decision, p_from: from, p_to: to };
+      const [rowsRes, countRes] = await Promise.all([
+        supabase.rpc('finops_payout_decision_log', {
+          ...rpcArgs,
+          p_limit: PAYOUT_DECISION_LOG_PAGE_SIZE,
+          p_offset: page * PAYOUT_DECISION_LOG_PAGE_SIZE,
+        }),
+        supabase.rpc('finops_payout_decision_log_count', rpcArgs),
+      ]);
+      if (rowsRes.error) throw rowsRes.error;
+      if (countRes.error) throw countRes.error;
+      return {
+        rows: (rowsRes.data ?? []) as unknown as PayoutDecisionLogRow[],
+        total: Number(countRes.data ?? 0),
+      };
     },
   });
 }
@@ -196,6 +264,39 @@ export function useMyPayoutDestinations(userId?: string | null) {
 /** Last 9 digits — the platform-wide way of comparing Ugandan numbers. */
 export function last9(value?: string | null): string {
   return (value ?? '').replace(/\D/g, '').slice(-9);
+}
+
+/** One phone's account presence, as returned by finops_phone_account_lookup. */
+export interface PhoneAccountInfo {
+  phone_key: string;
+  has_account: boolean;
+  account_name: string | null;
+  account_user_id: string | null;
+}
+
+/**
+ * Batch lookup: for each phone number, whether it belongs to a Welile account
+ * (matched on the last 9 digits) and who owns it. Financial Ops only — the
+ * RPC role-gates. One round trip per page of rows.
+ */
+export function usePhoneAccountLookup(phones: (string | null | undefined)[], enabled = true) {
+  const keys = [...new Set(phones.map((p) => last9(p)).filter((k) => k.length > 0))].sort();
+  return useQuery({
+    queryKey: ['finops-phone-account-lookup', keys],
+    enabled: enabled && keys.length > 0,
+    staleTime: 60_000,
+    queryFn: async (): Promise<Record<string, PhoneAccountInfo>> => {
+      const { data, error } = await supabase.rpc('finops_phone_account_lookup', {
+        p_phones: keys,
+      });
+      if (error) throw error;
+      const map: Record<string, PhoneAccountInfo> = {};
+      for (const row of (data ?? []) as unknown as PhoneAccountInfo[]) {
+        map[row.phone_key] = row;
+      }
+      return map;
+    },
+  });
 }
 
 /** Verification state for one destination out of the user's own list. */

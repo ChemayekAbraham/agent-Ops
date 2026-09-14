@@ -351,6 +351,27 @@
       "when": 1789332651983,
       "tag": "0049_withdrawal_requires_verified_destination",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789362738155,
+      "tag": "0050_finops_decision_log_filters",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1789363006316,
+      "tag": "0051_finops_decision_log_pagination",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1789363533400,
+      "tag": "0052_finops_phone_account_lookup",
+      "breakpoints": true
     }
   ]
 }
