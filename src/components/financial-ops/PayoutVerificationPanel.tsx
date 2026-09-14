@@ -25,8 +25,10 @@ import {
   Search,
   ShieldAlert,
   Smartphone,
+  UserCheck,
   X,
   XCircle,
+
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -47,7 +49,9 @@ import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhoto
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   last9,
+  useAdoptNationalIdName,
   useDecidePayoutDestination,
+
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
   type PayoutDestinationRow,
