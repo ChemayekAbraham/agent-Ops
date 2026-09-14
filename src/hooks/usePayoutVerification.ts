@@ -119,6 +119,8 @@ export function useDecidePayoutDestination() {
       decision: 'verified' | 'rejected';
       reason: string;
       callOutcome?: string;
+      /** Holder — used to apply their verified selfie as the profile picture. */
+      userId?: string;
     }) => {
       const { data, error } = await supabase.rpc('finops_decide_payout_destination', {
         p_id: input.id,
@@ -127,14 +129,29 @@ export function useDecidePayoutDestination() {
         p_call_outcome: input.callOutcome ?? null,
       });
       if (error) throw new Error(error.message);
+
+      // The moment a selfie is verified it becomes the holder's profile picture.
+      // Best-effort: never fails the decision itself.
+      if (input.decision === 'verified' && input.userId) {
+        try {
+          const res = await supabase.functions.invoke('apply-verified-selfie-avatar', {
+            body: { userId: input.userId },
+          });
+          const url = (res.data as { avatar_url?: string } | null)?.avatar_url;
+          if (url) publishAvatarUpdate(input.userId, url);
+        } catch { /* profile picture update is best-effort */ }
+      }
+
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
       qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
+      qc.invalidateQueries({ queryKey: ['payout-decision-log'] });
     },
   });
 }
+
 
 /** The signed-in user's own National ID submission. */
 export function useSubmitNationalId() {
