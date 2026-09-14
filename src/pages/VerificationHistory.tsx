@@ -81,11 +81,91 @@ export default function VerificationHistoryPage() {
   const isSelf = !params.get('userId') || params.get('userId') === user?.id;
 
   const history = useVerificationHistory(viewUserId);
-  const [preview, setPreview] = useState<ViewerPhoto | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [actualSize, setActualSize] = useState(false);
 
 
   const entries = useMemo(() => history.data ?? [], [history.data]);
+
+  // Flat list of every viewable photo, in the order the thumbnails appear,
+  // so the keyboard can move between them without clicking.
+  const flatPhotos = useMemo<ViewerPhoto[]>(() => {
+    const list: ViewerPhoto[] = [];
+    for (const e of entries) {
+      const takenAt = when(e.submittedAt);
+      const push = (file: VerificationHistoryFile | null, label: string) => {
+        if (!file?.url) return;
+        list.push({
+          url: file.url,
+          label,
+          takenAt,
+          fileName: file.path.split('/').pop() || 'verification-photo.jpg',
+        });
+      };
+      push(e.original, 'Selfie sent for verification');
+      push(e.cropped, 'Cropped profile picture');
+      push(e.nationalId, 'National ID photo');
+    }
+    return list;
+  }, [entries]);
+
+  const preview = previewIndex !== null ? flatPhotos[previewIndex] ?? null : null;
+
+  const openPhoto = (index: number) => {
+    setActualSize(false);
+    setPreviewIndex(index);
+  };
+  const stepPhoto = (delta: number) => {
+    setPreviewIndex((cur) => {
+      if (cur === null || flatPhotos.length === 0) return cur;
+      return (cur + delta + flatPhotos.length) % flatPhotos.length;
+    });
+    setActualSize(false);
+  };
+
+  // Keyboard controls: ←/→ move between thumbnails, F toggles resolution,
+  // O opens in a new tab, D downloads, Escape closes (handled by the dialog).
+  useEffect(() => {
+    if (previewIndex === null) return;
+    const onKey = (ev: KeyboardEvent) => {
+      switch (ev.key) {
+        case 'ArrowLeft':
+          ev.preventDefault();
+          stepPhoto(-1);
+          break;
+        case 'ArrowRight':
+          ev.preventDefault();
+          stepPhoto(1);
+          break;
+        case 'f':
+        case 'F':
+          ev.preventDefault();
+          setActualSize((v) => !v);
+          break;
+        case 'o':
+        case 'O': {
+          ev.preventDefault();
+          const url = flatPhotos[previewIndex]?.url;
+          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          break;
+        }
+        case 'd':
+        case 'D': {
+          ev.preventDefault();
+          const p = flatPhotos[previewIndex];
+          if (p) {
+            const a = document.createElement('a');
+            a.href = p.url;
+            a.download = p.fileName;
+            a.click();
+          }
+          break;
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [previewIndex, flatPhotos]);
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4 pb-24">
