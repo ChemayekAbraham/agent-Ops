@@ -163,6 +163,9 @@ export default function WithdrawFlow({
     void myDestinations.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user?.id]);
+  // Funders holding a portfolio are exempt from the identity / destination
+  // gates (server-side truth); mirror that here so they see no blockers.
+  const funderExempt = useIsFunderWithPortfolio(user?.id);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
   const [saveAsNew, setSaveAsNew] = useState(true);
   const [savedNickname, setSavedNickname] = useState('');
