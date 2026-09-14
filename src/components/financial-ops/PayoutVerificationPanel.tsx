@@ -550,6 +550,12 @@ function DecisionDialog({
             Verify unlocks once both photos are on file. Reject stays available.
           </p>
         )}
+        {photosReady && idBackMissing && (
+          <p role="alert" className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            The back of the National ID is missing. Ask the user to upload a photo of the back of their National ID.
+          </p>
+        )}
         {photosReady && idNameUnreadable && (
           <p role="alert" className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
             <AlertTriangle className="h-3.5 w-3.5" />
