@@ -232,8 +232,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             label="National ID photo"
             hint="All four corners visible, no glare."
             file={idPhoto}
-            onPick={setIdPhoto}
-            onClear={() => setIdPhoto(null)}
+            onPick={(f) => { setIdPhoto(f); void readIdPhoto(f); }}
+            onClear={() => { setIdPhoto(null); setIdReading(null); setReadError(null); }}
+
             disabled={saving}
           />
         )}
