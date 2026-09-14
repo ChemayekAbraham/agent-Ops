@@ -443,7 +443,7 @@ export default function PayoutVerificationPanel() {
                   <span
                     role="img"
                     aria-label={`Name match result: ${sig.label}`}
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${sig.dot} text-white`}
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${sig.dot} text-primary-foreground`}
                   >
                     <sig.Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
