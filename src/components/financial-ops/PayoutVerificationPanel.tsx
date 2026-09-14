@@ -1036,6 +1036,69 @@ export default function PayoutVerificationPanel() {
         onSaved={() => goTo(position)}
       />
 
+      {/* Confirm before verifying — prevents accidental one-tap saves */}
+      <Dialog open={!!confirmingVerify} onOpenChange={(o) => !o && setConfirmingVerify(null)}>
+        <DialogContent className="max-w-sm rounded-2xl p-0">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle className="text-base">Confirm verify payout</DialogTitle>
+            <DialogDescription className="text-sm">
+              You are about to verify and save this payout. The name read from the National ID will become the account name.
+            </DialogDescription>
+          </DialogHeader>
+          {confirmingVerify && (
+            <div className="space-y-2 px-5 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Holder</span>
+                <span className="truncate text-right font-semibold">{confirmingVerify.full_name || '—'}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">ID name</span>
+                <span className="truncate text-right font-semibold">{confirmingVerify.national_id_name || '—'}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Amount</span>
+                <span className="text-right font-semibold">{formatUGX(confirmingVerify.withdrawable_balance)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Payout number</span>
+                <span className="truncate text-right font-semibold">
+                  {confirmingVerify.destination_type === 'mobile_money'
+                    ? confirmingVerify.momo_number ?? '—'
+                    : `${confirmingVerify.bank_name ?? ''} ${confirmingVerify.bank_account_number ?? ''}`.trim() || '—'}
+                </span>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 px-5 pb-5 pt-2">
+            <Button
+              variant="outline"
+              className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
+              onClick={() => setConfirmingVerify(null)}
+              disabled={quickVerify.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25"
+              disabled={quickVerify.isPending}
+              onClick={async () => {
+                if (!confirmingVerify) return;
+                const target = confirmingVerify;
+                setConfirmingVerify(null);
+                await runQuickVerify(target);
+              }}
+            >
+              {quickVerify.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              )}
+              Verify
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Full-size photo viewer */}
       <Dialog open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)}>
         <DialogContent className="max-w-lg p-3">
