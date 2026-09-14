@@ -358,6 +358,13 @@
       "when": 1789362738155,
       "tag": "0050_finops_decision_log_filters",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1789363006316,
+      "tag": "0051_finops_decision_log_pagination",
+      "breakpoints": true
     }
   ]
 }
