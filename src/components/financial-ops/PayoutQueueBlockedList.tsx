@@ -43,14 +43,6 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
       tone: 'text-destructive',
     };
   }
-  if (row.duplicate_id_user_id) {
-    return {
-      blocked: true,
-      text: `Blocked because this National ID is already used by ${row.duplicate_id_name || 'another account'} — one ID belongs to one account.`,
-      Icon: AlertTriangle,
-      tone: 'text-destructive',
-    };
-  }
   if (!row.national_id) {
     return {
       blocked: true,
@@ -64,14 +56,6 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
       blocked: true,
       text: `Waiting because the name could not be read from the ID photo — ${assessIdNameConfidence(row.national_id_name).reason} A clearer photo is needed.`,
       Icon: Clock,
-      tone: 'text-amber-600',
-    };
-  }
-  if (row.id_back_photo_ready === false) {
-    return {
-      blocked: false,
-      text: 'Note: the back of the ID is not on file. It is required for submissions made from 14 September onwards.',
-      Icon: AlertTriangle,
       tone: 'text-amber-600',
     };
   }
