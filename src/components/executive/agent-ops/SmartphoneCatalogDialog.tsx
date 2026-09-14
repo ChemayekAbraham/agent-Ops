@@ -630,7 +630,8 @@ export function SmartphoneCatalogDialog() {
                             </p>
                             <p className="text-sm font-semibold tabular-nums">{formatUGX(s.total)}</p>
                             <p className="text-[10px] text-muted-foreground tabular-nums">
-                              {formatUGX(s.daily)}/day · {s.days} days · +{s.markupPct}%
+                              {formatUGX(s.daily)} → {formatUGX(s.dailyLast)}/day · {s.days} days · 28%/month
+                              reducing (+{s.markupPct}% total)
                             </p>
                           </div>
                         ))}

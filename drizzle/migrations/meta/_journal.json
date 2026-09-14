@@ -428,6 +428,20 @@
       "when": 1789373922792,
       "tag": "0060_hr_staff_require_employee_role",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1789374630156,
+      "tag": "0061_smartphone_reducing_balance_repayment",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1789374789817,
+      "tag": "0062_smartphone_full_payment_order",
+      "breakpoints": true
     }
   ]
 }
