@@ -7,26 +7,20 @@
  * unverified destination can be submitted or approved (gate is in the
  * database and in the approve-withdrawal function).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
   Building2,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
-  History,
   IdCard,
   Loader2,
-  MessageCircle,
-  MessageSquare,
   PhoneCall,
   Search,
   ShieldAlert,
   Smartphone,
-  UserRound,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,170 +35,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatUGX } from '@/lib/rentCalculations';
+import { useUserAvatars } from '@/hooks/useUserAvatars';
 import {
-  PAYOUT_DECISION_LOG_PAGE_SIZE,
   PAYOUT_VERIFICATION_PAGE_SIZE,
-  last9,
   useDecidePayoutDestination,
-  usePayoutDecisionLog,
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
-  usePhoneAccountLookup,
   type PayoutDestinationRow,
-  type PayoutDecisionLogRow,
   type PayoutQueueFilter,
   type PayoutQueueSort,
-  type PhoneAccountInfo,
 } from '@/hooks/usePayoutVerification';
-import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
-import { UserProfileDrilldown } from '@/components/ops/UserProfileDrilldown';
-
-/**
- * wa.me chat link for a Ugandan number (256 + last 9 digits).
- * Optional `text` prefills the message body in WhatsApp.
- */
-function waLink(phone: string | null | undefined, text?: string): string | null {
-  const k = last9(phone);
-  if (!k) return null;
-  const base = `https://wa.me/256${k}`;
-  if (!text) return base;
-  return `${base}?text=${encodeURIComponent(text)}`;
-}
-
-/**
- * Small pill under a phone number saying whether that number has a Welile
- * account, and whose — so the operator immediately knows if a payout number
- * belongs to the holder's own account or to someone else entirely.
- */
-function PhoneAccountBadge({ info, loading }: { info: PhoneAccountInfo | undefined; loading: boolean }) {
-  if (loading) return <Skeleton className="h-5 w-28 rounded-full" />;
-  if (!info?.has_account) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-        <X className="h-3 w-3" /> No account in system
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-      <UserRound className="h-3 w-3" />
-      Has account{info.account_name ? ` — ${info.account_name}` : ''}
-    </span>
-  );
-}
-
-/**
- * Tap-friendly call + SMS chips for any phone number. Normalises to Ugandan
- * +256 format so every badge is consistently diallable on a smartphone.
- */
-function PhoneActionChips({
-  phone,
-  label,
-}: {
-  phone: string | null | undefined;
-  label?: string;
-}) {
-  const k = last9(phone);
-  if (!k) {
-    return <span className="text-xs text-muted-foreground">No {label ?? 'phone'}</span>;
-  }
-  const full = `+256${k}`;
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <a
-        href={`tel:${full}`}
-        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary active:bg-primary/20 min-h-[34px]"
-      >
-        <PhoneCall className="h-3.5 w-3.5" /> {full}
-      </a>
-      <a
-        href={`sms:${full}`}
-        className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1.5 text-xs font-bold text-emerald-700 active:bg-emerald-200 min-h-[34px] dark:bg-emerald-900/30 dark:text-emerald-400"
-      >
-        <MessageSquare className="h-3.5 w-3.5" /> SMS
-      </a>
-    </div>
-  );
-}
-
-/**
- * The National ID card photo and the selfie the holder recorded, shown under
- * their name so the operator compares the face before tapping Verify. Tapping
- * a thumbnail opens the full photo in a new tab (short-lived signed link).
- * `onPhotosAvailable` reports whether BOTH photos exist — the query polls
- * while they're missing, so the parent re-enables Verify the moment the
- * holder finishes recording, without a refresh.
- */
-function IdentityPhotosStrip({
-  userId,
-  onPhotosAvailable,
-}: {
-  userId: string;
-  onPhotosAvailable?: (available: boolean) => void;
-}) {
-  const photos = useIdentityPhotosFor(userId);
-  const [idUrl, setIdUrl] = useState<string | null>(null);
-  const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
-  const idPath = photos.data?.national_id_photo_path ?? null;
-  const selfiePath = photos.data?.selfie_photo_path ?? null;
-
-  const bothAvailable = !!idPath && !!selfiePath;
-  useEffect(() => {
-    onPhotosAvailable?.(bothAvailable);
-  }, [bothAvailable, onPhotosAvailable]);
-
-  useEffect(() => {
-    let alive = true;
-    setIdUrl(null);
-    setSelfieUrl(null);
-    if (idPath) identityPhotoUrl(idPath).then((u) => alive && setIdUrl(u));
-    if (selfiePath) identityPhotoUrl(selfiePath).then((u) => alive && setSelfieUrl(u));
-    return () => {
-      alive = false;
-    };
-  }, [idPath, selfiePath]);
-
-  if (photos.isLoading) {
-    return (
-      <div className="flex gap-2">
-        <Skeleton className="h-20 w-16 rounded-lg" />
-        <Skeleton className="h-20 w-16 rounded-lg" />
-      </div>
-    );
-  }
-
-  if (!idPath && !selfiePath) {
-    return (
-      <p className="text-xs text-amber-600 flex items-center gap-1.5">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        No ID photo or selfie yet — ask them to record both in the app before verifying.
-      </p>
-    );
-  }
-
-  const shot = (url: string | null, label: string) =>
-    url ? (
-      <a href={url} target="_blank" rel="noreferrer" className="block shrink-0">
-        <img
-          src={url}
-          alt={label}
-          loading="lazy"
-          className="h-20 w-16 rounded-lg object-cover border border-border"
-        />
-        <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
-      </a>
-    ) : (
-      <div className="shrink-0">
-        <div className="h-20 w-16 rounded-lg border border-dashed border-border flex items-center justify-center">
-          <IdCard className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
-      </div>
-    );
-
-  return <div className="flex gap-3">{shot(idUrl, 'National ID')}{shot(selfieUrl, 'Selfie')}</div>;
-}
 
 const FILTERS: { id: PayoutQueueFilter; label: string }[] = [
   { id: 'waiting', label: 'Waiting' },
@@ -309,396 +151,6 @@ function DecisionDialog({
   );
 }
 
-/** "14 Sep 2026, 08:41" */
-function formatDecisionTime(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
-}
-
-/**
- * Collapsible, filterable audit trail of every verification decision —
- * searchable by holder name / number / decider, filterable by decision
- * (approved or rejected) and by decision date range. Newest first.
- */
-function DecisionAuditLog({ onOpenProfile }: { onOpenProfile?: (userId: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-  const [decision, setDecision] = useState<'all' | 'verified' | 'rejected'>('all');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [page, setPage] = useState(0);
-
-  const log = usePayoutDecisionLog(open, { search, decision, from, to }, page);
-  const rows = log.data?.rows ?? [];
-  const total = log.data?.total ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / PAYOUT_DECISION_LOG_PAGE_SIZE));
-  const fromRow = total === 0 ? 0 : page * PAYOUT_DECISION_LOG_PAGE_SIZE + 1;
-  const toRow = Math.min(total, (page + 1) * PAYOUT_DECISION_LOG_PAGE_SIZE);
-
-  const applySearch = () => {
-    setSearch(searchInput);
-    setPage(0);
-  };
-
-  return (
-    <div className="rounded-2xl border border-border bg-card">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-2 p-4"
-      >
-        <span className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <History className="h-4 w-4 text-primary" />
-          Decision audit log
-        </span>
-        {open ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        )}
-      </button>
-
-      {open && (
-        <div className="border-t border-border p-4 space-y-3">
-          {/* Filters */}
-          <div className="relative">
-            <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <Input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-              onBlur={applySearch}
-              placeholder="Search holder, number or who decided"
-              className="pl-8 h-11 text-sm"
-            />
-          </div>
-          <div className="flex gap-2">
-            {(['all', 'verified', 'rejected'] as const).map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => {
-                  setDecision(d);
-                  setPage(0);
-                }}
-                className={`flex-1 rounded-lg border px-3 h-10 text-xs font-semibold capitalize ${
-                  decision === d ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'
-                }`}
-              >
-                {d === 'all' ? 'All decisions' : d}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="block text-[10px] font-semibold text-muted-foreground mb-1">From</label>
-              <Input
-                type="date"
-                value={from}
-                onChange={(e) => {
-                  setFrom(e.target.value);
-                  setPage(0);
-                }}
-                className="h-11 text-sm"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-[10px] font-semibold text-muted-foreground mb-1">To</label>
-              <Input
-                type="date"
-                value={to}
-                onChange={(e) => {
-                  setTo(e.target.value);
-                  setPage(0);
-                }}
-                className="h-11 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Rows */}
-          {log.isLoading ? (
-            <div className="space-y-2">
-              {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-xl" />
-              ))}
-            </div>
-          ) : log.isError ? (
-            <p className="text-xs text-destructive">
-              Could not load the audit log. {log.error instanceof Error ? log.error.message : ''}
-            </p>
-          ) : rows.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">
-              No decisions match these filters.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {rows.map((r: PayoutDecisionLogRow) => {
-                const dest =
-                  r.destination_type === 'mobile_money'
-                    ? `${r.provider ?? 'Mobile money'} · ${r.momo_number ?? ''}`
-                    : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
-                return (
-                  <div key={r.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => r.user_id && onOpenProfile?.(r.user_id)}
-                          className="block max-w-full text-left text-xs font-bold text-foreground truncate underline decoration-primary/50 underline-offset-2 active:text-primary"
-                        >
-                          {r.full_name || 'Name not recorded'}
-                        </button>
-                        <p className="text-[11px] text-muted-foreground truncate">{dest}</p>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                          r.status === 'verified'
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-destructive/10 text-destructive'
-                        }`}
-                      >
-                        {r.status === 'verified' ? 'Approved' : 'Rejected'}
-                      </span>
-                    </div>
-                    {r.destination_type === 'mobile_money' && r.momo_number && (
-                      <PhoneActionChips phone={r.momo_number} />
-                    )}
-                    <p className="text-[11px] text-muted-foreground">
-                      by <span className="font-semibold text-foreground">{r.decided_by_name || 'Financial Ops'}</span>
-                      {' · '}
-                      {formatDecisionTime(r.decided_at)}
-                    </p>
-                    {r.decision_reason && (
-                      <p className="text-[11px] text-muted-foreground">Reason: {r.decision_reason}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Pagination — newest decisions first */}
-          {total > 0 && (
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <p className="text-xs text-muted-foreground">
-                Showing {fromRow}–{toRow} of {total}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-xs font-semibold">
-                  {page + 1} / {pageCount}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page + 1 >= pageCount}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Full detail for one queue row — photos, destination facts, contact
- * actions and the decision button. Rendered inside the phone-friendly
- * tap-through drawer (and nowhere else), so the list itself stays light.
- */
-function QueueDetail({
-  r,
-  accountFor,
-  phoneAccountsLoading,
-  photosAvailable,
-  onPhotosAvailable,
-  onDecide,
-  onOpenProfile,
-}: {
-  r: PayoutDestinationRow;
-  accountFor: (phone: string | null | undefined) => PhoneAccountInfo | undefined;
-  phoneAccountsLoading: boolean;
-  photosAvailable: boolean | undefined;
-  onPhotosAvailable: (available: boolean) => void;
-  onDecide: () => void;
-  onOpenProfile: (userId: string) => void;
-}) {
-  const tone = matchTone(r.name_match_score);
-  const isMomo = r.destination_type === 'mobile_money';
-  const dest = isMomo ? r.momo_number : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <button
-            type="button"
-            onClick={() => r.user_id && onOpenProfile(r.user_id)}
-            className="block max-w-full text-left text-sm font-bold text-foreground truncate underline decoration-primary/50 underline-offset-2 active:text-primary"
-          >
-            {r.full_name || 'Name not recorded'}
-          </button>
-          <div className="mt-1.5">
-            <PhoneActionChips phone={r.user_phone} label="account phone" />
-          </div>
-          <div className="mt-1">
-            <PhoneAccountBadge
-              info={accountFor(r.user_phone)}
-              loading={phoneAccountsLoading && !!r.user_phone}
-            />
-          </div>
-        </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-            r.status === 'verified'
-              ? 'bg-primary/10 text-primary'
-              : r.status === 'rejected'
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-amber-500/15 text-amber-600'
-          }`}
-        >
-          {r.status}
-        </span>
-      </div>
-
-      <IdentityPhotosStrip userId={r.user_id} onPhotosAvailable={onPhotosAvailable} />
-
-      <div className="rounded-xl bg-muted/40 p-3 space-y-2">
-        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-          {isMomo ? <Smartphone className="h-4 w-4 text-primary" /> : <Building2 className="h-4 w-4 text-primary" />}
-          {isMomo ? (
-            <span className="truncate">{r.provider ?? 'Mobile money'}</span>
-          ) : (
-            <span className="truncate">{dest}</span>
-          )}
-        </div>
-        {isMomo && <PhoneActionChips phone={r.momo_number} label="payout number" />}
-        {isMomo && (
-          <PhoneAccountBadge
-            info={accountFor(r.momo_number)}
-            loading={phoneAccountsLoading && !!r.momo_number}
-          />
-        )}
-        <p className="text-xs text-muted-foreground">
-          Name on the {isMomo ? 'number' : 'account'}:{' '}
-          <span className="font-semibold text-foreground">{r.account_name || 'Not given'}</span>
-        </p>
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <IdCard className="h-3.5 w-3.5" />
-          National ID:{' '}
-          <span className="font-semibold text-foreground">
-            {r.national_id ? `${r.national_id} · ${r.national_id_name ?? '—'}` : 'Not submitted'}
-          </span>
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.className}`}>
-            {tone.label}
-          </span>
-          {(r.name_mismatch_tokens ?? []).length > 0 && (
-            <span className="text-[10px] text-muted-foreground">
-              Different words: {(r.name_mismatch_tokens ?? []).join(', ')}
-            </span>
-          )}
-        </div>
-        <p className="text-xs font-bold text-foreground">
-          Withdrawable balance: {formatUGX(r.withdrawable_balance)}
-        </p>
-        {r.decision_reason && (
-          <p className="text-xs text-muted-foreground">Note: {r.decision_reason}</p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2">
-        {r.user_phone && (
-          <a
-            href={`tel:${r.user_phone}`}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground h-12 text-sm font-bold"
-          >
-            <PhoneCall className="h-4 w-4" /> Call {r.full_name?.split(' ')[0] || 'holder'}
-          </a>
-        )}
-        {waLink(r.user_phone) && (
-          <a
-            href={waLink(r.user_phone, `Hello ${r.full_name?.split(' ')[0] || 'there'}, this is Welile Financial Ops.`) as string}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white h-12 text-sm font-bold"
-          >
-            <MessageCircle className="h-4 w-4" /> WhatsApp
-          </a>
-        )}
-        {isMomo && r.momo_number && last9(r.momo_number) !== last9(r.user_phone) && (
-          <>
-            <a
-              href={`tel:${r.momo_number}`}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 text-primary h-12 text-sm font-bold"
-            >
-              <PhoneCall className="h-4 w-4" /> Call payout number
-            </a>
-            {waLink(r.momo_number) && (
-              <a
-                href={waLink(r.momo_number, `Hello, this is Welile Financial Ops contacting you about a payout number registered in your name.`) as string}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-600/50 text-emerald-700 h-12 text-sm font-bold"
-              >
-                <MessageCircle className="h-4 w-4" /> WhatsApp payout number
-              </a>
-            )}
-          </>
-        )}
-      </div>
-
-      {r.decided_at && (
-        <p className="text-[11px] text-muted-foreground">
-          {r.status === 'verified' ? 'Approved' : r.status === 'rejected' ? 'Rejected' : 'Decided'} by{' '}
-          <span className="font-semibold text-foreground">{r.decided_by_name || 'Financial Ops'}</span>
-          {' on '}
-          {formatDecisionTime(r.decided_at)}
-        </p>
-      )}
-
-      {r.status !== 'verified' || r.name_match_score === null ? (
-        <Button className="w-full h-11" onClick={onDecide} disabled={!photosAvailable}>
-          Verify or reject
-        </Button>
-      ) : (
-        <Button variant="outline" className="w-full h-11" onClick={onDecide} disabled={!photosAvailable}>
-          Change decision
-        </Button>
-      )}
-
-      {photosAvailable === false && (
-        <p className="text-xs text-amber-600 flex items-center gap-1.5">
-          <AlertTriangle className="h-3.5 w-3.5" />
-          Both a National ID photo and a selfie must be uploaded before verifying.
-        </p>
-      )}
-
-      {r.national_id === null && (
-        <p className="text-xs text-amber-600 flex items-center gap-1.5">
-          <AlertTriangle className="h-3.5 w-3.5" />
-          Ask them to submit their National ID in the app before verifying.
-        </p>
-      )}
-    </div>
-  );
-}
-
 export default function PayoutVerificationPanel() {
   const [status, setStatus] = useState<PayoutQueueFilter>('waiting');
   const [sort, setSort] = useState<PayoutQueueSort>('balance');
@@ -706,47 +158,14 @@ export default function PayoutVerificationPanel() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [active, setActive] = useState<PayoutDestinationRow | null>(null);
-  // Per-row photo readiness; each photo strip reports here and the photo
-  // query polls while shots are missing, so Verify turns on by itself the
-  // moment both photos land — no refresh.
-  const [photosAvailable, setPhotosAvailable] = useState<Record<string, boolean>>({});
-  // Name tap → read-only profile sheet for that person.
-  const [profileUserId, setProfileUserId] = useState<string | null>(null);
-  // Tap-through detail drawer: the compact list row that was tapped.
-  const [detailRow, setDetailRow] = useState<PayoutDestinationRow | null>(null);
-
-  // Lock body scroll while the full-screen drawer is open.
-  useEffect(() => {
-    if (!detailRow) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [detailRow]);
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
 
   const total = queue.data?.total ?? 0;
   const rows = queue.data?.rows ?? [];
-
-  // Keep the open drawer showing fresh queue data after refetches.
-  useEffect(() => {
-    if (!detailRow) return;
-    const fresh = rows.find((r) => r.id === detailRow.id);
-    if (fresh && fresh !== detailRow) setDetailRow(fresh);
-  }, [rows, detailRow]);
-
-  // One batched lookup for every phone on the page (account phone + payout
-  // number): does this number have a Welile account, and whose?
-  const pagePhones = useMemo(
-    () => rows.flatMap((r) => [r.user_phone, r.momo_number]),
-    [rows],
-  );
-  const phoneAccounts = usePhoneAccountLookup(pagePhones, rows.length > 0);
-  const accountFor = (phone: string | null | undefined): PhoneAccountInfo | undefined =>
-    phoneAccounts.data?.[last9(phone)];
+  // Faces beside the names, kept current the moment anyone's picture changes.
+  const { avatarFor } = useUserAvatars(rows.map((r) => r.user_id));
   const pageCount = Math.max(1, Math.ceil(total / PAYOUT_VERIFICATION_PAGE_SIZE));
   const from = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + 1;
   const to = Math.min(total, (page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE);
@@ -774,8 +193,6 @@ export default function PayoutVerificationPanel() {
 
   return (
     <div className="space-y-4">
-      <DecisionAuditLog onOpenProfile={setProfileUserId} />
-
       {/* Headline */}
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
         <div className="flex items-start gap-3">
@@ -798,68 +215,45 @@ export default function PayoutVerificationPanel() {
         </div>
       </div>
 
-      {/* Search + filters — sticky so they stay within thumb reach on a phone */}
-      <div className="sticky top-0 z-20 -mx-1 space-y-2 bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        {/* Search: filter the whole queue by holder name or payout number */}
-        <div className="relative">
+      {/* Filters */}
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        {FILTERS.map((f) => {
+          const n = countFor(f.id);
+          const selected = status === f.id;
+          return (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => {
+                setStatus(f.id);
+                setPage(0);
+              }}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                selected
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-foreground hover:bg-muted/50'
+              }`}
+            >
+              {f.label}
+              {n !== null && n > 0 ? ` (${n})` : ''}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search + sort */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
           <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && applySearch()}
             onBlur={applySearch}
-            placeholder="Filter by holder name or payout number"
-            className="pl-8 pr-8 h-11 text-sm"
-            aria-label="Filter payout verifications by holder name or payout number"
+            placeholder="Search name, number, account or National ID"
+            className="pl-8 h-11 text-sm"
           />
-          {searchInput && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchInput('');
-                setSearch('');
-                setPage(0);
-              }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
         </div>
-        {search && (
-          <p className="text-xs text-muted-foreground">
-            Showing results for "<span className="font-semibold text-foreground">{search}</span>"
-          </p>
-        )}
-
-        {/* Status filter chips */}
-        <div className="flex gap-2 overflow-x-auto">
-          {FILTERS.map((f) => {
-            const n = countFor(f.id);
-            const selected = status === f.id;
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => {
-                  setStatus(f.id);
-                  setPage(0);
-                }}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  selected
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-card text-foreground hover:bg-muted/50'
-                }`}
-              >
-                {f.label}
-                {n !== null && n > 0 ? ` (${n})` : ''}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Sort */}
         <div className="flex gap-2">
           {(['balance', 'oldest'] as PayoutQueueSort[]).map((s) => (
             <button
@@ -869,7 +263,7 @@ export default function PayoutVerificationPanel() {
                 setSort(s);
                 setPage(0);
               }}
-              className={`flex-1 rounded-lg border px-3 h-11 text-xs font-semibold ${
+              className={`flex-1 sm:flex-none rounded-lg border px-3 h-11 text-xs font-semibold ${
                 sort === s ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'
               }`}
             >
@@ -899,58 +293,113 @@ export default function PayoutVerificationPanel() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {rows.map((r) => {
             const tone = matchTone(r.name_match_score);
             const isMomo = r.destination_type === 'mobile_money';
-            const dest = isMomo
-              ? `${r.provider ?? 'Mobile money'} · ${r.momo_number ?? ''}`
-              : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
+            const dest = isMomo ? r.momo_number : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
             return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setDetailRow(r)}
-                className="w-full rounded-2xl border border-border bg-card p-3.5 text-left active:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
+              <div key={r.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar className="h-10 w-10 shrink-0 border border-border">
+                      <AvatarImage src={avatarFor(r.user_id) ?? undefined} alt={r.full_name || 'Holder photo'} />
+                      <AvatarFallback className="text-xs font-bold">
+                        {(r.full_name || '?').trim().charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
                       <p className="text-sm font-bold text-foreground truncate">
                         {r.full_name || 'Name not recorded'}
                       </p>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                          r.status === 'verified'
-                            ? 'bg-primary/10 text-primary'
-                            : r.status === 'rejected'
-                              ? 'bg-destructive/10 text-destructive'
-                              : 'bg-amber-500/15 text-amber-600'
-                        }`}
-                      >
-                        {r.status}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                      {isMomo ? (
-                        <Smartphone className="h-3.5 w-3.5 shrink-0 text-primary" />
-                      ) : (
-                        <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" />
-                      )}
-                      {dest || 'No destination recorded'}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.className}`}>
-                        {tone.label}
-                      </span>
-                      <span className="text-xs font-bold text-foreground">
-                        {formatUGX(r.withdrawable_balance)}
-                      </span>
+                      <p className="text-xs text-muted-foreground">{r.user_phone || 'No account phone'}</p>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      r.status === 'verified'
+                        ? 'bg-primary/10 text-primary'
+                        : r.status === 'rejected'
+                          ? 'bg-destructive/10 text-destructive'
+                          : 'bg-amber-500/15 text-amber-600'
+                    }`}
+                  >
+                    {r.status}
+                  </span>
                 </div>
-              </button>
+
+                <div className="rounded-xl bg-muted/40 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    {isMomo ? <Smartphone className="h-4 w-4 text-primary" /> : <Building2 className="h-4 w-4 text-primary" />}
+                    <span className="truncate">
+                      {isMomo ? `${r.provider ?? 'Mobile money'} · ${dest}` : dest}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Name on the {isMomo ? 'number' : 'account'}:{' '}
+                    <span className="font-semibold text-foreground">{r.account_name || 'Not given'}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <IdCard className="h-3.5 w-3.5" />
+                    National ID:{' '}
+                    <span className="font-semibold text-foreground">
+                      {r.national_id ? `${r.national_id} · ${r.national_id_name ?? '—'}` : 'Not submitted'}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.className}`}>
+                      {tone.label}
+                    </span>
+                    {(r.name_mismatch_tokens ?? []).length > 0 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Different words: {(r.name_mismatch_tokens ?? []).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs font-bold text-foreground">
+                    Withdrawable balance: {formatUGX(r.withdrawable_balance)}
+                  </p>
+                  {r.decision_reason && (
+                    <p className="text-xs text-muted-foreground">Note: {r.decision_reason}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {r.user_phone && (
+                    <a
+                      href={`tel:${r.user_phone}`}
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground h-12 text-sm font-bold"
+                    >
+                      <PhoneCall className="h-4 w-4" /> Call {r.full_name?.split(' ')[0] || 'holder'}
+                    </a>
+                  )}
+                  {isMomo && r.momo_number && r.momo_number !== r.user_phone && (
+                    <a
+                      href={`tel:${r.momo_number}`}
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 text-primary h-12 text-sm font-bold"
+                    >
+                      <PhoneCall className="h-4 w-4" /> Call payout number
+                    </a>
+                  )}
+                </div>
+
+                {r.status !== 'verified' || r.name_match_score === null ? (
+                  <Button className="w-full h-11" onClick={() => setActive(r)}>
+                    Verify or reject
+                  </Button>
+                ) : (
+                  <Button variant="outline" className="w-full h-11" onClick={() => setActive(r)}>
+                    Change decision
+                  </Button>
+                )}
+
+                {r.national_id === null && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Ask them to submit their National ID in the app before verifying.
+                  </p>
+                )}
+              </div>
             );
           })}
         </div>
@@ -986,54 +435,7 @@ export default function PayoutVerificationPanel() {
         </div>
       )}
 
-      {/* Tap-through detail drawer — full-screen on a phone, with a clear
-          Back button returning to the list exactly as it was left. */}
-      {detailRow && (
-        <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-background">
-          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-            <button
-              type="button"
-              onClick={() => setDetailRow(null)}
-              className="inline-flex min-h-[40px] items-center gap-1 rounded-full bg-primary/10 px-3 text-sm font-bold text-primary active:bg-primary/20"
-            >
-              <ChevronLeft className="h-4 w-4" /> Back to list
-            </button>
-            <p className="min-w-0 flex-1 truncate text-right text-xs font-semibold text-muted-foreground">
-              {detailRow.full_name || 'Name not recorded'}
-            </p>
-          </div>
-          <div className="mx-auto max-w-lg p-4 pb-10">
-            <QueueDetail
-              r={detailRow}
-              accountFor={accountFor}
-              phoneAccountsLoading={phoneAccounts.isLoading}
-              photosAvailable={photosAvailable[detailRow.id]}
-              onPhotosAvailable={(a) =>
-                setPhotosAvailable((m) => (m[detailRow.id] === a ? m : { ...m, [detailRow.id]: a }))
-              }
-              onDecide={() => setActive(detailRow)}
-              onOpenProfile={setProfileUserId}
-            />
-          </div>
-        </div>
-      )}
-
-      <DecisionDialog
-        row={active}
-        onClose={() => {
-          setActive(null);
-          // A fresh decision usually moves the row out of the current
-          // filter — return the operator to the list.
-          setDetailRow(null);
-        }}
-      />
-      <UserProfileDrilldown
-        open={!!profileUserId}
-        onOpenChange={(v) => {
-          if (!v) setProfileUserId(null);
-        }}
-        userId={profileUserId}
-      />
+      <DecisionDialog row={active} onClose={() => setActive(null)} />
     </div>
   );
 }

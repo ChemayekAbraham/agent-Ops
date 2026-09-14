@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FolderOpen, Camera, FileImage, Loader2, ExternalLink, AlertTriangle, Upload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { publishAvatarUpdate } from '@/lib/avatarSync';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { optimizeImage } from '@/lib/imageOptimizer';
@@ -130,6 +131,7 @@ export function TenantDocumentsSection({
       // Keep the tenant's profile photo in step with the passport on file.
       if (docType === 'tenant_passport' && publicUrl) {
         await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', tenantId);
+        publishAvatarUpdate(tenantId, publicUrl);
       }
 
       toast.success(existing ? 'Document replaced' : 'Document uploaded');

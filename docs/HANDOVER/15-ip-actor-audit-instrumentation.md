@@ -137,10 +137,8 @@ automated payroll-loyalty-bonus and platform-expense-transfer postings that othe
 category — 77 of an initial 85 hits were the payroll cron alone); role grants/revocations; partner
 and landlord payout-destination changes without IP (the landlord check excludes rows already
 explained by the Part 4 companion audit row); agreement acceptances without IP (regression guard on
-the Part 3 fix); KYC level changes without IP. Each check is duplicate-guarded against **any** prior
-alert for the same `(source_table, record_id, issue_type)`, resolved or not — see Part 8 for why it
-originally excluded only unresolved ones, and what that got wrong — and scoped to a rolling 48-hour
-window.
+the Part 3 fix); KYC level changes without IP. Each check is duplicate-guarded against unresolved
+alerts for the same `(source_table, record_id, issue_type)` and scoped to a rolling 48-hour window.
 
 Query it with:
 
@@ -227,71 +225,16 @@ bug and fixed:
   it from headers — grepped the whole `src/` tree, nothing calls it; left as dead code rather than
   guessed at.
 
-## Part 8 — independent E2E test agent report (2026-09-14, later the same day)
-
-A separate agent, briefed with a self-contained payments E2E test plan, ran the withdrawal
-manager→CFO→FinOps chain, the merchant telecom atomicity fix, the payout-account lock, and the
-Part 6 adversarial header tests independently — via the same rolled-back-transaction technique —
-and largely corroborated everything above. It also found three things this initiative had missed:
-
-1. **`issue-landlord-payout-otp` still had the vulnerable XFF-before-cf-connecting-ip ordering.**
-   The very function whose landlord MoMo actor-attribution fix (Part 4, `64bde2d6d`) this whole
-   initiative was built around had never been updated to use the shared
-   `_shared/resolveClientIp.ts` helper — so the IP recorded alongside that fix's real `agent_id`
-   could still be attacker-influenced. Fixed (`51831a2d4`): switched to the shared helper. Confirmed
-   it was the only such site in the file.
-2. **A direct database status update can move a withdrawal straight to `completed` without
-   traversing manager/CFO/FinOps approval, and the resulting audit event's actor could be
-   misattributed to the withdrawal owner.** Investigated the workflow question first:
-   `approve-withdrawal`'s own `approvableStatuses` is `["pending", "requested", "manager_approved"]`
-   — manager approval is already optional by design, and 8,627 of 8,705 approved/completed
-   withdrawals go straight from `pending` to a single FinOps completion in normal production
-   traffic. **This is not a bypass of a required workflow; it's the workflow.** No DB-level state
-   machine was added — enforcing "always require all three stages" would break real, legitimate
-   traffic that the business never required to have them.
-   The actor-misattribution half was real and independent of that question, though: the old
-   `COALESCE(NEW.processed_by, NEW.user_id)` fallback in `log_withdrawal_status_event()` could
-   misattribute either a system/cron-driven completion to its recipient (checked: 78 of 8,705 rows
-   have `processed_by IS NULL`, almost all legitimately automated "Proxy payout delivery for ..."
-   completions, not evidence of a historical staff bypass) or a staff member's direct bypass of
-   `approve-withdrawal` to the wrong person entirely. Fixed (`b6938c505`): the fallback now prefers
-   `auth.uid()` (the actual authenticated caller of the current statement) over the withdrawal
-   owner, and when truly no actor exists, leaves `user_id` null with an explicit
-   `metadata.actor_type = 'system'` instead of guessing — verified with two rolled-back tests
-   matching both cases.
-3. **The missing-IP watchdog was re-flagging alerts that had already been investigated and
-   resolved.** Every dedup guard in `detect_missing_ip_on_sensitive_actions()` excluded only
-   *unresolved* prior alerts, so resolving a batch with an explanation made those exact rows
-   eligible to be re-inserted as fresh unresolved alerts on the very next hourly cron tick.
-   Confirmed empirically: all 159 rows the agent found "unresolved" were exact `record_id`
-   duplicates of the batch already resolved with notes in Part 7. Fixed (`1c8360a70`): dedup now
-   checks whether a row has *ever* been alerted on before, resolved or not — a triaged row no
-   longer resurfaces on its own. The 159 duplicates were resolved with a note pointing back at this
-   fix; a resolved alert can still be manually reopened if new information calls for it.
-   This same investigation also confirmed the `approve-withdrawal` completion-IP backfill from Part
-   7 is **not yet live in production** — a genuinely new `withdrawal_status_event_missing_ip` alert
-   (record id `530d3686-...`, 2026-09-14 05:08 UTC) matches the exact same actor pattern as before
-   the fix, meaning the edge function change is still only committed to the repo, pending the
-   normal deploy pipeline. Left unresolved on purpose — it accurately reflects live state.
-
-The agent's other findings all confirmed existing behavior rather than surfacing anything new:
-merchant telecom principal/telecom independent idempotency held on both a synthetic test and three
-real production payouts sampled after the cutoff; the payout-account lock and its blocked-attempt
-logging worked correctly, including the edge-runtime-suppression case; all three Part 6 header-trust
-tests (client-spoofed agreement IP, edge-runtime-UA impersonation, Cloudflare-over-XFF ordering)
-passed again independently; the 30-day and test-window ledger balance checks were both clean
-(`unbalanced_multileg = 0`).
-
 ## What's still open
 
-1. **Deploy the `approve-withdrawal` and `issue-landlord-payout-otp` edge function changes.** Both
-   are committed (`774741625`, `51831a2d4`) but edge functions need the project's normal deploy
-   pipeline, not a live database push — Part 8 found direct evidence (`approve-withdrawal`) that
-   the fix is not live yet.
-2. **A role-grant/revoke staging mutation test** (grant → revoke → disable → re-enable, verifying
-   the audit trail survives both the normal UI path and any direct supported backend path) is the
-   one test from the original plan neither this initiative nor the Part 8 agent has run.
-3. **A single shared IP-resolution utility.** `supabase/functions/_shared/resolveClientIp.ts` exists
+1. **Staging end-to-end mutation tests**, recommended but not run (no staging environment access
+   from this session):
+   - Create a withdrawal → manager approval → CFO approval → FinOps approval, verifying every stage
+     captures actor, role, IP, and old/new status — then deliberately try an alternative/direct
+     approval path and confirm the audit trail still holds.
+   - Grant a role → revoke it → disable it → re-enable it, verifying the audit trail survives both
+     the normal UI path and any direct supported backend path.
+2. **A single shared IP-resolution utility.** `supabase/functions/_shared/resolveClientIp.ts` exists
    and is used by `approve-withdrawal`, but roughly a dozen other capture points (all the SQL
    functions listed in Part 1/2/3) still each carry their own copy of the same
    cf-connecting-ip-then-XFF logic inline. Consolidating them into one Postgres function (mirrored
@@ -315,13 +258,8 @@ passed again independently; the 30-day and test-window ledger balance checks wer
 | 153 missing-IP withdrawal approvals | ✅ Investigated — historical + 1 live case, fixed |
 | 6 ledger corrections | ✅ Investigated — fully explained, no action needed |
 | `log_financial_ops_violation` / `record_signup_attempt` | ✅ Fixed |
-| Independent E2E test agent report (withdrawal chain, merchant telecom, header trust) | ✅ Corroborated + found 3 new issues, all fixed |
-| `issue-landlord-payout-otp` IP ordering | ✅ Fixed |
-| Withdrawal-completion actor misattribution | ✅ Fixed |
-| Missing-IP watchdog re-flagging bug | ✅ Fixed |
-| Deploy `approve-withdrawal` / `issue-landlord-payout-otp` edge function changes | 🟡 Open — committed, not yet deployed |
-| Role-grant/revoke staging mutation test | 🟡 Open — needs a staging environment |
-| Single shared IP-resolution utility (full rollout) | 🟡 Partial — two edge functions done, SQL functions not yet consolidated |
+| Staging mutation tests (withdrawal + role) | 🟡 Open — needs a staging environment |
+| Single shared IP-resolution utility (full rollout) | 🟡 Partial — one edge function done, SQL functions not yet consolidated |
 
 From here, the priority shifts from **building logging** to **monitoring and using**
 `security_ip_audit_alerts` as the ongoing control.

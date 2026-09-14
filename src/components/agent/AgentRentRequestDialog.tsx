@@ -85,6 +85,7 @@ import {
   Undo2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { publishAvatarUpdate } from '@/lib/avatarSync';
 import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { formatUGX, calculateRentRepayment } from '@/lib/rentCalculations';
 import { hapticSuccess } from '@/lib/haptics';
@@ -2192,7 +2193,13 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       // Best-effort: also set on tenant profile avatar if missing
       if (tenantUserId) {
         try {
-          await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', tenantUserId).is('avatar_url', null);
+          const { data: updated } = await supabase
+            .from('profiles')
+            .update({ avatar_url: data.publicUrl })
+            .eq('id', tenantUserId)
+            .is('avatar_url', null)
+            .select('id');
+          if (updated?.length) publishAvatarUpdate(tenantUserId, data.publicUrl);
         } catch { /* non-fatal */ }
       }
       return data.publicUrl;
