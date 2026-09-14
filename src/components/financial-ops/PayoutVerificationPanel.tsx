@@ -35,6 +35,7 @@ import {
 
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -54,6 +55,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useUserAvatars } from '@/hooks/useUserAvatars';
 import { useAuth } from '@/hooks/useAuth';
@@ -74,6 +77,7 @@ import {
   type PayoutVerificationCounts,
   type PayoutQueueFilter,
   type PayoutQueueSort,
+  type PayoutQueueUserType,
 } from '@/hooks/usePayoutVerification';
 
 const FILTERS: { id: PayoutQueueFilter; label: string; countKey?: keyof PayoutVerificationCounts }[] = [
@@ -543,13 +547,24 @@ export default function PayoutVerificationPanel() {
   }, []);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [userType, setUserType] = useState<PayoutQueueUserType>('all');
   const [page, setPage] = useState(0);
   const [index, setIndex] = useState(0);
   const [deciding, setDeciding] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
 
   const counts = usePayoutVerificationCounts();
-  const queue = usePayoutVerificationQueue({ status, search, sort, page });
+  const queue = usePayoutVerificationQueue({
+    status,
+    search,
+    sort,
+    page,
+    dateFrom: dateFrom ? format(dateFrom, 'yyyy-MM-dd') : null,
+    dateTo: dateTo ? format(dateTo, 'yyyy-MM-dd') : null,
+    userType,
+  });
 
   const total = queue.data?.total ?? 0;
   const rows = useMemo(() => queue.data?.rows ?? [], [queue.data?.rows]);
