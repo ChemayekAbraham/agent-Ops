@@ -342,7 +342,10 @@ export default function Settings() {
       const { error: updateError } = await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id', user.id);
       if (updateError) throw updateError;
       setProfile(prev => prev ? { ...prev, avatar_url: avatarUrl } : null);
-      toast.success('Profile photo updated!');
+      // Repaint every other view showing this face (own profile, ops queues,
+      // audit logs, public profiles) and any other open tab, immediately.
+      publishAvatarUpdate(user.id, avatarUrl);
+      toast.success('Profile photo updated everywhere!');
     } catch (error) { console.error('Error uploading avatar:', error); toast.error('Failed to upload photo'); }
     finally { setUploadingAvatar(false); }
   };
