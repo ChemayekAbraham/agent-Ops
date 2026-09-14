@@ -384,11 +384,13 @@ function HeroPhoto({
 function DecisionDialog({
   row,
   photosReady,
+  idNameUnreadable,
   onClose,
   onSaved,
 }: {
   row: PayoutDestinationRow | null;
   photosReady: boolean;
+  idNameUnreadable: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -396,17 +398,22 @@ function DecisionDialog({
   const [reason, setReason] = useState('');
   const [callOutcome, setCallOutcome] = useState('');
   const [decision, setDecision] = useState<'verified' | 'rejected'>('verified');
+  const verifyBlocked = !photosReady || idNameUnreadable;
 
   useEffect(() => {
-    setDecision(photosReady ? 'verified' : 'rejected');
+    setDecision(!photosReady || idNameUnreadable ? 'rejected' : 'verified');
     setReason('');
     setCallOutcome('');
-  }, [row, photosReady]);
+  }, [row, photosReady, idNameUnreadable]);
 
   const submit = async () => {
     if (!row) return;
     if (decision === 'verified' && !photosReady) {
       toast.error('Both the National ID photo and the selfie must be on file before verifying.');
+      return;
+    }
+    if (decision === 'verified' && idNameUnreadable) {
+      toast.error('The name could not be read from the National ID photo. Ask for a clearer photo — until then this payout can only be rejected.');
       return;
     }
     if (reason.trim().length < 10) {
