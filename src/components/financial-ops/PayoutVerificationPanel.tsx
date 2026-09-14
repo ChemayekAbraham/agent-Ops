@@ -26,6 +26,7 @@ import {
   Loader2,
   MessageCircle,
   PhoneCall,
+  RefreshCw,
   Search,
   ShieldAlert,
   Smartphone,
@@ -717,6 +718,25 @@ export default function PayoutVerificationPanel() {
               {position} of {total}
             </p>
           )}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 shrink-0 rounded-full p-0"
+            aria-label="Refresh the queue"
+            title="Refresh the queue"
+            onClick={() => {
+              void queue.refetch();
+              counts.refetch();
+            }}
+            disabled={queue.isFetching}
+          >
+            {queue.isFetching ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
+            ) : (
+              <RefreshCw className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            )}
+          </Button>
         </div>
         <div className="flex gap-2">
           <div className="relative flex-1">
