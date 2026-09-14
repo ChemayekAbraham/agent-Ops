@@ -53,6 +53,7 @@ interface IdentityPhotosStripProps {
   userId: string;
   holderName?: string | null;
   verificationStatus?: string | null;
+  onPhotosAvailable?: (available: boolean) => void;
 }
 
 /**
@@ -62,7 +63,7 @@ interface IdentityPhotosStripProps {
  * without leaving the queue. Badges make the upload and decision status
  * scannable at a glance.
  */
-function IdentityPhotosStrip({ userId, holderName, verificationStatus }: IdentityPhotosStripProps) {
+function IdentityPhotosStrip({ userId, holderName, verificationStatus, onPhotosAvailable }: IdentityPhotosStripProps) {
   const photos = useIdentityPhotosFor(userId);
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
@@ -70,6 +71,11 @@ function IdentityPhotosStrip({ userId, holderName, verificationStatus }: Identit
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
+  const bothAvailable = !!idPath && !!selfiePath;
+
+  useEffect(() => {
+    onPhotosAvailable?.(bothAvailable);
+  }, [bothAvailable, onPhotosAvailable]);
 
   useEffect(() => {
     let alive = true;
@@ -309,6 +315,7 @@ export default function PayoutVerificationPanel() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [active, setActive] = useState<PayoutDestinationRow | null>(null);
+  const [photosAvailable, setPhotosAvailable] = useState<Record<string, boolean>>({});
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
@@ -469,7 +476,14 @@ export default function PayoutVerificationPanel() {
                   </span>
                 </div>
 
-                <IdentityPhotosStrip userId={r.user_id} holderName={r.full_name} verificationStatus={r.status} />
+                <IdentityPhotosStrip
+                  userId={r.user_id}
+                  holderName={r.full_name}
+                  verificationStatus={r.status}
+                  onPhotosAvailable={(available) =>
+                    setPhotosAvailable((prev) => ({ ...prev, [r.id]: available }))
+                  }
+                />
 
                 <div className="rounded-xl bg-muted/40 p-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -527,13 +541,29 @@ export default function PayoutVerificationPanel() {
                 </div>
 
                 {r.status !== 'verified' || r.name_match_score === null ? (
-                  <Button className="w-full h-11" onClick={() => setActive(r)}>
+                  <Button
+                    className="w-full h-11"
+                    onClick={() => setActive(r)}
+                    disabled={!photosAvailable[r.id]}
+                  >
                     Verify or reject
                   </Button>
                 ) : (
-                  <Button variant="outline" className="w-full h-11" onClick={() => setActive(r)}>
+                  <Button
+                    variant="outline"
+                    className="w-full h-11"
+                    onClick={() => setActive(r)}
+                    disabled={!photosAvailable[r.id]}
+                  >
                     Change decision
                   </Button>
+                )}
+
+                {photosAvailable[r.id] === false && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Both a National ID photo and a selfie must be uploaded before verifying.
+                  </p>
                 )}
 
                 {r.national_id === null && (
