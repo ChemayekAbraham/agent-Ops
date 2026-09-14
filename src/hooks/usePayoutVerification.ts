@@ -301,6 +301,44 @@ export function useHolderNameHistory(userId?: string | null) {
 
 
 
+/** One recorded attempt at reading a National ID photo (front or back). */
+export interface NationalIdOcrRead {
+  id: string;
+  side: 'front' | 'back';
+  read_at: string;
+  extracted_text: string | null;
+  extracted_name: string | null;
+  extracted_id_number: string | null;
+  extracted_date_of_birth: string | null;
+  account_name: string | null;
+  account_national_id: string | null;
+  name_match_score: number | null;
+  name_matched: boolean | null;
+  id_number_matched: boolean | null;
+  readable: boolean | null;
+  is_national_id: boolean | null;
+  failure_reason: string | null;
+}
+
+/**
+ * Audit trail of every National ID photo read for one person — the text taken
+ * off each side, when it was read, and what matched or failed against the
+ * account details. Gated to the owner plus Financial Ops / CFO / super admin.
+ */
+export function useNationalIdOcrReads(userId?: string | null) {
+  return useQuery({
+    queryKey: ['national-id-ocr-reads', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('finops_national_id_ocr_reads', {
+        p_user_id: userId as string,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as NationalIdOcrRead[];
+    },
+  });
+}
+
 /** The signed-in user's own National ID submission. */
 export function useSubmitNationalId() {
   const qc = useQueryClient();
