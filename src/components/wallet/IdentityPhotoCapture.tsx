@@ -18,6 +18,7 @@ import {
   useSubmitIdentityPhotos,
   type IdentityPhotoKind,
 } from '@/hooks/useIdentityPhotos';
+import SelfieCropDialog from '@/components/wallet/SelfieCropDialog';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -150,6 +151,8 @@ export default function IdentityPhotoCapture({
   const [idShot, setIdShot] = useState<Shot | null>(null);
   const [selfie, setSelfie] = useState<Shot | null>(null);
   const [busy, setBusy] = useState(false);
+  // Raw camera shot waiting for the crop/confirm step.
+  const [pendingSelfie, setPendingSelfie] = useState<File | null>(null);
 
   const alreadyDone = !!data?.national_id_photo_path && !!data?.selfie_photo_path;
   if (isLoading || alreadyDone) return null;
@@ -226,11 +229,21 @@ export default function IdentityPhotoCapture({
           icon={<Camera className="h-4 w-4 text-primary" />}
           shot={selfie}
           facing="user"
-          onPick={pick(setSelfie)}
+          onPick={(file) => setPendingSelfie(file)}
           onClear={() => setSelfie(null)}
           disabled={working}
         />
       </div>
+
+      <SelfieCropDialog
+        file={pendingSelfie}
+        open={!!pendingSelfie}
+        onCancel={() => setPendingSelfie(null)}
+        onConfirm={(cropped) => {
+          setPendingSelfie(null);
+          setSelfie({ file: cropped, preview: URL.createObjectURL(cropped) });
+        }}
+      />
 
       <Button onClick={save} disabled={!idShot || !selfie || working} className="w-full h-12 text-base font-bold">
         {working ? (
