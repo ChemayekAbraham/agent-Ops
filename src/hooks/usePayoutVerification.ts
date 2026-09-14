@@ -41,7 +41,11 @@ export interface PayoutDestinationRow {
   withdrawable_balance: number;
   /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
   name_source: 'national_id' | 'verified' | null;
+  /** Set when this National ID already belongs to another account (auto-rejected). */
+  duplicate_id_user_id: string | null;
+  duplicate_id_name: string | null;
   total_count: number;
+
 }
 
 export interface PayoutVerificationCounts {

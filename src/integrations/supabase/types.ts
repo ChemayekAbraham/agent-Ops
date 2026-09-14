@@ -51929,6 +51929,10 @@ export type Database = {
           new_withdrawable: number
         }[]
       }
+      duplicate_national_id_owner: {
+        Args: { p_national_id: string; p_user_id: string }
+        Returns: string
+      }
       edit_welile_home_enrollment: {
         Args: {
           p_agent_id: string
@@ -52417,6 +52421,8 @@ export type Database = {
           decided_by_name: string
           decision_reason: string
           destination_type: string
+          duplicate_id_name: string
+          duplicate_id_user_id: string
           first_seen_at: string
           full_name: string
           id: string
