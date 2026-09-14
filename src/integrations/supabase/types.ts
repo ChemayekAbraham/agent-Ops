@@ -30115,6 +30115,7 @@ export type Database = {
           monthly_rent: number | null
           must_change_password: boolean | null
           national_id: string | null
+          national_id_back_photo_path: string | null
           national_id_name: string | null
           national_id_photo_path: string | null
           occupation: string | null
@@ -30220,6 +30221,7 @@ export type Database = {
           monthly_rent?: number | null
           must_change_password?: boolean | null
           national_id?: string | null
+          national_id_back_photo_path?: string | null
           national_id_name?: string | null
           national_id_photo_path?: string | null
           occupation?: string | null
@@ -30325,6 +30327,7 @@ export type Database = {
           monthly_rent?: number | null
           must_change_password?: boolean | null
           national_id?: string | null
+          national_id_back_photo_path?: string | null
           national_id_name?: string | null
           national_id_photo_path?: string | null
           occupation?: string | null
@@ -52493,6 +52496,15 @@ export type Database = {
         }
         Returns: Json
       }
+      finops_set_national_id: {
+        Args: {
+          p_id: string
+          p_name_match_score?: number
+          p_national_id: string
+          p_national_id_name?: string
+        }
+        Returns: Json
+      }
       finops_sync_merchant_desk_float_cache: {
         Args: { p_desk_id: string; p_reason: string }
         Returns: Json
@@ -59579,10 +59591,19 @@ export type Database = {
         Args: { p_sub_agent_id: string }
         Returns: number
       }
-      submit_identity_photos: {
-        Args: { p_id_photo_path: string; p_selfie_path: string }
-        Returns: Json
-      }
+      submit_identity_photos:
+        | {
+            Args: { p_id_photo_path: string; p_selfie_path: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_id_back_photo_path?: string
+              p_id_photo_path: string
+              p_selfie_path: string
+            }
+            Returns: Json
+          }
       submit_landlord_agreement: {
         Args: {
           p_details: Json

@@ -11,7 +11,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
-import { DUPLICATE_NATIONAL_ID_MESSAGE, isDuplicateNationalIdError } from '@/lib/nationalId';
 
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
@@ -45,15 +44,6 @@ export interface PayoutDestinationRow {
   /** Set when this National ID already belongs to another account (auto-rejected). */
   duplicate_id_user_id: string | null;
   duplicate_id_name: string | null;
-  duplicate_id_accounts:
-    | {
-        user_id: string;
-        full_name: string | null;
-        phone: string | null;
-        national_id: string | null;
-        created_at?: string | null;
-      }[]
-    | null;
   total_count: number;
 
 }
@@ -272,6 +262,47 @@ export function useSetHolderName() {
 }
 
 /**
+ * Financial Ops corrects the National ID number. The database stores the new
+ * number and, when a fresh name was read off the ID photo, adopts that name as
+ * the account name in the same call — no extra tap. Duplicate IDs are refused.
+ */
+export function useFinopsSetNationalId() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      nationalId: string;
+      idName?: string | null;
+      nameMatchScore?: number | null;
+    }) => {
+      const { data, error } = await supabase.rpc('finops_set_national_id', {
+        p_id: input.id,
+        p_national_id: input.nationalId,
+        p_national_id_name: input.idName ?? null,
+        p_name_match_score: input.nameMatchScore ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as {
+        success?: boolean;
+        duplicate?: boolean;
+        duplicate_of_name?: string | null;
+        message?: string;
+        national_id?: string;
+        national_id_name?: string | null;
+        name_adopted?: boolean;
+        full_name?: string | null;
+      };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
+    },
+  });
+}
+
+/**
  * Admin rollback: put back the name a National ID adoption (or a manual
  * override) replaced. Admin-only (CFO / super admin) inside the database.
  */
@@ -336,19 +367,9 @@ export function useSubmitNationalId() {
         p_national_id: input.nationalId,
         p_id_name: input.idName,
       });
-      // A duplicate National ID is rejected by the database unique index
-      // (23505) even if every other check passed — surface it plainly.
-      if (error) {
-        if (isDuplicateNationalIdError(error)) throw new Error(DUPLICATE_NATIONAL_ID_MESSAGE);
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
       const res = (data ?? {}) as { success?: boolean; message?: string };
-      if (!res.success) {
-        if (res.message && isDuplicateNationalIdError(res.message)) {
-          throw new Error(DUPLICATE_NATIONAL_ID_MESSAGE);
-        }
-        throw new Error(res.message || 'Could not save your National ID.');
-      }
+      if (!res.success) throw new Error(res.message || 'Could not save your National ID.');
       return res;
     },
     onSuccess: () => {

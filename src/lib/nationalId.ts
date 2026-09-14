@@ -106,27 +106,3 @@ export function validateNationalIdName(raw: string): NationalIdNameCheck {
 
   return { valid: true, value };
 }
-
-/**
- * One National ID may only ever belong to one account. The database enforces
- * this with the unique index `profiles_national_id_unique_norm`, so a second
- * account submitting the same ID fails with a Postgres unique violation
- * (23505) — or with a plain-language refusal from `submit_national_id` when
- * the RPC catches it first. Both shapes are mapped to a single user-facing
- * message here so every entry point says the same thing.
- */
-export const DUPLICATE_NATIONAL_ID_MESSAGE =
-  'Duplicate National ID rejected — this National ID is already registered on another account. One National ID can only belong to one account.';
-
-export function isDuplicateNationalIdError(err: unknown): boolean {
-  if (!err) return false;
-  const code = (err as { code?: string }).code;
-  if (code === '23505') return true;
-  const msg = String((err as { message?: string }).message ?? err).toLowerCase();
-  return (
-    msg.includes('profiles_national_id_unique_norm') ||
-    msg.includes('duplicate national id rejected') ||
-    (msg.includes('national id') &&
-      (msg.includes('duplicate') || msg.includes('already') || msg.includes('another account')))
-  );
-}

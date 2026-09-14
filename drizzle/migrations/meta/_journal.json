@@ -537,15 +537,29 @@
     {
       "idx": 76,
       "version": "7",
-      "when": 1789384972732,
-      "tag": "0076_finops_queue_duplicate_accounts",
+      "when": 1789385943069,
+      "tag": "0076_auto_reject_unreadable_id_name",
       "breakpoints": true
     },
     {
       "idx": 77,
       "version": "7",
-      "when": 1789385338049,
-      "tag": "0077_finops_queue_duplicate_accounts_created_at",
+      "when": 1789385965926,
+      "tag": "0077_agent_subagents_insert_pending_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1789386535906,
+      "tag": "0078_capture_national_id_back_photo",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1789387019587,
+      "tag": "0079_finops_set_national_id",
       "breakpoints": true
     }
   ]
