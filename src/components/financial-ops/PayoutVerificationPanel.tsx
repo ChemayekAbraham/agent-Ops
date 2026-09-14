@@ -64,11 +64,35 @@ function waHref(phone: string | null | undefined, text: string): string | null {
   return `https://wa.me/256${digits}?text=${encodeURIComponent(text)}`;
 }
 
-function matchSignal(score: number | null): { label: string; dot: string; text: string } {
-  if (score === null) return { label: 'No ID to compare', dot: 'bg-muted-foreground', text: 'text-muted-foreground' };
-  if (score >= 0.8) return { label: 'Names match', dot: 'bg-emerald-500', text: 'text-emerald-600' };
-  if (score >= 0.5) return { label: 'Partly matches', dot: 'bg-amber-500', text: 'text-amber-600' };
-  return { label: 'Names do not match', dot: 'bg-destructive', text: 'text-destructive' };
+function matchSignal(score: number | null): {
+  label: string;
+  dot: string;
+  text: string;
+  Icon: typeof BadgeCheck;
+} {
+  if (score === null) return { label: 'No ID to compare', dot: 'bg-muted-foreground', text: 'text-muted-foreground', Icon: HelpCircle };
+  if (score >= 0.8) return { label: 'Names match', dot: 'bg-emerald-500', text: 'text-emerald-600', Icon: BadgeCheck };
+  if (score >= 0.5) return { label: 'Partly matches', dot: 'bg-amber-500', text: 'text-amber-600', Icon: AlertTriangle };
+  return { label: 'Names do not match', dot: 'bg-destructive', text: 'text-destructive', Icon: XCircle };
+}
+
+/**
+ * Glanceable outcome badge. Colour is never the only signal: every state
+ * pairs a distinct icon and plain-word label with its colour, so the badge
+ * reads the same for colour-blind operators.
+ */
+function statusBadge(row: PayoutDestinationRow): {
+  label: string;
+  Icon: typeof BadgeCheck;
+  classes: string;
+} {
+  if (row.status === 'verified')
+    return { label: 'Verified', Icon: BadgeCheck, classes: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/40' };
+  if (row.status === 'rejected')
+    return { label: 'Rejected', Icon: XCircle, classes: 'bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/40' };
+  if (row.name_match_score !== null && row.name_match_score < 0.5)
+    return { label: 'Needs review', Icon: AlertTriangle, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
+  return { label: 'Pending', Icon: Clock, classes: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/40' };
 }
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
