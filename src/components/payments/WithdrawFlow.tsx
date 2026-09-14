@@ -193,6 +193,35 @@ export default function WithdrawFlow({
   const [bankAccountName, setBankAccountName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
 
+  // ---- Auto-verification gate -------------------------------------------
+  // A destination becomes `verified` on its own the moment the name read on
+  // the National ID matches the name on the number / bank account. Until that
+  // has happened, the flow stops at the destination step and says why. Cash
+  // pickup carries no destination, and portfolio funders are exempt.
+  const activeDestination = destinationStateFor(myDestinations.data, {
+    mode: payoutMode,
+    momoNumber,
+    bankAccountNumber,
+  });
+  const destinationIdentified =
+    payoutMode === 'cash' ||
+    (payoutMode === 'mobile_money'
+      ? momoNumber.replace(/\D/g, '').length >= 9
+      : bankAccountNumber.replace(/\D/g, '').length >= 5);
+  const destinationGateExempt = payoutMode === 'cash' || funderExempt.data === true;
+  const destinationStatus: 'exempt' | 'verified' | 'waiting' | 'rejected' | 'unknown' =
+    destinationGateExempt
+      ? 'exempt'
+      : activeDestination?.status === 'verified'
+        ? 'verified'
+        : activeDestination?.status === 'rejected'
+          ? 'rejected'
+          : activeDestination
+            ? 'waiting'
+            : 'unknown';
+  const destinationAllowed = destinationStatus === 'exempt' || destinationStatus === 'verified';
+
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   // Withdrawal receipts start as `pending` because Financial Ops must
