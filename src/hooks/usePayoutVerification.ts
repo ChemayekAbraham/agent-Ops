@@ -11,7 +11,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
-import { DUPLICATE_NATIONAL_ID_MESSAGE, isDuplicateNationalIdError } from '@/lib/nationalId';
 
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
@@ -45,15 +44,6 @@ export interface PayoutDestinationRow {
   /** Set when this National ID already belongs to another account (auto-rejected). */
   duplicate_id_user_id: string | null;
   duplicate_id_name: string | null;
-  duplicate_id_accounts:
-    | {
-        user_id: string;
-        full_name: string | null;
-        phone: string | null;
-        national_id: string | null;
-        created_at?: string | null;
-      }[]
-    | null;
   total_count: number;
 
 }
@@ -336,19 +326,9 @@ export function useSubmitNationalId() {
         p_national_id: input.nationalId,
         p_id_name: input.idName,
       });
-      // A duplicate National ID is rejected by the database unique index
-      // (23505) even if every other check passed — surface it plainly.
-      if (error) {
-        if (isDuplicateNationalIdError(error)) throw new Error(DUPLICATE_NATIONAL_ID_MESSAGE);
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
       const res = (data ?? {}) as { success?: boolean; message?: string };
-      if (!res.success) {
-        if (res.message && isDuplicateNationalIdError(res.message)) {
-          throw new Error(DUPLICATE_NATIONAL_ID_MESSAGE);
-        }
-        throw new Error(res.message || 'Could not save your National ID.');
-      }
+      if (!res.success) throw new Error(res.message || 'Could not save your National ID.');
       return res;
     },
     onSuccess: () => {
