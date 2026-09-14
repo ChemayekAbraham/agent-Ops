@@ -262,6 +262,47 @@ export function useSetHolderName() {
 }
 
 /**
+ * Financial Ops corrects the National ID number. The database stores the new
+ * number and, when a fresh name was read off the ID photo, adopts that name as
+ * the account name in the same call — no extra tap. Duplicate IDs are refused.
+ */
+export function useFinopsSetNationalId() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      nationalId: string;
+      idName?: string | null;
+      nameMatchScore?: number | null;
+    }) => {
+      const { data, error } = await supabase.rpc('finops_set_national_id', {
+        p_id: input.id,
+        p_national_id: input.nationalId,
+        p_national_id_name: input.idName ?? null,
+        p_name_match_score: input.nameMatchScore ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as {
+        success?: boolean;
+        duplicate?: boolean;
+        duplicate_of_name?: string | null;
+        message?: string;
+        national_id?: string;
+        national_id_name?: string | null;
+        name_adopted?: boolean;
+        full_name?: string | null;
+      };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
+    },
+  });
+}
+
+/**
  * Admin rollback: put back the name a National ID adoption (or a manual
  * override) replaced. Admin-only (CFO / super admin) inside the database.
  */
