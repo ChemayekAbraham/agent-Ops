@@ -608,6 +608,8 @@ export default function PayoutVerificationPanel() {
   const [deciding, setDeciding] = useState(false);
   const [confirmingVerify, setConfirmingVerify] = useState<PayoutDestinationRow | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
+  const focusCardRef = useRef<HTMLDivElement | null>(null);
+  const skipInitialScrollRef = useRef(true);
 
   const quickVerify = useDecidePayoutDestination();
   const counts = usePayoutVerificationCounts();
@@ -646,6 +648,21 @@ export default function PayoutVerificationPanel() {
   useEffect(() => {
     if (index >= rows.length) setIndex(0);
   }, [rows.length, index]);
+
+  // Whenever the active case changes (Verify, Next, Previous, or list tap),
+  // bring the focus card into view so the next person is immediately visible.
+  useEffect(() => {
+    if (skipInitialScrollRef.current) {
+      skipInitialScrollRef.current = false;
+      return;
+    }
+    const el = focusCardRef.current;
+    if (!el) return;
+    // Defer one frame so the new card has rendered and layout is stable.
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [row?.id]);
 
   const position = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + index + 1;
 
@@ -898,8 +915,9 @@ export default function PayoutVerificationPanel() {
         </div>
       ) : (
         <div
+          ref={focusCardRef}
           key={row.id}
-          className="overflow-hidden rounded-[2rem] border border-primary/10 bg-card shadow-xl shadow-primary/5"
+          className="overflow-hidden rounded-[2rem] border border-primary/10 bg-card shadow-xl shadow-primary/5 scroll-mt-4"
         >
           {/* Case header */}
           <div className="flex items-center justify-between gap-3 border-b border-primary/10 px-5 py-4">
