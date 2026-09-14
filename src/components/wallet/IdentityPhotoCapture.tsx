@@ -19,6 +19,7 @@ import {
   type IdentityPhotoKind,
 } from '@/hooks/useIdentityPhotos';
 import SelfieCropDialog from '@/components/wallet/SelfieCropDialog';
+import SelfieProfilePreviewDialog from '@/components/wallet/SelfieProfilePreviewDialog';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -153,6 +154,8 @@ export default function IdentityPhotoCapture({
   const [busy, setBusy] = useState(false);
   // Raw camera shot waiting for the crop/confirm step.
   const [pendingSelfie, setPendingSelfie] = useState<File | null>(null);
+  // Cropped selfie waiting for the final profile-picture preview (confirm/cancel).
+  const [previewSelfie, setPreviewSelfie] = useState<File | null>(null);
 
   const alreadyDone = !!data?.national_id_photo_path && !!data?.selfie_photo_path;
   if (isLoading || alreadyDone) return null;
