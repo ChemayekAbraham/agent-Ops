@@ -52292,6 +52292,15 @@ export type Database = {
           withdrawable_balance: number
         }[]
       }
+      finops_phone_account_lookup: {
+        Args: { p_phones: string[] }
+        Returns: {
+          account_name: string
+          account_user_id: string
+          has_account: boolean
+          phone_key: string
+        }[]
+      }
       finops_post_merchant_evidenced_writedown: {
         Args: {
           p_agent_id: string
