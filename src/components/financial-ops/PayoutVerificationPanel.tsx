@@ -620,14 +620,39 @@ export default function PayoutVerificationPanel() {
                   )}
                 </div>
 
+                {r.decided_at && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {r.status === 'verified' ? 'Approved' : r.status === 'rejected' ? 'Rejected' : 'Decided'} by{' '}
+                    <span className="font-semibold text-foreground">{r.decided_by_name || 'Financial Ops'}</span>
+                    {' on '}
+                    {formatDecisionTime(r.decided_at)}
+                  </p>
+                )}
+
                 {r.status !== 'verified' || r.name_match_score === null ? (
-                  <Button className="w-full h-11" onClick={() => setActive(r)}>
+                  <Button
+                    className="w-full h-11"
+                    onClick={() => setActive(r)}
+                    disabled={!photosAvailable[r.id]}
+                  >
                     Verify or reject
                   </Button>
                 ) : (
-                  <Button variant="outline" className="w-full h-11" onClick={() => setActive(r)}>
+                  <Button
+                    variant="outline"
+                    className="w-full h-11"
+                    onClick={() => setActive(r)}
+                    disabled={!photosAvailable[r.id]}
+                  >
                     Change decision
                   </Button>
+                )}
+
+                {photosAvailable[r.id] === false && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Both a National ID photo and a selfie must be uploaded before verifying.
+                  </p>
                 )}
 
                 {r.national_id === null && (
