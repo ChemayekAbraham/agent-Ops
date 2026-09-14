@@ -148,8 +148,9 @@ export function usePayoutVerificationCounts(enabled = true) {
     staleTime: 30_000,
     retry: false,
     queryFn: async (): Promise<PayoutVerificationCounts> => {
+      const startedAt = performance.now();
       const { data, error } = await supabase.rpc('finops_payout_verification_counts');
-      if (error) throw new Error(payoutQueueErrorMessage(error.message));
+      if (error) throw await buildQueueError('finops_payout_verification_counts', null, error, startedAt);
       const row = (data ?? {}) as Partial<PayoutVerificationCounts>;
       return {
         waiting: Number(row.waiting ?? 0),
