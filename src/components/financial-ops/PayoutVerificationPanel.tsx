@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowUpDown,
   BadgeCheck,
   Building2,
   Camera,
@@ -46,6 +47,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useUserAvatars } from '@/hooks/useUserAvatars';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,6 +71,7 @@ import {
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
   type PayoutDestinationRow,
+  type PayoutVerificationCounts,
   type PayoutQueueFilter,
   type PayoutQueueSort,
 } from '@/hooks/usePayoutVerification';
@@ -639,6 +648,7 @@ export default function PayoutVerificationPanel() {
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {FILTERS.map((f) => {
             const selected = status === f.id;
+            const count = f.countKey && counts.data ? counts.data[f.countKey] : null;
             return (
               <button
                 key={f.id}
@@ -652,6 +662,7 @@ export default function PayoutVerificationPanel() {
                 }`}
               >
                 {f.label}
+                {count !== null ? <span className={selected ? 'opacity-80' : 'text-muted-foreground'}> · {count}</span> : null}
               </button>
             );
           })}
