@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Calendar, Clock, TrendingUp, CheckCircle2,
-  AlertCircle, Wallet, ChevronRight, CircleDollarSign,
+  AlertCircle, Wallet, CircleDollarSign, Loader2,
   CalendarDays, Shield, Banknote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+import { useTenantRentPlan, usePayRentFromWallet } from '@/hooks/useTenantRentPlan';
+
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
