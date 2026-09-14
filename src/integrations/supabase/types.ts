@@ -53287,6 +53287,10 @@ export type Database = {
         Args: { p_agent_id: string }
         Returns: number
       }
+      get_agent_weekly_champion_team: {
+        Args: { p_week_start?: string }
+        Returns: Json
+      }
       get_agent_weekly_growth_forecast: {
         Args: { p_ref?: string }
         Returns: Json

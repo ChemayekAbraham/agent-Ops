@@ -79,6 +79,7 @@ import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
 import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
 import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
+import { WeeklyChampionTeamDialog } from '@/components/agent/WeeklyChampionTeamDialog';
 import { ListRegisterEarnDialog } from '@/components/agent/ListRegisterEarnDialog';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
 import { TenantInviteLinkDialog } from '@/components/agent/TenantInviteLinkDialog';
@@ -1087,6 +1088,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             {!isMerchant && (
               <>
               <LastWeekWinnerOverlay />
+              <WeeklyChampionTeamDialog />
               <TenantLocationCorrectionPopup agentId={user.id} />
               <ListRegisterEarnDialog
                 onListHouse={() => {
