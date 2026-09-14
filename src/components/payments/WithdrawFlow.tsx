@@ -108,14 +108,20 @@ export default function WithdrawFlow({
   // No National ID on file means no withdrawal: the first step is a hard stop
   // until a correctly formatted ID and the name printed on it are submitted.
   const myNationalId = useMyNationalId();
-  const needsNationalId = !!user?.id && !myNationalId.isLoading && !myNationalId.data?.national_id;
+  const needsNationalId =
+    !!user?.id &&
+    !myNationalId.isLoading &&
+    !myNationalId.isFetching &&
+    !myNationalId.data?.national_id;
   // Identity photos: the ORIGINAL National ID shot and selfie must be archived
   // for Financial Ops before a payout destination can be verified.
   const myIdentityPhotos = useMyIdentityPhotos();
   const needsIdentityPhotos =
     !!user?.id &&
     !myIdentityPhotos.isLoading &&
+    !myIdentityPhotos.isFetching &&
     !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
+
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
@@ -146,9 +152,21 @@ export default function WithdrawFlow({
   // is released; this only surfaces that state so nobody is surprised at
   // submit time. The gate itself is in the database.
   const myDestinations = useMyPayoutDestinations(user?.id);
+  // Verification state can change while the app sits open (Financial Ops
+  // verifies or rejects, the user submits photos on another device), so the
+  // gate always re-reads it the moment the dialog is opened rather than
+  // trusting the cached copy.
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    void myNationalId.refetch();
+    void myIdentityPhotos.refetch();
+    void myDestinations.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, user?.id]);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
   const [saveAsNew, setSaveAsNew] = useState(true);
   const [savedNickname, setSavedNickname] = useState('');
+
 
   // Payout mode state
   const [payoutMode, setPayoutMode] = useState<'mobile_money' | 'bank_transfer' | 'cash'>('mobile_money');
