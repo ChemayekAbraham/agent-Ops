@@ -7,7 +7,7 @@
  * through the queue without returning to a list. The verification gate itself
  * lives in the database and the approve-withdrawal function.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -69,7 +69,6 @@ import {
   useHolderNameHistory,
   useDecidePayoutDestination,
   useRevertHolderName,
-  useSetHolderName,
 
 
   usePayoutVerificationCounts,
@@ -233,25 +232,33 @@ function NameChangeHistory({ userId }: { userId: string }) {
 
 
 /**
- * Shown when the names do not match. The name printed on the National ID is
- * spelled out, and Financial Ops either takes it as-is or types the final
- * name themselves before marking the payout verified.
+ * Shown when the names do not match. The name printed on the National ID
+ * automatically becomes the holder's name — nobody types or confirms anything.
  */
 function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSaved: () => void }) {
   const adopt = useAdoptNationalIdName();
-  const setName = useSetHolderName();
   const idName = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
   const alreadySame = !!idName && idName.toLowerCase() === accountName.toLowerCase();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(idName || accountName);
-  const busy = adopt.isPending || setName.isPending;
-  const cleaned = draft.trim();
+  const appliedRef = useRef<string | null>(null);
 
+  // The ID name replaces the account name on its own, as soon as the case opens.
   useEffect(() => {
-    setEditing(false);
-    setDraft(idName || accountName);
-  }, [row.id, idName, accountName]);
+    if (alreadySame || idName.length < 3) return;
+    if (appliedRef.current === row.id) return;
+    appliedRef.current = row.id;
+    void (async () => {
+      try {
+        const res = await adopt.mutateAsync({ id: row.id });
+        toast.success(`Name changed to ${res.full_name ?? idName}.`);
+        onSaved();
+      } catch (e) {
+        appliedRef.current = null;
+        toast.error(e instanceof Error ? e.message : 'Could not change the name.');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.id, idName, alreadySame]);
 
   return (
     <div className="mx-5 mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
@@ -259,91 +266,23 @@ function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSav
         <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Name on the National ID
       </p>
       <p className="mt-1.5 text-lg font-bold leading-tight text-foreground">{idName || 'Not read yet'}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">On the account now: {accountName || '—'}</p>
-
-      {editing ? (
-        <div className="mt-3 space-y-2">
-          <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground" htmlFor={`final-name-${row.id}`}>
-            Final name for this payout
-          </label>
-          <Input
-            id={`final-name-${row.id}`}
-            value={draft}
-            autoFocus
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Type the name exactly as printed on the ID"
-            className="h-12 rounded-xl text-base font-semibold"
-          />
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
-              disabled={busy}
-              onClick={() => {
-                setDraft(idName || accountName);
-                setEditing(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
-              disabled={busy || cleaned.length < 3 || cleaned === accountName}
-              onClick={async () => {
-                try {
-                  const res = await setName.mutateAsync({ id: row.id, fullName: cleaned });
-                  toast.success(`Name set to ${res.full_name ?? cleaned}.`);
-                  setEditing(false);
-                  onSaved();
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : 'Could not save the name.');
-                }
-              }}
-            >
-              {setName.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <UserCheck className="mr-2 h-4 w-4" />
-              )}
-              Save this name
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 flex gap-2">
-          <Button
-            className="h-12 flex-[2] rounded-xl text-xs font-bold uppercase tracking-widest"
-            disabled={busy || alreadySame || idName.length < 3}
-            onClick={async () => {
-              try {
-                const res = await adopt.mutateAsync({ id: row.id });
-                toast.success(`Name changed to ${res.full_name ?? idName}.`);
-                onSaved();
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : 'Could not change the name.');
-              }
-            }}
-          >
-            {adopt.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <UserCheck className="mr-2 h-4 w-4" />
-            )}
-            {alreadySame ? 'Already using the ID name' : 'Use the ID name'}
-          </Button>
-          <Button
-            variant="outline"
-            className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest"
-            disabled={busy}
-            onClick={() => setEditing(true)}
-          >
-            Change
-          </Button>
-        </div>
-      )}
+      <p className="mt-0.5 text-xs text-muted-foreground">On the account before: {accountName || '—'}</p>
+      <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+        {adopt.isPending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+        ) : (
+          <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+        )}
+        {idName.length < 3
+          ? 'No name could be read on the ID photo.'
+          : adopt.isPending
+            ? 'Applying the name from the ID…'
+            : 'The name from the ID is now the name on the account.'}
+      </p>
     </div>
   );
 }
+
 
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
