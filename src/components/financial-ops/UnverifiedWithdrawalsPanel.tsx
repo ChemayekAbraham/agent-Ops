@@ -284,7 +284,7 @@ export default function UnverifiedWithdrawalsPanel() {
             {filter === 'all' ? ' waiting on verification' : ` marked ${badgeLabel(filter === 'needs_review' ? 'needs_review' : filter).toLowerCase()}`}
           </p>
           <ul className="space-y-3">
-            {rows.map((r) => <Row key={r.id} row={r} />)}
+            {rows.map((r) => <Row key={r.id} row={r} onOpenDetail={setDetailRow} />)}
           </ul>
           {pageCount > 1 ? (
             <nav className="flex items-center justify-between" aria-label="Pages">
@@ -311,6 +311,11 @@ export default function UnverifiedWithdrawalsPanel() {
           ) : null}
         </>
       )}
+      <PayoutStatusDetailSheet
+        row={detailRow}
+        open={!!detailRow}
+        onOpenChange={(o) => { if (!o) setDetailRow(null); }}
+      />
     </section>
   );
 }
