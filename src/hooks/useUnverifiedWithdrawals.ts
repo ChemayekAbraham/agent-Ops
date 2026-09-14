@@ -10,6 +10,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 export const UNVERIFIED_WITHDRAWALS_PAGE_SIZE = 20;
 
+/** Badge status filter — mirrors the colourblind-friendly badges on screen. */
+export type UnverifiedBadgeFilter = 'all' | 'pending' | 'needs_review' | 'verified';
+export type UnverifiedSort = 'newest' | 'oldest' | 'biggest' | 'smallest';
+
 export interface UnverifiedWithdrawalRow {
   id: string;
   user_id: string;
@@ -29,7 +33,15 @@ export interface UnverifiedWithdrawalRow {
   has_id_photo: boolean;
   has_selfie: boolean;
   destination_verified: boolean;
+  badge: 'pending' | 'needs_review' | 'verified';
   total_count: number;
+}
+
+/** Human label + one-word status for the badge. */
+export function badgeLabel(badge: UnverifiedWithdrawalRow['badge']): string {
+  if (badge === 'verified') return 'Verified';
+  if (badge === 'needs_review') return 'Needs review';
+  return 'Pending';
 }
 
 /** Plain-language list of what the person still needs to submit. */
@@ -42,14 +54,21 @@ export function missingPieces(r: UnverifiedWithdrawalRow): string[] {
   return missing;
 }
 
-export function useUnverifiedWithdrawals(search: string, page: number) {
+export function useUnverifiedWithdrawals(
+  search: string,
+  page: number,
+  filter: UnverifiedBadgeFilter = 'all',
+  sort: UnverifiedSort = 'newest',
+) {
   return useQuery({
-    queryKey: ['finops-unverified-withdrawals', search, page],
+    queryKey: ['finops-unverified-withdrawals', search, page, filter, sort],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('finops_unverified_withdrawals' as never, {
         p_search: search,
         p_limit: UNVERIFIED_WITHDRAWALS_PAGE_SIZE,
         p_offset: page * UNVERIFIED_WITHDRAWALS_PAGE_SIZE,
+        p_filter: filter,
+        p_sort: sort,
       } as never);
       if (error) throw error;
       const rows = (data as unknown as UnverifiedWithdrawalRow[]) ?? [];
