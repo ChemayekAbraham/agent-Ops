@@ -52178,6 +52178,25 @@ export type Database = {
         }
         Returns: Json
       }
+      finops_payout_decision_log: {
+        Args: { p_limit?: number }
+        Returns: {
+          account_name: string
+          bank_account_number: string
+          bank_name: string
+          decided_at: string
+          decided_by_name: string
+          decision_reason: string
+          destination_type: string
+          full_name: string
+          id: string
+          momo_number: string
+          provider: string
+          status: string
+          user_id: string
+          user_phone: string
+        }[]
+      }
       finops_payout_verification_counts: { Args: never; Returns: Json }
       finops_payout_verification_queue: {
         Args: {
