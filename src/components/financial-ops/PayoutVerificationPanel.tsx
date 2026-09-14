@@ -691,6 +691,13 @@ export default function PayoutVerificationPanel() {
       }
       toast.success('Verified. The name from the ID is saved on the account.');
 
+      // Move on to the next case. Under a filtered list (Waiting, Mismatch,
+      // No ID, Double) the verified row leaves the queue, so the next case
+      // slides into the same position on its own; under All / Verified the row
+      // stays put, so step forward one position explicitly.
+      const willLeaveList = status !== 'all' && status !== 'verified';
+      if (!willLeaveList && position < total) goTo(position);
+
       queue.refetch();
       counts.refetch();
     } catch (e) {
