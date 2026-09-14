@@ -108,14 +108,20 @@ export default function WithdrawFlow({
   // No National ID on file means no withdrawal: the first step is a hard stop
   // until a correctly formatted ID and the name printed on it are submitted.
   const myNationalId = useMyNationalId();
-  const needsNationalId = !!user?.id && !myNationalId.isLoading && !myNationalId.data?.national_id;
+  const needsNationalId =
+    !!user?.id &&
+    !myNationalId.isLoading &&
+    !myNationalId.isFetching &&
+    !myNationalId.data?.national_id;
   // Identity photos: the ORIGINAL National ID shot and selfie must be archived
   // for Financial Ops before a payout destination can be verified.
   const myIdentityPhotos = useMyIdentityPhotos();
   const needsIdentityPhotos =
     !!user?.id &&
     !myIdentityPhotos.isLoading &&
+    !myIdentityPhotos.isFetching &&
     !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
+
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
