@@ -457,12 +457,14 @@ function DecisionDialog({
   row,
   photosReady,
   idNameUnreadable,
+  idBackMissing,
   onClose,
   onSaved,
 }: {
   row: PayoutDestinationRow | null;
   photosReady: boolean;
   idNameUnreadable: boolean;
+  idBackMissing: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -470,18 +472,22 @@ function DecisionDialog({
   const [reason, setReason] = useState('');
   const [callOutcome, setCallOutcome] = useState('');
   const [decision, setDecision] = useState<'verified' | 'rejected'>('verified');
-  const verifyBlocked = !photosReady || idNameUnreadable;
+  const verifyBlocked = !photosReady || idNameUnreadable || idBackMissing;
 
   useEffect(() => {
-    setDecision(!photosReady || idNameUnreadable ? 'rejected' : 'verified');
+    setDecision(!photosReady || idNameUnreadable || idBackMissing ? 'rejected' : 'verified');
     setReason('');
     setCallOutcome('');
-  }, [row, photosReady, idNameUnreadable]);
+  }, [row, photosReady, idNameUnreadable, idBackMissing]);
 
   const submit = async () => {
     if (!row) return;
     if (decision === 'verified' && !photosReady) {
       toast.error('Both the National ID photo and the selfie must be on file before verifying.');
+      return;
+    }
+    if (decision === 'verified' && idBackMissing) {
+      toast.error('The back of the National ID is missing. Ask the user to upload a photo of the back of their National ID.');
       return;
     }
     if (decision === 'verified' && idNameUnreadable) {
