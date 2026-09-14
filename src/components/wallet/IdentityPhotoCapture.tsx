@@ -13,6 +13,7 @@ import {
 } from '@/hooks/useIdentityPhotos';
 import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
 import { readNationalIdPhoto, idNameVerdict, type NationalIdReading } from '@/lib/nationalIdOcr';
+import { checkPhotoQuality, retakeMessage, type PhotoQualityResult } from '@/lib/imageQuality';
 
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
@@ -27,9 +28,12 @@ interface ShotTileProps {
   onPick: (file: File) => void;
   onClear: () => void;
   disabled?: boolean;
+  /** Result of the automatic blur / glare / contrast check on this photo. */
+  quality?: PhotoQualityResult | null;
+  checking?: boolean;
 }
 
-function ShotTile({ label, hint, file, onPick, onClear, disabled }: ShotTileProps) {
+function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, checking }: ShotTileProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = file ? URL.createObjectURL(file) : null;
 
@@ -68,8 +72,29 @@ function ShotTile({ label, hint, file, onPick, onClear, disabled }: ShotTileProp
           onPick(f);
         }}
       />
+      {checking && (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Checking this photo…
+        </p>
+      )}
+
+      {!checking && file && quality && !quality.ok && (
+        <p className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{retakeMessage(label, quality)}</span>
+        </p>
+      )}
+
+      {!checking && file && quality?.ok && (
+        <p className="flex items-center gap-2 text-xs text-emerald-600">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          This photo is clear.
+        </p>
+      )}
+
       <Button
-        variant={file ? 'outline' : 'default'}
+        variant={file && quality?.ok ? 'outline' : 'default'}
         className="w-full"
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
@@ -118,7 +143,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
-  const [idBackPhoto, setIdBackPhoto] = useState<File | null>(null);
   const [selfieOriginal, setSelfieOriginal] = useState<File | null>(null);
   // The cropped copy — profile picture only.
   const [selfieCropped, setSelfieCropped] = useState<File | null>(null);
@@ -131,6 +155,27 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [savingDetails, setSavingDetails] = useState(false);
+
+  // Automatic blur / glare / contrast check, per photo.
+  const [idQuality, setIdQuality] = useState<PhotoQualityResult | null>(null);
+  const [selfieQuality, setSelfieQuality] = useState<PhotoQualityResult | null>(null);
+  const [checkingId, setCheckingId] = useState(false);
+  const [checkingSelfie, setCheckingSelfie] = useState(false);
+
+  /** Scores the shot; a failed photo is announced so the person retakes it. */
+  const gradePhoto = async (
+    file: File,
+    label: string,
+    setChecking: (v: boolean) => void,
+    setQuality: (r: PhotoQualityResult) => void,
+  ): Promise<PhotoQualityResult> => {
+    setChecking(true);
+    const result = await checkPhotoQuality(file);
+    setQuality(result);
+    setChecking(false);
+    if (!result.ok) toast.error(retakeMessage(label, result));
+    return result;
+  };
 
   const readIdPhoto = async (file: File) => {
     setReading(true);
@@ -162,16 +207,22 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // partial submission (e.g. selfie stored, ID shot missing) only requires the
   // missing half and the stored original selfie stays the verification copy.
   const storedIdPath = mine.data?.national_id_photo_path ?? null;
-  const storedIdBackPath = mine.data?.national_id_back_photo_path ?? null;
   const storedSelfiePath = mine.data?.selfie_photo_path ?? null;
 
-  const alreadyDone = !!storedIdPath && !!storedIdBackPath && !!storedSelfiePath;
+  const alreadyDone = !!storedIdPath && !!storedSelfiePath;
   if (alreadyDone) return null;
 
   const haveId = !!idPhoto || !!storedIdPath;
-  const haveIdBack = !!idBackPhoto || !!storedIdBackPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
-  const ready = haveId && haveIdBack && haveSelfie;
+  // A freshly taken photo must pass the automatic quality check first.
+  const idQualityOk = !idPhoto || idQuality?.ok === true;
+  const selfieQualityOk = !selfieOriginal || selfieQuality?.ok === true;
+  const failedShots = [
+    idPhoto && idQuality && !idQuality.ok ? 'National ID photo' : null,
+    selfieOriginal && selfieQuality && !selfieQuality.ok ? 'Selfie' : null,
+  ].filter(Boolean) as string[];
+  const checkingPhotos = checkingId || checkingSelfie;
+  const ready = haveId && haveSelfie && idQualityOk && selfieQualityOk && !checkingPhotos;
 
   const verdict = idNameVerdict(idReading?.name_match_score ?? null);
 
@@ -185,17 +236,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const idPath = idPhoto
         ? await uploadIdentityPhoto(user.id, 'national-id', idPhoto)
         : storedIdPath!;
-      const idBackPath = idBackPhoto
-        ? await uploadIdentityPhoto(user.id, 'national-id-back', idBackPhoto)
-        : storedIdBackPath!;
       const selfiePath = selfieOriginal
         ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
         : storedSelfiePath!;
-      const res = await submit.mutateAsync({
-        idPhotoPath: idPath,
-        selfiePath,
-        idBackPhotoPath: idBackPath,
-      });
+      const res = await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
       if (res && res.success === false) {
         throw new Error(res.message || 'Could not send your photos. Please try again.');
       }
@@ -210,7 +254,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           : 'Photos received. Financial Ops will verify them shortly.',
       );
       setIdPhoto(null);
-      setIdBackPhoto(null);
       setSelfieOriginal(null);
       setSelfieCropped(null);
     } catch (e) {
@@ -231,55 +274,40 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Take a photo of the front of your National ID, a photo of the back, and a selfie. Your
-          original selfie is kept in your verification history for Financial Ops; the version you
-          crop becomes your profile picture.
+          Take a clear photo of your National ID and a selfie. Your original selfie is kept in your
+          verification history for Financial Ops; the version you crop becomes your profile picture.
         </p>
-
-        {!!storedIdPath && !!storedSelfiePath && !storedIdBackPath && (
-          <p className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm font-medium text-destructive">
-            We still need a photo of the <span className="font-bold">back</span> of your National ID.
-            Financial Ops cannot verify you — and you cannot withdraw — until it is saved.
-          </p>
-        )}
-
-
 
         {storedIdPath ? (
           <StoredShot
             path={storedIdPath}
-            label="Front of your National ID"
+            label="National ID photo"
             note="This saved photo will be used for this verification."
           />
         ) : (
           <ShotTile
-            label="Front of your National ID"
-            hint="Side with your photo and names. All four corners visible, no glare."
+            label="National ID photo"
+            hint="All four corners visible, no glare."
             file={idPhoto}
-            onPick={(f) => { setIdPhoto(f); void readIdPhoto(f); }}
-            onClear={() => { setIdPhoto(null); setIdReading(null); setReadError(null); }}
-
+            quality={idQuality}
+            checking={checkingId}
+            onPick={(f) => {
+              setIdPhoto(f);
+              setIdReading(null);
+              setReadError(null);
+              void gradePhoto(f, 'National ID photo', setCheckingId, setIdQuality).then((r) => {
+                if (r.ok) void readIdPhoto(f);
+              });
+            }}
+            onClear={() => {
+              setIdPhoto(null);
+              setIdReading(null);
+              setReadError(null);
+              setIdQuality(null);
+            }}
             disabled={saving}
           />
         )}
-
-        {storedIdBackPath ? (
-          <StoredShot
-            path={storedIdBackPath}
-            label="Back of your National ID"
-            note="This saved photo will be used for this verification."
-          />
-        ) : (
-          <ShotTile
-            label="Back of your National ID"
-            hint="Turn the card over. Lay it flat and make sure the small print is sharp."
-            file={idBackPhoto}
-            onPick={setIdBackPhoto}
-            onClear={() => setIdBackPhoto(null)}
-            disabled={saving}
-          />
-        )}
-
 
         {reading && (
           <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
@@ -355,26 +383,29 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             label="Selfie"
             hint="Face the camera in good light."
             file={selfieOriginal}
-            onPick={(f) => { setSelfieOriginal(f); setSelfieCropped(null); setPendingSelfie(f); }}
-            onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); }}
+            quality={selfieQuality}
+            checking={checkingSelfie}
+            onPick={(f) => {
+              setSelfieOriginal(f);
+              setSelfieCropped(null);
+              void gradePhoto(f, 'Selfie', setCheckingSelfie, setSelfieQuality).then((r) => {
+                if (r.ok) setPendingSelfie(f);
+              });
+            }}
+            onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); setSelfieQuality(null); }}
             disabled={saving}
           />
         )}
 
-        {!ready && (
-          <p className="text-xs text-muted-foreground">
-            Still needed:{' '}
-            {[
-              !haveId ? 'front of your National ID' : null,
-              !haveIdBack ? 'back of your National ID' : null,
-              !haveSelfie ? 'your selfie' : null,
-            ]
-              .filter(Boolean)
-              .join(', ')}
-            .
+        {failedShots.length > 0 && (
+          <p className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Please retake: {failedShots.join(' and ')}. We cannot send photos that are blurry, shiny
+              or too dark — Financial Ops would only reject them.
+            </span>
           </p>
         )}
-
 
         <Button className="w-full" disabled={!ready || saving} onClick={handleSave}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

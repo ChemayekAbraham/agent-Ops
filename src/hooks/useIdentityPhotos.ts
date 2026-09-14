@@ -19,18 +19,13 @@ import { publishAvatarUpdate } from '@/lib/avatarSync';
 
 export const IDENTITY_BUCKET = 'identity-verification';
 
-export type IdentityPhotoKind = 'national-id' | 'national-id-back' | 'selfie';
+export type IdentityPhotoKind = 'national-id' | 'selfie';
 
 export interface MyIdentityPhotos {
   national_id_photo_path: string | null;
-  /** Back of the National ID — verification is blocked until this is saved. */
-  national_id_back_photo_path: string | null;
   selfie_photo_path: string | null;
   identity_photos_submitted_at: string | null;
 }
-
-const IDENTITY_PHOTO_COLUMNS =
-  'national_id_photo_path, national_id_back_photo_path, selfie_photo_path, identity_photos_submitted_at';
 
 function extensionOf(file: File): string {
   const fromName = file.name.includes('.') ? file.name.split('.').pop() : '';
@@ -48,7 +43,7 @@ export function useMyIdentityPhotos() {
       if (!uid) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select(IDENTITY_PHOTO_COLUMNS)
+        .select('national_id_photo_path, selfie_photo_path, identity_photos_submitted_at')
         .eq('id', uid)
         .maybeSingle();
       if (error) throw error;
@@ -65,7 +60,7 @@ export function useIdentityPhotosFor(userId: string | null | undefined) {
     queryFn: async (): Promise<MyIdentityPhotos | null> => {
       const { data, error } = await supabase
         .from('profiles')
-        .select(IDENTITY_PHOTO_COLUMNS)
+        .select('national_id_photo_path, selfie_photo_path, identity_photos_submitted_at')
         .eq('id', userId!)
         .maybeSingle();
       if (error) throw error;
@@ -73,9 +68,7 @@ export function useIdentityPhotosFor(userId: string | null | undefined) {
     },
     refetchInterval: (query) => {
       const d = query.state.data as MyIdentityPhotos | null | undefined;
-      return d?.national_id_photo_path && d?.national_id_back_photo_path && d?.selfie_photo_path
-        ? 120_000
-        : 8_000;
+      return d?.national_id_photo_path && d?.selfie_photo_path ? 120_000 : 8_000;
     },
   });
 }
@@ -105,12 +98,10 @@ export async function identityPhotoUrl(path: string | null | undefined): Promise
 export function useSubmitIdentityPhotos() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (paths: { idPhotoPath: string; selfiePath: string; idBackPhotoPath?: string | null }) => {
+    mutationFn: async (paths: { idPhotoPath: string; selfiePath: string }) => {
       const { data, error } = await supabase.rpc('submit_identity_photos', {
         p_id_photo_path: paths.idPhotoPath,
         p_selfie_path: paths.selfiePath,
-        // Always sent (even as null) so the 3-argument version is used.
-        p_id_back_photo_path: paths.idBackPhotoPath ?? null,
       });
       if (error) throw error;
       return data as { success?: boolean; message?: string } | null;

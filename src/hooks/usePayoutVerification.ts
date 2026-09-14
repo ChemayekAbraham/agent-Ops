@@ -11,8 +11,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
-import { uploadIdentityPhoto } from '@/hooks/useIdentityPhotos';
-import { readNationalIdPhoto } from '@/lib/nationalIdOcr';
 
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
@@ -43,8 +41,6 @@ export interface PayoutDestinationRow {
   withdrawable_balance: number;
   /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
   name_source: 'national_id' | 'verified' | null;
-  /** True once the back of the National ID is saved. Verification is blocked without it. */
-  id_back_photo_ready?: boolean | null;
   total_count: number;
 }
 
@@ -220,65 +216,6 @@ export function useAdoptNationalIdName() {
     },
   });
 }
-
-/**
- * Financial Ops replaces an unreadable National ID photo and immediately
- * retries the name extraction on the new photo.
- *
- * Order matters: the file is archived in the person's verification folder
- * first, the finance-gated RPC points their profile at it, then the OCR result
- * is written back through `finops_set_national_id` (which also adopts the name
- * read off the ID as the account name). Nothing here writes wallet state.
- */
-export function useReplaceNationalIdPhoto() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { id: string; userId: string; file: File; currentNationalId?: string | null }) => {
-      const path = await uploadIdentityPhoto(input.userId, 'national-id', input.file);
-
-      const { data: saved, error: saveErr } = await supabase.rpc('finops_replace_national_id_photo', {
-        p_id: input.id,
-        p_photo_path: path,
-      });
-      if (saveErr) throw new Error(saveErr.message);
-      const savedRes = (saved ?? {}) as { success?: boolean; message?: string };
-      if (savedRes.success === false) throw new Error(savedRes.message || 'Could not save that photo.');
-
-      // Retry the name extraction on the photo that was just uploaded.
-      const reading = await readNationalIdPhoto(input.file);
-      if ('error' in reading || !reading.readable) {
-        return { photo_saved: true, name_read: false, message: 'The new photo still could not be read.' };
-      }
-
-      const idNumber = (reading.id_number || input.currentNationalId || '').trim();
-      const idName = (reading.full_name || '').trim();
-      if (idName.length < 3 || idNumber.replace(/[^A-Za-z0-9]/g, '').length < 6) {
-        return { photo_saved: true, name_read: false, message: 'No name could be read on the new photo either.' };
-      }
-
-      const { data, error } = await supabase.rpc('finops_set_national_id', {
-        p_id: input.id,
-        p_national_id: idNumber,
-        p_national_id_name: idName,
-        p_name_match_score: reading.name_match_score ?? undefined,
-      });
-      if (error) throw new Error(error.message);
-      const res = (data ?? {}) as { success?: boolean; message?: string; duplicate?: boolean; full_name?: string };
-      if (res.success === false) throw new Error(res.message || 'Could not save the name read from the ID.');
-
-      return { photo_saved: true, name_read: true, national_id_name: idName, full_name: res.full_name };
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
-      qc.invalidateQueries({ queryKey: ['identity-photos-for'] });
-      qc.invalidateQueries({ queryKey: ['verification-history'] });
-      qc.invalidateQueries({ queryKey: ['profile'] });
-      qc.invalidateQueries({ queryKey: ['holder-name-history'] });
-    },
-  });
-}
-
-
 
 
 
