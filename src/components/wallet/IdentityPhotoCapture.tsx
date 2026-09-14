@@ -260,12 +260,33 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const checkingPhotos = checkingId || checkingSelfie;
   const ready = haveId && haveSelfie && idQualityOk && selfieQualityOk && !checkingPhotos;
 
+  // Spelled out on screen so nobody stares at a dead button wondering why.
+  const blockers = [
+    !haveId ? 'Take a photo of your National ID.' : null,
+    !storedSelfiePath && !selfieOriginal ? 'Take a selfie.' : null,
+    !storedSelfiePath && selfieOriginal && !selfieCropped
+      ? 'Finish choosing your profile picture from the selfie you took.'
+      : null,
+    idPhoto && idQuality && !idQuality.ok ? 'Retake the National ID photo — it did not pass the photo check.' : null,
+    selfieOriginal && selfieQuality && !selfieQuality.ok ? 'Retake the selfie — it did not pass the photo check.' : null,
+    checkingPhotos ? 'Checking your photos — this takes a moment.' : null,
+  ].filter(Boolean) as string[];
+
   const verdict = idNameVerdict(idReading?.name_match_score ?? null);
 
 
   const handleSave = async () => {
-    if (!user?.id || !ready) return;
+    if (!user?.id) return;
+    if (!ready) {
+      setSendError(
+        blockers.length > 0
+          ? `Your photos cannot be sent yet: ${blockers.join(' ')}`
+          : 'Your photos cannot be sent yet. Please check both photos above.',
+      );
+      return;
+    }
     setSaving(true);
+    setSendError(null);
     try {
       // Archive the ORIGINALS in the private verification bucket; reuse the
       // stored original when the user is only filling in the missing shot.
