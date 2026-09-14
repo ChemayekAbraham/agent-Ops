@@ -5,19 +5,18 @@ import houseSearchingIllustration from '@/assets/House_searching-bro-3.svg.asset
 import { useSearchParams, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { LoadMoreProgress } from '@/components/tenant/LoadMoreProgress';
 import { Button } from '@/components/ui/button';
 import {
-  Search, MapPin, ShieldCheck, Home, DoorOpen,
-  ChevronLeft, ChevronRight, ChevronDown, Clock, ExternalLink, Share2, Copy, Check, ZoomIn, Navigation,
-  SlidersHorizontal, X, Droplets, Zap, Car, Sofa, Loader2, ArrowRight,
+  Search, MapPin, ShieldCheck, Home,
+  ChevronLeft, ChevronRight, ChevronDown, Check,
+  SlidersHorizontal, X, Droplets, Zap, Car, Sofa, Loader2,
   ArrowUpDown, BedDouble,
-  Map as MapIcon, List as ListIcon, Route, Footprints, ArrowLeft
+  Map as MapIcon, List as ListIcon, ArrowLeft
 } from 'lucide-react';
-import { WhatsAppAgentButton } from '@/components/tenant/WhatsAppAgentButton';
-import { ShareHouseButton } from '@/components/tenant/ShareHouseButton';
+
 import HouseRatingBadge from '@/components/house/HouseRatingBadge';
 import { useNearbyHouses, useHouseListingCount, HouseListing } from '@/hooks/useHouseListings';
 import { HouseListingCount } from '@/components/tenant/HouseListingCount';
@@ -26,12 +25,12 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useMapLinkAnnouncer } from '@/hooks/useMapLinkAnnouncer';
+
 import { regionLabel } from '@/lib/ugandaDistricts';
 import { UG_REGIONS, useUgDistricts, useUgSubcountiesByDistrict } from '@/hooks/useUgLocations';
 import { normalizeAreaName, matchesArea } from '@/lib/listingAreaFilter';
-import { cn } from '@/lib/utils';
-import { resolveHouseCoords, buildDirectionsUrl, distanceToHouse, estimateRoute, TravelMode } from '@/lib/houseGeo';
+
+import { distanceToHouse } from '@/lib/houseGeo';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 
@@ -132,20 +131,18 @@ const AMENITY_TOGGLES: { key: 'hasWater' | 'hasElectricity' | 'hasSecurity' | 'h
 
 function HouseImageCarousel({ images, title, onImageClick, layout = 'vertical' }: { images: string[] | null; title: string; onImageClick?: (index: number) => void; layout?: 'vertical' | 'horizontal' }) {
   const [idx, setIdx] = useState(0);
-  // In horizontal (Booking-style) row cards the image fills the full height of
-  // the left column on desktop; on mobile it falls back to the 5/4 ratio.
   const sizeClass = layout === 'horizontal'
-    ? 'aspect-[5/4] md:aspect-auto md:h-full md:min-h-[280px]'
-    : 'aspect-[5/4]';
+    ? 'aspect-[4/3] md:aspect-auto md:h-full md:min-h-[280px]'
+    : 'aspect-[4/3]';
   if (!images || images.length === 0) {
     return (
-      <div className={`w-full ${sizeClass} bg-muted flex items-center justify-center`}>
+      <div className={`w-full ${sizeClass} bg-muted rounded-xl flex items-center justify-center`}>
         <Home className="h-12 w-12 text-muted-foreground/20" />
       </div>
     );
   }
   return (
-    <div className={`relative w-full ${sizeClass} overflow-hidden bg-muted group`}>
+    <div className={`relative w-full ${sizeClass} overflow-hidden bg-muted rounded-xl group`}>
       <img
         src={images[idx]}
         alt={title}
@@ -154,31 +151,19 @@ function HouseImageCarousel({ images, title, onImageClick, layout = 'vertical' }
         decoding="async"
         onClick={() => onImageClick?.(idx)}
       />
-      {/* Subtle gradient for badge legibility */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/15 pointer-events-none" />
-      {/* Compact full-screen hint, bottom-right */}
-      <button
-        type="button"
-        onClick={() => onImageClick?.(idx)}
-        aria-label="View photos full screen"
-        className="absolute bottom-4 right-4 bg-black/45 backdrop-blur-md text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-transform"
-      >
-        <ZoomIn className="h-5 w-5" />
-      </button>
       {images.length > 1 && (
         <>
           <button type="button" aria-label="Previous photo" onClick={(e) => { e.stopPropagation(); setIdx(i => (i - 1 + images.length) % images.length); }}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/45 backdrop-blur-md text-white rounded-full p-2 min-w-[40px] min-h-[40px] flex items-center justify-center active:scale-95 transition-transform">
-            <ChevronLeft className="h-5 w-5" />
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 text-foreground rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity active:scale-95">
+            <ChevronLeft className="h-4 w-4" />
           </button>
           <button type="button" aria-label="Next photo" onClick={(e) => { e.stopPropagation(); setIdx(i => (i + 1) % images.length); }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/45 backdrop-blur-md text-white rounded-full p-2 min-w-[40px] min-h-[40px] flex items-center justify-center active:scale-95 transition-transform">
-            <ChevronRight className="h-5 w-5" />
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 text-foreground rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity active:scale-95">
+            <ChevronRight className="h-4 w-4" />
           </button>
-          <div className="absolute top-1/2 right-16 -translate-y-1/2 hidden" aria-hidden="true" />
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {images.map((_, i) => (
-              <span key={i} className={`h-2 rounded-full transition-all ${i === idx ? 'bg-card w-5' : 'bg-white/50 w-2'}`} />
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
+            {images.slice(0, 5).map((_, i) => (
+              <span key={i} className={`h-1.5 rounded-full transition-all ${i === idx ? 'bg-white w-4' : 'bg-white/50 w-1.5'}`} />
             ))}
           </div>
         </>
@@ -187,92 +172,12 @@ function HouseImageCarousel({ images, title, onImageClick, layout = 'vertical' }
   );
 }
 
-function LocationMap({ listing, anchorId, travelMode = 'driving' }: { listing: HouseListing; anchorId?: string; travelMode?: TravelMode }) {
-  const announce = useMapLinkAnnouncer();
-  const containerRef = useRef<HTMLAnchorElement | null>(null);
-  const [mapVisible, setMapVisible] = useState(false);
-  const resolved = resolveHouseCoords(listing);
-  const lat = resolved?.lat ?? null;
-  const lng = resolved?.lng ?? null;
-  const approximate = resolved?.approximate ?? false;
-  const title = listing.title;
-  const directionsUrl = buildDirectionsUrl(listing, travelMode);
-
-  // Only mount the (heavy) Google Maps iframe once the card actually enters the
-  // viewport. The virtualizer keeps a few off-screen rows mounted for smooth
-  // scrolling; this avoids those rows loading map iframes until truly visible.
-  useEffect(() => {
-    if (mapVisible) return; // already mounted — keep it mounted to avoid reload flicker
-    const el = containerRef.current;
-    if (!el || !lat || !lng) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setMapVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '200px 0px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [lat, lng, mapVisible]);
-
-  if (!lat || !lng) return null;
-  const mapUrl = `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`;
-  return (
-    <a ref={containerRef} href={directionsUrl} id={anchorId} target="_blank" rel="noopener noreferrer"
-      onClick={() => announce(title)}
-      aria-label={`Get directions to ${title} in Google Maps (opens in a new tab)`}
-      className="block relative w-full h-32 rounded-xl overflow-hidden bg-muted border-2 border-primary/40 ring-2 ring-primary/20 shadow-md active:scale-[0.99] transition-transform focus:outline-none focus-visible:ring-4 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-      {mapVisible ? (
-        <iframe src={mapUrl} className="w-full h-full pointer-events-none" title={`Map: ${title}`} loading="lazy" style={{ border: 0 }} />
-      ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-muted" aria-hidden="true">
-          <Skeleton className="absolute inset-0 w-full h-full rounded-xl" />
-          <div className="relative z-10 flex flex-col items-center gap-2">
-            <div className="h-10 w-10 rounded-full bg-muted-foreground/10 flex items-center justify-center animate-pulse">
-              <MapPin className="h-5 w-5 text-muted-foreground/60" />
-            </div>
-            <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">Loading map…</span>
-          </div>
-        </div>
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent pointer-events-none" />
-      {approximate && (
-        <div className="absolute top-2 left-2 bg-background/85 backdrop-blur-md text-foreground text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
-          Approximate area
-        </div>
-      )}
-      <div className="absolute bottom-2 left-2 right-2 mx-auto w-fit min-h-[44px] bg-primary text-primary-foreground text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 shadow-xl touch-manipulation">
-        <Navigation className="h-4 w-4" /> Get directions
-      </div>
-    </a>
-  );
-}
-
-function VerificationBadge({ verified, status }: { verified?: boolean | null; status: string }) {
-  const isPending = !verified || status === 'pending';
-  if (isPending) {
-    return (
-      <Badge variant="outline" className="text-[10px] bg-warning/15 text-warning border-warning/30 gap-1">
-        <Clock className="h-3 w-3" /> Pending Verification
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-[10px] bg-success/15 text-success border-success/30 gap-1">
-      <ShieldCheck className="h-3 w-3" /> Verified
-    </Badge>
-  );
-}
 
 function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: { listing: HouseListing; isFirst?: boolean; onOpenDetails?: (listing: HouseListing) => void; userLat?: number | null; userLng?: number | null }) {
   const categoryLabel = CATEGORIES.find(c => c.value === listing.house_category)?.label || listing.house_category;
   const dist = listing.distance_km;
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState(0);
-  const [travelMode, setTravelMode] = useState<TravelMode>('driving');
 
   const lightboxImages = useMemo(() =>
     (listing.image_urls || []).map((url, i) => ({ id: `${listing.id}-${i}`, image_url: url })),
@@ -283,15 +188,6 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
     setLightboxIdx(index);
     setLightboxOpen(true);
   }, []);
-  const announce = useMapLinkAnnouncer();
-  const directionsUrl = useMemo(() => buildDirectionsUrl(listing, travelMode), [listing, travelMode]);
-
-  // Estimated route distance + time from the viewer to this house, shown
-  // before they open turn-by-turn navigation. Derived locally (no API call).
-  const routeEstimate = useMemo(
-    () => (userLat != null && userLng != null ? estimateRoute(listing, userLat, userLng, travelMode) : null),
-    [listing, userLat, userLng, travelMode]
-  );
 
   // "New" badge for listings created within the last 14 days.
   const isNew = useMemo(() => {
@@ -300,12 +196,12 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
   }, [listing.created_at]);
 
   const amenities = [
-    listing.has_water && { label: 'Water', dot: 'bg-blue-500' },
-    listing.has_electricity && { label: 'Power', dot: 'bg-amber-400' },
-    listing.has_security && { label: 'Security', dot: 'bg-success' },
-    listing.has_parking && { label: 'Parking', dot: 'bg-violet-500' },
-    listing.is_furnished && { label: 'Furnished', dot: 'bg-rose-400' },
-  ].filter(Boolean) as { label: string; dot: string }[];
+    listing.has_water && 'Water',
+    listing.has_electricity && 'Power',
+    listing.has_security && 'Security',
+    listing.has_parking && 'Parking',
+    listing.is_furnished && 'Furnished',
+  ].filter(Boolean) as string[];
 
   return (
     <motion.article
@@ -313,208 +209,58 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
       animate={{ opacity: 1, y: 0 }}
       data-house-card=""
       data-house-id={listing.id}
-      className="rounded-3xl border border-border/60 bg-card overflow-hidden shadow-xl shadow-foreground/5 flex flex-col md:flex-row"
+      className="pb-6 border-b border-border/40 last:border-b-0"
       itemScope itemType="https://schema.org/Accommodation"
     >
-      {/* LEFT: photo column (full height on desktop, Booking.com row style) */}
-      <div className="relative md:w-[340px] md:shrink-0">
-        <HouseImageCarousel images={listing.image_urls} title={listing.title} onImageClick={openLightbox} layout="horizontal" />
+      {/* Image */}
+      <div
+        className="relative cursor-pointer"
+        onClick={() => onOpenDetails?.(listing)}
+      >
+        <HouseImageCarousel images={listing.image_urls} title={listing.title} onImageClick={openLightbox} layout="vertical" />
 
-        {/* Top-left floating badges */}
-        <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+        {/* Top-left badges — Airbnb style */}
+        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
           {isNew && (
-            <span className="bg-primary text-primary-foreground text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">New</span>
+            <span className="bg-white text-foreground text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm">✨ New</span>
           )}
-          <span className="bg-background/85 backdrop-blur-md text-foreground text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm">{categoryLabel}</span>
-          {dist !== undefined && dist < 9999 && (
-            <span className="bg-background/85 backdrop-blur-md text-foreground text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm">
-              ~{dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`} away
+          {listing.verified && listing.status !== 'pending' && (
+            <span className="bg-white text-foreground text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+              <ShieldCheck className="h-3 w-3 text-success" /> Verified
             </span>
           )}
         </div>
 
-        {/* Floating daily price card, bottom-left */}
-        <div className="absolute bottom-4 left-4 bg-success text-success-foreground px-4 py-3 rounded-2xl shadow-xl shadow-success/30 backdrop-blur-sm">
-          <p className="text-[10px] font-bold uppercase tracking-wide opacity-80 mb-0.5">Daily Stay</p>
-          <p className="text-2xl font-black leading-none" itemProp="price">{formatUGX(listing.daily_rate)}</p>
-        </div>
-
-        <HouseRatingBadge houseId={listing.id} houseLat={listing.latitude} houseLng={listing.longitude} className="absolute top-4 right-4" />
+        {/* Heart/rating — top right */}
+        <HouseRatingBadge houseId={listing.id} houseLat={listing.latitude} houseLng={listing.longitude} className="absolute top-3 right-3" />
       </div>
 
-      {/* MIDDLE + RIGHT: details and price/action panel */}
-      <div className="flex-1 flex flex-col lg:flex-row min-w-0">
-      <div className="flex-1 min-w-0 p-5 space-y-4">
+      {/* Text below image — Airbnb layout */}
+      <div className="mt-2.5 space-y-0.5" onClick={() => onOpenDetails?.(listing)} role="button" tabIndex={0}>
         <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            {onOpenDetails ? (
-              <button
-                type="button"
-                onClick={() => onOpenDetails(listing)}
-                className="text-left w-full active:scale-[0.99] transition-transform touch-manipulation"
-              >
-                <h2 className="font-bold text-lg tracking-tight leading-tight truncate hover:text-primary transition-colors" itemProp="name">{listing.title}</h2>
-              </button>
-            ) : (
-              <h2 className="font-bold text-lg tracking-tight leading-tight truncate" itemProp="name">{listing.title}</h2>
-            )}
-            <div className="flex items-center gap-1 mt-1" itemProp="address">
-              <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-              <p className="text-xs text-muted-foreground font-medium truncate">
-                {listing.address}, {listing.region}
-                {listing.district ? `, ${listing.district}` : ''}
-              </p>
-            </div>
-          </div>
-          <VerificationBadge verified={listing.verified} status={listing.status} />
+          <h2 className="font-semibold text-[15px] leading-tight line-clamp-1" itemProp="name">
+            {listing.title}
+          </h2>
+          {dist !== undefined && dist < 9999 && (
+            <span className="text-xs text-muted-foreground font-medium shrink-0">
+              ~{dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`}
+            </span>
+          )}
         </div>
 
-        {/* Amenity indicator grid */}
-        {amenities.length > 0 && (
-          <div className="grid grid-cols-3 gap-2.5">
-            {amenities.slice(0, 6).map((a) => (
-              <div key={a.label} className="bg-muted/60 rounded-2xl p-3 border border-border/60 flex flex-col items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full ${a.dot}`} />
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{a.label}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <p className="text-sm text-muted-foreground" itemProp="address">
+          {listing.region}{listing.district ? `, ${listing.district}` : ''}
+        </p>
 
-        {/* Thumbnail strip — tap any to open fullscreen */}
-        {lightboxImages.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-            {lightboxImages.map((img, i) => (
-              <button
-                key={img.id}
-                onClick={() => openLightbox(i)}
-                className="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 border-transparent hover:border-primary active:scale-95 transition-all"
-              >
-                <img src={img.image_url} alt={`${listing.title} ${i + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-              </button>
-            ))}
-          </div>
-        )}
+        <p className="text-sm text-muted-foreground">
+          {categoryLabel} · {listing.number_of_rooms} room{listing.number_of_rooms > 1 ? 's' : ''}
+          {amenities.length > 0 && ` · ${amenities.join(' · ')}`}
+        </p>
 
-        {listing.description && <p className="text-xs text-muted-foreground line-clamp-2" itemProp="description">{listing.description}</p>}
-
-        <LocationMap listing={listing} anchorId={isFirst ? 'first-map-cta' : undefined} travelMode={travelMode} />
-      </div>
-
-      {/* RIGHT: price + actions panel (Booking.com style) */}
-      <div className="lg:w-60 lg:shrink-0 lg:border-l border-t lg:border-t-0 border-border/60 p-5 flex flex-col gap-3 lg:justify-between bg-muted/20">
-        <div className="flex items-center justify-between lg:flex-col lg:items-start gap-2">
-          <div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Monthly</p>
-            <p className="text-xl font-black text-foreground tracking-tight">{formatUGX(listing.monthly_rent)}</p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-xs font-semibold text-muted-foreground w-fit">
-            <DoorOpen className="h-3.5 w-3.5" /> {listing.number_of_rooms} room{listing.number_of_rooms > 1 ? 's' : ''}
-          </span>
+        <div className="flex items-baseline gap-1.5 pt-1">
+          <span className="font-semibold text-[15px]" itemProp="price">{formatUGX(listing.daily_rate)}</span>
+          <span className="text-sm text-muted-foreground">/ day</span>
         </div>
-
-        <div className="flex flex-col gap-3">
-          {/* Travel mode toggle — choose driving or walking before navigating */}
-          {routeEstimate && (
-            <div className="flex items-center justify-center gap-0 w-full" role="group" aria-label="Travel mode">
-              <button
-                type="button"
-                onClick={() => setTravelMode('driving')}
-                className={cn(
-                  "flex items-center justify-center gap-1 rounded-l-xl px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs font-bold transition-colors border min-w-0 overflow-hidden",
-                  travelMode === 'driving'
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-border hover:bg-muted"
-                )}
-                aria-pressed={travelMode === 'driving'}
-              >
-                <Car className="h-3 w-3 md:h-3.5 md:w-3.5 shrink-0" />
-                <span className="truncate">Driving</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setTravelMode('walking')}
-                className={cn(
-                  "flex items-center justify-center gap-1 rounded-r-xl px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs font-bold transition-colors border-y border-r min-w-0 overflow-hidden",
-                  travelMode === 'walking'
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-border hover:bg-muted"
-                )}
-                aria-pressed={travelMode === 'walking'}
-              >
-                <Footprints className="h-3 w-3 md:h-3.5 md:w-3.5 shrink-0" />
-                <span className="truncate">Walking</span>
-              </button>
-            </div>
-          )}
-
-          {/* Estimated route summary — desktop shows labels; mobile goes icon-only/value-inline to prevent wrapping */}
-          {routeEstimate && (
-            <div className="rounded-2xl border border-border/60 bg-background/60 px-2 md:px-3 py-2 md:py-2.5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-1.5 md:gap-x-3 gap-y-1 overflow-hidden">
-              <div className="flex flex-col min-w-0 md:items-start items-start overflow-hidden">
-                <span className="hidden md:block text-[10px] font-semibold text-muted-foreground uppercase tracking-tight leading-none truncate w-full">Distance</span>
-                <div className="flex items-center gap-1 min-w-0 w-full mt-0 md:mt-0.5">
-                  <Route className="h-3.5 w-3.5 text-primary md:hidden shrink-0" />
-                  <span className="text-xs md:text-sm lg:text-base font-black text-foreground tabular-nums leading-tight truncate">
-                    {routeEstimate.approximate ? '~' : ''}{routeEstimate.distanceLabel}
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-col items-center min-w-0 px-1 overflow-hidden">
-                <span className="hidden md:block text-[10px] font-semibold text-muted-foreground uppercase tracking-tight leading-none truncate w-full text-center">Mode</span>
-                <div className="flex items-center justify-center gap-1 min-w-0 w-full mt-0 md:mt-0.5">
-                  {travelMode === 'driving' ? (
-                    <Car className="h-3 w-3 md:h-3.5 md:w-3.5 text-primary shrink-0" />
-                  ) : (
-                    <Footprints className="h-3 w-3 md:h-3.5 md:w-3.5 text-primary shrink-0" />
-                  )}
-                  <span className="hidden md:inline text-xs font-bold text-foreground uppercase tracking-tight truncate">
-                    {travelMode === 'driving' ? 'Drive' : 'Walk'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-col min-w-0 md:items-end items-end overflow-hidden">
-                <span className="hidden md:block text-[10px] font-semibold text-muted-foreground uppercase tracking-tight leading-none truncate w-full text-right">Time</span>
-                <div className="flex items-center justify-end gap-1 min-w-0 w-full mt-0 md:mt-0.5">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground md:hidden shrink-0" />
-                  <span className="text-xs md:text-sm lg:text-base font-black text-muted-foreground tabular-nums leading-tight truncate">
-                    {routeEstimate.approximate ? '~' : ''}{routeEstimate.durationLabel}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Get directions — opens Google Maps turn-by-turn navigation */}
-          <Button asChild variant="outline" className="w-full gap-1.5 font-bold">
-            <a
-              href={directionsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => announce(listing.title)}
-              aria-label={`Get ${travelMode} directions to ${listing.title}`}
-            >
-              <Navigation className="h-4 w-4" /> Get directions
-            </a>
-          </Button>
-
-          {/* View full details — opens the house detail page (keeps list filters) */}
-          {onOpenDetails && (
-            <Button
-              variant="default"
-              className="w-full gap-1.5 font-bold"
-              onClick={() => onOpenDetails(listing)}
-            >
-              View full details <ArrowRight className="h-4 w-4" />
-            </Button>
-          )}
-
-          {/* WhatsApp Agent */}
-          <WhatsAppAgentButton phone={listing.agent_phone} agentName={listing.agent_name} houseTitle={listing.title} />
-
-          {/* Share */}
-          <ShareHouseButton listingId={listing.id} title={listing.title} region={listing.region} dailyRate={listing.daily_rate} shortCode={listing.short_code} variant="full" address={listing.address} monthlyRent={listing.monthly_rent} rooms={listing.number_of_rooms} category={listing.house_category} />
-        </div>
-      </div>
       </div>
 
       {/* Fullscreen Lightbox */}
@@ -530,6 +276,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
   );
 }
 
+
 /**
  * Window-scroll virtualized list of house cards. Only the cards in (or near) the
  * viewport are mounted, so the page stays fast even with hundreds of listings —
@@ -541,7 +288,7 @@ function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listi
 
   const virtualizer = useWindowVirtualizer({
     count: listings.length,
-    estimateSize: () => 480,
+    estimateSize: () => 380,
     overscan: 3,
     gap: 12,
     scrollMargin: listRef.current?.offsetTop ?? 0,
