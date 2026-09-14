@@ -19016,6 +19016,7 @@ export type Database = {
       identity_photo_fingerprints: {
         Row: {
           checked_at: string
+          checked_by: string | null
           created_at: string
           failures: Json
           id: string
@@ -19032,6 +19033,7 @@ export type Database = {
         }
         Insert: {
           checked_at?: string
+          checked_by?: string | null
           created_at?: string
           failures?: Json
           id?: string
@@ -19048,6 +19050,7 @@ export type Database = {
         }
         Update: {
           checked_at?: string
+          checked_by?: string | null
           created_at?: string
           failures?: Json
           id?: string
@@ -51078,6 +51081,7 @@ export type Database = {
         Returns: Json
       }
       claim_partner_lead_invite: { Args: { p_code: string }; Returns: Json }
+      claim_tenant_referrer: { Args: { p_referrer_id: string }; Returns: Json }
       claim_withdrawal_verified: {
         Args: {
           p_momo_name?: string
@@ -52430,6 +52434,7 @@ export type Database = {
           first_seen_at: string
           full_name: string
           id: string
+          id_back_photo_ready: boolean
           momo_number: string
           name_match_score: number
           name_mismatch_tokens: Json
@@ -52471,6 +52476,10 @@ export type Database = {
           p_evidence_note?: string
           p_reason: string
         }
+        Returns: Json
+      }
+      finops_replace_national_id_photo: {
+        Args: { p_id: string; p_photo_path: string }
         Returns: Json
       }
       finops_revert_holder_name: {
@@ -56025,6 +56034,22 @@ export type Database = {
         }[]
       }
       hr_working_days: { Args: { _from: string; _to: string }; Returns: number }
+      identity_photo_checks_for_request: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          also_on_other_people: number
+          checked_at: string
+          checked_by_name: string
+          failures: Json
+          is_face: boolean
+          is_passport_photo: boolean
+          photo_url: string
+          score: number
+          sha256: string
+          source: string
+          verdict: string
+        }[]
+      }
       ignore_withdrawal_dispatch: {
         Args: { p_withdrawal_id: string }
         Returns: boolean
@@ -56362,6 +56387,14 @@ export type Database = {
         Returns: Json
       }
       link_campaign_sub_agent: { Args: { p_user_id: string }; Returns: Json }
+      link_identity_photo_fingerprint: {
+        Args: {
+          p_photo_url?: string
+          p_rent_request_id: string
+          p_sha256: string
+        }
+        Returns: Json
+      }
       link_promissory_notes_for_user: {
         Args: { p_user: string }
         Returns: number
