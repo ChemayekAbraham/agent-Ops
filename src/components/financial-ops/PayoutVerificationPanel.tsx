@@ -314,17 +314,22 @@ function DecisionDialog({
   const [reason, setReason] = useState('');
   const [callOutcome, setCallOutcome] = useState('');
   const [decision, setDecision] = useState<'verified' | 'rejected'>('verified');
+  const idNameUnreadable = photosReady && (row?.national_id_name || '').trim().length < 3;
 
   useEffect(() => {
-    setDecision(photosReady ? 'verified' : 'rejected');
+    setDecision(photosReady && !idNameUnreadable ? 'verified' : 'rejected');
     setReason('');
     setCallOutcome('');
-  }, [row, photosReady]);
+  }, [row, photosReady, idNameUnreadable]);
 
   const submit = async () => {
     if (!row) return;
     if (decision === 'verified' && !photosReady) {
       toast.error('Both the National ID photo and the selfie must be on file before verifying.');
+      return;
+    }
+    if (decision === 'verified' && idNameUnreadable) {
+      toast.error('No name could be read on the National ID photo — this payout can only be rejected.');
       return;
     }
     if (reason.trim().length < 10) {
@@ -363,7 +368,7 @@ function DecisionDialog({
             type="button"
             variant={decision === 'verified' ? 'default' : 'outline'}
             className="flex-1"
-            disabled={!photosReady}
+            disabled={!photosReady || idNameUnreadable}
             onClick={() => setDecision('verified')}
           >
             <CheckCircle2 className="h-4 w-4 mr-1.5" /> Verify
@@ -381,6 +386,12 @@ function DecisionDialog({
           <p className="flex items-center gap-1.5 text-xs text-amber-600">
             <AlertTriangle className="h-3.5 w-3.5" />
             Verify unlocks once both photos are on file. Reject stays available.
+          </p>
+        )}
+        {idNameUnreadable && (
+          <p className="flex items-center gap-1.5 text-xs text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            No name could be read on the National ID photo. Ask for a clearer photo — until then this payout can only be rejected.
           </p>
         )}
         <div className="space-y-2">
