@@ -711,12 +711,15 @@ export default function PayoutVerificationPanel() {
                 />
 
                 <div className="rounded-xl bg-muted/40 p-3 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
                     {isMomo ? <Smartphone className="h-4 w-4 text-primary" /> : <Building2 className="h-4 w-4 text-primary" />}
-                    <span className="truncate">
-                      {isMomo ? `${r.provider ?? 'Mobile money'} · ${dest}` : dest}
-                    </span>
+                    {isMomo ? (
+                      <span className="truncate">{r.provider ?? 'Mobile money'}</span>
+                    ) : (
+                      <span className="truncate">{dest}</span>
+                    )}
                   </div>
+                  {isMomo && <PhoneActionChips phone={r.momo_number} label="payout number" />}
                   {isMomo && (
                     <PhoneAccountBadge
                       info={accountFor(r.momo_number)}
