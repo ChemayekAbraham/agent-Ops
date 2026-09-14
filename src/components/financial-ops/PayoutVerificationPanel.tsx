@@ -676,6 +676,12 @@ export default function PayoutVerificationPanel() {
                       {isMomo ? `${r.provider ?? 'Mobile money'} · ${dest}` : dest}
                     </span>
                   </div>
+                  {isMomo && (
+                    <PhoneAccountBadge
+                      info={accountFor(r.momo_number)}
+                      loading={phoneAccounts.isLoading && !!r.momo_number}
+                    />
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Name on the {isMomo ? 'number' : 'account'}:{' '}
                     <span className="font-semibold text-foreground">{r.account_name || 'Not given'}</span>
