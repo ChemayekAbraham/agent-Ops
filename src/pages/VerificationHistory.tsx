@@ -7,8 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { ChevronLeft, ImageOff, ShieldCheck } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ChevronLeft, Download, ExternalLink, ImageOff, Maximize2, Minimize2, ShieldCheck } from 'lucide-react';
+
+/** One photo opened in the full-resolution viewer. */
+interface ViewerPhoto {
+  url: string;
+  label: string;
+  takenAt: string;
+  fileName: string;
+}
 
 function when(iso: string | null) {
   if (!iso) return 'Date not recorded';
@@ -25,14 +33,16 @@ function Thumb({
   file,
   label,
   caption,
+  takenAt,
   round,
   onOpen,
 }: {
   file: VerificationHistoryFile | null;
   label: string;
   caption: string;
+  takenAt: string;
   round?: boolean;
-  onOpen: (url: string) => void;
+  onOpen: (photo: ViewerPhoto) => void;
 }) {
   return (
     <div className="flex-1 min-w-[130px] space-y-2">
@@ -40,9 +50,16 @@ function Thumb({
       {file?.url ? (
         <button
           type="button"
-          onClick={() => onOpen(file.url!)}
+          onClick={() =>
+            onOpen({
+              url: file.url!,
+              label,
+              takenAt,
+              fileName: file.path.split('/').pop() || 'verification-photo.jpg',
+            })
+          }
           className="block w-full"
-          aria-label={`Open ${label}`}
+          aria-label={`Open ${label} in full resolution`}
         >
           <img
             src={file.url}
@@ -58,9 +75,11 @@ function Thumb({
         </div>
       )}
       <p className="text-[11px] text-muted-foreground">{caption}</p>
+      {file?.url && <p className="text-[11px] text-primary">Tap to view full size</p>}
     </div>
   );
 }
+
 
 export default function VerificationHistoryPage() {
   const navigate = useNavigate();
@@ -71,7 +90,9 @@ export default function VerificationHistoryPage() {
   const isSelf = !params.get('userId') || params.get('userId') === user?.id;
 
   const history = useVerificationHistory(viewUserId);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ViewerPhoto | null>(null);
+  const [actualSize, setActualSize] = useState(false);
+
 
   const entries = useMemo(() => history.data ?? [], [history.data]);
 
@@ -136,20 +157,23 @@ export default function VerificationHistoryPage() {
                     file={e.original}
                     label="Selfie sent for verification"
                     caption="Full, uncropped photo kept for Financial Ops"
-                    onOpen={setPreview}
+                    takenAt={when(e.submittedAt)}
+                    onOpen={(p) => { setActualSize(false); setPreview(p); }}
                   />
                   <Thumb
                     file={e.cropped}
                     label="Cropped profile picture"
                     caption="The version you confirmed as your profile picture"
+                    takenAt={when(e.submittedAt)}
                     round
-                    onOpen={setPreview}
+                    onOpen={(p) => { setActualSize(false); setPreview(p); }}
                   />
                   <Thumb
                     file={e.nationalId}
                     label="National ID photo"
                     caption="Photo of the ID card sent with this selfie"
-                    onOpen={setPreview}
+                    takenAt={when(e.submittedAt)}
+                    onOpen={(p) => { setActualSize(false); setPreview(p); }}
                   />
                 </div>
               </div>
@@ -159,12 +183,45 @@ export default function VerificationHistoryPage() {
       </Card>
 
       <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
-        <DialogContent className="max-w-lg p-2">
+        <DialogContent className="max-w-3xl p-3">
+          <DialogHeader className="space-y-1 text-left">
+            <DialogTitle className="text-base">{preview?.label}</DialogTitle>
+            <p className="text-xs text-muted-foreground">{preview?.takenAt}</p>
+          </DialogHeader>
+
           {preview && (
-            <img src={preview} alt="Verification photo" className="max-h-[75vh] w-full object-contain" />
+            <div
+              className={`max-h-[70vh] w-full rounded-lg bg-muted/40 ${actualSize ? 'overflow-auto' : 'overflow-hidden'}`}
+            >
+              <img
+                src={preview.url}
+                alt={preview.label}
+                className={actualSize ? 'max-w-none' : 'max-h-[70vh] w-full object-contain'}
+              />
+            </div>
           )}
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Button variant="outline" size="sm" onClick={() => setActualSize((v) => !v)}>
+              {actualSize ? <Minimize2 className="mr-2 h-4 w-4" /> : <Maximize2 className="mr-2 h-4 w-4" />}
+              {actualSize ? 'Fit to screen' : 'Full resolution'}
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <a href={preview?.url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open in new tab
+              </a>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <a href={preview?.url} download={preview?.fileName}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </a>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
