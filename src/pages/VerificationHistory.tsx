@@ -33,16 +33,14 @@ function Thumb({
   file,
   label,
   caption,
-  takenAt,
   round,
   onOpen,
 }: {
   file: VerificationHistoryFile | null;
   label: string;
   caption: string;
-  takenAt: string;
   round?: boolean;
-  onOpen: (photo: ViewerPhoto) => void;
+  onOpen: () => void;
 }) {
   return (
     <div className="flex-1 min-w-[130px] space-y-2">
