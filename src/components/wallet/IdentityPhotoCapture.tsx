@@ -13,6 +13,7 @@ import {
 } from '@/hooks/useIdentityPhotos';
 import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
 import { readNationalIdPhoto, idNameVerdict, type NationalIdReading } from '@/lib/nationalIdOcr';
+import { DUPLICATE_NATIONAL_ID_MESSAGE, isDuplicateNationalIdError } from '@/lib/nationalId';
 
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
