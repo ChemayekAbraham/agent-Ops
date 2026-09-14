@@ -43,8 +43,26 @@ const relativeTime = (dateStr: string) => {
  *
  * Renders an empty state when no backend data is available yet.
  */
-export function PaymentTimeline({ entries = [], limit = 5 }: PaymentTimelineProps) {
-  const visible = useMemo(() => entries.slice(0, limit), [entries, limit]);
+export function PaymentTimeline({ entries, limit = 5 }: PaymentTimelineProps) {
+  const useOwnHistory = entries === undefined;
+  const history = useTenantPaymentHistory(limit);
+
+  const source: PaymentEntry[] = useOwnHistory ? (history.data ?? []) : entries;
+  const visible = useMemo(() => source.slice(0, limit), [source, limit]);
+
+  if (useOwnHistory && history.isLoading) {
+    return (
+      <div className="rounded-xl border border-border/40 bg-card p-4">
+        <p className="text-xs font-bold uppercase tracking-wider text-foreground mb-2">
+          Recent Activity
+        </p>
+        <div className="flex items-center gap-3 py-3">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading your payments…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (visible.length === 0) {
     return (
@@ -57,15 +75,16 @@ export function PaymentTimeline({ entries = [], limit = 5 }: PaymentTimelineProp
             <Clock className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">No activity yet</p>
+            <p className="text-sm text-muted-foreground">No payments yet</p>
             <p className="text-[11px] text-muted-foreground/60">
-              Your payment history will appear here.
+              Your rent payments will appear here.
             </p>
           </div>
         </div>
       </div>
     );
   }
+
 
   return (
     <div className="rounded-xl border border-border/40 bg-card p-4">
