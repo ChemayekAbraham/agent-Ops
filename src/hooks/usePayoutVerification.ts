@@ -205,6 +205,38 @@ export function useSetHolderName() {
   });
 }
 
+export interface HolderNameChange {
+  id: string;
+  changed_at: string;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  old_name: string | null;
+  new_name: string | null;
+  source: string | null;
+  reason: string | null;
+}
+
+/**
+ * Audit trail of every holder-name change made from the National ID (OCR
+ * adoption, manual override, or the name applied at verification time).
+ * Read-only and gated to Financial Ops / CFO / super admin in the database.
+ */
+export function useHolderNameHistory(userId?: string | null) {
+  return useQuery({
+    queryKey: ['holder-name-history', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('finops_holder_name_history', {
+        p_user_id: userId as string,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as HolderNameChange[];
+    },
+  });
+}
+
+
+
 /** The signed-in user's own National ID submission. */
 export function useSubmitNationalId() {
   const qc = useQueryClient();
