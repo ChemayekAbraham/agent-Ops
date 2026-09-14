@@ -60,10 +60,16 @@ import {
 import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
 import { UserProfileDrilldown } from '@/components/ops/UserProfileDrilldown';
 
-/** wa.me chat link for a Ugandan number (256 + last 9 digits). */
-function waLink(phone: string | null | undefined): string | null {
+/**
+ * wa.me chat link for a Ugandan number (256 + last 9 digits).
+ * Optional `text` prefills the message body in WhatsApp.
+ */
+function waLink(phone: string | null | undefined, text?: string): string | null {
   const k = last9(phone);
-  return k ? `https://wa.me/256${k}` : null;
+  if (!k) return null;
+  const base = `https://wa.me/256${k}`;
+  if (!text) return base;
+  return `${base}?text=${encodeURIComponent(text)}`;
 }
 
 /**
