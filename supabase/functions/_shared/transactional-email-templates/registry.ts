@@ -54,6 +54,7 @@ import { template as boardTechnologyMemoTemplate } from './board-technology-memo
 import { template as proxyAgentOnboardedTemplate } from './proxy-agent-onboarded.tsx'
 import { template as proxyDailyNudgeTemplate } from './proxy-daily-nudge.tsx'
 import { template as smartphoneOrderDisbursedTemplate } from './smartphone-order-disbursed.tsx'
+import { template as identityVerifiedWithdrawalsEnabledTemplate } from './identity-verified-withdrawals-enabled.tsx'
 import type { TemplateEntry } from './types.ts'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
@@ -112,4 +113,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'proxy-agent-onboarded': proxyAgentOnboardedTemplate,
   'proxy-daily-nudge': proxyDailyNudgeTemplate,
   'smartphone-order-disbursed': smartphoneOrderDisbursedTemplate,
+  'identity-verified-withdrawals-enabled': identityVerifiedWithdrawalsEnabledTemplate,
 }

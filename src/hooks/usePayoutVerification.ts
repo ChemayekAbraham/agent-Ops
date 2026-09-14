@@ -150,6 +150,18 @@ export function useDecidePayoutDestination() {
         } catch { /* profile picture update is best-effort */ }
       }
 
+      // Tell the holder their account is verified and they can withdraw now.
+      // Best-effort: a failed notice must never fail the decision.
+      const autoRejected = (data as { auto_rejected_duplicate_id?: boolean } | null)
+        ?.auto_rejected_duplicate_id;
+      if (input.decision === 'verified' && !autoRejected) {
+        try {
+          await supabase.functions.invoke('notify-identity-verified', {
+            body: { destinationId: input.id },
+          });
+        } catch { /* confirmation message is best-effort */ }
+      }
+
       return { ...((data ?? {}) as Record<string, unknown>), id: input.id } as {
         id: string;
         status?: string;
