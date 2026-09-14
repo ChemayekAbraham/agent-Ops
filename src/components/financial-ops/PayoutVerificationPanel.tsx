@@ -567,7 +567,17 @@ export default function PayoutVerificationPanel() {
         reason:
           'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.',
       });
+      const idName = (target.national_id_name || '').trim();
+      const before = (target.full_name || target.account_name || '').trim();
+      if (idName.length >= 3 && idName.toLowerCase() !== before.toLowerCase()) {
+        void supabase.functions
+          .invoke('notify-id-name-adopted', {
+            body: { userId: target.user_id, idName, previousName: before },
+          })
+          .catch(() => undefined);
+      }
       toast.success('Verified. The name from the ID is saved on the account.');
+
       queue.refetch();
       counts.refetch();
     } catch (e) {
