@@ -10267,6 +10267,63 @@ export type Database = {
           },
         ]
       }
+      critical_function_baselines: {
+        Row: {
+          baselined_at: string
+          baselined_by: string | null
+          expected_sha256: string
+          function_signature: string
+          note: string | null
+        }
+        Insert: {
+          baselined_at?: string
+          baselined_by?: string | null
+          expected_sha256: string
+          function_signature: string
+          note?: string | null
+        }
+        Update: {
+          baselined_at?: string
+          baselined_by?: string | null
+          expected_sha256?: string
+          function_signature?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
+      critical_function_drift_alerts: {
+        Row: {
+          actual_sha256: string | null
+          detected_at: string
+          expected_sha256: string
+          function_signature: string
+          id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          actual_sha256?: string | null
+          detected_at?: string
+          expected_sha256: string
+          function_signature: string
+          id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          actual_sha256?: string | null
+          detected_at?: string
+          expected_sha256?: string
+          function_signature?: string
+          id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: []
+      }
       crm_call_sessions: {
         Row: {
           answered_at: string | null
@@ -19851,10 +19908,12 @@ export type Database = {
           actor_id: string | null
           created_at: string
           id: string
+          ip_address: string | null
           metadata: Json
           new_level: number | null
           old_level: number | null
           reason: string
+          user_agent: string | null
           user_id: string
         }
         Insert: {
@@ -19862,10 +19921,12 @@ export type Database = {
           actor_id?: string | null
           created_at?: string
           id?: string
+          ip_address?: string | null
           metadata?: Json
           new_level?: number | null
           old_level?: number | null
           reason: string
+          user_agent?: string | null
           user_id: string
         }
         Update: {
@@ -19873,10 +19934,12 @@ export type Database = {
           actor_id?: string | null
           created_at?: string
           id?: string
+          ip_address?: string | null
           metadata?: Json
           new_level?: number | null
           old_level?: number | null
           reason?: string
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -35493,6 +35556,54 @@ export type Database = {
         }
         Relationships: []
       }
+      security_ip_audit_alerts: {
+        Row: {
+          action_or_event: string | null
+          created_at: string
+          details: Json
+          id: number
+          issue_type: string
+          occurred_at: string | null
+          record_id: string | null
+          resolution_note: string | null
+          resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          source_table: string
+        }
+        Insert: {
+          action_or_event?: string | null
+          created_at?: string
+          details?: Json
+          id?: never
+          issue_type: string
+          occurred_at?: string | null
+          record_id?: string | null
+          resolution_note?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source_table: string
+        }
+        Update: {
+          action_or_event?: string | null
+          created_at?: string
+          details?: Json
+          id?: never
+          issue_type?: string
+          occurred_at?: string | null
+          record_id?: string | null
+          resolution_note?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
       semrush_brand_snapshots: {
         Row: {
           backlinks_summary: Json | null
@@ -38654,6 +38765,7 @@ export type Database = {
           event_name: string | null
           event_type: string
           id: string
+          ip_address: string | null
           metadata: Json
           payload: Json | null
           related_entity_id: string | null
@@ -38661,6 +38773,7 @@ export type Database = {
           source: string | null
           subject_id: string | null
           triggered_by: string | null
+          user_agent: string | null
           user_id: string | null
         }
         Insert: {
@@ -38674,6 +38787,7 @@ export type Database = {
           event_name?: string | null
           event_type: string
           id?: string
+          ip_address?: string | null
           metadata?: Json
           payload?: Json | null
           related_entity_id?: string | null
@@ -38681,6 +38795,7 @@ export type Database = {
           source?: string | null
           subject_id?: string | null
           triggered_by?: string | null
+          user_agent?: string | null
           user_id?: string | null
         }
         Update: {
@@ -38694,6 +38809,7 @@ export type Database = {
           event_name?: string | null
           event_type?: string
           id?: string
+          ip_address?: string | null
           metadata?: Json
           payload?: Json | null
           related_entity_id?: string | null
@@ -38701,6 +38817,7 @@ export type Database = {
           source?: string | null
           subject_id?: string | null
           triggered_by?: string | null
+          user_agent?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -51605,6 +51722,7 @@ export type Database = {
         Returns: number
       }
       detect_merchant_float_variances: { Args: never; Returns: Json }
+      detect_missing_ip_on_sensitive_actions: { Args: never; Returns: Json }
       detect_payout_proof_integrity: { Args: never; Returns: Json }
       detect_sms_failure_alerts: { Args: never; Returns: Json }
       detect_sms_verification_failures: { Args: never; Returns: Json }
@@ -53246,6 +53364,10 @@ export type Database = {
           signups: number
         }[]
       }
+      get_deposit_autocredit_success_rate: {
+        Args: { p_window_hours?: number }
+        Returns: Json
+      }
       get_deposit_bridge_health: { Args: never; Returns: Json }
       get_deposit_bridge_metrics: { Args: never; Returns: Json }
       get_deposits_paginated: {
@@ -54469,6 +54591,7 @@ export type Database = {
         Args: { p_hours?: number }
         Returns: Json
       }
+      get_stale_withdrawal_hold_count: { Args: never; Returns: Json }
       get_stale_withdrawal_hold_queue: {
         Args: { p_min_age_days?: number }
         Returns: {
@@ -54590,6 +54713,10 @@ export type Database = {
           source_rent_request_id: string
           version: number
         }[]
+      }
+      get_tenant_engagement_report: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: Json
       }
       get_tenant_five_day_default_candidates: {
         Args: {
@@ -58675,6 +58802,7 @@ export type Database = {
         Returns: number
       }
       sc_receivable_writer: { Args: { _user_id: string }; Returns: boolean }
+      scan_critical_function_drift: { Args: never; Returns: Json }
       schedule_roi_payout: {
         Args: { p_new_date: string; p_portfolio_id: string; p_reason?: string }
         Returns: Json
