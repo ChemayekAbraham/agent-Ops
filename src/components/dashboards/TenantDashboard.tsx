@@ -166,11 +166,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   }, []);
   const [housesOpen, setHousesOpen] = useState(false);
   const housesTriggerRef = useRef<HTMLElement | null>(null);
-  const openHousesSheet = useCallback(() => {
-    const active = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
-    if (active && typeof active.focus === 'function') housesTriggerRef.current = active;
-    setHousesOpen(true);
-  }, []);
   const goToAllHouses = useCallback(() => {
     hapticTap();
     setHousesOpen(false);
