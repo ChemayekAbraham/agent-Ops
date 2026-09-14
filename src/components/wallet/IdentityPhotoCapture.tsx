@@ -239,7 +239,26 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const selfiePath = selfieOriginal
         ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
         : storedSelfiePath!;
-      const res = await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
+
+      // With consent, the name read off the ID is recorded first so the account
+      // name can be switched to the exact ID name in the same step.
+      if (nameConsent && idReading?.full_name) {
+        try {
+          await submitNid.mutateAsync({
+            nationalId: idReading.id_number || '',
+            idName: idReading.full_name,
+          });
+        } catch {
+          // Recording the number can fail (e.g. unreadable number); the photos
+          // still go in and Financial Ops fills the gap.
+        }
+      }
+
+      const res = await submit.mutateAsync({
+        idPhotoPath: idPath,
+        selfiePath,
+        nameChangeConsent: nameConsent,
+      });
       if (res && res.success === false) {
         throw new Error(res.message || 'Could not send your photos. Please try again.');
       }
@@ -249,9 +268,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         : null;
 
       toast.success(
-        avatar
-          ? 'Photos received. Your original photo is saved for verification and your cropped photo is now your profile picture.'
-          : 'Photos received. Financial Ops will verify them shortly.',
+        res?.name_changed
+          ? `Photos received. Your account name is now ${res.full_name}, exactly as on your ID.`
+          : avatar
+            ? 'Photos received. Your original photo is saved for verification and your cropped photo is now your profile picture.'
+            : 'Photos received. Financial Ops will verify them shortly.',
       );
       setIdPhoto(null);
       setSelfieOriginal(null);
@@ -262,6 +283,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       setSaving(false);
     }
   };
+
 
 
   return (
