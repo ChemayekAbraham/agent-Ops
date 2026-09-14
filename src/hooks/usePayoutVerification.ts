@@ -79,6 +79,67 @@ export function payoutQueueErrorMessage(raw: string | null | undefined): string 
   return raw || 'Something went wrong while loading the list.';
 }
 
+/** Everything the screen needs to explain a failed queue request. */
+export interface PayoutQueueDiagnostics {
+  endpoint: string;
+  params: Record<string, unknown> | null;
+  httpStatus: number | null;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+  rawMessage: string;
+  signedInUserId: string | null;
+  attemptedAt: string;
+  durationMs: number;
+}
+
+/** Error carrying the request diagnostics alongside the plain-language message. */
+export class PayoutQueueError extends Error {
+  diagnostics: PayoutQueueDiagnostics;
+  constructor(message: string, diagnostics: PayoutQueueDiagnostics) {
+    super(message);
+    this.name = 'PayoutQueueError';
+    this.diagnostics = diagnostics;
+  }
+}
+
+type RpcErrorLike = {
+  message?: string | null;
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  status?: number | null;
+};
+
+async function buildQueueError(
+  endpoint: string,
+  params: Record<string, unknown> | null,
+  error: RpcErrorLike,
+  startedAt: number,
+): Promise<PayoutQueueError> {
+  let signedInUserId: string | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    signedInUserId = data.user?.id ?? null;
+  } catch {
+    signedInUserId = null;
+  }
+  const raw = error.message ?? '';
+  return new PayoutQueueError(payoutQueueErrorMessage(raw), {
+    endpoint,
+    params,
+    httpStatus: typeof error.status === 'number' ? error.status : null,
+    code: error.code ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+    rawMessage: raw || String(error),
+    signedInUserId,
+    attemptedAt: new Date().toISOString(),
+    durationMs: Math.round(performance.now() - startedAt),
+  });
+}
+
+
 /** Live counts for the badge and the filter chips. */
 export function usePayoutVerificationCounts(enabled = true) {
   return useQuery({
@@ -87,8 +148,9 @@ export function usePayoutVerificationCounts(enabled = true) {
     staleTime: 30_000,
     retry: false,
     queryFn: async (): Promise<PayoutVerificationCounts> => {
+      const startedAt = performance.now();
       const { data, error } = await supabase.rpc('finops_payout_verification_counts');
-      if (error) throw new Error(payoutQueueErrorMessage(error.message));
+      if (error) throw await buildQueueError('finops_payout_verification_counts', null, error, startedAt);
       const row = (data ?? {}) as Partial<PayoutVerificationCounts>;
       return {
         waiting: Number(row.waiting ?? 0),
@@ -123,7 +185,7 @@ export function usePayoutVerificationQueue(opts: {
     enabled,
     retry: false,
     queryFn: async (): Promise<{ rows: PayoutDestinationRow[]; total: number }> => {
-      const { data, error } = await supabase.rpc('finops_payout_verification_queue', {
+      const params = {
         p_status: status,
         p_search: search.trim() || null,
         p_sort: sort,
@@ -132,8 +194,10 @@ export function usePayoutVerificationQueue(opts: {
         p_date_from: dateFrom || null,
         p_date_to: dateTo || null,
         p_user_type: userType === 'all' ? null : userType,
-      });
-      if (error) throw new Error(payoutQueueErrorMessage(error.message));
+      };
+      const startedAt = performance.now();
+      const { data, error } = await supabase.rpc('finops_payout_verification_queue', params);
+      if (error) throw await buildQueueError('finops_payout_verification_queue', params, error, startedAt);
       const rows = ((data ?? []) as unknown[]).map((r) => {
         const row = r as Record<string, unknown>;
         const tokens = row.name_mismatch_tokens;
