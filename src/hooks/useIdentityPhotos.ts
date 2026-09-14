@@ -98,21 +98,37 @@ export async function identityPhotoUrl(path: string | null | undefined): Promise
 export function useSubmitIdentityPhotos() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (paths: { idPhotoPath: string; selfiePath: string }) => {
+    mutationFn: async (paths: {
+      idPhotoPath: string;
+      selfiePath: string;
+      idBackPhotoPath?: string | null;
+      /** The person agreed the exact name on their ID becomes their account name. */
+      nameChangeConsent?: boolean;
+    }) => {
       const { data, error } = await supabase.rpc('submit_identity_photos', {
         p_id_photo_path: paths.idPhotoPath,
         p_selfie_path: paths.selfiePath,
+        p_id_back_photo_path: paths.idBackPhotoPath ?? null,
+        p_name_change_consent: paths.nameChangeConsent ?? false,
       });
       if (error) throw error;
-      return data as { success?: boolean; message?: string } | null;
+      return data as {
+        success?: boolean;
+        message?: string;
+        name_changed?: boolean;
+        full_name?: string | null;
+      } | null;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-identity-photos'] });
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
       qc.invalidateQueries({ queryKey: ['identity-photos-for'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
     },
   });
 }
+
 
 /**
  * Sets the CROPPED selfie as the profile picture. Best-effort: the archived
