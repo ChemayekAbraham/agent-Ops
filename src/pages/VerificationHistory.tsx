@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -83,6 +83,10 @@ export default function VerificationHistoryPage() {
   const history = useVerificationHistory(viewUserId);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [actualSize, setActualSize] = useState(false);
+  // Remembers the fit/full choice per photo (keyed by file name) so switching
+  // thumbnails restores however each image was last viewed.
+  const resolutionMemory = useRef(new Map<string, boolean>());
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
 
   const entries = useMemo(() => history.data ?? [], [history.data]);
@@ -127,16 +131,32 @@ export default function VerificationHistoryPage() {
 
   const preview = previewIndex !== null ? flatPhotos[previewIndex] ?? null : null;
 
+  // Toggling resolution records the choice against the photo being viewed.
+  const toggleActualSize = () => {
+    setActualSize((v) => {
+      const next = !v;
+      const p = previewIndex !== null ? flatPhotos[previewIndex] : null;
+      if (p) resolutionMemory.current.set(p.fileName, next);
+      return next;
+    });
+  };
+  // Moving to a photo restores its last-used resolution (default: fit).
+  const restoreResolution = (index: number) => {
+    const p = flatPhotos[index];
+    setActualSize(p ? (resolutionMemory.current.get(p.fileName) ?? false) : false);
+  };
+
   const openPhoto = (index: number) => {
-    setActualSize(false);
     setPreviewIndex(index);
+    restoreResolution(index);
   };
   const stepPhoto = (delta: number) => {
     setPreviewIndex((cur) => {
       if (cur === null || flatPhotos.length === 0) return cur;
-      return (cur + delta + flatPhotos.length) % flatPhotos.length;
+      const next = (cur + delta + flatPhotos.length) % flatPhotos.length;
+      restoreResolution(next);
+      return next;
     });
-    setActualSize(false);
   };
 
   // Keyboard controls: ←/→ move between thumbnails, F toggles resolution,
@@ -156,7 +176,7 @@ export default function VerificationHistoryPage() {
         case 'f':
         case 'F':
           ev.preventDefault();
-          setActualSize((v) => !v);
+          toggleActualSize();
           break;
         case 'o':
         case 'O': {
@@ -181,6 +201,26 @@ export default function VerificationHistoryPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [previewIndex, flatPhotos]);
+
+  // Preload the neighbouring photos while one is open so swiping or stepping
+  // to the next/previous thumbnail renders instantly from cache.
+  useEffect(() => {
+    if (previewIndex === null || flatPhotos.length < 2) return;
+    const neighbors = [previewIndex - 1, previewIndex + 1]
+      .map((i) => (i + flatPhotos.length) % flatPhotos.length)
+      .map((i) => flatPhotos[i]?.url)
+      .filter((u): u is string => !!u);
+    const warmers = neighbors.map((url) => {
+      const img = new Image();
+      img.src = url;
+      return img;
+    });
+    return () => {
+      warmers.forEach((img) => {
+        img.src = '';
+      });
+    };
   }, [previewIndex, flatPhotos]);
 
   return (
@@ -283,52 +323,117 @@ export default function VerificationHistoryPage() {
           {preview && (
             <div
               className={`max-h-[70vh] w-full rounded-lg bg-muted/40 ${actualSize ? 'overflow-auto' : 'overflow-hidden'}`}
+              onTouchStart={(e) => {
+                const t = e.touches[0];
+                touchStart.current = { x: t.clientX, y: t.clientY };
+              }}
+              onTouchEnd={(e) => {
+                const start = touchStart.current;
+                touchStart.current = null;
+                // While zoomed to full resolution the photo itself scrolls —
+                // swiping there pans the image, it must not change photos.
+                if (!start || actualSize || flatPhotos.length < 2) return;
+                const t = e.changedTouches[0];
+                const dx = t.clientX - start.x;
+                const dy = t.clientY - start.y;
+                if (Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                  stepPhoto(dx < 0 ? 1 : -1);
+                }
+              }}
             >
               <img
                 src={preview.url}
-                alt={preview.label}
+                alt={`${preview.label}${previewIndex !== null && flatPhotos.length > 1 ? ` — photo ${previewIndex + 1} of ${flatPhotos.length}` : ''}`}
                 className={actualSize ? 'max-w-none' : 'max-h-[70vh] w-full object-contain'}
               />
             </div>
           )}
 
-          {flatPhotos.length > 1 && (
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" onClick={() => stepPhoto(-1)}>
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => stepPhoto(1)}>
-                Next
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
+          {/* Screen-reader status: announces position and resolution mode on every change. */}
+          {preview && previewIndex !== null && (
+            <p className="sr-only" aria-live="polite" role="status">
+              Photo {previewIndex + 1} of {flatPhotos.length}: {preview.label},{' '}
+              {actualSize ? 'shown at full resolution' : 'fitted to screen'}.
+            </p>
           )}
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <Button variant="outline" size="sm" onClick={() => setActualSize((v) => !v)}>
-              {actualSize ? <Minimize2 className="mr-2 h-4 w-4" /> : <Maximize2 className="mr-2 h-4 w-4" />}
-              {actualSize ? 'Fit to screen' : 'Full resolution'}
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href={preview?.url} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Open in new tab
-              </a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href={preview?.url} download={preview?.fileName}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </a>
-            </Button>
+          <div role="group" aria-label="Photo viewer controls" className="space-y-2">
+            {flatPhotos.length > 1 && (
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => stepPhoto(-1)}
+                  aria-label={`Previous photo (Left arrow). Currently photo ${(previewIndex ?? 0) + 1} of ${flatPhotos.length}`}
+                >
+                  <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => stepPhoto(1)}
+                  aria-label={`Next photo (Right arrow). Currently photo ${(previewIndex ?? 0) + 1} of ${flatPhotos.length}`}
+                >
+                  Next
+                  <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleActualSize()}
+                aria-pressed={actualSize}
+                aria-label={
+                  actualSize
+                    ? 'Switch to fit-to-screen view (F key)'
+                    : 'Switch to full resolution (F key)'
+                }
+              >
+                {actualSize ? (
+                  <Minimize2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Maximize2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                )}
+                {actualSize ? 'Fit to screen' : 'Full resolution'}
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={preview?.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open this photo in a new tab (O key)"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Open in new tab
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={preview?.url}
+                  download={preview?.fileName}
+                  aria-label="Download this photo (D key)"
+                >
+                  <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Download
+                </a>
+              </Button>
+            </div>
           </div>
 
-          <p className="text-center text-[11px] text-muted-foreground">
+          <p className="text-center text-[11px] text-muted-foreground" aria-hidden="true">
             Keyboard: <kbd className="rounded border px-1">←</kbd> <kbd className="rounded border px-1">→</kbd> move
             between photos · <kbd className="rounded border px-1">F</kbd> fit/full resolution ·{' '}
             <kbd className="rounded border px-1">O</kbd> open in new tab · <kbd className="rounded border px-1">D</kbd>{' '}
             download · <kbd className="rounded border px-1">Esc</kbd> close
+          </p>
+          <p className="sr-only">
+            Keyboard shortcuts: left and right arrow keys move between photos, F switches between
+            fit-to-screen and full resolution, O opens the photo in a new tab, D downloads it, and
+            Escape closes the viewer.
           </p>
         </DialogContent>
       </Dialog>

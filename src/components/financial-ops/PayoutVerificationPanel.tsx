@@ -1,13 +1,13 @@
 /**
- * Verify Payout Numbers — Financial Ops.
+ * Verify Payout Numbers — Financial Ops, focus mode.
  *
- * Shows every mobile money number and bank account waiting to be verified,
- * with the holder's National ID name beside the name on the number so the
- * operator can call and confirm ownership from a phone. No withdrawal to an
- * unverified destination can be submitted or approved (gate is in the
- * database and in the approve-withdrawal function).
+ * One case fills the screen at a time: the holder's National ID photo and
+ * selfie dominate, the name-match result is a single glanceable signal, and
+ * Call / WhatsApp / Verify / Reject are the only actions. Next/previous move
+ * through the queue without returning to a list. The verification gate itself
+ * lives in the database and the approve-withdrawal function.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -15,8 +15,8 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  IdCard,
   Loader2,
+  MessageCircle,
   PhoneCall,
   Search,
   ShieldAlert,
@@ -38,8 +38,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useUserAvatars } from '@/hooks/useUserAvatars';
+import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
+  last9,
   useDecidePayoutDestination,
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
@@ -50,34 +52,103 @@ import {
 
 const FILTERS: { id: PayoutQueueFilter; label: string }[] = [
   { id: 'waiting', label: 'Waiting' },
-  { id: 'mismatch', label: 'Name mismatch' },
-  { id: 'no_id', label: 'No National ID' },
+  { id: 'mismatch', label: 'Mismatch' },
+  { id: 'no_id', label: 'No ID' },
   { id: 'verified', label: 'Verified' },
   { id: 'rejected', label: 'Rejected' },
-  { id: 'all', label: 'All' },
 ];
 
-function matchTone(score: number | null): { label: string; className: string } {
-  if (score === null) return { label: 'No ID to compare', className: 'bg-muted text-muted-foreground' };
-  if (score >= 0.8) return { label: 'Names match', className: 'bg-primary/10 text-primary' };
-  if (score >= 0.5) return { label: 'Partly matches', className: 'bg-amber-500/15 text-amber-600' };
-  return { label: 'Names do not match', className: 'bg-destructive/10 text-destructive' };
+function waHref(phone: string | null | undefined, text: string): string | null {
+  const digits = last9(phone);
+  if (!digits) return null;
+  return `https://wa.me/256${digits}?text=${encodeURIComponent(text)}`;
+}
+
+function matchSignal(score: number | null): { label: string; dot: string; text: string } {
+  if (score === null) return { label: 'No ID to compare', dot: 'bg-muted-foreground', text: 'text-muted-foreground' };
+  if (score >= 0.8) return { label: 'Names match', dot: 'bg-emerald-500', text: 'text-emerald-600' };
+  if (score >= 0.5) return { label: 'Partly matches', dot: 'bg-amber-500', text: 'text-amber-600' };
+  return { label: 'Names do not match', dot: 'bg-destructive', text: 'text-destructive' };
+}
+
+/** One of the two hero photos, or a clear "not sent yet" placeholder. */
+function HeroPhoto({
+  label,
+  path,
+  onOpen,
+}: {
+  label: string;
+  path: string | null;
+  onOpen: (url: string, label: string) => void;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setUrl(null);
+    if (path) {
+      void identityPhotoUrl(path).then((u) => {
+        if (alive) setUrl(u);
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [path]);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+      {path ? (
+        url ? (
+          <button
+            type="button"
+            onClick={() => onOpen(url, label)}
+            aria-label={`Open ${label} full size`}
+            className="aspect-[4/5] w-full overflow-hidden rounded-3xl border-2 border-primary/10 bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <img src={url} alt={label} className="h-full w-full object-cover" />
+          </button>
+        ) : (
+          <Skeleton className="aspect-[4/5] w-full rounded-3xl" />
+        )
+      ) : (
+        <div className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-border bg-muted/40 px-4 text-center">
+          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <p className="text-xs font-semibold text-muted-foreground">Not sent yet</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function DecisionDialog({
   row,
+  photosReady,
   onClose,
+  onSaved,
 }: {
   row: PayoutDestinationRow | null;
+  photosReady: boolean;
   onClose: () => void;
+  onSaved: () => void;
 }) {
   const decide = useDecidePayoutDestination();
   const [reason, setReason] = useState('');
   const [callOutcome, setCallOutcome] = useState('');
   const [decision, setDecision] = useState<'verified' | 'rejected'>('verified');
 
+  useEffect(() => {
+    setDecision(photosReady ? 'verified' : 'rejected');
+    setReason('');
+    setCallOutcome('');
+  }, [row, photosReady]);
+
   const submit = async () => {
     if (!row) return;
+    if (decision === 'verified' && !photosReady) {
+      toast.error('Both the National ID photo and the selfie must be on file before verifying.');
+      return;
+    }
     if (reason.trim().length < 10) {
       toast.error('Write at least 10 characters saying what the holder confirmed on the call.');
       return;
@@ -90,11 +161,9 @@ function DecisionDialog({
         reason: reason.trim(),
         callOutcome: callOutcome.trim() || undefined,
       });
-
-      toast.success(decision === 'verified' ? 'Destination verified.' : 'Destination rejected.');
-      setReason('');
-      setCallOutcome('');
+      toast.success(decision === 'verified' ? 'Verified.' : 'Rejected.');
       onClose();
+      onSaved();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not save the decision.');
     }
@@ -116,6 +185,7 @@ function DecisionDialog({
             type="button"
             variant={decision === 'verified' ? 'default' : 'outline'}
             className="flex-1"
+            disabled={!photosReady}
             onClick={() => setDecision('verified')}
           >
             <CheckCircle2 className="h-4 w-4 mr-1.5" /> Verify
@@ -129,22 +199,30 @@ function DecisionDialog({
             <X className="h-4 w-4 mr-1.5" /> Reject
           </Button>
         </div>
+        {!photosReady && (
+          <p className="flex items-center gap-1.5 text-xs text-amber-600">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Verify unlocks once both photos are on file. Reject stays available.
+          </p>
+        )}
         <div className="space-y-2">
           <Input
             value={callOutcome}
             onChange={(e) => setCallOutcome(e.target.value)}
             placeholder="Call outcome (answered, no answer, wrong number…)"
             className="text-sm"
+            aria-label="Call outcome"
           />
           <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            placeholder="What did the holder confirm? (at least 10 characters — this is kept on the audit trail)"
+            placeholder="What did the holder confirm? (kept on the audit trail)"
             className="text-sm"
+            aria-label="Decision reason"
           />
         </div>
-        <Button onClick={submit} disabled={decide.isPending} className="w-full h-11">
+        <Button onClick={submit} disabled={decide.isPending} className="h-11 w-full">
           {decide.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
           Save decision
         </Button>
@@ -159,285 +237,316 @@ export default function PayoutVerificationPanel() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
-  const [active, setActive] = useState<PayoutDestinationRow | null>(null);
+  const [index, setIndex] = useState(0);
+  const [deciding, setDeciding] = useState(false);
+  const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
 
   const total = queue.data?.total ?? 0;
-  const rows = queue.data?.rows ?? [];
-  // Faces beside the names, kept current the moment anyone's picture changes.
-  const { avatarFor } = useUserAvatars(rows.map((r) => r.user_id));
-  const pageCount = Math.max(1, Math.ceil(total / PAYOUT_VERIFICATION_PAGE_SIZE));
-  const from = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + 1;
-  const to = Math.min(total, (page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE);
+  const rows = useMemo(() => queue.data?.rows ?? [], [queue.data?.rows]);
+  const row: PayoutDestinationRow | null = rows[Math.min(index, rows.length - 1)] ?? null;
 
-  const countFor = useMemo(
-    () => (id: PayoutQueueFilter) => {
-      const c = counts.data;
-      if (!c) return null;
-      switch (id) {
-        case 'waiting': return c.waiting;
-        case 'verified': return c.verified;
-        case 'rejected': return c.rejected;
-        case 'mismatch': return c.mismatch;
-        case 'no_id': return c.no_id;
-        default: return null;
-      }
-    },
-    [counts.data],
-  );
+  const photos = useIdentityPhotosFor(row?.user_id);
+  const idPath = photos.data?.national_id_photo_path ?? null;
+  const selfiePath = photos.data?.selfie_photo_path ?? null;
+  const photosReady = !!idPath && !!selfiePath;
+
+  const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
+
+  // Keep the pointer valid whenever the queue contents shift.
+  useEffect(() => {
+    if (index >= rows.length) setIndex(0);
+  }, [rows.length, index]);
+
+  const position = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + index + 1;
+
+  const goTo = (nextGlobal: number) => {
+    const maxGlobal = total - 1;
+    const clamped = Math.max(0, Math.min(maxGlobal, nextGlobal));
+    const nextPage = Math.floor(clamped / PAYOUT_VERIFICATION_PAGE_SIZE);
+    if (nextPage !== page) setPage(nextPage);
+    setIndex(clamped - nextPage * PAYOUT_VERIFICATION_PAGE_SIZE);
+  };
 
   const applySearch = () => {
     setSearch(searchInput);
     setPage(0);
+    setIndex(0);
+  };
+
+  const changeFilter = (f: PayoutQueueFilter) => {
+    setStatus(f);
+    setPage(0);
+    setIndex(0);
   };
 
   return (
-    <div className="space-y-4">
-      {/* Headline */}
-      <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-            <ShieldAlert className="h-5 w-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-foreground">Verify Payout Numbers</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Call each holder, confirm the number or bank account is theirs and that the National ID
-              name matches the name on the number. Nobody is paid until you verify.
+    <div className="space-y-3">
+      {/* Slim control bar */}
+      <div className="sticky top-0 z-20 -mx-1 space-y-2 bg-background/95 px-1 py-2 backdrop-blur">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4 shrink-0 text-primary" />
+          <p className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
+            Verify Payouts
+            {counts.data ? (
+              <span className="ml-2 font-semibold text-muted-foreground">
+                {counts.data.waiting} waiting · {formatUGX(counts.data.waiting_balance)} held
+              </span>
+            ) : null}
+          </p>
+          {total > 0 && (
+            <p className="shrink-0 text-xs font-bold text-muted-foreground" aria-live="polite">
+              {position} of {total}
             </p>
-            {counts.data && (
-              <p className="text-xs font-semibold text-foreground mt-2">
-                {counts.data.waiting} waiting · {formatUGX(counts.data.waiting_balance)} held behind
-                verification
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-        {FILTERS.map((f) => {
-          const n = countFor(f.id);
-          const selected = status === f.id;
-          return (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => {
-                setStatus(f.id);
-                setPage(0);
-              }}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                selected
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-card text-foreground hover:bg-muted/50'
-              }`}
-            >
-              {f.label}
-              {n !== null && n > 0 ? ` (${n})` : ''}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Search + sort */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
-          <Input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-            onBlur={applySearch}
-            placeholder="Search name, number, account or National ID"
-            className="pl-8 h-11 text-sm"
-          />
+          )}
         </div>
         <div className="flex gap-2">
-          {(['balance', 'oldest'] as PayoutQueueSort[]).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                setSort(s);
-                setPage(0);
-              }}
-              className={`flex-1 sm:flex-none rounded-lg border px-3 h-11 text-xs font-semibold ${
-                sort === s ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'
-              }`}
-            >
-              {s === 'balance' ? 'Biggest balance' : 'Oldest first'}
-            </button>
-          ))}
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+              onBlur={applySearch}
+              placeholder="Name or number"
+              className="h-10 pl-8 text-sm"
+              aria-label="Search by name or number"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSort(sort === 'balance' ? 'oldest' : 'balance');
+              setPage(0);
+              setIndex(0);
+            }}
+            className="h-10 shrink-0 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground"
+          >
+            {sort === 'balance' ? 'Biggest first' : 'Oldest first'}
+          </button>
         </div>
-      </div>
-
-      {/* Rows */}
-      {queue.isLoading ? (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-2xl" />
-          ))}
-        </div>
-      ) : queue.isError ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-          Could not load the queue. {queue.error instanceof Error ? queue.error.message : ''}
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-8 text-center">
-          <BadgeCheck className="h-8 w-8 text-primary mx-auto mb-2" />
-          <p className="text-sm font-semibold text-foreground">Nothing here</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            No payout destinations match this filter.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {rows.map((r) => {
-            const tone = matchTone(r.name_match_score);
-            const isMomo = r.destination_type === 'mobile_money';
-            const dest = isMomo ? r.momo_number : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+          {FILTERS.map((f) => {
+            const selected = status === f.id;
             return (
-              <div key={r.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-border">
-                      <AvatarImage src={avatarFor(r.user_id) ?? undefined} alt={r.full_name || 'Holder photo'} />
-                      <AvatarFallback className="text-xs font-bold">
-                        {(r.full_name || '?').trim().charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-foreground truncate">
-                        {r.full_name || 'Name not recorded'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{r.user_phone || 'No account phone'}</p>
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      r.status === 'verified'
-                        ? 'bg-primary/10 text-primary'
-                        : r.status === 'rejected'
-                          ? 'bg-destructive/10 text-destructive'
-                          : 'bg-amber-500/15 text-amber-600'
-                    }`}
-                  >
-                    {r.status}
-                  </span>
-                </div>
-
-                <div className="rounded-xl bg-muted/40 p-3 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    {isMomo ? <Smartphone className="h-4 w-4 text-primary" /> : <Building2 className="h-4 w-4 text-primary" />}
-                    <span className="truncate">
-                      {isMomo ? `${r.provider ?? 'Mobile money'} · ${dest}` : dest}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Name on the {isMomo ? 'number' : 'account'}:{' '}
-                    <span className="font-semibold text-foreground">{r.account_name || 'Not given'}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <IdCard className="h-3.5 w-3.5" />
-                    National ID:{' '}
-                    <span className="font-semibold text-foreground">
-                      {r.national_id ? `${r.national_id} · ${r.national_id_name ?? '—'}` : 'Not submitted'}
-                    </span>
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.className}`}>
-                      {tone.label}
-                    </span>
-                    {(r.name_mismatch_tokens ?? []).length > 0 && (
-                      <span className="text-[10px] text-muted-foreground">
-                        Different words: {(r.name_mismatch_tokens ?? []).join(', ')}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs font-bold text-foreground">
-                    Withdrawable balance: {formatUGX(r.withdrawable_balance)}
-                  </p>
-                  {r.decision_reason && (
-                    <p className="text-xs text-muted-foreground">Note: {r.decision_reason}</p>
-                  )}
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                  {r.user_phone && (
-                    <a
-                      href={`tel:${r.user_phone}`}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground h-12 text-sm font-bold"
-                    >
-                      <PhoneCall className="h-4 w-4" /> Call {r.full_name?.split(' ')[0] || 'holder'}
-                    </a>
-                  )}
-                  {isMomo && r.momo_number && r.momo_number !== r.user_phone && (
-                    <a
-                      href={`tel:${r.momo_number}`}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 text-primary h-12 text-sm font-bold"
-                    >
-                      <PhoneCall className="h-4 w-4" /> Call payout number
-                    </a>
-                  )}
-                </div>
-
-                {r.status !== 'verified' || r.name_match_score === null ? (
-                  <Button className="w-full h-11" onClick={() => setActive(r)}>
-                    Verify or reject
-                  </Button>
-                ) : (
-                  <Button variant="outline" className="w-full h-11" onClick={() => setActive(r)}>
-                    Change decision
-                  </Button>
-                )}
-
-                {r.national_id === null && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Ask them to submit their National ID in the app before verifying.
-                  </p>
-                )}
-              </div>
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => changeFilter(f.id)}
+                aria-pressed={selected}
+                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  selected
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-foreground'
+                }`}
+              >
+                {f.label}
+              </button>
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* Pagination */}
-      {total > 0 && (
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">
-            Showing {from}–{to} of {total}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
+      {/* Focus card */}
+      {queue.isLoading ? (
+        <Skeleton className="h-[28rem] w-full rounded-[2rem]" />
+      ) : queue.isError ? (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          Could not load the queue. {queue.error instanceof Error ? queue.error.message : ''}
+        </div>
+      ) : !row ? (
+        <div className="rounded-2xl border border-border bg-card p-10 text-center">
+          <BadgeCheck className="mx-auto mb-2 h-8 w-8 text-primary" />
+          <p className="text-sm font-semibold text-foreground">Nothing waiting here</p>
+        </div>
+      ) : (
+        <div
+          key={row.id}
+          className="overflow-hidden rounded-[2rem] border border-primary/10 bg-card shadow-xl shadow-primary/5"
+        >
+          {/* Case header */}
+          <div className="flex items-center justify-between gap-3 border-b border-primary/10 px-5 py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar className="h-11 w-11 shrink-0 border border-border">
+                <AvatarImage src={avatarFor(row.user_id) ?? undefined} alt={row.full_name || 'Holder photo'} />
+                <AvatarFallback className="text-sm font-bold">
+                  {(row.full_name || '?').trim().charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate text-base font-bold text-foreground">
+                  {row.full_name || 'Name not recorded'}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {row.destination_type === 'mobile_money'
+                    ? `${row.provider ?? 'Mobile money'} · ${row.momo_number ?? ''}`
+                    : `${row.bank_name ?? ''} ${row.bank_account_number ?? ''}`.trim()}
+                </p>
+              </div>
+            </div>
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                row.status === 'verified'
+                  ? 'bg-primary/10 text-primary'
+                  : row.status === 'rejected'
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-amber-500/15 text-amber-600'
+              }`}
             >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-xs font-semibold">
-              {page + 1} / {pageCount}
+              {row.status}
             </span>
+          </div>
+
+          {/* Photos — the hero of the screen */}
+          <div className="grid grid-cols-2 gap-3 p-5">
+            <HeroPhoto label="Selfie" path={selfiePath} onOpen={(url, label) => setLightbox({ url, label })} />
+            <HeroPhoto label="National ID" path={idPath} onOpen={(url, label) => setLightbox({ url, label })} />
+          </div>
+
+          {/* Glanceable match strip */}
+          <div className="mx-5 flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3">
+            {(() => {
+              const sig = matchSignal(row.name_match_score);
+              return (
+                <>
+                  <span className={`h-3 w-3 shrink-0 rounded-full ${sig.dot}`} aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm font-bold ${sig.text}`}>{sig.label}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      Account: {row.account_name || '—'} · ID: {row.national_id_name || '—'}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-bold text-foreground">
+                    {formatUGX(row.withdrawable_balance)}
+                  </p>
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Contact actions */}
+          <div className="grid grid-cols-2 gap-2 px-5 pt-3">
+            {row.user_phone && (
+              <a
+                href={`tel:${row.user_phone}`}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground"
+              >
+                <PhoneCall className="h-4 w-4" /> Call
+              </a>
+            )}
+            {(() => {
+              const href = waHref(
+                row.user_phone,
+                `Hello ${(row.full_name || '').split(' ')[0] || 'there'}, this is Welile Financial Ops about your payout verification.`,
+              );
+              return href ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-emerald-600/40 text-sm font-bold text-emerald-700 dark:text-emerald-400"
+                >
+                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                </a>
+              ) : null;
+            })()}
+            {row.destination_type === 'mobile_money' &&
+              row.momo_number &&
+              last9(row.momo_number) !== last9(row.user_phone) && (
+                <a
+                  href={`tel:${row.momo_number}`}
+                  className="col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-primary/40 text-xs font-bold text-primary"
+                >
+                  <Smartphone className="h-4 w-4" /> Call payout number {row.momo_number}
+                </a>
+              )}
+            {row.destination_type !== 'mobile_money' && (
+              <p className="col-span-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" /> Bank account — confirm with the bank on the call
+              </p>
+            )}
+          </div>
+
+          {/* Decisions */}
+          <div className="flex gap-3 p-5">
             <Button
               variant="outline"
-              size="sm"
-              disabled={page + 1 >= pageCount}
-              onClick={() => setPage((p) => p + 1)}
+              className="h-14 flex-1 rounded-2xl text-xs font-bold uppercase tracking-widest"
+              onClick={() => setDeciding(true)}
             >
-              <ChevronRight className="h-4 w-4" />
+              Decide
+            </Button>
+            <Button
+              className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
+              disabled={!photosReady}
+              onClick={() => setDeciding(true)}
+            >
+              <CheckCircle2 className="mr-2 h-5 w-5" /> Verify payout
+            </Button>
+          </div>
+          {!photosReady && (
+            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Waiting for their National ID photo and selfie
+            </p>
+          )}
+          {row.decision_reason && (
+            <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
+              Last note: {row.decision_reason}
+            </p>
+          )}
+
+          {/* Queue navigation */}
+          <div className="flex items-center justify-between gap-2 border-t border-primary/10 px-5 py-3">
+            <Button
+              variant="ghost"
+              className="h-11 gap-1"
+              disabled={position <= 1}
+              onClick={() => goTo(position - 2)}
+              aria-label="Previous person in the queue"
+            >
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </Button>
+            <p className="text-xs font-semibold text-muted-foreground" aria-live="polite">
+              Person {position} of {total}
+            </p>
+            <Button
+              variant="ghost"
+              className="h-11 gap-1"
+              disabled={position >= total}
+              onClick={() => goTo(position)}
+              aria-label="Next person in the queue"
+            >
+              Next <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
 
-      <DecisionDialog row={active} onClose={() => setActive(null)} />
+      <DecisionDialog
+        row={deciding ? row : null}
+        photosReady={photosReady}
+        onClose={() => setDeciding(false)}
+        onSaved={() => goTo(position)}
+      />
+
+      {/* Full-size photo viewer */}
+      <Dialog open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)}>
+        <DialogContent className="max-w-lg p-3">
+          <DialogHeader className="px-2 pt-2">
+            <DialogTitle className="text-sm">{lightbox?.label}</DialogTitle>
+          </DialogHeader>
+          {lightbox && (
+            <img
+              src={lightbox.url}
+              alt={`${lightbox.label} — full size`}
+              className="max-h-[75vh] w-full rounded-xl object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
