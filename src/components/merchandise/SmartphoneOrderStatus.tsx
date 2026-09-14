@@ -53,6 +53,11 @@ interface SmartphoneOrder {
   access_accepted_at: string | null;
   rejection_reason: string | null;
   rejected_at: string | null;
+  total_repayable?: number | null;
+  access_daily_amount?: number | null;
+  access_repayment_days?: number | null;
+  advance_period_months?: number | null;
+  repayment_starts_on?: string | null;
 }
 
 const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; className: string }> = {
@@ -80,8 +85,14 @@ function normalizeStatus(value: unknown): OrderStatus {
 }
 
 
-/** Access Fee = smartphone cost plus the 1.33× markup shown to agents. */
-const accessFee = (unitPrice: number) => Math.round(Number(unitPrice) * 1.33);
+/**
+ * Amount owed to Welile: the reducing-balance total once the application has
+ * been priced, otherwise the device amount on its own.
+ */
+const accessFee = (o: { unit_price: number; total_repayable?: number | null }) =>
+  Math.round(
+    Number(o.total_repayable || 0) > 0 ? Number(o.total_repayable) : Number(o.unit_price || 0),
+  );
 
 
 interface Props {
@@ -138,7 +149,7 @@ export default function SmartphoneOrderStatus({
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_sales')
-        .select('id, item_name, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at, rejection_reason, rejected_at')
+        .select('id, item_name, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at, rejection_reason, rejected_at, total_repayable, access_daily_amount, access_repayment_days, advance_period_months, repayment_starts_on')
         .eq('customer_id', userId)
         .in('item_name', itemNames)
         .order('created_at', { ascending: false });
@@ -232,7 +243,7 @@ export default function SmartphoneOrderStatus({
 
   const getReceipt = (o: SmartphoneOrder) => ({
     orderId: o.id,
-    amount: accessFee(o.unit_price),
+    amount: accessFee(o),
     outstanding: Number(o.amount_outstanding),
     status: normalizeStatus(o.order_status),
     orderedAt: new Date(o.created_at),
@@ -274,7 +285,7 @@ export default function SmartphoneOrderStatus({
           idempotencyKey: `smartphone-order-receipt-${o.id}-${status}`,
           templateData: {
             recipient_name: profile?.full_name || o.client_name || 'there',
-            amount: accessFee(o.unit_price),
+            amount: accessFee(o),
             outstanding: Number(o.amount_outstanding),
             currency: 'UGX',
             order_status: status,
@@ -346,7 +357,7 @@ export default function SmartphoneOrderStatus({
             <SelectContent>
               {orders.map((o) => (
                 <SelectItem key={o.id} value={o.id} className="text-xs">
-                  {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(accessFee(o.unit_price))} ·{' '}
+                  {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(accessFee(o))} ·{' '}
                   {STATUS_META[normalizeStatus(o.order_status)].label}
                 </SelectItem>
               ))}
@@ -367,7 +378,7 @@ export default function SmartphoneOrderStatus({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold">{formatUGX(accessFee(o.unit_price))}</p>
+                    <p className="text-sm font-semibold">{formatUGX(accessFee(o))}</p>
                     <p className="text-[11px] text-muted-foreground">
                       Ordered {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')}
                       {Number(o.amount_outstanding) > 0
@@ -499,7 +510,7 @@ export default function SmartphoneOrderStatus({
               <AlertDialogTitle>Delete this order?</AlertDialogTitle>
               <AlertDialogDescription className="text-xs">
                 {cancelTarget
-                  ? `Your ${formatUGX(accessFee(cancelTarget.unit_price))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
+                  ? `Your ${formatUGX(accessFee(cancelTarget))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
                   : null}
               </AlertDialogDescription>
             </AlertDialogHeader>
