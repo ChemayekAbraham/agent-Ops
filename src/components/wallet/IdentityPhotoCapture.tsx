@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, ShieldCheck, Loader2, X } from 'lucide-react';
+import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -11,9 +11,12 @@ import {
   setSelfieAsProfilePhoto,
   identityPhotoUrl,
 } from '@/hooks/useIdentityPhotos';
+import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
+import { readNationalIdPhoto, idNameVerdict, type NationalIdReading } from '@/lib/nationalIdOcr';
 
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
+
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
