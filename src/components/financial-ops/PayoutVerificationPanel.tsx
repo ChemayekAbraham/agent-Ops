@@ -870,8 +870,11 @@ export default function PayoutVerificationPanel() {
             </div>
           </div>
 
+          {/* No name on the ID photo: replace the photo and read it again */}
+          {idNameUnreadable && <ReUploadIdPhotoCard row={row} />}
+
           {/* Names do not match: show the ID name and let it become the holder's name */}
-          {row.name_match_score !== null && row.name_match_score < 0.8 && (
+          {!idNameUnreadable && row.name_match_score !== null && row.name_match_score < 0.8 && (
             <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
           )}
 
