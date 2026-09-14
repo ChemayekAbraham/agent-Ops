@@ -1164,6 +1164,15 @@ export default function PayoutVerificationPanel() {
         </div>
       )}
 
+      {!queue.isLoading && !queue.isError && rows.length > 0 && (
+        <PayoutQueueBlockedList
+          rows={rows}
+          activeId={row?.id ?? null}
+          startNumber={page * PAYOUT_VERIFICATION_PAGE_SIZE + 1}
+          onOpen={(i) => setIndex(i)}
+        />
+      )}
+
       <DecisionDialog
         row={deciding ? row : null}
         photosReady={photosReady}
