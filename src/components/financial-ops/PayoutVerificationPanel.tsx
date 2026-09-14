@@ -849,6 +849,7 @@ export default function PayoutVerificationPanel() {
         <div className="space-y-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           <p className="font-semibold">The list could not be loaded</p>
           <p>{queue.error instanceof Error ? queue.error.message : 'Something went wrong.'}</p>
+          <QueueDiagnostics error={queue.error} />
           <Button size="sm" variant="outline" onClick={() => queue.refetch()}>
             Try again
           </Button>
