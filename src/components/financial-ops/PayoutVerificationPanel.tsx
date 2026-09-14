@@ -88,6 +88,7 @@ const FILTERS: { id: PayoutQueueFilter; label: string; countKey?: keyof PayoutVe
   { id: 'waiting', label: 'Waiting', countKey: 'waiting' },
   { id: 'mismatch', label: 'Mismatch', countKey: 'mismatch' },
   { id: 'no_id', label: 'No ID', countKey: 'no_id' },
+  { id: 'double', label: 'Double submissions', countKey: 'double' },
   { id: 'verified', label: 'Verified', countKey: 'verified' },
   { id: 'rejected', label: 'Rejected', countKey: 'rejected' },
   { id: 'all', label: 'All' },
