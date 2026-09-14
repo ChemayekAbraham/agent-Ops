@@ -52283,6 +52283,19 @@ export type Database = {
         Args: { p_action: string; p_context?: Json }
         Returns: boolean
       }
+      finops_holder_name_history: {
+        Args: { p_user_id: string }
+        Returns: {
+          changed_at: string
+          changed_by: string
+          changed_by_name: string
+          id: string
+          new_name: string
+          old_name: string
+          reason: string
+          source: string
+        }[]
+      }
       finops_manual_float_credit: {
         Args: {
           p_amount: number
