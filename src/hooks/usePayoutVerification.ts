@@ -461,6 +461,15 @@ export interface MyPayoutDestination {
   status: PayoutVerificationStatus;
   decision_reason: string | null;
   decided_at: string | null;
+  /** Timeline fields — when the account appeared, when the ID arrived and
+   *  how the ID name compared with the name on this account. */
+  first_seen_at: string | null;
+  created_at: string | null;
+  national_id: string | null;
+  national_id_name: string | null;
+  national_id_submitted_at: string | null;
+  name_match_score: number | null;
+  name_mismatch_tokens: unknown;
 }
 
 /**
