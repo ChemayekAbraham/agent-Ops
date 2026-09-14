@@ -121,7 +121,20 @@ export function useSubmitIdentityPhotos() {
  */
 export async function setSelfieAsProfilePhoto(userId: string, croppedFile: File): Promise<string | null> {
   try {
-    const path = `${userId}/avatar.${extensionOf(croppedFile)}`;
+    const ext = extensionOf(croppedFile);
+    // Archive the cropped copy too, so verification history can show the
+    // original selfie next to the exact picture that became the profile photo.
+    // The avatar itself is overwritten on every change, so it cannot be history.
+    try {
+      await supabase.storage
+        .from(IDENTITY_BUCKET)
+        .upload(`${userId}/profile-crop-${Date.now()}.${ext}`, croppedFile, {
+          upsert: false,
+          contentType: croppedFile.type || 'image/jpeg',
+        });
+    } catch { /* history copy is best-effort */ }
+
+    const path = `${userId}/avatar.${ext}`;
     const { error: upErr } = await supabase.storage
       .from('avatars')
       .upload(path, croppedFile, { upsert: true, contentType: croppedFile.type || 'image/jpeg' });
@@ -139,3 +152,96 @@ export async function setSelfieAsProfilePhoto(userId: string, croppedFile: File)
     return null;
   }
 }
+
+/** One archived verification file. */
+export interface VerificationHistoryFile {
+  path: string;
+  kind: IdentityPhotoKind | 'profile-crop' | 'other';
+  createdAt: string | null;
+  url: string | null;
+}
+
+/** A selfie submission paired with the cropped picture it produced. */
+export interface VerificationHistoryEntry {
+  id: string;
+  submittedAt: string | null;
+  original: VerificationHistoryFile | null;
+  cropped: VerificationHistoryFile | null;
+  nationalId: VerificationHistoryFile | null;
+}
+
+function kindOf(name: string): VerificationHistoryFile['kind'] {
+  if (name.startsWith('profile-crop-')) return 'profile-crop';
+  if (name.startsWith('selfie-')) return 'selfie';
+  if (name.startsWith('national-id-')) return 'national-id';
+  return 'other';
+}
+
+/**
+ * Verification history for one person: every archived file in their folder,
+ * newest first, with signed thumbnails. Storage RLS restricts reads to the
+ * owner plus finance roles, so no extra role check is needed here.
+ */
+export function useVerificationHistory(userId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['verification-history', userId],
+    enabled: !!userId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<VerificationHistoryEntry[]> => {
+      const { data: list, error } = await supabase.storage
+        .from(IDENTITY_BUCKET)
+        .list(userId!, { limit: 200, sortBy: { column: 'name', order: 'desc' } });
+      if (error) throw error;
+
+      const files: VerificationHistoryFile[] = (list || [])
+        .filter((o) => !!o.name && !o.name.startsWith('.'))
+        .map((o) => ({
+          path: `${userId}/${o.name}`,
+          kind: kindOf(o.name),
+          createdAt: (o.created_at as string | undefined) || null,
+          url: null,
+        }));
+
+      if (files.length === 0) return [];
+
+      const { data: signed } = await supabase.storage
+        .from(IDENTITY_BUCKET)
+        .createSignedUrls(files.map((f) => f.path), 600);
+      const urlByPath = new Map<string, string>();
+      (signed || []).forEach((s) => {
+        if (s.path && s.signedUrl) urlByPath.set(s.path, s.signedUrl);
+      });
+      files.forEach((f) => { f.url = urlByPath.get(f.path) ?? null; });
+
+      const stamp = (f: VerificationHistoryFile) => {
+        const m = f.path.match(/-(\d{10,})\./);
+        return m ? Number(m[1]) : 0;
+      };
+      const desc = (a: VerificationHistoryFile, b: VerificationHistoryFile) => stamp(b) - stamp(a);
+
+      const selfies = files.filter((f) => f.kind === 'selfie').sort(desc);
+      const crops = files.filter((f) => f.kind === 'profile-crop').sort(desc);
+      const ids = files.filter((f) => f.kind === 'national-id').sort(desc);
+
+      const rows = Math.max(selfies.length, crops.length, ids.length);
+      const entries: VerificationHistoryEntry[] = [];
+      for (let i = 0; i < rows; i += 1) {
+        const original = selfies[i] ?? null;
+        const cropped = crops[i] ?? null;
+        const nationalId = ids[i] ?? null;
+        const source = original || cropped || nationalId;
+        entries.push({
+          id: source?.path ?? `entry-${i}`,
+          submittedAt:
+            source?.createdAt ??
+            (source && stamp(source) ? new Date(stamp(source)).toISOString() : null),
+          original,
+          cropped,
+          nationalId,
+        });
+      }
+      return entries;
+    },
+  });
+}
+
