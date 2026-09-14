@@ -7,7 +7,7 @@
  * through the queue without returning to a list. The verification gate itself
  * lives in the database and the approve-withdrawal function.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowUpDown,
