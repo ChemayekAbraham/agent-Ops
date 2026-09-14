@@ -49,9 +49,23 @@ export default function NationalIdRejectedReminder({
   const { data: destinations } = useMyPayoutDestinations(user?.id);
   const [resubmitOpen, setResubmitOpen] = useState(false);
 
-  const rejected = useMemo(
-    () => (destinations ?? []).filter((d) => d.status === 'rejected'),
+  // Only actually blocking when the user has NO verified destination at
+  // all -- otherwise a single rejected destination (an old bank-transfer
+  // attempt, a mistyped number, one of several MoMo numbers a proxy agent
+  // tried) wrongly told the user their identity verification had entirely
+  // failed and blocked withdrawal outright, even though a perfectly good
+  // verified MTN/Airtel number already existed for them. Confirmed live
+  // 2026-09-14: 2 real users had this exact shape (>=1 rejected + >=1
+  // verified) and were both fully blocked by this banner. A rejected
+  // destination the user no longer needs shouldn't hold their whole
+  // withdrawal hostage once a working one exists.
+  const hasVerified = useMemo(
+    () => (destinations ?? []).some((d) => d.status === 'verified'),
     [destinations],
+  );
+  const rejected = useMemo(
+    () => (hasVerified ? [] : (destinations ?? []).filter((d) => d.status === 'rejected')),
+    [destinations, hasVerified],
   );
 
   // One toast per decision; a new decision (different decided_at) reminds again.
