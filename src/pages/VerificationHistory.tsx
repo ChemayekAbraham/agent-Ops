@@ -7,8 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { ChevronLeft, ImageOff, ShieldCheck } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ChevronLeft, Download, ExternalLink, ImageOff, Maximize2, Minimize2, ShieldCheck } from 'lucide-react';
+
+/** One photo opened in the full-resolution viewer. */
+interface ViewerPhoto {
+  url: string;
+  label: string;
+  takenAt: string;
+  fileName: string;
+}
 
 function when(iso: string | null) {
   if (!iso) return 'Date not recorded';
@@ -25,14 +33,16 @@ function Thumb({
   file,
   label,
   caption,
+  takenAt,
   round,
   onOpen,
 }: {
   file: VerificationHistoryFile | null;
   label: string;
   caption: string;
+  takenAt: string;
   round?: boolean;
-  onOpen: (url: string) => void;
+  onOpen: (photo: ViewerPhoto) => void;
 }) {
   return (
     <div className="flex-1 min-w-[130px] space-y-2">
@@ -40,9 +50,16 @@ function Thumb({
       {file?.url ? (
         <button
           type="button"
-          onClick={() => onOpen(file.url!)}
+          onClick={() =>
+            onOpen({
+              url: file.url!,
+              label,
+              takenAt,
+              fileName: file.path.split('/').pop() || 'verification-photo.jpg',
+            })
+          }
           className="block w-full"
-          aria-label={`Open ${label}`}
+          aria-label={`Open ${label} in full resolution`}
         >
           <img
             src={file.url}
@@ -58,9 +75,11 @@ function Thumb({
         </div>
       )}
       <p className="text-[11px] text-muted-foreground">{caption}</p>
+      {file?.url && <p className="text-[11px] text-primary">Tap to view full size</p>}
     </div>
   );
 }
+
 
 export default function VerificationHistoryPage() {
   const navigate = useNavigate();
