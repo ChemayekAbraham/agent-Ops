@@ -123,6 +123,11 @@ export default function WithdrawFlow({
     !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
 
   const [currentStep, setCurrentStep] = useState(0);
+  // Set when the user taps "Resubmit National ID" on the rejection banner: the
+  // first step then shows the ID form and the photo capture even though an ID
+  // and photos are already on file (they were rejected).
+  const [resubmitIdentity, setResubmitIdentity] = useState(false);
+
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
   // Reason / purpose the user selects for this withdrawal. The stored reason
