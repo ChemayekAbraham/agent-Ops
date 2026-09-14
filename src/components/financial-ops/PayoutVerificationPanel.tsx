@@ -271,11 +271,33 @@ function DecisionDialog({
   );
 }
 
+const SORT_STORAGE_KEY = 'finops-payout-verification-sort';
+const SORT_OPTIONS: PayoutQueueSort[] = ['ready_first', 'balance', 'newest', 'oldest'];
+
+function readStoredSort(): PayoutQueueSort {
+  try {
+    const stored = window.localStorage.getItem(SORT_STORAGE_KEY);
+    if (stored && (SORT_OPTIONS as string[]).includes(stored)) return stored as PayoutQueueSort;
+  } catch {
+    // storage unavailable — fall through to default
+  }
+  return 'ready_first';
+}
+
 export default function PayoutVerificationPanel() {
   const [status, setStatus] = useState<PayoutQueueFilter>('waiting');
   // Financial Ops should see people who have already submitted their National ID
-  // and selfie first, because those cases can be actioned immediately.
-  const [sort, setSort] = useState<PayoutQueueSort>('ready_first');
+  // and selfie first, because those cases can be actioned immediately. The last
+  // chosen sort is remembered per user/device so it survives refreshes.
+  const [sort, setSortState] = useState<PayoutQueueSort>(readStoredSort);
+  const setSort = useCallback((next: PayoutQueueSort) => {
+    setSortState(next);
+    try {
+      window.localStorage.setItem(SORT_STORAGE_KEY, next);
+    } catch {
+      // storage unavailable — in-memory state still updates
+    }
+  }, []);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
