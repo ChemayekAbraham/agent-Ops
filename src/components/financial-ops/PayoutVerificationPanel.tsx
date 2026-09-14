@@ -801,18 +801,7 @@ export default function PayoutVerificationPanel() {
                         : 'Accounts already using this ID'}
                     </p>
                     {row.duplicate_id_accounts?.map((acc) => (
-                      <div
-                        key={acc.user_id}
-                        className="rounded-xl border border-destructive/40 bg-background/70 px-2.5 py-1.5"
-                      >
-                        <p className="truncate text-sm font-bold text-foreground">
-                          {acc.full_name || 'Unnamed account'}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {acc.phone || 'No phone'}
-                          {acc.national_id ? ` • ID ${acc.national_id}` : ''}
-                        </p>
-                      </div>
+                      <ConflictingAccountRow key={acc.user_id} account={acc} />
                     ))}
                   </div>
                 )}
