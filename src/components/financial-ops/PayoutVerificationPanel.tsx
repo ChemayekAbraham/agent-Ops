@@ -915,8 +915,9 @@ export default function PayoutVerificationPanel() {
         </div>
       ) : (
         <div
+          ref={focusCardRef}
           key={row.id}
-          className="overflow-hidden rounded-[2rem] border border-primary/10 bg-card shadow-xl shadow-primary/5"
+          className="overflow-hidden rounded-[2rem] border border-primary/10 bg-card shadow-xl shadow-primary/5 scroll-mt-4"
         >
           {/* Case header */}
           <div className="flex items-center justify-between gap-3 border-b border-primary/10 px-5 py-4">
