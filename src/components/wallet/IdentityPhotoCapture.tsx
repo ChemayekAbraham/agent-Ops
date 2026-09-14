@@ -228,11 +228,21 @@ export default function IdentityPhotoCapture({
           icon={<Camera className="h-4 w-4 text-primary" />}
           shot={selfie}
           facing="user"
-          onPick={pick(setSelfie)}
+          onPick={(file) => setPendingSelfie(file)}
           onClear={() => setSelfie(null)}
           disabled={working}
         />
       </div>
+
+      <SelfieCropDialog
+        file={pendingSelfie}
+        open={!!pendingSelfie}
+        onCancel={() => setPendingSelfie(null)}
+        onConfirm={(cropped) => {
+          setPendingSelfie(null);
+          setSelfie({ file: cropped, preview: URL.createObjectURL(cropped) });
+        }}
+      />
 
       <Button onClick={save} disabled={!idShot || !selfie || working} className="w-full h-12 text-base font-bold">
         {working ? (
