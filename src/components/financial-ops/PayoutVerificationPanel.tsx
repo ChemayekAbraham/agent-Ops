@@ -14,6 +14,7 @@ import {
   Building2,
   Camera,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -801,18 +802,7 @@ export default function PayoutVerificationPanel() {
                         : 'Accounts already using this ID'}
                     </p>
                     {row.duplicate_id_accounts?.map((acc) => (
-                      <div
-                        key={acc.user_id}
-                        className="rounded-xl border border-destructive/40 bg-background/70 px-2.5 py-1.5"
-                      >
-                        <p className="truncate text-sm font-bold text-foreground">
-                          {acc.full_name || 'Unnamed account'}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {acc.phone || 'No phone'}
-                          {acc.national_id ? ` • ID ${acc.national_id}` : ''}
-                        </p>
-                      </div>
+                      <ConflictingAccountRow key={acc.user_id} account={acc} />
                     ))}
                   </div>
                 )}
@@ -978,6 +968,86 @@ export default function PayoutVerificationPanel() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * One account that already holds this National ID. Tapping the row opens a
+ * drawer with the account's full details (name, phone, ID, created date).
+ */
+function ConflictingAccountRow({
+  account,
+}: {
+  account: {
+    user_id: string;
+    full_name: string | null;
+    phone: string | null;
+    national_id: string | null;
+    created_at?: string | null;
+  };
+}) {
+  const [open, setOpen] = useState(false);
+  const created = account.created_at
+    ? new Date(account.created_at).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Unknown';
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-destructive/40 bg-background/70">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-destructive/10"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-foreground">
+            {account.full_name || 'Unnamed account'}
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {account.phone || 'No phone'}
+            {account.national_id ? ` • ID ${account.national_id}` : ''}
+          </p>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-destructive transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
+        <span className="sr-only">{open ? 'Hide account details' : 'Show account details'}</span>
+      </button>
+
+      {open && (
+        <dl className="grid gap-1.5 border-t border-destructive/30 bg-destructive/5 px-2.5 py-2 text-[11px]">
+          <div className="flex items-start justify-between gap-3">
+            <dt className="font-bold uppercase tracking-wide text-muted-foreground">Name</dt>
+            <dd className="min-w-0 truncate text-right font-semibold text-foreground">
+              {account.full_name || '—'}
+            </dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt className="font-bold uppercase tracking-wide text-muted-foreground">Phone</dt>
+            <dd className="min-w-0 truncate text-right font-semibold text-foreground">
+              {account.phone || '—'}
+            </dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt className="font-bold uppercase tracking-wide text-muted-foreground">National ID</dt>
+            <dd className="min-w-0 truncate text-right font-semibold text-foreground">
+              {account.national_id || '—'}
+            </dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt className="font-bold uppercase tracking-wide text-muted-foreground">Created</dt>
+            <dd className="min-w-0 truncate text-right font-semibold text-foreground">{created}</dd>
+          </div>
+        </dl>
+      )}
     </div>
   );
 }
