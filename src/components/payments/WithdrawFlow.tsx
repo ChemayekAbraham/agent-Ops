@@ -105,11 +105,17 @@ export default function WithdrawFlow({
   // Migrating both dialogs onto this hook eliminates gate drift where one
   // dialog enforced a rule the other missed (e.g. the payout-freeze bug).
   const withdrawCtx = useWithdrawContext(user?.id);
+  // Funders holding an investor portfolio were vetted through the portfolio
+  // flow, so they skip the National ID / selfie prompts entirely (the database
+  // exempts them from the identity + payout-destination gates too).
+  const funder = useIsFunderWithPortfolio(user?.id);
+  const identityExempt = funder.isLoading || funder.isFunder;
   // No National ID on file means no withdrawal: the first step is a hard stop
   // until a correctly formatted ID and the name printed on it are submitted.
   const myNationalId = useMyNationalId();
   const needsNationalId =
     !!user?.id &&
+    !identityExempt &&
     !myNationalId.isLoading &&
     !myNationalId.isFetching &&
     !myNationalId.data?.national_id;
@@ -118,9 +124,11 @@ export default function WithdrawFlow({
   const myIdentityPhotos = useMyIdentityPhotos();
   const needsIdentityPhotos =
     !!user?.id &&
+    !identityExempt &&
     !myIdentityPhotos.isLoading &&
     !myIdentityPhotos.isFetching &&
     !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
+
 
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
