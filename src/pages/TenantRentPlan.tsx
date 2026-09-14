@@ -312,7 +312,8 @@ export default function TenantRentPlan() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-base">Make a Repayment</p>
-              <p className="text-sm text-muted-foreground">Next due: {formatUGX(plan.dailyAmount)} today</p>
+              <p className="text-sm text-muted-foreground">Next due: {formatUGX(plan.dueNow || plan.dailyAmount)} today</p>
+              <p className="text-[11px] text-muted-foreground">Wallet: {formatUGX(walletBalance)}</p>
             </div>
             <CircleDollarSign className="h-8 w-8 text-primary" />
           </div>
