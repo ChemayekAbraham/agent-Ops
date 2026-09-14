@@ -293,8 +293,12 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Potential fake accounts — most prominent CTO signal */}
+      <FakeAccountRadarPanel />
+
       {/* Maintenance Mode Control (CTO) */}
       <MaintenanceToggleCard />
+
 
       {/* Google indexing monitor (welileapp.com SEO) */}
       <SeoIndexMonitorPanel />
