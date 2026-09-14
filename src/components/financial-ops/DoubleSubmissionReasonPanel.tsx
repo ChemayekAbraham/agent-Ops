@@ -8,6 +8,7 @@ import { AlertTriangle, IdCard, Smartphone, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDoubleSubmissionReason } from '@/hooks/useDoubleSubmissionReason';
 import {
+  doubleSubmissionLabel,
   foldedCharacters,
   normalizeNationalIdFuzzy,
   phoneLastNine,
@@ -99,7 +100,8 @@ export function DoubleSubmissionReasonPanel({
   const firstPhone9 = phoneLastNine(first?.first_phone);
   const phoneSame = !!myPhone9 && myPhone9 === firstPhone9;
 
-  const what = kind === 'phone' ? 'phone number' : 'National ID';
+  const what = doubleSubmissionLabel(kind);
+  const photoMatch = kind === 'face' || kind === 'id_photo';
   const holder = first?.first_name || firstName || 'an earlier account';
   const folded = foldedCharacters(thisNationalId);
 
@@ -139,6 +141,19 @@ export function DoubleSubmissionReasonPanel({
           {thisPhone ? ` · ${thisPhone}` : ''}
         </p>
       </div>
+
+      {photoMatch && (
+        <div className="rounded-xl border border-border bg-background p-3">
+          <p className="text-xs font-bold">
+            {kind === 'face' ? 'Same face as the earlier account' : 'Same ID card photo as the earlier account'}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The {kind === 'face' ? 'selfie' : 'photo of the National ID'} sent here matches the one already on{' '}
+            {holder}'s account, so the same person is in the queue twice. Only the account that submitted
+            first can be verified.
+          </p>
+        </div>
+      )}
 
       {reason.isLoading ? (
         <p className="text-xs font-medium text-muted-foreground">Checking the match…</p>
