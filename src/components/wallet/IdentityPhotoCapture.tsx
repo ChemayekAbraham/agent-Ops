@@ -130,6 +130,39 @@ function StoredShot({ path, label, note }: { path: string; label: string; note: 
   );
 }
 
+/**
+ * Turns whatever came back from the server into one sentence the person can
+ * act on. Anything unrecognised keeps its own wording rather than being
+ * swallowed, so nothing ever fails silently.
+ */
+function sendFailureMessage(e: unknown): string {
+  const raw = e instanceof Error ? e.message : typeof e === 'string' ? e : '';
+  const t = raw.toLowerCase();
+  if (!raw) return 'Your photos could not be sent. Please check your internet and try again.';
+  if (t.includes('three') || t.includes('3 times') || t.includes('rate') || t.includes('limit')) {
+    return 'You have already sent your ID and selfie three times this week. Please wait until next week, or call support to look at your case.';
+  }
+  if (t.includes('already') && t.includes('national id')) {
+    return 'This National ID is already used by another account. One ID can verify one account only.';
+  }
+  if (t.includes('back')) {
+    return 'The back of your National ID is still missing. Take a photo of the back of the card and send again.';
+  }
+  if (t.includes('best candidate') || t.includes('function') || t.includes('schema')) {
+    return 'Your photos reached us but the request was incomplete, so nothing was saved. Please tap send once more.';
+  }
+  if (t.includes('fetch') || t.includes('network') || t.includes('timeout') || t.includes('failed to send')) {
+    return 'Your internet dropped while sending. Your photos were not saved — please try again on a better connection.';
+  }
+  if (t.includes('permission') || t.includes('denied') || t.includes('jwt') || t.includes('auth')) {
+    return 'You were signed out while sending. Please sign in again and resend your photos.';
+  }
+  if (t.includes('storage') || t.includes('upload') || t.includes('size') || t.includes('large')) {
+    return 'One of the photos could not be uploaded. Take it again a bit closer and smaller, then send.';
+  }
+  return raw;
+}
+
 interface Props {
   /** Shown on the withdraw gate; hidden once both photos are on file. */
   compact?: boolean;
