@@ -1730,8 +1730,15 @@ export default function WithdrawFlow({
                     {myDestinations.isFetching ? 'Checking…' : 'Check again'}
                   </Button>
                 )}
+                <div className="pt-1">
+                  <DestinationVerificationTimeline
+                    destination={activeDestination}
+                    accountName={payoutMode === 'mobile_money' ? momoName : bankAccountName}
+                  />
+                </div>
               </div>
             )}
+
 
             {payoutMode !== 'cash' && !selectedSavedId && (
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-3">
