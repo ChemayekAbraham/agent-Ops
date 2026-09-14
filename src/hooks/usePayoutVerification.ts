@@ -266,6 +266,39 @@ export function last9(value?: string | null): string {
   return (value ?? '').replace(/\D/g, '').slice(-9);
 }
 
+/** One phone's account presence, as returned by finops_phone_account_lookup. */
+export interface PhoneAccountInfo {
+  phone_key: string;
+  has_account: boolean;
+  account_name: string | null;
+  account_user_id: string | null;
+}
+
+/**
+ * Batch lookup: for each phone number, whether it belongs to a Welile account
+ * (matched on the last 9 digits) and who owns it. Financial Ops only — the
+ * RPC role-gates. One round trip per page of rows.
+ */
+export function usePhoneAccountLookup(phones: (string | null | undefined)[], enabled = true) {
+  const keys = [...new Set(phones.map((p) => last9(p)).filter((k) => k.length > 0))].sort();
+  return useQuery({
+    queryKey: ['finops-phone-account-lookup', keys],
+    enabled: enabled && keys.length > 0,
+    staleTime: 60_000,
+    queryFn: async (): Promise<Record<string, PhoneAccountInfo>> => {
+      const { data, error } = await supabase.rpc('finops_phone_account_lookup', {
+        p_phones: keys,
+      });
+      if (error) throw error;
+      const map: Record<string, PhoneAccountInfo> = {};
+      for (const row of (data ?? []) as unknown as PhoneAccountInfo[]) {
+        map[row.phone_key] = row;
+      }
+      return map;
+    },
+  });
+}
+
 /** Verification state for one destination out of the user's own list. */
 export function destinationStateFor(
   list: MyPayoutDestination[] | undefined,
