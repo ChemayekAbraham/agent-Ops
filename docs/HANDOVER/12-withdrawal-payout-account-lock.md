@@ -42,7 +42,7 @@ independently found 3 accounts fitting this exact fraud signature.
 ## Follow-up: blocked attempts were briefly forensically invisible
 
 During an unrelated adversarial-regression pass on 2026-09-14 (see
-[`13-ip-actor-audit-instrumentation.md`](./13-ip-actor-audit-instrumentation.md)), a real gap was
+[`15-ip-actor-audit-instrumentation.md`](./15-ip-actor-audit-instrumentation.md)), a real gap was
 found and fixed: a **blocked** attempt raised the exception and rejected the insert, but left **zero
 forensic trace anywhere** — no `withdrawal_requests` row (it never committed) and, when a fix was
 first attempted by logging directly inside this trigger right before the `RAISE EXCEPTION`, that

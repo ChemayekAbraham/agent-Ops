@@ -1,4 +1,4 @@
-# 13. Feature — Wallet withdrawal OTP verification (2026-09-14)
+# 16. Feature — Wallet withdrawal OTP verification (2026-09-14)
 
 **Status: live in production, verified end-to-end.**
 
