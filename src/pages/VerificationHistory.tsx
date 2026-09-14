@@ -90,7 +90,9 @@ export default function VerificationHistoryPage() {
   const isSelf = !params.get('userId') || params.get('userId') === user?.id;
 
   const history = useVerificationHistory(viewUserId);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ViewerPhoto | null>(null);
+  const [actualSize, setActualSize] = useState(false);
+
 
   const entries = useMemo(() => history.data ?? [], [history.data]);
 
