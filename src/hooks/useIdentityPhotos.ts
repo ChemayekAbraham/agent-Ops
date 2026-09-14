@@ -109,3 +109,31 @@ export async function identityPhotoUrl(path?: string | null): Promise<string | n
   if (error) return null;
   return data?.signedUrl ?? null;
 }
+
+/**
+ * The selfie doubles as the person's profile picture.
+ *
+ * The identity bucket is private (Financial Ops only), so we upload a second
+ * copy of the same shot into the public `avatars` bucket — the same place the
+ * Settings screen writes to — and point `profiles.avatar_url` at it. Failure
+ * here must never block the verification submission, so callers treat it as
+ * best-effort.
+ */
+export async function setSelfieAsProfilePhoto(userId: string, file: File): Promise<string | null> {
+  const path = `${userId}/avatar.${extensionFor(file)}`;
+  await supabase.storage.from('avatars').remove([path]);
+  const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, {
+    contentType: file.type || 'image/jpeg',
+    upsert: true,
+  });
+  if (upErr) return null;
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  const publicUrl = data?.publicUrl ? `${data.publicUrl}?t=${Date.now()}` : null;
+  if (!publicUrl) return null;
+  const { error: updErr } = await supabase
+    .from('profiles')
+    .update({ avatar_url: publicUrl })
+    .eq('id', userId);
+  if (updErr) return null;
+  return publicUrl;
+}
