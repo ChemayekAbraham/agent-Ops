@@ -149,6 +149,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [pendingSelfie, setPendingSelfie] = useState<File | null>(null);
   const [previewSelfie, setPreviewSelfie] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  // Stays on screen until the person fixes it — a toast alone disappears and
+  // people were left thinking nothing happened.
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // What we read off the ID card photo.
   const [reading, setReading] = useState(false);
