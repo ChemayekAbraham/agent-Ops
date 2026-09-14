@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatUGX } from '@/lib/currency';
+import { formatUGX } from '@/lib/rentCalculations';
 import {
   UNVERIFIED_WITHDRAWALS_PAGE_SIZE,
   missingPieces,
