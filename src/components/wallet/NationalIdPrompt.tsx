@@ -72,7 +72,14 @@ export default function NationalIdPrompt({
   const canSave = idCheck.valid && nameCheck.valid && !submit.isPending;
 
   const alreadyDone = !!data?.national_id;
-  if (isLoading || (alreadyDone && !allowResubmit) || withdrawableBalance <= 0) return null;
+  if (
+    isLoading ||
+    funder.isLoading ||
+    funder.isFunder ||
+    (alreadyDone && !allowResubmit) ||
+    withdrawableBalance <= 0
+  )
+    return null;
 
   const save = async () => {
     if (!idCheck.valid || !nameCheck.valid) {
