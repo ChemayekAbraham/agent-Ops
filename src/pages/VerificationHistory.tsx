@@ -286,7 +286,7 @@ export default function VerificationHistoryPage() {
             >
               <img
                 src={preview.url}
-                alt={preview.label}
+                alt={`${preview.label}${previewIndex !== null && flatPhotos.length > 1 ? ` — photo ${previewIndex + 1} of ${flatPhotos.length}` : ''}`}
                 className={actualSize ? 'max-w-none' : 'max-h-[70vh] w-full object-contain'}
               />
             </div>
