@@ -105,10 +105,11 @@ export async function identityPhotoUrl(path: string | null | undefined): Promise
 export function useSubmitIdentityPhotos() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (paths: { idPhotoPath: string; selfiePath: string }) => {
+    mutationFn: async (paths: { idPhotoPath: string; selfiePath: string; idBackPhotoPath?: string | null }) => {
       const { data, error } = await supabase.rpc('submit_identity_photos', {
         p_id_photo_path: paths.idPhotoPath,
         p_selfie_path: paths.selfiePath,
+        p_id_back_photo_path: paths.idBackPhotoPath ?? undefined,
       });
       if (error) throw error;
       return data as { success?: boolean; message?: string } | null;
