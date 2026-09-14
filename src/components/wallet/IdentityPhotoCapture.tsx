@@ -467,7 +467,34 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </p>
         )}
 
-        <Button className="w-full" disabled={!ready || saving} onClick={handleSave}>
+        {sendError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive"
+          >
+            <p className="flex items-start gap-2 font-semibold">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>Your photos were not sent</span>
+            </p>
+            <p className="mt-1 font-medium">{sendError}</p>
+            <p className="mt-1 text-destructive/80">
+              Nothing was lost. Fix the point above and tap send again.
+            </p>
+          </div>
+        )}
+
+        {!sendError && blockers.length > 0 && (
+          <div className="rounded-lg border bg-muted/40 p-3 text-xs">
+            <p className="font-semibold">Before you can send:</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+              {blockers.map((b) => (
+                <li key={b}>{b}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <Button className="w-full" disabled={saving} onClick={handleSave}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {saving ? 'Sending…' : 'Send my photos for verification'}
         </Button>
