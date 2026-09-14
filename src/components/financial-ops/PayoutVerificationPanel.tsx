@@ -547,6 +547,26 @@ export default function PayoutVerificationPanel() {
     setIndex(0);
   };
 
+  // One tap verifies and saves everything: the National ID name becomes the
+  // account name, the note is written for the audit trail, and the queue moves on.
+  const runQuickVerify = async (target: PayoutDestinationRow) => {
+    try {
+      await quickVerify.mutateAsync({
+        id: target.id,
+        userId: target.user_id,
+        decision: 'verified',
+        reason:
+          'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.',
+      });
+      toast.success('Verified. The name from the ID is saved on the account.');
+      queue.refetch();
+      counts.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not save the decision.');
+    }
+  };
+
+
   return (
     <div className="space-y-3">
       {/* Slim control bar */}
