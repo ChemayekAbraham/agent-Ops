@@ -497,7 +497,7 @@ export function InvestmentCalculator() {
                 onClick={() => setMode('invest')}
                 className={`py-2.5 rounded-md text-xs font-semibold transition-all ${
                   mode === 'invest'
-                    ? 'bg-foreground text-background shadow-sm'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -508,7 +508,7 @@ export function InvestmentCalculator() {
                 onClick={() => setMode('earn')}
                 className={`py-2.5 rounded-md text-xs font-semibold transition-all ${
                   mode === 'earn'
-                    ? 'bg-foreground text-background shadow-sm'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -632,7 +632,7 @@ export function InvestmentCalculator() {
                 className="flex items-center justify-between w-full py-3"
               >
                 <div className="flex items-center gap-2.5">
-                  <GitCompare className={`h-4 w-4 ${showComparison ? 'text-foreground' : 'text-muted-foreground'}`} />
+                  <GitCompare className={`h-4 w-4 ${showComparison ? 'text-primary' : 'text-muted-foreground'}`} />
                   <span className="text-sm">Compare scenarios</span>
                 </div>
                 <Toggle
@@ -647,8 +647,8 @@ export function InvestmentCalculator() {
 
           {/* Results — two clean stat boxes */}
           <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-            <div className="p-4 rounded-xl border border-border/40 bg-muted/20">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Contribute</p>
+            <div className="p-4 rounded-xl border border-primary/20 bg-primary/5">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Contribute</p>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={calculations.requiredContribution}
