@@ -113,4 +113,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'proxy-agent-onboarded': proxyAgentOnboardedTemplate,
   'proxy-daily-nudge': proxyDailyNudgeTemplate,
   'smartphone-order-disbursed': smartphoneOrderDisbursedTemplate,
+  'identity-verified-withdrawals-enabled': identityVerifiedWithdrawalsEnabledTemplate,
 }
