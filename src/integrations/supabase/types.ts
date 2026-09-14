@@ -52381,6 +52381,62 @@ export type Database = {
         Args: { p_desk_id: string; p_reason: string }
         Returns: Json
       }
+      finops_unverified_withdrawals:
+        | {
+            Args: { p_limit?: number; p_offset?: number; p_search?: string }
+            Returns: {
+              amount: number
+              avatar_url: string
+              bank_account_number: string
+              bank_name: string
+              created_at: string
+              destination_verified: boolean
+              full_name: string
+              has_id_photo: boolean
+              has_national_id: boolean
+              has_selfie: boolean
+              hidden_from_merchant_queue: boolean
+              id: string
+              mobile_money_number: string
+              mobile_money_provider: string
+              payout_method: string
+              phone: string
+              status: string
+              total_count: number
+              user_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_filter?: string
+              p_limit?: number
+              p_offset?: number
+              p_search?: string
+              p_sort?: string
+            }
+            Returns: {
+              amount: number
+              avatar_url: string
+              badge: string
+              bank_account_number: string
+              bank_name: string
+              created_at: string
+              destination_verified: boolean
+              full_name: string
+              has_id_photo: boolean
+              has_national_id: boolean
+              has_selfie: boolean
+              hidden_from_merchant_queue: boolean
+              id: string
+              mobile_money_number: string
+              mobile_money_provider: string
+              payout_method: string
+              phone: string
+              status: string
+              total_count: number
+              user_id: string
+            }[]
+          }
       force_approve_rejected_rent_request: {
         Args: { p_payout_ref?: string; p_reason: string; p_request_id: string }
         Returns: string
@@ -60360,6 +60416,10 @@ export type Database = {
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json
+      }
+      withdrawal_user_id_verified: {
+        Args: { p_user_id: string }
+        Returns: boolean
       }
       writedown_historical_drift: {
         Args: { p_amount: number; p_reason: string; p_review_id: string }

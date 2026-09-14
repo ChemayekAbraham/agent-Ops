@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+import { maySendRequisitionSms } from "../_shared/requisitionSmsPolicy.ts";
 import { creditRequisitionWallet } from "../_shared/requisitionWalletCredit.ts";
 
 const corsHeaders = {
@@ -131,7 +132,9 @@ Deno.serve(async (req) => {
         metadata: { requisition_id: requisitionId, requisition_code: reqRow.requisition_code, status: mapped.status, review_url: REVIEW_URL },
       });
 
-      if (requesterProfile.phone) {
+      // In-app notification above reaches every requester; the text message
+      // is restricted to senior/finance roles.
+      if (requesterProfile.phone && await maySendRequisitionSms(admin, requesterProfile.id)) {
         await sendSMS(
           requesterProfile.phone,
           `Welile: Your requisition ${reqRow.requisition_code} (${fmtUGX(Number(reqRow.amount))}) is now ${mapped.label}. ${comment}`,
