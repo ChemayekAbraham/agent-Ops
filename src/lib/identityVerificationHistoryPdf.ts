@@ -167,10 +167,9 @@ export function generateIdentityVerificationHistoryPdf(
         : [['—', '—', 'No photo reads recorded', '—', '—', '—', '—', '—', '—']],
     styles: { fontSize: 7, cellPadding: 1.4, overflow: 'linebreak' },
     headStyles: { fillColor: PRIMARY, textColor: 255, fontSize: 7 },
-    didDrawPage: () => undefined,
   });
-  // @ts-expect-error jspdf-autotable augments the document at runtime
-  y = (doc.lastAutoTable?.finalY ?? y) + 8;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  y = ((doc as any).lastAutoTable?.finalY ?? y) + 8;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
