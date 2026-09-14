@@ -8,7 +8,8 @@
 The CTO dashboard's Fake Account Radar flagged ~25,500 accounts as `burst_signup`
 (`cto_fake_account_base()`: 10+ signups from the same `referrer_id` inside the same
 10-minute bucket, all with unconfirmed email). Investigating why they existed led to an
-active, quantified financial exploit, not just spam:
+active, quantified financial exploit, not just spam. **Final scope after two extension
+passes: 19 confirmed fraud referrer accounts, ~33,591 bot accounts.**
 
 - **17 referrer accounts** drove **25,732** throwaway signups between 2026-09-10 and
   2026-09-13 (one referrer alone: 3,315 signups in ~2.5 days — no human does that).
@@ -34,12 +35,39 @@ active, quantified financial exploit, not just spam:
   etc. was still all there and still correct — every `*_required` field had just been
   hardcoded to `0`. It looked like a real gate and wasn't one, for over a month.
 
-- **Money already moved**: UGX 3,282,700 in `referral_bonus` credits paid to the 17
-  referrers, of which **UGX 3,172,500 was already withdrawn** (cashed out via mobile
+- **Money already moved**: UGX 3,282,700 in `referral_bonus` credits paid to the first
+  17 referrers, of which **UGX 3,172,500 was already withdrawn** (cashed out via mobile
   money) before this was caught. Only UGX 240,800 was still sitting in wallets.
 - The 25,732 bot accounts themselves held **zero** wallet balance, zero
   `general_ledger` rows, zero `rent_requests` — confirmed before touching anything.
   They were pure signup-farm shells; all the money sat with the 17 referrers.
+
+### It didn't stop there — two follow-ups the same day
+
+After the first fix and cleanup, two things surfaced:
+
+1. **Freezing a referrer's own account does not stop their script.** One of the 17
+   already-frozen referrers (`fc7837ea...`) kept producing new bot signups for hours
+   afterward — `is_frozen` blocks *withdrawals*, it doesn't stop new `auth.users`
+   rows from being created with that `referrer_id`. The root-cause fix already made
+   this financially pointless, but the accounts kept getting created.
+2. **Auditing every account with 10+ `referral_bonus` credits (not just what the
+   `burst_signup` heuristic had flagged) found 2 more referrers running the identical
+   pattern** — 400 bonuses / UGX 40,000 each — and **~7,859 additional bot accounts**
+   under all 19 referrers combined that `burst_signup` had missed entirely.
+   `burst_signup` only fires on 10+ signups in the *same 10-minute bucket*; a slower
+   drip (one signup every 1-2 minutes for hours, same referrer, same email pattern)
+   evades it completely even though it's obviously the same ring.
+
+**Final totals across all 19 referrers**: UGX 3,362,700 paid, UGX 3,172,500 already
+withdrawn, **UGX 320,800 recovered** by freezing before it could be cashed out (the 2
+new referrers hadn't withdrawn yet). ~33,591 bot accounts soft-deleted in total.
+
+A **real-time guard was added to `handle_new_user()`** (the trigger that fires on
+every `auth.users` insert, not app code) — 15+ signups from the same `referrer_id` in
+the last hour is now rejected outright at the database level. This is the one part of
+the fix that cannot be bypassed by hitting Supabase Auth's public `/auth/v1/signup`
+endpoint directly, because it fires regardless of which client created the row.
 
 ## What was fixed
 
@@ -85,20 +113,33 @@ active, quantified financial exploit, not just spam:
 
 ## Still open
 
-- The ~UGX 3.17M already withdrawn by the 17 referrers has left the platform via
+- The ~UGX 3.17M already withdrawn by the referrers has left the platform via
   mobile money — this is a recovery/legal question for Josh, not a database fix.
 - This was found via the **referrer's** wallet/ledger activity. The same
   `try_credit_qualified_referrals()` path exists for every other referral reward
   mechanism in this codebase (`landlord_ambassador_referrals`,
   `merchant_agent_referrals`, `supporter_referrals`) — none of those were audited in
   this pass. Worth the same check.
+- **A much larger, weaker signal was deliberately NOT acted on.** Every profile whose
+  `user_roles` has all four personas (`tenant`/`agent`/`landlord`/`supporter`)
+  inserted at the exact same timestamp, with email still unconfirmed, currently
+  totals **8,798 accounts across 84 distinct referrers**, going back to 2026-05-10 —
+  far bigger and older than the 19-referrer ring above. This signature is **not**
+  reliable proof of a bot on its own: `handle_new_user()` assigns exactly this
+  "all four personas at once" pattern to *any* signup that doesn't pass an
+  `intended_role` in metadata — a legitimate signup entry point that omits that
+  field would look identical. Before touching any of these 84, each referrer needs
+  the same evidence standard the 19 got: concrete email/phone pattern similarity and
+  a real money trail, not just the role signature. Flagged for Josh to decide scope
+  before a review of this scale is undertaken.
 - `preflightSignup()` / `record_signup_attempt` (client-side-only, bypassable by
   calling Supabase Auth's public `/auth/v1/signup` REST endpoint directly) is still
-  the only thing standing between the platform and the *next* burst-signup ring —
-  the milestone-gate fix above stops this specific ring from being profitable, but
-  does not stop new accounts from being created wholesale. A CAPTCHA/Turnstile
-  gate on Supabase Auth's own signup endpoint is the real fix for that and hasn't
-  been done.
+  the *first* line of defense and still bypassable that way. The signup-velocity
+  guard added to `handle_new_user()` (see above) is the real backstop now — it
+  can't be bypassed by skipping the client — but it only catches referrer-driven
+  velocity, not a bot ring that signs up with no `referrer_id` at all. A
+  CAPTCHA/Turnstile gate on Supabase Auth's own signup endpoint is still the more
+  complete fix and hasn't been done.
 
 ## Verify this is still fixed
 
