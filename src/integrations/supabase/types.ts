@@ -6656,6 +6656,45 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_referral_ring_detections: {
+        Row: {
+          action_taken: string
+          bots_soft_deleted: number
+          detected_at: string
+          distinct_names: number
+          id: string
+          notes: string | null
+          referred_count: number
+          referrer_id: string
+          span_hours: number | null
+          synthetic_email_count: number
+        }
+        Insert: {
+          action_taken: string
+          bots_soft_deleted?: number
+          detected_at?: string
+          distinct_names: number
+          id?: string
+          notes?: string | null
+          referred_count: number
+          referrer_id: string
+          span_hours?: number | null
+          synthetic_email_count: number
+        }
+        Update: {
+          action_taken?: string
+          bots_soft_deleted?: number
+          detected_at?: string
+          distinct_names?: number
+          id?: string
+          notes?: string | null
+          referred_count?: number
+          referrer_id?: string
+          span_hours?: number | null
+          synthetic_email_count?: number
+        }
+        Relationships: []
+      }
       browser_compat_events: {
         Row: {
           choice: string | null
@@ -59282,6 +59321,7 @@ export type Database = {
         Returns: number
       }
       sc_receivable_writer: { Args: { _user_id: string }; Returns: boolean }
+      scan_and_quarantine_bot_referral_rings: { Args: never; Returns: Json }
       scan_critical_function_drift: { Args: never; Returns: Json }
       schedule_roi_payout: {
         Args: { p_new_date: string; p_portfolio_id: string; p_reason?: string }
