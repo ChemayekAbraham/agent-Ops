@@ -1,6 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export type NationalIdSide = 'front' | 'back';
+
 export interface NationalIdReading {
+  side?: NationalIdSide;
+  printed_text?: string;
   full_name: string;
   surname: string;
   given_names: string;
@@ -11,6 +15,7 @@ export interface NationalIdReading {
   account_name: string;
   account_national_id: string | null;
   name_match_score: number | null;
+  failure_reason?: string | null;
   error?: string;
 }
 
@@ -28,11 +33,14 @@ async function fileToBase64(file: File): Promise<string> {
  * Never throws: a failure returns `{ error }` so the person can still type
  * their details by hand.
  */
-export async function readNationalIdPhoto(file: File): Promise<NationalIdReading | { error: string }> {
+export async function readNationalIdPhoto(
+  file: File,
+  side: NationalIdSide = 'front',
+): Promise<NationalIdReading | { error: string }> {
   try {
     const imageBase64 = await fileToBase64(file);
     const { data, error } = await supabase.functions.invoke('read-national-id', {
-      body: { imageBase64 },
+      body: { imageBase64, side },
     });
     if (error) return { error: 'Could not read that photo automatically.' };
     return data as NationalIdReading;

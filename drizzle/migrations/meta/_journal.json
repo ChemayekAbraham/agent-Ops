@@ -526,6 +526,27 @@
       "when": 1789378641818,
       "tag": "0074_agent_weekly_champion_team",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1789390648050,
+      "tag": "0075_proxy_agent_id_gate_exemptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1789391055312,
+      "tag": "0076_national_id_ocr_reads_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1789391055312,
+      "tag": "0076_national_id_ocr_reads_audit",
+      "breakpoints": true
     }
   ]
 }

@@ -15,11 +15,16 @@ name: Deploy Edge Function (manual, one at a time)
 #   * cannot be pointed at an arbitrary function name (choice input, not string)
 #
 # ORDERING REQUIREMENT (accounting, not convenience)
+# Applies to the two money functions ONLY:
 # fund-agent-landlord-float MUST be deployed and verified BEFORE tenant-pay-rent.
 # The repayment waterfall DEBITS L7, and funding recognition is what CREDITS it.
 # Deploying the repayment side first would let a repayment drive L7 into an
 # unexplained debit. The guard enforces this at runtime, but the deploy order
 # should not rely on an exception being raised in production.
+#
+# verify-passport-photo is NOT part of that ordering. It moves no money: it
+# proxies the PassGate face check and writes one reference row
+# (identity_photo_fingerprints). It can be deployed at any time, on its own.
 #
 # PREREQUISITE
 # Migrations 20260908120500 / 20260908130000 / 20260908140000 must be applied
@@ -35,12 +40,13 @@ on:
   workflow_dispatch:
     inputs:
       function:
-        description: "Which function to deploy (deploy fund-agent-landlord-float FIRST)"
+        description: "Which function to deploy"
         required: true
         type: choice
         options:
           - fund-agent-landlord-float
           - tenant-pay-rent
+          - verify-passport-photo
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
@@ -106,5 +112,10 @@ jobs:
       - name: Post-deploy reminder
         run: |
           echo "Deployed: ${{ inputs.function }}"
-          echo "NEXT: verify against the live ledger before deploying anything else."
-          echo "Do NOT deploy tenant-pay-rent until fund-agent-landlord-float is verified."
+          if [ "${{ inputs.function }}" = "verify-passport-photo" ]; then
+            echo "Moves no money. Check: a tenant photo check still returns is_face,"
+            echo "and identity_photo_fingerprints rows now carry checked_by + source."
+          else
+            echo "NEXT: verify against the live ledger before deploying anything else."
+            echo "Do NOT deploy tenant-pay-rent until fund-agent-landlord-float is verified."
+          fi
