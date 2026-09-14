@@ -103,6 +103,9 @@ export function useSubmitIdentityPhotos() {
       selfiePath: string;
       idBackPhotoPath?: string | null;
       nameChangeConsent?: boolean;
+      /** Local perceptual fingerprints — used to spot the same face/ID twice. */
+      selfieHash?: string | null;
+      idHash?: string | null;
     }) => {
       // Always send the full argument set: the database holds several
       // overloads of this function, and a two-argument call is ambiguous, so
