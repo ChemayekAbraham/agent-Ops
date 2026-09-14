@@ -150,6 +150,8 @@ export default function IdentityPhotoCapture({
   const [idShot, setIdShot] = useState<Shot | null>(null);
   const [selfie, setSelfie] = useState<Shot | null>(null);
   const [busy, setBusy] = useState(false);
+  // Raw camera shot waiting for the crop/confirm step.
+  const [pendingSelfie, setPendingSelfie] = useState<File | null>(null);
 
   const alreadyDone = !!data?.national_id_photo_path && !!data?.selfie_photo_path;
   if (isLoading || alreadyDone) return null;
