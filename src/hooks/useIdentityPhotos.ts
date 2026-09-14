@@ -24,15 +24,24 @@ export interface MyIdentityPhotos {
 /** What the signed-in user has already recorded. */
 export function useMyIdentityPhotos() {
   const { user } = useAuth();
+  return useIdentityPhotosFor(user?.id);
+}
+
+/**
+ * Photos for any one user. Storage policies restrict reads to the owner and
+ * to Financial Ops / finance leadership, so this only returns data for those
+ * callers.
+ */
+export function useIdentityPhotosFor(userId?: string | null) {
   return useQuery({
-    queryKey: ['my-identity-photos', user?.id],
-    enabled: !!user?.id,
+    queryKey: ['my-identity-photos', userId],
+    enabled: !!userId,
     staleTime: 60_000,
     queryFn: async (): Promise<MyIdentityPhotos | null> => {
       const { data, error } = await supabase
         .from('profiles')
         .select('national_id_photo_path, selfie_photo_path, identity_photos_submitted_at')
-        .eq('id', user!.id)
+        .eq('id', userId!)
         .maybeSingle();
       if (error) throw error;
       return (data ?? null) as MyIdentityPhotos | null;
