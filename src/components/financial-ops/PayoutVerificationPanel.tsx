@@ -20,10 +20,12 @@ import {
   History,
   IdCard,
   Loader2,
+  MessageCircle,
   PhoneCall,
   Search,
   ShieldAlert,
   Smartphone,
+  UserRound,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -42,16 +44,48 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   PAYOUT_DECISION_LOG_PAGE_SIZE,
   PAYOUT_VERIFICATION_PAGE_SIZE,
+  last9,
   useDecidePayoutDestination,
   usePayoutDecisionLog,
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
+  usePhoneAccountLookup,
   type PayoutDestinationRow,
   type PayoutDecisionLogRow,
   type PayoutQueueFilter,
   type PayoutQueueSort,
+  type PhoneAccountInfo,
 } from '@/hooks/usePayoutVerification';
 import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
+import { UserProfileDrilldown } from '@/components/ops/UserProfileDrilldown';
+
+/** wa.me chat link for a Ugandan number (256 + last 9 digits). */
+function waLink(phone: string | null | undefined): string | null {
+  const k = last9(phone);
+  return k ? `https://wa.me/256${k}` : null;
+}
+
+/**
+ * Small pill under a phone number saying whether that number has a Welile
+ * account, and whose — so the operator immediately knows if a payout number
+ * belongs to the holder's own account or to someone else entirely.
+ */
+function PhoneAccountBadge({ info, loading }: { info: PhoneAccountInfo | undefined; loading: boolean }) {
+  if (loading) return <Skeleton className="h-5 w-28 rounded-full" />;
+  if (!info?.has_account) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+        <X className="h-3 w-3" /> No account in system
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+      <UserRound className="h-3 w-3" />
+      Has account{info.account_name ? ` — ${info.account_name}` : ''}
+    </span>
+  );
+}
 
 /**
  * The National ID card photo and the selfie the holder recorded, shown under
@@ -246,7 +280,7 @@ function formatDecisionTime(iso: string | null): string {
  * searchable by holder name / number / decider, filterable by decision
  * (approved or rejected) and by decision date range. Newest first.
  */
-function DecisionAuditLog() {
+function DecisionAuditLog({ onOpenProfile }: { onOpenProfile?: (userId: string) => void }) {
   const [open, setOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -287,9 +321,7 @@ function DecisionAuditLog() {
 
       {open && (
         <div className="border-t border-border p-4 space-y-3">
-      <DecisionAuditLog />
-
-      {/* Filters */}
+          {/* Filters */}
           <div className="relative">
             <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
             <Input
@@ -371,9 +403,13 @@ function DecisionAuditLog() {
                   <div key={r.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-foreground truncate">
+                        <button
+                          type="button"
+                          onClick={() => r.user_id && onOpenProfile?.(r.user_id)}
+                          className="block max-w-full text-left text-xs font-bold text-foreground truncate underline decoration-primary/50 underline-offset-2 active:text-primary"
+                        >
                           {r.full_name || 'Name not recorded'}
-                        </p>
+                        </button>
                         <p className="text-[11px] text-muted-foreground truncate">{dest}</p>
                       </div>
                       <span
@@ -446,12 +482,24 @@ export default function PayoutVerificationPanel() {
   // query polls while shots are missing, so Verify turns on by itself the
   // moment both photos land — no refresh.
   const [photosAvailable, setPhotosAvailable] = useState<Record<string, boolean>>({});
+  // Name tap → read-only profile sheet for that person.
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
 
   const total = queue.data?.total ?? 0;
   const rows = queue.data?.rows ?? [];
+
+  // One batched lookup for every phone on the page (account phone + payout
+  // number): does this number have a Welile account, and whose?
+  const pagePhones = useMemo(
+    () => rows.flatMap((r) => [r.user_phone, r.momo_number]),
+    [rows],
+  );
+  const phoneAccounts = usePhoneAccountLookup(pagePhones, rows.length > 0);
+  const accountFor = (phone: string | null | undefined): PhoneAccountInfo | undefined =>
+    phoneAccounts.data?.[last9(phone)];
   const pageCount = Math.max(1, Math.ceil(total / PAYOUT_VERIFICATION_PAGE_SIZE));
   const from = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + 1;
   const to = Math.min(total, (page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE);
@@ -479,6 +527,8 @@ export default function PayoutVerificationPanel() {
 
   return (
     <div className="space-y-4">
+      <DecisionAuditLog onOpenProfile={setProfileUserId} />
+
       {/* Headline */}
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
         <div className="flex items-start gap-3">
@@ -501,8 +551,8 @@ export default function PayoutVerificationPanel() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      {/* Filters — sticky so they stay within thumb reach on a phone */}
+      <div className="sticky top-0 z-20 -mx-1 flex gap-2 overflow-x-auto bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         {FILTERS.map((f) => {
           const n = countFor(f.id);
           const selected = status === f.id;
@@ -588,10 +638,20 @@ export default function PayoutVerificationPanel() {
               <div key={r.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground truncate">
+                    <button
+                      type="button"
+                      onClick={() => r.user_id && setProfileUserId(r.user_id)}
+                      className="block max-w-full text-left text-sm font-bold text-foreground truncate underline decoration-primary/50 underline-offset-2 active:text-primary"
+                    >
                       {r.full_name || 'Name not recorded'}
-                    </p>
+                    </button>
                     <p className="text-xs text-muted-foreground">{r.user_phone || 'No account phone'}</p>
+                    <div className="mt-1">
+                      <PhoneAccountBadge
+                        info={accountFor(r.user_phone)}
+                        loading={phoneAccounts.isLoading && !!r.user_phone}
+                      />
+                    </div>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
@@ -620,6 +680,12 @@ export default function PayoutVerificationPanel() {
                       {isMomo ? `${r.provider ?? 'Mobile money'} · ${dest}` : dest}
                     </span>
                   </div>
+                  {isMomo && (
+                    <PhoneAccountBadge
+                      info={accountFor(r.momo_number)}
+                      loading={phoneAccounts.isLoading && !!r.momo_number}
+                    />
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Name on the {isMomo ? 'number' : 'account'}:{' '}
                     <span className="font-semibold text-foreground">{r.account_name || 'Not given'}</span>
@@ -649,22 +715,44 @@ export default function PayoutVerificationPanel() {
                   )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2">
                   {r.user_phone && (
                     <a
                       href={`tel:${r.user_phone}`}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground h-12 text-sm font-bold"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground h-12 text-sm font-bold"
                     >
                       <PhoneCall className="h-4 w-4" /> Call {r.full_name?.split(' ')[0] || 'holder'}
                     </a>
                   )}
-                  {isMomo && r.momo_number && r.momo_number !== r.user_phone && (
+                  {waLink(r.user_phone) && (
                     <a
-                      href={`tel:${r.momo_number}`}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 text-primary h-12 text-sm font-bold"
+                      href={waLink(r.user_phone) as string}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white h-12 text-sm font-bold"
                     >
-                      <PhoneCall className="h-4 w-4" /> Call payout number
+                      <MessageCircle className="h-4 w-4" /> WhatsApp
                     </a>
+                  )}
+                  {isMomo && r.momo_number && last9(r.momo_number) !== last9(r.user_phone) && (
+                    <>
+                      <a
+                        href={`tel:${r.momo_number}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 text-primary h-12 text-sm font-bold"
+                      >
+                        <PhoneCall className="h-4 w-4" /> Call payout number
+                      </a>
+                      {waLink(r.momo_number) && (
+                        <a
+                          href={waLink(r.momo_number) as string}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-600/50 text-emerald-700 h-12 text-sm font-bold"
+                        >
+                          <MessageCircle className="h-4 w-4" /> WhatsApp payout number
+                        </a>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -746,6 +834,13 @@ export default function PayoutVerificationPanel() {
       )}
 
       <DecisionDialog row={active} onClose={() => setActive(null)} />
+      <UserProfileDrilldown
+        open={!!profileUserId}
+        onOpenChange={(v) => {
+          if (!v) setProfileUserId(null);
+        }}
+        userId={profileUserId}
+      />
     </div>
   );
 }
