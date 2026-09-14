@@ -68,15 +68,38 @@ function ProgressRing({ pct, size = 120, strokeWidth = 8 }: { pct: number; size?
 
 export default function TenantRentPlan() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [showRepayForm, setShowRepayForm] = useState(false);
   const [repayAmount, setRepayAmount] = useState('');
 
-  // TODO: replace with real data hook
-  const plan: RentPlanData | null = PLACEHOLDER_PLAN;
+  const { data, isLoading, isError, refetch } = useTenantRentPlan();
+  const payRent = usePayRentFromWallet();
+
+  const walletBalance = data?.walletBalance ?? 0;
+
+  const plan: RentPlanData | null = useMemo(() => {
+    const p = data?.plan;
+    if (!p) return null;
+    return {
+      id: p.id,
+      status: p.status,
+      totalAmount: p.total_amount,
+      amountRepaid: p.amount_repaid,
+      dailyAmount: p.daily_amount,
+      termDays: p.term_days,
+      termStart: p.term_start,
+      termEnd: p.term_end,
+      obligationEnd: p.obligation_end,
+      daysElapsed: p.days_elapsed,
+      behaviourScore: p.behaviour_score,
+      houseName: p.house_name,
+      agentName: p.agent_name,
+      dueNow: p.due_now,
+      recentPayments: data?.recentPayments ?? [],
+    };
+  }, [data]);
 
   const balance = useMemo(
-    () => (plan ? plan.totalAmount - plan.amountRepaid : 0),
+    () => (plan ? Math.max(0, plan.totalAmount - plan.amountRepaid) : 0),
     [plan],
   );
   const pctPaid = useMemo(
@@ -87,6 +110,29 @@ export default function TenantRentPlan() {
     () => (plan ? daysRemaining(plan.obligationEnd) : 0),
     [plan],
   );
+
+  const amountValue = Number(repayAmount) || 0;
+  const amountError = useMemo(() => {
+    if (!plan || amountValue <= 0) return '';
+    if (amountValue > balance) return `More than your balance of ${formatUGX(balance)}.`;
+    if (amountValue > walletBalance) return `Your wallet has ${formatUGX(walletBalance)}. Add money first.`;
+    return '';
+  }, [amountValue, balance, walletBalance, plan]);
+
+  const handleConfirmPayment = async () => {
+    if (amountValue <= 0 || amountError) return;
+    try {
+      const result = await payRent.mutateAsync(amountValue);
+      toast.success(
+        `Paid ${formatUGX(result.amount_paid)} — balance now ${formatUGX(result.remaining_balance)}`,
+        { description: `Reference ${result.reference}` },
+      );
+      setShowRepayForm(false);
+      setRepayAmount('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Payment failed');
+    }
+  };
 
   const scoreLabel = useMemo(() => {
     if (!plan) return '';
@@ -103,9 +149,27 @@ export default function TenantRentPlan() {
       case 'completed': return { label: 'Completed', color: 'text-success bg-success/10', icon: CheckCircle2 };
       case 'paused': return { label: 'Paused', color: 'text-warning bg-warning/10', icon: AlertCircle };
       case 'defaulted': return { label: 'Overdue', color: 'text-destructive bg-destructive/10', icon: AlertCircle };
-      default: return { label: '', color: '', icon: AlertCircle };
+      default: return { label: 'Active', color: 'text-primary bg-primary/10', icon: Clock };
     }
   }, [plan]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 gap-3">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading your Rent Plan…</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 gap-3">
+        <p className="text-muted-foreground text-center">We could not load your Rent Plan just now.</p>
+        <Button variant="outline" onClick={() => void refetch()}>Try again</Button>
+      </div>
+    );
+  }
 
   if (!plan) {
     return (
@@ -117,6 +181,8 @@ export default function TenantRentPlan() {
       </div>
     );
   }
+
+
 
   return (
     <div className="min-h-screen bg-background pb-24">
