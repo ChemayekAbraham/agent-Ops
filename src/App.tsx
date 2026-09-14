@@ -489,6 +489,8 @@ function AppRoutes() {
           <Route path="/dashboard/agents/leaderboard" element={<AgentLeaderboard />} />
           <Route path="/dashboard/*" element={<DashboardRedirect />} />
           <Route path="/verification-request/:id" element={<VerificationRequestDetailPage />} />
+          <Route path="/verification-history" element={<VerificationHistoryPage />} />
+
           {/* Dev-only Playwright harnesses — stripped from production builds. */}
           {import.meta.env.DEV && (
             <Route
