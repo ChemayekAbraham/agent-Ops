@@ -179,23 +179,40 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           verification history for Financial Ops; the version you crop becomes your profile picture.
         </p>
 
-        <ShotTile
-          label="National ID photo"
-          hint="All four corners visible, no glare."
-          file={idPhoto}
-          onPick={setIdPhoto}
-          onClear={() => setIdPhoto(null)}
-          disabled={saving}
-        />
+        {storedIdPath ? (
+          <StoredShot
+            path={storedIdPath}
+            label="National ID photo"
+            note="This saved photo will be used for this verification."
+          />
+        ) : (
+          <ShotTile
+            label="National ID photo"
+            hint="All four corners visible, no glare."
+            file={idPhoto}
+            onPick={setIdPhoto}
+            onClear={() => setIdPhoto(null)}
+            disabled={saving}
+          />
+        )}
 
-        <ShotTile
-          label="Selfie"
-          hint="Face the camera in good light."
-          file={selfieOriginal}
-          onPick={(f) => { setSelfieOriginal(f); setSelfieCropped(null); setPendingSelfie(f); }}
-          onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); }}
-          disabled={saving}
-        />
+        {storedSelfiePath ? (
+          <StoredShot
+            path={storedSelfiePath}
+            label="Selfie"
+            note="Your stored original selfie will be used for this verification."
+          />
+        ) : (
+          <ShotTile
+            label="Selfie"
+            hint="Face the camera in good light."
+            file={selfieOriginal}
+            onPick={(f) => { setSelfieOriginal(f); setSelfieCropped(null); setPendingSelfie(f); }}
+            onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); }}
+            disabled={saving}
+          />
+        )}
+
 
         <Button className="w-full" disabled={!ready || saving} onClick={handleSave}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
