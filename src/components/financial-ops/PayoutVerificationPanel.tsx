@@ -711,22 +711,44 @@ export default function PayoutVerificationPanel() {
                   )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2">
                   {r.user_phone && (
                     <a
                       href={`tel:${r.user_phone}`}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground h-12 text-sm font-bold"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground h-12 text-sm font-bold"
                     >
                       <PhoneCall className="h-4 w-4" /> Call {r.full_name?.split(' ')[0] || 'holder'}
                     </a>
                   )}
-                  {isMomo && r.momo_number && r.momo_number !== r.user_phone && (
+                  {waLink(r.user_phone) && (
                     <a
-                      href={`tel:${r.momo_number}`}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 text-primary h-12 text-sm font-bold"
+                      href={waLink(r.user_phone) as string}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white h-12 text-sm font-bold"
                     >
-                      <PhoneCall className="h-4 w-4" /> Call payout number
+                      <MessageCircle className="h-4 w-4" /> WhatsApp
                     </a>
+                  )}
+                  {isMomo && r.momo_number && last9(r.momo_number) !== last9(r.user_phone) && (
+                    <>
+                      <a
+                        href={`tel:${r.momo_number}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 text-primary h-12 text-sm font-bold"
+                      >
+                        <PhoneCall className="h-4 w-4" /> Call payout number
+                      </a>
+                      {waLink(r.momo_number) && (
+                        <a
+                          href={waLink(r.momo_number) as string}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-600/50 text-emerald-700 h-12 text-sm font-bold"
+                        >
+                          <MessageCircle className="h-4 w-4" /> WhatsApp payout number
+                        </a>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -808,6 +830,13 @@ export default function PayoutVerificationPanel() {
       )}
 
       <DecisionDialog row={active} onClose={() => setActive(null)} />
+      <UserProfileDrilldown
+        open={!!profileUserId}
+        onOpenChange={(v) => {
+          if (!v) setProfileUserId(null);
+        }}
+        userId={profileUserId}
+      />
     </div>
   );
 }
