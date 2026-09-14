@@ -35,6 +35,8 @@ import { RedirectHealthAlertsPanel } from './RedirectHealthAlertsPanel';
 import { SignupSourceLogPanel } from './SignupSourceLogPanel';
 import { DepositBridgeHealthPanel } from '@/components/bridge/DepositBridgeHealthPanel';
 import { DeletedAccountsPanel } from '@/components/cto/DeletedAccountsPanel';
+import { FakeAccountRadarPanel } from '@/components/cto/FakeAccountRadarPanel';
+
 
 
 export function CTODashboard({ activeTab }: { activeTab?: string }) {
