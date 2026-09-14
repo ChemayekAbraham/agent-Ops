@@ -65,6 +65,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { assessIdNameConfidence } from '@/lib/idNameConfidence';
 import { supabase } from '@/integrations/supabase/client';
+import { PayoutQueueBlockedList, blockedReasonFor } from './PayoutQueueBlockedList';
 
 import { useUserAvatars } from '@/hooks/useUserAvatars';
 import { useAuth } from '@/hooks/useAuth';
