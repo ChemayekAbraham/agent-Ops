@@ -17,6 +17,7 @@ import {
   ChevronRight,
   IdCard,
   Loader2,
+  Maximize2,
   PhoneCall,
   Search,
   ShieldAlert,
@@ -35,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ImageLightbox } from '@/components/marketplace/ImageLightbox';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
@@ -47,15 +49,23 @@ import {
 } from '@/hooks/usePayoutVerification';
 import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
 
+interface IdentityPhotosStripProps {
+  userId: string;
+  holderName?: string | null;
+}
+
 /**
  * The National ID card photo and the selfie the holder recorded, shown under
  * their name so the operator compares the face before tapping Verify. Tapping
- * a thumbnail opens the full photo in a new tab (short-lived signed link).
+ * a thumbnail opens a zoomable lightbox so the operator can inspect details
+ * without leaving the queue.
  */
-function IdentityPhotosStrip({ userId }: { userId: string }) {
+function IdentityPhotosStrip({ userId, holderName }: IdentityPhotosStripProps) {
   const photos = useIdentityPhotosFor(userId);
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
 
@@ -69,6 +79,17 @@ function IdentityPhotosStrip({ userId }: { userId: string }) {
       alive = false;
     };
   }, [idPath, selfiePath]);
+
+  const lightboxImages = [
+    ...(idUrl ? [{ id: 'national-id', image_url: idUrl }] : []),
+    ...(selfieUrl ? [{ id: 'selfie', image_url: selfieUrl }] : []),
+  ];
+
+  const openAt = (index: number) => {
+    if (lightboxImages.length === 0) return;
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
 
   if (photos.isLoading) {
     return (
@@ -88,27 +109,54 @@ function IdentityPhotosStrip({ userId }: { userId: string }) {
     );
   }
 
-  const shot = (url: string | null, label: string) =>
+  const shot = (
+    url: string | null,
+    label: string,
+    index: number,
+    placeholderIcon: React.ReactNode,
+  ) =>
     url ? (
-      <a href={url} target="_blank" rel="noreferrer" className="block shrink-0">
+      <button
+        type="button"
+        onClick={() => openAt(index)}
+        className="block shrink-0 group relative text-left"
+        aria-label={`Open ${label} in lightbox`}
+      >
         <img
           src={url}
           alt={label}
           loading="lazy"
-          className="h-20 w-16 rounded-lg object-cover border border-border"
+          className="h-20 w-16 rounded-lg object-cover border border-border group-hover:opacity-90 transition-opacity"
         />
+        <div className="absolute right-1 top-1 rounded bg-background/80 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Maximize2 className="h-3 w-3 text-foreground" />
+        </div>
         <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
-      </a>
+      </button>
     ) : (
       <div className="shrink-0">
         <div className="h-20 w-16 rounded-lg border border-dashed border-border flex items-center justify-center">
-          <IdCard className="h-4 w-4 text-muted-foreground" />
+          {placeholderIcon}
         </div>
         <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
       </div>
     );
 
-  return <div className="flex gap-3">{shot(idUrl, 'National ID')}{shot(selfieUrl, 'Selfie')}</div>;
+  return (
+    <>
+      <div className="flex gap-3">
+        {shot(idUrl, 'National ID', 0, <IdCard className="h-4 w-4 text-muted-foreground" />)}
+        {shot(selfieUrl, 'Selfie', idUrl ? 1 : 0, <Smartphone className="h-4 w-4 text-muted-foreground" />)}
+      </div>
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        productName={holderName ? `${holderName} — verification photos` : 'Verification photos'}
+      />
+    </>
+  );
 }
 
 const FILTERS: { id: PayoutQueueFilter; label: string }[] = [
