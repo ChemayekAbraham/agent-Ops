@@ -1,6 +1,7 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
+import { resolveTrustedClientIp, getClientUserAgent } from "../_shared/resolveClientIp.ts";
 import {
   buildReturnsDisbursementRequest,
   dispatchTransactionalEmail,
@@ -748,12 +749,8 @@ Deno.serve(async (req) => {
       // Fire-and-forget audit log for EVERY pasted SMS (matched or not) so
       // there is a durable record of the raw text, what we extracted, and the
       // validation verdict. Never let an audit hiccup block a real payout.
-      const smsAuditIp =
-        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-        req.headers.get("cf-connecting-ip") ||
-        req.headers.get("x-real-ip") ||
-        null;
-      const smsAuditUa = req.headers.get("user-agent") || null;
+      const smsAuditIp = resolveTrustedClientIp(req);
+      const smsAuditUa = getClientUserAgent(req);
       const smsAuditRole = hasStaffRole
         ? "staff"
         : isCashoutAgent
@@ -931,12 +928,8 @@ Deno.serve(async (req) => {
             approver_id: user?.id ?? null,
             approver_email: (user && (user.email as string)) || null,
             approver_role: hasStaffRole ? "staff" : isCashoutAgent ? "cashout_agent" : "unknown",
-            ip_address:
-              req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-              req.headers.get("cf-connecting-ip") ||
-              req.headers.get("x-real-ip") ||
-              null,
-            user_agent: req.headers.get("user-agent") || null,
+            ip_address: resolveTrustedClientIp(req),
+            user_agent: getClientUserAgent(req),
             metadata: { payment_method: payment_method ?? null },
           });
         } catch (e) {
@@ -1173,12 +1166,8 @@ Deno.serve(async (req) => {
       }
       // Audit logger for every WPO code verification attempt. Fire-and-forget
       // so audit DB hiccups never block a real payout decision.
-      const ipAddress =
-        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-        req.headers.get("cf-connecting-ip") ||
-        req.headers.get("x-real-ip") ||
-        null;
-      const userAgent = req.headers.get("user-agent") || null;
+      const ipAddress = resolveTrustedClientIp(req);
+      const userAgent = getClientUserAgent(req);
       const approverRole = hasStaffRole
         ? "staff"
         : isCashoutAgent
@@ -2803,6 +2792,50 @@ Deno.serve(async (req) => {
         );
       }
       // Ledger entry already exists — log but don't fail the user
+    }
+
+    // The completion UPDATE above fires log_withdrawal_status_event(), which
+    // writes a system_events row (metadata.stage: 'completed') via
+    // log_system_event(). That write happens through this edge function's
+    // service-role client, so the DB-side capture_system_event_ip trigger
+    // correctly refuses to trust any IP it sees there (it cannot tell this
+    // service-role call apart from a genuinely automated one) and leaves
+    // ip_address null -- by design, not a bug. But the real human actor IS
+    // known here (user.id, verified via their JWT above) and the real
+    // client IP is available right here, in this edge function's own
+    // inbound request. Backfill the row this completion just caused, the
+    // same pattern used for the landlord MoMo fix (64bde2d6d): the edge
+    // function is the actual trust boundary that received the real
+    // request, so it is the only place that can supply this correctly.
+    //
+    // Filtered to stage='completed' specifically (not just this withdrawal
+    // id + event type) so this can never touch a DIFFERENT stage's event
+    // for the same withdrawal (e.g. an earlier manager/cfo-approval row)
+    // if that one is separately still missing its own, different actor's
+    // IP -- this must only ever backfill the row this exact completion
+    // produced.
+    //
+    // Investigated the watchdog's "153 missing-IP withdrawal approvals":
+    // system_events.ip_address/user_agent did not exist as columns before
+    // today's item-47 migration, so the overwhelming majority are simply
+    // historical rows that predate the capture capability entirely, not a
+    // live gap -- confirmed by finding exactly one system_events row for
+    // this event type created after that migration (metadata.stage:
+    // 'completed', 2026-09-14 01:52 UTC), and it traces to this exact
+    // approve-withdrawal completion path. This backfill is the fix for
+    // that one genuine live case going forward.
+    if (!updateErr) {
+      try {
+        await admin
+          .from("system_events")
+          .update({ ip_address: resolveTrustedClientIp(req), user_agent: getClientUserAgent(req) })
+          .eq("related_entity_id", withdrawal_id)
+          .eq("event_type", "withdrawal_approved")
+          .eq("metadata->>stage", "completed")
+          .is("ip_address", null);
+      } catch (e) {
+        console.warn("[approve-withdrawal] system_events IP backfill failed (non-critical):", e);
+      }
     }
 
     // ── Landlord-float payout completion ─────────────────────────────────
