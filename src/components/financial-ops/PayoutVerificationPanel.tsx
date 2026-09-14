@@ -58,6 +58,9 @@ import {
   useDecidePayoutDestination,
   useRevertHolderName,
   useSetHolderName,
+  useReplaceNationalIdPhoto,
+
+
 
 
   usePayoutVerificationCounts,
