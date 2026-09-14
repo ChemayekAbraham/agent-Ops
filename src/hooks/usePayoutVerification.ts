@@ -11,6 +11,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
+import { DUPLICATE_NATIONAL_ID_MESSAGE, isDuplicateNationalIdError } from '@/lib/nationalId';
 
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
