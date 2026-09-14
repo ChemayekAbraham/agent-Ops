@@ -809,6 +809,19 @@ Deno.serve(async (req) => {
       const priority = String(q.priority || (sev === 'Critical' ? 'P1' : sev === 'High' ? 'P2' : 'P3'));
       const blockingProd = q.blocking_production === true;
       const eta = String(q.resolution_eta || 'Ongoing - chronic performance debt, not a same-day incident');
+      // Real per-statement age from pg_stat_statements.stats_since (PG14+)
+      // instead of a hardcoded placeholder — this is what made the report
+      // show identical "30 days active, recurring" text for every slow
+      // query forever, regardless of whether it actually started
+      // yesterday or months ago.
+      const statsSince = q.stats_since ? new Date(String(q.stats_since)) : null;
+      const statsSinceValid = !!statsSince && !isNaN(statsSince.getTime());
+      const daysActive = statsSinceValid ? Math.max(0, Math.floor((Date.now() - statsSince!.getTime()) / 86400000)) : 30;
+      const isNew = statsSinceValid ? daysActive < 2 : false;
+      const isRecurring = statsSinceValid ? daysActive >= 2 : true;
+      const timeline = statsSinceValid
+        ? `Statement first appeared in pg_stat_statements on ${statsSince!.toISOString().slice(0, 10)} (~${daysActive} days ago). Figures below are cumulative since then, not a same-day volume.`
+        : 'Cumulative since the last statistics reset (exact start date unavailable).';
       issues.push({
         key: `slow_query:${String(q.statement).slice(0, 60)}`, domain: 'Database performance',
         title: `Slow statement: ${String(q.statement).replace(/\s+/g, ' ').slice(0, 90)}`,
@@ -816,7 +829,7 @@ Deno.serve(async (req) => {
         execSummary: `A database statement averages ${fmt(q.mean_ms)} ms across ${fmt(q.calls)} lifetime calls (cumulative since the last stats reset, not today's volume), consuming ${fmt(Math.round(n(q.total_ms) / 1000))} seconds of database time in total.`,
         techSummary: `${String(q.plan_note || '')} Cache hit ${fmt(q.cache_hit_pct)}%, ${fmt(q.disk_reads)} disk block reads, ${fmt(q.rows_per_call)} rows returned per call.`,
         rootCause: String(q.plan_note || ''),
-        timeline: 'Cumulative since the last statistics reset.',
+        timeline,
         frequency: `${fmt(q.calls)} executions`,
         trendY: 'cumulative counter — no daily delta available',
         trend7: 'cumulative counter — no 7 day delta available',
@@ -830,7 +843,7 @@ Deno.serve(async (req) => {
         owner: 'Backend / Database', team: 'Backend / Database',
         fix: String(q.optimization_recommendation || ''),
         effort: '2-6 engineer hours including EXPLAIN ANALYZE and index rollout',
-        status: 'Open', isNew: false, isRecurring: true, daysActive: 30, previouslyFixed: false,
+        status: 'Open', isNew, isRecurring, daysActive, previouslyFixed: false,
         gettingWorse: false, blockingProd, investigating: false,
         eta,
         score: 150 + n(q.mean_ms) / 5,
