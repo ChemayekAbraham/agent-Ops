@@ -347,13 +347,15 @@ export default function PayoutVerificationPanel() {
           <button
             type="button"
             onClick={() => {
-              setSort(sort === 'balance' ? 'oldest' : 'balance');
+              const order: PayoutQueueSort[] = ['ready_first', 'balance', 'newest', 'oldest'];
+              const next = order[(order.indexOf(sort) + 1) % order.length];
+              setSort(next);
               setPage(0);
               setIndex(0);
             }}
             className="h-10 shrink-0 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground"
           >
-            {sort === 'balance' ? 'Biggest first' : 'Oldest first'}
+            {sort === 'ready_first' ? 'Ready first' : sort === 'balance' ? 'Biggest first' : sort === 'newest' ? 'Newest first' : 'Oldest first'}
           </button>
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
