@@ -176,7 +176,7 @@ const PayoutVerificationPanel = lazy(() => import('./PayoutVerificationPanel'));
 const UnverifiedWithdrawalsPanel = lazy(() => import('./UnverifiedWithdrawalsPanel'));
 const PayoutVerificationCallout = lazy(() => import('./PayoutVerificationCallout'));
 import { 
-  ShieldCheck, Banknote, ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Menu, X,
+  ShieldCheck, ShieldAlert, Banknote, ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Menu, X,
   ClipboardList, Search, Scale, Shield, Gauge, BookOpen, TrendingUp, FileText,
   WifiOff, MoreHorizontal, AlertTriangle, AlertCircle, ScanLine, Receipt, Mail, Home as HomeIcon,
   ArrowRightLeft, ScrollText, KeyRound, ReceiptText
