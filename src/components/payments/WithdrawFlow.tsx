@@ -647,7 +647,7 @@ export default function WithdrawFlow({
     // flow and are exempt. Threshold: today_pct < 20% with active tenants.
     switch (currentStep) {
       // Verify the wallet first: no valid National ID on file, no withdrawal.
-      case 0: return !needsNationalId;
+      case 0: return !needsNationalId && !needsIdentityPhotos;
       case 1:
         // Mirror the Confirm-step pattern: keep Continue tappable even when
         // the live ledger check is still loading / failed / stale. We refetch
@@ -1141,6 +1141,7 @@ export default function WithdrawFlow({
             {needsNationalId && (
               <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
             )}
+            {needsIdentityPhotos && <IdentityPhotoCapture />}
             {!withdrawCtx.isLoading && !withdrawCtx.gates.canSubmit && (
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-1">
                 <div className="flex items-center gap-2">
