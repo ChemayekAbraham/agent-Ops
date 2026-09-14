@@ -19,7 +19,7 @@ import { publishAvatarUpdate } from '@/lib/avatarSync';
 
 export const IDENTITY_BUCKET = 'identity-verification';
 
-export type IdentityPhotoKind = 'national-id' | 'selfie';
+export type IdentityPhotoKind = 'national-id' | 'national-id-back' | 'selfie';
 
 export interface MyIdentityPhotos {
   national_id_photo_path: string | null;
@@ -189,11 +189,13 @@ export interface VerificationHistoryEntry {
   original: VerificationHistoryFile | null;
   cropped: VerificationHistoryFile | null;
   nationalId: VerificationHistoryFile | null;
+  nationalIdBack: VerificationHistoryFile | null;
 }
 
 function kindOf(name: string): VerificationHistoryFile['kind'] {
   if (name.startsWith('profile-crop-')) return 'profile-crop';
   if (name.startsWith('selfie-')) return 'selfie';
+  if (name.startsWith('national-id-back-')) return 'national-id-back';
   if (name.startsWith('national-id-')) return 'national-id';
   return 'other';
 }
@@ -243,14 +245,16 @@ export function useVerificationHistory(userId: string | null | undefined) {
       const selfies = files.filter((f) => f.kind === 'selfie').sort(desc);
       const crops = files.filter((f) => f.kind === 'profile-crop').sort(desc);
       const ids = files.filter((f) => f.kind === 'national-id').sort(desc);
+      const backs = files.filter((f) => f.kind === 'national-id-back').sort(desc);
 
-      const rows = Math.max(selfies.length, crops.length, ids.length);
+      const rows = Math.max(selfies.length, crops.length, ids.length, backs.length);
       const entries: VerificationHistoryEntry[] = [];
       for (let i = 0; i < rows; i += 1) {
         const original = selfies[i] ?? null;
         const cropped = crops[i] ?? null;
         const nationalId = ids[i] ?? null;
-        const source = original || cropped || nationalId;
+        const nationalIdBack = backs[i] ?? null;
+        const source = original || cropped || nationalId || nationalIdBack;
         entries.push({
           id: source?.path ?? `entry-${i}`,
           submittedAt:
@@ -259,6 +263,7 @@ export function useVerificationHistory(userId: string | null | undefined) {
           original,
           cropped,
           nationalId,
+          nationalIdBack,
         });
       }
       return entries;
