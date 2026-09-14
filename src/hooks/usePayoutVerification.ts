@@ -61,6 +61,9 @@ export interface PayoutVerificationCounts {
 
 export const PAYOUT_VERIFICATION_PAGE_SIZE = 20;
 
+/** How often the queue re-checks the server on its own (tab must be visible). */
+export const PAYOUT_VERIFICATION_POLL_MS = 30_000;
+
 /** Turns a server error into a plain sentence a reviewer can act on. */
 export function payoutQueueErrorMessage(raw: string | null | undefined): string {
   const m = (raw ?? '').toLowerCase();
@@ -145,8 +148,13 @@ export function usePayoutVerificationCounts(enabled = true) {
   return useQuery({
     queryKey: ['payout-verification-counts'],
     enabled,
-    staleTime: 30_000,
+    staleTime: 15_000,
     retry: false,
+    // Keep the chips live without a page reload; pause while the tab is hidden.
+    refetchInterval: PAYOUT_VERIFICATION_POLL_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     queryFn: async (): Promise<PayoutVerificationCounts> => {
       const startedAt = performance.now();
       const { data, error } = await supabase.rpc('finops_payout_verification_counts');
