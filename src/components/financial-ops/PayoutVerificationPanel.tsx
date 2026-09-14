@@ -635,7 +635,9 @@ export default function PayoutVerificationPanel() {
   const photosReady = !!idPath && !!selfiePath;
   // Verify must stay off until the ID photo has been read and produced a name.
   const idNameUnreadable = !!idPath && (row?.national_id_name || '').trim().length < 3;
-  const verifyBlocked = !photosReady || idNameUnreadable;
+  // The back of the National ID must be on file too — enforced in the database as well.
+  const idBackMissing = !!row && row.id_back_photo_ready === false;
+  const verifyBlocked = !photosReady || idNameUnreadable || idBackMissing;
 
   const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
 
