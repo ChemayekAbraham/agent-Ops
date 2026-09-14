@@ -148,7 +148,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         : storedSelfiePath!;
       await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
       // The cropped copy is only the profile picture — best effort.
-      const avatar = selfieCropped ? await setSelfieAsProfilePhoto(user.id, selfieCropped) : null;
+      const avatar = selfieCropped
+        ? await setSelfieAsProfilePhoto(user.id, selfieCropped, selfiePath)
+        : null;
+
       toast.success(
         avatar
           ? 'Photos received. Your original photo is saved for verification and your cropped photo is now your profile picture.'

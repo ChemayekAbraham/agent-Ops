@@ -56364,6 +56364,14 @@ export type Database = {
             }
             Returns: string
           }
+      log_verification_selfie_crop: {
+        Args: {
+          p_avatar_url?: string
+          p_crop_path: string
+          p_selfie_path: string
+        }
+        Returns: Json
+      }
       lookup_ai_id: { Args: { p_ai_id: string }; Returns: Json }
       lookup_invite_by_token: {
         Args: { p_token: string }
