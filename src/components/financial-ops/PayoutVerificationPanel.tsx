@@ -7,7 +7,7 @@
  * unverified destination can be submitted or approved (gate is in the
  * database and in the approve-withdrawal function).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
