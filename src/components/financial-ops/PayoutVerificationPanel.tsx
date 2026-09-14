@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Clock,
   HelpCircle,
+  History,
   Image,
   Loader2,
   MessageCircle,
