@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Calendar, Clock, TrendingUp, CheckCircle2,
-  AlertCircle, Wallet, ChevronRight, CircleDollarSign,
+  AlertCircle, Wallet, CircleDollarSign, Loader2,
   CalendarDays, Shield, Banknote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+import { useTenantRentPlan, usePayRentFromWallet } from '@/hooks/useTenantRentPlan';
+
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
@@ -22,11 +24,11 @@ const daysRemaining = (end: string) => {
   return Math.max(0, Math.ceil(diff / 86400000));
 };
 
-/* ── Placeholder data (will be replaced with real hook) ── */
+/* ── Shape used by this page ─────────────────────────────── */
 
 interface RentPlanData {
   id: string;
-  status: 'repaying' | 'completed' | 'paused' | 'defaulted';
+  status: 'repaying' | 'completed' | 'paused' | 'defaulted' | string;
   totalAmount: number;
   amountRepaid: number;
   dailyAmount: number;
@@ -38,32 +40,11 @@ interface RentPlanData {
   behaviourScore: number;
   houseName: string;
   agentName: string;
+  dueNow: number;
   /** Recent repayment events */
   recentPayments: { date: string; amount: number; method: string }[];
 }
 
-const PLACEHOLDER_PLAN: RentPlanData = {
-  id: 'rp-placeholder',
-  status: 'repaying',
-  totalAmount: 450000,
-  amountRepaid: 180000,
-  dailyAmount: 15000,
-  termDays: 30,
-  termStart: '2026-08-15',
-  termEnd: '2026-09-14',
-  obligationEnd: '2026-09-14',
-  daysElapsed: 12,
-  behaviourScore: 72,
-  houseName: 'Single Room in Kawafu, Central',
-  agentName: 'Sarah Namuli',
-  recentPayments: [
-    { date: '2026-09-13', amount: 15000, method: 'Agent collection' },
-    { date: '2026-09-12', amount: 15000, method: 'Agent collection' },
-    { date: '2026-09-11', amount: 15000, method: 'Mobile Money' },
-    { date: '2026-09-10', amount: 15000, method: 'Agent collection' },
-    { date: '2026-09-09', amount: 15000, method: 'Agent collection' },
-  ],
-};
 
 /* ── Circular Progress Ring ──────────────────────────────── */
 
@@ -87,15 +68,38 @@ function ProgressRing({ pct, size = 120, strokeWidth = 8 }: { pct: number; size?
 
 export default function TenantRentPlan() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [showRepayForm, setShowRepayForm] = useState(false);
   const [repayAmount, setRepayAmount] = useState('');
 
-  // TODO: replace with real data hook
-  const plan: RentPlanData | null = PLACEHOLDER_PLAN;
+  const { data, isLoading, isError, refetch } = useTenantRentPlan();
+  const payRent = usePayRentFromWallet();
+
+  const walletBalance = data?.walletBalance ?? 0;
+
+  const plan: RentPlanData | null = useMemo(() => {
+    const p = data?.plan;
+    if (!p) return null;
+    return {
+      id: p.id,
+      status: p.status,
+      totalAmount: p.total_amount,
+      amountRepaid: p.amount_repaid,
+      dailyAmount: p.daily_amount,
+      termDays: p.term_days,
+      termStart: p.term_start,
+      termEnd: p.term_end,
+      obligationEnd: p.obligation_end,
+      daysElapsed: p.days_elapsed,
+      behaviourScore: p.behaviour_score,
+      houseName: p.house_name,
+      agentName: p.agent_name,
+      dueNow: p.due_now,
+      recentPayments: data?.recentPayments ?? [],
+    };
+  }, [data]);
 
   const balance = useMemo(
-    () => (plan ? plan.totalAmount - plan.amountRepaid : 0),
+    () => (plan ? Math.max(0, plan.totalAmount - plan.amountRepaid) : 0),
     [plan],
   );
   const pctPaid = useMemo(
@@ -106,6 +110,29 @@ export default function TenantRentPlan() {
     () => (plan ? daysRemaining(plan.obligationEnd) : 0),
     [plan],
   );
+
+  const amountValue = Number(repayAmount) || 0;
+  const amountError = useMemo(() => {
+    if (!plan || amountValue <= 0) return '';
+    if (amountValue > balance) return `More than your balance of ${formatUGX(balance)}.`;
+    if (amountValue > walletBalance) return `Your wallet has ${formatUGX(walletBalance)}. Add money first.`;
+    return '';
+  }, [amountValue, balance, walletBalance, plan]);
+
+  const handleConfirmPayment = async () => {
+    if (amountValue <= 0 || amountError) return;
+    try {
+      const result = await payRent.mutateAsync(amountValue);
+      toast.success(
+        `Paid ${formatUGX(result.amount_paid)} — balance now ${formatUGX(result.remaining_balance)}`,
+        { description: `Reference ${result.reference}` },
+      );
+      setShowRepayForm(false);
+      setRepayAmount('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Payment failed');
+    }
+  };
 
   const scoreLabel = useMemo(() => {
     if (!plan) return '';
@@ -122,9 +149,27 @@ export default function TenantRentPlan() {
       case 'completed': return { label: 'Completed', color: 'text-success bg-success/10', icon: CheckCircle2 };
       case 'paused': return { label: 'Paused', color: 'text-warning bg-warning/10', icon: AlertCircle };
       case 'defaulted': return { label: 'Overdue', color: 'text-destructive bg-destructive/10', icon: AlertCircle };
-      default: return { label: '', color: '', icon: AlertCircle };
+      default: return { label: 'Active', color: 'text-primary bg-primary/10', icon: Clock };
     }
   }, [plan]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 gap-3">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading your Rent Plan…</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 gap-3">
+        <p className="text-muted-foreground text-center">We could not load your Rent Plan just now.</p>
+        <Button variant="outline" onClick={() => void refetch()}>Try again</Button>
+      </div>
+    );
+  }
 
   if (!plan) {
     return (
@@ -136,6 +181,8 @@ export default function TenantRentPlan() {
       </div>
     );
   }
+
+
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -265,7 +312,8 @@ export default function TenantRentPlan() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-base">Make a Repayment</p>
-              <p className="text-sm text-muted-foreground">Next due: {formatUGX(plan.dailyAmount)} today</p>
+              <p className="text-sm text-muted-foreground">Next due: {formatUGX(plan.dueNow || plan.dailyAmount)} today</p>
+              <p className="text-[11px] text-muted-foreground">Wallet: {formatUGX(walletBalance)}</p>
             </div>
             <CircleDollarSign className="h-8 w-8 text-primary" />
           </div>
@@ -282,7 +330,12 @@ export default function TenantRentPlan() {
             <div className="space-y-3">
               {/* Quick amount chips */}
               <div className="flex flex-wrap gap-2">
-                {[plan.dailyAmount, plan.dailyAmount * 2, plan.dailyAmount * 7, balance].map((amt, i) => (
+                {[
+                  Math.min(plan.dailyAmount || balance, balance),
+                  Math.min((plan.dailyAmount || balance) * 2, balance),
+                  Math.min((plan.dailyAmount || balance) * 7, balance),
+                  balance,
+                ].map((amt, i) => (
                   <button
                     key={i}
                     type="button"
@@ -311,26 +364,28 @@ export default function TenantRentPlan() {
                 />
               </div>
 
+              {amountError && (
+                <p className="text-xs font-medium text-destructive">{amountError}</p>
+              )}
+
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   className="flex-1"
+                  disabled={payRent.isPending}
                   onClick={() => { setShowRepayForm(false); setRepayAmount(''); }}
                 >
                   Cancel
                 </Button>
                 <Button
                   className="flex-1 gap-2 font-bold"
-                  disabled={!repayAmount || Number(repayAmount) <= 0}
-                  onClick={() => {
-                    // TODO: wire to backend repayment RPC
-                    alert(`Repayment of UGX ${Number(repayAmount).toLocaleString()} — backend not wired yet.`);
-                    setShowRepayForm(false);
-                    setRepayAmount('');
-                  }}
+                  disabled={amountValue <= 0 || !!amountError || payRent.isPending}
+                  onClick={() => void handleConfirmPayment()}
                 >
-                  <Wallet className="h-4 w-4" />
-                  Confirm Payment
+                  {payRent.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Wallet className="h-4 w-4" />}
+                  {payRent.isPending ? 'Paying…' : 'Confirm Payment'}
                 </Button>
               </div>
             </div>

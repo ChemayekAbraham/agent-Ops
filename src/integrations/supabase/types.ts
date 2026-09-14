@@ -60146,6 +60146,7 @@ export type Database = {
         }
         Returns: Json
       }
+      tenant_rent_plan_detail: { Args: never; Returns: Json }
       tenant_self_repayment_plan: {
         Args: { p_tenant_id: string }
         Returns: {

@@ -624,6 +624,13 @@
       "when": 1789401609362,
       "tag": "0088_auto_verify_registers_id_name",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1789413898014,
+      "tag": "0089_tenant_rent_plan_detail",
+      "breakpoints": true
     }
   ]
 }
