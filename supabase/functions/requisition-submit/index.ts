@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { sendSMS } from '../_shared/sendSmsMultiProvider.ts';
+import { requisitionSmsRecipients } from '../_shared/requisitionSmsPolicy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,8 +120,11 @@ async function notifyApprovers(admin: any, role: string, row: any) {
       metadata: { requisition_id: row.id, workflow_stage: 'coo' },
     })));
     const { data: profiles } = await admin.from('profiles').select('id, phone').in('id', ids);
+    // COO already qualifies, but route it through the shared policy so the
+    // allowed list lives in exactly one place.
+    const smsAllowed = await requisitionSmsRecipients(admin, ids);
     for (const profile of profiles ?? []) {
-      if (!profile.phone) continue;
+      if (!profile.phone || !smsAllowed.has(profile.id)) continue;
       await sendSMS(profile.phone, `Welile: Manual requisition from ${row.employee_name} for ${fmtUGX(Number(row.amount))} awaits COO review.`, {
         admin,
         source: 'requisition-submit',
