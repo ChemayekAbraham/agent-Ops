@@ -144,6 +144,7 @@ Deno.serve(async (req) => {
         ? "Automatic ID reading is unavailable. You can still type your details."
         : "Could not read that photo automatically. You can still type your details.";
       console.error("read-national-id gateway error", status, detail.slice(0, 400));
+      await logRead({ readable: false, failure_reason: message });
       return json({ error: message, status }, status === 429 ? 429 : 200);
     }
 
