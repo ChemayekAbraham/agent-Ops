@@ -306,7 +306,10 @@ function DecisionAuditLog() {
               <button
                 key={d}
                 type="button"
-                onClick={() => setDecision(d)}
+                onClick={() => {
+                  setDecision(d);
+                  setPage(0);
+                }}
                 className={`flex-1 rounded-lg border px-3 h-10 text-xs font-semibold capitalize ${
                   decision === d ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'
                 }`}
@@ -321,7 +324,10 @@ function DecisionAuditLog() {
               <Input
                 type="date"
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setPage(0);
+                }}
                 className="h-11 text-sm"
               />
             </div>
@@ -330,7 +336,10 @@ function DecisionAuditLog() {
               <Input
                 type="date"
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setPage(0);
+                }}
                 className="h-11 text-sm"
               />
             </div>
