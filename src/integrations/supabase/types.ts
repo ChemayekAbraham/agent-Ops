@@ -52687,6 +52687,10 @@ export type Database = {
           decided_by_name: string
           decision_reason: string
           destination_type: string
+          double_kind: string
+          double_of_name: string
+          double_of_user_id: string
+          double_submission: boolean
           duplicate_id_accounts: Json
           duplicate_id_name: string
           duplicate_id_user_id: string
@@ -56293,6 +56297,7 @@ export type Database = {
         }[]
       }
       hr_working_days: { Args: { _from: string; _to: string }; Returns: number }
+      identity_double_submission: { Args: { p_user_id: string }; Returns: Json }
       identity_photo_checks_for_request: {
         Args: { p_rent_request_id: string }
         Returns: {

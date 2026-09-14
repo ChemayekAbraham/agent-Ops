@@ -88,6 +88,7 @@ const FILTERS: { id: PayoutQueueFilter; label: string; countKey?: keyof PayoutVe
   { id: 'waiting', label: 'Waiting', countKey: 'waiting' },
   { id: 'mismatch', label: 'Mismatch', countKey: 'mismatch' },
   { id: 'no_id', label: 'No ID', countKey: 'no_id' },
+  { id: 'double', label: 'Double submissions', countKey: 'double' },
   { id: 'verified', label: 'Verified', countKey: 'verified' },
   { id: 'rejected', label: 'Rejected', countKey: 'rejected' },
   { id: 'all', label: 'All' },
@@ -384,16 +385,22 @@ function DecisionDialog({
   const [reason, setReason] = useState('');
   const [callOutcome, setCallOutcome] = useState('');
   const [decision, setDecision] = useState<'verified' | 'rejected'>('verified');
-  const verifyBlocked = !photosReady || idNameUnreadable;
+  const isDouble = row?.double_submission === true;
+  const doubleWhat = row?.double_kind === 'phone' ? 'phone number' : 'National ID';
+  const verifyBlocked = !photosReady || idNameUnreadable || isDouble;
 
   useEffect(() => {
-    setDecision(!photosReady || idNameUnreadable ? 'rejected' : 'verified');
+    setDecision(!photosReady || idNameUnreadable || isDouble ? 'rejected' : 'verified');
     setReason('');
     setCallOutcome('');
-  }, [row, photosReady, idNameUnreadable]);
+  }, [row, photosReady, idNameUnreadable, isDouble]);
 
   const submit = async () => {
     if (!row) return;
+    if (decision === 'verified' && isDouble) {
+      toast.error(`Double submission — this ${doubleWhat} already verifies another account. Only the first account may use it.`);
+      return;
+    }
     if (decision === 'verified' && !photosReady) {
       toast.error('Both the National ID photo and the selfie must be on file before verifying.');
       return;
@@ -452,6 +459,13 @@ function DecisionDialog({
             <X className="h-4 w-4 mr-1.5" /> Reject
           </Button>
         </div>
+        {isDouble && (
+          <p role="alert" className="flex items-start gap-1.5 text-xs font-semibold text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Double submission — this {doubleWhat} already belongs to{' '}
+            {row?.double_of_name || 'another account'}. Only the first account may be verified.
+          </p>
+        )}
         {!photosReady && (
           <p className="flex items-center gap-1.5 text-xs text-amber-600">
             <AlertTriangle className="h-3.5 w-3.5" />
@@ -552,7 +566,12 @@ export default function PayoutVerificationPanel() {
   // are confident about — a doubtful read is flagged, never used as the name.
   const idNameConfidence = assessIdNameConfidence(row?.national_id_name);
   const idNameUnreadable = !!idPath && !idNameConfidence.confident;
-  const verifyBlocked = !photosReady || idNameUnreadable;
+  // One National ID and one phone number verify one account only: every later
+  // account is a double submission and can never be verified.
+  const isDouble = row?.double_submission === true;
+  const doubleWhat = row?.double_kind === 'phone' ? 'phone number' : 'National ID';
+  const verifyBlocked = !photosReady || idNameUnreadable || isDouble;
+
 
   const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
 
@@ -838,6 +857,21 @@ export default function PayoutVerificationPanel() {
               );
             })()}
           </div>
+
+          {isDouble && (
+            <div role="alert" className="mx-5 mt-1 rounded-2xl border border-destructive/40 bg-destructive/10 p-4">
+              <p className="flex items-center gap-1.5 text-sm font-bold text-destructive">
+                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                Double submission — cannot be verified
+              </p>
+              <p className="mt-1 text-xs font-medium text-destructive/90">
+                This {doubleWhat} is already used by {row.double_of_name || 'an earlier account'}. One
+                {doubleWhat === 'phone number' ? ' phone number' : ' National ID'} verifies one account only,
+                and only the first account may be verified.
+              </p>
+            </div>
+          )}
+
 
           {/* Photos — the hero of the screen */}
           <div className="grid grid-cols-2 gap-3 p-5">

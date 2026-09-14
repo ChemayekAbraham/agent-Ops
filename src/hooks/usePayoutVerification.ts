@@ -14,7 +14,7 @@ import { publishAvatarUpdate } from '@/lib/avatarSync';
 
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
-export type PayoutQueueFilter = PayoutVerificationStatus | 'all' | 'mismatch' | 'no_id';
+export type PayoutQueueFilter = PayoutVerificationStatus | 'all' | 'mismatch' | 'no_id' | 'double';
 export type PayoutQueueSort = 'ready_first' | 'newest' | 'oldest' | 'balance';
 
 export interface PayoutDestinationRow {
@@ -41,6 +41,11 @@ export interface PayoutDestinationRow {
   withdrawable_balance: number;
   /** 'national_id' = shown name adopted from the ID; 'verified' = name set by a reviewer; null = untouched. */
   name_source: 'national_id' | 'verified' | null;
+  /** True when this account is NOT the first holder of its National ID or phone number. */
+  double_submission: boolean;
+  double_kind: 'national_id' | 'phone' | null;
+  double_of_user_id: string | null;
+  double_of_name: string | null;
   total_count: number;
 }
 
@@ -50,6 +55,7 @@ export interface PayoutVerificationCounts {
   rejected: number;
   mismatch: number;
   no_id: number;
+  double: number;
   waiting_balance: number;
 }
 
@@ -71,6 +77,7 @@ export function usePayoutVerificationCounts(enabled = true) {
         rejected: Number(row.rejected ?? 0),
         mismatch: Number(row.mismatch ?? 0),
         no_id: Number(row.no_id ?? 0),
+        double: Number(row.double ?? 0),
         waiting_balance: Number(row.waiting_balance ?? 0),
       };
     },
@@ -116,6 +123,7 @@ export function usePayoutVerificationQueue(opts: {
           withdrawable_balance: Number(row.withdrawable_balance ?? 0),
           total_count: Number(row.total_count ?? 0),
           name_mismatch_tokens: Array.isArray(tokens) ? (tokens as string[]) : [],
+          double_submission: row.double_submission === true,
         } as PayoutDestinationRow;
       });
       return { rows, total: rows[0]?.total_count ?? 0 };
