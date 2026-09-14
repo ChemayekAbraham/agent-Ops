@@ -19,6 +19,7 @@ import {
   Clock,
   HelpCircle,
   History,
+  IdCard,
   Image,
   Loader2,
   MessageCircle,
