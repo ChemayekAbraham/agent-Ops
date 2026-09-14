@@ -512,6 +512,13 @@
       "when": 1789378209216,
       "tag": "0072_finops_revert_holder_name",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1789378484235,
+      "tag": "0073_hr_staff_revoke_employee_role_on_exit",
+      "breakpoints": true
     }
   ]
 }
