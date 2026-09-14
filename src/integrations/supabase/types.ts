@@ -52431,6 +52431,7 @@ export type Database = {
           first_seen_at: string
           full_name: string
           id: string
+          id_back_photo_ready: boolean
           momo_number: string
           name_match_score: number
           name_mismatch_tokens: Json
