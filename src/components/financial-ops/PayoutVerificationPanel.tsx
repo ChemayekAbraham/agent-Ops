@@ -990,7 +990,7 @@ export default function PayoutVerificationPanel() {
           {photosReady && idNameUnreadable && (
             <p role="alert" className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
               <AlertTriangle className="h-3.5 w-3.5" />
-              Verify is off — the name could not be read from the National ID. Ask for a clearer ID photo.
+              Verify is off — {idNameConfidence.reason} Ask for a clearer ID photo.
             </p>
           )}
           {row.decision_reason && (
