@@ -18,7 +18,7 @@ type Props = {
   thisName: string | null;
   thisPhone: string | null;
   thisNationalId: string | null;
-  kind: 'national_id' | 'phone' | null;
+  kind: 'national_id' | 'phone' | 'face' | 'id_photo' | null;
   firstName: string | null;
 };
 
