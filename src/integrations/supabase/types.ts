@@ -6656,6 +6656,45 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_referral_ring_detections: {
+        Row: {
+          action_taken: string
+          bots_soft_deleted: number
+          detected_at: string
+          distinct_names: number
+          id: string
+          notes: string | null
+          referred_count: number
+          referrer_id: string
+          span_hours: number | null
+          synthetic_email_count: number
+        }
+        Insert: {
+          action_taken: string
+          bots_soft_deleted?: number
+          detected_at?: string
+          distinct_names: number
+          id?: string
+          notes?: string | null
+          referred_count: number
+          referrer_id: string
+          span_hours?: number | null
+          synthetic_email_count: number
+        }
+        Update: {
+          action_taken?: string
+          bots_soft_deleted?: number
+          detected_at?: string
+          distinct_names?: number
+          id?: string
+          notes?: string | null
+          referred_count?: number
+          referrer_id?: string
+          span_hours?: number | null
+          synthetic_email_count?: number
+        }
+        Relationships: []
+      }
       browser_compat_events: {
         Row: {
           choice: string | null
@@ -19013,6 +19052,105 @@ export type Database = {
           },
         ]
       }
+      id_verification_exceptions: {
+        Row: {
+          created_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          ip_address: string | null
+          reason: string
+          revoked_at: string | null
+          revoked_by: string | null
+          revoked_reason: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          ip_address?: string | null
+          reason: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoked_reason?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          ip_address?: string | null
+          reason?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoked_reason?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       identity_photo_fingerprints: {
         Row: {
           checked_at: string
@@ -25740,6 +25878,66 @@ export type Database = {
         }
         Relationships: []
       }
+      national_id_ocr_reads: {
+        Row: {
+          account_name: string | null
+          account_national_id: string | null
+          extracted_date_of_birth: string | null
+          extracted_id_number: string | null
+          extracted_name: string | null
+          extracted_text: string | null
+          failure_reason: string | null
+          id: string
+          id_number_matched: boolean | null
+          is_national_id: boolean | null
+          name_match_score: number | null
+          name_matched: boolean | null
+          read_at: string
+          readable: boolean | null
+          side: string
+          storage_path: string | null
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_national_id?: string | null
+          extracted_date_of_birth?: string | null
+          extracted_id_number?: string | null
+          extracted_name?: string | null
+          extracted_text?: string | null
+          failure_reason?: string | null
+          id?: string
+          id_number_matched?: boolean | null
+          is_national_id?: boolean | null
+          name_match_score?: number | null
+          name_matched?: boolean | null
+          read_at?: string
+          readable?: boolean | null
+          side?: string
+          storage_path?: string | null
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          account_national_id?: string | null
+          extracted_date_of_birth?: string | null
+          extracted_id_number?: string | null
+          extracted_name?: string | null
+          extracted_text?: string | null
+          failure_reason?: string | null
+          id?: string
+          id_number_matched?: boolean | null
+          is_national_id?: boolean | null
+          name_match_score?: number | null
+          name_matched?: boolean | null
+          read_at?: string
+          readable?: boolean | null
+          side?: string
+          storage_path?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -30102,6 +30300,7 @@ export type Database = {
           funder_verified_by: string | null
           has_smartphone: boolean
           id: string
+          id_name_change_consent_at: string | null
           identity_photos_submitted_at: string | null
           is_frozen: boolean
           is_seller: boolean
@@ -30208,6 +30407,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id: string
+          id_name_change_consent_at?: string | null
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
@@ -30314,6 +30514,7 @@ export type Database = {
           funder_verified_by?: string | null
           has_smartphone?: boolean
           id?: string
+          id_name_change_consent_at?: string | null
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
@@ -44519,6 +44720,33 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_id_gate_exemptions: {
+        Row: {
+          active: boolean
+          agent_user_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          reason: string
+        }
+        Insert: {
+          active?: boolean
+          agent_user_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason: string
+        }
+        Update: {
+          active?: boolean
+          agent_user_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       withdrawal_notification_log: {
         Row: {
           amount: number
@@ -51731,6 +51959,14 @@ export type Database = {
         }[]
       }
       cto_fake_account_signal_counts: { Args: never; Returns: Json }
+      cto_grant_id_verification_exception: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: string
+      }
+      cto_revoke_id_verification_exception: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: undefined
+      }
       cto_search_agents: {
         Args: { p_query?: string }
         Returns: {
@@ -52318,6 +52554,26 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      finops_national_id_ocr_reads: {
+        Args: { p_user_id: string }
+        Returns: {
+          account_name: string
+          account_national_id: string
+          extracted_date_of_birth: string
+          extracted_id_number: string
+          extracted_name: string
+          extracted_text: string
+          failure_reason: string
+          id: string
+          id_number_matched: boolean
+          is_national_id: boolean
+          name_match_score: number
+          name_matched: boolean
+          read_at: string
+          readable: boolean
+          side: string
+        }[]
       }
       finops_payout_decision_log:
         | {
@@ -59175,6 +59431,7 @@ export type Database = {
         Returns: number
       }
       sc_receivable_writer: { Args: { _user_id: string }; Returns: boolean }
+      scan_and_quarantine_bot_referral_rings: { Args: never; Returns: Json }
       scan_critical_function_drift: { Args: never; Returns: Json }
       schedule_roi_payout: {
         Args: { p_new_date: string; p_portfolio_id: string; p_reason?: string }
@@ -59633,6 +59890,15 @@ export type Database = {
             Args: {
               p_id_back_photo_path?: string
               p_id_photo_path: string
+              p_selfie_path: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_id_back_photo_path: string
+              p_id_photo_path: string
+              p_name_change_consent: boolean
               p_selfie_path: string
             }
             Returns: Json
@@ -60167,6 +60433,10 @@ export type Database = {
       }
       user_can_access_landlord: {
         Args: { _landlord_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_is_funder_with_portfolio: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
       user_location_correction_progress: { Args: never; Returns: Json }
