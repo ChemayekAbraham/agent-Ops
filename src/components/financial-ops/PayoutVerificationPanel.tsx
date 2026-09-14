@@ -59,6 +59,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { formatUGX } from '@/lib/rentCalculations';
+import { assessIdNameConfidence } from '@/lib/idNameConfidence';
 import { supabase } from '@/integrations/supabase/client';
 
 import { useUserAvatars } from '@/hooks/useUserAvatars';
