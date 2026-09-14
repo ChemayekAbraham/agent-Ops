@@ -30115,6 +30115,7 @@ export type Database = {
           monthly_rent: number | null
           must_change_password: boolean | null
           national_id: string | null
+          national_id_back_photo_path: string | null
           national_id_name: string | null
           national_id_photo_path: string | null
           occupation: string | null
@@ -30220,6 +30221,7 @@ export type Database = {
           monthly_rent?: number | null
           must_change_password?: boolean | null
           national_id?: string | null
+          national_id_back_photo_path?: string | null
           national_id_name?: string | null
           national_id_photo_path?: string | null
           occupation?: string | null
@@ -30325,6 +30327,7 @@ export type Database = {
           monthly_rent?: number | null
           must_change_password?: boolean | null
           national_id?: string | null
+          national_id_back_photo_path?: string | null
           national_id_name?: string | null
           national_id_photo_path?: string | null
           occupation?: string | null
@@ -51929,6 +51932,10 @@ export type Database = {
           new_withdrawable: number
         }[]
       }
+      duplicate_national_id_owner: {
+        Args: { p_national_id: string; p_user_id: string }
+        Returns: string
+      }
       edit_welile_home_enrollment: {
         Args: {
           p_agent_id: string
@@ -52417,6 +52424,9 @@ export type Database = {
           decided_by_name: string
           decision_reason: string
           destination_type: string
+          duplicate_id_accounts: Json
+          duplicate_id_name: string
+          duplicate_id_user_id: string
           first_seen_at: string
           full_name: string
           id: string
@@ -52483,6 +52493,15 @@ export type Database = {
           p_evidence_note?: string
           p_reason: string
           p_target: number
+        }
+        Returns: Json
+      }
+      finops_set_national_id: {
+        Args: {
+          p_id: string
+          p_name_match_score?: number
+          p_national_id: string
+          p_national_id_name?: string
         }
         Returns: Json
       }
@@ -59572,10 +59591,19 @@ export type Database = {
         Args: { p_sub_agent_id: string }
         Returns: number
       }
-      submit_identity_photos: {
-        Args: { p_id_photo_path: string; p_selfie_path: string }
-        Returns: Json
-      }
+      submit_identity_photos:
+        | {
+            Args: { p_id_photo_path: string; p_selfie_path: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_id_back_photo_path?: string
+              p_id_photo_path: string
+              p_selfie_path: string
+            }
+            Returns: Json
+          }
       submit_landlord_agreement: {
         Args: {
           p_details: Json
