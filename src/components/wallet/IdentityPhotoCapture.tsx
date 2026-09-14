@@ -143,6 +143,9 @@ function sendFailureMessage(e: unknown): string {
   if (t.includes('three') || t.includes('3 times') || t.includes('rate') || t.includes('limit')) {
     return 'You have already sent your ID and selfie three times this week. Please wait until next week, or call support to look at your case.';
   }
+  if (t.includes('already verified')) {
+    return 'Your identity is already verified. You do not need to send your National ID or selfie again.';
+  }
   if (t.includes('already') && t.includes('national id')) {
     return 'This National ID is already used by another account. One ID can verify one account only.';
   }
