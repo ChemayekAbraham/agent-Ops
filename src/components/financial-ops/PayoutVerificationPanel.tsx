@@ -77,6 +77,7 @@ import {
 
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
+  PayoutQueueError,
   type PayoutDestinationRow,
   type PayoutVerificationCounts,
   type PayoutQueueFilter,
