@@ -561,6 +561,13 @@
       "when": 1789396505173,
       "tag": "0079_index_normalized_national_id_and_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1789397599955,
+      "tag": "0080_identity_double_submission_ocr_confusable_ids",
+      "breakpoints": true
     }
   ]
 }
