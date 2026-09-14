@@ -61,15 +61,34 @@ export interface PayoutVerificationCounts {
 
 export const PAYOUT_VERIFICATION_PAGE_SIZE = 20;
 
+/** Turns a server error into a plain sentence a reviewer can act on. */
+export function payoutQueueErrorMessage(raw: string | null | undefined): string {
+  const m = (raw ?? '').toLowerCase();
+  if (m.includes('financial ops only')) {
+    return 'This account is not allowed to review payouts. Ask for the Financial Ops permission to be switched on for the account you are signed in with, then sign out and back in.';
+  }
+  if (m.includes('jwt') || m.includes('not authenticated') || m.includes('invalid claim')) {
+    return 'Your session has expired. Sign out and sign back in, then open this page again.';
+  }
+  if (m.includes('timeout') || m.includes('canceling statement')) {
+    return 'The list took too long to load. Narrow it with a date range or a search, then try again.';
+  }
+  if (m.includes('failed to fetch') || m.includes('network')) {
+    return 'No connection to the server. Check the internet and try again.';
+  }
+  return raw || 'Something went wrong while loading the list.';
+}
+
 /** Live counts for the badge and the filter chips. */
 export function usePayoutVerificationCounts(enabled = true) {
   return useQuery({
     queryKey: ['payout-verification-counts'],
     enabled,
     staleTime: 30_000,
+    retry: false,
     queryFn: async (): Promise<PayoutVerificationCounts> => {
       const { data, error } = await supabase.rpc('finops_payout_verification_counts');
-      if (error) throw error;
+      if (error) throw new Error(payoutQueueErrorMessage(error.message));
       const row = (data ?? {}) as Partial<PayoutVerificationCounts>;
       return {
         waiting: Number(row.waiting ?? 0),
@@ -102,6 +121,7 @@ export function usePayoutVerificationQueue(opts: {
   return useQuery({
     queryKey: ['payout-verification-queue', status, search, sort, page, dateFrom, dateTo, userType],
     enabled,
+    retry: false,
     queryFn: async (): Promise<{ rows: PayoutDestinationRow[]; total: number }> => {
       const { data, error } = await supabase.rpc('finops_payout_verification_queue', {
         p_status: status,
@@ -113,7 +133,7 @@ export function usePayoutVerificationQueue(opts: {
         p_date_to: dateTo || null,
         p_user_type: userType === 'all' ? null : userType,
       });
-      if (error) throw error;
+      if (error) throw new Error(payoutQueueErrorMessage(error.message));
       const rows = ((data ?? []) as unknown[]).map((r) => {
         const row = r as Record<string, unknown>;
         const tokens = row.name_mismatch_tokens;
