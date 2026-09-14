@@ -233,6 +233,158 @@ function DecisionDialog({
   );
 }
 
+/** "14 Sep 2026, 08:41" */
+function formatDecisionTime(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+/**
+ * Collapsible, filterable audit trail of every verification decision —
+ * searchable by holder name / number / decider, filterable by decision
+ * (approved or rejected) and by decision date range. Newest first.
+ */
+function DecisionAuditLog() {
+  const [open, setOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [decision, setDecision] = useState<'all' | 'verified' | 'rejected'>('all');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const log = usePayoutDecisionLog(open, { search, decision, from, to });
+  const rows = log.data ?? [];
+
+  const applySearch = () => setSearch(searchInput);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-2 p-4"
+      >
+        <span className="flex items-center gap-2 text-sm font-bold text-foreground">
+          <History className="h-4 w-4 text-primary" />
+          Decision audit log
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-border p-4 space-y-3">
+          {/* Filters */}
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+              onBlur={applySearch}
+              placeholder="Search holder, number or who decided"
+              className="pl-8 h-11 text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            {(['all', 'verified', 'rejected'] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDecision(d)}
+                className={`flex-1 rounded-lg border px-3 h-10 text-xs font-semibold capitalize ${
+                  decision === d ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'
+                }`}
+              >
+                {d === 'all' ? 'All decisions' : d}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-[10px] font-semibold text-muted-foreground mb-1">From</label>
+              <Input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="h-11 text-sm"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-[10px] font-semibold text-muted-foreground mb-1">To</label>
+              <Input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="h-11 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Rows */}
+          {log.isLoading ? (
+            <div className="space-y-2">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-14 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : log.isError ? (
+            <p className="text-xs text-destructive">
+              Could not load the audit log. {log.error instanceof Error ? log.error.message : ''}
+            </p>
+          ) : rows.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              No decisions match these filters.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {rows.map((r: PayoutDecisionLogRow) => {
+                const dest =
+                  r.destination_type === 'mobile_money'
+                    ? `${r.provider ?? 'Mobile money'} · ${r.momo_number ?? ''}`
+                    : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
+                return (
+                  <div key={r.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate">
+                          {r.full_name || 'Name not recorded'}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">{dest}</p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                          r.status === 'verified'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-destructive/10 text-destructive'
+                        }`}
+                      >
+                        {r.status === 'verified' ? 'Approved' : 'Rejected'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      by <span className="font-semibold text-foreground">{r.decided_by_name || 'Financial Ops'}</span>
+                      {' · '}
+                      {formatDecisionTime(r.decided_at)}
+                    </p>
+                    {r.decision_reason && (
+                      <p className="text-[11px] text-muted-foreground">Reason: {r.decision_reason}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PayoutVerificationPanel() {
   const [status, setStatus] = useState<PayoutQueueFilter>('waiting');
   const [sort, setSort] = useState<PayoutQueueSort>('balance');
@@ -240,6 +392,10 @@ export default function PayoutVerificationPanel() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [active, setActive] = useState<PayoutDestinationRow | null>(null);
+  // Per-row photo readiness; each photo strip reports here and the photo
+  // query polls while shots are missing, so Verify turns on by itself the
+  // moment both photos land — no refresh.
+  const [photosAvailable, setPhotosAvailable] = useState<Record<string, boolean>>({});
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
