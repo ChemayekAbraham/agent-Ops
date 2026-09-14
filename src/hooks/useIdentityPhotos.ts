@@ -117,6 +117,13 @@ export function useSubmitIdentityPhotos() {
         p_name_change_consent: paths.nameChangeConsent ?? false,
       });
       if (error) throw error;
+      // Best effort: a missing fingerprint must never block a submission.
+      if (paths.selfieHash || paths.idHash) {
+        await supabase.rpc('record_identity_image_hashes', {
+          p_selfie_hash: paths.selfieHash ?? null,
+          p_id_hash: paths.idHash ?? null,
+        });
+      }
       return data as { success?: boolean; message?: string } | null;
     },
     onSuccess: () => {
