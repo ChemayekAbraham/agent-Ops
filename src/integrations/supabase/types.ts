@@ -60361,6 +60361,10 @@ export type Database = {
         Args: { p_withdrawal_id: string }
         Returns: Json
       }
+      withdrawal_user_id_verified: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       writedown_historical_drift: {
         Args: { p_amount: number; p_reason: string; p_review_id: string }
         Returns: string

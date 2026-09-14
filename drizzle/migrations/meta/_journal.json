@@ -379,6 +379,13 @@
       "when": 1789367398373,
       "tag": "0053_log_verification_selfie_crop",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1789370542484,
+      "tag": "0054_hide_unverified_withdrawals_from_merchant_agents",
+      "breakpoints": true
     }
   ]
 }
