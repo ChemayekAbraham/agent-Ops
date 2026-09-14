@@ -86,6 +86,7 @@ export default function VerificationHistoryPage() {
   // Remembers the fit/full choice per photo (keyed by file name) so switching
   // thumbnails restores however each image was last viewed.
   const resolutionMemory = useRef(new Map<string, boolean>());
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
 
   const entries = useMemo(() => history.data ?? [], [history.data]);
