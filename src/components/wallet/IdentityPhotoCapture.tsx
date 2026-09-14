@@ -162,14 +162,16 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // partial submission (e.g. selfie stored, ID shot missing) only requires the
   // missing half and the stored original selfie stays the verification copy.
   const storedIdPath = mine.data?.national_id_photo_path ?? null;
+  const storedIdBackPath = mine.data?.national_id_back_photo_path ?? null;
   const storedSelfiePath = mine.data?.selfie_photo_path ?? null;
 
-  const alreadyDone = !!storedIdPath && !!storedSelfiePath;
+  const alreadyDone = !!storedIdPath && !!storedIdBackPath && !!storedSelfiePath;
   if (alreadyDone) return null;
 
   const haveId = !!idPhoto || !!storedIdPath;
+  const haveIdBack = !!idBackPhoto || !!storedIdBackPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
-  const ready = haveId && haveSelfie;
+  const ready = haveId && haveIdBack && haveSelfie;
 
   const verdict = idNameVerdict(idReading?.name_match_score ?? null);
 
@@ -183,10 +185,17 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const idPath = idPhoto
         ? await uploadIdentityPhoto(user.id, 'national-id', idPhoto)
         : storedIdPath!;
+      const idBackPath = idBackPhoto
+        ? await uploadIdentityPhoto(user.id, 'national-id-back', idBackPhoto)
+        : storedIdBackPath!;
       const selfiePath = selfieOriginal
         ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
         : storedSelfiePath!;
-      const res = await submit.mutateAsync({ idPhotoPath: idPath, selfiePath });
+      const res = await submit.mutateAsync({
+        idPhotoPath: idPath,
+        selfiePath,
+        idBackPhotoPath: idBackPath,
+      });
       if (res && res.success === false) {
         throw new Error(res.message || 'Could not send your photos. Please try again.');
       }
@@ -201,6 +210,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           : 'Photos received. Financial Ops will verify them shortly.',
       );
       setIdPhoto(null);
+      setIdBackPhoto(null);
       setSelfieOriginal(null);
       setSelfieCropped(null);
     } catch (e) {
