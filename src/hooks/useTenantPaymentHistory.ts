@@ -1,6 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { PaymentEntry } from '@/components/tenant/PaymentTimeline';
+
+export interface TenantPaymentEntry {
+  id: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  label: string;
+  date: string;
+  status?: 'completed' | 'pending' | 'failed';
+}
 
 /**
  * The signed-in tenant's own rent payment history (server-side, self only).
