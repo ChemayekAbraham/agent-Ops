@@ -716,6 +716,9 @@ export default function WithdrawFlow({
       case 3: {
         // A reason is required — custom reason must not be blank.
         if (!effectiveReason) return false;
+        // The rest of the flow only opens once this destination has
+        // auto-verified (ID name == name on the number / account).
+        if (!destinationAllowed) return false;
         if (payoutMode === 'mobile_money') return momoNumber.trim().length >= 9 && momoName.trim().length >= 2;
         if (payoutMode === 'bank_transfer') return !!bankName && bankAccountName.trim().length >= 2 && bankAccountNumber.trim().length >= 5;
         if (payoutMode === 'cash') return true;
