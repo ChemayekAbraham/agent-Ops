@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
+import { useIsFunderWithPortfolio } from '@/hooks/useIsFunderWithPortfolio';
 import {
   NATIONAL_ID_MAX_LENGTH,
   normalizeNationalId,
