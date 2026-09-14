@@ -7,7 +7,7 @@
  * unverified destination can be submitted or approved (gate is in the
  * database and in the approve-withdrawal function).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -17,6 +17,7 @@ import {
   ChevronRight,
   IdCard,
   Loader2,
+  Maximize2,
   PhoneCall,
   Search,
   ShieldAlert,
@@ -35,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ImageLightbox } from '@/components/marketplace/ImageLightbox';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
@@ -47,17 +49,33 @@ import {
 } from '@/hooks/usePayoutVerification';
 import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
 
+interface IdentityPhotosStripProps {
+  userId: string;
+  holderName?: string | null;
+  verificationStatus?: string | null;
+  onPhotosAvailable?: (available: boolean) => void;
+}
+
 /**
  * The National ID card photo and the selfie the holder recorded, shown under
  * their name so the operator compares the face before tapping Verify. Tapping
- * a thumbnail opens the full photo in a new tab (short-lived signed link).
+ * a thumbnail opens a zoomable lightbox so the operator can inspect details
+ * without leaving the queue. Badges make the upload and decision status
+ * scannable at a glance.
  */
-function IdentityPhotosStrip({ userId }: { userId: string }) {
+function IdentityPhotosStrip({ userId, holderName, verificationStatus, onPhotosAvailable }: IdentityPhotosStripProps) {
   const photos = useIdentityPhotosFor(userId);
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
+  const bothAvailable = !!idPath && !!selfiePath;
+
+  useEffect(() => {
+    onPhotosAvailable?.(bothAvailable);
+  }, [bothAvailable, onPhotosAvailable]);
 
   useEffect(() => {
     let alive = true;
@@ -70,6 +88,17 @@ function IdentityPhotosStrip({ userId }: { userId: string }) {
     };
   }, [idPath, selfiePath]);
 
+  const lightboxImages = [
+    ...(idUrl ? [{ id: 'national-id', image_url: idUrl }] : []),
+    ...(selfieUrl ? [{ id: 'selfie', image_url: selfieUrl }] : []),
+  ];
+
+  const openAt = (index: number) => {
+    if (lightboxImages.length === 0) return;
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
+
   if (photos.isLoading) {
     return (
       <div className="flex gap-2">
@@ -79,36 +108,101 @@ function IdentityPhotosStrip({ userId }: { userId: string }) {
     );
   }
 
+  const decisionBadge = (() => {
+    const s = verificationStatus ?? 'waiting';
+    if (s === 'verified') {
+      return { label: 'Identity approved', icon: <BadgeCheck className="h-3 w-3" />, tone: 'bg-primary/10 text-primary' as const };
+    }
+    if (s === 'rejected') {
+      return { label: 'Identity rejected', icon: <X className="h-3 w-3" />, tone: 'bg-destructive/10 text-destructive' as const };
+    }
+    return { label: 'Identity awaiting verification', icon: <AlertTriangle className="h-3 w-3" />, tone: 'bg-amber-500/15 text-amber-600' as const };
+  })();
+
+  const photoBadge = (received: boolean, label: string) =>
+    received ? (
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-primary/10 text-primary">
+        <CheckCircle2 className="h-3 w-3" /> {label} received
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-destructive/10 text-destructive">
+        <X className="h-3 w-3" /> {label} missing
+      </span>
+    );
+
   if (!idPath && !selfiePath) {
     return (
-      <p className="text-xs text-amber-600 flex items-center gap-1.5">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        No ID photo or selfie yet — ask them to record both in the app before verifying.
-      </p>
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          {photoBadge(false, 'National ID')}
+          {photoBadge(false, 'Selfie')}
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${decisionBadge.tone}`}>
+            {decisionBadge.icon} {decisionBadge.label}
+          </span>
+        </div>
+        <p className="text-xs text-amber-600 flex items-center gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          No ID photo or selfie yet — ask them to record both in the app before verifying.
+        </p>
+      </div>
     );
   }
 
-  const shot = (url: string | null, label: string) =>
+  const shot = (
+    url: string | null,
+    label: string,
+    index: number,
+    placeholderIcon: ReactNode,
+  ) =>
     url ? (
-      <a href={url} target="_blank" rel="noreferrer" className="block shrink-0">
+      <button
+        type="button"
+        onClick={() => openAt(index)}
+        className="block shrink-0 group relative text-left"
+        aria-label={`Open ${label} in lightbox`}
+      >
         <img
           src={url}
           alt={label}
           loading="lazy"
-          className="h-20 w-16 rounded-lg object-cover border border-border"
+          className="h-20 w-16 rounded-lg object-cover border border-border group-hover:opacity-90 transition-opacity"
         />
+        <div className="absolute right-1 top-1 rounded bg-background/80 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Maximize2 className="h-3 w-3 text-foreground" />
+        </div>
         <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
-      </a>
+      </button>
     ) : (
       <div className="shrink-0">
         <div className="h-20 w-16 rounded-lg border border-dashed border-border flex items-center justify-center">
-          <IdCard className="h-4 w-4 text-muted-foreground" />
+          {placeholderIcon}
         </div>
         <span className="block text-[10px] text-center text-muted-foreground mt-0.5">{label}</span>
       </div>
     );
 
-  return <div className="flex gap-3">{shot(idUrl, 'National ID')}{shot(selfieUrl, 'Selfie')}</div>;
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {photoBadge(!!idPath, 'National ID')}
+        {photoBadge(!!selfiePath, 'Selfie')}
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${decisionBadge.tone}`}>
+          {decisionBadge.icon} {decisionBadge.label}
+        </span>
+      </div>
+      <div className="flex gap-3">
+        {shot(idUrl, 'National ID', 0, <IdCard className="h-4 w-4 text-muted-foreground" />)}
+        {shot(selfieUrl, 'Selfie', idUrl ? 1 : 0, <Smartphone className="h-4 w-4 text-muted-foreground" />)}
+      </div>
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        productName={holderName ? `${holderName} — verification photos` : 'Verification photos'}
+      />
+    </div>
+  );
 }
 
 const FILTERS: { id: PayoutQueueFilter; label: string }[] = [
@@ -221,6 +315,7 @@ export default function PayoutVerificationPanel() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [active, setActive] = useState<PayoutDestinationRow | null>(null);
+  const [photosAvailable, setPhotosAvailable] = useState<Record<string, boolean>>({});
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
@@ -381,7 +476,14 @@ export default function PayoutVerificationPanel() {
                   </span>
                 </div>
 
-                <IdentityPhotosStrip userId={r.user_id} />
+                <IdentityPhotosStrip
+                  userId={r.user_id}
+                  holderName={r.full_name}
+                  verificationStatus={r.status}
+                  onPhotosAvailable={(available) =>
+                    setPhotosAvailable((prev) => ({ ...prev, [r.id]: available }))
+                  }
+                />
 
                 <div className="rounded-xl bg-muted/40 p-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -439,13 +541,29 @@ export default function PayoutVerificationPanel() {
                 </div>
 
                 {r.status !== 'verified' || r.name_match_score === null ? (
-                  <Button className="w-full h-11" onClick={() => setActive(r)}>
+                  <Button
+                    className="w-full h-11"
+                    onClick={() => setActive(r)}
+                    disabled={!photosAvailable[r.id]}
+                  >
                     Verify or reject
                   </Button>
                 ) : (
-                  <Button variant="outline" className="w-full h-11" onClick={() => setActive(r)}>
+                  <Button
+                    variant="outline"
+                    className="w-full h-11"
+                    onClick={() => setActive(r)}
+                    disabled={!photosAvailable[r.id]}
+                  >
                     Change decision
                   </Button>
+                )}
+
+                {photosAvailable[r.id] === false && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Both a National ID photo and a selfie must be uploaded before verifying.
+                  </p>
                 )}
 
                 {r.national_id === null && (
