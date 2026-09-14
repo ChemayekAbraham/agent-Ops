@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   UNVERIFIED_WITHDRAWALS_PAGE_SIZE,
+  badgeLabel,
   missingPieces,
   useUnverifiedWithdrawals,
+  type UnverifiedBadgeFilter,
+  type UnverifiedSort,
   type UnverifiedWithdrawalRow,
 } from '@/hooks/useUnverifiedWithdrawals';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -13,10 +16,13 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertTriangle,
+  ArrowUpDown,
   Banknote,
+  BadgeCheck,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
   EyeOff,
   Phone,
   Search,
