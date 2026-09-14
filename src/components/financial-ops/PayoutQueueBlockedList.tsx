@@ -3,6 +3,8 @@
  * one-line reason when it cannot be verified — so nothing looks hidden or
  * silently skipped. Display only: the gates themselves live in the database.
  */
+import { useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { AlertTriangle, BadgeCheck, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { assessIdNameConfidence } from '@/lib/idNameConfidence';
