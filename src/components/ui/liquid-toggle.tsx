@@ -35,14 +35,14 @@ const styles = {
     [-webkit-backface-visibility:hidden]`,
   dropCircle: `transform-gpu transition-transform duration-700
     [transform:translate3d(0,0,0)]
-    [-webkit-transform:translate3d(0,0,0)]`,
+    [-webkit-transform:translate3d(0,0,0)]`
 };
 
 const variantStyles = {
   default: '[--c-background:var(--c-active)]',
   success: '[--c-background:var(--c-success)]',
   warning: '[--c-background:var(--c-warning)]',
-  danger:  '[--c-background:var(--c-danger)]',
+  danger: '[--c-background:var(--c-danger)]',
 };
 
 interface ToggleProps {
@@ -52,11 +52,11 @@ interface ToggleProps {
   variant?: 'default' | 'success' | 'warning' | 'danger';
 }
 
-export function LiquidToggle({
-  checked = false,
-  onCheckedChange,
+export function Toggle({ 
+  checked = false, 
+  onCheckedChange, 
   className,
-  variant = 'default',
+  variant = 'default'
 }: ToggleProps) {
   const [isChecked, setIsChecked] = React.useState(checked);
 
@@ -79,7 +79,11 @@ export function LiquidToggle({
         data-checked={isChecked}
         className={cn(styles.input, variantStyles[variant])}
       />
-      <svg viewBox="0 0 52 32" filter="url(#goo)" className={styles.svg}>
+      <svg
+        viewBox="0 0 52 32"
+        filter="url(#goo)"
+        className={styles.svg}
+      >
         <circle
           className={styles.circle}
           cx="16"
@@ -101,32 +105,44 @@ export function LiquidToggle({
           }}
         />
         {isChecked && (
-          <circle className={styles.dropCircle} cx="35" cy="-1" r="2.5" />
+          <circle
+            className={styles.dropCircle}
+            cx="35"
+            cy="-1"
+            r="2.5"
+          />
         )}
       </svg>
     </label>
   );
 }
 
-/** Mount once near the top of any page that uses LiquidToggle. */
 export function GooeyFilter() {
   return (
     <svg className="fixed w-0 h-0" aria-hidden="true">
       <defs>
         <filter id="goo">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+          <feGaussianBlur
+            in="SourceGraphic"
+            stdDeviation="2"
+            result="blur"
+          />
           <feColorMatrix
             in="blur"
             mode="matrix"
             values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"
             result="goo"
           />
-          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          <feComposite
+            in="SourceGraphic"
+            in2="goo"
+            operator="atop"
+          />
         </filter>
       </defs>
     </svg>
   );
 }
 
-/** @deprecated Use LiquidToggle instead */
-export { LiquidToggle as Toggle };
+/** @deprecated Use Toggle instead */
+export { Toggle as LiquidToggle };
