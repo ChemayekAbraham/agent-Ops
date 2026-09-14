@@ -237,7 +237,7 @@ export function AvailableHousesSheet({ open, onOpenChange }: AvailableHousesShee
   const [selectedSubCounty, setSelectedSubCounty] = useState('all');
   const [selectedVillage, setSelectedVillage] = useState('all');
   const [view, setView] = useState<'list' | 'map'>('list');
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
   const [minRooms, setMinRooms] = useState<number>(0);
