@@ -757,16 +757,31 @@ export default function PayoutVerificationPanel() {
               <p className="mt-1 truncate text-sm font-bold text-foreground">{row.full_name || '—'}</p>
               <p className="text-[10px] text-muted-foreground">Name on the account</p>
             </div>
-            <div className={`rounded-2xl border p-3 ${row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8 ? 'border-amber-500/50 bg-amber-500/10' : 'border-border bg-card'}`}>
+            <div
+              className={`rounded-2xl border p-3 ${
+                idNameUnreadable
+                  ? 'border-destructive/50 bg-destructive/10'
+                  : row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8
+                    ? 'border-amber-500/50 bg-amber-500/10'
+                    : 'border-border bg-card'
+              }`}
+            >
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">National ID name</p>
               <p className="mt-1 truncate text-sm font-bold text-foreground">{row.national_id_name || '—'}</p>
-              <p className="text-[10px] text-muted-foreground">
-                {row.national_id_name
-                  ? row.name_match_score !== null && row.name_match_score < 0.8
-                    ? 'Does not match the selfie name'
-                    : 'Matches the selfie name'
-                  : 'Not read from the ID yet'}
-              </p>
+              {idNameUnreadable ? (
+                <p role="alert" className="mt-0.5 flex items-start gap-1 text-[10px] font-semibold text-destructive">
+                  <AlertTriangle className="mt-px h-3 w-3 shrink-0" aria-hidden="true" />
+                  Could not read the name on this National ID photo. Ask for a clearer photo — Verify stays off until a name is read.
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  {row.national_id_name
+                    ? row.name_match_score !== null && row.name_match_score < 0.8
+                      ? 'Does not match the selfie name'
+                      : 'Matches the selfie name'
+                    : 'Not read from the ID yet'}
+                </p>
+              )}
             </div>
           </div>
 
