@@ -898,16 +898,22 @@ export default function PayoutVerificationPanel() {
               className="h-14 flex-1 rounded-2xl text-xs font-bold uppercase tracking-widest"
               onClick={() => setDeciding(true)}
             >
-              Decide
+              Reject / note
             </Button>
             <Button
               className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
-              disabled={verifyBlocked}
-              onClick={() => setDeciding(true)}
+              disabled={verifyBlocked || quickVerify.isPending}
+              onClick={() => runQuickVerify(row)}
             >
-              <CheckCircle2 className="mr-2 h-5 w-5" /> Verify payout
+              {quickVerify.isPending ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-5 w-5" />
+              )}
+              Verify payout
             </Button>
           </div>
+
           {!photosReady && (
             <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
               <AlertTriangle className="h-3.5 w-3.5" />
