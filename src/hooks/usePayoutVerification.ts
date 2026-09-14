@@ -132,6 +132,57 @@ export function useDecidePayoutDestination() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
       qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
+      qc.invalidateQueries({ queryKey: ['payout-decision-log'] });
+    },
+  });
+}
+
+/** One decision entry for the Financial Ops audit log. */
+export interface PayoutDecisionLogRow {
+  id: string;
+  user_id: string;
+  full_name: string | null;
+  user_phone: string | null;
+  destination_type: 'mobile_money' | 'bank_transfer';
+  provider: string | null;
+  momo_number: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  account_name: string | null;
+  status: PayoutVerificationStatus;
+  decision_reason: string | null;
+  decided_by_name: string | null;
+  decided_at: string;
+}
+
+export interface PayoutDecisionLogFilters {
+  search?: string;
+  decision?: 'verified' | 'rejected' | 'all';
+  from?: string; // YYYY-MM-DD
+  to?: string; // YYYY-MM-DD
+}
+
+/**
+ * Newest-first record of every verify/reject decision, searchable by holder
+ * name, number or decider, filterable by decision and decision date.
+ */
+export function usePayoutDecisionLog(enabled: boolean, filters: PayoutDecisionLogFilters, limit = 100) {
+  const search = (filters.search ?? '').trim();
+  const decision = filters.decision && filters.decision !== 'all' ? filters.decision : null;
+  return useQuery({
+    queryKey: ['payout-decision-log', search, decision, filters.from ?? '', filters.to ?? '', limit],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<PayoutDecisionLogRow[]> => {
+      const { data, error } = await supabase.rpc('finops_payout_decision_log', {
+        p_limit: limit,
+        p_search: search || null,
+        p_decision: decision,
+        p_from: filters.from ? new Date(`${filters.from}T00:00:00`).toISOString() : null,
+        p_to: filters.to ? new Date(`${filters.to}T00:00:00`).toISOString() : null,
+      });
+      if (error) throw error;
+      return (data ?? []) as unknown as PayoutDecisionLogRow[];
     },
   });
 }
