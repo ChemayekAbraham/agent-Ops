@@ -390,58 +390,6 @@ export default function TenantRentPlan() {
               </div>
             </div>
           )}
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setRepayAmount(String(amt))}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                      String(amt) === repayAmount
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-foreground border-border hover:bg-muted'
-                    }`}
-                  >
-                    {i === 0 ? '1 day' : i === 1 ? '2 days' : i === 2 ? '1 week' : 'Full balance'}
-                    <span className="ml-1 opacity-70">{formatUGX(amt)}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Custom amount */}
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">UGX</span>
-                <input
-                  type="number"
-                  value={repayAmount}
-                  onChange={(e) => setRepayAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  className="w-full rounded-xl border border-border bg-background px-3 pl-12 py-3 text-sm font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => { setShowRepayForm(false); setRepayAmount(''); }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1 gap-2 font-bold"
-                  disabled={!repayAmount || Number(repayAmount) <= 0}
-                  onClick={() => {
-                    // TODO: wire to backend repayment RPC
-                    alert(`Repayment of UGX ${Number(repayAmount).toLocaleString()} — backend not wired yet.`);
-                    setShowRepayForm(false);
-                    setRepayAmount('');
-                  }}
-                >
-                  <Wallet className="h-4 w-4" />
-                  Confirm Payment
-                </Button>
-              </div>
-            </div>
-          )}
         </motion.div>
 
         {/* ── Plan Details ── */}
