@@ -351,6 +351,13 @@
       "when": 1789332651983,
       "tag": "0049_withdrawal_requires_verified_destination",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789362166436,
+      "tag": "0050_finops_payout_decision_log",
+      "breakpoints": true
     }
   ]
 }
