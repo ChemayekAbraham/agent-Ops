@@ -480,12 +480,24 @@ export default function PayoutVerificationPanel() {
   // query polls while shots are missing, so Verify turns on by itself the
   // moment both photos land — no refresh.
   const [photosAvailable, setPhotosAvailable] = useState<Record<string, boolean>>({});
+  // Name tap → read-only profile sheet for that person.
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   const counts = usePayoutVerificationCounts();
   const queue = usePayoutVerificationQueue({ status, search, sort, page });
 
   const total = queue.data?.total ?? 0;
   const rows = queue.data?.rows ?? [];
+
+  // One batched lookup for every phone on the page (account phone + payout
+  // number): does this number have a Welile account, and whose?
+  const pagePhones = useMemo(
+    () => rows.flatMap((r) => [r.user_phone, r.momo_number]),
+    [rows],
+  );
+  const phoneAccounts = usePhoneAccountLookup(pagePhones, rows.length > 0);
+  const accountFor = (phone: string | null | undefined): PhoneAccountInfo | undefined =>
+    phoneAccounts.data?.[last9(phone)];
   const pageCount = Math.max(1, Math.ceil(total / PAYOUT_VERIFICATION_PAGE_SIZE));
   const from = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + 1;
   const to = Math.min(total, (page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE);
