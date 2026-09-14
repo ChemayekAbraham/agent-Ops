@@ -24,11 +24,11 @@ const daysRemaining = (end: string) => {
   return Math.max(0, Math.ceil(diff / 86400000));
 };
 
-/* ── Placeholder data (will be replaced with real hook) ── */
+/* ── Shape used by this page ─────────────────────────────── */
 
 interface RentPlanData {
   id: string;
-  status: 'repaying' | 'completed' | 'paused' | 'defaulted';
+  status: 'repaying' | 'completed' | 'paused' | 'defaulted' | string;
   totalAmount: number;
   amountRepaid: number;
   dailyAmount: number;
@@ -40,32 +40,11 @@ interface RentPlanData {
   behaviourScore: number;
   houseName: string;
   agentName: string;
+  dueNow: number;
   /** Recent repayment events */
   recentPayments: { date: string; amount: number; method: string }[];
 }
 
-const PLACEHOLDER_PLAN: RentPlanData = {
-  id: 'rp-placeholder',
-  status: 'repaying',
-  totalAmount: 450000,
-  amountRepaid: 180000,
-  dailyAmount: 15000,
-  termDays: 30,
-  termStart: '2026-08-15',
-  termEnd: '2026-09-14',
-  obligationEnd: '2026-09-14',
-  daysElapsed: 12,
-  behaviourScore: 72,
-  houseName: 'Single Room in Kawafu, Central',
-  agentName: 'Sarah Namuli',
-  recentPayments: [
-    { date: '2026-09-13', amount: 15000, method: 'Agent collection' },
-    { date: '2026-09-12', amount: 15000, method: 'Agent collection' },
-    { date: '2026-09-11', amount: 15000, method: 'Mobile Money' },
-    { date: '2026-09-10', amount: 15000, method: 'Agent collection' },
-    { date: '2026-09-09', amount: 15000, method: 'Agent collection' },
-  ],
-};
 
 /* ── Circular Progress Ring ──────────────────────────────── */
 
