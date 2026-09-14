@@ -83,6 +83,9 @@ export default function VerificationHistoryPage() {
   const history = useVerificationHistory(viewUserId);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [actualSize, setActualSize] = useState(false);
+  // Remembers the fit/full choice per photo (keyed by file name) so switching
+  // thumbnails restores however each image was last viewed.
+  const resolutionMemory = useRef(new Map<string, boolean>());
 
 
   const entries = useMemo(() => history.data ?? [], [history.data]);
