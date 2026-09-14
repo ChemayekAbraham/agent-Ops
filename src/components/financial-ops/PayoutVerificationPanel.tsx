@@ -100,6 +100,17 @@ function statusBadge(row: PayoutDestinationRow): {
   return { label: 'Pending', Icon: Clock, classes: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/40' };
 }
 
+/** Photos-ready badge so operators instantly know which cases can be actioned. */
+function readinessBadge(photosReady: boolean): {
+  label: string;
+  Icon: typeof Camera;
+  classes: string;
+} {
+  return photosReady
+    ? { label: 'Ready', Icon: Camera, classes: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/40' }
+    : { label: 'Pending photos', Icon: Image, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
+}
+
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
 function HeroPhoto({
   label,
