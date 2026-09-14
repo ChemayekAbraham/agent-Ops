@@ -610,6 +610,13 @@
       "when": 1789400668456,
       "tag": "0086_auto_verify_matching_id_name_payouts",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1789400828866,
+      "tag": "0087_allow_single_side_id_when_names_match",
+      "breakpoints": true
     }
   ]
 }
