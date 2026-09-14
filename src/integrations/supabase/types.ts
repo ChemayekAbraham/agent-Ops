@@ -19013,9 +19013,109 @@ export type Database = {
           },
         ]
       }
+      id_verification_exceptions: {
+        Row: {
+          created_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          ip_address: string | null
+          reason: string
+          revoked_at: string | null
+          revoked_by: string | null
+          revoked_reason: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          ip_address?: string | null
+          reason: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoked_reason?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          ip_address?: string | null
+          reason?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoked_reason?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "id_verification_exceptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       identity_photo_fingerprints: {
         Row: {
           checked_at: string
+          checked_by: string | null
           created_at: string
           failures: Json
           id: string
@@ -19032,6 +19132,7 @@ export type Database = {
         }
         Insert: {
           checked_at?: string
+          checked_by?: string | null
           created_at?: string
           failures?: Json
           id?: string
@@ -19048,6 +19149,7 @@ export type Database = {
         }
         Update: {
           checked_at?: string
+          checked_by?: string | null
           created_at?: string
           failures?: Json
           id?: string
@@ -51728,6 +51830,14 @@ export type Database = {
         }[]
       }
       cto_fake_account_signal_counts: { Args: never; Returns: Json }
+      cto_grant_id_verification_exception: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: string
+      }
+      cto_revoke_id_verification_exception: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: undefined
+      }
       cto_search_agents: {
         Args: { p_query?: string }
         Returns: {
@@ -52431,6 +52541,7 @@ export type Database = {
           first_seen_at: string
           full_name: string
           id: string
+          id_back_photo_ready: boolean
           momo_number: string
           name_match_score: number
           name_mismatch_tokens: Json
@@ -56030,6 +56141,22 @@ export type Database = {
         }[]
       }
       hr_working_days: { Args: { _from: string; _to: string }; Returns: number }
+      identity_photo_checks_for_request: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          also_on_other_people: number
+          checked_at: string
+          checked_by_name: string
+          failures: Json
+          is_face: boolean
+          is_passport_photo: boolean
+          photo_url: string
+          score: number
+          sha256: string
+          source: string
+          verdict: string
+        }[]
+      }
       ignore_withdrawal_dispatch: {
         Args: { p_withdrawal_id: string }
         Returns: boolean
@@ -56367,6 +56494,14 @@ export type Database = {
         Returns: Json
       }
       link_campaign_sub_agent: { Args: { p_user_id: string }; Returns: Json }
+      link_identity_photo_fingerprint: {
+        Args: {
+          p_photo_url?: string
+          p_rent_request_id: string
+          p_sha256: string
+        }
+        Returns: Json
+      }
       link_promissory_notes_for_user: {
         Args: { p_user: string }
         Returns: number

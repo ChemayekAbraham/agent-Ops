@@ -526,13 +526,6 @@
       "when": 1789378641818,
       "tag": "0074_agent_weekly_champion_team",
       "breakpoints": true
-    },
-    {
-      "idx": 75,
-      "version": "7",
-      "when": 1789388599858,
-      "tag": "0075_finops_replace_national_id_photo",
-      "breakpoints": true
     }
   ]
 }

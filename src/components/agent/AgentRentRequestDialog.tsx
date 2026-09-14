@@ -7,6 +7,9 @@ import { computeUndoSelection } from '@/lib/undoHouseSelection';
 import { motion, AnimatePresence } from '@/lib/motion-lite';
 import { supabase } from '@/integrations/supabase/client';
 import { optimizeImage } from '@/lib/imageOptimizer';
+import {
+  runPassportFaceCheck, faceCheckBlocker, type PassportFaceCheck,
+} from '@/lib/passportFaceCheck';
 import { archiveToDrive } from '@/lib/archiveToDrive';
 import { GuarantorConsentCheckbox } from '@/components/agent/GuarantorConsentCheckbox';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -769,6 +772,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const [gpsLoading, setGpsLoading] = useState(false);
   const [housePhotos, setHousePhotos] = useState<{ file: File; preview: string }[]>([]);
   const [tenantPhoto, setTenantPhoto] = useState<{ file: File; preview: string } | null>(null);
+  /* Face recognition on the passport photo. A confirmed "no face" stops the
+     wizard; an outage on the checker's side never does. See passportFaceCheck. */
+  const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
   // Renewal document custody: what the tenant already has on file (null until
   // a renewal is started or the lookup finishes).
   const [renewDocs, setRenewDocs] = useState<{ passport: boolean; lcLetter: boolean; houseImages: number } | null>(null);
@@ -1775,6 +1781,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       const missingHousePhotos = HOUSE_PHOTO_SLOTS.some((_, i) => !housePhotos[i]);
       if (missingHousePhotos) errors.push('Take all 4 house photos (front, back, left and right)');
       if (!tenantPhoto) errors.push("Take the tenant's passport photo");
+      else {
+        const faceProblem = faceCheckBlocker(faceCheck);
+        if (faceProblem) errors.push(faceProblem);
+      }
       if (!gpsLocation) errors.push('Capture the property GPS at the house');
     } else if (idx === 3) {
       if (!lc1Name.trim()) errors.push("Type the LC1 chairperson's name");
@@ -1833,6 +1843,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       const missingHousePhotos = HOUSE_PHOTO_SLOTS.some((_, i) => !housePhotos[i]);
       if (missingHousePhotos) map['housePhotos'] = 'Take all 4 house photos (front, back, left and right)';
       if (!tenantPhoto) map['tenantPhoto'] = "Take the tenant's passport photo";
+      else {
+        const faceProblem = faceCheckBlocker(faceCheck);
+        if (faceProblem) map['tenantPhoto'] = faceProblem;
+      }
       if (!gpsLocation) map['gpsLocation'] = 'Capture the property GPS at the house';
     } else if (idx === 3) {
       if (!lc1Name.trim()) map['lc1Name'] = "Type the LC1 chairperson's name";
@@ -1911,6 +1925,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       const missingHousePhotos = HOUSE_PHOTO_SLOTS.some((_, i) => !housePhotos[i]);
       if (missingHousePhotos) map['housePhotos'] = 'Take all 4 house photos (front, back, left and right)';
       if (!tenantPhoto) map['tenantPhoto'] = "Take the tenant's passport photo";
+      else {
+        const faceProblem = faceCheckBlocker(faceCheck);
+        if (faceProblem) map['tenantPhoto'] = faceProblem;
+      }
       if (!gpsLocation) map['gpsLocation'] = 'Capture the property GPS at the house';
       if (!lc1Name.trim()) map['lc1Name'] = "Type the LC1 chairperson's name";
       if (!lc1Phone.trim()) map['lc1Phone'] = 'Type the LC1 phone number';
@@ -1936,6 +1954,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     const missingHousePhotos = HOUSE_PHOTO_SLOTS.some((_, i) => !housePhotos[i]);
     if (missingHousePhotos) map['housePhotos'] = 'Take all 4 house photos (front, back, left and right)';
     if (!tenantPhoto) map['tenantPhoto'] = "Take the tenant's passport photo";
+    else {
+      const faceProblem = faceCheckBlocker(faceCheck);
+      if (faceProblem) map['tenantPhoto'] = faceProblem;
+    }
 
     return map;
   };
@@ -2048,6 +2070,20 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     });
   }, []);
 
+  /* Send the passport photo for face recognition. The tenant usually has no
+     account yet, so no subject is named — the fingerprint is filed under the
+     agent and moved onto the tenant after the request is created. */
+  const runFaceCheck = useCallback(async (file: File, subjectUserId?: string | null) => {
+    setFaceCheck({ status: 'checking' });
+    const result = await runPassportFaceCheck(file, { source: 'agent_rent_request', subjectUserId });
+    setFaceCheck(result);
+    if (result.status === 'no_face') {
+      toast.error('No face detected', {
+        description: "Retake the passport photo with the tenant's face clearly visible.",
+      });
+    }
+  }, []);
+
   const handleTenantPhoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (e.target) e.target.value = '';
@@ -2072,13 +2108,15 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       if (prev) URL.revokeObjectURL(prev.preview);
       return { file: stored, preview: previewUrl };
     });
-  }, []);
+    void runFaceCheck(stored);
+  }, [runFaceCheck]);
 
   const removeTenantPhoto = useCallback(() => {
     setTenantPhoto(prev => {
       if (prev) URL.revokeObjectURL(prev.preview);
       return null;
     });
+    setFaceCheck(null);
   }, []);
 
   // Auto-fill the tenant fields from a previously-registered tenant. Pulls
@@ -2104,6 +2142,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               if (prev) URL.revokeObjectURL(prev.preview);
               return { file, preview: URL.createObjectURL(file) };
             });
+            // Their saved photo still has to pass the face check — the gate is
+            // on the photo going onto this request, not on how it arrived.
+            void runFaceCheck(file, t.id);
           }
         } catch {
           // Photo fetch is best-effort — agent can still capture a fresh one.
@@ -2113,7 +2154,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     } finally {
       setAutofillingTenant(false);
     }
-  }, [existingTenants]);
+  }, [existingTenants, runFaceCheck]);
 
   // When the live phone check reveals an existing user, let the agent re-use
   // that record instead of creating a duplicate (fraud guard).
@@ -2305,6 +2346,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     setRenewDocsLoading(false);
     if (tenantPhoto) URL.revokeObjectURL(tenantPhoto.preview);
     setTenantPhoto(null);
+    setFaceCheck(null);
     setGuarantorConsent(false);
     setValidationErrors([]);
     setFieldErrors({});
@@ -2529,6 +2571,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     const missingHousePhotos = HOUSE_PHOTO_SLOTS.some((_, i) => !housePhotos[i]);
     if (missingHousePhotos) errors.push('Take all 4 house photos (front, back, left and right)');
     if (!tenantPhoto) errors.push("Take the tenant's passport photo");
+    else {
+      const faceProblem = faceCheckBlocker(faceCheck);
+      if (faceProblem) errors.push(faceProblem);
+    }
 
     return errors;
   };
@@ -3079,6 +3125,26 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
 
       // Tenant passport photo already uploaded + stamped on the row above,
       // before the insert, to satisfy the DB tenant-photo enforcement trigger.
+
+      /* Move the face-check fingerprint from the agent onto the tenant it is
+         actually of, and stamp the request it belongs to, so Agent Ops can see
+         the hash and verdict beside the photo. The RPC re-proves every
+         condition server-side. Best-effort: attribution of a photo check must
+         never undo a posted rent request. */
+      if (faceCheck?.sha256 && rentReq?.id) {
+        try {
+          await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<unknown>)(
+            'link_identity_photo_fingerprint',
+            {
+              p_sha256: faceCheck.sha256,
+              p_rent_request_id: rentReq.id,
+              p_photo_url: preInsertTenantPhotoUrl,
+            },
+          );
+        } catch (e) {
+          console.warn('[AgentRentRequestDialog] face fingerprint link failed', e);
+        }
+      }
 
       // Build activation link if tenant is new
       if (!tenantResult.existing && tenantResult.activation_token) {
@@ -4805,6 +4871,48 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       Required — take a clear, well-lit photo of the tenant's face (passport-style). Landlord Ops uses this to verify the tenant during review. Max {MAX_FILE_SIZE_MB} MB (JPG, PNG, WebP).
                     </p>
                   </div>
+
+                  {/* Face recognition verdict. A confirmed "no face" blocks the
+                      wizard; a checker outage warns but lets the agent carry on. */}
+                  {faceCheck?.status === 'checking' && (
+                    <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                      Checking the photo for a face…
+                    </p>
+                  )}
+                  {faceCheck?.status === 'no_face' && (
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-2">
+                      <p className="flex items-start gap-1.5 text-[11px] font-semibold text-destructive">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                        No face found in this photo. Retake it before you can continue.
+                      </p>
+                    </div>
+                  )}
+                  {faceCheck?.status === 'ok' && (
+                    <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2 space-y-1">
+                      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                        Face recognised
+                        {faceCheck.isPassportPhoto === false && ' — but this is not passport-style'}
+                      </p>
+                      {(faceCheck.failures?.length ?? 0) > 0 && (
+                        <p className="text-[10px] leading-relaxed text-muted-foreground">
+                          Worth fixing: {faceCheck.failures!.slice(0, 3).map((f) => f.label).join(', ')}
+                        </p>
+                      )}
+                      {faceCheck.sha256 && (
+                        <p className="font-mono text-[9px] text-muted-foreground/70 break-all">
+                          {faceCheck.sha256.slice(0, 16)}…
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {faceCheck?.status === 'unavailable' && (
+                    <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-500">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                      Face check unavailable — you can continue, and Agent Ops will verify the photo.
+                    </p>
+                  )}
                 </div>
               </div>
               </>

@@ -31,6 +31,7 @@ import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 import { PipelineAgentTransferDialog } from './PipelineAgentTransferDialog';
 import { TenantPaymentHistoryCard } from './TenantPaymentHistoryCard';
 import { RentApprovalConfirmDialog, type FunderVisibilityDecision } from './RentApprovalConfirmDialog';
+import { TenantPhotoChecksPanel } from './TenantPhotoChecksPanel';
 
 
 
@@ -2201,6 +2202,11 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   <p className="text-[10px] text-muted-foreground">
                     Captured by the agent at registration. Click any photo to enlarge.
                   </p>
+
+                  {/* Face recognition + image fingerprint behind the passport photo. */}
+                  {selectedRequest.tenant_photo_url && (
+                    <TenantPhotoChecksPanel rentRequestId={selectedRequest.id} />
+                  )}
                 </div>
               )}
 

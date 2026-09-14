@@ -13,6 +13,7 @@ import {
 } from '@/hooks/useIdentityPhotos';
 import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
 import { readNationalIdPhoto, idNameVerdict, type NationalIdReading } from '@/lib/nationalIdOcr';
+import { checkPhotoQuality, retakeMessage, type PhotoQualityResult } from '@/lib/imageQuality';
 
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
@@ -27,9 +28,12 @@ interface ShotTileProps {
   onPick: (file: File) => void;
   onClear: () => void;
   disabled?: boolean;
+  /** Result of the automatic blur / glare / contrast check on this photo. */
+  quality?: PhotoQualityResult | null;
+  checking?: boolean;
 }
 
-function ShotTile({ label, hint, file, onPick, onClear, disabled }: ShotTileProps) {
+function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, checking }: ShotTileProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = file ? URL.createObjectURL(file) : null;
 
@@ -68,8 +72,29 @@ function ShotTile({ label, hint, file, onPick, onClear, disabled }: ShotTileProp
           onPick(f);
         }}
       />
+      {checking && (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Checking this photo…
+        </p>
+      )}
+
+      {!checking && file && quality && !quality.ok && (
+        <p className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{retakeMessage(label, quality)}</span>
+        </p>
+      )}
+
+      {!checking && file && quality?.ok && (
+        <p className="flex items-center gap-2 text-xs text-emerald-600">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          This photo is clear.
+        </p>
+      )}
+
       <Button
-        variant={file ? 'outline' : 'default'}
+        variant={file && quality?.ok ? 'outline' : 'default'}
         className="w-full"
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
@@ -131,6 +156,27 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [readError, setReadError] = useState<string | null>(null);
   const [savingDetails, setSavingDetails] = useState(false);
 
+  // Automatic blur / glare / contrast check, per photo.
+  const [idQuality, setIdQuality] = useState<PhotoQualityResult | null>(null);
+  const [selfieQuality, setSelfieQuality] = useState<PhotoQualityResult | null>(null);
+  const [checkingId, setCheckingId] = useState(false);
+  const [checkingSelfie, setCheckingSelfie] = useState(false);
+
+  /** Scores the shot; a failed photo is announced so the person retakes it. */
+  const gradePhoto = async (
+    file: File,
+    label: string,
+    setChecking: (v: boolean) => void,
+    setQuality: (r: PhotoQualityResult) => void,
+  ): Promise<PhotoQualityResult> => {
+    setChecking(true);
+    const result = await checkPhotoQuality(file);
+    setQuality(result);
+    setChecking(false);
+    if (!result.ok) toast.error(retakeMessage(label, result));
+    return result;
+  };
+
   const readIdPhoto = async (file: File) => {
     setReading(true);
     setIdReading(null);
@@ -168,7 +214,15 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   const haveId = !!idPhoto || !!storedIdPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
-  const ready = haveId && haveSelfie;
+  // A freshly taken photo must pass the automatic quality check first.
+  const idQualityOk = !idPhoto || idQuality?.ok === true;
+  const selfieQualityOk = !selfieOriginal || selfieQuality?.ok === true;
+  const failedShots = [
+    idPhoto && idQuality && !idQuality.ok ? 'National ID photo' : null,
+    selfieOriginal && selfieQuality && !selfieQuality.ok ? 'Selfie' : null,
+  ].filter(Boolean) as string[];
+  const checkingPhotos = checkingId || checkingSelfie;
+  const ready = haveId && haveSelfie && idQualityOk && selfieQualityOk && !checkingPhotos;
 
   const verdict = idNameVerdict(idReading?.name_match_score ?? null);
 
@@ -235,9 +289,22 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             label="National ID photo"
             hint="All four corners visible, no glare."
             file={idPhoto}
-            onPick={(f) => { setIdPhoto(f); void readIdPhoto(f); }}
-            onClear={() => { setIdPhoto(null); setIdReading(null); setReadError(null); }}
-
+            quality={idQuality}
+            checking={checkingId}
+            onPick={(f) => {
+              setIdPhoto(f);
+              setIdReading(null);
+              setReadError(null);
+              void gradePhoto(f, 'National ID photo', setCheckingId, setIdQuality).then((r) => {
+                if (r.ok) void readIdPhoto(f);
+              });
+            }}
+            onClear={() => {
+              setIdPhoto(null);
+              setIdReading(null);
+              setReadError(null);
+              setIdQuality(null);
+            }}
             disabled={saving}
           />
         )}
@@ -316,12 +383,29 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             label="Selfie"
             hint="Face the camera in good light."
             file={selfieOriginal}
-            onPick={(f) => { setSelfieOriginal(f); setSelfieCropped(null); setPendingSelfie(f); }}
-            onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); }}
+            quality={selfieQuality}
+            checking={checkingSelfie}
+            onPick={(f) => {
+              setSelfieOriginal(f);
+              setSelfieCropped(null);
+              void gradePhoto(f, 'Selfie', setCheckingSelfie, setSelfieQuality).then((r) => {
+                if (r.ok) setPendingSelfie(f);
+              });
+            }}
+            onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); setSelfieQuality(null); }}
             disabled={saving}
           />
         )}
 
+        {failedShots.length > 0 && (
+          <p className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Please retake: {failedShots.join(' and ')}. We cannot send photos that are blurry, shiny
+              or too dark — Financial Ops would only reject them.
+            </span>
+          </p>
+        )}
 
         <Button className="w-full" disabled={!ready || saving} onClick={handleSave}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
