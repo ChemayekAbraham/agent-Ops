@@ -270,27 +270,45 @@ function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSav
     })();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [row.id, idName, alreadySame]);
+  }, [row.id, idName, alreadySame, confidence.confident]);
+
+  const flagged = !confidence.confident;
 
   return (
-    <div className="mx-5 mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
-      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">
-        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Name on the National ID
+    <div
+      className={`mx-5 mt-3 rounded-2xl border p-4 ${
+        flagged ? 'border-destructive/50 bg-destructive/10' : 'border-amber-500/40 bg-amber-500/10'
+      }`}
+    >
+      <p
+        className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] ${
+          flagged ? 'text-destructive' : 'text-amber-700 dark:text-amber-400'
+        }`}
+      >
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+        {flagged ? 'Name on the ID needs checking' : 'Name on the National ID'}
       </p>
       <p className="mt-1.5 text-lg font-bold leading-tight text-foreground">{idName || 'Not read yet'}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">On the account before: {accountName || '—'}</p>
-      <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-        {adopt.isPending ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-        ) : (
-          <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
-        )}
-        {idName.length < 3
-          ? 'No name could be read on the ID photo.'
-          : adopt.isPending
+      <p className="mt-0.5 text-xs text-muted-foreground">On the account: {accountName || '—'}</p>
+      {flagged ? (
+        <p role="alert" className="mt-2 flex items-start gap-1.5 text-xs font-semibold text-destructive">
+          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            {confidence.reason} The account name was left as it is — ask for a clearer ID photo before verifying.
+          </span>
+        </p>
+      ) : (
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+          {adopt.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          {adopt.isPending
             ? 'Applying the name from the ID…'
             : 'The name from the ID is now the name on the account.'}
-      </p>
+        </p>
+      )}
     </div>
   );
 }
