@@ -505,6 +505,13 @@
       "when": 1789377921225,
       "tag": "0071_limit_identity_photo_submissions_to_3_per_week",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1789378209216,
+      "tag": "0072_finops_revert_holder_name",
+      "breakpoints": true
     }
   ]
 }

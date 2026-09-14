@@ -52286,6 +52286,7 @@ export type Database = {
       finops_holder_name_history: {
         Args: { p_user_id: string }
         Returns: {
+          can_revert: boolean
           changed_at: string
           changed_by: string
           changed_by_name: string
@@ -52460,6 +52461,10 @@ export type Database = {
           p_evidence_note?: string
           p_reason: string
         }
+        Returns: Json
+      }
+      finops_revert_holder_name: {
+        Args: { p_audit_id: string; p_reason?: string }
         Returns: Json
       }
       finops_set_holder_name: {
