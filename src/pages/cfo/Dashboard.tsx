@@ -95,6 +95,7 @@ import { DuplicateRoiCreditsPanel } from '@/components/cfo/DuplicateRoiCreditsPa
 import { FinanceMonitoringHealthPanel } from '@/components/cfo/FinanceMonitoringHealthPanel';
 import { CFOUnfundingApprovals } from '@/components/cfo/CFOUnfundingApprovals';
 import { CFOAllocationReturnApprovals } from '@/components/cfo/CFOAllocationReturnApprovals';
+import { CFOTenantBalanceApprovals } from '@/components/cfo/CFOTenantBalanceApprovals';
 import { SmsDeliveryLogPanel } from '@/components/cfo/SmsDeliveryLogPanel';
 import { SmsFailureAlertsPanel } from '@/components/cfo/SmsFailureAlertsPanel';
 import { AlreadyFundedLandlordsPanel } from '@/components/cfo/AlreadyFundedLandlordsPanel';
@@ -370,6 +371,7 @@ export default function CFODashboardPage() {
                 the agent then pays the landlord via MoMo (gated by landlord OTP and Financial Ops sign-off).
               </p>
             </div>
+            <CFOTenantBalanceApprovals />
             <CFOAllocationReturnApprovals />
             <RentDisbursementQueue locationProvisionsOnly />
             <PromissoryBookingsPanel />
