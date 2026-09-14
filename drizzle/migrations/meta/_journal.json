@@ -351,6 +351,27 @@
       "when": 1789332651983,
       "tag": "0049_withdrawal_requires_verified_destination",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789366623268,
+      "tag": "0050_cto_fake_account_radar",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1789366669012,
+      "tag": "0051_cto_fake_account_base_grant_service_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1789366734222,
+      "tag": "0052_cto_fake_account_radar_tuning",
+      "breakpoints": true
     }
   ]
 }
