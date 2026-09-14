@@ -15,7 +15,7 @@ import { publishAvatarUpdate } from '@/lib/avatarSync';
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
 export type PayoutQueueFilter = PayoutVerificationStatus | 'all' | 'mismatch' | 'no_id';
-export type PayoutQueueSort = 'oldest' | 'balance';
+export type PayoutQueueSort = 'ready_first' | 'newest' | 'oldest' | 'balance';
 
 export interface PayoutDestinationRow {
   id: string;
