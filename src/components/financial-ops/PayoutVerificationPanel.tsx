@@ -803,7 +803,7 @@ export default function PayoutVerificationPanel() {
             </p>
           )}
           {row.decision_reason && !row.duplicate_id_user_id && (
-            row.decision_reason.toLowerCase().startsWith('automatically rejected: this national id') ? (
+            row.decision_reason.toLowerCase().startsWith('automatically rejected:') ? (
               <div
                 role="alert"
                 className="mx-5 mb-4 flex items-start gap-3 rounded-2xl border-2 border-destructive bg-destructive/10 p-3"
@@ -811,7 +811,9 @@ export default function PayoutVerificationPanel() {
                 <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
                 <div className="min-w-0">
                   <p className="text-sm font-black uppercase tracking-wide text-destructive">
-                    Rejected — duplicate National ID
+                    {row.decision_reason.toLowerCase().startsWith('automatically rejected: this national id')
+                      ? 'Rejected — duplicate National ID'
+                      : 'Rejected — could not read the National ID'}
                   </p>
                   <p className="mt-0.5 text-xs text-destructive/90">{row.decision_reason}</p>
                 </div>
