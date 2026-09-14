@@ -119,19 +119,26 @@ export function useSubmitIdentityPhotos() {
  * original in the verification bucket is what matters for verification, so a
  * failure here never blocks the submission.
  */
-export async function setSelfieAsProfilePhoto(userId: string, croppedFile: File): Promise<string | null> {
+export async function setSelfieAsProfilePhoto(
+  userId: string,
+  croppedFile: File,
+  originalSelfiePath?: string,
+): Promise<string | null> {
   try {
     const ext = extensionOf(croppedFile);
     // Archive the cropped copy too, so verification history can show the
     // original selfie next to the exact picture that became the profile photo.
     // The avatar itself is overwritten on every change, so it cannot be history.
+    let cropPath: string | null = null;
     try {
-      await supabase.storage
+      const candidate = `${userId}/profile-crop-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
         .from(IDENTITY_BUCKET)
-        .upload(`${userId}/profile-crop-${Date.now()}.${ext}`, croppedFile, {
+        .upload(candidate, croppedFile, {
           upsert: false,
           contentType: croppedFile.type || 'image/jpeg',
         });
+      if (!error) cropPath = candidate;
     } catch { /* history copy is best-effort */ }
 
     const path = `${userId}/avatar.${ext}`;
@@ -147,11 +154,25 @@ export async function setSelfieAsProfilePhoto(userId: string, croppedFile: File)
       .eq('id', userId);
     if (profErr) return null;
     publishAvatarUpdate(userId, avatarUrl);
+
+    // Audit trail: which original selfie was archived and which cropped copy
+    // became the profile picture. Best-effort — never blocks the submission.
+    if (originalSelfiePath) {
+      try {
+        await supabase.rpc('log_verification_selfie_crop', {
+          p_selfie_path: originalSelfiePath,
+          p_crop_path: cropPath,
+          p_avatar_url: avatarUrl,
+        });
+      } catch { /* audit entry is best-effort */ }
+    }
+
     return avatarUrl;
   } catch {
     return null;
   }
 }
+
 
 /** One archived verification file. */
 export interface VerificationHistoryFile {
