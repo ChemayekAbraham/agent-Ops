@@ -51612,6 +51612,52 @@ export type Database = {
         }[]
       }
       cto_classify_error: { Args: { p_msg: string }; Returns: Json }
+      cto_fake_account_base: {
+        Args: never
+        Returns: {
+          auth_email: string
+          burst_signup: boolean
+          created_at: string
+          disposable_email: boolean
+          dormant: boolean
+          duplicate_name: boolean
+          duplicate_national_id: boolean
+          duplicate_phone: boolean
+          email_confirmed: boolean
+          full_name: string
+          is_synthetic: boolean
+          last_active_at: string
+          national_id: string
+          phone: string
+          risk_score: number
+          suspicious_name: boolean
+          unverified_email: boolean
+          user_id: string
+        }[]
+      }
+      cto_fake_account_list: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_signal?: string
+        }
+        Returns: {
+          auth_email: string
+          created_at: string
+          email_confirmed: boolean
+          full_name: string
+          is_synthetic: boolean
+          last_active_at: string
+          national_id: string
+          phone: string
+          risk_score: number
+          signals: string[]
+          total_count: number
+          user_id: string
+        }[]
+      }
+      cto_fake_account_signal_counts: { Args: never; Returns: Json }
       cto_search_agents: {
         Args: { p_query?: string }
         Returns: {
