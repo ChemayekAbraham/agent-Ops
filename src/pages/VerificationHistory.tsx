@@ -175,7 +175,7 @@ export default function VerificationHistoryPage() {
         case 'f':
         case 'F':
           ev.preventDefault();
-          setActualSize((v) => !v);
+          toggleActualSize();
           break;
         case 'o':
         case 'O': {
@@ -347,7 +347,7 @@ export default function VerificationHistoryPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setActualSize((v) => !v)}
+                onClick={() => toggleActualSize()}
                 aria-pressed={actualSize}
                 aria-label={
                   actualSize
