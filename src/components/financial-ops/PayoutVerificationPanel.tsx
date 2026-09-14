@@ -252,11 +252,19 @@ function DecisionAuditLog() {
   const [decision, setDecision] = useState<'all' | 'verified' | 'rejected'>('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [page, setPage] = useState(0);
 
-  const log = usePayoutDecisionLog(open, { search, decision, from, to });
-  const rows = log.data ?? [];
+  const log = usePayoutDecisionLog(open, { search, decision, from, to }, page);
+  const rows = log.data?.rows ?? [];
+  const total = log.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAYOUT_DECISION_LOG_PAGE_SIZE));
+  const fromRow = total === 0 ? 0 : page * PAYOUT_DECISION_LOG_PAGE_SIZE + 1;
+  const toRow = Math.min(total, (page + 1) * PAYOUT_DECISION_LOG_PAGE_SIZE);
 
-  const applySearch = () => setSearch(searchInput);
+  const applySearch = () => {
+    setSearch(searchInput);
+    setPage(0);
+  };
 
   return (
     <div className="rounded-2xl border border-border bg-card">
