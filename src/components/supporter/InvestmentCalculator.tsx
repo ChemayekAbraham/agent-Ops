@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Toggle, GooeyFilter } from '@/components/ui/liquid-toggle';
+import { GooeyFilter } from '@/components/ui/liquid-toggle';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TrendingUp, Target, Coins, Zap, Download, Share2, RefreshCw, BarChart3, GitCompare, ChevronDown, Shield, Clock, ArrowRight, Save, Layers, X, Wifi, DollarSign, Loader2, Mail, Heart } from 'lucide-react';
@@ -610,38 +611,28 @@ export function InvestmentCalculator() {
               </div>
             </div>
 
-            {/* Toggles — flat rows */}
+            {/* Options — checkboxes */}
             <div className="space-y-1">
-              <button
-                onClick={() => setIsCompounding(!isCompounding)}
-                className="flex items-center justify-between w-full py-3 border-b border-border/20"
+              <label
+                className="flex items-center gap-2.5 w-full py-3 border-b border-border/20 cursor-pointer"
               >
-                <div className="flex items-center gap-2.5">
-                  <RefreshCw className={`h-4 w-4 ${isCompounding ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-                  <span className="text-sm">Reinvest returns</span>
-                </div>
-                <Toggle
+                <Checkbox
                   checked={isCompounding}
-                  onCheckedChange={setIsCompounding}
-                  variant="success"
-                  className="pointer-events-none"
+                  onCheckedChange={(checked) => setIsCompounding(!!checked)}
                 />
-              </button>
-              <button
-                onClick={() => setShowComparison(!showComparison)}
-                className="flex items-center justify-between w-full py-3"
+                <RefreshCw className={`h-4 w-4 ${isCompounding ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                <span className="text-sm">Reinvest returns</span>
+              </label>
+              <label
+                className="flex items-center gap-2.5 w-full py-3 cursor-pointer"
               >
-                <div className="flex items-center gap-2.5">
-                  <GitCompare className={`h-4 w-4 ${showComparison ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <span className="text-sm">Compare scenarios</span>
-                </div>
-                <Toggle
+                <Checkbox
                   checked={showComparison}
-                  onCheckedChange={setShowComparison}
-                  variant="default"
-                  className="pointer-events-none"
+                  onCheckedChange={(checked) => setShowComparison(!!checked)}
                 />
-              </button>
+                <GitCompare className={`h-4 w-4 ${showComparison ? 'text-primary' : 'text-muted-foreground'}`} />
+                <span className="text-sm">Compare scenarios</span>
+              </label>
             </div>
           </div>
 
