@@ -4872,95 +4872,46 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     </p>
                   </div>
 
-                  {/* Live face-recognition feedback, shown from the moment a
-                      photo is picked. Once a photo exists this ALWAYS says
-                      something — silence would read as "checked and fine". */}
-                  {tenantPhoto && (
-                    <div className="rounded-lg border border-border bg-muted/30 p-2 space-y-1">
-                      {!faceCheck && (
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                            This photo has not been checked yet.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => void runFaceCheck(tenantPhoto.file)}
-                            className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] font-semibold hover:bg-background"
-                          >
-                            Check now
-                          </button>
-                        </div>
-                      )}
-
-                      {faceCheck?.status === 'checking' && (
-                        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                          Checking the photo for a face…
+                  {/* Face recognition verdict. A confirmed "no face" blocks the
+                      wizard; a checker outage warns but lets the agent carry on. */}
+                  {faceCheck?.status === 'checking' && (
+                    <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                      Checking the photo for a face…
+                    </p>
+                  )}
+                  {faceCheck?.status === 'no_face' && (
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-2">
+                      <p className="flex items-start gap-1.5 text-[11px] font-semibold text-destructive">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                        No face found in this photo. Retake it before you can continue.
+                      </p>
+                    </div>
+                  )}
+                  {faceCheck?.status === 'ok' && (
+                    <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2 space-y-1">
+                      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                        Face recognised
+                        {faceCheck.isPassportPhoto === false && ' — but this is not passport-style'}
+                      </p>
+                      {(faceCheck.failures?.length ?? 0) > 0 && (
+                        <p className="text-[10px] leading-relaxed text-muted-foreground">
+                          Worth fixing: {faceCheck.failures!.slice(0, 3).map((f) => f.label).join(', ')}
                         </p>
                       )}
-
-                      {faceCheck?.status === 'no_face' && (
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="flex items-start gap-1.5 text-[11px] font-semibold text-destructive">
-                            <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
-                            No face found in this photo. Retake it — you cannot continue until a face is recognised.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => void runFaceCheck(tenantPhoto.file)}
-                            className="shrink-0 rounded-md border border-destructive/40 px-2 py-0.5 text-[10px] font-semibold text-destructive hover:bg-destructive/10"
-                          >
-                            Check again
-                          </button>
-                        </div>
-                      )}
-
-                      {faceCheck?.status === 'unavailable' && (
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-500">
-                            <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
-                            We could not check this photo just now. You can continue — Agent Ops will verify it.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => void runFaceCheck(tenantPhoto.file)}
-                            className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] font-semibold hover:bg-background"
-                          >
-                            Try again
-                          </button>
-                        </div>
-                      )}
-
-                      {faceCheck?.status === 'ok' && (
-                        <>
-                          <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                            Face recognised
-                          </p>
-                          {faceCheck.verdict === 'pass' ? (
-                            <p className="text-[10px] text-muted-foreground">Good passport photo.</p>
-                          ) : (
-                            <p className="flex items-start gap-1.5 text-[10px] text-amber-600 dark:text-amber-500">
-                              <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
-                              {faceCheck.verdict === 'fail'
-                                ? 'The face is clear but this is not a proper passport photo. Retaking it is better.'
-                                : 'This photo may need a second look. You can retake it or continue.'}
-                            </p>
-                          )}
-                          {(faceCheck.failures ?? []).slice(0, 3).map((f) => (
-                            <p key={f.id || f.label} className="text-[10px] leading-relaxed text-muted-foreground">
-                              • {f.advice || f.label}
-                            </p>
-                          ))}
-                          {faceCheck.sha256 && (
-                            <p className="font-mono text-[9px] text-muted-foreground/70">
-                              {faceCheck.sha256.slice(0, 16)}…
-                            </p>
-                          )}
-                        </>
+                      {faceCheck.sha256 && (
+                        <p className="font-mono text-[9px] text-muted-foreground/70 break-all">
+                          {faceCheck.sha256.slice(0, 16)}…
+                        </p>
                       )}
                     </div>
+                  )}
+                  {faceCheck?.status === 'unavailable' && (
+                    <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-500">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                      Face check unavailable — you can continue, and Agent Ops will verify the photo.
+                    </p>
                   )}
                 </div>
               </div>

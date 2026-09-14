@@ -14,7 +14,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyPayoutDestinations } from '@/hooks/usePayoutVerification';
 import { Button } from '@/components/ui/button';
 import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
-import { useIsFunderWithPortfolio } from '@/hooks/useIsFunderWithPortfolio';
 
 const REMINDED_KEY = 'welile-nid-rejection-reminded';
 
@@ -64,15 +63,9 @@ export default function NationalIdRejectedReminder({
     () => (destinations ?? []).some((d) => d.status === 'verified'),
     [destinations],
   );
-  // Funders holding an investor portfolio are exempt from the ID/selfie and
-  // payout-destination gates, so a rejection never blocks their payouts.
-  const funder = useIsFunderWithPortfolio(user?.id);
   const rejected = useMemo(
-    () =>
-      hasVerified || funder.isFunder || funder.isLoading
-        ? []
-        : (destinations ?? []).filter((d) => d.status === 'rejected'),
-    [destinations, hasVerified, funder.isFunder, funder.isLoading],
+    () => (hasVerified ? [] : (destinations ?? []).filter((d) => d.status === 'rejected')),
+    [destinations, hasVerified],
   );
 
   // One toast per decision; a new decision (different decided_at) reminds again.
