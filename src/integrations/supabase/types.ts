@@ -49569,6 +49569,10 @@ export type Database = {
         Args: { p_catalog_id: string; p_period_months: number }
         Returns: Json
       }
+      agent_order_smartphone_full: {
+        Args: { p_catalog_id: string }
+        Returns: Json
+      }
       agent_order_spiro_bike: { Args: { p_amount: number }; Returns: Json }
       agent_order_spiro_bike_lease: {
         Args: {
