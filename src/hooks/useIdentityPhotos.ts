@@ -19,13 +19,18 @@ import { publishAvatarUpdate } from '@/lib/avatarSync';
 
 export const IDENTITY_BUCKET = 'identity-verification';
 
-export type IdentityPhotoKind = 'national-id' | 'selfie';
+export type IdentityPhotoKind = 'national-id' | 'national-id-back' | 'selfie';
 
 export interface MyIdentityPhotos {
   national_id_photo_path: string | null;
+  /** Back of the National ID — verification is blocked until this is saved. */
+  national_id_back_photo_path: string | null;
   selfie_photo_path: string | null;
   identity_photos_submitted_at: string | null;
 }
+
+const IDENTITY_PHOTO_COLUMNS =
+  'national_id_photo_path, national_id_back_photo_path, selfie_photo_path, identity_photos_submitted_at';
 
 function extensionOf(file: File): string {
   const fromName = file.name.includes('.') ? file.name.split('.').pop() : '';
