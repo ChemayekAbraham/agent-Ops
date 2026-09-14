@@ -8,8 +8,8 @@
 The CTO dashboard's Fake Account Radar flagged ~25,500 accounts as `burst_signup`
 (`cto_fake_account_base()`: 10+ signups from the same `referrer_id` inside the same
 10-minute bucket, all with unconfirmed email). Investigating why they existed led to an
-active, quantified financial exploit, not just spam. **Final scope after two extension
-passes: 19 confirmed fraud referrer accounts, ~33,591 bot accounts.**
+active, quantified financial exploit, not just spam. **Final scope after three extension
+passes: 24 confirmed fraud referrer accounts, ~34,311 bot accounts.**
 
 - **17 referrer accounts** drove **25,732** throwaway signups between 2026-09-10 and
   2026-09-13 (one referrer alone: 3,315 signups in ~2.5 days — no human does that).
@@ -120,18 +120,30 @@ endpoint directly, because it fires regardless of which client created the row.
   mechanism in this codebase (`landlord_ambassador_referrals`,
   `merchant_agent_referrals`, `supporter_referrals`) — none of those were audited in
   this pass. Worth the same check.
-- **A much larger, weaker signal was deliberately NOT acted on.** Every profile whose
-  `user_roles` has all four personas (`tenant`/`agent`/`landlord`/`supporter`)
-  inserted at the exact same timestamp, with email still unconfirmed, currently
-  totals **8,798 accounts across 84 distinct referrers**, going back to 2026-05-10 —
-  far bigger and older than the 19-referrer ring above. This signature is **not**
-  reliable proof of a bot on its own: `handle_new_user()` assigns exactly this
-  "all four personas at once" pattern to *any* signup that doesn't pass an
-  `intended_role` in metadata — a legitimate signup entry point that omits that
-  field would look identical. Before touching any of these 84, each referrer needs
-  the same evidence standard the 19 got: concrete email/phone pattern similarity and
-  a real money trail, not just the role signature. Flagged for Josh to decide scope
-  before a review of this scale is undertaken.
+- **The broader "all four roles at once" signal was re-measured and mostly ruled
+  out.** The original 8,798-account / 84-referrer figure used the wrong proxy: it
+  missed bot rings that set the role field correctly (evading that exact signature)
+  and would have wrongly implicated real agent-driven growth — one referrer in that
+  pool, `864b1df4...`, turned out to be a genuine agent with 1,456 real
+  sub-agent/customer signups via the normal `@welile.agent` synthetic-email pattern
+  (99% synthetic emails, 1,456 distinct phone numbers, 1,297 distinct real names,
+  spread over 44 days). Left untouched.
+
+  Re-measuring on total-referred-count + time concentration + **name/email
+  diversity** (a bot cohort reuses one or two fake names across hundreds of rows; a
+  real agent's cohort has mostly distinct names) found **5 more confirmed
+  referrers** running the identical incrementing-digit-email pattern as the original
+  19 — Asiime Meresi (383 bots), Lubega Twaha (199), Aniwar Ssempijja (63), Isa Kato
+  (54), Seez Records (21). All 5 frozen, 720 referred bot accounts soft-deleted
+  (`20260914160000_fraud_ring_sweep_second_extension.sql`). Two more matching the
+  same signature (Ampire Tobbi, Mucunguzi Eliias) were already frozen — caught
+  incidentally because they'd themselves been referred by one of the original 19.
+
+  A much larger pool — **256 referrers / ~54,000 accounts / UGX 17.4M bonus paid /
+  UGX 157M withdrawn** — was measured with a looser filter and is **not** confirmed
+  fraud; per the `864b1df4` check, that pool is dominated by real agent activity.
+  Each one needs the same individual name/email-diversity verification before any
+  action — a blanket sweep of it would freeze real agents' real earned money.
 - `preflightSignup()` / `record_signup_attempt` (client-side-only, bypassable by
   calling Supabase Auth's public `/auth/v1/signup` REST endpoint directly) is still
   the *first* line of defense and still bypassable that way. The signup-velocity
