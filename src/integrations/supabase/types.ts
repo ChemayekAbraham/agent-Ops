@@ -56311,6 +56311,10 @@ export type Database = {
         }[]
       }
       hr_working_days: { Args: { _from: string; _to: string }; Returns: number }
+      identity_already_verified: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       identity_double_submission: { Args: { p_user_id: string }; Returns: Json }
       identity_photo_checks_for_request: {
         Args: { p_rent_request_id: string }
