@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
+  PAYOUT_DECISION_LOG_PAGE_SIZE,
   PAYOUT_VERIFICATION_PAGE_SIZE,
   useDecidePayoutDestination,
   usePayoutDecisionLog,
