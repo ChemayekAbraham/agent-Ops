@@ -60,6 +60,14 @@ interface SmartphoneOrder {
   repayment_starts_on?: string | null;
 }
 
+interface ScheduleRow {
+  month_index: number;
+  period_start: string;
+  period_end: string;
+  total_due: number | null;
+  daily_deduction: number | null;
+}
+
 const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; className: string }> = {
   submitted: { label: 'Submitted', icon: Clock, className: 'bg-muted text-muted-foreground border-border' },
   pending_approval: { label: 'Pending approval', icon: Clock, className: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
