@@ -454,6 +454,7 @@ export default function PayoutVerificationPanel() {
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
   const photosReady = !!idPath && !!selfiePath;
+  const idNameUnreadable = photosReady && (row?.national_id_name || '').trim().length < 3;
 
   const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
 
