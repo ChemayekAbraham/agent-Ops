@@ -123,6 +123,7 @@ const MyLoans = lazy(() => import('./pages/MyLoans'));
 const PaymentSchedule = lazy(() => import('./pages/PaymentSchedule'));
 const PayLandlord = lazy(() => import('./pages/PayLandlord'));
 const RentDiscountHistory = lazy(() => import('./pages/RentDiscountHistory'));
+const TenantRentPlan = lazy(() => import('./pages/TenantRentPlan'));
 const Benefits = lazy(() => import('./pages/Benefits'));
 const Referrals = lazy(() => import('./pages/Referrals'));
 const ManagerAccess = lazy(() => import('./pages/ManagerAccess'));
@@ -487,6 +488,7 @@ function AppRoutes() {
           <Route path="/dashboard/funder" element={<Dashboard />} />
           <Route path="/dashboard/manager" element={<Dashboard />} />
           <Route path="/dashboard/agents/leaderboard" element={<AgentLeaderboard />} />
+          <Route path="/dashboard/rent-plan" element={<TenantRentPlan />} />
           <Route path="/dashboard/*" element={<DashboardRedirect />} />
           <Route path="/verification-request/:id" element={<VerificationRequestDetailPage />} />
           <Route path="/verification-history" element={<VerificationHistoryPage />} />
