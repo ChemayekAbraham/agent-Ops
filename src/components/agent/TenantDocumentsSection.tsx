@@ -130,6 +130,7 @@ export function TenantDocumentsSection({
       // Keep the tenant's profile photo in step with the passport on file.
       if (docType === 'tenant_passport' && publicUrl) {
         await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', tenantId);
+        publishAvatarUpdate(tenantId, publicUrl);
       }
 
       toast.success(existing ? 'Document replaced' : 'Document uploaded');
