@@ -152,9 +152,21 @@ export default function WithdrawFlow({
   // is released; this only surfaces that state so nobody is surprised at
   // submit time. The gate itself is in the database.
   const myDestinations = useMyPayoutDestinations(user?.id);
+  // Verification state can change while the app sits open (Financial Ops
+  // verifies or rejects, the user submits photos on another device), so the
+  // gate always re-reads it the moment the dialog is opened rather than
+  // trusting the cached copy.
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    void myNationalId.refetch();
+    void myIdentityPhotos.refetch();
+    void myDestinations.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, user?.id]);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
   const [saveAsNew, setSaveAsNew] = useState(true);
   const [savedNickname, setSavedNickname] = useState('');
+
 
   // Payout mode state
   const [payoutMode, setPayoutMode] = useState<'mobile_money' | 'bank_transfer' | 'cash'>('mobile_money');
