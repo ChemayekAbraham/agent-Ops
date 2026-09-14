@@ -242,11 +242,13 @@ function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSav
   const idName = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
   const alreadySame = !!idName && idName.toLowerCase() === accountName.toLowerCase();
+  const confidence = assessIdNameConfidence(idName);
   const appliedRef = useRef<string | null>(null);
 
-  // The ID name replaces the account name on its own, as soon as the case opens.
+  // The ID name replaces the account name on its own, as soon as the case opens —
+  // but only when the read is clean. A doubtful read is flagged, never applied.
   useEffect(() => {
-    if (alreadySame || idName.length < 3) return;
+    if (alreadySame || !confidence.confident) return;
     if (appliedRef.current === row.id) return;
     appliedRef.current = row.id;
     void (async () => {
