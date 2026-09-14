@@ -221,6 +221,31 @@ export default function TenantsOnboarding() {
   const [lc1, setLc1] = useState<Lc1Selection | null>(null);
   const [note, setNote] = useState('');
 
+  /* ------------------------------------------------------ referral claim ---
+     The short link arrives as /tenants-onboarding?ref=<agent id>. That id is
+     only ever written to the tenant's profile during SIGN-UP, so a tenant who
+     already had an account signs IN, the referrer is never recorded, and
+     tenant-self-onboarding — which reads attribution only from the profile —
+     leaves the request with no agent.
+
+     Claim it here instead. The browser only asks; claim_tenant_referrer
+     decides, against the caller's own identity: it writes only when the
+     profile has no referrer yet, refuses self-referral, and requires the
+     referrer to be a live, unfrozen, enabled agent. A refusal is silent —
+     attribution must never block someone from onboarding. */
+  useEffect(() => {
+    if (!user) return;
+    const ref = new URLSearchParams(routeLocation.search).get('ref');
+    if (!ref || ref === user.id) return;
+    void (async () => {
+      try {
+        await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<unknown>)(
+          'claim_tenant_referrer', { p_referrer_id: ref },
+        );
+      } catch { /* attribution is never worth blocking onboarding for */ }
+    })();
+  }, [user, routeLocation.search]);
+
   /* Walk the submit button through its reassurance lines. Submission uploads
      several photos over a Ugandan mobile connection and can genuinely take a
      while; a frozen spinner reads as a hang. */
