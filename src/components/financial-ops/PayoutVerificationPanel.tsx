@@ -547,8 +547,8 @@ export default function PayoutVerificationPanel() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      {/* Filters — sticky so they stay within thumb reach on a phone */}
+      <div className="sticky top-0 z-20 -mx-1 flex gap-2 overflow-x-auto bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         {FILTERS.map((f) => {
           const n = countFor(f.id);
           const selected = status === f.id;
@@ -634,10 +634,20 @@ export default function PayoutVerificationPanel() {
               <div key={r.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground truncate">
+                    <button
+                      type="button"
+                      onClick={() => r.user_id && setProfileUserId(r.user_id)}
+                      className="block max-w-full text-left text-sm font-bold text-foreground truncate underline decoration-primary/50 underline-offset-2 active:text-primary"
+                    >
                       {r.full_name || 'Name not recorded'}
-                    </p>
+                    </button>
                     <p className="text-xs text-muted-foreground">{r.user_phone || 'No account phone'}</p>
+                    <div className="mt-1">
+                      <PhoneAccountBadge
+                        info={accountFor(r.user_phone)}
+                        loading={phoneAccounts.isLoading && !!r.user_phone}
+                      />
+                    </div>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
