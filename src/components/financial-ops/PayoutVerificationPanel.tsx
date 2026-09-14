@@ -39,9 +39,11 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   useDecidePayoutDestination,
+  usePayoutDecisionLog,
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
   type PayoutDestinationRow,
+  type PayoutDecisionLogRow,
   type PayoutQueueFilter,
   type PayoutQueueSort,
 } from '@/hooks/usePayoutVerification';
@@ -51,13 +53,27 @@ import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhoto
  * The National ID card photo and the selfie the holder recorded, shown under
  * their name so the operator compares the face before tapping Verify. Tapping
  * a thumbnail opens the full photo in a new tab (short-lived signed link).
+ * `onPhotosAvailable` reports whether BOTH photos exist — the query polls
+ * while they're missing, so the parent re-enables Verify the moment the
+ * holder finishes recording, without a refresh.
  */
-function IdentityPhotosStrip({ userId }: { userId: string }) {
+function IdentityPhotosStrip({
+  userId,
+  onPhotosAvailable,
+}: {
+  userId: string;
+  onPhotosAvailable?: (available: boolean) => void;
+}) {
   const photos = useIdentityPhotosFor(userId);
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
+
+  const bothAvailable = !!idPath && !!selfiePath;
+  useEffect(() => {
+    onPhotosAvailable?.(bothAvailable);
+  }, [bothAvailable, onPhotosAvailable]);
 
   useEffect(() => {
     let alive = true;
