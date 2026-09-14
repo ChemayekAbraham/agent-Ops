@@ -60435,6 +60435,10 @@ export type Database = {
         Args: { _landlord_id: string; _user_id: string }
         Returns: boolean
       }
+      user_is_funder_with_portfolio: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       user_location_correction_progress: { Args: never; Returns: Json }
       user_location_corrections: {
         Args: {
