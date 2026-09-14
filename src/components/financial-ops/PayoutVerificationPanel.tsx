@@ -1026,6 +1026,7 @@ export default function PayoutVerificationPanel() {
         row={deciding ? row : null}
         photosReady={photosReady}
         idNameUnreadable={idNameUnreadable}
+        idBackMissing={idBackMissing}
         onClose={() => setDeciding(false)}
         onSaved={() => goTo(position)}
       />
