@@ -67,6 +67,11 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
   };
 }
 
+/** Only the rows in view are rendered once the list gets long. */
+const ESTIMATED_ROW_PX = 96;
+const VIRTUALIZE_ABOVE = 12;
+const MAX_LIST_PX = 560;
+
 export function PayoutQueueBlockedList({
   rows,
   activeId,
@@ -78,51 +83,94 @@ export function PayoutQueueBlockedList({
   startNumber: number;
   onOpen: (index: number) => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const virtualize = rows.length > VIRTUALIZE_ABOVE;
+
+  const virtualizer = useVirtualizer({
+    count: virtualize ? rows.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ESTIMATED_ROW_PX,
+    overscan: 6,
+  });
+
   if (rows.length === 0) return null;
+
+  const renderRow = (r: PayoutDestinationRow, i: number) => {
+    const reason = blockedReasonFor(r);
+    const number =
+      r.destination_type === 'mobile_money'
+        ? r.momo_number || '—'
+        : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim() || '—';
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(i)}
+        aria-current={r.id === activeId ? 'true' : undefined}
+        className={`w-full border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted/50 ${
+          r.id === activeId ? 'bg-primary/5' : ''
+        }`}
+      >
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs font-semibold text-muted-foreground">{startNumber + i}.</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
+            {r.full_name || r.account_name || 'Name not recorded'}
+          </span>
+          <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+            {formatUGX(r.withdrawable_balance)}
+          </span>
+        </div>
+        <p className="ml-5 truncate text-xs text-muted-foreground">{number}</p>
+        {reason && (
+          <p className={`ml-5 mt-1 flex items-start gap-1.5 text-xs font-medium ${reason.tone}`}>
+            <reason.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{reason.text}</span>
+          </p>
+        )}
+      </button>
+    );
+  };
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <p className="border-b border-border px-4 py-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
         This page — why each case can or cannot be verified
       </p>
-      <ul className="divide-y divide-border">
-        {rows.map((r, i) => {
-          const reason = blockedReasonFor(r);
-          const number =
-            r.destination_type === 'mobile_money'
-              ? r.momo_number || '—'
-              : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim() || '—';
-          return (
-            <li key={r.id}>
-              <button
-                type="button"
-                onClick={() => onOpen(i)}
-                aria-current={r.id === activeId ? 'true' : undefined}
-                className={`w-full px-4 py-3 text-left transition-colors hover:bg-muted/50 ${
-                  r.id === activeId ? 'bg-primary/5' : ''
-                }`}
+      {virtualize ? (
+        <div
+          ref={scrollRef}
+          className="overflow-y-auto overscroll-contain"
+          style={{ maxHeight: MAX_LIST_PX }}
+          role="list"
+        >
+          <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+            {virtualizer.getVirtualItems().map((item) => (
+              <div
+                key={rows[item.index].id}
+                role="listitem"
+                ref={virtualizer.measureElement}
+                data-index={item.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${item.start}px)`,
+                }}
               >
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">{startNumber + i}.</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
-                    {r.full_name || r.account_name || 'Name not recorded'}
-                  </span>
-                  <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-                    {formatUGX(r.withdrawable_balance)}
-                  </span>
-                </div>
-                <p className="ml-5 truncate text-xs text-muted-foreground">{number}</p>
-                {reason && (
-                  <p className={`ml-5 mt-1 flex items-start gap-1.5 text-xs font-medium ${reason.tone}`}>
-                    <reason.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                    <span>{reason.text}</span>
-                  </p>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                {renderRow(rows[item.index], item.index)}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div role="list">
+          {rows.map((r, i) => (
+            <div role="listitem" key={r.id}>
+              {renderRow(r, i)}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
