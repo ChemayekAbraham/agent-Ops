@@ -109,7 +109,8 @@ export function useSubmitIdentityPhotos() {
       const { data, error } = await supabase.rpc('submit_identity_photos', {
         p_id_photo_path: paths.idPhotoPath,
         p_selfie_path: paths.selfiePath,
-        p_id_back_photo_path: paths.idBackPhotoPath ?? undefined,
+        // Always sent (even as null) so the 3-argument version is used.
+        p_id_back_photo_path: paths.idBackPhotoPath ?? null,
       });
       if (error) throw error;
       return data as { success?: boolean; message?: string } | null;
