@@ -28,9 +28,12 @@ interface ShotTileProps {
   onPick: (file: File) => void;
   onClear: () => void;
   disabled?: boolean;
+  /** Result of the automatic blur / glare / contrast check on this photo. */
+  quality?: PhotoQualityResult | null;
+  checking?: boolean;
 }
 
-function ShotTile({ label, hint, file, onPick, onClear, disabled }: ShotTileProps) {
+function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, checking }: ShotTileProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = file ? URL.createObjectURL(file) : null;
 
