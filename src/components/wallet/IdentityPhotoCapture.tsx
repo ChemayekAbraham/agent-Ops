@@ -18,6 +18,7 @@ import {
   useSubmitIdentityPhotos,
   type IdentityPhotoKind,
 } from '@/hooks/useIdentityPhotos';
+import SelfieCropDialog from '@/components/wallet/SelfieCropDialog';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
