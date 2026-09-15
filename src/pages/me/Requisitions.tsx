@@ -127,6 +127,7 @@ const MyRequisitions = () => {
   const [resubmitId, setResubmitId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [viewingPath, setViewingPath] = useState<string | null>(null);
+  const [usageReports, setUsageReports] = useState<Record<string, UsageReport>>({});
 
   const fetchRows = useCallback(async () => {
     const { data: userRes } = await supabase.auth.getUser();
