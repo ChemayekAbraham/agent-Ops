@@ -1126,6 +1126,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   Reject
                 </Button>
               </div>
+              </CfoApprovalGate>
 
               {reviewTarget.assigned_agent_id || reviewTarget.agent_id ? (
                 <button
