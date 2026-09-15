@@ -335,6 +335,12 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
                       </Button>
                     </>
                   )}
+                  {assignedAgent && (
+                    <DetailRow
+                      label="Assigned agent"
+                      value={`${assignedAgent.full_name} (${assignedAgent.phone || '—'})`}
+                    />
+                  )}
                   {supporter && <DetailRow label="Supporter" value={`${supporter.full_name} (${supporter.phone})`} />}
                 </Section>
                 <Separator />
