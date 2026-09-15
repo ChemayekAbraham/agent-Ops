@@ -365,12 +365,20 @@ export function PromissoryNotesQueue({
     return matchesSearch && matchesStatus;
   });
 
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    if (sortBy === 'default') return 0;
+    const aDate = a.fulfilment_due_on ? new Date(a.fulfilment_due_on).getTime() : Infinity;
+    const bDate = b.fulfilment_due_on ? new Date(b.fulfilment_due_on).getTime() : Infinity;
+    if (aDate === bDate) return 0;
+    return sortBy === 'fulfilment_asc' ? aDate - bDate : bDate - aDate;
+  });
+
   const statusCounts = notes.reduce((acc, n) => {
     acc[n.status] = (acc[n.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const exportRows = filtered.map(n => ({
+  const exportRows = sortedFiltered.map(n => ({
     Partner: n.partner_name || '',
     Agent: n.agent_name || '',
     Phone: n.phone_number || '',
@@ -382,6 +390,7 @@ export function PromissoryNotesQueue({
     Status: n.status || '',
     Registered: n.came_in ? 'Yes' : 'No',
     'Created at': n.created_at ? format(new Date(n.created_at), 'yyyy-MM-dd HH:mm') : '',
+    'Fulfils by': n.fulfilment_due_on ? format(new Date(n.fulfilment_due_on), 'yyyy-MM-dd') : '',
   }));
 
   const downloadFile = (content: Blob, filename: string) => {
