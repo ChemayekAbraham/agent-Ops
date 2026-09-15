@@ -38257,6 +38257,44 @@ export type Database = {
           },
         ]
       }
+      staff_requisition_usage_reports: {
+        Row: {
+          amount_used: number
+          created_at: string
+          id: string
+          requester_id: string
+          requisition_id: string
+          submitted_at: string
+          summary: string
+        }
+        Insert: {
+          amount_used: number
+          created_at?: string
+          id?: string
+          requester_id: string
+          requisition_id: string
+          submitted_at?: string
+          summary: string
+        }
+        Update: {
+          amount_used?: number
+          created_at?: string
+          id?: string
+          requester_id?: string
+          requisition_id?: string
+          submitted_at?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_usage_reports_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_requisitions: {
         Row: {
           amount: number
