@@ -234,9 +234,16 @@ export default function PlatformSalesOfficersPage() {
           netNotes: 0,
           partnerRegistered: 0,
           weekday: [0, 0, 0, 0, 0, 0, 0],
+          notesUnapproved: funded?.notes_unapproved ?? 0,
           notesFunded: funded?.notes_funded ?? 0,
-          amountFunded: funded?.amount_funded ?? 0,
+          fundersConverted: funded?.funders_converted ?? 0,
+          topups: funded?.topups ?? 0,
+          amountDeployed: funded?.amount_deployed ?? 0,
+          commissionBase: funded?.commission_base ?? 0,
           commissionAccrued: funded?.commission_accrued ?? 0,
+          preEnrolmentNotes: funded?.pre_enrolment_notes ?? 0,
+          preEnrolmentFunded: funded?.pre_enrolment_funded ?? 0,
+          preEnrolmentAmount: funded?.pre_enrolment_amount ?? 0,
         };
         byId.set(row.staff_id, entry);
       }
