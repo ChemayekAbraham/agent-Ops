@@ -440,8 +440,46 @@ export default function PlatformSalesOfficersPage() {
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {label}
             </span>
-            <span className="text-[11px] text-muted-foreground">live · refreshes every minute</span>
+            <span className="text-[11px] text-muted-foreground">
+              {mode === 'WEEKLY' && weekOffset !== 0
+                ? 'past week · Wed to Tue'
+                : 'live · refreshes every minute'}
+            </span>
           </div>
+
+          {mode === 'WEEKLY' && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setWeekOffset((w) => w - 1)}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                className="min-h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Previous week"
+              >
+                ← Previous week
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeekOffset((w) => Math.min(0, w + 1))}
+                disabled={weekOffset >= 0}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                className="min-h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                aria-label="Next week"
+              >
+                Next week →
+              </button>
+              {weekOffset !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => setWeekOffset(0)}
+                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                  className="min-h-9 rounded-md border px-3 text-xs font-semibold text-foreground"
+                >
+                  This week
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="grid w-full grid-cols-3 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
             {(['DAILY', 'WEEKLY', 'MONTHLY'] as WindowMode[]).map((m) => (
