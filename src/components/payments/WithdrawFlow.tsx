@@ -531,6 +531,19 @@ export default function WithdrawFlow({
     if (currentStep !== 4) return;
     if (!requiresOtp) return;
     if (walletOtp.challengeId || walletOtp.otpIssuing) return;
+    // The details below can settle AFTER step 4 is reached (the server-resolved
+    // locked destination arrives asynchronously), and any change to them clears
+    // the challenge. Without re-running on those details the cleared challenge
+    // was never re-issued and no code ever arrived. `issuedKeyRef` makes sure a
+    // given set of details is only ever sent once, so this cannot loop, and a
+    // failed attempt is not retried automatically either.
+    const issueKey = [
+      amount, payoutMode, momoNumber.trim(), momoName.trim(), momoProvider,
+      bankName.trim(), bankAccountNumber.trim(), bankAccountName.trim(),
+      effectiveReason || '',
+    ].join('|');
+    if (issuedKeyRef.current === issueKey) return;
+    issuedKeyRef.current = issueKey;
     void walletOtp.issueOtp({
       amount,
       payout_method: payoutMode as 'mobile_money' | 'bank_transfer',
