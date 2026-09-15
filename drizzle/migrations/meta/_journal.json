@@ -876,6 +876,20 @@
       "when": 1789497816295,
       "tag": "0124_withdrawal_gate_fix_binding_photo_column",
       "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1789500398970,
+      "tag": "0125_s2_bank_cash_recognition_and_float_reclass",
+      "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1789500506070,
+      "tag": "0126_s2_float_restatement_same_account",
+      "breakpoints": true
     }
   ]
 }
