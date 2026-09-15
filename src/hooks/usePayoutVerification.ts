@@ -591,6 +591,25 @@ export function useStoredIdReading(userId: string | null | undefined) {
   });
 }
 
+/**
+ * Did the payout number itself pass the SMS ownership code? Reviewers cannot
+ * read `otp_verifications`, so this asks the server for a plain yes/no.
+ */
+export function usePayoutNumberOtpConfirmed(destinationId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['payout-number-otp-confirmed', destinationId],
+    enabled: !!destinationId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await supabase.rpc('finops_payout_number_ownership_confirmed', {
+        p_destination_id: destinationId as string,
+      });
+      if (error) throw new Error(error.message);
+      return data === true;
+    },
+  });
+}
+
 /** Normalised comparison of two ID numbers (case and punctuation ignored). */
 export function sameIdNumber(a: string | null | undefined, b: string | null | undefined): boolean | null {
   const norm = (v: string | null | undefined) => (v ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase();
