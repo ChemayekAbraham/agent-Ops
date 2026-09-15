@@ -309,7 +309,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   <SelectContent>
                     {PERIODS.map((p) => (
                       <SelectItem key={p.months} value={String(p.months)}>
-                        {p.months} months ({p.days} days)
+                        {p.months} month{p.months === 1 ? '' : 's'} ({p.days} days)
                       </SelectItem>
                     ))}
                   </SelectContent>
