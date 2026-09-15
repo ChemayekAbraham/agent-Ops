@@ -1273,6 +1273,8 @@ export default function PayoutVerificationPanel() {
             })()}
           </div>
 
+          <SavedPayoutNumberCard row={row} />
+
           {/* Both names side by side — the person in the selfie vs the National ID */}
           <div className="mx-5 mt-3 grid grid-cols-2 gap-3">
             <div className="rounded-2xl border border-border bg-card p-3">
