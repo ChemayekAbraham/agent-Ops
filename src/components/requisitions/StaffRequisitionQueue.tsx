@@ -64,6 +64,15 @@ interface ReqEvent {
   created_at: string;
 }
 
+interface UsageReport {
+  id: string;
+  requisition_id: string;
+  amount_used: number;
+  summary: string;
+  submitted_at: string | null;
+  attachment_paths: string[] | null;
+}
+
 interface BudgetContext {
   department_id: string;
   department_name: string;
@@ -163,6 +172,18 @@ export function StaffRequisitionQueue() {
   const [rows, setRows] = useState<StaffRequisition[]>([]);
   const [budgets, setBudgets] = useState<Record<string, BudgetContext>>({});
   const [events, setEvents] = useState<Record<string, ReqEvent[]>>({});
+  const [usageReports, setUsageReports] = useState<Record<string, UsageReport>>({});
+  const [viewingPath, setViewingPath] = useState<string | null>(null);
+
+  const viewUsageAttachment = async (requisitionId: string, path: string) => {
+    setViewingPath(path);
+    const { data, error } = await invokeEdgeFunction<{ url: string }>('staff-requisition-attachment-url', {
+      body: { requisition_id: requisitionId, path },
+      errorTitle: 'Could not open receipt',
+    });
+    setViewingPath(null);
+    if (!error && data?.url) window.open(data.url, '_blank');
+  };
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('inbox');
 
@@ -191,10 +212,18 @@ export function StaffRequisitionQueue() {
   const [page, setPage] = useState(1);
 
   const fetchAll = useCallback(async () => {
-    const [reqRes, budgetRes] = await Promise.all([
+    const [reqRes, budgetRes, usageRes] = await Promise.all([
       supabase.from('staff_requisitions').select('*').order('created_at', { ascending: false }),
       supabase.from('v_staff_requisition_budget_context').select('*'),
+      supabase
+        .from('staff_requisition_usage_reports')
+        .select('id, requisition_id, amount_used, summary, submitted_at, attachment_paths'),
     ]);
+    if (!usageRes.error) {
+      const umap: Record<string, UsageReport> = {};
+      for (const rep of (usageRes.data || []) as unknown as UsageReport[]) umap[rep.requisition_id] = rep;
+      setUsageReports(umap);
+    }
     if (reqRes.error) {
       toast.error('Could not load requisitions', { description: reqRes.error.message });
     } else {
@@ -716,6 +745,34 @@ export function StaffRequisitionQueue() {
                 <p className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-700">
                   {detail.rejection_reason}
                 </p>
+              )}
+
+              {usageReports[detail.id] && (
+                <div className="rounded-xl border bg-muted/30 p-3">
+                  <p className="text-sm font-semibold">Usage report</p>
+                  <p className="mt-1 text-sm">
+                    Used {formatUGX(Number(usageReports[detail.id].amount_used))}
+                    {usageReports[detail.id].submitted_at ? ` • ${fmtDate(usageReports[detail.id].submitted_at)}` : ''}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                    {usageReports[detail.id].summary}
+                  </p>
+                  {(usageReports[detail.id].attachment_paths?.length ?? 0) > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {usageReports[detail.id].attachment_paths!.map((path, i) => (
+                        <Button
+                          key={path}
+                          size="sm"
+                          variant="outline"
+                          disabled={viewingPath === path}
+                          onClick={() => void viewUsageAttachment(detail.id, path)}
+                        >
+                          Report receipt {i + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
 
               {(events[detail.id]?.length ?? 0) > 0 && (

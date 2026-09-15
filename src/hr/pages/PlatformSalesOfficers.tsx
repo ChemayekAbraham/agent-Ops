@@ -238,6 +238,13 @@ export default function PlatformSalesOfficersPage() {
     [mode, weekOffset, todayStr],
   );
 
+  // In DAILY mode the table shows just the selected day; otherwise the full Wed–Tue week.
+  const dayIndices = useMemo(
+    () => (mode === 'DAILY' ? [kampalaWeekdayIndex(todayStr)] : [0, 1, 2, 3, 4, 5, 6]),
+    [mode, todayStr],
+  );
+
+
   const {
     data: rows = [],
     isLoading,
@@ -632,14 +639,18 @@ export default function PlatformSalesOfficersPage() {
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">#</th>
                       <th className="px-4 py-2 text-left font-medium">Officer</th>
-                      {WEEKDAY_LABELS.map((d, wi) => (
-                        <th key={d} className="px-2 py-2 text-right font-medium">
-                          <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
-                            {officerWeekdayTotals[wi]}
-                          </span>
-                          {d}
-                        </th>
-                      ))}
+                      {dayIndices.map((wi) => {
+                        const d = WEEKDAY_LABELS[wi];
+                        return (
+                          <th key={d} className="px-2 py-2 text-right font-medium">
+                            <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
+                              {officerWeekdayTotals[wi]}
+                            </span>
+                            {d}
+                          </th>
+                        );
+                      })}
+
 
                       <th className="px-4 py-2 text-right font-medium">Total</th>
                       <th className="px-4 py-2 text-right font-medium">Unapproved</th>
@@ -657,9 +668,10 @@ export default function PlatformSalesOfficersPage() {
                       <tr key={officer.staff_id} className="border-t">
                         <td className="px-4 py-2 text-left tabular-nums">{ranks[i]}</td>
                         <td className="px-4 py-2 font-medium">{officer.staff_ref}</td>
-                        {officer.weekday.map((v, wi) => (
-                          <td key={wi} className="px-2 py-2 text-right tabular-nums">{v}</td>
+                        {dayIndices.map((wi) => (
+                          <td key={wi} className="px-2 py-2 text-right tabular-nums">{officer.weekday[wi]}</td>
                         ))}
+
                         <td className="px-4 py-2 text-right tabular-nums">{officer.netNotes}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {officer.notesUnapproved === 0 ? '—' : officer.notesUnapproved}
@@ -785,14 +797,18 @@ export default function PlatformSalesOfficersPage() {
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">#</th>
                       <th className="px-4 py-2 text-left font-medium">Officer</th>
-                      {WEEKDAY_LABELS.map((d, wi) => (
-                        <th key={d} className="px-2 py-2 text-right font-medium">
-                          <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
-                            {peopleWeekdayTotals[wi]}
-                          </span>
-                          {d}
-                        </th>
-                      ))}
+                      {dayIndices.map((wi) => {
+                        const d = WEEKDAY_LABELS[wi];
+                        return (
+                          <th key={d} className="px-2 py-2 text-right font-medium">
+                            <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
+                              {peopleWeekdayTotals[wi]}
+                            </span>
+                            {d}
+                          </th>
+                        );
+                      })}
+
 
                       <th className="px-4 py-2 text-right font-medium">Total</th>
                       <th className="px-4 py-2 text-right font-medium">Unapproved</th>
@@ -811,9 +827,10 @@ export default function PlatformSalesOfficersPage() {
                       <tr key={person.person_user_id} className="border-t">
                         <td className="px-4 py-2 text-left tabular-nums">{peopleRanks[i]}</td>
                         <td className="px-4 py-2 font-medium">{person.person_name}</td>
-                        {person.weekday.map((v, wi) => (
-                          <td key={wi} className="px-2 py-2 text-right tabular-nums">{v}</td>
+                        {dayIndices.map((wi) => (
+                          <td key={wi} className="px-2 py-2 text-right tabular-nums">{person.weekday[wi]}</td>
                         ))}
+
                         <td className="px-4 py-2 text-right tabular-nums">{person.netNotes}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {person.notesUnapproved === 0 ? '—' : person.notesUnapproved}

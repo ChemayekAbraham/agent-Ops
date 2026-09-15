@@ -743,6 +743,27 @@
       "when": 1789468592510,
       "tag": "0105_create_staff_requisition_usage_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1789469269681,
+      "tag": "0106_add_usage_report_attachment_paths",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1789469795325,
+      "tag": "0107_usage_report_cfo_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1789470022881,
+      "tag": "0108_renew_expired_rent_request",
+      "breakpoints": true
     }
   ]
 }

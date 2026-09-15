@@ -34978,6 +34978,9 @@ export type Database = {
           partner_ops_reviewed_by: string | null
           payout_method: string | null
           payout_transaction_reference: string | null
+          pending_window_reset_at: string | null
+          pending_window_reset_by: string | null
+          pending_window_reset_count: number
           preferred_language: string | null
           proxy_agent_id: string | null
           registration_type: string
@@ -35112,6 +35115,9 @@ export type Database = {
           partner_ops_reviewed_by?: string | null
           payout_method?: string | null
           payout_transaction_reference?: string | null
+          pending_window_reset_at?: string | null
+          pending_window_reset_by?: string | null
+          pending_window_reset_count?: number
           preferred_language?: string | null
           proxy_agent_id?: string | null
           registration_type?: string
@@ -35246,6 +35252,9 @@ export type Database = {
           partner_ops_reviewed_by?: string | null
           payout_method?: string | null
           payout_transaction_reference?: string | null
+          pending_window_reset_at?: string | null
+          pending_window_reset_by?: string | null
+          pending_window_reset_count?: number
           preferred_language?: string | null
           proxy_agent_id?: string | null
           registration_type?: string
@@ -38260,28 +38269,43 @@ export type Database = {
       staff_requisition_usage_reports: {
         Row: {
           amount_used: number
+          attachment_paths: string[] | null
           created_at: string
           id: string
           requester_id: string
           requisition_id: string
+          review_note: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           submitted_at: string
           summary: string
         }
         Insert: {
           amount_used: number
+          attachment_paths?: string[] | null
           created_at?: string
           id?: string
           requester_id: string
           requisition_id: string
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           submitted_at?: string
           summary: string
         }
         Update: {
           amount_used?: number
+          attachment_paths?: string[] | null
           created_at?: string
           id?: string
           requester_id?: string
           requisition_id?: string
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           submitted_at?: string
           summary?: string
         }
@@ -50727,6 +50751,9 @@ export type Database = {
           partner_ops_reviewed_by: string | null
           payout_method: string | null
           payout_transaction_reference: string | null
+          pending_window_reset_at: string | null
+          pending_window_reset_by: string | null
+          pending_window_reset_count: number
           preferred_language: string | null
           proxy_agent_id: string | null
           registration_type: string
@@ -59913,6 +59940,10 @@ export type Database = {
       }
       release_stale_merchant_float_reservations: { Args: never; Returns: Json }
       release_sub_agent: { Args: { p_sub_agent_id: string }; Returns: Json }
+      release_withdrawal_claim: {
+        Args: { p_reason?: string; p_withdrawal_id: string }
+        Returns: Json
+      }
       relink_stuck_pending_deposits: {
         Args: { p_max_age_days?: number; p_min_age_minutes?: number }
         Returns: Json
@@ -59926,6 +59957,10 @@ export type Database = {
           p_user_phone: string
         }
         Returns: undefined
+      }
+      renew_expired_rent_request: {
+        Args: { p_reason?: string; p_request_id: string }
+        Returns: Json
       }
       renew_rent_request: {
         Args: {
