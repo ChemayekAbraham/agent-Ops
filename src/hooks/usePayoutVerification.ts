@@ -406,6 +406,8 @@ export interface HolderNameChange {
   source: string | null;
   reason: string | null;
   can_revert: boolean | null;
+  user_agent?: string | null;
+  ip_address?: string | null;
 }
 
 /**

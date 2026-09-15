@@ -1,8 +1,4 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import {
-  isPlaceholderRecipient,
-  PLACEHOLDER_SUPPRESSION_REASON,
-} from '../_shared/recipientMailbox.ts'
 
 const DEFAULT_MAX_ATTEMPTS = 1
 const WALLET_CONFIRMATION_MAX_ATTEMPTS = 5
@@ -418,35 +414,6 @@ Deno.serve(async (req) => {
           }
           continue
         }
-      }
-
-      // Placeholder / phone-only recipient: this address can never become
-      // deliverable, so drop the message terminally instead of retrying.
-      if (isPlaceholderRecipient(payload.to as string | null | undefined)) {
-        console.log('Queued email skipped — placeholder recipient', {
-          queue,
-          msg_id: msg.msg_id,
-          to: payload.to,
-        })
-        await supabase.from('email_send_log').insert({
-          message_id: payload.message_id ?? crypto.randomUUID(),
-          template_name: (payload.label as string | undefined) ?? 'queued',
-          recipient_email: String(payload.to ?? ''),
-          status: 'suppressed',
-          metadata: {
-            suppressed: true,
-            suppressed_reason: PLACEHOLDER_SUPPRESSION_REASON,
-            queue,
-          },
-        })
-        const { error: phDelError } = await supabase.rpc('delete_email', {
-          queue_name: queue,
-          message_id: msg.msg_id,
-        })
-        if (phDelError) {
-          console.error('Failed to delete placeholder-recipient message', { queue, msg_id: msg.msg_id, error: phDelError })
-        }
-        continue
       }
 
       // Suppressed recipient: do NOT fail the email. Put it back in the queue

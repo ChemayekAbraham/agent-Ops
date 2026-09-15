@@ -7,10 +7,6 @@ const corsHeaders = {
 };
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 import { bytesToBase64, renderPartnershipTopupReceipt } from '../_shared/partnerTopupReceiptPdf.ts'
-import {
-  isPlaceholderRecipient,
-  PLACEHOLDER_SUPPRESSION_REASON,
-} from '../_shared/recipientMailbox.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
@@ -157,33 +153,6 @@ Deno.serve(async (req) => {
 
   // Create Supabase client with service role (bypasses RLS)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-  // Placeholder / phone-only accounts have no real mailbox. Never hand these to
-  // the mail provider — record the skip and return success:false so callers do
-  // not treat it as an outage. SMS / in-app notification still reaches them.
-  if (isPlaceholderRecipient(effectiveRecipient)) {
-    console.log('Email skipped — placeholder recipient', {
-      effectiveRecipient,
-      templateName,
-    })
-    await supabase.from('email_send_log').insert({
-      message_id: messageId,
-      template_name: templateName,
-      recipient_email: effectiveRecipient,
-      status: 'suppressed',
-      metadata: {
-        suppressed: true,
-        suppressed_reason: PLACEHOLDER_SUPPRESSION_REASON,
-      },
-    })
-    return new Response(
-      JSON.stringify({ success: false, reason: PLACEHOLDER_SUPPRESSION_REASON }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    )
-  }
 
   // Partner/funder emails send from the partnerships mailbox with replies
   // routed to partnership@welile.com.
