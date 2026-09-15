@@ -1,4 +1,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import {
+  isPlaceholderRecipient,
+  PLACEHOLDER_SUPPRESSION_REASON,
+} from '../_shared/recipientMailbox.ts'
 
 const DEFAULT_MAX_ATTEMPTS = 1
 const WALLET_CONFIRMATION_MAX_ATTEMPTS = 5
