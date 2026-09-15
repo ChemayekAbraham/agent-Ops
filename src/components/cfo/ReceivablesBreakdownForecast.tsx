@@ -31,6 +31,7 @@ import { CollectionsProjectionPanel } from '@/components/executive/tenant-ops/Co
 
 
 const ALL_PRODUCTS = '__all__';
+const ALL_CATEGORIES = '__all__';
 const TENANT_CATEGORY_LABEL = 'Tenant Products & Services';
 const TENANT_PRODUCTS = [
   { key: 'rent_plan', label: 'Rent Access Plans', projectionAvailable: true },
@@ -40,6 +41,7 @@ const TENANT_PRODUCTS = [
 
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>(ALL_CATEGORIES);
   const [productFilter, setProductFilter] = useState<string>(ALL_PRODUCTS);
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
   const total = useReceivablesTotal();
