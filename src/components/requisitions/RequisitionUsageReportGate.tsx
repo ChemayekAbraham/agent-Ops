@@ -138,11 +138,28 @@ export function RequisitionUsageReportGate() {
     if (summary.trim().length < 20) { toast.error('Explain how the funds were used (at least 20 characters)'); return; }
 
     setSaving(true);
+
+    // Upload the receipt first (existing storage + auth path) so we never save a
+    // report that claims an attachment it does not have.
+    let attachmentPaths: string[] | null = null;
+    if (receipt) {
+      const form = new FormData();
+      form.append('requisition_id', current.id);
+      form.append('file', receipt);
+      const { data: up, error: upErr } = await invokeEdgeFunction<{ path: string }>(
+        'staff-requisition-add-attachment',
+        { body: form, errorTitle: 'Could not attach your receipt' },
+      );
+      if (upErr || !up?.path) { setSaving(false); return; }
+      attachmentPaths = [up.path];
+    }
+
     const { error } = await supabase.from('staff_requisition_usage_reports').insert({
       requisition_id: current.id,
       requester_id: user.id,
       amount_used: used,
       summary: summary.trim(),
+      attachment_paths: attachmentPaths,
     });
     setSaving(false);
 
@@ -154,6 +171,7 @@ export function RequisitionUsageReportGate() {
     toast.success('Usage report submitted');
     setAmountUsed('');
     setSummary('');
+    setReceipt(null);
     setShowForm(false);
     setOpen(false);
     await load();
