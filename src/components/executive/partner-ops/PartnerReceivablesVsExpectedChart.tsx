@@ -73,8 +73,9 @@ const resolveRange = (key: RangeKey, custom: DateRange | undefined): Range => {
 
 /**
  * Receivables vs Expected, aggregated purely from promissory note data:
- * receivables = total_collected on each note; expected = outstanding
- * (amount - total_collected) on notes still open (pending/activated).
+ * receivables = money collected on notes whose attached partner CAME IN;
+ * expected = outstanding promise on notes still open (pending/activated)
+ * whose partner has NOT yet come in. Cancelled/rejected notes excluded.
  * Cumulative lines over the chosen window.
  */
 export function PartnerReceivablesVsExpectedChart() {
@@ -115,16 +116,19 @@ export function PartnerReceivablesVsExpectedChart() {
       const created = new Date(n.created_at);
       if (created < start || created > windowEnd) continue;
 
-      // Aggregate the promissory note itself, not the partner match:
-      // receivables = money actually collected on the note (total_collected);
-      // expected = outstanding promise on notes that are still open.
+      // Receivables = collected on notes whose attached partner came in.
+      // Expected = outstanding on open notes whose partner hasn't come in yet.
       const status = String(n.status ?? '').toLowerCase();
       if (status === 'cancelled' || status === 'rejected') continue;
 
       const collected = Number(n.total_collected) || 0;
       const promised = Number(n.amount) || 0;
-      const receivedAmount = collected;
-      const openAmount = status === 'pending' || status === 'activated' ? Math.max(promised - collected, 0) : 0;
+      const cameIn = !!n.came_in;
+      const receivedAmount = cameIn ? collected : 0;
+      const openAmount =
+        !cameIn && (status === 'pending' || status === 'activated')
+          ? Math.max(promised - collected, 0)
+          : 0;
 
       const key = hourly ? String(created.getHours()) : isoDay(created);
       received.set(key, (received.get(key) || 0) + receivedAmount);
