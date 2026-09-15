@@ -146,7 +146,21 @@ const MyRequisitions = () => {
     if (reqRes.error) {
       toast.error('Could not load your requisitions', { description: reqRes.error.message });
     } else {
-      setRows((reqRes.data || []) as unknown as Requisition[]);
+      const list = (reqRes.data || []) as unknown as Requisition[];
+      setRows(list);
+
+      // One batched read for the accountability reports of every listed requisition.
+      if (list.length) {
+        const { data: reports } = await supabase
+          .from('staff_requisition_usage_reports')
+          .select('id, requisition_id, amount_used, summary, submitted_at, attachment_paths')
+          .in('requisition_id', list.map((r) => r.id));
+        const map: Record<string, UsageReport> = {};
+        for (const rep of (reports || []) as unknown as UsageReport[]) map[rep.requisition_id] = rep;
+        setUsageReports(map);
+      } else {
+        setUsageReports({});
+      }
     }
     if (!routeRes.error && routeRes.data) {
       const r = Array.isArray(routeRes.data) ? routeRes.data[0] : routeRes.data;
