@@ -218,7 +218,7 @@ export function TenantCallDetailsDialog({
             </DialogHeader>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-              {outOfQueue && <PastCallsPanel subjectId={row.subject_id} enabled={open} />}
+              {outOfQueue && <PastCallsPanel hub={hub} subjectId={row.subject_id} enabled={open} />}
               <TenantPaymentHistoryPanel tenantId={row.subject_id} enabled={open} />
               <TenantCallContextPanel
                 hub={hub}
