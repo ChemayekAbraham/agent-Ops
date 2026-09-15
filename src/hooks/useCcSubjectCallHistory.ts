@@ -24,6 +24,9 @@ export interface CcSubjectCall {
   severity: CcSeverity | null;
   comment: string | null;
   voidReason: string | null;
+  /** Feedback record behind the comment, so a tracked edit can target it. */
+  feedbackId: string | null;
+  categoryId: string | null;
 }
 
 export function useCcSubjectCallHistory(
