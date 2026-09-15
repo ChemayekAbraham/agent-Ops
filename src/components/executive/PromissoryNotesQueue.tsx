@@ -31,12 +31,12 @@ import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissory
 import { formatUGX } from '@/lib/rentCalculations';
 
 
-export function PromissoryNotesQueue() {
+export function PromissoryNotesQueue({ initialStatusFilter }: { initialStatusFilter?: string }) {
   const queryClient = useQueryClient();
   const { roles } = useAuth();
   const canReverseBonus = (roles || []).some((r: string) => ['ceo', 'coo', 'cfo', 'super_admin'].includes(r));
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter ?? 'all');
   const [selectedNote, setSelectedNote] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleteReason, setDeleteReason] = useState('');

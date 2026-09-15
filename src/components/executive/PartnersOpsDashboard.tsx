@@ -241,7 +241,10 @@ export function PartnersOpsDashboard() {
         <div className="space-y-4">
           <PartnerOpsSummaryCards onNavigate={setView} />
           <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-            <PromissoryNotesOverviewCard onOpen={() => setView('proxy.promissory')} />
+            <PromissoryNotesOverviewCard onOpen={(status) => {
+              setPromissoryStatus(status ?? 'all');
+              setView('proxy.promissory');
+            }} />
           </motion.div>
           <div className="grid gap-4 lg:grid-cols-2">
             <PartnerRoiProjectionChart />
@@ -316,7 +319,7 @@ export function PartnersOpsDashboard() {
       case 'proxy.promissory': return (
         <div className="space-y-6">
           <PartnerOpsScoreboard />
-          <PromissoryNotesQueue />
+          <PromissoryNotesQueue initialStatusFilter={promissoryStatus} />
         </div>
       );
       case 'maturity': return <MaturityRequestsQueue />;
