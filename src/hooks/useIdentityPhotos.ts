@@ -16,6 +16,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
+import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 
 export const IDENTITY_BUCKET = 'identity-verification';
 
