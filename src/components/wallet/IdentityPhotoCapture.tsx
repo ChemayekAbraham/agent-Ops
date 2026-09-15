@@ -1155,12 +1155,22 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </div>
         )}
 
-        <Button className="w-full" disabled={saving} onClick={handleSave}>
+        <PayoutNumberVerification userId={user?.id} />
+
+        {!hasVerifiedPayoutNumber && (
+          <p className="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
+            Confirm your payout number above with the code before you can send your photos.
+          </p>
+        )}
+
+        <Button
+          className="w-full"
+          disabled={saving || !hasVerifiedPayoutNumber}
+          onClick={handleSave}
+        >
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {saving ? 'Sending…' : 'Send my photos for verification'}
         </Button>
-
-        <PayoutNumberVerification userId={user?.id} />
 
         <a
           href="/verification-history"
