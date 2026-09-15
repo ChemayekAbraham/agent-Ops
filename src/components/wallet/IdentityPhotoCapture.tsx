@@ -156,6 +156,7 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
      unverified number through. */
   const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
   const otp = useOtpVerification();
+  const { user: authUser } = useAuth();
 
   useEffect(() => {
     if (list.isLoading) return;
@@ -184,10 +185,20 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
     return { trimmedName, digits };
   };
 
-  /* Step 1 — prove the person holds the SIM before anything is stored. */
+  /* Step 1 — prove the person holds the SIM before anything is stored.
+     The SMS uses the same payout wording as the owner-consent message, so the
+     person reading it sees one consistent sentence whichever route asked. */
   const handleSendCode = async () => {
-    if (!validate()) return;
-    const sent = await otp.sendOtp(number.trim());
+    const v = validate();
+    if (!v) return;
+    const requesterName =
+      (authUser?.user_metadata?.full_name as string | undefined)?.trim() ||
+      (authUser?.user_metadata?.name as string | undefined)?.trim() ||
+      v.trimmedName;
+    const sent = await otp.sendOtp(number.trim(), {
+      purpose: 'payout_number',
+      subject_name: requesterName,
+    });
     if (sent) {
       setCode('');
       setCodeSentTo(number.trim());

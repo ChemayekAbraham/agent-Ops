@@ -831,7 +831,18 @@ Deno.serve(async (req) => {
       // carrier delivery — we never wait for delivery. If the gateway is
       // unusually slow, we stop waiting, return optimistically, and let the
       // send finish in the background.
-      const message = `Your Welile verification code is: ${otp}. It expires in 1 hour. Do not share this code.`;
+      /* Payout-number confirmation reuses the SAME wording family as the
+         owner-consent SMS in _shared/payoutDestinationDeclaration.ts, so a
+         person confirming a payout number reads one consistent sentence
+         whichever route asked them. Any other purpose keeps the generic text.
+         The OTP itself, its storage and its rate limits are unchanged. */
+      const purpose = String(body.purpose ?? "").trim();
+      const subjectName = String(body.subject_name ?? "").trim().slice(0, 80);
+      const message = purpose === "payout_number"
+        ? `Welile: ${subjectName || "A Welile user"} wants to receive Welile payouts on this number. ` +
+          `If you agree, use this code to confirm ownership: ${otp}. It expires in 1 hour. ` +
+          `If you did NOT authorise this, ignore this message.`
+        : `Your Welile verification code is: ${otp}. It expires in 1 hour. Do not share this code.`;
 
       // Max time we'll block the client on gateway acceptance.
       const ACCEPTANCE_TIMEOUT_MS = 4000;
