@@ -58,8 +58,15 @@ function matchesSearch(note: any, query: string): boolean {
 export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: PromissoryOverviewFilter) => void }) {
   const { report, isLoading, range, setRange } = usePromissoryOpsReport();
   const { kpis, notes } = report;
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<PromissoryStatus>('pending');
   const [search, setSearch] = useState('');
+  const [approveTarget, setApproveTarget] = useState<any>(null);
+  const [approveReason, setApproveReason] = useState('');
+  const [approving, setApproving] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
 
   const filteredNotes = useMemo(() => notes.filter((n) => matchesSearch(n, search)), [notes, search]);
 
@@ -67,6 +74,72 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     pending: filteredNotes.filter((n) => n.status === 'pending').length,
     activated: filteredNotes.filter((n) => n.status === 'activated').length,
     rejected: filteredNotes.filter((n) => n.status === 'cancelled' || n.status === 'defaulted').length,
+  };
+
+  const statusNotes = useMemo(() => {
+    const match = (n: any) =>
+      selected === 'pending' ? n.status === 'pending'
+      : selected === 'activated' ? n.status === 'activated'
+      : n.status === 'cancelled' || n.status === 'defaulted';
+    return filteredNotes.filter(match).slice(0, QUICK_LIST_SIZE);
+  }, [filteredNotes, selected]);
+
+  const handleQuickApprove = async () => {
+    if (!approveTarget) return;
+    const reason = approveReason.trim();
+    if (reason.length < 20) {
+      toast.error('Please provide a reason of at least 20 characters.');
+      return;
+    }
+    setApproving(true);
+    try {
+      const { data, error } = await supabase.rpc('approve_promissory_note', {
+        p_note_id: approveTarget.id,
+        p_reason: reason,
+      });
+      if (error) throw error;
+      const res = data as any;
+      if (res?.status === 'error') throw new Error(res.message);
+      if (res?.status === 'already_approved') {
+        toast.info('This promissory note was already approved.');
+      } else {
+        toast.success('Approved — UGX 1,500 credited to the agent’s wallet.');
+      }
+      setApproveTarget(null);
+      setApproveReason('');
+      queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to approve promissory note.');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleQuickReject = async () => {
+    if (!rejectTarget) return;
+    const reason = rejectReason.trim();
+    if (reason.length < 20) {
+      toast.error('Please provide a reason of at least 20 characters.');
+      return;
+    }
+    setRejecting(true);
+    try {
+      const { data, error } = await supabase.rpc('reverse_promissory_note_bonus' as any, {
+        p_note_id: rejectTarget.id,
+        p_reason: reason,
+      });
+      if (error) throw error;
+      const res = data as any;
+      if (res?.status === 'error') throw new Error(res.message);
+      toast.success(res?.status === 'reversed' ? 'Rejected — bonus reversed.' : (res?.message || 'Note rejected.'));
+      setRejectTarget(null);
+      setRejectReason('');
+      queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to reject promissory note.');
+    } finally {
+      setRejecting(false);
+    }
   };
 
   const activeFilter: PromissoryOverviewFilter = { status: selected, search, range };
