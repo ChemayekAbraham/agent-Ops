@@ -145,10 +145,19 @@ export function useDecideNumberChange() {
         p_reason: v.reason,
       });
       if (error) throw error;
+      /* Tell the person what was decided. Best-effort: the decision is already
+         recorded, so a failed SMS must never look like a failed decision. The
+         function re-reads the outcome from the database itself. */
+      void supabase.functions
+        .invoke('notify-payout-number-change', { body: { requestId: v.id } })
+        .catch(() => undefined);
       return data as { success?: boolean; status?: string };
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['finops-number-change-queue'] });
+      void qc.invalidateQueries({ queryKey: ['my-number-change-request'] });
+      void qc.invalidateQueries({ queryKey: ['withdrawal-block-reasons'] });
+      void qc.invalidateQueries({ queryKey: ['identity-binding'] });
     },
   });
 }
