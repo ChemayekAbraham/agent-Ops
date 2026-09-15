@@ -195,9 +195,12 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
       (authUser?.user_metadata?.full_name as string | undefined)?.trim() ||
       (authUser?.user_metadata?.name as string | undefined)?.trim() ||
       v.trimmedName;
+    const digitsLast4 = v.digits.length >= 4 ? v.digits.slice(-4) : '';
     const sent = await otp.sendOtp(number.trim(), {
       purpose: 'payout_number',
       subject_name: requesterName,
+      recipient_name: v.trimmedName,
+      phone_last4: digitsLast4,
     });
     if (sent) {
       setCode('');

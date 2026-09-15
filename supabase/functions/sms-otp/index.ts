@@ -838,9 +838,11 @@ Deno.serve(async (req) => {
          The OTP itself, its storage and its rate limits are unchanged. */
       const purpose = String(body.purpose ?? "").trim();
       const subjectName = String(body.subject_name ?? "").trim().slice(0, 80);
+      const recipientName = String(body.recipient_name ?? "").trim().slice(0, 80);
+      const last4 = phone.length >= 4 ? phone.slice(-4) : (String(body.phone_last4 ?? "").replace(/\D/g, "").slice(-4) || "????");
       const message = purpose === "payout_number"
-        ? `Welile: ${subjectName || "A Welile user"} wants to receive Welile payouts on this number. ` +
-          `If you agree, use this code to confirm ownership: ${otp}. It expires in 1 hour. ` +
+        ? `Welile: ${subjectName || "A Welile user"} wants to receive Welile payouts on a mobile money number ending ${last4} ` +
+          `registered in your name (${recipientName || "the account holder"}). If you agree, share this code with them: ${otp}. ` +
           `If you did NOT authorise this, ignore this message.`
         : `Your Welile verification code is: ${otp}. It expires in 1 hour. Do not share this code.`;
 
