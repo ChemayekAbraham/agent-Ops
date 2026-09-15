@@ -33,4 +33,4 @@
 - [x] Add accessible labels/ARIA to verification-history photo viewer controls (position, resolution mode, shortcuts announced).
 - [x] Make Agent Ops smartphone navigation simpler and add status/date filters to Rent Requests.
 - [x] Show a stage-aware SLA/aging indicator on every Rent Request in the pipeline.
-- [ ] Add a one-tap call action for the original agent on every Rent Request.
+- [x] Add a one-tap call action for the original agent on every Rent Request.
