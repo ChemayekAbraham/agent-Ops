@@ -304,6 +304,10 @@ export default function WithdrawFlow({
   //    Postgres exception (which they typically respond to by tapping
   //    again, making the problem worse).
   const isSubmittingRef = useRef(false);
+  // Fingerprint of the details the verification code was last issued for, so a
+  // code is sent exactly once per set of details even though the issuing effect
+  // now re-runs as those details settle.
+  const issuedKeyRef = useRef<string | null>(null);
   const clientRequestIdRef = useRef<string | null>(null);
   const ensureClientRequestId = (): string => {
     if (!clientRequestIdRef.current) {
