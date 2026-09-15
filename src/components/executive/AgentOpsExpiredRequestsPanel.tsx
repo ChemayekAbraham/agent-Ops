@@ -76,6 +76,9 @@ export function AgentOpsExpiredRequestsPanel({
   const [requestToDelete, setRequestToDelete] = useState<ExpiredRequestRow | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [renewingId, setRenewingId] = useState<string | null>(null);
+  const [isBulkRenewing, setIsBulkRenewing] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['agent-ops-expired-requests'] });
@@ -95,7 +98,7 @@ export function AgentOpsExpiredRequestsPanel({
 
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, assigned_agent_id, landlord_id, rent_amount, created_at, status, agent_verified, request_city')
+        .select('id, tenant_id, agent_id, assigned_agent_id, landlord_id, rent_amount, created_at, status, agent_verified, request_city, pending_window_reset_at')
         .lt('created_at', thirtyDaysAgo)
         .order('created_at', { ascending: false });
 
@@ -109,9 +112,15 @@ export function AgentOpsExpiredRequestsPanel({
       if (error) throw error;
       if (!data || data.length === 0) return [];
 
+      const stillExpired = data.filter((r: any) => {
+        // A renewed request restarts its 30-day window and leaves this list.
+        if (!r.pending_window_reset_at) return true;
+        return new Date(r.pending_window_reset_at).getTime() < Date.now() - THIRTY_DAYS_MS;
+      });
+
       const unverified = statuses.includes('pending')
-        ? data.filter((r: any) => !r.agent_verified)
-        : data;
+        ? stillExpired.filter((r: any) => !r.agent_verified)
+        : stillExpired;
       if (unverified.length === 0) return [];
 
       // Resolve tenant, agent, and landlord names
@@ -135,8 +144,10 @@ export function AgentOpsExpiredRequestsPanel({
         const ag = agId ? agentMap.get(agId) : null;
         const l = r.landlord_id ? landlordMap.get(r.landlord_id) : null;
 
-        const createdTs = new Date(r.created_at).getTime();
-        const expiryTs = createdTs + THIRTY_DAYS_MS;
+        const windowStartTs = r.pending_window_reset_at
+          ? new Date(r.pending_window_reset_at).getTime()
+          : new Date(r.created_at).getTime();
+        const expiryTs = windowStartTs + THIRTY_DAYS_MS;
         const daysExpired = Math.max(1, Math.floor((Date.now() - expiryTs) / (24 * 60 * 60 * 1000)));
 
         return {
