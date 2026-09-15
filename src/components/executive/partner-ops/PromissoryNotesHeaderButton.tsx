@@ -37,9 +37,9 @@ export function PromissoryNotesHeaderButton({
       return count || 0;
     },
     staleTime: 30000,
-    // Live-feed fallback: the promissory_notes table is not in the realtime
-    // publication, so poll every 15s until realtime events are available.
-    refetchInterval: 15000,
+    // Realtime delivers instant updates; a slow 60s poll is just a safety net
+    // in case the socket drops while the tab is open.
+    refetchInterval: 60000,
     refetchIntervalInBackground: true,
   });
 
