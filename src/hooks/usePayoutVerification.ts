@@ -601,6 +601,27 @@ export function sameIdNumber(a: string | null | undefined, b: string | null | un
 }
 
 /**
+ * Compare two person names ignoring case, punctuation, spacing and word
+ * order — "PIUS LUBEGA SSENKALI", "Piuslubega Ssenkali" and
+ * "SSENKALI PIUSLUBEGA" are the same person. Returns null when either
+ * side is empty (nothing to compare).
+ */
+export function samePersonName(a: string | null | undefined, b: string | null | undefined): boolean | null {
+  const tokens = (v: string | null | undefined) =>
+    (v ?? '')
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .sort();
+  const left = tokens(a);
+  const right = tokens(b);
+  if (left.length === 0 || right.length === 0) return null;
+  if (left.length !== right.length) return false;
+  return left.every((t, i) => t === right[i]);
+}
+
+/**
  * Show enough of an ID number to recognise it, never enough to reuse it:
  * first two and last two characters, the middle starred (`CM****HJ`).
  */
