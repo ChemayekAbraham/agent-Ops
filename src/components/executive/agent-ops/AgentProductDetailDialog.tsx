@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { UserAvatar } from '@/components/UserAvatar';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
+import { SmartphoneRepaymentBreakdown } from './SmartphoneRepaymentBreakdown';
 
 interface AgentDetail {
   agent: {
@@ -335,6 +336,16 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                           <span>Recovered: <span className="font-medium text-success tabular-nums">{formatUGX(Number(p.amount_recovered || 0))}</span></span>
                           <span>Left: <span className="font-medium text-destructive tabular-nums">{formatUGX(Number(p.outstanding_balance || 0))}</span></span>
                           <span>Daily: <span className="font-medium text-foreground tabular-nums">{formatUGX(Number(p.daily_deduction_amount || 0))}</span></span>
+                          {Number(p.advance_period_months || 0) > 0 && (
+                            <span>
+                              Duration:{' '}
+                              <span className="font-medium text-foreground">
+                                {Number(p.advance_period_months)} month
+                                {Number(p.advance_period_months) === 1 ? '' : 's'}
+                                {Number(p.schedule_days || 0) > 0 ? ` · ${Number(p.schedule_days)} days` : ''}
+                              </span>
+                            </span>
+                          )}
                           <span>Started {dt(p.starts_on)}</span>
                           <span>Last recovery {dt(p.last_recovery_at, 'dd MMM yyyy HH:mm')}</span>
                         </div>
