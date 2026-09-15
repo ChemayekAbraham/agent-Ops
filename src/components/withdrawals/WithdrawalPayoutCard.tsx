@@ -186,35 +186,23 @@ export function WithdrawalPayoutCard({
       // another agent (or Financial Ops) can pick it up. We do NOT mark the
       // withdrawal itself as rejected — that's a Financial Ops decision.
       // The withdrawal stays in its original status (pending / approved) and
-      // simply returns to the unclaimed pool. We log the release reason for
-      // audit so repeated releases by the same agent can be flagged.
-      const { data: { user } } = await supabase.auth.getUser();
-      const { error: relErr } = await supabase
-        .from('withdrawal_requests')
-        .update({
-          assigned_cashout_agent_id: null,
-          dispatched_at: null,
-        } as any)
-        .eq('id', withdrawal.id);
+      // simply returns to the unclaimed pool.
+      //
+      // This goes through release_withdrawal_claim() rather than a raw table
+      // UPDATE: clearing the assignment alone left the merchant's float
+      // reservation orphaned in `reserved` state (understating their
+      // available float, and letting the next claimant on this row silently
+      // inherit it as their own out-of-pocket cash) — the same defect fixed
+      // for the auto-release cron. The RPC also enforces the reason and
+      // writes the audit row server-side.
+      const { data, error: relErr } = await supabase.rpc('release_withdrawal_claim' as any, {
+        p_withdrawal_id: withdrawal.id,
+        p_reason: composed.slice(0, 500),
+      } as any);
       if (relErr) throw relErr;
-
-      // Audit the release (mandatory 10+ char reason already enforced above).
-      try {
-        await supabase.from('audit_logs').insert({
-          user_id: user?.id ?? null,
-          action_type: 'merchant_payout_released',
-          table_name: 'withdrawal_requests',
-          record_id: withdrawal.id,
-          reason: composed.slice(0, 500),
-          metadata: {
-            amount: Number(withdrawal.amount || 0),
-            payout_method: withdrawal.payout_method,
-            previous_status: withdrawal.status,
-            released_at: new Date().toISOString(),
-          },
-        });
-      } catch (auditErr) {
-        console.warn('[withdrawal-release] audit log failed', auditErr);
+      const result = data as { success?: boolean; error?: string; message?: string } | null;
+      if (!result?.success) {
+        throw new Error(result?.message || 'Could not release this payout.');
       }
 
       // Notify the recipient (on the MoMo number they wanted to be paid on,
