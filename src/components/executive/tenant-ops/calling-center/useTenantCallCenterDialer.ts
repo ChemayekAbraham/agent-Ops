@@ -171,6 +171,8 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
       setStarting(true);
       settledRef.current = false;
       abortRef.current = false;
+      // A previous hang-up's retries must never reach this new leg.
+      cancelDropRetries();
       try {
         // Same reveal path as the Hub: opens (or reuses) the attempt row, then
         // asks the server for the number. No table read, no new attempt logic.
