@@ -15,6 +15,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyPayoutDestinations } from '@/hooks/usePayoutVerification';
 import { Button } from '@/components/ui/button';
 import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
+import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const REMINDED_KEY = 'welile-nid-rejection-reminded';
 
@@ -118,46 +126,46 @@ export default function NationalIdRejectedReminder({
           size="lg"
           className="w-full font-bold"
           onClick={() => {
-            if (onResubmit) {
-              onResubmit();
-            } else {
-              setResubmitOpen(true);
-            }
+            onResubmit?.();
+            setResubmitOpen(true);
           }}
         >
           <IdCard className="w-5 h-5 mr-2" />
           Resubmit National ID
         </Button>
-        {!onResubmit && resubmitOpen && (
-          <div className="space-y-2">
+      </div>
+
+      <Dialog open={resubmitOpen} onOpenChange={setResubmitOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Resubmit your National ID</DialogTitle>
+            <DialogDescription>
+              Correct your details, then take fresh photos of your National ID and a new selfie.
+              All of them must be sent again before Financial Ops can confirm you.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
             <NationalIdPrompt
               blocking
               allowResubmit
               withdrawableBalance={Math.max(1, withdrawableBalance)}
             />
-            <div className="flex items-center justify-between pt-1">
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs text-destructive hover:underline font-medium"
-                onClick={() => navigate('/settings?section=account&tab=verification')}
-              >
-                Or manage in Settings →
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-auto px-2 py-1 text-xs text-muted-foreground"
-                onClick={() => setResubmitOpen(false)}
-              >
-                Hide form
-              </Button>
-            </div>
+            <IdentityPhotoCapture compact={false} />
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs text-destructive hover:underline font-medium"
+              onClick={() => {
+                setResubmitOpen(false);
+                navigate('/settings?section=account&tab=verification');
+              }}
+            >
+              Or manage in Settings →
+            </Button>
           </div>
-        )}
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
