@@ -339,6 +339,11 @@ function NameChangeHistory({ userId }: { userId: string }) {
                 minute: '2-digit',
               })}
             </p>
+            {(deviceLabel(h.user_agent) || h.ip_address) && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground/80" title={h.user_agent ?? undefined}>
+                {[deviceLabel(h.user_agent), h.ip_address].filter(Boolean).join(' · ')}
+              </p>
+            )}
             {h.reason && <p className="mt-0.5 text-xs italic text-muted-foreground">{h.reason}</p>}
             {isAdmin && h.can_revert && (
               <Button
