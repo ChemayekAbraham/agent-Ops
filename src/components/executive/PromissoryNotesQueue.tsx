@@ -869,6 +869,18 @@ export function PromissoryNotesQueue({
                     {format(new Date(selectedNote.created_at), 'dd MMM yyyy HH:mm')}
                   </span>
                 </div>
+                {selectedNote.fulfilment_due_on && outstanding > 0 && (
+                  <div className={cn(
+                    'flex items-center gap-2 rounded-md border p-2.5 text-xs font-medium',
+                    new Date(selectedNote.fulfilment_due_on) < new Date()
+                      ? 'border-destructive/40 bg-destructive/5 text-destructive'
+                      : 'border-primary/30 bg-primary/5 text-primary',
+                  )}>
+                    <Calendar className="h-3.5 w-3.5" />
+                    Expected to be fulfilled by {format(new Date(selectedNote.fulfilment_due_on), 'dd MMM yyyy')}
+                    {new Date(selectedNote.fulfilment_due_on) < new Date() && ' — overdue'}
+                  </div>
+                )}
 
                 {/* Partner Info */}
                 <Card>
