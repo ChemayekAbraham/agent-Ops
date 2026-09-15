@@ -233,6 +233,35 @@ export function RequisitionUsageReportGate() {
                   placeholder="List what you paid for, to whom, and what it achieved (at least 20 characters)"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="usage-receipt">Receipt or supporting document (optional)</Label>
+                {receipt ? (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
+                    <span className="flex min-w-0 items-center gap-2 text-sm">
+                      <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{receipt.name}</span>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => setReceipt(null)}
+                      disabled={saving}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Input
+                    id="usage-receipt"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={(e) => { pickReceipt(e.target.files?.[0] ?? null); e.target.value = ''; }}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">Photo or PDF, up to 10MB.</p>
+              </div>
             </div>
           )}
 
