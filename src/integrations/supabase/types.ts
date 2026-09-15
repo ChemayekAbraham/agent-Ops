@@ -53514,6 +53514,10 @@ export type Database = {
         }
         Returns: number
       }
+      finops_payout_number_ownership_confirmed: {
+        Args: { p_destination_id: string }
+        Returns: boolean
+      }
       finops_payout_status_timeline: {
         Args: { p_user_id: string; p_withdrawal_id?: string }
         Returns: {
