@@ -34978,6 +34978,9 @@ export type Database = {
           partner_ops_reviewed_by: string | null
           payout_method: string | null
           payout_transaction_reference: string | null
+          pending_window_reset_at: string | null
+          pending_window_reset_by: string | null
+          pending_window_reset_count: number
           preferred_language: string | null
           proxy_agent_id: string | null
           registration_type: string
@@ -35112,6 +35115,9 @@ export type Database = {
           partner_ops_reviewed_by?: string | null
           payout_method?: string | null
           payout_transaction_reference?: string | null
+          pending_window_reset_at?: string | null
+          pending_window_reset_by?: string | null
+          pending_window_reset_count?: number
           preferred_language?: string | null
           proxy_agent_id?: string | null
           registration_type?: string
@@ -35246,6 +35252,9 @@ export type Database = {
           partner_ops_reviewed_by?: string | null
           payout_method?: string | null
           payout_transaction_reference?: string | null
+          pending_window_reset_at?: string | null
+          pending_window_reset_by?: string | null
+          pending_window_reset_count?: number
           preferred_language?: string | null
           proxy_agent_id?: string | null
           registration_type?: string
@@ -50742,6 +50751,9 @@ export type Database = {
           partner_ops_reviewed_by: string | null
           payout_method: string | null
           payout_transaction_reference: string | null
+          pending_window_reset_at: string | null
+          pending_window_reset_by: string | null
+          pending_window_reset_count: number
           preferred_language: string | null
           proxy_agent_id: string | null
           registration_type: string
@@ -59945,6 +59957,10 @@ export type Database = {
           p_user_phone: string
         }
         Returns: undefined
+      }
+      renew_expired_rent_request: {
+        Args: { p_reason?: string; p_request_id: string }
+        Returns: Json
       }
       renew_rent_request: {
         Args: {

@@ -15,7 +15,10 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  RefreshCw,
+  RotateCcw,
 } from 'lucide-react';
+import { RentRequestDetailDrawer } from '@/components/rent/RentRequestDetailDrawer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +76,9 @@ export function AgentOpsExpiredRequestsPanel({
   const [requestToDelete, setRequestToDelete] = useState<ExpiredRequestRow | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [renewingId, setRenewingId] = useState<string | null>(null);
+  const [isBulkRenewing, setIsBulkRenewing] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['agent-ops-expired-requests'] });
@@ -92,7 +98,7 @@ export function AgentOpsExpiredRequestsPanel({
 
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, assigned_agent_id, landlord_id, rent_amount, created_at, status, agent_verified, request_city')
+        .select('id, tenant_id, agent_id, assigned_agent_id, landlord_id, rent_amount, created_at, status, agent_verified, request_city, pending_window_reset_at')
         .lt('created_at', thirtyDaysAgo)
         .order('created_at', { ascending: false });
 
@@ -106,9 +112,15 @@ export function AgentOpsExpiredRequestsPanel({
       if (error) throw error;
       if (!data || data.length === 0) return [];
 
+      const stillExpired = data.filter((r: any) => {
+        // A renewed request restarts its 30-day window and leaves this list.
+        if (!r.pending_window_reset_at) return true;
+        return new Date(r.pending_window_reset_at).getTime() < Date.now() - THIRTY_DAYS_MS;
+      });
+
       const unverified = statuses.includes('pending')
-        ? data.filter((r: any) => !r.agent_verified)
-        : data;
+        ? stillExpired.filter((r: any) => !r.agent_verified)
+        : stillExpired;
       if (unverified.length === 0) return [];
 
       // Resolve tenant, agent, and landlord names
@@ -132,8 +144,10 @@ export function AgentOpsExpiredRequestsPanel({
         const ag = agId ? agentMap.get(agId) : null;
         const l = r.landlord_id ? landlordMap.get(r.landlord_id) : null;
 
-        const createdTs = new Date(r.created_at).getTime();
-        const expiryTs = createdTs + THIRTY_DAYS_MS;
+        const windowStartTs = r.pending_window_reset_at
+          ? new Date(r.pending_window_reset_at).getTime()
+          : new Date(r.created_at).getTime();
+        const expiryTs = windowStartTs + THIRTY_DAYS_MS;
         const daysExpired = Math.max(1, Math.floor((Date.now() - expiryTs) / (24 * 60 * 60 * 1000)));
 
         return {
@@ -180,6 +194,63 @@ export function AgentOpsExpiredRequestsPanel({
   const totalExpiredAmount = useMemo(() => {
     return filtered.reduce((sum, r) => sum + r.rent_amount, 0);
   }, [filtered]);
+
+  // Renew a single request: restarts the 30-day verification window server-side.
+  const handleRenew = async (req: ExpiredRequestRow) => {
+    setRenewingId(req.id);
+    try {
+      const { error } = await supabase.rpc('renew_expired_rent_request', {
+        p_request_id: req.id,
+        p_reason: `Renewed expired pending window for ${req.tenant_name}`,
+      });
+      if (error) throw error;
+      toast({
+        title: '♻️ Request renewed',
+        description: `${req.tenant_name}'s request is back in the active pending queue with a fresh 30-day window.`,
+      });
+      invalidateAll();
+    } catch (err: any) {
+      toast({
+        title: 'Renew failed',
+        description: err.message || 'Could not renew this request',
+        variant: 'destructive',
+      });
+    } finally {
+      setRenewingId(null);
+    }
+  };
+
+  const handleRenewAll = async () => {
+    if (filtered.length === 0) return;
+    setIsBulkRenewing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const req of filtered) {
+      const { error } = await supabase.rpc('renew_expired_rent_request', {
+        p_request_id: req.id,
+        p_reason: `Bulk renewal of expired pending window for ${req.tenant_name}`,
+      });
+      if (error) failCount++;
+      else successCount++;
+    }
+
+    setIsBulkRenewing(false);
+    invalidateAll();
+
+    if (failCount === 0) {
+      toast({
+        title: '✅ All requests renewed',
+        description: `${successCount} request${successCount === 1 ? '' : 's'} returned to the active pending queue.`,
+      });
+    } else {
+      toast({
+        title: `Renewed ${successCount} request${successCount === 1 ? '' : 's'}`,
+        description: `${failCount} could not be renewed.`,
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Delete single request
   const handleDeleteSingle = async () => {
@@ -277,20 +348,36 @@ export function AgentOpsExpiredRequestsPanel({
           </div>
 
           {filtered.length > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setBulkDeleteOpen(true)}
-              disabled={isBulkDeleting}
-              className="gap-1.5 shrink-0 font-bold"
-            >
-              {isBulkDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              <span>Delete All ({filtered.length})</span>
-            </Button>
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleRenewAll()}
+                disabled={isBulkRenewing || isBulkDeleting}
+                className="gap-1.5 font-semibold"
+              >
+                {isBulkRenewing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                <span className="truncate">Renew All ({filtered.length})</span>
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDeleteOpen(true)}
+                disabled={isBulkDeleting || isBulkRenewing}
+                className="gap-1.5 font-bold"
+              >
+                {isBulkDeleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                <span className="truncate">Delete All ({filtered.length})</span>
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -344,10 +431,20 @@ export function AgentOpsExpiredRequestsPanel({
       <div className="space-y-2">
         {filtered.map(req => {
           const isDeletingThis = deletingId === req.id;
+          const isRenewingThis = renewingId === req.id;
           return (
             <Card
               key={req.id}
-              className="border border-border/80 hover:border-destructive/40 transition-colors"
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailId(req.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setDetailId(req.id);
+                }
+              }}
+              className="cursor-pointer border border-border/80 transition-colors hover:border-destructive/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <CardContent className="p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-1">
@@ -386,27 +483,45 @@ export function AgentOpsExpiredRequestsPanel({
                   </div>
                 </div>
 
-                {/* Right Area: Amount and Single Delete Icon Button */}
-                <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0">
+                {/* Right Area: Amount, Renew and Delete */}
+                <div className="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-2 sm:w-auto sm:flex-nowrap sm:justify-end sm:gap-4 sm:border-t-0 sm:pt-0">
                   <div className="text-left sm:text-right">
                     <p className="font-bold text-sm text-foreground">UGX {req.rent_amount.toLocaleString()}</p>
                     <p className="text-[10px] text-muted-foreground font-mono">Unverified</p>
                   </div>
 
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setRequestToDelete(req)}
-                    disabled={isDeletingThis || isBulkDeleting}
-                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 shrink-0"
-                    title="Delete this expired request"
-                  >
-                    {isDeletingThis ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => { e.stopPropagation(); void handleRenew(req); }}
+                      disabled={isRenewingThis || isBulkRenewing || isDeletingThis || isBulkDeleting}
+                      className="h-8 gap-1.5 px-2.5 text-xs font-semibold shrink-0"
+                      title="Restart the 30-day verification window"
+                    >
+                      {isRenewingThis ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                      <span>Renew</span>
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => { e.stopPropagation(); setRequestToDelete(req); }}
+                      disabled={isDeletingThis || isBulkDeleting || isRenewingThis}
+                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 shrink-0"
+                      title="Delete this expired request"
+                    >
+                      {isDeletingThis ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -477,6 +592,13 @@ export function AgentOpsExpiredRequestsPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Full request details */}
+      <RentRequestDetailDrawer
+        requestId={detailId}
+        open={!!detailId}
+        onOpenChange={(open) => { if (!open) setDetailId(null); }}
+      />
     </div>
   );
 }
