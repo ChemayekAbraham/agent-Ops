@@ -82,7 +82,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
     return [
       { line: 'mtn_momo' as PhoneMoneyLine, label: 'MTN Money', amount: held.mtn },
       { line: 'airtel_money' as PhoneMoneyLine, label: 'Airtel Money', amount: held.airtel },
-      { line: 'cash' as PhoneMoneyLine, label: 'Cash at Hand (not yet banked)', amount: held.cashAtHand },
+      { line: 'cash' as PhoneMoneyLine, label: 'Cash in Custody — Not Yet Confirmed Banked', amount: held.cashAtHand },
       { line: 'banked_cash' as PhoneMoneyLine, label: 'Cash at Bank (Financial Ops banked)', amount: held.bankedCash },
       { line: 'bank' as PhoneMoneyLine, label: 'Bayo Mercy bank account (reference)', amount: held.bankReconciliation },
     ];

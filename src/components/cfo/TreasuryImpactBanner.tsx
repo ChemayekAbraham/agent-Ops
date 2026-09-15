@@ -26,10 +26,17 @@ export function TreasuryImpactBanner({ payoutAmount }: TreasuryImpactBannerProps
       if (cashRes.error) throw cashRes.error;
       if (walletRes.error) throw walletRes.error;
 
-      const cash = cashRes.data as unknown as { total_cash?: number | string } | null;
+      // Payout capacity is company cash we can actually use: A1 Cash and Bank
+      // only. Cash in custody (A5) has no verified banking event, so it is
+      // never treated as available cash here.
+      const cash = cashRes.data as unknown as {
+        total_cash?: number | string;
+        available_company_cash?: number | string;
+      } | null;
       const wallets = walletRes.data as unknown as { total_balance?: number | string } | null;
       return {
-        totalCash: Number(cash?.total_cash ?? 0),
+        totalCash: Number(cash?.available_company_cash ?? cash?.total_cash ?? 0),
+
         walletTotal: Number(wallets?.total_balance ?? 0),
       };
     },

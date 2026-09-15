@@ -284,10 +284,11 @@ export function MoneyWeCanUseBreakdown() {
       note: 'Live balance from the latest Airtel provider alert.',
     },
     {
-      label: 'Verified cash at hand',
-      value: money?.cashAtHand ?? 0,
-      note: 'Cash collected and verified, not yet banked.',
+      label: 'Cash in Custody — Not Yet Confirmed Banked (excluded)',
+      value: money?.custodyNotConfirmedBanked ?? 0,
+      note: 'Cash collected and verified but with no verified banking event, so it is not counted as company cash.',
     },
+
     {
       label: 'Cash at bank (marked banked)',
       value: money?.bankedCash ?? 0,
