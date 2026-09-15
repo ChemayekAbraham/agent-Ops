@@ -306,14 +306,27 @@ export function PromissoryNotesQueue({
       toast.error('Please provide a reason of at least 20 characters.');
       return;
     }
+    if ((approveTarget as any).__swipe) {
+      scheduleSwipeAction('approve', approveTarget, reason, selectedLead);
+      setApproveTarget(null);
+      setApproveReason('');
+      setSelectedLead(null);
+      setLeadSearch('');
+      setSelectedNote(null);
+      return;
+    }
+    await runApprove(approveTarget, reason, selectedLead);
+  };
+
+  const runApprove = async (target: any, reason: string, lead: any) => {
     setApproving(true);
     try {
-      if (selectedLead?.user_id && approveTarget.agent_id) {
+      if (lead?.user_id && target.agent_id) {
         const { error: assignError } = await supabase
           .from('partner_lead_assignments' as any)
           .insert({
-            lead_user_id: selectedLead.user_id,
-            agent_id: approveTarget.agent_id,
+            lead_user_id: lead.user_id,
+            agent_id: target.agent_id,
             reason,
           } as any);
         // 23505 = unique violation: an active assignment already exists. Continue.
@@ -322,7 +335,7 @@ export function PromissoryNotesQueue({
         }
       }
       const { data, error } = await supabase.rpc('approve_promissory_note', {
-        p_note_id: approveTarget.id,
+        p_note_id: target.id,
         p_reason: reason,
       });
       if (error) throw error;
@@ -932,8 +945,8 @@ export function PromissoryNotesQueue({
                       key={note.id}
                       note={note}
                       onOpen={() => setSelectedNote(note)}
-                      onApprove={() => { setApproveReason(''); setApproveTarget(note); }}
-                      onReject={() => { setRejectReason(''); setRejectTarget(note); }}
+                      onApprove={() => { setApproveReason(''); setApproveTarget({ ...note, __swipe: true }); }}
+                      onReject={() => { setRejectReason(''); setRejectTarget({ ...note, __swipe: true }); }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 min-w-0">
