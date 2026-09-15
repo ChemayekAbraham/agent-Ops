@@ -107,23 +107,24 @@ export function useSubmitIdentityPhotos() {
       selfieHash?: string | null;
       idHash?: string | null;
     }) => {
-      // Always send the full argument set: the database holds several
-      // overloads of this function, and a two-argument call is ambiguous, so
-      // the submission is refused before it reaches the queue.
-      const { data, error } = await supabase.rpc('submit_identity_photos', {
-        p_id_photo_path: paths.idPhotoPath,
-        p_selfie_path: paths.selfiePath,
-        p_id_back_photo_path: paths.idBackPhotoPath ?? null,
-        p_name_change_consent: paths.nameChangeConsent ?? false,
+      // Routed through the submit-identity-photos edge function rather than
+      // calling the RPC directly: it runs an AI-vision check first (does the
+      // photo actually show a National ID card?) and rejects obvious
+      // non-ID/unreadable photos before they ever reach the verification
+      // queue. It forwards the hash recording too, so this is a drop-in
+      // replacement for the previous direct RPC calls.
+      const { data, error } = await supabase.functions.invoke('submit-identity-photos', {
+        body: {
+          idPhotoPath: paths.idPhotoPath,
+          selfiePath: paths.selfiePath,
+          idBackPhotoPath: paths.idBackPhotoPath ?? null,
+          nameChangeConsent: paths.nameChangeConsent ?? false,
+          selfieHash: paths.selfieHash ?? null,
+          idHash: paths.idHash ?? null,
+        },
       });
       if (error) throw error;
-      // Best effort: a missing fingerprint must never block a submission.
-      if (paths.selfieHash || paths.idHash) {
-        await supabase.rpc('record_identity_image_hashes', {
-          p_selfie_hash: paths.selfieHash ?? null,
-          p_id_hash: paths.idHash ?? null,
-        });
-      }
+      if (data?.error) throw new Error(data.error);
       return data as { success?: boolean; message?: string } | null;
     },
     onSuccess: () => {
