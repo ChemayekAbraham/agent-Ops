@@ -156,6 +156,7 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
      unverified number through. */
   const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
   const otp = useOtpVerification();
+  const { user: authUser } = useAuth();
 
   useEffect(() => {
     if (list.isLoading) return;
