@@ -164,7 +164,7 @@ export function PartnerReceivablesVsExpectedChart() {
       <CardHeader className="pb-2 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-sm font-bold">
-            <LineChartIcon className="h-4 w-4 text-primary" /> Receivables vs expected
+            <LineChartIcon className="h-4 w-4 text-primary" /> Promissory Notes Receivables vs expected
           </CardTitle>
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
             Came in vs still to come
