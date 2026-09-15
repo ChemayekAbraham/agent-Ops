@@ -254,7 +254,7 @@ export function PartnerReceivablesVsExpectedChart() {
                     formatUGX(Number(v)),
                     n === 'receivables' ? 'Receivables in' : 'Expected (not yet in)',
                   ]}
-                  labelFormatter={(l) => shortDay(String(l))}
+                  labelFormatter={(l) => tickLabel(String(l))}
                 />
                 <Legend
                   formatter={(v) => (v === 'receivables' ? 'Receivables in' : 'Expected (not yet in)')}
