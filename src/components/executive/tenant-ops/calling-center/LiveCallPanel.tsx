@@ -167,7 +167,7 @@ export function LiveCallPanel({
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-3 border-y border-border/60 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-center gap-3 border-y border-border/60 px-4 py-3">
         <Button
           type="button"
           variant="outline"
@@ -179,6 +179,18 @@ export function LiveCallPanel({
           aria-pressed={call.muted}
         >
           {call.muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 rounded-full"
+          onClick={() => setSoundOn((s) => !s)}
+          aria-label={soundOn ? 'Mute ringing tone' : 'Unmute ringing tone'}
+          aria-pressed={!soundOn}
+        >
+          {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
         </Button>
 
         {!ended ? (
