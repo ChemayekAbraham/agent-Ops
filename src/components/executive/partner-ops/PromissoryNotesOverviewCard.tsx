@@ -455,7 +455,10 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
             )}
           </div>
         )}
-      </>)}
+
+        </div>
+        </div>
+        </div>
       </CardContent>
 
       <AlertDialog open={!!approveTarget} onOpenChange={(open) => { if (!open && !approving) { setApproveTarget(null); setApproveReason(''); } }}>
