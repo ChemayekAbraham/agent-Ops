@@ -256,15 +256,19 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setReading(false);
   };
 
-  /** Ask the checker whether the selfie contains a face. */
+  /** Ask the same checker the rent request uses whether the selfie is a real face. */
   const runFaceCheck = async (file: File) => {
     setFaceCheck({ status: 'checking' });
-    const result = await runPassportFaceCheck(file, { source: 'identity_verification' });
+    const result = await runPassportFaceCheck(file, {
+      source: 'identity_verification',
+      subjectUserId: user?.id ?? null,
+    });
     setFaceCheck(result);
     if (result.status === 'no_face') {
       toast.error('No face found', { description: 'Retake the selfie with your face clearly visible.' });
     }
   };
+
 
   /**
    * Send the six confirmed fields. The server re-checks every format and the
