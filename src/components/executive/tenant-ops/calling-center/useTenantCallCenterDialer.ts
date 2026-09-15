@@ -307,29 +307,28 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
   }, []);
 
   /**
-   * End Call. Two things have to happen, and neither may depend on the other:
+   * End Call.
    *
-   *  1. the voice hook's own `end()` (flags + finalises the session row), and
-   *  2. the SDK's `hangup()` on the live leg — invoked here as well, because
-   *     once the hook has already settled its UI (e.g. a safety-net finalise
-   *     fired while the leg was still coming up) `end()` returns immediately and
-   *     would leave the telephone leg talking. This is the same primitive the
-   *     CRM Calling Centre hangs up with; nothing new.
+   * For a live leg this defers to the voice hook's own `end()` — exactly what the
+   * CRM Calling Centre does. It flags the row, calls the SDK's `hangup()` on the
+   * real leg, keeps the talk time and finalises the session once. Re-closing the
+   * row here as well is what used to throw away the duration of an answered call.
    *
-   * If the officer presses End while the leg is still being set up (token,
-   * registration, `crm_start_webrtc_call`), the dial in flight would otherwise
-   * ring the tenant *after* the hang-up and could never be ended again. The
-   * abort flag makes the pending start drop itself the moment it is live.
+   * The raw leg is only dropped directly in the two cases `end()` cannot cover:
+   *  - the hook has already settled its UI (safety-net finalise) while the
+   *    telephone leg may still be talking, and
+   *  - the officer pressed End while the leg was still being set up (token,
+   *    registration, `crm_start_webrtc_call`). The abort flag makes that pending
+   *    start drop itself the moment it becomes a real session.
    */
   const hangUp = useCallback(() => {
-    const settingUp =
-      starting || call.state === 'initializing' || call.state === 'calling';
+    const settingUp = starting || call.state === 'initializing';
+    const liveLeg = !isTerminalCallState(call.state) && call.state !== 'idle';
+
     if (settingUp) abortRef.current = true;
+    if (liveLeg) call.end();
 
-    if (!isTerminalCallState(call.state) && call.state !== 'idle') call.end();
-
-    // Always drop the real leg, whatever the UI thinks the state is.
-    dropLeg(settingUp ? call.callId : null);
+    if (!liveLeg || settingUp) dropLeg(settingUp ? call.callId : null);
   }, [call, starting, dropLeg]);
 
   const clearCurrent = useCallback(() => {
