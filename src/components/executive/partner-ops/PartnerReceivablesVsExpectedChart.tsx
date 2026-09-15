@@ -166,6 +166,31 @@ export function PartnerReceivablesVsExpectedChart() {
   const last = rows[rows.length - 1];
   const hasActivity = (last?.receivables ?? 0) > 0 || (last?.expected ?? 0) > 0;
 
+  // Top 5 proxy agents whose attached partners came in within the window,
+  // with the partner they brought and the money that came in.
+  const topBringers = useMemo(() => {
+    const { start, end } = range;
+    const windowEnd = new Date(end);
+    windowEnd.setHours(23, 59, 59, 999);
+
+    const byPair = new Map<string, { agent: string; partner: string; amount: number }>();
+    for (const n of notes ?? []) {
+      const status = String(n.status ?? '').toLowerCase();
+      if (!n.came_in || status === 'cancelled' || status === 'rejected') continue;
+      const fundedIn = Number(n.portfolio_amount) || 0;
+      if (fundedIn <= 0) continue;
+      const receivedAt = new Date(n.first_portfolio_at ?? n.came_in_at ?? n.created_at);
+      if (receivedAt < start || receivedAt > windowEnd) continue;
+      const agent = String(n.agent_name ?? '').trim() || 'Unknown agent';
+      const partner = String(n.came_in_name ?? n.partner_name ?? '').trim() || 'Unnamed partner';
+      const key = `${agent}::${partner}`;
+      const cur = byPair.get(key) ?? { agent, partner, amount: 0 };
+      cur.amount += fundedIn;
+      byPair.set(key, cur);
+    }
+    return [...byPair.values()].sort((a, b) => b.amount - a.amount).slice(0, 5);
+  }, [notes, range]);
+
   const tickLabel = (v: string) =>
     hourly ? `${String(v).replace('h', '').padStart(2, '0')}:00` : shortDay(v);
 
