@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 const QUICK_LIST_SIZE = 6;
 
-type PromissoryStatus = 'pending' | 'activated' | 'rejected';
+type PromissoryStatus = 'pending' | 'activated' | 'rejected' | 'overdue';
 
 export interface PromissoryOverviewFilter {
   status?: PromissoryStatus;
@@ -34,6 +34,7 @@ const PILL_CONFIG: { key: PromissoryStatus; label: string; icon: React.ElementTy
   { key: 'pending', label: 'Awaiting Review', icon: Clock },
   { key: 'activated', label: 'Approved', icon: CheckCircle },
   { key: 'rejected', label: 'Rejected', icon: XCircle },
+  { key: 'overdue', label: 'Overdue', icon: AlertTriangle },
 ];
 
 function matchesSearch(note: any, query: string): boolean {
