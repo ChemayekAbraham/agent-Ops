@@ -305,6 +305,12 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
               setNumber(v);
               const d = detectMomoProvider(v);
               if (d) setProvider(d);
+              // Editing the number invalidates any code already sent.
+              if (codeSentTo && v.trim() !== codeSentTo) {
+                setCodeSentTo(null);
+                setCode('');
+                otp.resetOtp();
+              }
             }}
             className="h-10 text-sm"
           />
