@@ -400,10 +400,10 @@ function StatCard({
   );
 }
 
-type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'before-aug-2026' | 'position' | 'rent-analysis';
+type AgentMonitoringTab = 'all' | 'after-sep-2026' | 'before-sep-2026' | 'position' | 'rent-analysis';
 
 /** Same boundary for both cohort tabs — one date rule, read from the existing added date. */
-const AUG_2026_BOUNDARY = '2026-08-02T00:00:00+03:00';
+const SEP_2026_BOUNDARY = '2026-09-01T00:00:00+03:00';
 
 export function AgentMonitoring() {
   const [tab, setTab] = useState<AgentMonitoringTab>('all');
@@ -415,8 +415,8 @@ export function AgentMonitoring() {
   const [selectedAgent, setSelectedAgent] = useState<AgentRow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
   const bounds = useMemo(() => dayBounds(day), [day]);
-  const createdAfter = tab === 'after-aug-2026' ? AUG_2026_BOUNDARY : undefined;
-  const createdBefore = tab === 'before-aug-2026' ? AUG_2026_BOUNDARY : undefined;
+  const createdAfter = tab === 'after-sep-2026' ? SEP_2026_BOUNDARY : undefined;
+  const createdBefore = tab === 'before-sep-2026' ? SEP_2026_BOUNDARY : undefined;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['tenant-ops-agent-monitoring', format(day, 'yyyy-MM-dd')],
