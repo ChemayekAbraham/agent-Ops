@@ -462,11 +462,12 @@ export function PromissoryNotesQueue({
   };
 
   const NOTES_PER_PAGE = 10;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / NOTES_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(sortedFiltered.length / NOTES_PER_PAGE));
   const safePage = Math.min(page, totalPages);
-  const pagedNotes = filtered.slice((safePage - 1) * NOTES_PER_PAGE, safePage * NOTES_PER_PAGE);
-  useEffect(() => { setPage(1); }, [search, statusFilter, range]);
+  const pagedNotes = sortedFiltered.slice((safePage - 1) * NOTES_PER_PAGE, safePage * NOTES_PER_PAGE);
+  useEffect(() => { setPage(1); }, [search, statusFilter, range, sortBy]);
   useEffect(() => { localStorage.setItem('promissory-queue-status-filter', statusFilter); }, [statusFilter]);
+  useEffect(() => { localStorage.setItem('promissory-queue-sort', sortBy); }, [sortBy]);
 
   const allPageSelected = pagedNotes.length > 0 && pagedNotes.every(n => selectedIds.includes(n.id));
   const toggleSelect = (id: string) =>
