@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,6 +8,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { PERSONAL_NAV } from './personalNav';
+
+const SIDEBAR_WIDTH_KEY = 'personal-sidebar-width';
+const SIDEBAR_MIN = 200;
+const SIDEBAR_MAX = 420;
+const SIDEBAR_DEFAULT = 240;
+
+const readSidebarWidth = () => {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    const n = raw ? Number(raw) : NaN;
+    if (Number.isFinite(n)) return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, n));
+  } catch { /* storage unavailable */ }
+  return SIDEBAR_DEFAULT;
+};
 
 const getInitials = (name: string) => {
   if (!name) return 'Me';
@@ -33,6 +47,33 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(readSidebarWidth);
+  const [resizing, setResizing] = useState(false);
+  const dragStart = useRef<{ x: number; width: number } | null>(null);
+
+  const onResizePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    dragStart.current = { x: e.clientX, width: sidebarWidth };
+    setResizing(true);
+
+    const onMove = (ev: PointerEvent) => {
+      if (!dragStart.current) return;
+      const next = dragStart.current.width + (ev.clientX - dragStart.current.x);
+      setSidebarWidth(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, next)));
+    };
+    const onUp = () => {
+      dragStart.current = null;
+      setResizing(false);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      setSidebarWidth((w) => {
+        try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(Math.round(w))); } catch { /* ignore */ }
+        return w;
+      });
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [sidebarWidth]);
 
   const { data: isPsoOfficer } = useQuery<boolean>({
     queryKey: ['pso-is-officer'],
@@ -182,8 +223,31 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
       </header>
 
       <div className="mx-auto flex w-full max-w-7xl">
-        <aside className="sticky top-[57px] hidden h-[calc(100vh-57px)] w-60 shrink-0 border-r border-border/60 bg-card/40 lg:block">
+        <aside
+          className={cn(
+            'relative sticky top-[57px] hidden h-[calc(100vh-57px)] shrink-0 border-r border-border/60 bg-card/40 lg:block',
+            resizing && 'select-none',
+          )}
+          style={{ width: sidebarWidth }}
+        >
           <MenuBody />
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize menu"
+            onPointerDown={onResizePointerDown}
+            className={cn(
+              'group absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize touch-none',
+              'before:absolute before:inset-y-0 before:left-1/2 before:w-px before:bg-transparent before:transition-colors',
+              'hover:before:bg-primary/50',
+              resizing && 'before:bg-primary',
+            )}
+          >
+            <div className={cn(
+              'absolute right-0.5 top-1/2 h-10 w-1 -translate-y-1/2 rounded-full bg-border/70 transition-colors group-hover:bg-primary/50',
+              resizing && 'bg-primary',
+            )} />
+          </div>
         </aside>
 
         <main className="min-w-0 flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
