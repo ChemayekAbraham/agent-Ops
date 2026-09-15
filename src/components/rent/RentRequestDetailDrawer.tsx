@@ -532,3 +532,17 @@ function DetailRow({ label, value, bold, highlight }: { label: string; value: st
     </div>
   );
 }
+
+/** A tappable thumbnail; the full picture opens in a new tab. */
+function PhotoTile({ url, alt }: { url: string; alt: string }) {
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+      <img
+        src={url}
+        alt={alt}
+        loading="lazy"
+        className="h-24 w-24 rounded-lg border object-cover hover:opacity-90"
+      />
+    </a>
+  );
+}
