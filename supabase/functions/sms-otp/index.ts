@@ -840,9 +840,16 @@ Deno.serve(async (req) => {
       const subjectName = String(body.subject_name ?? "").trim().slice(0, 80);
       const recipientName = String(body.recipient_name ?? "").trim().slice(0, 80);
       const last4 = phone.length >= 4 ? phone.slice(-4) : (String(body.phone_last4 ?? "").replace(/\D/g, "").slice(-4) || "????");
+      /* A National ID link request reads the same way: the person who holds the
+         ID is told who is asking and shares the code only if they agree. */
+      const ninRef = String(body.nin_ref ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
       const message = purpose === "payout_number"
         ? `Welile: ${subjectName || "A Welile user"} wants to receive Welile payouts on a mobile money number ending ${last4} ` +
           `registered in your name (${recipientName || "the account holder"}). If you agree, share this code with them: ${otp}. ` +
+          `If you did NOT authorise this, ignore this message.`
+        : purpose === "national_id_link"
+        ? `Welile: ${subjectName || "A Welile user"} wants to link their Welile account to your National ID ${ninRef || ""}. ` +
+          `If you agree, share this code with them: ${otp}. You must also confirm it in the Welile app. ` +
           `If you did NOT authorise this, ignore this message.`
         : `Your Welile verification code is: ${otp}. It expires in 1 hour. Do not share this code.`;
 

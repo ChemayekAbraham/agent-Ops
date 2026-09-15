@@ -26340,6 +26340,63 @@ export type Database = {
           },
         ]
       }
+      national_id_link_requests: {
+        Row: {
+          code_sent_at: string | null
+          code_verified_at: string | null
+          created_at: string
+          decision_reason: string | null
+          expires_at: string
+          holder_id: string
+          id: string
+          nin: string
+          nin_fuzzy: string
+          owner_confirmed_at: string | null
+          owner_decision: string | null
+          requester_id: string
+          staff_decided_at: string | null
+          staff_decided_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          code_sent_at?: string | null
+          code_verified_at?: string | null
+          created_at?: string
+          decision_reason?: string | null
+          expires_at?: string
+          holder_id: string
+          id?: string
+          nin: string
+          nin_fuzzy: string
+          owner_confirmed_at?: string | null
+          owner_decision?: string | null
+          requester_id: string
+          staff_decided_at?: string | null
+          staff_decided_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          code_sent_at?: string | null
+          code_verified_at?: string | null
+          created_at?: string
+          decision_reason?: string | null
+          expires_at?: string
+          holder_id?: string
+          id?: string
+          nin?: string
+          nin_fuzzy?: string
+          owner_confirmed_at?: string | null
+          owner_decision?: string | null
+          requester_id?: string
+          staff_decided_at?: string | null
+          staff_decided_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       national_id_ocr_reads: {
         Row: {
           account_name: string | null
@@ -30934,6 +30991,8 @@ export type Database = {
           landmark: string | null
           last_active_at: string | null
           last_continuous_location_at: string | null
+          linked_national_id: string | null
+          linked_national_id_request_id: string | null
           location_source: string | null
           managed_by_agent: boolean
           managing_agent_id: string | null
@@ -31048,6 +31107,8 @@ export type Database = {
           landmark?: string | null
           last_active_at?: string | null
           last_continuous_location_at?: string | null
+          linked_national_id?: string | null
+          linked_national_id_request_id?: string | null
           location_source?: string | null
           managed_by_agent?: boolean
           managing_agent_id?: string | null
@@ -31162,6 +31223,8 @@ export type Database = {
           landmark?: string | null
           last_active_at?: string | null
           last_continuous_location_at?: string | null
+          linked_national_id?: string | null
+          linked_national_id_request_id?: string | null
           location_source?: string | null
           managed_by_agent?: boolean
           managing_agent_id?: string | null
@@ -58082,6 +58145,24 @@ export type Database = {
           version_code: string
         }[]
       }
+      national_id_link_expire_stale: { Args: never; Returns: undefined }
+      national_id_link_mark_code_verified: {
+        Args: { p_request_id: string; p_requester_id: string }
+        Returns: Json
+      }
+      national_id_link_owner_decision: {
+        Args: { p_approve: boolean; p_reason?: string; p_request_id: string }
+        Returns: Json
+      }
+      national_id_link_send_target: {
+        Args: { p_request_id: string; p_requester_id: string }
+        Returns: Json
+      }
+      national_id_link_staff_confirm: {
+        Args: { p_approve: boolean; p_reason: string; p_request_id: string }
+        Returns: Json
+      }
+      national_id_link_state: { Args: { p_request_id: string }; Returns: Json }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
       normalize_momo_tid: { Args: { p_tid: string }; Returns: string }
@@ -60169,6 +60250,7 @@ export type Database = {
         Args: { p_allocation_id: string; p_reason: string }
         Returns: Json
       }
+      request_national_id_link: { Args: { p_nin: string }; Returns: Json }
       requeue_dead_letter_batch: {
         Args: { _dead_letter_id: number }
         Returns: undefined

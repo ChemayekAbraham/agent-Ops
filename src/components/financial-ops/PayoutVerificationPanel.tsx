@@ -67,6 +67,7 @@ import { assessIdNameConfidence } from '@/lib/idNameConfidence';
 import { doubleSubmissionLabel } from '@/lib/doubleSubmission';
 import { supabase } from '@/integrations/supabase/client';
 import { PayoutQueueBlockedList, blockedReasonFor } from './PayoutQueueBlockedList';
+import NationalIdLinkStaffQueue from './NationalIdLinkStaffQueue';
 
 import { useUserAvatars } from '@/hooks/useUserAvatars';
 import { useAuth } from '@/hooks/useAuth';
@@ -974,6 +975,9 @@ export default function PayoutVerificationPanel() {
 
   return (
     <div className="space-y-3">
+      {/* National ID groups the holder has already allowed, waiting on staff. */}
+      <NationalIdLinkStaffQueue />
+
       {/* Slim control bar */}
       <div className="sticky top-0 z-20 -mx-1 space-y-2 bg-background/95 px-1 py-2 backdrop-blur">
         <div className="flex items-center gap-2">
