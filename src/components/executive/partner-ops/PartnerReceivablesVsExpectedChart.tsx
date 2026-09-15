@@ -243,7 +243,7 @@ export function PartnerReceivablesVsExpectedChart() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-                <XAxis dataKey="day" tickFormatter={shortDay} tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                <XAxis dataKey="day" tickFormatter={tickLabel} tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                 <YAxis
                   tick={{ fontSize: 10 }}
                   tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
