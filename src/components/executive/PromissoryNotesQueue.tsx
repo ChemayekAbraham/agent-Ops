@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Search, User, Phone, Calendar, TrendingUp, CheckCircle, Clock, AlertTriangle, XCircle, Mail, MessageCircle, FileText, Trash2, BadgeCheck, MapPin, RefreshCw, ChevronLeft, ChevronRight, Download, FileSpreadsheet, FileDown } from 'lucide-react';
+import { Search, User, Phone, Calendar, TrendingUp, CheckCircle, Clock, AlertTriangle, XCircle, Mail, MessageCircle, FileText, Trash2, BadgeCheck, MapPin, RefreshCw, ChevronLeft, ChevronRight, Download, FileSpreadsheet, FileDown, ArrowUpDown } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -187,6 +187,9 @@ export function PromissoryNotesQueue({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkReason, setBulkReason] = useState('');
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [sortBy, setSortBy] = useState<'default' | 'fulfilment_asc' | 'fulfilment_desc'>(() =>
+    (localStorage.getItem('promissory-queue-sort') as any) || 'default'
+  );
 
 
   const { data: leadCandidates = [], isFetching: leadLoading } = useQuery({
@@ -362,12 +365,20 @@ export function PromissoryNotesQueue({
     return matchesSearch && matchesStatus;
   });
 
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    if (sortBy === 'default') return 0;
+    const aDate = a.fulfilment_due_on ? new Date(a.fulfilment_due_on).getTime() : Infinity;
+    const bDate = b.fulfilment_due_on ? new Date(b.fulfilment_due_on).getTime() : Infinity;
+    if (aDate === bDate) return 0;
+    return sortBy === 'fulfilment_asc' ? aDate - bDate : bDate - aDate;
+  });
+
   const statusCounts = notes.reduce((acc, n) => {
     acc[n.status] = (acc[n.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const exportRows = filtered.map(n => ({
+  const exportRows = sortedFiltered.map(n => ({
     Partner: n.partner_name || '',
     Agent: n.agent_name || '',
     Phone: n.phone_number || '',
@@ -379,6 +390,7 @@ export function PromissoryNotesQueue({
     Status: n.status || '',
     Registered: n.came_in ? 'Yes' : 'No',
     'Created at': n.created_at ? format(new Date(n.created_at), 'yyyy-MM-dd HH:mm') : '',
+    'Fulfils by': n.fulfilment_due_on ? format(new Date(n.fulfilment_due_on), 'yyyy-MM-dd') : '',
   }));
 
   const downloadFile = (content: Blob, filename: string) => {
@@ -450,11 +462,12 @@ export function PromissoryNotesQueue({
   };
 
   const NOTES_PER_PAGE = 10;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / NOTES_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(sortedFiltered.length / NOTES_PER_PAGE));
   const safePage = Math.min(page, totalPages);
-  const pagedNotes = filtered.slice((safePage - 1) * NOTES_PER_PAGE, safePage * NOTES_PER_PAGE);
-  useEffect(() => { setPage(1); }, [search, statusFilter, range]);
+  const pagedNotes = sortedFiltered.slice((safePage - 1) * NOTES_PER_PAGE, safePage * NOTES_PER_PAGE);
+  useEffect(() => { setPage(1); }, [search, statusFilter, range, sortBy]);
   useEffect(() => { localStorage.setItem('promissory-queue-status-filter', statusFilter); }, [statusFilter]);
+  useEffect(() => { localStorage.setItem('promissory-queue-sort', sortBy); }, [sortBy]);
 
   const allPageSelected = pagedNotes.length > 0 && pagedNotes.every(n => selectedIds.includes(n.id));
   const toggleSelect = (id: string) =>
@@ -685,6 +698,25 @@ export function PromissoryNotesQueue({
         >
           Portfolio active ({kpis.partners_portfolio_active})
         </button>
+        <div className="ml-auto flex items-center shrink-0">
+          <label htmlFor="promissory-sort" className="sr-only">Sort by</label>
+          <div className="relative">
+            <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <select
+              id="promissory-sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="h-9 pl-8 pr-7 rounded-full bg-muted/50 text-xs font-medium text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+            >
+              <option value="default">Default order</option>
+              <option value="fulfilment_asc">Fulfils soonest first</option>
+              <option value="fulfilment_desc">Fulfils latest first</option>
+            </select>
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+              <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0h10L5 6z"/></svg>
+            </div>
+          </div>
+        </div>
       </div>
       </div>
 
@@ -698,7 +730,7 @@ export function PromissoryNotesQueue({
               <p className="text-destructive">Could not load promissory notes: {reportError.message}</p>
               <Button variant="outline" size="sm" onClick={() => refetch()}>Try again</Button>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : sortedFiltered.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">No promissory notes found</div>
           ) : (
             <>
