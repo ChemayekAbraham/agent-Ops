@@ -6,6 +6,7 @@ import { StaffRequisitionQueue } from './StaffRequisitionQueue';
 import { DirectorRequisitionsPanel } from './DirectorRequisitionsPanel';
 
 const ManualRequisitionQueuePanel = lazy(() => import('@/components/financial-ops/ManualRequisitionQueuePanel').then((module) => ({ default: module.ManualRequisitionQueuePanel })));
+const RequisitionUsageReportsReview = lazy(() => import('./RequisitionUsageReportsReview').then((module) => ({ default: module.RequisitionUsageReportsReview })));
 
 /**
  * The single requisitions surface for every reviewing dashboard.
