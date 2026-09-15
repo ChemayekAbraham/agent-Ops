@@ -736,6 +736,13 @@
       "when": 1789466100162,
       "tag": "0104_pure_partner_agent_activity_is_collections_only",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1789468592510,
+      "tag": "0105_create_staff_requisition_usage_reports",
+      "breakpoints": true
     }
   ]
 }
