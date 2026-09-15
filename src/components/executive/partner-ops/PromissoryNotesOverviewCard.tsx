@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePromissoryOpsReport, PROMISSORY_RANGES, type PromissoryRange } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
+import { AgentCallMenu } from '../PromissoryNotesQueue';
 
 const QUICK_LIST_SIZE = 6;
 
@@ -290,7 +291,11 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold truncate">{note.partner_name || 'Unknown partner'}</p>
                   <p className="text-[10px] text-muted-foreground truncate">
-                    {note.agent_name ? `Agent: ${note.agent_name}` : 'No agent'}
+                    {note.agent_name ? (
+                      <>
+                        Agent: <AgentCallMenu note={note} className="text-[10px] font-medium" />
+                      </>
+                    ) : 'No agent'}
                     {note.promised_amount ? ` · ${formatUGX(Number(note.promised_amount))}` : ''}
                   </p>
                 </div>

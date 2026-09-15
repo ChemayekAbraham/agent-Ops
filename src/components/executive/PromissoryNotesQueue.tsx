@@ -155,7 +155,7 @@ function SwipeableNoteCard({
  * the note and the partner who promised. Falls back to plain text when neither
  * side has a phone number on record.
  */
-function AgentCallMenu({ note, className }: { note: any; className?: string }) {
+export function AgentCallMenu({ note, className }: { note: any; className?: string }) {
   const agentPhone = note.agent_phone || null;
   const partnerPhone = note.phone_number || note.whatsapp_number || null;
   if (!agentPhone && !partnerPhone) {
