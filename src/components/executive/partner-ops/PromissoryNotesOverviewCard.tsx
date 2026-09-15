@@ -170,26 +170,26 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
 
   return (
     <Card
-      className="border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
+      className="bg-card border border-border border-l-4 border-l-primary/40 cursor-pointer hover:bg-accent/50 transition-colors shadow-sm"
       onClick={() => onOpen(activeFilter)}
       role="button"
       aria-label="Open Promissory Notes"
     >
       <CardContent className="p-4 sm:p-5 space-y-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
-            <FileText className="h-6 w-6 text-primary" />
+          <div className="p-3 rounded-2xl bg-primary/15 shrink-0">
+            <FileText className="h-7 w-7 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-base font-bold">Promissory Notes</p>
+              <p className="text-lg font-bold text-foreground">Promissory Notes</p>
               {!isLoading && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-xs font-semibold">
                   {kpis.notes_count.toLocaleString()} total
                 </Badge>
               )}
               {counts.pending > 0 && (
-                <Badge variant="destructive" className="text-xs">
+                <Badge variant="destructive" className="text-xs font-semibold">
                   {counts.pending.toLocaleString()} awaiting review
                 </Badge>
               )}
