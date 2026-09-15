@@ -31,6 +31,8 @@ import {
   maskPayoutNumber,
 } from '@/hooks/useIdentityBinding';
 import { Lock } from 'lucide-react';
+import { useMyNumberChangeRequest } from '@/hooks/usePayoutNumberChange';
+import PayoutNumberChangeDialog from './PayoutNumberChangeDialog';
 
 
 import SelfieCropDialog from './SelfieCropDialog';
@@ -152,6 +154,8 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
   const binding = useIdentityBinding(userId ?? undefined);
   const bind = useCompleteIdentityBinding();
   const lockedNumber = binding.data?.locked_payout_number ?? null;
+  const changeRequest = useMyNumberChangeRequest();
+  const [changeOpen, setChangeOpen] = useState(false);
 
   const rows = list.data ?? [];
   const existingMomo = rows.find((d) => d.destination_type === 'mobile_money');
@@ -264,7 +268,6 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
         p_number: savedNumber,
       });
       if (ownErr) throw ownErr;
-      const autoVerified = (own as { auto_verified?: boolean } | null)?.auto_verified === true;
 
       /* Bind the captured identity and lock this number to the account. The
          server decides whether everything needed is on file; it never
@@ -275,9 +278,7 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
         description:
           bound?.code === 'identity_captured'
             ? 'Your identity details are saved and this number is now locked for your withdrawals.'
-            : autoVerified
-              ? 'This number is confirmed and ready for your withdrawals.'
-              : 'You confirmed the number with the code sent to it.',
+            : 'You confirmed the number with the code sent to it.',
       });
       setCode('');
       setCodeSentTo(null);
@@ -297,8 +298,11 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
       : `${d.bank_name ?? 'Bank'} ${d.bank_account_number ?? ''}`.trim();
 
   /* Once the identity is captured, the number is locked to the account: it is
-     shown masked and read-only, and there is no way to change it from here. */
+     shown masked and read-only. It can only move when Financial Ops approves a
+     change request. */
   if (lockedNumber) {
+    const pending = changeRequest.data?.status === 'pending';
+    const rejected = changeRequest.data?.status === 'rejected';
     return (
       <div className="space-y-3 rounded-lg border p-3">
         <p className="flex items-center gap-2 text-sm font-semibold">
@@ -320,6 +324,30 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
         <p className="text-[11px] text-muted-foreground">
           For your security, withdrawals from this account can only be sent to this number.
         </p>
+
+        {pending ? (
+          <p className="rounded-md bg-amber-500/10 p-2 text-xs text-amber-700">
+            Your request to change this number is with Financial Ops. They will call you to confirm
+            the new number belongs to you.
+          </p>
+        ) : (
+          <>
+            {rejected && changeRequest.data?.decision_reason && (
+              <p className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+                Your last change request was not accepted: {changeRequest.data.decision_reason}
+              </p>
+            )}
+            <Button variant="outline" className="w-full h-11" onClick={() => setChangeOpen(true)}>
+              Ask to change this number
+            </Button>
+          </>
+        )}
+
+        <PayoutNumberChangeDialog
+          open={changeOpen}
+          onOpenChange={setChangeOpen}
+          onSubmitted={() => void changeRequest.refetch()}
+        />
       </div>
     );
   }

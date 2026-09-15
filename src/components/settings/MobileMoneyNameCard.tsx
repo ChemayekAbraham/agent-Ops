@@ -9,6 +9,8 @@ import { Loader2, Save, Wallet, Lock, Pencil, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { maskPayoutNumber } from "@/hooks/useIdentityBinding";
+import { useMyNumberChangeRequest } from "@/hooks/usePayoutNumberChange";
+import PayoutNumberChangeDialog from "@/components/wallet/PayoutNumberChangeDialog";
 
 interface Props {
   userId: string;
@@ -46,9 +48,11 @@ export default function MobileMoneyNameCard({ userId }: Props) {
   const [name, setName] = useState("");
   const [provider, setProvider] = useState<Provider>("mtn");
 
-  /* Once the identity is captured, the withdrawal number is locked to the
-     account and cannot be changed from anywhere in the app. */
+  /* Once the identity is captured the withdrawal number is locked; it can only
+     move when Financial Ops approves a change request. */
   const [locked, setLocked] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const changeRequest = useMyNumberChangeRequest();
 
   useEffect(() => {
     let cancelled = false;
@@ -169,7 +173,29 @@ export default function MobileMoneyNameCard({ userId }: Props) {
                 ? 'For your security, withdrawals can only be sent to this number.'
                 : "Used automatically on every withdrawal — you can't change it during cash-out."}
             </p>
-            {!locked && (
+            {locked ? (
+              changeRequest.data?.status === "pending" ? (
+                <p className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700">
+                  Your request to change this number is with Financial Ops. They will call you to
+                  confirm the new number belongs to you.
+                </p>
+              ) : (
+                <>
+                  {changeRequest.data?.status === "rejected" && changeRequest.data.decision_reason && (
+                    <p className="rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+                      Your last change request was not accepted: {changeRequest.data.decision_reason}
+                    </p>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 h-12 rounded-xl text-sm font-bold"
+                    onClick={() => setChangeOpen(true)}
+                  >
+                    <Pencil className="h-4 w-4" /> Ask to change this number
+                  </Button>
+                </>
+              )
+            ) : (
               <Button
                 variant="outline"
                 className="w-full gap-2 h-12 rounded-xl text-sm font-bold"
@@ -178,6 +204,11 @@ export default function MobileMoneyNameCard({ userId }: Props) {
                 <Pencil className="h-4 w-4" /> Edit withdrawal details
               </Button>
             )}
+            <PayoutNumberChangeDialog
+              open={changeOpen}
+              onOpenChange={setChangeOpen}
+              onSubmitted={() => void changeRequest.refetch()}
+            />
           </>
         ) : (
           <>

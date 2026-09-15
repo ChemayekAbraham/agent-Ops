@@ -29319,6 +29319,57 @@ export type Database = {
         }
         Relationships: []
       }
+      payout_number_change_requests: {
+        Row: {
+          created_at: string
+          current_number: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          ownership_code_confirmed_at: string | null
+          request_reason: string
+          requested_name: string
+          requested_number: string
+          requested_provider: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_number?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          ownership_code_confirmed_at?: string | null
+          request_reason: string
+          requested_name: string
+          requested_number: string
+          requested_provider?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_number?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          ownership_code_confirmed_at?: string | null
+          request_reason?: string
+          requested_name?: string
+          requested_number?: string
+          requested_provider?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       payout_proof_integrity_alerts: {
         Row: {
           created_at: string
@@ -51821,6 +51872,10 @@ export type Database = {
         Args: { _job_id: string }
         Returns: undefined
       }
+      cancel_payout_number_change: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       cancel_tenant_repayment_pause: {
         Args: { p_reason: string; p_rent_request_id: string }
         Returns: Json
@@ -53540,6 +53595,10 @@ export type Database = {
         }
         Returns: Json
       }
+      finops_decide_payout_number_change: {
+        Args: { p_decision: string; p_reason: string; p_request_id: string }
+        Returns: Json
+      }
       finops_edit_authorized: {
         Args: { p_action: string; p_context?: Json }
         Returns: boolean
@@ -53668,6 +53727,27 @@ export type Database = {
           p_to?: string
         }
         Returns: number
+      }
+      finops_payout_number_change_requests: {
+        Args: { p_status?: string }
+        Returns: {
+          created_at: string
+          current_number: string
+          decided_at: string
+          decided_by_name: string
+          decision_reason: string
+          full_name: string
+          id: string
+          national_id: string
+          ownership_code_confirmed_at: string
+          phone: string
+          request_reason: string
+          requested_name: string
+          requested_number: string
+          requested_provider: string
+          status: string
+          user_id: string
+        }[]
       }
       finops_payout_number_ownership_confirmed: {
         Args: { p_destination_id: string }
@@ -59429,6 +59509,10 @@ export type Database = {
         Args: { p_missing: Json; p_settlement_state: string; p_status: string }
         Returns: string
       }
+      payout_withdrawal_block_reasons: {
+        Args: { p_user_id?: string }
+        Returns: Json
+      }
       pin_agent_expected_day: { Args: { p_day: string }; Returns: number }
       populate_wallet_review_queue: {
         Args: never
@@ -60351,6 +60435,15 @@ export type Database = {
         Returns: Json
       }
       request_national_id_link: { Args: { p_nin: string }; Returns: Json }
+      request_payout_number_change: {
+        Args: {
+          p_name: string
+          p_number: string
+          p_provider: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       requeue_dead_letter_batch: {
         Args: { _dead_letter_id: number }
         Returns: undefined
