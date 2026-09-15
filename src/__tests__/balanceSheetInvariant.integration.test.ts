@@ -41,14 +41,16 @@ describe.runIf(canRun)('statement of financial position (integration)', () => {
     let output = '';
     try {
       // psql NOTICE/RAISE goes to stderr — merge both into one buffer.
-      output = execFileSync('psql', ['-v', 'ON_ERROR_STOP=1', '-f', sqlPath], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-    } catch (e) {
-      const err = e as { stdout?: string; stderr?: string };
+      output = execFileSync(
+        'bash',
+        ['-c', `psql -v ON_ERROR_STOP=1 -f ${JSON.stringify(sqlPath)} 2>&1`],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+      );
+    } catch (e: any) {
+      const stdout = e?.stdout?.toString() ?? '';
+      const stderr = e?.stderr?.toString() ?? '';
       throw new Error(
-        `balance sheet regression script failed:\n${err.stdout ?? ''}\n${err.stderr ?? ''}`,
+        `psql failed: ${e?.message}\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`,
       );
     }
 
@@ -63,5 +65,10 @@ describe.runIf(canRun)('statement of financial position (integration)', () => {
     ]) {
       expect(output).toContain(marker);
     }
-  });
+    expect(output).toContain('ROLLBACK');
+  }, 180_000);
+});
+
+describe.skipIf(canRun)('statement of financial position (integration)', () => {
+  it.skip('skipped: no PGHOST or psql in environment', () => {});
 });
