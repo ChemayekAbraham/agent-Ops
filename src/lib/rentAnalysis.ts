@@ -203,3 +203,35 @@ export function summariseBand(band: RentBand, rows: TenantRentRow[]): RentBandSu
     weeklyCount: rows.filter((row) => row.schedule.weekly).length,
   };
 }
+
+export interface RentTrendPoint {
+  /** yyyy-MM-dd in the reporting timezone used by the caller. */
+  day: string;
+  amount: number;
+  count: number;
+}
+
+/**
+ * Daily receipt series for the plans currently in scope. Pure re-grouping of the
+ * same receipts the summaries use — no new rule, no extra query.
+ */
+export function buildDailyTrend(
+  receipts: RentAnalysisReceipt[],
+  planIds: Set<string>,
+  days: string[],
+): RentTrendPoint[] {
+  const byDay = new Map<string, RentTrendPoint>();
+  days.forEach((day) => byDay.set(day, { day, amount: 0, count: 0 }));
+  receipts.forEach((receipt) => {
+    if (!planIds.has(receipt.rent_request_id)) return;
+    // Uganda has no DST; a fixed +3h shift gives the local calendar day.
+    const day = new Date(new Date(receipt.created_at).getTime() + 3 * 3_600_000)
+      .toISOString()
+      .slice(0, 10);
+    const point = byDay.get(day);
+    if (!point) return;
+    point.amount += Number(receipt.amount ?? 0);
+    point.count += 1;
+  });
+  return days.map((day) => byDay.get(day)!);
+}
