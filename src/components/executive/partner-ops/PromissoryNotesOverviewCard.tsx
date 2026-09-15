@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle } from 'lucide-react';
+import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,6 +66,10 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     return saved === 'activated' || saved === 'rejected' || saved === 'pending' || saved === 'overdue' ? saved : 'pending';
   });
   const [search, setSearch] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem('promissory-overview-collapsed');
+    return saved === 'true';
+  });
   const [approveTarget, setApproveTarget] = useState<any>(null);
   const [approveReason, setApproveReason] = useState('');
   const [approving, setApproving] = useState(false);
@@ -168,6 +172,10 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   React.useEffect(() => {
     localStorage.setItem('promissory-queue-status-filter', selected);
   }, [selected]);
+
+  React.useEffect(() => {
+    localStorage.setItem('promissory-overview-collapsed', String(isCollapsed));
+  }, [isCollapsed]);
 
   const openLabel = {
     pending: 'Open awaiting review',
