@@ -30,6 +30,7 @@ import { PartnerFinancialActivity } from './PartnerFinancialActivity';
 import { PendingFunderApprovals } from './PendingFunderApprovals';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
 import { PartnerOpsScoreboard } from './PartnerOpsScoreboard';
+import { PromissoryNotesOverviewCard } from './partner-ops/PromissoryNotesOverviewCard';
 
 import { NewPartnersPanel } from './NewPartnersPanel';
 import { PendingPartnerRequests } from './PendingPartnerRequests';
@@ -238,6 +239,9 @@ export function PartnersOpsDashboard() {
       case 'overview': return (
         <div className="space-y-4">
           <PartnerOpsSummaryCards onNavigate={setView} />
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
+            <PromissoryNotesOverviewCard onOpen={() => setView('proxy.promissory')} />
+          </motion.div>
           <div className="grid gap-4 lg:grid-cols-2">
             <PartnerRoiProjectionChart />
             <PartnerSupportMixChart />
