@@ -50,7 +50,9 @@ export function PromissoryNotesQueue({
   const { roles } = useAuth();
   const canReverseBonus = (roles || []).some((r: string) => ['ceo', 'coo', 'cfo', 'super_admin'].includes(r));
   const [search, setSearch] = useState(initialSearch ?? '');
-  const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter ?? 'all');
+  const [statusFilter, setStatusFilter] = useState<string>(() =>
+    initialStatusFilter ?? localStorage.getItem('promissory-queue-status-filter') ?? 'all'
+  );
   const { range, setRange, report, isLoading, refetch, error: reportError } = usePromissoryOpsReport();
   useEffect(() => {
     if (initialRange && initialRange !== range) {
@@ -341,6 +343,7 @@ export function PromissoryNotesQueue({
   const safePage = Math.min(page, totalPages);
   const pagedNotes = filtered.slice((safePage - 1) * NOTES_PER_PAGE, safePage * NOTES_PER_PAGE);
   useEffect(() => { setPage(1); }, [search, statusFilter, range]);
+  useEffect(() => { localStorage.setItem('promissory-queue-status-filter', statusFilter); }, [statusFilter]);
 
   const allPageSelected = pagedNotes.length > 0 && pagedNotes.every(n => selectedIds.includes(n.id));
   const toggleSelect = (id: string) =>
