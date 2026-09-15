@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Check, X, RefreshCw, ShieldCheck } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { formatDistanceToNowStrict } from 'date-fns';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 interface UnfundingRequest {
   id: string;
@@ -171,35 +172,37 @@ export function CFOUnfundingApprovals() {
                   )}
 
                   {isPending && (
-                    <div className="space-y-2">
-                      <Textarea
-                        rows={2}
-                        placeholder="Optional note for the audit log (e.g. confirmed with landlord by phone)"
-                        value={notes[r.id] || ''}
-                        onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
-                        maxLength={500}
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => decide(r.id, 'reject')}
-                          disabled={submittingId === r.id}
-                          className="gap-1.5"
-                        >
-                          <X className="h-4 w-4" /> Reject
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => decide(r.id, 'approve')}
-                          disabled={submittingId === r.id}
-                          className="gap-1.5"
-                        >
-                          {submittingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                          Approve & reverse
-                        </Button>
+                    <CfoApprovalGate>
+                      <div className="space-y-2">
+                        <Textarea
+                          rows={2}
+                          placeholder="Optional note for the audit log (e.g. confirmed with landlord by phone)"
+                          value={notes[r.id] || ''}
+                          onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
+                          maxLength={500}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => decide(r.id, 'reject')}
+                            disabled={submittingId === r.id}
+                            className="gap-1.5"
+                          >
+                            <X className="h-4 w-4" /> Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => decide(r.id, 'approve')}
+                            disabled={submittingId === r.id}
+                            className="gap-1.5"
+                          >
+                            {submittingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                            Approve & reverse
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    </CfoApprovalGate>
                   )}
                 </div>
               );

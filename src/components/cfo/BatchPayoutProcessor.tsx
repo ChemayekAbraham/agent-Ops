@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { excludePartnerReservedPlans } from '@/lib/partnerReservedPlans';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 export function BatchPayoutProcessor() {
   const { user } = useAuth();
@@ -144,6 +145,7 @@ export function BatchPayoutProcessor() {
 
             {/* Batch actions */}
             {selected.size > 0 && (
+              <CfoApprovalGate>
               <div className="flex items-center gap-2 pt-2 border-t">
                 <Input placeholder="Batch reference (e.g. MoMo-2024-01)" value={batchRef} onChange={e => setBatchRef(e.target.value)} className="h-8 text-sm flex-1" />
                 <Button size="sm" onClick={() => batchApprove.mutate()} disabled={batchApprove.isPending || !batchRef.trim()}>
@@ -151,6 +153,7 @@ export function BatchPayoutProcessor() {
                   Disburse ({selected.size})
                 </Button>
               </div>
+              </CfoApprovalGate>
             )}
           </div>
         )}

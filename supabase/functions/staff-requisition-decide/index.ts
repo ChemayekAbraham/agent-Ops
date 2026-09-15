@@ -78,11 +78,11 @@ Deno.serve(async (req) => {
       return json({ error: "self_approval_blocked", message: "You cannot decide your own requisition." }, 403);
     }
 
-    // CFO-stage decisions are restricted to the designated CFO approver.
+    // CFO-stage decisions are restricted; refusal is deliberately non-disclosing.
     if (row.current_approver_role === "cfo" && !(await isCfoApprover(admin, actor.id))) {
       return json({
-        error: "cfo_approver_required",
-        message: "Only the designated CFO approver may approve CFO requests.",
+        error: "forbidden",
+        message: "This request could not be completed.",
       }, 403);
     }
 

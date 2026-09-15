@@ -7,6 +7,7 @@ import {
   MARKETING_LEGACY_DESC_BUCKETS,
   OPERATING_EXPENSE_CATEGORIES,
   OPERATING_LEGACY_DESC_BUCKETS,
+  CONTRA_REVENUE_CATEGORIES,
   classifyLedgerCategory,
   prettyCategory,
   type ServiceFamilyKey,
@@ -41,6 +42,11 @@ export interface UnmappedLedgerLine {
 
 export interface ServiceIncomeStatement {
   revenueFamilies: ServiceRevenueFamily[];
+  /** Gross service revenue before contra-revenue deductions. */
+  grossRevenue: number;
+  /** Revenue deductions (e.g. pricing subsidies) that debit R1 Platform Revenue. */
+  contraRevenue: ExpenseGroup;
+  /** Net service revenue = grossRevenue − contraRevenue.total. */
   totalRevenue: number;
   marketing: ExpenseGroup;
   operating: ExpenseGroup;
@@ -1227,7 +1233,7 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
         };
       }).filter(f => f.lines.length > 0);
 
-      const serviceTotalRevenue = revenueFamilies.reduce((s, f) => s + f.total, 0);
+      const serviceGrossRevenue = revenueFamilies.reduce((s, f) => s + f.total, 0);
 
       const buildExpenseGroup = (
         categories: string[],
@@ -1254,6 +1260,19 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
 
       const marketingGroup = buildExpenseGroup(MARKETING_EXPENSE_CATEGORIES, MARKETING_LEGACY_DESC_BUCKETS);
       const operatingGroup = buildExpenseGroup(OPERATING_EXPENSE_CATEGORIES, OPERATING_LEGACY_DESC_BUCKETS);
+
+      // Contra-revenue: legs that DEBIT R1 Platform Revenue (pricing subsidies
+      // and similar). Deducted from gross service revenue, never expensed.
+      const contraRevenueGroup: ExpenseGroup = (() => {
+        const lines: StatementCategoryLine[] = [];
+        CONTRA_REVENUE_CATEGORIES.forEach(cat => {
+          const amount = sumWithDirectionFallback(platformIn, platformOut, [cat]);
+          if (amount > 0) lines.push(line(cat, amount));
+        });
+        return { lines, total: lines.reduce((s, l) => s + l.amount, 0) };
+      })();
+
+      const serviceTotalRevenue = serviceGrossRevenue - contraRevenueGroup.total;
 
       // Anything on the platform ledger that maps to no existing service or
       // accounting bucket is flagged — never absorbed into a total.
@@ -1282,6 +1301,8 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
           period: formatPeriodLabel(activeFilters),
           byService: {
             revenueFamilies,
+            grossRevenue: serviceGrossRevenue,
+            contraRevenue: contraRevenueGroup,
             totalRevenue: serviceTotalRevenue,
             marketing: marketingGroup,
             operating: operatingGroup,

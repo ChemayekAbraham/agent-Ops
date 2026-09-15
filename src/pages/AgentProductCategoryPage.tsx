@@ -116,26 +116,38 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
 
   return (
     <Tabs defaultValue="overview" className="space-y-4 max-w-full">
-      <TabsList className="flex-wrap h-auto max-w-full">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="pending" className="gap-2">
-          Pending Applications
-          {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
-        </TabsTrigger>
-        <TabsTrigger value="in-progress" className="gap-2">
-          In Progress
-          {orderCounts.inProgress > 0 && (
-            <Badge variant="secondary" className="bg-sky-500/15 text-sky-600 border-sky-500/30">
-              {orderCounts.inProgress}
-            </Badge>
-          )}
-        </TabsTrigger>
-        <TabsTrigger value="issued">Issued Devices</TabsTrigger>
-        <TabsTrigger value="rejected" className="gap-2">
-          Rejected Applications
-          {orderCounts.rejected > 0 && <Badge variant="secondary">{orderCounts.rejected}</Badge>}
-        </TabsTrigger>
-      </TabsList>
+      <div className="w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
+        <TabsList className="inline-flex w-max min-w-full sm:min-w-0 justify-start h-10 p-1 gap-1 bg-muted/60 rounded-xl">
+          <TabsTrigger value="overview" className="shrink-0 text-xs sm:text-sm">Overview</TabsTrigger>
+          <TabsTrigger value="pending" className="shrink-0 text-xs sm:text-sm gap-1.5">
+            Pending <span className="hidden sm:inline">Applications</span>
+            {pendingCount > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                {pendingCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="in-progress" className="shrink-0 text-xs sm:text-sm gap-1.5">
+            In Progress
+            {orderCounts.inProgress > 0 && (
+              <Badge variant="secondary" className="bg-sky-500/15 text-sky-600 border-sky-500/30 text-[10px] px-1.5 py-0 h-4">
+                {orderCounts.inProgress}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="issued" className="shrink-0 text-xs sm:text-sm">
+            Issued <span className="hidden sm:inline">Devices</span>
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="shrink-0 text-xs sm:text-sm gap-1.5">
+            Rejected <span className="hidden sm:inline">Applications</span>
+            {orderCounts.rejected > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                {orderCounts.rejected}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+      </div>
 
       <TabsContent value="overview" className="space-y-6 max-w-full">
         <AgentProductsPanel category={category} mode="overview" />
@@ -178,29 +190,35 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
 
   return (
     <Tabs defaultValue="overview" className="space-y-4 max-w-full">
-      <TabsList className="flex-wrap h-auto max-w-full">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="applications" className="gap-2">
-          Bike Lease Applications
-          {counts.pendingOps > 0 && <Badge variant="secondary">{counts.pendingOps}</Badge>}
-        </TabsTrigger>
-        <TabsTrigger value="awaiting-exec" className="gap-2">
-          Awaiting COO &amp; CFO
-          {counts.awaitingExec > 0 && (
-            <Badge variant="secondary" className="bg-sky-500/15 text-sky-600 border-sky-500/30">
-              {counts.awaitingExec}
-            </Badge>
-          )}
-        </TabsTrigger>
-        <TabsTrigger value="approved" className="gap-2">
-          Approved Applications
-          {counts.approved > 0 && (
-            <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30">
-              {counts.approved}
-            </Badge>
-          )}
-        </TabsTrigger>
-      </TabsList>
+      <div className="w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
+        <TabsList className="inline-flex w-max min-w-full sm:min-w-0 justify-start h-10 p-1 gap-1 bg-muted/60 rounded-xl">
+          <TabsTrigger value="overview" className="shrink-0 text-xs sm:text-sm">Overview</TabsTrigger>
+          <TabsTrigger value="applications" className="shrink-0 text-xs sm:text-sm gap-1.5">
+            Applications
+            {counts.pendingOps > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                {counts.pendingOps}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="awaiting-exec" className="shrink-0 text-xs sm:text-sm gap-1.5">
+            Awaiting Exec
+            {counts.awaitingExec > 0 && (
+              <Badge variant="secondary" className="bg-sky-500/15 text-sky-600 border-sky-500/30 text-[10px] px-1.5 py-0 h-4">
+                {counts.awaitingExec}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="approved" className="shrink-0 text-xs sm:text-sm gap-1.5">
+            Approved
+            {counts.approved > 0 && (
+              <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[10px] px-1.5 py-0 h-4">
+                {counts.approved}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+      </div>
 
       <TabsContent value="overview" className="space-y-6 max-w-full">
         <AgentProductsPanel category={category} />
@@ -234,15 +252,25 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
 
   return (
     <Tabs defaultValue="overview" className="space-y-4">
-      <TabsList className="flex-wrap h-auto">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="applications" className="gap-2">
-          Applications
-          {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
-        </TabsTrigger>
-        <TabsTrigger value="issued">Issued in Field</TabsTrigger>
-        <TabsTrigger value="completed">Completed Payments</TabsTrigger>
-      </TabsList>
+      <div className="w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
+        <TabsList className="inline-flex w-max min-w-full sm:min-w-0 justify-start h-10 p-1 gap-1 bg-muted/60 rounded-xl">
+          <TabsTrigger value="overview" className="shrink-0 text-xs sm:text-sm">Overview</TabsTrigger>
+          <TabsTrigger value="applications" className="shrink-0 text-xs sm:text-sm gap-1.5">
+            Applications
+            {pendingCount > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                {pendingCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="issued" className="shrink-0 text-xs sm:text-sm">
+            Issued <span className="hidden sm:inline">in Field</span>
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="shrink-0 text-xs sm:text-sm">
+            Completed <span className="hidden sm:inline">Payments</span>
+          </TabsTrigger>
+        </TabsList>
+      </div>
 
       <TabsContent value="overview" className="space-y-6">
         <AgentProductsPanel category={category} mode="overview" />

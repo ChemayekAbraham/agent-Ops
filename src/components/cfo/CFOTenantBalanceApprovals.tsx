@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowRight, Check, Loader2, ScrollText, X } from 'lucide-react';
+import { ArrowRight, Check, Loader2, ScrollText, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 /**
  * Tenant balance changes awaiting the CFO.
@@ -162,8 +163,8 @@ export function CFOTenantBalanceApprovals() {
                   </p>
                 )}
 
-                {r.can_decide ? (
-                  <>
+                {r.can_decide && (
+                  <CfoApprovalGate>
                     <Textarea
                       rows={2}
                       className="mt-2.5 text-sm"
@@ -181,12 +182,7 @@ export function CFOTenantBalanceApprovals() {
                         <X className="mr-1.5 h-4 w-4" /> Reject
                       </Button>
                     </div>
-                  </>
-                ) : (
-                  <p className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    Only the designated CFO approver can decide this.
-                  </p>
+                  </CfoApprovalGate>
                 )}
               </div>
             );

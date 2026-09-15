@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Building2, CheckCircle, XCircle, Loader2, MapPin, ExternalLink, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 interface SCRow {
   id: string;
@@ -292,6 +293,7 @@ export function CFOServiceCentreSpendApproval() {
       )}
 
       {actionable && (
+        <CfoApprovalGate>
         <div className="space-y-2 rounded-lg border border-border p-2.5">
           <div className="space-y-1.5 rounded-lg bg-muted/40 p-2">
             <p className="text-[11px] font-semibold text-foreground">Who gets this money</p>
@@ -435,6 +437,7 @@ export function CFOServiceCentreSpendApproval() {
             </Button>
           </div>
         </div>
+        </CfoApprovalGate>
       )}
     </div>
   );

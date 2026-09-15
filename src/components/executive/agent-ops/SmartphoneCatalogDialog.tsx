@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Trash2, Smartphone, Pencil, FileDown, X, Check } from 'lucide-react';
+import { Plus, Trash2, Smartphone, Pencil, FileDown, X, Check, ChevronDown } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -311,6 +311,7 @@ export function SmartphoneCatalogDialog() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editBrand, setEditBrand] = useState('');
   const [editModel, setEditModel] = useState('');
   const [editOsType, setEditOsType] = useState<SmartphoneOsType>('android');
@@ -720,7 +721,7 @@ export function SmartphoneCatalogDialog() {
             </div>
           </div>
 
-          <div className="space-y-2 max-h-72 overflow-y-auto">
+          <div className="space-y-2 max-h-[32rem] overflow-y-auto">
             {isLoading ? (
               <p className="text-xs text-muted-foreground">Loading catalog…</p>
             ) : filtered.length === 0 ? (
@@ -728,9 +729,13 @@ export function SmartphoneCatalogDialog() {
                 {entries.length === 0 ? 'No phones registered yet.' : 'No phones match these filters.'}
               </p>
             ) : (
-              filtered.map((e) =>
-                editingId === e.id ? (
-                  <div key={e.id} className="space-y-2 rounded-lg border p-2">
+              filtered.map((e) => {
+                const amount = Number(e.default_amount || 0);
+                const schedule = amount > 0 ? smartphoneScheduleGrid(amount) : [];
+                const isExpanded = expandedId === e.id;
+
+                return editingId === e.id ? (
+                  <div key={e.id} className="space-y-2 rounded-lg border p-3 bg-card shadow-xs">
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                       <Input value={editBrand} onChange={(ev) => setEditBrand(ev.target.value)} placeholder="Brand" />
                       <Input value={editModel} onChange={(ev) => setEditModel(ev.target.value)} placeholder="Model (optional)" />
@@ -753,6 +758,36 @@ export function SmartphoneCatalogDialog() {
                         placeholder="Default amount"
                       />
                     </div>
+
+                    {previewAmount(editAmount) > 0 && (
+                      <div className="rounded-md border border-border bg-background/60 p-2">
+                        <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground mb-1.5">
+                          <span>Receivables &amp; Returns preview (28%/month reducing)</span>
+                          <span className="font-semibold text-foreground">{formatUGX(previewAmount(editAmount))} cost</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          {smartphoneScheduleGrid(previewAmount(editAmount)).map((s) => {
+                            const profit = Math.max(0, s.total - previewAmount(editAmount));
+                            return (
+                              <div key={s.months} className="rounded-md bg-muted/60 p-1.5 text-center">
+                                <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
+                                  <span className="font-semibold text-foreground">{s.months}m</span>
+                                  <span className="text-emerald-600 font-bold">+{s.markupPct}%</span>
+                                </div>
+                                <p className="text-xs font-bold tabular-nums text-foreground">{formatUGX(s.total)}</p>
+                                <p className="text-[10px] text-emerald-600 font-medium tabular-nums">
+                                  +{formatUGX(profit)} return
+                                </p>
+                                <p className="text-[9px] text-muted-foreground tabular-nums">
+                                  {formatUGX(s.daily)}→{formatUGX(s.dailyLast)}/d
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <textarea
                       value={editSpecifications}
                       onChange={(ev) => setEditSpecifications(ev.target.value)}
@@ -768,7 +803,6 @@ export function SmartphoneCatalogDialog() {
                       className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                     />
                     <div className="flex items-center justify-end gap-1.5">
-
                       <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
                         <X className="mr-1 h-3.5 w-3.5" /> Cancel
                       </Button>
@@ -778,48 +812,116 @@ export function SmartphoneCatalogDialog() {
                     </div>
                   </div>
                 ) : (
-                  <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg border p-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{labelOf(e)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {e.os_type ? osLabel(e.os_type) : 'Phone'}
-                        {' · '}
-                        {e.default_amount != null ? formatUGX(Number(e.default_amount)) : 'No default amount'}
-                        {' · added '}
-                        {fmtDate(e.created_at)}
-                      </p>
-                      {(e.specifications || e.more_specifications) && (
-                        <p className="truncate text-xs text-muted-foreground mt-0.5">
-                          {[e.specifications, e.more_specifications].filter(Boolean).join(' · ')}
+                  <div
+                    key={e.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setExpandedId((prev) => (prev === e.id ? null : e.id))}
+                    onKeyDown={(ev) => {
+                      if (ev.key === 'Enter' || ev.key === ' ') {
+                        ev.preventDefault();
+                        setExpandedId((prev) => (prev === e.id ? null : e.id));
+                      }
+                    }}
+                    className={`flex flex-col gap-2 rounded-lg border p-2 cursor-pointer transition-colors hover:bg-muted/40 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      isExpanded ? 'border-primary/50 bg-muted/20 shadow-xs' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{labelOf(e)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {e.os_type ? osLabel(e.os_type) : 'Phone'}
+                          {' · '}
+                          {amount > 0 ? formatUGX(amount) : 'No default amount'}
+                          {' · added '}
+                          {fmtDate(e.created_at)}
                         </p>
-                      )}
-
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <Badge variant={e.is_active ? 'default' : 'secondary'}>
-                        {e.is_active ? 'active' : 'inactive'}
-                      </Badge>
-                      <Switch
-                        checked={e.is_active}
-                        onCheckedChange={(next) => toggleActive.mutate({ id: e.id, next })}
-                        disabled={toggleActive.isPending}
-                        aria-label={`Toggle ${labelOf(e)}`}
-                      />
-                      <Button size="icon" variant="ghost" onClick={() => startEdit(e)} aria-label={`Edit ${labelOf(e)}`}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setPendingDelete(e)}
-                        aria-label={`Remove ${labelOf(e)}`}
+                        {(e.specifications || e.more_specifications) && (
+                          <p className="truncate text-xs text-muted-foreground mt-0.5">
+                            {[e.specifications, e.more_specifications].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                      <div
+                        className="flex shrink-0 items-center gap-1.5"
+                        onClick={(ev) => ev.stopPropagation()}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                        <Badge variant={e.is_active ? 'default' : 'secondary'} className="text-[10px]">
+                          {e.is_active ? 'active' : 'inactive'}
+                        </Badge>
+                        <Switch
+                          checked={e.is_active}
+                          onCheckedChange={(next) => toggleActive.mutate({ id: e.id, next })}
+                          disabled={toggleActive.isPending}
+                          aria-label={`Toggle ${labelOf(e)}`}
+                        />
+                        <Button size="icon" variant="ghost" onClick={() => startEdit(e)} aria-label={`Edit ${labelOf(e)}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setPendingDelete(e)}
+                          aria-label={`Remove ${labelOf(e)}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                        <div className="text-muted-foreground/60 pl-0.5 pointer-events-none">
+                          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-primary' : ''}`} />
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Projections Breakdown — ONLY visible when the card is expanded */}
+                    {isExpanded && (
+                      <div
+                        className="rounded-md bg-muted/40 border border-border/50 p-2 space-y-1.5 mt-0.5 animate-in fade-in-50 duration-150"
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">
+                            Recovery Projections &amp; Returns
+                          </span>
+                          <span>28%/mo reducing balance</span>
+                        </div>
+                        {amount > 0 ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                            {schedule.map((s) => {
+                              const profit = Math.max(0, s.total - amount);
+                              return (
+                                <div
+                                  key={s.months}
+                                  className="rounded bg-background/90 border border-border/60 p-1.5 text-center shadow-2xs"
+                                >
+                                  <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
+                                    <span className="font-semibold text-foreground">{s.months} mos</span>
+                                    <span className="text-emerald-600 font-bold">+{s.markupPct}%</span>
+                                  </div>
+                                  <p className="text-xs font-bold tabular-nums text-foreground">{formatUGX(s.total)}</p>
+                                  <p className="text-[10px] font-semibold text-emerald-600 tabular-nums">
+                                    +{formatUGX(profit)} return
+                                  </p>
+                                  <p className="text-[9px] text-muted-foreground tabular-nums truncate">
+                                    {formatUGX(s.daily)}→{formatUGX(s.dailyLast)}/d
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between text-xs py-1 px-1">
+                            <span className="text-muted-foreground italic text-[11px]">No default amount configured for this model.</span>
+                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => startEdit(e)}>
+                              <Pencil className="h-3 w-3" /> Set price
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ),
-              )
+                );
+              })
             )}
           </div>
         </DialogContent>

@@ -12,6 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import {
   generateAgentProductsServicesPdf, type ApsReport, type ApsCumulative,
@@ -51,6 +52,7 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
   const [rangeTo, setRangeTo] = useState<Date>(() => new Date());
   const [activeRangePreset, setActiveRangePreset] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [actorName, setActorName] = useState('');
 
   useEffect(() => {
@@ -290,8 +292,12 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
 
   const activeRangePresetLabel = rangePresets.find(([k]) => k === activeRangePreset)?.[1];
 
-  return (
-    <div className={cn('flex flex-wrap items-center gap-2 max-w-full', className)}>
+  const dateSummaryLabel = mode === 'single'
+    ? (isSameDay(singleDate, new Date()) ? 'Today' : isSameDay(singleDate, subDays(new Date(), 1)) ? 'Yesterday' : format(singleDate, 'dd MMM'))
+    : (activeRangePresetLabel || `${format(rangeFrom, 'dd MMM')}–${format(rangeTo, 'dd MMM')}`);
+
+  const renderDateControls = (isMobile = false) => (
+    <>
       <div className="inline-flex items-center rounded-lg bg-muted/60 p-0.5 border">
         <Button
           type="button"
@@ -418,16 +424,59 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
           </Popover>
         </>
       )}
+    </>
+  );
 
-      <Button
-        size="sm"
-        className="h-8 text-[11px]"
-        disabled={!report || exporting}
-        onClick={handlePdf}
-      >
-        {exporting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1" />}
-        {isRange ? 'Export Cumulative PDF' : 'Export Daily PDF'}
-      </Button>
+  return (
+    <div className={cn('w-full sm:w-auto', className)}>
+      {/* Mobile view: Collapsed by default */}
+      <div className="sm:hidden w-full space-y-2">
+        <div className="flex items-center gap-2 w-full">
+          <Button
+            size="sm"
+            className="h-9 text-xs font-semibold flex-1 justify-center"
+            disabled={!report || exporting}
+            onClick={handlePdf}
+          >
+            {exporting ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />}
+            {isRange ? 'Export Cumulative PDF' : 'Export Daily PDF'}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-9 px-2.5 text-xs font-medium gap-1 shrink-0 border-border/80"
+            onClick={() => setMobileOpen((prev) => !prev)}
+            aria-label="Toggle export date options"
+          >
+            <CalendarIcon className="h-3.5 w-3.5 text-primary" />
+            <span className="text-[11px] font-semibold">{dateSummaryLabel}</span>
+            <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform duration-200', mobileOpen && 'rotate-180')} />
+          </Button>
+        </div>
+
+        <Collapsible open={mobileOpen} onOpenChange={setMobileOpen}>
+          <CollapsibleContent className="p-2.5 bg-muted/40 border border-border/60 rounded-xl space-y-2 animate-in fade-in-50 duration-150">
+            <div className="flex flex-wrap items-center gap-2">
+              {renderDateControls(true)}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+
+      {/* Desktop view: Uncollapsed */}
+      <div className="hidden sm:flex flex-wrap items-center gap-2 max-w-full">
+        {renderDateControls(false)}
+        <Button
+          size="sm"
+          className="h-8 text-[11px]"
+          disabled={!report || exporting}
+          onClick={handlePdf}
+        >
+          {exporting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1" />}
+          {isRange ? 'Export Cumulative PDF' : 'Export Daily PDF'}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 const MONTHLY_RATE = 0.33;
 const fmt = (n: number) =>
@@ -332,6 +333,7 @@ export function CreditDrawApprovalQueue() {
                         <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{fmt(terms.totalPayable)}</td>
                         <td className="px-3 py-2 text-right whitespace-nowrap">{fmt(terms.dailyCharge)}</td>
                         <td className="px-3 py-2">
+                          <CfoApprovalGate>
                           {rejectingId === item.id ? (
                             <div className="space-y-1 min-w-[180px]">
                               <Input
@@ -369,6 +371,7 @@ export function CreditDrawApprovalQueue() {
                               </Button>
                             </div>
                           )}
+                          </CfoApprovalGate>
                         </td>
                       </tr>
                     );

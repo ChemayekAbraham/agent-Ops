@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { Undo2, Loader2 } from 'lucide-react';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 interface Props {
   advance: any | null;
@@ -250,6 +251,7 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={submitting}>Keep advance</AlertDialogCancel>
+          <CfoApprovalGate>
           <Button
             variant="destructive"
             onClick={handleSubmit}
@@ -263,6 +265,7 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
           >
             {submitting ? (<><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Reversing…</>) : 'Reverse advance'}
           </Button>
+          </CfoApprovalGate>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

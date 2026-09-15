@@ -25,6 +25,7 @@ import {
   type MerchantFloatTransaction,
 } from '@/lib/merchantFloatAllocationsPdf';
 import { getTelecomSendingCharge } from '@/lib/cashoutCharges';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 interface FloatRequestRow {
   id: string;
@@ -735,14 +736,16 @@ export function MerchantFloatRequestsPanel() {
                   {new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
-              <div className="flex shrink-0 gap-2">
-                <Button size="sm" variant="outline" className="gap-1 text-red-600 hover:text-red-700" onClick={() => openReject(r)}>
-                  <X className="h-4 w-4" /> Reject
-                </Button>
-                <Button size="sm" className="gap-1" onClick={() => openFund(r)}>
-                  <Send className="h-4 w-4" /> Fund float
-                </Button>
-              </div>
+              <CfoApprovalGate>
+                <div className="flex shrink-0 gap-2">
+                  <Button size="sm" variant="outline" className="gap-1 text-red-600 hover:text-red-700" onClick={() => openReject(r)}>
+                    <X className="h-4 w-4" /> Reject
+                  </Button>
+                  <Button size="sm" className="gap-1" onClick={() => openFund(r)}>
+                    <Send className="h-4 w-4" /> Fund float
+                  </Button>
+                </div>
+              </CfoApprovalGate>
             </div>
           ))
           )

@@ -22,6 +22,7 @@ import {
 } from '@/lib/agentAdvanceCalculations';
 import { disburseAgentAdvanceRequest } from '@/lib/disburseAgentAdvance';
 import { DuplicateAccountAlert, useAgentDuplicateMap } from '@/components/ops/DuplicateAccountAlert';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 /**
  * Fat-finger guardrails. These are ADVISORY: the CFO may issue outside them, but only
@@ -483,10 +484,12 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {submitting && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-            Issue {principal > 0 ? formatUGX(principal) : 'advance'}
-          </Button>
+          <CfoApprovalGate>
+            <Button onClick={handleSubmit} disabled={!canSubmit}>
+              {submitting && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Issue {principal > 0 ? formatUGX(principal) : 'advance'}
+            </Button>
+          </CfoApprovalGate>
         </DialogFooter>
       </DialogContent>
     </Dialog>

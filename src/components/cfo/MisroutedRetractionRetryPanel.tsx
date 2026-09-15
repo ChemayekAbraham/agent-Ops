@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 /**
  * MisroutedRetractionRetryPanel
@@ -205,6 +206,7 @@ export function MisroutedRetractionRetryPanel() {
                     Already retried
                   </Badge>
                 ) : (
+                  <CfoApprovalGate>
                   <Button
                     size="sm"
                     variant="default"
@@ -220,6 +222,7 @@ export function MisroutedRetractionRetryPanel() {
                     )}
                     Retry with correct recipient
                   </Button>
+                  </CfoApprovalGate>
                 )}
               </div>
             </div>

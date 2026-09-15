@@ -34,10 +34,38 @@ interface PsoFundedSummary {
   as_at: string;
 }
 
+interface NonOfficerRow {
+  person_user_id: string;
+  person_name: string;
+  day: string;
+  notes_created: number;
+  notes_reversed: number;
+  net_notes: number;
+  partner_registered: number;
+}
+
+interface NonOfficerFunded {
+  person_user_id: string;
+  person_name: string;
+  notes_in_cohort: number;
+  notes_unapproved: number;
+  notes_funded: number;
+  funders_converted: number;
+  topups: number;
+  amount_deployed: number;
+  commission_base: number;
+  commission_accrued: number;
+  pre_enrolment_notes: number;
+  pre_enrolment_funded: number;
+  pre_enrolment_amount: number;
+  as_at: string;
+}
+
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+// The reporting week runs Wednesday → Tuesday, so the day columns start on Wed.
+const WEEKDAY_LABELS = ['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'];
+const WEEKDAY_INITIALS = ['W', 'T', 'F', 'S', 'S', 'M', 'T'];
 
 function getKampalaParts(d: Date): { year: number; month: number; day: number } {
   const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -87,13 +115,29 @@ function formatUgxCompact(v: number): string {
   return `UGX ${v.toLocaleString('en-UG')}`;
 }
 
-// 0 = Monday. Local getters on a midday anchor, never UTC getters.
+// 0 = Wednesday (the first day of the reporting week).
+// Local getters on a midday anchor, never UTC getters.
 function kampalaWeekdayIndex(day: string): number {
   const d = new Date(`${day}T12:00:00`);
-  return (d.getDay() + 6) % 7;
+  return (d.getDay() + 4) % 7;
 }
 
-function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to: string; label: string } {
+function addDays(d: Date, n: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + n);
+  return next;
+}
+
+// Wednesday that opens the reporting week containing `day`.
+function startOfReportingWeek(day: Date): Date {
+  return addDays(day, -((day.getDay() + 4) % 7));
+}
+
+function getWindowDates(
+  mode: WindowMode,
+  todayStr: string,
+  weekOffset = 0,
+): { from: string; to: string; label: string } {
   const today = new Date(`${todayStr}T12:00:00`);
 
   if (mode === 'DAILY') {
@@ -101,11 +145,15 @@ function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to:
   }
 
   if (mode === 'WEEKLY') {
-    const mondayStr = formatKampalaDate(startOfISOWeek(today));
+    const start = addDays(startOfReportingWeek(today), weekOffset * 7);
+    const end = addDays(start, 6);
+    const startStr = formatKampalaDate(start);
+    // The live week stops at today; a past week shows its full Wed–Tue span.
+    const endStr = end > today ? todayStr : formatKampalaDate(end);
     return {
-      from: mondayStr,
-      to: todayStr,
-      label: `WEEKLY · ${formatKampalaDisplay(mondayStr)} – ${formatKampalaDisplay(todayStr)}`,
+      from: startStr,
+      to: endStr,
+      label: `WEEKLY · ${formatKampalaDisplay(startStr)} – ${formatKampalaDisplay(endStr)}`,
     };
   }
 
@@ -148,9 +196,25 @@ interface OfficerSummary {
   preEnrolmentAmount: number;
 }
 
+interface PersonSummary {
+  person_user_id: string;
+  person_name: string;
+  netNotes: number;
+  weekday: number[];
+  notesUnapproved: number;
+  notesFunded: number;
+  fundersConverted: number;
+  topups: number;
+  amountDeployed: number;
+  commissionBase: number;
+  commissionAccrued: number;
+}
+
 export default function PlatformSalesOfficersPage() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
+  // 0 = the live Wed–Tue week, -1 = the week before it, and so on.
+  const [weekOffset, setWeekOffset] = useState(0);
 
   // The Kampala calendar date is state, not a one-off computation, so a screen
   // left open rolls its window over at 00:00 EAT without a reload.
@@ -164,8 +228,15 @@ export default function PlatformSalesOfficersPage() {
     return () => clearInterval(id);
   }, []);
 
-  const { from, to, label } = useMemo(() => getWindowDates(mode, todayStr), [mode, todayStr]);
-  const todayWeekday = useMemo(() => kampalaWeekdayIndex(todayStr), [todayStr]);
+  const { from, to, label } = useMemo(
+    () => getWindowDates(mode, todayStr, weekOffset),
+    [mode, todayStr, weekOffset],
+  );
+  // Only the live week highlights today's column.
+  const todayWeekday = useMemo(
+    () => (mode === 'WEEKLY' && weekOffset !== 0 ? -1 : kampalaWeekdayIndex(todayStr)),
+    [mode, weekOffset, todayStr],
+  );
 
   const {
     data: rows = [],
@@ -213,6 +284,36 @@ export default function PlatformSalesOfficersPage() {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
+
+  const { data: nonOfficerRows = [] } = useQuery<NonOfficerRow[]>({
+    queryKey: ['pso-daily-series-non-officers', from, to],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_non_officer_series' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: NonOfficerRow[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
+  const { data: nonOfficerFunded = [] } = useQuery<NonOfficerFunded[]>({
+    queryKey: ['pso-funded-summary-non-officers', from, to],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_non_officer_funded_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: NonOfficerFunded[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
 
   const fundedAsAt = fundedSummaries[0]?.as_at ?? null;
 
@@ -270,9 +371,71 @@ export default function PlatformSalesOfficersPage() {
     return out;
   }, [officers]);
 
+  const people = useMemo<PersonSummary[]>(() => {
+    const fundedById = new Map(nonOfficerFunded.map((s) => [s.person_user_id, s]));
+    const byId = new Map<string, PersonSummary>();
+
+    for (const row of nonOfficerRows) {
+      let entry = byId.get(row.person_user_id);
+      if (!entry) {
+        const funded = fundedById.get(row.person_user_id);
+        entry = {
+          person_user_id: row.person_user_id,
+          person_name: row.person_name,
+          netNotes: 0,
+          weekday: [0, 0, 0, 0, 0, 0, 0],
+          notesUnapproved: funded?.notes_unapproved ?? 0,
+          notesFunded: funded?.notes_funded ?? 0,
+          fundersConverted: funded?.funders_converted ?? 0,
+          topups: funded?.topups ?? 0,
+          amountDeployed: funded?.amount_deployed ?? 0,
+          commissionBase: funded?.commission_base ?? 0,
+          commissionAccrued: funded?.commission_accrued ?? 0,
+        };
+        byId.set(row.person_user_id, entry);
+      }
+      entry.netNotes += row.net_notes ?? 0;
+      entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes ?? 0;
+    }
+
+    return Array.from(byId.values()).sort(
+      (a, b) => b.netNotes - a.netNotes || a.person_name.localeCompare(b.person_name),
+    );
+  }, [nonOfficerRows, nonOfficerFunded]);
+
+  const peopleRanks = useMemo(() => {
+    const out: number[] = [];
+    people.forEach((p, i) => {
+      out.push(i > 0 && people[i - 1].netNotes === p.netNotes ? out[i - 1] : i + 1);
+    });
+    return out;
+  }, [people]);
+
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
   const fundedTotal = useMemo(() => officers.reduce((s, o) => s + o.notesFunded, 0), [officers]);
   const moneyTotal = useMemo(() => officers.reduce((s, o) => s + o.amountDeployed, 0), [officers]);
+
+  const peopleNetTotal = useMemo(() => people.reduce((s, p) => s + p.netNotes, 0), [people]);
+  const peopleFundedTotal = useMemo(() => people.reduce((s, p) => s + p.notesFunded, 0), [people]);
+  const peopleMoneyTotal = useMemo(() => people.reduce((s, p) => s + p.amountDeployed, 0), [people]);
+  const combinedNetTotal = netTotal + peopleNetTotal;
+  const combinedFundedTotal = fundedTotal + peopleFundedTotal;
+  const combinedMoneyTotal = moneyTotal + peopleMoneyTotal;
+
+  // Per-table day-column sums for the window currently shown. Recompute
+  // whenever the window or the polled data changes.
+  const officerWeekdayTotals = useMemo(() => {
+    const weekday = [0, 0, 0, 0, 0, 0, 0];
+    for (const o of officers) o.weekday.forEach((v, wi) => { weekday[wi] += v; });
+    return weekday;
+  }, [officers]);
+
+  const peopleWeekdayTotals = useMemo(() => {
+    const weekday = [0, 0, 0, 0, 0, 0, 0];
+    for (const p of people) p.weekday.forEach((v, wi) => { weekday[wi] += v; });
+    return weekday;
+  }, [people]);
+
 
   const isNotPermitted = error instanceof Error && error.message.includes('not permitted');
 
@@ -292,15 +455,57 @@ export default function PlatformSalesOfficersPage() {
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {label}
             </span>
-            <span className="text-[11px] text-muted-foreground">live · refreshes every minute</span>
+            <span className="text-[11px] text-muted-foreground">
+              {mode === 'WEEKLY' && weekOffset !== 0
+                ? 'past week · Wed to Tue'
+                : 'live · refreshes every minute'}
+            </span>
           </div>
 
+          {mode === 'WEEKLY' && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setWeekOffset((w) => w - 1)}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                className="min-h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Previous week"
+              >
+                ← Previous week
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeekOffset((w) => Math.min(0, w + 1))}
+                disabled={weekOffset >= 0}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                className="min-h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                aria-label="Next week"
+              >
+                Next week →
+              </button>
+              {weekOffset !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => setWeekOffset(0)}
+                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                  className="min-h-9 rounded-md border px-3 text-xs font-semibold text-foreground"
+                >
+                  This week
+                </button>
+              )}
+            </div>
+          )}
+
+
+
+
           <div className="grid w-full grid-cols-3 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
+
             {(['DAILY', 'WEEKLY', 'MONTHLY'] as WindowMode[]).map((m) => (
               <button
                 key={m}
                 type="button"
-                onClick={() => setMode(m)}
+                onClick={() => { setMode(m); if (m !== 'WEEKLY') setWeekOffset(0); }}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={cn(
                   'min-h-11 px-3 text-xs font-semibold tracking-wide rounded-md transition-colors',
@@ -412,9 +617,15 @@ export default function PlatformSalesOfficersPage() {
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">#</th>
                       <th className="px-4 py-2 text-left font-medium">Officer</th>
-                      {WEEKDAY_LABELS.map((d) => (
-                        <th key={d} className="px-2 py-2 text-right font-medium">{d}</th>
+                      {WEEKDAY_LABELS.map((d, wi) => (
+                        <th key={d} className="px-2 py-2 text-right font-medium">
+                          <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
+                            {officerWeekdayTotals[wi]}
+                          </span>
+                          {d}
+                        </th>
                       ))}
+
                       <th className="px-4 py-2 text-right font-medium">Total</th>
                       <th className="px-4 py-2 text-right font-medium">Unapproved</th>
                       <th className="px-4 py-2 text-right font-medium">Funded</th>
@@ -470,6 +681,136 @@ export default function PlatformSalesOfficersPage() {
             </div>
           </>
         )}
+
+        {!isLoading && people.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex flex-col gap-0.5 border-t pt-4">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Other contributors
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                promissory notes brought in by everyone except platform sales officers
+              </span>
+            </div>
+
+            <div className="space-y-2 md:hidden">
+              {people.map((person, i) => (
+                <div key={person.person_user_id} className="rounded-xl border bg-card p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold tabular-nums text-muted-foreground">#{peopleRanks[i]}</div>
+                      <div className="text-sm font-semibold">{person.person_name}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold leading-none tabular-nums">{person.netNotes}</div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">net notes</div>
+                    </div>
+                  </div>
+
+                  {mode === 'DAILY' ? (
+                    <p className="mt-2 text-[11px] text-muted-foreground">today only</p>
+                  ) : (
+                    <div className="mt-3 grid grid-cols-7 gap-1">
+                      {person.weekday.map((v, wi) => (
+                        <div
+                          key={wi}
+                          className={cn(
+                            'rounded-md bg-muted/40 py-1.5 text-center',
+                            wi === todayWeekday && 'ring-1 ring-border',
+                          )}
+                        >
+                          <div className="text-[10px] font-semibold uppercase text-muted-foreground">
+                            {WEEKDAY_INITIALS[wi]}
+                          </div>
+                          <div className="text-sm font-semibold tabular-nums">{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t pt-2">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Funded</div>
+                      <div className="text-xs font-semibold tabular-nums">{person.notesFunded}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Money deployed</div>
+                      <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(person.amountDeployed)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Commission</div>
+                      <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(person.commissionAccrued)}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block">
+              <div className="overflow-x-auto rounded-md border [overscroll-behavior-x:contain]">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-medium">#</th>
+                      <th className="px-4 py-2 text-left font-medium">Officer</th>
+                      {WEEKDAY_LABELS.map((d, wi) => (
+                        <th key={d} className="px-2 py-2 text-right font-medium">
+                          <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
+                            {peopleWeekdayTotals[wi]}
+                          </span>
+                          {d}
+                        </th>
+                      ))}
+
+                      <th className="px-4 py-2 text-right font-medium">Total</th>
+                      <th className="px-4 py-2 text-right font-medium">Unapproved</th>
+                      <th className="px-4 py-2 text-right font-medium">Funded</th>
+                      <th className="px-4 py-2 text-right font-medium">Funders</th>
+                      <th className="px-4 py-2 text-right font-medium">Top-ups</th>
+                      <th className="px-4 py-2 text-right font-medium">Money deployed</th>
+                      <th className="px-4 py-2 text-right font-medium">Commission base</th>
+                      <th className="px-4 py-2 text-right font-medium">Commission</th>
+                      <th className="px-4 py-2 text-right font-medium">Pre-enrol</th>
+                      <th className="px-4 py-2 text-right font-medium">Pre-enrol funded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {people.map((person, i) => (
+                      <tr key={person.person_user_id} className="border-t">
+                        <td className="px-4 py-2 text-left tabular-nums">{peopleRanks[i]}</td>
+                        <td className="px-4 py-2 font-medium">{person.person_name}</td>
+                        {person.weekday.map((v, wi) => (
+                          <td key={wi} className="px-2 py-2 text-right tabular-nums">{v}</td>
+                        ))}
+                        <td className="px-4 py-2 text-right tabular-nums">{person.netNotes}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {person.notesUnapproved === 0 ? '—' : person.notesUnapproved}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">{person.notesFunded}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{person.fundersConverted}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {person.topups === 0 ? '—' : person.topups}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {person.amountDeployed.toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {person.commissionBase.toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {person.commissionAccrued.toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">—</td>
+                        <td className="px-4 py-2 text-right tabular-nums">—</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         <p className="text-xs text-muted-foreground">
           Money deployed is what the funder put in. Commission base is the amount commission was

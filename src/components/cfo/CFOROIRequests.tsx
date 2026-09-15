@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { CheckCircle, XCircle, Clock, Loader2, TrendingUp, User, Wallet } from 'lucide-react';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 interface PendingOp {
   id: string;
@@ -245,6 +246,7 @@ export function CFOROIRequests() {
                   </div>
 
                   {op.status === 'coo_approved' && (
+                    <CfoApprovalGate>
                     <div className="space-y-3 pt-2 border-t">
                       <TreasuryImpactBanner payoutAmount={op.amount} />
                       <div className="flex items-end gap-2 flex-wrap">
@@ -276,6 +278,7 @@ export function CFOROIRequests() {
                       </Button>
                       </div>
                     </div>
+                    </CfoApprovalGate>
                   )}
 
                   {op.status === 'rejected' && op.rejection_reason && (

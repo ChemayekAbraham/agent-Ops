@@ -42,6 +42,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 interface StaleHoldRow {
   withdrawal_id: string;
@@ -296,14 +297,16 @@ export function StaleWithdrawalHoldsPanel() {
                       <span>{row.recommendation}</span>
                     </div>
                   </div>
-                  <div className="flex shrink-0 flex-col gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openReview(row, 'settle')}>
-                      <CheckCircle2 className="mr-2 h-4 w-4" /> Payment happened
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => openReview(row, 'cancel')}>
-                      <Ban className="mr-2 h-4 w-4" /> Never paid — release
-                    </Button>
-                  </div>
+                  <CfoApprovalGate>
+                    <div className="flex shrink-0 flex-col gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openReview(row, 'settle')}>
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Payment happened
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => openReview(row, 'cancel')}>
+                        <Ban className="mr-2 h-4 w-4" /> Never paid — release
+                      </Button>
+                    </div>
+                  </CfoApprovalGate>
                 </div>
               </div>
             ))}

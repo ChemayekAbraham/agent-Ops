@@ -106,7 +106,6 @@ import { useSwipeSensitivity } from '@/hooks/useSwipeSensitivity';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { useCfoAdvanceDisbursementCount } from '@/hooks/useCfoAdvanceDisbursementCount';
 import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotificationsBell';
-import { useCfoApprovalAuthority } from '@/hooks/useCfoApprovalAuthority';
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
 // A parent that only discloses children (e.g. Agent Products) is not itself a
@@ -126,7 +125,7 @@ export default function CFODashboardPage() {
   const isMobile = useIsMobile();
   const { threshold: swipeThreshold, setThreshold: setSwipeThreshold } = useSwipeSensitivity('cfo');
   const advanceDisbursementCount = useCfoAdvanceDisbursementCount();
-  const { canApprove: canApproveAsCfo, loading: cfoApprovalLoading } = useCfoApprovalAuthority();
+
 
   const goToOffset = (delta: number) => {
     const current = CFO_TAB_IDS.indexOf(activeTab);
@@ -644,18 +643,6 @@ export default function CFODashboardPage() {
         }
       />
       <SwipeOnboardingHint enabled={isMobile} />
-      {!cfoApprovalLoading && !canApproveAsCfo && (
-        <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3">
-          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-            View only for approvals
-          </p>
-          <p className="mt-0.5 text-xs text-amber-800/90 dark:text-amber-200/90">
-            You can open every report and queue here, but approving, rejecting or releasing a
-            request is reserved for the designated CFO approver. Attempts are refused by the
-            backend, not just hidden here.
-          </p>
-        </div>
-      )}
       <div {...(isMobile ? swipeHandlers : {})} className="min-h-[60vh]">
         {renderContent()}
       </div>

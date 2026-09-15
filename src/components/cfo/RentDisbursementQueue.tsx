@@ -33,6 +33,7 @@ import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { LandlordAgreementHistory } from '@/components/landlord/agreement';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n);
@@ -1094,6 +1095,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 </p>
               )}
 
+              <CfoApprovalGate>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button
                   className="flex-1 h-10 rounded-xl font-semibold"
@@ -1124,6 +1126,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   Reject
                 </Button>
               </div>
+              </CfoApprovalGate>
 
               {reviewTarget.assigned_agent_id || reviewTarget.agent_id ? (
                 <button
@@ -1179,6 +1182,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
             >
               Cancel
             </Button>
+            <CfoApprovalGate>
             <Button
               variant="destructive"
               onClick={() => rejectTarget && rejectMutation.mutate({ id: rejectTarget.id, reason: rejectReason })}
@@ -1191,6 +1195,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               )}
               Reject & return to agent
             </Button>
+            </CfoApprovalGate>
           </DialogFooter>
         </DialogContent>
       </Dialog>

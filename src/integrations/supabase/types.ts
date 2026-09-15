@@ -59101,6 +59101,37 @@ export type Database = {
         }[]
       }
       pso_is_officer: { Args: never; Returns: boolean }
+      pso_non_officer_funded_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount_deployed: number
+          as_at: string
+          commission_accrued: number
+          commission_base: number
+          funders_converted: number
+          notes_funded: number
+          notes_in_cohort: number
+          notes_unapproved: number
+          person_name: string
+          person_user_id: string
+          pre_enrolment_amount: number
+          pre_enrolment_funded: number
+          pre_enrolment_notes: number
+          topups: number
+        }[]
+      }
+      pso_non_officer_series: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          day: string
+          net_notes: number
+          notes_created: number
+          notes_reversed: number
+          partner_registered: number
+          person_name: string
+          person_user_id: string
+        }[]
+      }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
         Args: {
@@ -60923,6 +60954,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      user_is_pure_partner: { Args: { p_user_id: string }; Returns: boolean }
       user_location_correction_progress: { Args: never; Returns: Json }
       user_location_corrections: {
         Args: {
@@ -61369,6 +61401,10 @@ export type Database = {
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      withdrawal_destination_gate: {
+        Args: { p_withdrawal_id: string }
+        Returns: Json
+      }
       withdrawal_merchant_id_gate: {
         Args: {
           p_landlord_payout_id?: string
