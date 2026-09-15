@@ -24,6 +24,13 @@ export function RequisitionsWorkspace({ manualStage = 'coo' }: { manualStage?: '
       </Suspense>
       <StaffRequisitionQueue />
 
+      {manualStage === 'cfo' && (
+        <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading accountability reports…</Card>}>
+          <RequisitionUsageReportsReview />
+        </Suspense>
+      )}
+
+
 
       <Card className="rounded-2xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
