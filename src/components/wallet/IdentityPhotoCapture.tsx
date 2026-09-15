@@ -617,6 +617,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // Stays on screen until the person fixes it — a toast alone disappears and
   // people were left thinking nothing happened.
   const [sendError, setSendError] = useState<string | null>(null);
+  /* Replacing what is already on file: the stored shots are ignored so both a
+     fresh ID photo and a fresh selfie must be taken. Every upload keeps its own
+     timestamped file, so Financial Ops still sees the earlier submission next
+     to the new one. */
+  const [replacing, setReplacing] = useState(false);
 
   // What we read off the ID card photo.
   const [reading, setReading] = useState(false);
@@ -738,10 +743,13 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // Whatever is already archived is reused instead of asked for again, so a
   // partial submission (e.g. selfie stored, ID shot missing) only requires the
   // missing half and the stored original selfie stays the verification copy.
-  const storedIdPath = mine.data?.national_id_photo_path ?? null;
-  const storedSelfiePath = mine.data?.selfie_photo_path ?? null;
+  const onFileIdPath = mine.data?.national_id_photo_path ?? null;
+  const onFileSelfiePath = mine.data?.selfie_photo_path ?? null;
+  // While replacing, nothing on file counts — both shots are taken again.
+  const storedIdPath = replacing ? null : onFileIdPath;
+  const storedSelfiePath = replacing ? null : onFileSelfiePath;
 
-  const alreadyDone = !!storedIdPath && !!storedSelfiePath;
+  const alreadyDone = !replacing && !!storedIdPath && !!storedSelfiePath;
   // Verified once means verified for good — nothing more to send or explain.
   if (alreadyVerified.data === true) return null;
 
@@ -772,6 +780,21 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             <StoredShot path={storedIdPath!} label="National ID photo" note="Sent for verification." />
             <StoredShot path={storedSelfiePath!} label="Selfie" note="Sent for verification." />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              setReplacing(true);
+              setSendError(null);
+            }}
+          >
+            <Camera className="mr-2 h-4 w-4" />
+            Send new photos instead
+          </Button>
+          <p className="text-[11px] text-muted-foreground">
+            Your earlier photos are kept, so Financial Ops sees both the old and the new ones.
+          </p>
           <PayoutNumberVerification userId={user?.id} />
           <a
             href="/verification-history"
