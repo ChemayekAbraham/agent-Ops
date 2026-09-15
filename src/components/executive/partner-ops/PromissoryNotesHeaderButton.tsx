@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { FileText } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { PROMISSORY_PENDING_COUNT_KEY, reconcilePromissoryPendingCount } from './promissoryPendingCount';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ export function PromissoryNotesHeaderButton({
   const queryClient = useQueryClient();
 
   const { data: promissoryPending = 0, refetch } = useQuery({
-    queryKey: ['promissory-notes-pending-count'],
+    queryKey: [...PROMISSORY_PENDING_COUNT_KEY],
     queryFn: async () => {
       const { count } = await supabase
         .from('promissory_notes')
@@ -53,7 +54,7 @@ export function PromissoryNotesHeaderButton({
         { event: '*', schema: 'public', table: 'promissory_notes' },
         () => {
           refetch();
-          queryClient.invalidateQueries({ queryKey: ['promissory-notes-pending-count'] });
+          reconcilePromissoryPendingCount(queryClient);
         },
       )
       .subscribe();

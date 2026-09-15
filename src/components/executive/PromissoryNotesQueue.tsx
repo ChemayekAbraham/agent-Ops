@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { bumpPromissoryPendingCount, reconcilePromissoryPendingCount } from './partner-ops/promissoryPendingCount';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -325,6 +326,8 @@ export function PromissoryNotesQueue({
 
   const runReverseBonus = async (target: any, reason: string) => {
     setRejecting(true);
+    const wasPending = (target?.status || '').toLowerCase() === 'pending';
+    if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       const { data, error } = await supabase.rpc('reverse_promissory_note_bonus' as any, {
         p_note_id: target.id,
@@ -348,7 +351,9 @@ export function PromissoryNotesQueue({
       setRejectReason('');
       setSelectedNote(null);
       queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+      if (wasPending) reconcilePromissoryPendingCount(queryClient);
     } catch (err: any) {
+      if (wasPending) bumpPromissoryPendingCount(queryClient, 1);
       toast.error(err?.message || 'Failed to reverse promissory note bonus.');
     } finally {
       setRejecting(false);
@@ -376,6 +381,10 @@ export function PromissoryNotesQueue({
 
   const runApprove = async (target: any, reason: string, lead: any) => {
     setApproving(true);
+    // Optimistic: drop the pending badge now; roll back if the RPC fails,
+    // reconcile with the true count on success.
+    const wasPending = (target?.status || '').toLowerCase() === 'pending';
+    if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       if (lead?.user_id && target.agent_id) {
         const { error: assignError } = await supabase
@@ -408,7 +417,9 @@ export function PromissoryNotesQueue({
       setLeadSearch('');
       setSelectedNote(null);
       queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+      if (wasPending) reconcilePromissoryPendingCount(queryClient);
     } catch (err: any) {
+      if (wasPending) bumpPromissoryPendingCount(queryClient, 1);
       toast.error(err?.message || 'Failed to approve promissory note.');
     } finally {
       setApproving(false);
@@ -423,6 +434,8 @@ export function PromissoryNotesQueue({
       return;
     }
     setDeleting(true);
+    const wasPending = (deleteTarget.status || '').toLowerCase() === 'pending';
+    if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       const { data: userData } = await supabase.auth.getUser();
       const actorId = userData?.user?.id;
@@ -459,7 +472,9 @@ export function PromissoryNotesQueue({
       setDeleteReason('');
       setSelectedNote(null);
       queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+      if (wasPending) reconcilePromissoryPendingCount(queryClient);
     } catch (err: any) {
+      if (wasPending) bumpPromissoryPendingCount(queryClient, 1);
       toast.error(err?.message || 'Failed to delete promissory note.');
     } finally {
       setDeleting(false);

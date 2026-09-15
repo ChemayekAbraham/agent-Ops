@@ -22,6 +22,7 @@ import { usePromissoryOpsReport, PROMISSORY_RANGES, type PromissoryRange } from 
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { AgentCallMenu } from '../PromissoryNotesQueue';
+import { bumpPromissoryPendingCount, reconcilePromissoryPendingCount } from './promissoryPendingCount';
 
 const QUICK_LIST_SIZE = 6;
 
@@ -118,6 +119,8 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
       return;
     }
     setApproving(true);
+    const wasPending = (approveTarget.status || '').toLowerCase() === 'pending';
+    if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       const { data, error } = await supabase.rpc('approve_promissory_note', {
         p_note_id: approveTarget.id,
@@ -134,7 +137,9 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
       setApproveTarget(null);
       setApproveReason('');
       queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+      if (wasPending) reconcilePromissoryPendingCount(queryClient);
     } catch (err: any) {
+      if (wasPending) bumpPromissoryPendingCount(queryClient, 1);
       toast.error(err?.message || 'Failed to approve promissory note.');
     } finally {
       setApproving(false);
@@ -149,6 +154,8 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
       return;
     }
     setRejecting(true);
+    const wasPending = (rejectTarget.status || '').toLowerCase() === 'pending';
+    if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
       const { data, error } = await supabase.rpc('reverse_promissory_note_bonus' as any, {
         p_note_id: rejectTarget.id,
@@ -161,7 +168,9 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
       setRejectTarget(null);
       setRejectReason('');
       queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+      if (wasPending) reconcilePromissoryPendingCount(queryClient);
     } catch (err: any) {
+      if (wasPending) bumpPromissoryPendingCount(queryClient, 1);
       toast.error(err?.message || 'Failed to reject promissory note.');
     } finally {
       setRejecting(false);
