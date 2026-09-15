@@ -652,7 +652,7 @@ export function PromissoryNotesQueue({
     };
   };
 
-  const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
+  const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled', 'overdue'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
     { label: 'Promissory notes', value: kpis.notes_count, hint: `${kpis.approved_notes} approved`, tone: 'bg-primary/5 border-primary/20' },
