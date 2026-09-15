@@ -3231,6 +3231,16 @@ async function sweepLinkedPendingDeposits(
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+  // Responses that mean "this money is already safely credited elsewhere" —
+  // never a loss, never worth a critical alert. Confirmed against production:
+  // 14 of 15 open 'linked_pending_sweep_failed' alerts (2026-09-15 audit) were
+  // exactly this race — the immediate on-ingestion credit path won, and this
+  // sweep's own stale 'pending' read then retried the same deposit moments
+  // later, which the ledger's duplicate-TID guard correctly refused. The
+  // refusal was safe; treating it as 'critical' was the bug, and it drowned
+  // out the one genuinely stuck deposit (pending since 2026-08-17) in noise.
+  const BENIGN_DUPLICATE_RE = /already credited|duplicate tid|no duplicate needed/i;
+
   for (const dep of deps) {
     // Re-verify amount + provider before kicking approve-deposit.
     const match = rows.find(
@@ -3239,6 +3249,26 @@ async function sweepLinkedPendingDeposits(
         Number(r.amount) === Number((dep as any).amount),
     );
     if (!match) continue;
+
+    // Narrow the race window: re-read status immediately before calling.
+    // If another path (the immediate on-ingestion credit, or a human) has
+    // already moved this deposit off 'pending' since the batch SELECT above,
+    // there is nothing for this sweep to do — resolve any stale alert and move on.
+    const { data: freshDep } = await supabase
+      .from('deposit_requests')
+      .select('status')
+      .eq('id', (dep as any).id)
+      .maybeSingle();
+    if (freshDep && String(freshDep.status) !== 'pending') {
+      await supabase
+        .from('deposit_match_alerts')
+        .update({ resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('alert_type', 'merchant_float_uncredited')
+        .eq('subject_id', (match as any).id)
+        .is('resolved_at', null);
+      continue;
+    }
+
     try {
       const res = await fetch(`${supabaseUrl}/functions/v1/approve-deposit`, {
         method: 'POST',
@@ -3257,18 +3287,31 @@ async function sweepLinkedPendingDeposits(
       });
       if (!res.ok) {
         const txt = await res.text();
+        const isBenignDuplicate = BENIGN_DUPLICATE_RE.test(txt);
         console.warn(
-          `[gmail-poll] sweep approve-deposit non-200 dep=${(dep as any).id} status=${res.status} body=${txt.slice(0, 200)}`,
+          `[gmail-poll] sweep approve-deposit non-200 dep=${(dep as any).id} status=${res.status} ` +
+          `benign_duplicate=${isBenignDuplicate} body=${txt.slice(0, 200)}`,
         );
         await logDepositDecision(supabase, {
           source: 'poller',
-          decision: 'failed',
-          reason: 'sweep_approve_non_200',
+          decision: isBenignDuplicate ? 'skipped' : 'failed',
+          reason: isBenignDuplicate ? 'sweep_already_credited_elsewhere' : 'sweep_approve_non_200',
           deposit_request_id: (dep as any).id,
           amount: Number((dep as any).amount),
           actor_id: (dep as any).user_id,
           metadata: { status: res.status, body: txt.slice(0, 300), auto_match_method: 'linked_pending_sweep' },
         });
+        if (isBenignDuplicate) {
+          // Already safely credited via another path — clear any open alert
+          // instead of adding a new false-positive "critical" one.
+          await supabase
+            .from('deposit_match_alerts')
+            .update({ resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+            .eq('alert_type', 'merchant_float_uncredited')
+            .eq('subject_id', (match as any).id)
+            .is('resolved_at', null);
+          continue;
+        }
         await raiseMerchantFloatAlert(supabase, {
           gmailRowId: String((match as any).id),
           agentId: String((dep as any).user_id ?? '') || null,
