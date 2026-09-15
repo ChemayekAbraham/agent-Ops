@@ -69,7 +69,7 @@ export function FakeAccountRadarPanel() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <ShieldAlert className="h-5 w-5 text-destructive" />
-            Potential fake accounts
+            Account signal review
           </CardTitle>
           <Button
             variant="outline"
@@ -87,8 +87,10 @@ export function FakeAccountRadarPanel() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Every account is checked against eight fraud signals. Email confirmation is now required
-          for anyone who signs up with an email address.
+          Every account is checked against eight signals. Most flags below are weak signals on
+          their own (e.g. an account that's gone quiet) — they're a starting point for review,
+          not proof of a fake account. Email confirmation is now required for anyone who signs up
+          with an email address.
         </p>
       </CardHeader>
 
@@ -96,10 +98,10 @@ export function FakeAccountRadarPanel() {
         {/* Headline numbers */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: 'Flagged accounts', value: counts.data?.flagged, tone: 'text-destructive' },
-            { label: 'High risk', value: counts.data?.high_risk, tone: 'text-destructive' },
+            { label: 'Accounts with a signal', value: counts.data?.flagged, tone: 'text-amber-600' },
+            { label: 'Worth a closer look', value: counts.data?.high_risk, tone: 'text-destructive' },
             {
-              label: 'Email never confirmed',
+              label: 'Email not confirmed yet',
               value: counts.data?.unverified_email,
               tone: 'text-amber-600',
             },

@@ -21,14 +21,14 @@ export type FakeAccountSignal =
   | 'burst_signup';
 
 export const FAKE_ACCOUNT_SIGNAL_LABELS: Record<FakeAccountSignal, string> = {
-  unverified_email: 'Email never confirmed',
+  unverified_email: 'Email not confirmed yet',
   disposable_email: 'Throwaway email service',
-  duplicate_phone: 'Phone used by another account',
-  duplicate_national_id: 'National ID used by another account',
-  duplicate_name: 'Same name as several unconfirmed accounts',
-  suspicious_name: 'Name looks made up',
-  dormant: 'Never used after signing up',
-  burst_signup: 'Created in a bulk signup burst',
+  duplicate_phone: 'Phone shared with another account',
+  duplicate_national_id: 'National ID shared with another account',
+  duplicate_name: 'Same name as a few other unconfirmed accounts',
+  suspicious_name: 'Name format is unusual',
+  dormant: 'Inactive since signup',
+  burst_signup: 'Part of a signup burst',
 };
 
 export interface FakeAccountCounts {
