@@ -21,6 +21,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { imageFingerprint } from '@/lib/imageFingerprint';
+import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePayoutVerification';
+import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
+import { Smartphone } from 'lucide-react';
 
 
 import SelfieCropDialog from './SelfieCropDialog';
@@ -114,6 +117,69 @@ function StoredShot({ path, label, note }: { path: string; label: string; note: 
         <p className="text-sm font-semibold">{label} already on file</p>
         <p className="text-xs text-muted-foreground">{note}</p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Confirm ownership of the payout number by code (OTP), right here on the
+ * identity screen. Sending the code, checking it and correcting the registered
+ * name all happen in the shared consent dialog — nothing is decided locally.
+ */
+function PayoutNumberVerification({ userId }: { userId: string | null | undefined }) {
+  const list = useMyPayoutDestinations(userId);
+  const [target, setTarget] = useState<MyPayoutDestination | null>(null);
+
+  const rows = list.data ?? [];
+  if (rows.length === 0) return null;
+
+  const label = (d: MyPayoutDestination) =>
+    d.destination_type === 'mobile_money'
+      ? d.momo_number || 'Mobile money number'
+      : `${d.bank_name ?? 'Bank'} ${d.bank_account_number ?? ''}`.trim();
+
+  return (
+    <div className="space-y-2 rounded-lg border p-3">
+      <p className="flex items-center gap-2 text-sm font-semibold">
+        <Smartphone className="h-4 w-4 text-primary" />
+        Confirm your payout number
+      </p>
+      <p className="text-xs text-muted-foreground">
+        We send a code to the number that will receive your money. Enter the code and the name the
+        number is registered in — it is confirmed straight away, with no waiting.
+      </p>
+
+      {rows.map((d) => (
+        <div key={d.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 p-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{label(d)}</p>
+            <p className="text-xs text-muted-foreground">
+              {d.status === 'verified'
+                ? 'Confirmed'
+                : d.status === 'rejected'
+                  ? 'Not accepted — confirm it again'
+                  : 'Not confirmed yet'}
+            </p>
+          </div>
+          {d.status === 'verified' ? (
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setTarget(d)}>
+              Send code
+            </Button>
+          )}
+        </div>
+      ))}
+
+      <PayoutDestinationConsentDialog
+        open={!!target}
+        onOpenChange={(o) => { if (!o) setTarget(null); }}
+        destination={target}
+        onVerified={() => {
+          setTarget(null);
+          void list.refetch();
+        }}
+      />
     </div>
   );
 }
