@@ -560,10 +560,13 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
         let submittedWithdrawalId: string | null = null;
         const { data: insertedWithdrawal, error } = await supabase.from('withdrawal_requests').insert({
           user_id: isProxy ? linkedParty! : user.id,
+          // The raiser is ALWAYS recorded. A blank raiser used to read as
+          // "raised on someone else's behalf" in the creation-time
+          // destination gate, silently skipping it for self-service rows.
+          initiated_by: user.id,
           ...(isProxy
             ? {
                 agent_id: user.id,
-                initiated_by: user.id,
                 beneficiary_id: linkedParty,
                 proxy_partner_id: linkedParty,
                 auto_dispatched: false,
