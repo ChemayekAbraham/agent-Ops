@@ -38,6 +38,10 @@ export interface NationalIdFieldVerdict {
   valid: boolean;
   confidence: number | null;
   note: string | null;
+  /** What the reader saw even when `valid` is false (e.g. a 10-digit card
+      number). Prefilled for the person to confirm rather than typed blind. */
+  value: string | null;
+  raw: string | null;
 }
 
 export interface NationalIdReading {
