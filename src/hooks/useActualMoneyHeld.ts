@@ -6,14 +6,21 @@ export interface ActualMoneyHeld {
   mtn: number;
   /** Live Airtel Money line balance parsed from provider alerts. */
   airtel: number;
-  /** Verified cash deposits collected by agents but not yet banked. */
+  /**
+   * Cash collected and held in custody that has NOT been confirmed banked by a
+   * verified banking event. Reported as "Cash in Custody — Not Yet Confirmed
+   * Banked" and deliberately EXCLUDED from `total`.
+   */
   cashAtHand: number;
+  /** Alias of `cashAtHand`, named for the caption it is shown under. */
+  custodyNotConfirmedBanked: number;
   /** Verified cash deposits explicitly marked as banked by Financial Ops. */
   bankedCash: number;
   /** Email-derived Bayo Mercy account balance (reference/comparison only). */
   bankReconciliation: number;
-  /** Sum of MTN + Airtel + cash at hand + banked cash. */
+  /** MTN + Airtel + banked cash. Custody is excluded until banking is verified. */
   total: number;
+
   /** Number of verified banked deposits behind `bankedCash`. */
   bankedCashCount: number;
   /** When the banked-cash figure was computed (server time). */
@@ -117,7 +124,12 @@ export function useActualMoneyHeld(enabled = true) {
         cashAtHand,
         bankedCash,
         bankReconciliation,
-        total: mtn + airtel + cashAtHand + bankedCash,
+        custodyNotConfirmedBanked: cashAtHand,
+        // Custody cash is NOT company cash we can spend: no verified banking
+        // event exists for it, so it is reported under its own caption and kept
+        // out of every "Money We Have" / available-cash figure.
+        total: mtn + airtel + bankedCash,
+
         bankedCashCount: Number(b.banked_cash_reference_count ?? banked.length),
         bankedComputedAt: (b.computed_at as string | undefined) ?? null,
         bankedLastMovementAt,
