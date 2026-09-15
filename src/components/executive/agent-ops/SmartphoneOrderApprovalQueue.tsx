@@ -29,7 +29,7 @@ import {
 import { Smartphone, Check, X, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { SupplierPicker, type SupplierChoice } from './SmartphoneCatalogDialog';
-import { isMoBanjaIphone, MO_BANJA } from '@/lib/moBanjaIphone';
+import { downPaymentCopy } from '@/lib/moBanjaIphone';
 import { format } from 'date-fns';
 
 const db = supabase as any;
@@ -608,7 +608,7 @@ export function SmartphoneOrderApprovalQueue({
                   </div>
                   <div className="rounded-md bg-muted/50 px-2 py-1.5">
                     <p className="text-[10px] text-muted-foreground">
-                      {isMoBanjaIphone(o.brand, o.model_type) ? MO_BANJA.amountLabelShort : 'Phone amount'}
+                      {downPaymentCopy(o.brand, o.model_type).amountLabelShort}
                     </p>
                     <p className="text-xs font-semibold">{formatUGX(total)}</p>
                   </div>
@@ -691,12 +691,7 @@ export function SmartphoneOrderApprovalQueue({
               ['Submitted', format(new Date(detailsTarget.created_at), 'dd MMM yyyy HH:mm')],
               ['Brand', detailsTarget.brand || '—'],
               ['Model', detailsTarget.model_type || '—'],
-              [
-                isMoBanjaIphone(detailsTarget.brand, detailsTarget.model_type)
-                  ? MO_BANJA.amountLabel
-                  : 'Phone amount',
-                formatUGX(total),
-              ],
+              [downPaymentCopy(detailsTarget.brand, detailsTarget.model_type).amountLabel, formatUGX(total)],
               ['Charge (28%/month, reducing)', formatUGX(projection)],
               ['Access Amount (down payment)', formatUGX(total)],
               ['Amount paid', formatUGX(Number(detailsTarget.amount_paid || 0))],
