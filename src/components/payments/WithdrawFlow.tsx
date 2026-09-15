@@ -132,6 +132,16 @@ export default function WithdrawFlow({
     !purePartnerLoading &&
     !isPurePartner &&
     !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
+  /* The panel is shown whenever it has something to say — asking for the photos
+     OR reporting that they are already with Financial Ops. It hides itself once
+     the account is verified. Gating it on `needsIdentityPhotos` alone meant that
+     the moment someone submitted, this step went blank while the gate below
+     still refused the withdrawal, with nothing on screen joining the two. */
+  const showIdentityPanel =
+    !!user?.id &&
+    !myIdentityPhotos.isLoading &&
+    !purePartnerLoading &&
+    !isPurePartner;
 
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
@@ -1210,10 +1220,16 @@ export default function WithdrawFlow({
       case 0:
         return (
           <div className="space-y-4">
-            {needsNationalId && (
+            {/* The photo step now READS the card and asks the person to confirm the
+                six printed fields, so it supplies the National ID itself. Asking
+                them to type the NIN from memory first, only to photograph the
+                same card a moment later, made them key in what the camera was
+                about to read. The typed prompt stays for the case it still
+                answers: photos already on file but no ID number recorded. */}
+            {showIdentityPanel && <IdentityPhotoCapture compact />}
+            {needsNationalId && !needsIdentityPhotos && (
               <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
             )}
-            {!needsNationalId && needsIdentityPhotos && <IdentityPhotoCapture compact />}
             {!withdrawCtx.isLoading && !withdrawCtx.gates.canSubmit && (
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-1">
                 <div className="flex items-center gap-2">

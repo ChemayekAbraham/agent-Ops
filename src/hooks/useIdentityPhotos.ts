@@ -16,6 +16,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
+import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 
 export const IDENTITY_BUCKET = 'identity-verification';
 
@@ -123,7 +124,10 @@ export function useSubmitIdentityPhotos() {
           idHash: paths.idHash ?? null,
         },
       });
-      if (error) throw error;
+      // The SDK hides the backend's own wording behind "Edge Function returned
+      // a non-2xx status code" — read the real reason out of the response body
+      // so the screen can show it instead of a guess.
+      if (error) throw new Error(await extractFromErrorObject(error, 'Could not send your photos. Please try again.'));
       if (data?.error) throw new Error(data.error);
       return data as { success?: boolean; message?: string } | null;
     },

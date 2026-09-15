@@ -15,6 +15,7 @@ name: Deploy Edge Function (manual, one at a time)
 #   * cannot be pointed at an arbitrary function name (choice input, not string)
 #
 # ORDERING REQUIREMENT (accounting, not convenience)
+# Applies to the two money functions ONLY:
 # fund-agent-landlord-float MUST be deployed and verified BEFORE tenant-pay-rent.
 # The repayment waterfall DEBITS L7, and funding recognition is what CREDITS it.
 # Deploying the repayment side first would let a repayment drive L7 into an
@@ -35,12 +36,14 @@ on:
   workflow_dispatch:
     inputs:
       function:
-        description: "Which function to deploy (deploy fund-agent-landlord-float FIRST)"
+        description: "Which function to deploy"
         required: true
         type: choice
         options:
           - fund-agent-landlord-float
           - tenant-pay-rent
+          - verify-passport-photo
+          - read-national-id
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
@@ -106,5 +109,14 @@ jobs:
       - name: Post-deploy reminder
         run: |
           echo "Deployed: ${{ inputs.function }}"
-          echo "NEXT: verify against the live ledger before deploying anything else."
-          echo "Do NOT deploy tenant-pay-rent until fund-agent-landlord-float is verified."
+          case "${{ inputs.function }}" in
+            verify-passport-photo|read-national-id)
+              echo "Identity function - moves no money, not part of the fund-then-repay ordering."
+              echo "Check: a photo check still returns a verdict, and the withdraw dialog"
+              echo "prefills the six National ID fields."
+              ;;
+            *)
+              echo "NEXT: verify against the live ledger before deploying anything else."
+              echo "Do NOT deploy tenant-pay-rent until fund-agent-landlord-float is verified."
+              ;;
+          esac

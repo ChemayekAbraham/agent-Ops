@@ -49,12 +49,24 @@ interface FullRequestDetail {
   approval_comment: string | null;
   rejected_reason: string | null;
   schedule_status: string | null;
+  /* Everything below was captured at submission time and is what a reviewer
+     needs when a request has sat unattended and expired. */
+  repayment_frequency: string | null;
+  repayment_starts_on: string | null;
+  assigned_agent_id: string | null;
+  house_listing_id: string | null;
+  tenant_photo_url: string | null;
+  house_image_urls: string[] | null;
+  latest_rent_receipt_url: string | null;
+  latest_rent_receipt_uploaded_at: string | null;
 }
 
 interface ProfileInfo {
   full_name: string;
   phone: string;
   email: string;
+  /** The tenant's own residence, assembled the same way the funder view does. */
+  residence?: string | null;
 }
 
 interface LandlordInfo {
@@ -87,7 +99,10 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
   const [tenant, setTenant] = useState<ProfileInfo | null>(null);
   const [agent, setAgent] = useState<ProfileInfo | null>(null);
   const [supporter, setSupporter] = useState<ProfileInfo | null>(null);
+  // The agent the office put on the case, when that differs from the one who filed it.
+  const [assignedAgent, setAssignedAgent] = useState<ProfileInfo | null>(null);
   const [landlord, setLandlord] = useState<LandlordInfo | null>(null);
+  const [listingAddress, setListingAddress] = useState<string | null>(null);
   const [repayments, setRepayments] = useState<RepaymentEntry[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
 
@@ -107,22 +122,46 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
       setRequest(req as any);
 
       // Fetch related data in parallel
-      const profileIds = [req.tenant_id, req.agent_id, req.supporter_id].filter(Boolean) as string[];
+      const profileIds = [
+        req.tenant_id, req.agent_id, (req as any).assigned_agent_id, req.supporter_id,
+      ].filter(Boolean) as string[];
 
-      const [profilesRes, landlordRes, repaymentsRes, ledgerRes] = await Promise.all([
+      // One batched read per source — never one query per person.
+      const [profilesRes, landlordRes, repaymentsRes, ledgerRes, listingRes] = await Promise.all([
         profileIds.length > 0
-          ? supabase.from('profiles').select('id, full_name, phone, email').in('id', profileIds)
+          ? supabase
+              .from('profiles')
+              .select('id, full_name, phone, email, village, parish, sub_county, district, city')
+              .in('id', profileIds)
           : Promise.resolve({ data: [] }),
         supabase.from('landlords').select('name, phone, property_address, mobile_money_number, mobile_money_name').eq('id', req.landlord_id).single(),
         supabase.from('repayments').select('id, amount, created_at').eq('rent_request_id', requestId).order('created_at', { ascending: false }),
         supabase.from('general_ledger').select('id, amount, direction, category, description, transaction_date, reference_id').eq('source_id', requestId).order('transaction_date', { ascending: false }),
+        (req as any).house_listing_id
+          ? supabase.from('house_listings').select('address, village, district').eq('id', (req as any).house_listing_id).maybeSingle()
+          : Promise.resolve({ data: null }),
       ]);
 
+      const withResidence = (p: any): ProfileInfo | null => p ? ({
+        ...p,
+        residence: [p.village, p.parish, p.sub_county, p.district, p.city]
+          .map((s: string | null) => (s || '').trim()).filter(Boolean).join(', ') || null,
+      }) : null;
+
       const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
-      setTenant(profileMap.get(req.tenant_id) || null);
-      setAgent(req.agent_id ? profileMap.get(req.agent_id) || null : null);
-      setSupporter(req.supporter_id ? profileMap.get(req.supporter_id) || null : null);
+      setTenant(withResidence(profileMap.get(req.tenant_id)));
+      setAgent(req.agent_id ? withResidence(profileMap.get(req.agent_id)) : null);
+      const assignedId = (req as any).assigned_agent_id as string | null;
+      setAssignedAgent(assignedId && assignedId !== req.agent_id ? withResidence(profileMap.get(assignedId)) : null);
+      setSupporter(req.supporter_id ? withResidence(profileMap.get(req.supporter_id)) : null);
       setLandlord(landlordRes.data as any || null);
+      const listing = (listingRes as any)?.data;
+      setListingAddress(
+        listing
+          ? ([listing.address, listing.village, listing.district]
+              .map((s: string | null) => (s || '').trim()).filter(Boolean).join(', ') || null)
+          : null,
+      );
       setRepayments((repaymentsRes.data || []) as RepaymentEntry[]);
       setLedgerEntries((ledgerRes.data || []) as LedgerEntry[]);
       setLoading(false);
@@ -186,8 +225,8 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[90vh] rounded-t-2xl">
-        <SheetHeader className="text-left pb-3">
+      <SheetContent side="bottom" className="h-[90vh] rounded-t-2xl flex flex-col p-5">
+        <SheetHeader className="text-left pb-3 shrink-0">
           <SheetTitle className="flex items-center gap-2">
             Request Details
             {request && (
@@ -199,13 +238,13 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
         </SheetHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12 flex-1">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : !request ? (
           <p className="text-center text-muted-foreground py-8">Request not found</p>
         ) : (
-          <div className="space-y-5 overflow-y-auto max-h-[calc(90vh-80px)] pb-6">
+          <div className="space-y-5 overflow-y-auto flex-1 pb-6">
 
             {/* Tenant status first: renewal vs new tenant, with existing payment history */}
             <TenantPaymentHistoryCard tenantId={request.tenant_id} currentRequestId={request.id} />
@@ -235,6 +274,7 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
               <DetailRow label="Name" value={tenant?.full_name || 'Unknown'} />
               <DetailRow label="Phone" value={tenant?.phone || '—'} />
               <DetailRow label="Email" value={tenant?.email || '—'} />
+              <DetailRow label="Residence" value={tenant?.residence || '—'} />
               {request.tenant_no_smartphone !== undefined && (
                 <DetailRow label="Phone Type" value={request.tenant_no_smartphone ? '📱 No Smartphone' : '📱 Smartphone'} />
               )}
@@ -258,6 +298,9 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
               <DetailRow label="Name" value={landlord?.name || 'Unknown'} />
               <DetailRow label="Phone" value={landlord?.phone || '—'} />
               <DetailRow label="Property" value={landlord?.property_address || '—'} />
+              {listingAddress && listingAddress !== landlord?.property_address && (
+                <DetailRow label="House address" value={listingAddress} />
+              )}
               {landlord?.mobile_money_number && (
                 <DetailRow label="MoMo" value={`${landlord.mobile_money_name || ''} ${landlord.mobile_money_number}`} />
               )}
@@ -275,7 +318,7 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
             <Separator />
 
             {/* Agent & Supporter */}
-            {(agent || supporter) && (
+            {(agent || assignedAgent || supporter) && (
               <>
                 <Section title="Participants" icon={<User className="h-3.5 w-3.5" />}>
                   {agent && (
@@ -292,6 +335,12 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
                       </Button>
                     </>
                   )}
+                  {assignedAgent && (
+                    <DetailRow
+                      label="Assigned agent"
+                      value={`${assignedAgent.full_name} (${assignedAgent.phone || '—'})`}
+                    />
+                  )}
                   {supporter && <DetailRow label="Supporter" value={`${supporter.full_name} (${supporter.phone})`} />}
                 </Section>
                 <Separator />
@@ -305,6 +354,57 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
               <DetailRow label="Platform Fee" value={formatUGX(request.request_fee)} />
               <DetailRow label="Total Repayment" value={formatUGX(request.total_repayment)} bold />
               <DetailRow label="Daily Repayment" value={formatUGX(request.daily_repayment)} />
+              <DetailRow
+                label="Repayment frequency"
+                value={(request.repayment_frequency || 'daily').replace(/_/g, ' ')}
+              />
+              {request.repayment_starts_on && (
+                <DetailRow
+                  label="Repayment starts"
+                  value={format(new Date(request.repayment_starts_on), 'dd MMM yyyy')}
+                />
+              )}
+            </Section>
+
+            <Separator />
+
+            {/* Everything the agent photographed when the request was filed. */}
+            <Section title="Photos captured at submission" icon={<Receipt className="h-3.5 w-3.5" />}>
+              {!request.latest_rent_receipt_url && !request.tenant_photo_url && !(request.house_image_urls?.length) ? (
+                <p className="text-xs text-muted-foreground">No photos were captured with this request</p>
+              ) : (
+                <div className="space-y-3">
+                  {request.latest_rent_receipt_url && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Latest rent receipt from the landlord
+                        {request.latest_rent_receipt_uploaded_at
+                          ? ` · ${format(new Date(request.latest_rent_receipt_uploaded_at), 'dd MMM yyyy')}`
+                          : ''}
+                      </p>
+                      <PhotoTile url={request.latest_rent_receipt_url} alt="Rent receipt" />
+                    </div>
+                  )}
+                  {request.tenant_photo_url && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Tenant verification photo</p>
+                      <PhotoTile url={request.tenant_photo_url} alt="Tenant photo" />
+                    </div>
+                  )}
+                  {!!request.house_image_urls?.length && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        House verification photos ({request.house_image_urls.length})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {request.house_image_urls.filter(Boolean).map((url, i) => (
+                          <PhotoTile key={`${url}-${i}`} url={url} alt={`House photo ${i + 1}`} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </Section>
 
             <Separator />
@@ -430,5 +530,19 @@ function DetailRow({ label, value, bold, highlight }: { label: string; value: st
         !highlight && 'font-medium',
       )}>{value}</span>
     </div>
+  );
+}
+
+/** A tappable thumbnail; the full picture opens in a new tab. */
+function PhotoTile({ url, alt }: { url: string; alt: string }) {
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+      <img
+        src={url}
+        alt={alt}
+        loading="lazy"
+        className="h-24 w-24 rounded-lg border object-cover hover:opacity-90"
+      />
+    </a>
   );
 }

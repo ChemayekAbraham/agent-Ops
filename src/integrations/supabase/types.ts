@@ -26400,6 +26400,54 @@ export type Database = {
         }
         Relationships: []
       }
+      national_id_readings: {
+        Row: {
+          confidence: number | null
+          confirmed: Json
+          consistency: Json
+          created_at: string
+          edited_fields: string[]
+          face_verified: boolean | null
+          field_verdicts: Json
+          id: string
+          missing: string[]
+          ocr: Json
+          sha256: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          confirmed?: Json
+          consistency?: Json
+          created_at?: string
+          edited_fields?: string[]
+          face_verified?: boolean | null
+          field_verdicts?: Json
+          id?: string
+          missing?: string[]
+          ocr?: Json
+          sha256?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence?: number | null
+          confirmed?: Json
+          consistency?: Json
+          created_at?: string
+          edited_fields?: string[]
+          face_verified?: boolean | null
+          field_verdicts?: Json
+          id?: string
+          missing?: string[]
+          ocr?: Json
+          sha256?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -30855,6 +30903,7 @@ export type Database = {
           dashboard_activated: boolean
           dashboard_first_access_at: string | null
           dashboard_last_access_at: string | null
+          date_of_birth: string | null
           deleted_at: string | null
           deleted_by: string | null
           deletion_reason: string | null
@@ -30896,8 +30945,11 @@ export type Database = {
           must_change_password: boolean | null
           national_id: string | null
           national_id_back_photo_path: string | null
+          national_id_card_number: string | null
+          national_id_given_name: string | null
           national_id_name: string | null
           national_id_photo_path: string | null
+          national_id_surname: string | null
           occupation: string | null
           ops_note: string | null
           parish: string | null
@@ -30921,6 +30973,7 @@ export type Database = {
           selfie_image_hash: string | null
           selfie_photo_path: string | null
           seller_application_status: string | null
+          sex: string | null
           signup_source: string | null
           smartphone_source: string | null
           smartphone_status: string
@@ -30964,6 +31017,7 @@ export type Database = {
           dashboard_activated?: boolean
           dashboard_first_access_at?: string | null
           dashboard_last_access_at?: string | null
+          date_of_birth?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           deletion_reason?: string | null
@@ -31005,8 +31059,11 @@ export type Database = {
           must_change_password?: boolean | null
           national_id?: string | null
           national_id_back_photo_path?: string | null
+          national_id_card_number?: string | null
+          national_id_given_name?: string | null
           national_id_name?: string | null
           national_id_photo_path?: string | null
+          national_id_surname?: string | null
           occupation?: string | null
           ops_note?: string | null
           parish?: string | null
@@ -31030,6 +31087,7 @@ export type Database = {
           selfie_image_hash?: string | null
           selfie_photo_path?: string | null
           seller_application_status?: string | null
+          sex?: string | null
           signup_source?: string | null
           smartphone_source?: string | null
           smartphone_status?: string
@@ -31073,6 +31131,7 @@ export type Database = {
           dashboard_activated?: boolean
           dashboard_first_access_at?: string | null
           dashboard_last_access_at?: string | null
+          date_of_birth?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           deletion_reason?: string | null
@@ -31114,8 +31173,11 @@ export type Database = {
           must_change_password?: boolean | null
           national_id?: string | null
           national_id_back_photo_path?: string | null
+          national_id_card_number?: string | null
+          national_id_given_name?: string | null
           national_id_name?: string | null
           national_id_photo_path?: string | null
+          national_id_surname?: string | null
           occupation?: string | null
           ops_note?: string | null
           parish?: string | null
@@ -31139,6 +31201,7 @@ export type Database = {
           selfie_image_hash?: string | null
           selfie_photo_path?: string | null
           seller_application_status?: string | null
+          sex?: string | null
           signup_source?: string | null
           smartphone_source?: string | null
           smartphone_status?: string
@@ -60783,6 +60846,18 @@ export type Database = {
       }
       submit_national_id: {
         Args: { p_id_name: string; p_national_id: string }
+        Returns: Json
+      }
+      submit_national_id_details: {
+        Args: {
+          p_card_number: string
+          p_date_of_birth: string
+          p_given_name: string
+          p_nin: string
+          p_reading?: Json
+          p_sex: string
+          p_surname: string
+        }
         Returns: Json
       }
       submit_service_center_request: {

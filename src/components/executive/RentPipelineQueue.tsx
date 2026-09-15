@@ -880,34 +880,94 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   };
   const expiredCount = rows.filter(r => isRequestExpired(r.created_at, r.status, r.agent_verified)).length;
 
+/**
+ * Multi-token search matcher:
+ * - Splits search query into words so order does not matter (e.g., "Ruth Nanteze" matches "Nanteze Ruth").
+ * - Trims whitespace and ignores extra spaces.
+ * - Handles phone numbers with or without leading zero or country code (+256).
+ */
+function matchesSearch(query: string, ...haystacks: (string | null | undefined)[]): boolean {
+  if (!query || !query.trim()) return true;
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+
+  const validHaystacks = haystacks.filter((h): h is string => Boolean(h && h.trim()));
+  if (validHaystacks.length === 0) return false;
+
+  const combined = validHaystacks.join(' ').toLowerCase();
+  const digitsCombined = combined.replace(/\D+/g, '');
+
+  return tokens.every(token => {
+    if (combined.includes(token)) return true;
+
+    const tokenDigits = token.replace(/\D+/g, '');
+    if (tokenDigits.length >= 3) {
+      const normalizedTokenDigits = tokenDigits.startsWith('256')
+        ? tokenDigits.slice(3)
+        : tokenDigits.startsWith('0')
+          ? tokenDigits.slice(1)
+          : tokenDigits;
+
+      if (normalizedTokenDigits.length >= 3 && digitsCombined.includes(normalizedTokenDigits)) {
+        return true;
+      }
+      if (digitsCombined.includes(tokenDigits)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+}
+
   const filtered = rows
     .filter(r => {
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
       if (stage === 'pending' && hideExpired && isRequestExpired(r.created_at, r.status, r.agent_verified)) {
         return false;
       }
-      if (search) {
-        const q = search.toLowerCase();
-        if (
-          !r.tenant_name.toLowerCase().includes(q) &&
-          !r.landlord_name.toLowerCase().includes(q) &&
-          !r.agent_name.toLowerCase().includes(q) &&
-          !(r.tenant_phone || '').includes(q) &&
-          !(r.landlord_phone || '').includes(q) &&
-          // District / village / parish / sub-county / free-text address
-          !(r.location_search || '').includes(q)
-        ) return false;
+      if (search.trim()) {
+        const matchesMain = matchesSearch(
+          search,
+          r.tenant_name,
+          r.tenant_phone,
+          r.tenant_district,
+          r.tenant_address,
+          r.landlord_name,
+          r.landlord_phone,
+          r.landlord_district,
+          r.landlord_address,
+          r.agent_name,
+          r.assigned_agent_name,
+          r.agent_phone,
+          r.agent_email,
+          r.lc1_name,
+          r.lc1_phone,
+          r.location_search,
+          r.request_city,
+          r.house_category
+        );
+        if (!matchesMain) return false;
       }
-      if (agentSearch) {
-        const a = agentSearch.toLowerCase();
-        if (
-          !r.agent_name.toLowerCase().includes(a) &&
-          !((r.assigned_agent_name || '').toLowerCase().includes(a))
-        ) return false;
+      if (agentSearch.trim()) {
+        const matchesAgent = matchesSearch(
+          agentSearch,
+          r.agent_name,
+          r.assigned_agent_name,
+          r.agent_phone,
+          r.agent_email
+        );
+        if (!matchesAgent) return false;
       }
-      if (landlordSearch) {
-        const l = landlordSearch.toLowerCase();
-        if (!r.landlord_name.toLowerCase().includes(l)) return false;
+      if (landlordSearch.trim()) {
+        const matchesLandlord = matchesSearch(
+          landlordSearch,
+          r.landlord_name,
+          r.landlord_phone,
+          r.landlord_district,
+          r.landlord_address
+        );
+        if (!matchesLandlord) return false;
       }
       return true;
     })

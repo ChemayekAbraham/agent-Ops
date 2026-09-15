@@ -105,11 +105,21 @@ export const MARKETPLACE_LIABILITY_CATEGORIES = [
 
 export const STANDALONE_LIABILITY_CATEGORIES = [
   'Taxes Payable',
+  'Deferred Rent Plan Fee Income',
   'Provisional Liabilities',
 ] as const;
 
 /**
  * L4 is the landlord payable and L1 is withdrawable user wallet custody.
+ *
+ * L7 "Platform Treasury Control — Landlord Flow" is the funding-side credit
+ * raised by recognise_funding_treasury() for the access and registration fees
+ * a tenant will pay over the life of a Rent Plan (DR A3 / CR L7), drawn down
+ * by the repayment waterfall as instalments come in. It is unearned fee income
+ * — a current liability in ledger_account_catalog — so it reports on its own
+ * line as deferred Rent Plan fee income rather than sitting unclassified. No
+ * cash account is involved and the balance is unchanged; only the heading it
+ * prints under is decided here.
  *
  * L9 (suspense) stays unmapped by design — unresolved postings must remain
  * visible as unresolved.
@@ -117,6 +127,7 @@ export const STANDALONE_LIABILITY_CATEGORIES = [
 const LIABILITY_ACCOUNT_MAP: Record<string, string> = {
   L4: 'Landlord Float',
   L1: 'Withdrawal Balances',
+  L7: 'Deferred Rent Plan Fee Income',
   // Reported as component lines inside Landlord Float rather than as their own
   // section. Their ledger accounts, balances and classifications are unchanged;
   // only the heading they print under moves, and each still appears exactly

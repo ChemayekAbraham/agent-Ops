@@ -172,16 +172,52 @@ export function AgentOpsExpiredRequestsPanel({
     },
   });
 
+function matchesSearch(query: string, ...haystacks: (string | null | undefined)[]): boolean {
+  if (!query || !query.trim()) return true;
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+
+  const validHaystacks = haystacks.filter((h): h is string => Boolean(h && h.trim()));
+  if (validHaystacks.length === 0) return false;
+
+  const combined = validHaystacks.join(' ').toLowerCase();
+  const digitsCombined = combined.replace(/\D+/g, '');
+
+  return tokens.every(token => {
+    if (combined.includes(token)) return true;
+
+    const tokenDigits = token.replace(/\D+/g, '');
+    if (tokenDigits.length >= 3) {
+      const normalizedTokenDigits = tokenDigits.startsWith('256')
+        ? tokenDigits.slice(3)
+        : tokenDigits.startsWith('0')
+          ? tokenDigits.slice(1)
+          : tokenDigits;
+
+      if (normalizedTokenDigits.length >= 3 && digitsCombined.includes(normalizedTokenDigits)) {
+        return true;
+      }
+      if (digitsCombined.includes(tokenDigits)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+}
+
   const filtered = useMemo(() => {
     let list = rows;
     if (search.trim()) {
-      const q = search.toLowerCase().trim();
       list = list.filter(r =>
-        r.tenant_name.toLowerCase().includes(q) ||
-        r.tenant_phone.includes(q) ||
-        r.landlord_name.toLowerCase().includes(q) ||
-        r.agent_name.toLowerCase().includes(q) ||
-        r.location.toLowerCase().includes(q)
+        matchesSearch(
+          search,
+          r.tenant_name,
+          r.tenant_phone,
+          r.landlord_name,
+          r.agent_name,
+          r.location
+        )
       );
     }
     return [...list].sort((a, b) => {

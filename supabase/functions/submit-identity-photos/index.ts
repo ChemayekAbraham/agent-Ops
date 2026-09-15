@@ -151,11 +151,19 @@ Deno.serve(async (req) => {
     });
     if (error) return json({ error: error.message }, 400);
 
+    // Best-effort. The Postgrest builder is thenable but has no .catch(), so
+    // chaining one threw AFTER the submission had already been saved — the
+    // whole call then returned 500 and the screen told the user nothing was
+    // sent when in fact it had been.
     if (body?.selfieHash || body?.idHash) {
-      await userClient.rpc("record_identity_image_hashes", {
-        p_selfie_hash: body?.selfieHash ?? null,
-        p_id_hash: body?.idHash ?? null,
-      }).catch(() => {});
+      try {
+        await userClient.rpc("record_identity_image_hashes", {
+          p_selfie_hash: body?.selfieHash ?? null,
+          p_id_hash: body?.idHash ?? null,
+        });
+      } catch (e) {
+        console.warn("[submit-identity-photos] hash recording failed:", (e as Error)?.message || e);
+      }
     }
 
     return json(data);

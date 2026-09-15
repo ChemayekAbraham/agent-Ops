@@ -556,7 +556,7 @@ export default function PlatformSalesOfficersPage() {
             <div className="text-base font-bold tabular-nums sm:text-lg">{fundedTotal}</div>
           </div>
           <div className="rounded-lg border bg-card px-3 py-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Money funded</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Money deployed</div>
             <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(moneyTotal)}</div>
           </div>
         </div>
@@ -655,6 +655,7 @@ export default function PlatformSalesOfficersPage() {
                       <th className="px-4 py-2 text-right font-medium">Total</th>
                       <th className="px-4 py-2 text-right font-medium">Unapproved</th>
                       <th className="px-4 py-2 text-right font-medium">Funded</th>
+                      <th className="px-4 py-2 text-right font-medium">Funders</th>
                       <th className="px-4 py-2 text-right font-medium">Top-ups</th>
                       <th className="px-4 py-2 text-right font-medium">Money deployed</th>
                       <th className="px-4 py-2 text-right font-medium">Commission base</th>
@@ -677,6 +678,7 @@ export default function PlatformSalesOfficersPage() {
                           {officer.notesUnapproved === 0 ? '—' : officer.notesUnapproved}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">{officer.notesFunded}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{officer.fundersConverted}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {officer.topups === 0 ? '—' : officer.topups}
                         </td>
@@ -732,7 +734,7 @@ export default function PlatformSalesOfficersPage() {
                 <div className="text-base font-bold tabular-nums sm:text-lg">{peopleFundedTotal}</div>
               </div>
               <div className="rounded-lg border bg-card px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Money funded</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Money deployed</div>
                 <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(peopleMoneyTotal)}</div>
               </div>
             </div>

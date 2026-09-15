@@ -24,7 +24,6 @@ import {
 } from '@/hooks/useCcCallingHub';
 import { isTerminalCallState, useCrmVoiceCall, type CallState } from '@/hooks/useCrmVoiceCall';
 import { hangupVoiceCall } from '@/lib/atVoiceClient';
-import { supabase } from '@/integrations/supabase/client';
 
 /** Attended sequential run states. Nothing dials without an officer starting it. */
 export type AutoMode = 'off' | 'running' | 'paused' | 'awaiting_outcome' | 'finished';
@@ -83,47 +82,67 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
   /** Set when End Call is pressed before the telephone leg exists. */
   const abortRef = useRef(false);
 
-  /**
-   * Drop the real telephone leg. `hangup()` is a no-op if the SDK has not yet
-   * attached the outbound call, so it is retried briefly — that window (the
-   * moment right after `client.call()`) is exactly when an officer's End Call
-   * used to be swallowed. Retries are harmless once the leg is already down.
-   *
-   * When a session id is known the row is closed too, so a leg dropped during
-   * set-up can never be stranded as ringing/active. The write is idempotent
-   * server-side.
-   */
-  const dropLeg = useCallback((sessionId: string | null) => {
-    let attempts = 0;
-    const tick = () => {
-      hangupVoiceCall();
-      attempts += 1;
-      if (attempts < 5) window.setTimeout(tick, 700);
-    };
-    tick();
+  /** Pending hang-up retries, so they can never land on a LATER call. */
+  const dropTimersRef = useRef<number[]>([]);
+  /** Live view of the leg state, so a retry chain stops the moment it really ends. */
+  const stateRef = useRef<CallState>('idle');
+  stateRef.current = call.state;
 
-    if (sessionId) {
-      void supabase
-        .rpc('crm_finalize_call_from_client', {
-          p_session_id: sessionId,
-          p_hangup_cause: 'ORIGINATOR_CANCEL',
-          p_duration: 0,
-        })
-        .then(({ error }) => {
-          if (error) console.error('[tenantDialer] finalize failed', error.message);
-        });
-    }
+  const cancelDropRetries = useCallback(() => {
+    dropTimersRef.current.forEach((t) => window.clearTimeout(t));
+    dropTimersRef.current = [];
   }, []);
+
+  /**
+   * Insist on the real telephone hang-up.
+   *
+   * `hangup()` is a no-op while the SDK has not yet attached the outbound leg —
+   * the moment right after `client.call()` — which is exactly when an officer's
+   * End Call used to be swallowed and the tenant's phone kept ringing. So it is
+   * re-issued a few times, and each retry stops as soon as the leg is genuinely
+   * terminal.
+   *
+   * The voice client is an app-wide singleton, so the retries MUST be
+   * cancellable: a chain left running would hang up whichever call is live next
+   * (the sequential run's following tenant). They are cleared here and again
+   * whenever a new dial starts.
+   *
+   * NOTE: this deliberately does NOT close the session row. Writing `ended_at`
+   * early is what broke termination: `crm-voice-callback` only answers the
+   * provider with `<Hangup/>` while the row is NOT already ended, so closing the
+   * row first told the UI "ended" and simultaneously threw away the one
+   * instruction that drops the live leg. Closing the row stays with the voice
+   * hook's own confirmed finalise (SDK `hangup` event, provider webhook, or its
+   * safety net) — the same path the CRM dialer uses.
+   */
+  const insistHangup = useCallback(() => {
+    cancelDropRetries();
+    hangupVoiceCall();
+    [300, 700, 1400, 2500, 4000].forEach((delay) => {
+      dropTimersRef.current.push(
+        window.setTimeout(() => {
+          if (isTerminalCallState(stateRef.current) || stateRef.current === 'idle') return;
+          hangupVoiceCall();
+        }, delay),
+      );
+    });
+  }, [cancelDropRetries]);
+
+  /** Nothing may keep hanging up after the screen goes away. */
+  useEffect(() => cancelDropRetries, [cancelDropRetries]);
 
   /**
    * The pending dial has become a real session after an End Call press: drop it
    * now. Without this the tenant's phone rings on after the officer hung up.
+   * `end()` raises the provider cancel flag (so the callback answers `<Hangup/>`)
+   * and finalises once, on confirmation.
    */
   useEffect(() => {
     if (!abortRef.current || starting || !call.callId) return;
     abortRef.current = false;
-    dropLeg(call.callId);
-  }, [call.callId, starting, dropLeg]);
+    call.end();
+    insistHangup();
+  }, [call, starting, insistHangup]);
 
   const openAttemptIds = useMemo(
     () => new Set(hub.openAttempts.map((a) => a.id)),
@@ -154,6 +173,8 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
       setStarting(true);
       settledRef.current = false;
       abortRef.current = false;
+      // A previous hang-up's retries must never reach this new leg.
+      cancelDropRetries();
       try {
         // Same reveal path as the Hub: opens (or reuses) the attempt row, then
         // asks the server for the number. No table read, no new attempt logic.
@@ -288,30 +309,29 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
   }, []);
 
   /**
-   * End Call. Two things have to happen, and neither may depend on the other:
+   * End Call.
    *
-   *  1. the voice hook's own `end()` (flags + finalises the session row), and
-   *  2. the SDK's `hangup()` on the live leg — invoked here as well, because
-   *     once the hook has already settled its UI (e.g. a safety-net finalise
-   *     fired while the leg was still coming up) `end()` returns immediately and
-   *     would leave the telephone leg talking. This is the same primitive the
-   *     CRM Calling Centre hangs up with; nothing new.
+   * One path only, exactly as the CRM Calling Centre does it:
+   *  - `end()` raises the cancel flag on the session (`crm_cancel_call`), which is
+   *    what makes the provider callback answer `<Hangup/>` and refuse to bridge,
+   *    issues the SDK hang-up on the real leg, holds the UI at "Ending…" and
+   *    finalises once — on the SDK hangup event, the provider webhook, or its own
+   *    safety net. It keeps the talk time of an answered call.
+   *  - `insistHangup()` re-issues the SDK hang-up across the attach window, so a
+   *    press made while the leg is still being set up is not swallowed.
    *
-   * If the officer presses End while the leg is still being set up (token,
-   * registration, `crm_start_webrtc_call`), the dial in flight would otherwise
-   * ring the tenant *after* the hang-up and could never be ended again. The
-   * abort flag makes the pending start drop itself the moment it is live.
+   * When the leg is still being set up (token, registration,
+   * `crm_start_webrtc_call`) there is no session id yet, so the abort flag makes
+   * that pending start cancel itself the moment it becomes a real session.
+   * Repeat presses are absorbed by `end()`'s own single-shot guard.
    */
   const hangUp = useCallback(() => {
-    const settingUp =
-      starting || call.state === 'initializing' || call.state === 'calling';
-    if (settingUp) abortRef.current = true;
+    if (isTerminalCallState(call.state) || call.state === 'idle') return;
+    if (starting || !call.callId) abortRef.current = true;
 
-    if (!isTerminalCallState(call.state) && call.state !== 'idle') call.end();
-
-    // Always drop the real leg, whatever the UI thinks the state is.
-    dropLeg(settingUp ? call.callId : null);
-  }, [call, starting, dropLeg]);
+    call.end();
+    insistHangup();
+  }, [call, starting, insistHangup]);
 
   const clearCurrent = useCallback(() => {
     hangUp();
