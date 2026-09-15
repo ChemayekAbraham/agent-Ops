@@ -552,7 +552,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       /* Normalise letter case up front: ID numbers are compared
          case-insensitively everywhere (typed input, duplicate check, link
          requests), so a lowercase read must not reach the form as-is. */
-      const d = r.data ?? {};
+      const d = (r.data ?? {}) as Partial<NationalIdData>;
       setForm({
         ...EMPTY_ID_DATA,
         ...d,
