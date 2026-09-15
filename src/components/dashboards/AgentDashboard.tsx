@@ -36,7 +36,6 @@ import {
   Sparkles,
   ArrowDownLeft,
   ArrowUpRight,
-  ArrowRight,
   Building2,
   Briefcase,
   UserCog,
