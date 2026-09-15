@@ -318,7 +318,7 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
             <Separator />
 
             {/* Agent & Supporter */}
-            {(agent || supporter) && (
+            {(agent || assignedAgent || supporter) && (
               <>
                 <Section title="Participants" icon={<User className="h-3.5 w-3.5" />}>
                   {agent && (
