@@ -116,6 +116,14 @@ export async function confirmPayoutDestinationConsent(
   admin: any,
   declarationId: string,
   code: string,
+  /**
+   * Optional correction to the name this destination is registered in, supplied
+   * by the withdrawer at the moment the owner's code is confirmed. Ownership of
+   * the SIM/account has just been proven by that code, so the name held on file
+   * (often a mis-spelling captured when the destination was first seen) can be
+   * corrected here. The previous value is preserved in decision_reason.
+   */
+  confirmedAccountName?: string | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: row } = await admin
     .from("payout_destination_declarations")
@@ -146,6 +154,11 @@ export async function confirmPayoutDestinationConsent(
     .update({ status: "consented", consented_at: new Date().toISOString() })
     .eq("id", declarationId);
 
+  const correctedName = String(confirmedAccountName ?? "").trim();
+  const previousName = String(row.destination_owner_name ?? "").trim();
+  const nameCorrected = correctedName.length > 0 &&
+    correctedName.toLowerCase() !== previousName.toLowerCase();
+
   const { error: verifyErr } = await admin
     .from("payout_destination_verifications")
     .update({
@@ -153,7 +166,11 @@ export async function confirmPayoutDestinationConsent(
       decided_by: null,
       decided_at: new Date().toISOString(),
       call_outcome: "sms_consent",
-      decision_reason: "Auto-verified: the destination owner confirmed by SMS code sent to their own phone.",
+      ...(nameCorrected ? { account_name: correctedName } : {}),
+      decision_reason: nameCorrected
+        ? `Auto-verified: the destination owner confirmed by SMS code sent to their own phone. ` +
+          `Registered name corrected to "${correctedName}" (was "${previousName || "not recorded"}").`
+        : "Auto-verified: the destination owner confirmed by SMS code sent to their own phone.",
     })
     .eq("id", row.destination_verification_id)
     .eq("status", "waiting"); // don't clobber a decision Ops already made
