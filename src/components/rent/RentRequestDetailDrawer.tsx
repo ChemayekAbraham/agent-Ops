@@ -298,6 +298,9 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
               <DetailRow label="Name" value={landlord?.name || 'Unknown'} />
               <DetailRow label="Phone" value={landlord?.phone || '—'} />
               <DetailRow label="Property" value={landlord?.property_address || '—'} />
+              {listingAddress && listingAddress !== landlord?.property_address && (
+                <DetailRow label="House address" value={listingAddress} />
+              )}
               {landlord?.mobile_money_number && (
                 <DetailRow label="MoMo" value={`${landlord.mobile_money_name || ''} ${landlord.mobile_money_number}`} />
               )}
