@@ -297,8 +297,11 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
       : `${d.bank_name ?? 'Bank'} ${d.bank_account_number ?? ''}`.trim();
 
   /* Once the identity is captured, the number is locked to the account: it is
-     shown masked and read-only, and there is no way to change it from here. */
+     shown masked and read-only. It can only move when Financial Ops approves a
+     change request. */
   if (lockedNumber) {
+    const pending = changeRequest.data?.status === 'pending';
+    const rejected = changeRequest.data?.status === 'rejected';
     return (
       <div className="space-y-3 rounded-lg border p-3">
         <p className="flex items-center gap-2 text-sm font-semibold">
@@ -320,6 +323,30 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
         <p className="text-[11px] text-muted-foreground">
           For your security, withdrawals from this account can only be sent to this number.
         </p>
+
+        {pending ? (
+          <p className="rounded-md bg-amber-500/10 p-2 text-xs text-amber-700">
+            Your request to change this number is with Financial Ops. They will call you to confirm
+            the new number belongs to you.
+          </p>
+        ) : (
+          <>
+            {rejected && changeRequest.data?.decision_reason && (
+              <p className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+                Your last change request was not accepted: {changeRequest.data.decision_reason}
+              </p>
+            )}
+            <Button variant="outline" className="w-full h-11" onClick={() => setChangeOpen(true)}>
+              Ask to change this number
+            </Button>
+          </>
+        )}
+
+        <PayoutNumberChangeDialog
+          open={changeOpen}
+          onOpenChange={setChangeOpen}
+          onSubmitted={() => void changeRequest.refetch()}
+        />
       </div>
     );
   }
