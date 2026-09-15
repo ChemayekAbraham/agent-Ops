@@ -1547,7 +1547,7 @@ export default function WithdrawFlow({
                                       ? '✓ Verified — ready for payout'
                                       : status === 'rejected'
                                         ? `Rejected${st?.decision_reason ? ` — ${st.decision_reason}` : ''}`
-                                        : 'Waiting for verification — Financial Ops will call you'}
+                                        : 'Verification pending'}
                                   </p>
                                   {status === 'waiting' && st && (
                                     <Button
