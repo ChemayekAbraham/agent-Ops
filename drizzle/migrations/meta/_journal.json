@@ -638,6 +638,13 @@
       "when": 1789414341213,
       "tag": "0090_tenant_payment_history",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1789420000000,
+      "tag": "0091_allow_verify_own_payout_destination",
+      "breakpoints": true
     }
   ]
 }
