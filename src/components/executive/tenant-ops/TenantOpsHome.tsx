@@ -205,6 +205,43 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
         />
       </div>
 
+      {/* Prominent "Review Rent Requests" action — first thing an operator sees. */}
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => onNavigate('pipeline')}
+          aria-label={`Open Review Rent Requests queue — ${homeRange?.review_requests ?? 0} pending`}
+          className="group relative w-full overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/15 via-card to-card p-4 sm:p-5 text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md active:scale-[0.99] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        >
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="rounded-2xl bg-primary p-3 sm:p-3.5 text-primary-foreground shadow-sm">
+              <ClipboardList className="h-6 w-6 sm:h-7 sm:w-7" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">Review Rent Requests</h3>
+                {(homeRange?.review_requests ?? 0) > 0 ? (
+                  <span className="rounded-full bg-destructive px-2.5 py-0.5 text-xs font-bold text-destructive-foreground">
+                    {homeRange?.review_requests} pending
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-bold text-muted-foreground">
+                    0 pending
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+                Vet, approve or return incoming rent requests
+              </p>
+              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-primary-foreground shadow-sm group-hover:bg-primary/90 transition-colors">
+                Open queue
+                <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </div>
+            </div>
+          </div>
+        </button>
+      </div>
+
        {/* Selected-period collection hero + KPI strip */}
        <div className="grid gap-3 lg:grid-cols-3">
          <Card className="lg:col-span-1 border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
@@ -466,16 +503,9 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
        {/* Quick actions */}
        <div className="space-y-2">
          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quick actions · {phrase}</p>
-         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-           <HubEntryCard
-             title="Review Requests"
-             description="Vet, approve or return incoming rent requests"
-             icon={ClipboardList}
-             stats={[{ label: 'in review', value: homeRange?.review_requests ?? 0 }]}
-             onClick={() => onNavigate('pipeline')}
-           />
-           <HubEntryCard
-             title="Daily Payments"
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <HubEntryCard
+              title="Daily Payments"
              description={`Who paid ${phrase} and who still owes`}
              icon={CalendarCheck}
              stats={[{ label: 'unpaid', value: homeRange?.unpaid_tenants ?? 0 }]}

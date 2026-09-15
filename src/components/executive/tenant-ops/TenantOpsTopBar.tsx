@@ -61,22 +61,22 @@ export function TenantOpsTopBar({ active, onSelect, badges, actions }: Props) {
     .join('');
 
   return (
-    <div className="sticky top-0 z-30 -mx-4 border-b border-border/60 bg-card px-4 py-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="sticky top-0 z-30 -mx-4 border-b border-border/60 bg-card px-4 py-2.5 sm:py-2">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         {/* mobile nav */}
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 lg:hidden" aria-label="Open Tenant Ops menu">
-              <Menu className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-10 w-10 lg:hidden" aria-label="Open Tenant Ops menu">
+              <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-72 p-0">
-            <div className="border-b px-4 py-3 text-sm font-bold">Tenant Ops</div>
+          <SheetContent side="left" className="w-80 p-0 sm:w-72">
+            <div className="border-b px-4 py-3.5 text-base font-bold">Tenant Ops</div>
             <TenantOpsSidebar
               active={active}
               badges={badges}
               onSelect={(v) => { onSelect(v); setMobileNavOpen(false); }}
-              className="h-[calc(100vh-3.25rem)]"
+              className="h-[calc(100vh-3.5rem)]"
             />
           </SheetContent>
         </Sheet>
@@ -92,7 +92,7 @@ export function TenantOpsTopBar({ active, onSelect, badges, actions }: Props) {
             onFocus={() => setFocused(true)}
             onBlur={() => { blurTimer.current = window.setTimeout(() => setFocused(false), 150); }}
             placeholder="Search sections…"
-            className="h-8 pl-8 pr-7 text-xs"
+            className="h-9 pl-8 pr-7 text-xs sm:h-8"
             aria-label="Search Tenant Ops sections"
           />
           {query && (
