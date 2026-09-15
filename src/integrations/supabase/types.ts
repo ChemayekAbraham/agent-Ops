@@ -48460,6 +48460,8 @@ export type Database = {
           officer_since: string | null
           officer_user_id: string | null
           partner_registered: boolean | null
+          pre_enrolment: boolean | null
+          recorded_day: string | null
           reversal_kind: string | null
           reversed_at: string | null
           staff_id: string | null

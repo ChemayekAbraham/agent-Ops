@@ -673,6 +673,13 @@
       "when": 1789454284919,
       "tag": "0095_withdrawal_verification_exemptions_legacy_pending",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1789454569511,
+      "tag": "0096_pso_widen_note_events_pre_enrolment",
+      "breakpoints": true
     }
   ]
 }
