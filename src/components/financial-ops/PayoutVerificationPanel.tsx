@@ -67,6 +67,7 @@ import { assessIdNameConfidence } from '@/lib/idNameConfidence';
 import { doubleSubmissionLabel } from '@/lib/doubleSubmission';
 import { supabase } from '@/integrations/supabase/client';
 import { PayoutQueueBlockedList, blockedReasonFor } from './PayoutQueueBlockedList';
+import NationalIdLinkStaffQueue from './NationalIdLinkStaffQueue';
 
 import { useUserAvatars } from '@/hooks/useUserAvatars';
 import { useAuth } from '@/hooks/useAuth';
