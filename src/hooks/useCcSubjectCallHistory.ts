@@ -73,11 +73,15 @@ export function useCcSubjectCallHistory(
       const attemptIds = list.map((a) => a.id);
       const { data: feedback } = await client
         .from('cc_feedback')
-        .select('attempt_id, note, severity, category_id')
+        .select('id, attempt_id, note, severity, category_id')
         .in('attempt_id', attemptIds);
-      const fbMap = new Map<string, { note: string | null; severity: CcSeverity | null; category_id: string | null }>();
+      const fbMap = new Map<
+        string,
+        { id: string; note: string | null; severity: CcSeverity | null; category_id: string | null }
+      >();
       (
         (feedback || []) as {
+          id: string;
           attempt_id: string;
           note: string | null;
           severity: CcSeverity | null;
