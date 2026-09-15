@@ -72,7 +72,11 @@ import PayoutNumberChangeQueue from './PayoutNumberChangeQueue';
 
 import { useUserAvatars } from '@/hooks/useUserAvatars';
 import { useAuth } from '@/hooks/useAuth';
-import { identityPhotoUrl, useIdentityPhotosFor } from '@/hooks/useIdentityPhotos';
+import {
+  identityPhotoUrl,
+  useIdentityPhotosFor,
+  useVerificationHistory,
+} from '@/hooks/useIdentityPhotos';
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   last9,
