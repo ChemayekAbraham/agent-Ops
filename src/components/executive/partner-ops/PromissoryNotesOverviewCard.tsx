@@ -1,25 +1,45 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, ArrowRight, Clock, CheckCircle, TrendingUp } from 'lucide-react';
+import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp } from 'lucide-react';
 import { usePromissoryOpsReport } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
+import { cn } from '@/lib/utils';
+
+type PromissoryStatus = 'pending' | 'activated' | 'rejected';
+
+const PILL_CONFIG: { key: PromissoryStatus; label: string; icon: React.ElementType }[] = [
+  { key: 'pending', label: 'Awaiting Review', icon: Clock },
+  { key: 'activated', label: 'Approved', icon: CheckCircle },
+  { key: 'rejected', label: 'Rejected', icon: XCircle },
+];
 
 /**
  * Prominent overview entry point for the Promissory Notes workspace.
  * Surfaces live queue stats so Partner Ops can see workload at a glance.
  */
-export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: () => void }) {
+export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (status?: PromissoryStatus) => void }) {
   const { report, isLoading } = usePromissoryOpsReport();
   const { kpis, notes } = report;
+  const [selected, setSelected] = useState<PromissoryStatus>('pending');
 
-  const pendingNotes = notes.filter((n) => n.status === 'pending').length;
-  const approvedNotes = kpis.approved_notes ?? notes.filter((n) => n.status === 'approved').length;
+  const counts = {
+    pending: notes.filter((n) => n.status === 'pending').length,
+    activated: notes.filter((n) => n.status === 'activated').length,
+    rejected: notes.filter((n) => n.status === 'cancelled' || n.status === 'defaulted').length,
+  };
+
+  const openLabel = {
+    pending: 'Open awaiting review',
+    activated: 'Open approved',
+    rejected: 'Open rejected',
+  }[selected];
 
   return (
     <Card
       className="border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
-      onClick={onOpen}
+      onClick={() => onOpen(selected)}
       role="button"
       aria-label="Open Promissory Notes"
     >
@@ -36,9 +56,9 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: () => void }) 
                   {kpis.notes_count.toLocaleString()} total
                 </Badge>
               )}
-              {pendingNotes > 0 && (
+              {counts.pending > 0 && (
                 <Badge variant="destructive" className="text-xs">
-                  {pendingNotes.toLocaleString()} pending
+                  {counts.pending.toLocaleString()} awaiting review
                 </Badge>
               )}
             </div>
@@ -46,9 +66,36 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: () => void }) 
               Review partner commitments, approve notes &amp; track collections
             </p>
           </div>
-          <Button size="sm" className="gap-1.5 shrink-0" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
-            Open <ArrowRight className="h-4 w-4" />
+          <Button size="sm" className="gap-1.5 shrink-0" onClick={(e) => { e.stopPropagation(); onOpen(selected); }} aria-label={openLabel}>
+            {openLabel} <ArrowRight className="h-4 w-4" />
           </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {PILL_CONFIG.map(({ key, label, icon: Icon }) => {
+            const active = selected === key;
+            return (
+              <button
+                key={key}
+                onClick={(e) => { e.stopPropagation(); setSelected(key); }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-background/80 text-muted-foreground hover:bg-background border'
+                )}
+                aria-pressed={active}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{label}</span>
+                {!isLoading && (
+                  <span className={cn('ml-0.5 tabular-nums', active ? 'text-primary-foreground/80' : 'text-muted-foreground/80')}>
+                    {counts[key].toLocaleString()}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-3 gap-2">
@@ -57,14 +104,14 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: () => void }) 
               <Clock className="h-3.5 w-3.5" />
               <span className="text-[10px] font-medium uppercase tracking-wide">Awaiting review</span>
             </div>
-            <p className="text-sm font-bold mt-1">{isLoading ? '…' : pendingNotes.toLocaleString()}</p>
+            <p className="text-sm font-bold mt-1">{isLoading ? '…' : counts.pending.toLocaleString()}</p>
           </div>
           <div className="rounded-lg border bg-background/60 p-2.5">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <CheckCircle className="h-3.5 w-3.5" />
               <span className="text-[10px] font-medium uppercase tracking-wide">Approved</span>
             </div>
-            <p className="text-sm font-bold mt-1">{isLoading ? '…' : approvedNotes.toLocaleString()}</p>
+            <p className="text-sm font-bold mt-1">{isLoading ? '…' : counts.activated.toLocaleString()}</p>
           </div>
           <div className="rounded-lg border bg-background/60 p-2.5">
             <div className="flex items-center gap-1.5 text-muted-foreground">
