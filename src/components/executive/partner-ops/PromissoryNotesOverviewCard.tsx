@@ -12,7 +12,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle, ChevronDown, ChevronUp, Phone, MessageCircle, Mail, Calendar, BadgeCheck } from 'lucide-react';
+import { format } from 'date-fns';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -76,6 +78,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   const [rejectTarget, setRejectTarget] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
+  const [detailNote, setDetailNote] = useState<any>(null);
 
   const isOverdue = (n: any) => {
     if (!n.fulfilment_due_on) return false;
@@ -409,7 +412,13 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
         {!isLoading && statusNotes.length > 0 && (
           <div className="rounded-2xl border bg-background/60 divide-y">
             {statusNotes.map((note: any) => (
-              <div key={note.id} className="flex items-center gap-2 px-3 py-2" onClick={(e) => e.stopPropagation()}>
+              <div
+                key={note.id}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent/60 transition-colors"
+                onClick={(e) => { e.stopPropagation(); setDetailNote(note); }}
+                role="button"
+                aria-label={`View details for ${note.partner_name || 'promissory note'}`}
+              >
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold truncate">{note.partner_name || 'Unknown partner'}</p>
                   <p className="text-[10px] text-muted-foreground truncate">
