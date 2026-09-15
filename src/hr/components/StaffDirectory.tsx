@@ -418,7 +418,12 @@ export default function StaffDirectory() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-8" />
-                    <TableHead>Person</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Person{' '}
+                      <span className="text-[10px] font-normal text-muted-foreground tabular-nums">
+                        ({visibleStaff.length})
+                      </span>
+                    </TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Reports to</TableHead>
                     <TableHead>Contact</TableHead>
