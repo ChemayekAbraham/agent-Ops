@@ -77,9 +77,9 @@ import {
   useAdoptNationalIdName,
   useHolderNameHistory,
   useStoredIdReading,
-  sameIdNumber,
-  samePersonName,
+  evaluateStoredIdChecks,
   maskIdNumber,
+
   useDecidePayoutDestination,
   useRevertHolderName,
 
