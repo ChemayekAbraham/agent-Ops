@@ -66,6 +66,16 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
     [tenantCategory],
   );
 
+  /** Categories sorted with the tenant book pinned first, for the category drill-down. */
+  const sortedCategories = useMemo(() => {
+    const cats = breakdown.data?.categories ?? [];
+    return cats.slice().sort((a, b) => {
+      if (a.label === TENANT_CATEGORY_LABEL && b.label !== TENANT_CATEGORY_LABEL) return -1;
+      if (b.label === TENANT_CATEGORY_LABEL && a.label !== TENANT_CATEGORY_LABEL) return 1;
+      return 0;
+    });
+  }, [breakdown.data]);
+
   /** Flat list of every product/service across categories, for the filter. */
   const productOptions = useMemo(() => {
     const cats = breakdown.data?.categories ?? [];
