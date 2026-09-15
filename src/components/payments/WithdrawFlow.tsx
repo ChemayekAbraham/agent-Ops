@@ -736,7 +736,10 @@ export default function WithdrawFlow({
     // flow and are exempt. Threshold: today_pct < 20% with active tenants.
     switch (currentStep) {
       // Verify the wallet first: no valid National ID on file, no withdrawal.
-      case 0: return !needsNationalId && !needsIdentityPhotos;
+      case 0:
+        // A Financial Ops rejection closes withdrawals until it is put right.
+        if (identityBlock.data?.code === 'destination_rejected') return false;
+        return !needsNationalId && !needsIdentityPhotos;
       case 1:
         // Mirror the Confirm-step pattern: keep Continue tappable even when
         // the live ledger check is still loading / failed / stale. We refetch
@@ -1236,6 +1239,22 @@ export default function WithdrawFlow({
                 same card a moment later, made them key in what the camera was
                 about to read. The typed prompt stays for the case it still
                 answers: photos already on file but no ID number recorded. */}
+            {/* What Financial Ops needs put right, in the order to fix it. */}
+            {identityBlock.data?.blocked && (identityBlock.data.reasons?.length ?? 0) > 0 && (
+              <div className="rounded-xl border-2 border-destructive bg-destructive/10 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <h4 className="font-bold text-destructive">
+                    {identityBlock.data.headline ?? 'Oops! Your details did not meet the criteria.'}
+                  </h4>
+                </div>
+                <ol className="list-decimal space-y-1 pl-5 text-sm text-destructive/90">
+                  {identityBlock.data.reasons.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
             {showIdentityPanel && <IdentityPhotoCapture compact />}
             {needsNationalId && !needsIdentityPhotos && (
               <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
