@@ -92,6 +92,7 @@ export function PartnersOpsDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForUser, setCreateForUser] = useState<{ id: string; name: string } | null>(null);
   const [maturityAccount, setMaturityAccount] = useState<any>(null);
+  const [promissoryStatus, setPromissoryStatus] = useState<string>('all');
   const autoRenewedRef = useRef(false);
 
   // ═══ REALTIME: auto-refresh on portfolio changes ═══
