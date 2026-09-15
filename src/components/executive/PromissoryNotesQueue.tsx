@@ -413,6 +413,16 @@ export function PromissoryNotesQueue({
   const notes = report.notes;
   const kpis = report.kpis;
 
+  const isOverdue = (n: any) => {
+    if (!n.fulfilment_due_on) return false;
+    const due = new Date(n.fulfilment_due_on);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (due >= today) return false;
+    const outstanding = Number(n.outstanding ?? (Number(n.amount) - Number(n.total_collected)));
+    return outstanding > 0;
+  };
+
   const filtered = notes.filter(n => {
     const haystack = [
       n.partner_name, n.whatsapp_number, n.phone_number, n.email,
@@ -425,6 +435,8 @@ export function PromissoryNotesQueue({
     const matchesStatus =
       statusFilter === 'all'
         ? true
+        : statusFilter === 'overdue'
+        ? isOverdue(n)
         : statusFilter === 'came_in'
         ? !!n.came_in
         : statusFilter === 'not_registered'
