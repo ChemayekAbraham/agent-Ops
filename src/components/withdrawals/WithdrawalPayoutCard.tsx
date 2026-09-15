@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { parsePayoutConfirmationSms } from '@/utils/smsParser';
 import { usePayoutsUiEnabled } from '@/hooks/usePayoutsUiEnabled';
+import { useWithdrawalVerificationExemption } from '@/hooks/useWithdrawalVerificationExemption';
 import { humanizeWithdrawalError } from '@/lib/withdrawalErrorText';
 import {
   beginAuthCriticalSection,
