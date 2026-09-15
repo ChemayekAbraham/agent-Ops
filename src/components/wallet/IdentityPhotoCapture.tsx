@@ -465,26 +465,22 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             label="National ID photo"
             hint="All four corners visible, no glare."
             file={idPhoto}
-            quality={idQuality}
-            checking={checkingId}
             onPick={(f) => {
               setIdPhoto(f);
               setIdReading(null);
               setReadError(null);
-              void gradePhoto(f, 'National ID photo', setCheckingId, setIdQuality).then((r) => {
-                if (r.ok) void readIdPhoto(f);
-              });
+              void readIdPhoto(f);
             }}
             onClear={() => {
               setIdPhoto(null);
               setIdReading(null);
               setReadError(null);
-              setIdQuality(null);
               setForm(EMPTY_ID_DATA);
               setFieldError(null);
             }}
             disabled={saving}
           />
+
         )}
 
         {reading && (
@@ -613,26 +609,22 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             hint="Face the camera in good light."
             facing="user"
             file={selfieOriginal}
-            quality={selfieQuality}
-            checking={checkingSelfie}
             onPick={(f) => {
               setSelfieOriginal(f);
               setSelfieCropped(null);
               setFaceCheck(null);
-              /* Same order as the tenant passport photo: the face checker is
-                 asked on every shot, never gated behind the local blur grade,
-                 so the verdict is identical in both places. */
+              /* Same as the tenant passport photo: the checker on the server is
+                 the only judge of the photo. */
               void runFaceCheck(f);
-              void gradePhoto(f, 'Selfie', setCheckingSelfie, setSelfieQuality).then((r) => {
-                if (r.ok) setPendingSelfie(f);
-              });
+              setPendingSelfie(f);
             }}
             onClear={() => {
               setSelfieOriginal(null); setSelfieCropped(null);
-              setSelfieQuality(null); setFaceCheck(null);
+              setFaceCheck(null);
             }}
             disabled={saving}
           />
+
         )}
 
         {/* Is the selfie a face? Separate question from "is it sharp". */}
@@ -675,15 +667,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </p>
         )}
 
-        {failedShots.length > 0 && (
-          <p className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              Please retake: {failedShots.join(' and ')}. We cannot send photos that are blurry, shiny
-              or too dark — Financial Ops would only reject them.
-            </span>
-          </p>
-        )}
+
+
 
         {sendError && (
           <div
