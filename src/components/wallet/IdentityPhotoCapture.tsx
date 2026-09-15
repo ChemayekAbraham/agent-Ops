@@ -591,6 +591,15 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // Binds the captured identity as soon as everything needed is on file.
   const identityBind = useCompleteIdentityBinding();
 
+  // Photos cannot be sent until the payout number is verified with a code.
+  const binding = useIdentityBinding(user?.id ?? undefined);
+  const lockedNumber = binding.data?.locked_payout_number ?? null;
+  const payoutList = useMyPayoutDestinations(user?.id);
+  const payoutRows = payoutList.data ?? [];
+  const hasVerifiedPayoutNumber =
+    !!lockedNumber ||
+    payoutRows.some((d) => d.destination_type === 'mobile_money' && d.status === 'verified');
+
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
   const [selfieOriginal, setSelfieOriginal] = useState<File | null>(null);
@@ -795,6 +804,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     !idRejected && !detailsComplete
       ? `Fill in ${missingDetails.map((k) => ID_FIELD_LABEL[k]).join(', ')} from your card.`
       : null,
+    !hasVerifiedPayoutNumber ? 'Confirm your payout number with the code.' : null,
   ].filter(Boolean) as string[];
 
 
@@ -1146,12 +1156,22 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </div>
         )}
 
-        <Button className="w-full" disabled={saving} onClick={handleSave}>
+        <PayoutNumberVerification userId={user?.id} />
+
+        {!hasVerifiedPayoutNumber && (
+          <p className="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
+            Confirm your payout number above with the code before you can send your photos.
+          </p>
+        )}
+
+        <Button
+          className="w-full"
+          disabled={saving || !hasVerifiedPayoutNumber}
+          onClick={handleSave}
+        >
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {saving ? 'Sending…' : 'Send my photos for verification'}
         </Button>
-
-        <PayoutNumberVerification userId={user?.id} />
 
         <a
           href="/verification-history"
