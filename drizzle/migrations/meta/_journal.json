@@ -897,6 +897,13 @@
       "when": 1789500607096,
       "tag": "0127_s2_allowlist_bank_recognition_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1789500750900,
+      "tag": "0128_restrict_payout_proof_ocr_log_insert",
+      "breakpoints": true
     }
   ]
 }
