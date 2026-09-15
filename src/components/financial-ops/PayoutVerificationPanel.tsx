@@ -827,15 +827,17 @@ export default function PayoutVerificationPanel() {
 
   // One tap verifies and saves everything: the National ID name becomes the
   // account name, the note is written for the audit trail, and the queue moves on.
-  const runQuickVerify = async (target: PayoutDestinationRow) => {
+  const runQuickVerify = async (target: PayoutDestinationRow, auto = false) => {
     try {
       await quickVerify.mutateAsync({
         id: target.id,
         userId: target.user_id,
         decision: 'verified',
-        reason:
-          'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.',
+        reason: auto
+          ? 'Verified automatically: the ID number typed in matches the National ID that was read, the selfie passed the face check, and the name on the card matches the name on the account.'
+          : 'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.',
       });
+
       const idName = (target.national_id_name || '').trim();
       const before = (target.full_name || target.account_name || '').trim();
       if (
