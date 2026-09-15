@@ -226,7 +226,7 @@ export function PartnerReceivablesVsExpectedChart() {
       <CardContent className="pt-0">
         {isLoading ? (
           <Skeleton className="h-56 w-full" />
-        ) : rows.length === 0 ? (
+        ) : rows.length === 0 || !hasActivity ? (
           <p className="py-12 text-center text-xs text-muted-foreground">No promissory activity in this window.</p>
         ) : (
           <div className="h-56 w-full sm:h-64">
