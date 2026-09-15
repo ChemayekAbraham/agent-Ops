@@ -423,6 +423,18 @@ export function PromissoryNotesQueue({
     return outstanding > 0;
   };
 
+  const isDueSoon = (n: any) => {
+    if (!n.fulfilment_due_on) return false;
+    const due = new Date(n.fulfilment_due_on);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (due < today) return false;
+    const daysUntil = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysUntil > 7) return false;
+    const outstanding = Number(n.outstanding ?? (Number(n.amount) - Number(n.total_collected)));
+    return outstanding > 0;
+  };
+
   const filtered = notes.filter(n => {
     const haystack = [
       n.partner_name, n.whatsapp_number, n.phone_number, n.email,
