@@ -715,6 +715,13 @@
       "when": 1789459560310,
       "tag": "0101_smartphone_periods_1_to_12_months",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1789459948929,
+      "tag": "0102_withdrawal_partner_proxy_destination_carveout",
+      "breakpoints": true
     }
   ]
 }
