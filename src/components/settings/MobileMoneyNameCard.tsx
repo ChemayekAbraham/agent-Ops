@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Save, Wallet, Lock, Pencil, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { maskPayoutNumber } from "@/hooks/useIdentityBinding";
 
 interface Props {
   userId: string;
