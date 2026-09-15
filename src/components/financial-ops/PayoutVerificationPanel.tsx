@@ -77,6 +77,7 @@ import {
   useAdoptNationalIdName,
   useHolderNameHistory,
   useStoredIdReading,
+  usePayoutNumberOtpConfirmed,
   sameIdNumber,
   maskIdNumber,
   useDecidePayoutDestination,
