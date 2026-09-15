@@ -533,7 +533,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                           {ID_FIELD_LABEL[key]}
                           {!readOk && (
                             <span className="ml-1 text-[10px] font-normal text-amber-600">
-                              not read — type it
+                              {form[key] ? 'not sure — check it' : 'not read — type it'}
                             </span>
                           )}
                         </Label>
