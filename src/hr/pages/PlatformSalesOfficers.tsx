@@ -422,6 +422,52 @@ export default function PlatformSalesOfficersPage() {
   const combinedFundedTotal = fundedTotal + peopleFundedTotal;
   const combinedMoneyTotal = moneyTotal + peopleMoneyTotal;
 
+  // Column-by-column summation across both tables for the window currently
+  // shown. Recomputes whenever the window or the polled data changes.
+  const columnTotals = useMemo(() => {
+    const weekday = [0, 0, 0, 0, 0, 0, 0];
+    let unapproved = 0;
+    let funders = 0;
+    let topups = 0;
+    let commissionBase = 0;
+    let commission = 0;
+    let preEnrolNotes = 0;
+    let preEnrolFunded = 0;
+    let preEnrolAmount = 0;
+
+    for (const o of officers) {
+      o.weekday.forEach((v, wi) => { weekday[wi] += v; });
+      unapproved += o.notesUnapproved;
+      funders += o.fundersConverted;
+      topups += o.topups;
+      commissionBase += o.commissionBase;
+      commission += o.commissionAccrued;
+      preEnrolNotes += o.preEnrolmentNotes;
+      preEnrolFunded += o.preEnrolmentFunded;
+      preEnrolAmount += o.preEnrolmentAmount;
+    }
+    for (const p of people) {
+      p.weekday.forEach((v, wi) => { weekday[wi] += v; });
+      unapproved += p.notesUnapproved;
+      funders += p.fundersConverted;
+      topups += p.topups;
+      commissionBase += p.commissionBase;
+      commission += p.commissionAccrued;
+    }
+
+    return {
+      weekday,
+      unapproved,
+      funders,
+      topups,
+      commissionBase,
+      commission,
+      preEnrolNotes,
+      preEnrolFunded,
+      preEnrolAmount,
+    };
+  }, [officers, people]);
+
   const isNotPermitted = error instanceof Error && error.message.includes('not permitted');
 
   if (isNotPermitted) {
@@ -481,7 +527,34 @@ export default function PlatformSalesOfficersPage() {
             </div>
           )}
 
+          {!isLoading && (officers.length > 0 || people.length > 0) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+              <span className="font-semibold uppercase tracking-wide">Column totals</span>
+              {mode !== 'DAILY' && WEEKDAY_LABELS.map((d, wi) => (
+                <span key={d}>
+                  {d} <span className="font-semibold tabular-nums text-foreground">{columnTotals.weekday[wi]}</span>
+                </span>
+              ))}
+              <span>Total <span className="font-semibold tabular-nums text-foreground">{combinedNetTotal}</span></span>
+              <span>Unapproved <span className="font-semibold tabular-nums text-foreground">{columnTotals.unapproved}</span></span>
+              <span>Funded <span className="font-semibold tabular-nums text-foreground">{combinedFundedTotal}</span></span>
+              <span>Funders <span className="font-semibold tabular-nums text-foreground">{columnTotals.funders}</span></span>
+              <span>Top-ups <span className="font-semibold tabular-nums text-foreground">{columnTotals.topups}</span></span>
+              <span>Money deployed <span className="font-semibold tabular-nums text-foreground">UGX {combinedMoneyTotal.toLocaleString('en-UG')}</span></span>
+              <span>Commission base <span className="font-semibold tabular-nums text-foreground">UGX {columnTotals.commissionBase.toLocaleString('en-UG')}</span></span>
+              <span>Commission <span className="font-semibold tabular-nums text-foreground">UGX {columnTotals.commission.toLocaleString('en-UG')}</span></span>
+              <span>Pre-enrol <span className="font-semibold tabular-nums text-foreground">{columnTotals.preEnrolNotes}</span></span>
+              <span>
+                Pre-enrol funded{' '}
+                <span className="font-semibold tabular-nums text-foreground">
+                  {columnTotals.preEnrolFunded} · UGX {columnTotals.preEnrolAmount.toLocaleString('en-UG')}
+                </span>
+              </span>
+            </div>
+          )}
+
           <div className="grid w-full grid-cols-3 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
+
             {(['DAILY', 'WEEKLY', 'MONTHLY'] as WindowMode[]).map((m) => (
               <button
                 key={m}
