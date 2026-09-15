@@ -773,9 +773,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                   dateStyle: 'medium', timeStyle: 'short',
                 })}`
               : ''}
-            . You do not need to send them again. Withdrawals open once your payout number is
-            verified against the name on your National ID.
+            . You do not need to send them again. You can still withdraw to your locked number
+            while Financial Ops finishes checking it.
           </p>
+
           <div className="grid gap-2 sm:grid-cols-2">
             <StoredShot path={storedIdPath!} label="National ID photo" note="Sent for verification." />
             <StoredShot path={storedSelfiePath!} label="Selfie" note="Sent for verification." />
