@@ -412,6 +412,11 @@ export default function PlatformSalesOfficersPage() {
   }, [people]);
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
+  const officerNetTarget = useMemo(() => officers.length * 40, [officers]);
+  const officerNetPct = useMemo(() => {
+    if (officerNetTarget <= 0) return 0;
+    return Math.round((netTotal / officerNetTarget) * 100);
+  }, [netTotal, officerNetTarget]);
   const fundedTotal = useMemo(() => officers.reduce((s, o) => s + o.notesFunded, 0), [officers]);
   const moneyTotal = useMemo(() => officers.reduce((s, o) => s + o.amountDeployed, 0), [officers]);
 
@@ -527,7 +532,17 @@ export default function PlatformSalesOfficersPage() {
           </div>
           <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Net notes</div>
-            <div className="text-base font-bold tabular-nums sm:text-lg">{netTotal}</div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-base font-bold tabular-nums sm:text-lg">{netTotal}/{officerNetTarget}</div>
+              <div
+                className={cn(
+                  'text-sm font-bold tabular-nums',
+                  netTotal >= officerNetTarget ? 'text-green-600' : 'text-red-600',
+                )}
+              >
+                {officerNetTarget <= 0 ? 0 : officerNetPct}%
+              </div>
+            </div>
           </div>
           <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funded</div>
