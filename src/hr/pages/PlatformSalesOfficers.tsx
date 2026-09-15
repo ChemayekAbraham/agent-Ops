@@ -136,9 +136,16 @@ interface OfficerSummary {
   netNotes: number;
   partnerRegistered: number;
   weekday: number[];
+  notesUnapproved: number;
   notesFunded: number;
-  amountFunded: number;
+  fundersConverted: number;
+  topups: number;
+  amountDeployed: number;
+  commissionBase: number;
   commissionAccrued: number;
+  preEnrolmentNotes: number;
+  preEnrolmentFunded: number;
+  preEnrolmentAmount: number;
 }
 
 export default function PlatformSalesOfficersPage() {
