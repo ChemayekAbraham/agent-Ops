@@ -34,6 +34,33 @@ interface PsoFundedSummary {
   as_at: string;
 }
 
+interface NonOfficerRow {
+  person_user_id: string;
+  person_name: string;
+  day: string;
+  notes_created: number;
+  notes_reversed: number;
+  net_notes: number;
+  partner_registered: number;
+}
+
+interface NonOfficerFunded {
+  person_user_id: string;
+  person_name: string;
+  notes_in_cohort: number;
+  notes_unapproved: number;
+  notes_funded: number;
+  funders_converted: number;
+  topups: number;
+  amount_deployed: number;
+  commission_base: number;
+  commission_accrued: number;
+  pre_enrolment_notes: number;
+  pre_enrolment_funded: number;
+  pre_enrolment_amount: number;
+  as_at: string;
+}
+
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -146,6 +173,20 @@ interface OfficerSummary {
   preEnrolmentNotes: number;
   preEnrolmentFunded: number;
   preEnrolmentAmount: number;
+}
+
+interface PersonSummary {
+  person_user_id: string;
+  person_name: string;
+  netNotes: number;
+  weekday: number[];
+  notesUnapproved: number;
+  notesFunded: number;
+  fundersConverted: number;
+  topups: number;
+  amountDeployed: number;
+  commissionBase: number;
+  commissionAccrued: number;
 }
 
 export default function PlatformSalesOfficersPage() {
