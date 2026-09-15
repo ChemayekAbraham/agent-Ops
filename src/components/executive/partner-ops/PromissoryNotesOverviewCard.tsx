@@ -170,7 +170,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
 
   return (
     <Card
-      className="bg-card border border-border border-l-4 border-l-primary/40 cursor-pointer hover:bg-accent/50 transition-colors shadow-sm"
+      className="bg-primary/[0.04] border border-primary/30 border-l-4 border-l-primary cursor-pointer hover:bg-primary/[0.07] transition-colors shadow-sm"
       onClick={() => onOpen(activeFilter)}
       role="button"
       aria-label="Open Promissory Notes"
