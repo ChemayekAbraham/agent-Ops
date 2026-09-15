@@ -25,8 +25,9 @@ export function PromissoryNotesHeaderButton({
   onClick,
 }: PromissoryNotesHeaderButtonProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const { data: promissoryPending = 0 } = useQuery({
+  const { data: promissoryPending = 0, refetch } = useQuery({
     queryKey: ['promissory-notes-pending-count'],
     queryFn: async () => {
       const { count } = await supabase
@@ -37,6 +38,25 @@ export function PromissoryNotesHeaderButton({
     },
     staleTime: 30000,
   });
+
+  // Live updates: any insert/update/delete on promissory_notes refreshes the
+  // pending count so every mounted copy of this button stays in sync.
+  useEffect(() => {
+    const channel = supabase
+      .channel('promissory-notes-pending-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'promissory_notes' },
+        () => {
+          refetch();
+          queryClient.invalidateQueries({ queryKey: ['promissory-notes-pending-count'] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch, queryClient]);
 
   const handleClick = () => {
     if (onClick) {
