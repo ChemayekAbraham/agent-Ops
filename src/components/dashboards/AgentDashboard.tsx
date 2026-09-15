@@ -76,6 +76,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
+import NationalIdGroupCard from '@/components/agent/NationalIdGroupCard';
 import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
 import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
@@ -1726,6 +1727,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {activeTab === 'subagents' && (
           <div className={cn("space-y-5", tabAnimClass)}>
             <MyParentAgentCard agentId={user.id} />
+            <NationalIdGroupCard />
             <SubAgentsPanel agentId={user.id} onInviteSubAgent={handleInviteSubAgent} />
           </div>
         )}
