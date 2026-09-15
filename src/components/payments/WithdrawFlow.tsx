@@ -38,6 +38,7 @@ import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdr
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
 import { AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
+import { maskPayoutNumber } from '@/hooks/useIdentityBinding';
 
 /**
  * Maps a Ugandan mobile-money number to its provider based on the operator
