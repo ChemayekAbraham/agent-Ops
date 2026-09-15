@@ -855,6 +855,13 @@
       "when": 1789494618257,
       "tag": "0121_remove_weekly_identity_submission_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1789497241660,
+      "tag": "0122_holder_name_history_include_device",
+      "breakpoints": true
     }
   ]
 }
