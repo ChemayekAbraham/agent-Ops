@@ -23,9 +23,45 @@ import * as ops from './auth/authOperations';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function enforceAccountAccess(userId: string): Promise<boolean> {
+// Synthetic placeholder addresses issued to accounts that never gave a real
+// email (phone-only signups, agent-assisted registrations) — these are
+// auto-confirmed at creation (see register-tenant / submit-tenant-form) and
+// there is no real inbox to send a confirmation link to, so they're exempt
+// from the "must confirm email" rule below.
+const SYNTHETIC_EMAIL_SUFFIXES = ['@welile.agent', '@welile.user', '@noapp.welile.user'];
+
+function hasUnconfirmedRealEmail(user: { email?: string | null; email_confirmed_at?: string | null }): boolean {
+  const email = (user.email || '').trim().toLowerCase();
+  if (!email) return false;
+  if (SYNTHETIC_EMAIL_SUFFIXES.some((suffix) => email.endsWith(suffix))) return false;
+  return !user.email_confirmed_at;
+}
+
+async function enforceAccountAccess(user: { id: string; email?: string | null; email_confirmed_at?: string | null }): Promise<boolean> {
+  const userId = user.id;
   const stop = lt.start('auth.enforceAccountAccess', { userId });
   try {
+    // Belt-and-braces backstop: GoTrue itself already refuses to issue a
+    // session for a real-email account whose email isn't confirmed (see the
+    // "Confirm your email to finish" gate in useAuthForm.ts, and the native
+    // "Email not confirmed" sign-in error already handled there). This check
+    // exists in case a session was issued before that policy took effect, or
+    // a config change ever loosens it — no session should ever be allowed to
+    // stand for a real, unconfirmed email either way.
+    if (hasUnconfirmedRealEmail(user)) {
+      try {
+        localStorage.setItem(
+          'welile_account_blocked_reason',
+          'Please confirm your email before signing in. Check your inbox for the confirmation link, or request a new one.',
+        );
+      } catch { /* ignore */ }
+      clearAllAuthStorage();
+      await supabase.auth.signOut();
+      stop('email_unconfirmed');
+      window.location.href = '/auth';
+      return false;
+    }
+
     const [{ data: profile }, { data: fraudBlocked }] = await Promise.all([
       supabase
         .from('profiles')
@@ -170,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
           setTimeout(() => {
-            enforceAccountAccess(session.user.id).catch(() => { /* non-blocking */ });
+            enforceAccountAccess(session.user).catch(() => { /* non-blocking */ });
           }, 0);
         }
 
@@ -326,7 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           if (session) {
             lt.setUserId(session.user.id);
-            const allowed = await enforceAccountAccess(session.user.id);
+            const allowed = await enforceAccountAccess(session.user);
             if (!allowed || !isMounted) return;
             setSession(session);
             setUser(session.user);
