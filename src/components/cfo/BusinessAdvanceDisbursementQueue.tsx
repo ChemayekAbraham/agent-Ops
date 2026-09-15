@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-UG', {
@@ -305,16 +306,18 @@ export function BusinessAdvanceDisbursementQueue() {
                         <span className="font-medium">Net: <b className="text-primary">{fmt(interest30 - commission)}</b></span>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0 text-xs h-7"
-                      onClick={() => singleDisburse.mutate(item.id)}
-                      disabled={singleDisburse.isPending}
-                    >
-                      {singleDisburse.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Banknote className="h-3 w-3 mr-1" />}
-                      Pay
-                    </Button>
+                    <CfoApprovalGate>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 text-xs h-7"
+                        onClick={() => singleDisburse.mutate(item.id)}
+                        disabled={singleDisburse.isPending}
+                      >
+                        {singleDisburse.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Banknote className="h-3 w-3 mr-1" />}
+                        Pay
+                      </Button>
+                    </CfoApprovalGate>
                   </div>
                 );
               })}
@@ -322,6 +325,7 @@ export function BusinessAdvanceDisbursementQueue() {
 
             {/* Batch actions */}
             {selected.size > 0 && (
+              <CfoApprovalGate>
               <div className="flex items-center gap-2 pt-2 border-t">
                 <Input
                   placeholder="Batch ref (e.g. BizAdv-2024-01)"
@@ -338,6 +342,7 @@ export function BusinessAdvanceDisbursementQueue() {
                   Disburse ({selected.size})
                 </Button>
               </div>
+              </CfoApprovalGate>
             )}
           </div>
         )}
