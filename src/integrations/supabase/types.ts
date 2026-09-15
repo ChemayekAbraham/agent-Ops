@@ -38260,6 +38260,7 @@ export type Database = {
       staff_requisition_usage_reports: {
         Row: {
           amount_used: number
+          attachment_paths: string[] | null
           created_at: string
           id: string
           requester_id: string
@@ -38269,6 +38270,7 @@ export type Database = {
         }
         Insert: {
           amount_used: number
+          attachment_paths?: string[] | null
           created_at?: string
           id?: string
           requester_id: string
@@ -38278,6 +38280,7 @@ export type Database = {
         }
         Update: {
           amount_used?: number
+          attachment_paths?: string[] | null
           created_at?: string
           id?: string
           requester_id?: string

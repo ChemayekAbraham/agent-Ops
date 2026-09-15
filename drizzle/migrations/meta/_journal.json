@@ -743,6 +743,13 @@
       "when": 1789468592510,
       "tag": "0105_create_staff_requisition_usage_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1789469269681,
+      "tag": "0106_add_usage_report_attachment_paths",
+      "breakpoints": true
     }
   ]
 }
