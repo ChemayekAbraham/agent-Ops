@@ -161,6 +161,14 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
 
   const activeFilter: PromissoryOverviewFilter = { status: selected, search, range };
 
+  const selectedLabel = PILL_CONFIG.find((p) => p.key === selected)?.label ?? 'Awaiting Review';
+  const rangeLabel = PROMISSORY_RANGES.find((r) => r.key === range)?.label ?? 'All time';
+  const filtersChanged = selected !== 'pending' || !!search.trim() || range !== 'all';
+
+  React.useEffect(() => {
+    localStorage.setItem('promissory-queue-status-filter', selected);
+  }, [selected]);
+
   const openLabel = {
     pending: 'Open awaiting review',
     activated: 'Open approved',
