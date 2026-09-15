@@ -48,9 +48,11 @@ export default function MobileMoneyNameCard({ userId }: Props) {
   const [name, setName] = useState("");
   const [provider, setProvider] = useState<Provider>("mtn");
 
-  /* Once the identity is captured, the withdrawal number is locked to the
-     account and cannot be changed from anywhere in the app. */
+  /* Once the identity is captured the withdrawal number is locked; it can only
+     move when Financial Ops approves a change request. */
   const [locked, setLocked] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const changeRequest = useMyNumberChangeRequest();
 
   useEffect(() => {
     let cancelled = false;
