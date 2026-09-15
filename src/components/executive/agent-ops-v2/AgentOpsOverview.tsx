@@ -204,8 +204,54 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
     pending: Number(t.pending || 0),
   }));
 
+  const { data: rentRequestCount } = useQuery({
+    queryKey: ['agent-ops-rent-request-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('rent_requests')
+        .select('*', { count: 'exact', head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+    staleTime: 60_000,
+  });
+
   return (
     <div className="space-y-4">
+      {/* Prominent Rent Requests action — first thing an ops manager sees */}
+      <button
+        type="button"
+        onClick={() => onOpenSection('pipeline')}
+        className="group w-full flex items-center gap-3 sm:gap-4 p-3.5 sm:p-5 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/15 active:scale-[0.98] transition-all touch-manipulation text-left relative overflow-hidden min-h-[72px]"
+      >
+        <div className="p-2 sm:p-3 rounded-xl bg-primary text-primary-foreground shrink-0 shadow-sm">
+          <FileText className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2.2} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-sm sm:text-base text-foreground truncate">Rent Requests</p>
+            {rentRequestCount === undefined ? (
+              <Skeleton className="h-5 w-12 rounded-full" />
+            ) : rentRequestCount > 0 ? (
+              <Badge className="bg-primary text-primary-foreground text-[10px] px-2 py-0.5 hover:bg-primary">
+                {rentRequestCount.toLocaleString()} total
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                No requests
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            Review and manage all posted rent requests
+          </p>
+        </div>
+        <span className="text-sm font-semibold text-primary shrink-0 flex items-center gap-1">
+          Open
+          <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+        </span>
+      </button>
+
       {/* Header + date preset filter bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
