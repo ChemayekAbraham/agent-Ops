@@ -60954,6 +60954,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      user_is_pure_partner: { Args: { p_user_id: string }; Returns: boolean }
       user_location_correction_progress: { Args: never; Returns: Json }
       user_location_corrections: {
         Args: {
@@ -61400,6 +61401,10 @@ export type Database = {
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      withdrawal_destination_gate: {
+        Args: { p_withdrawal_id: string }
+        Returns: Json
+      }
       withdrawal_merchant_id_gate: {
         Args: {
           p_landlord_payout_id?: string
