@@ -52,13 +52,25 @@ Deno.serve(async (req) => {
 
       const { data: destination, error: destErr } = await admin
         .from("payout_destination_verifications")
-        .select("id, user_id, destination_type, momo_number, bank_name, bank_account_number, account_name, status, name_match_score")
+        .select("id, user_id, destination_type, momo_number, bank_name, bank_account_number, account_name, status, name_match_score, decision_reason")
         .eq("id", destinationId)
         .maybeSingle();
       if (destErr || !destination) return err("Payout destination not found", 404);
       if (destination.user_id !== userId) return err("This payout destination doesn't belong to you", 403);
       if (destination.status === "verified") return ok({ already_verified: true });
-      if (destination.status !== "waiting") {
+      if (destination.status === "rejected") {
+        // Only recoverable when the rejection was purely a name-mismatch call
+        // (e.g. the no-merchant-role bulk sweep, whose own reason text invites
+        // the withdrawer back through this exact flow) -- never for the
+        // fraud-specific auto-rejects (double submission / duplicate National
+        // ID), where SMS-proving phone control doesn't resolve the actual
+        // concern and would let a real fraud signal be self-service-overridden.
+        const reason = String(destination.decision_reason || "");
+        const isFraudReject = /double submission|already recorded on another account/i.test(reason);
+        if (isFraudReject) {
+          return err("This destination was rejected and can't be resubmitted this way. Contact support.", 400);
+        }
+      } else if (destination.status !== "waiting") {
         return err("This destination is not awaiting verification.", 400);
       }
       if (!destination.account_name) {

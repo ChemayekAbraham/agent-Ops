@@ -173,7 +173,9 @@ export async function confirmPayoutDestinationConsent(
         : "Auto-verified: the destination owner confirmed by SMS code sent to their own phone.",
     })
     .eq("id", row.destination_verification_id)
-    .eq("status", "waiting"); // don't clobber a decision Ops already made
+    .in("status", ["waiting", "rejected"]); // rejected is recoverable via owner
+    // consent (see payout-destination-consent's request action) -- only a
+    // 'verified' decision is never clobbered here.
   if (verifyErr) {
     console.error("[payoutDestinationDeclaration] failed to flip destination to verified:", verifyErr.message);
     return { ok: false, error: "Confirmed, but we couldn't update the destination. Please try again or contact support." };
