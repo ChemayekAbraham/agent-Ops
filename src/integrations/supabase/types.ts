@@ -38265,6 +38265,10 @@ export type Database = {
           id: string
           requester_id: string
           requisition_id: string
+          review_note: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           submitted_at: string
           summary: string
         }
@@ -38275,6 +38279,10 @@ export type Database = {
           id?: string
           requester_id: string
           requisition_id: string
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           submitted_at?: string
           summary: string
         }
@@ -38285,6 +38293,10 @@ export type Database = {
           id?: string
           requester_id?: string
           requisition_id?: string
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           submitted_at?: string
           summary?: string
         }
@@ -59916,6 +59928,10 @@ export type Database = {
       }
       release_stale_merchant_float_reservations: { Args: never; Returns: Json }
       release_sub_agent: { Args: { p_sub_agent_id: string }; Returns: Json }
+      release_withdrawal_claim: {
+        Args: { p_reason?: string; p_withdrawal_id: string }
+        Returns: Json
+      }
       relink_stuck_pending_deposits: {
         Args: { p_max_age_days?: number; p_min_age_minutes?: number }
         Returns: Json
