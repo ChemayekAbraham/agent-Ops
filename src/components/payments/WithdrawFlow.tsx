@@ -1570,15 +1570,19 @@ export default function WithdrawFlow({
             {payoutMode === 'mobile_money' && lockedMomo && (
               <div className="space-y-3">
                 <div className="text-center mb-1">
-                  <h3 className="font-semibold text-lg">📱 Mobile Money Details</h3>
+                  <h3 className="font-semibold text-lg">Withdraw to</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Funds are paid to your registered withdrawal account
+                    {lockedMomo.identityLinked
+                      ? 'Identity-linked withdrawal number'
+                      : 'Your registered withdrawal account'}
                   </p>
                 </div>
                 <Card className="p-4 space-y-2 bg-muted/40">
                   <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-wider text-muted-foreground">Number</span>
-                    <span className="font-bold tracking-wide">{lockedMomo.number}</span>
+                    <span className="font-bold tracking-wide">
+                      {maskPayoutNumber(lockedMomo.number)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-wider text-muted-foreground">Provider</span>
@@ -1591,8 +1595,7 @@ export default function WithdrawFlow({
                 </Card>
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                   <Lock className="h-3.5 w-3.5" />
-                  Locked to your account. To change it, go to Settings →
-                  Withdrawal account.
+                  For your security, withdrawals can only be sent to this number.
                 </p>
               </div>
             )}
