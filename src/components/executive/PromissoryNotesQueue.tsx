@@ -1013,6 +1013,12 @@ export function PromissoryNotesQueue({
                           <Badge variant="outline" className={cn('text-[10px]', stageOf(note).color)}>
                             {stageOf(note).label}
                           </Badge>
+                          {isDueSoon(note) && (
+                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Due soon
+                            </Badge>
+                          )}
                         </div>
                       </div>
 
