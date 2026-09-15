@@ -77,6 +77,7 @@ import {
   useAdoptNationalIdName,
   useHolderNameHistory,
   useStoredIdReading,
+  usePayoutNumberOtpConfirmed,
   sameIdNumber,
   maskIdNumber,
   useDecidePayoutDestination,
@@ -428,6 +429,7 @@ function CheckLine({
  */
 function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   const { data, isLoading } = useStoredIdReading(row.user_id);
+  const numberConfirmed = usePayoutNumberOtpConfirmed(row.id);
 
   if (isLoading) {
     return (
@@ -445,14 +447,18 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   const enteredMask = maskIdNumber(row.national_id);
   const idNameOnFile = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
+  // An exact spelling match is a match, whatever an older stored score says.
   const namesMatch =
     idNameOnFile && accountName
-      ? row.name_match_score !== null
-        ? row.name_match_score >= 0.8
-        : idNameOnFile.toLowerCase() === accountName.toLowerCase()
+      ? idNameOnFile.toLowerCase() === accountName.toLowerCase()
+        ? true
+        : row.name_match_score !== null
+          ? row.name_match_score >= 0.8
+          : false
       : null;
+  const otpPassed = numberConfirmed.data === true;
 
-  const allClear = ninMatches === true && data.faceVerified === true && namesMatch === true;
+  const allClear = ninMatches === true && data.faceVerified === true && otpPassed;
 
   return (
     <div
@@ -504,11 +510,22 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
           }
         />
         <CheckLine
+          label="Payout number confirmed by code"
+          value={otpPassed ? 'Code passed' : numberConfirmed.isLoading ? 'Checking…' : 'No code on file'}
+          outcome={numberConfirmed.isLoading ? null : otpPassed}
+          note={
+            otpPassed
+              ? 'They entered the code sent to that number, so they hold the SIM.'
+              : 'No confirmed code for that number — ask them to confirm it on the identity screen.'
+          }
+        />
+        <CheckLine
           label="Name on card vs account"
           value={namesMatch === true ? 'Names match' : namesMatch === false ? 'Names differ' : 'Nothing to compare'}
           outcome={namesMatch}
           note={idNameOnFile ? `${idNameOnFile} · account: ${accountName || '—'}` : 'No name read off the card yet.'}
         />
+
       </div>
 
       <p className="mt-2 text-[11px] text-muted-foreground">
@@ -868,6 +885,57 @@ export default function PayoutVerificationPanel() {
       toast.error(e instanceof Error ? e.message : 'Could not save the decision.');
     }
   };
+
+  // ---------------------------------------------------------------------
+  // Automatic verification.
+  //
+  // When all three machine checks on the case pass — the ID number read off
+  // the card is the number they typed, the selfie passed the face check, and
+  // the payout number itself passed the SMS ownership code — there is nothing
+  // left for a reviewer to add, so the case verifies itself. Every existing
+  // guard still applies: the decision goes through the same server function,
+  // which independently refuses double submissions, duplicate National IDs,
+  // an unreadable ID name and a missing back-of-ID.
+  // ---------------------------------------------------------------------
+  const reading = useStoredIdReading(row?.user_id);
+  const numberConfirmed = usePayoutNumberOtpConfirmed(row?.id);
+  const autoDoneRef = useRef<string | null>(null);
+
+  const autoChecksPass =
+    !!row &&
+    row.status === 'waiting' &&
+    !verifyBlocked &&
+    !!reading.data &&
+    sameIdNumber(reading.data.nin, row.national_id) === true &&
+    reading.data.faceVerified === true &&
+    numberConfirmed.data === true;
+
+  useEffect(() => {
+    if (!row || !autoChecksPass) return;
+    if (autoDoneRef.current === row.id) return;
+    autoDoneRef.current = row.id;
+    void (async () => {
+      try {
+        await quickVerify.mutateAsync({
+          id: row.id,
+          userId: row.user_id,
+          decision: 'verified',
+          reason:
+            'Automatically verified: the ID number read off the card matches the number given, the selfie passed the face check, and the payout number was confirmed with the code sent to it.',
+        });
+        toast.success('Verified automatically — ID number, selfie and payout number code all passed.');
+        if (position > 1 && position >= total) goTo(position - 2);
+        queue.refetch();
+        counts.refetch();
+      } catch (e) {
+        autoDoneRef.current = null;
+        toast.error(e instanceof Error ? e.message : 'Could not verify this case automatically.');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row?.id, autoChecksPass]);
+
+
 
 
   return (
