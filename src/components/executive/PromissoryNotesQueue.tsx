@@ -343,6 +343,7 @@ export function PromissoryNotesQueue({
   const safePage = Math.min(page, totalPages);
   const pagedNotes = filtered.slice((safePage - 1) * NOTES_PER_PAGE, safePage * NOTES_PER_PAGE);
   useEffect(() => { setPage(1); }, [search, statusFilter, range]);
+  useEffect(() => { localStorage.setItem('promissory-queue-status-filter', statusFilter); }, [statusFilter]);
 
   const allPageSelected = pagedNotes.length > 0 && pagedNotes.every(n => selectedIds.includes(n.id));
   const toggleSelect = (id: string) =>
