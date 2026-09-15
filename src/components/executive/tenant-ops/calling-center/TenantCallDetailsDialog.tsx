@@ -11,14 +11,17 @@
  * the existing call history is shown first, and the same Call button reopens the
  * line — no second calling system, no new call records.
  */
+import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { History, Loader2, Phone } from 'lucide-react';
-import type { CcCallingHub, CcRow } from '@/hooks/useCcCallingHub';
+import { History, Loader2, PencilLine, Phone } from 'lucide-react';
+import type { CcCallingHub, CcRow, CcSeverity } from '@/hooks/useCcCallingHub';
 import { CC_OUTCOME_LABEL } from '@/hooks/useCcCallHistory';
 import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
+import { useCcFeedbackAmendments, type CcFeedbackAmendment } from '@/hooks/useCcFeedbackAmendments';
+import { EditCallFeedbackDialog } from './EditCallFeedbackDialog';
 import { TenantCallContextPanel } from './TenantCallContextPanel';
 import { TenantPaymentHistoryPanel } from './TenantPaymentHistoryPanel';
 
