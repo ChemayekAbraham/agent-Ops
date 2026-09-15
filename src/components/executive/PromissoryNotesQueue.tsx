@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,6 +36,117 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
 
+
+const SWIPE_THRESHOLD = 90;
+
+/**
+ * Swipeable wrapper for mobile promissory note cards.
+ * Swipe right on a pending note to approve, swipe left on an approved note to reject.
+ * Vertical scrolling is untouched — only clear horizontal swipes engage.
+ */
+function SwipeableNoteCard({
+  note,
+  onOpen,
+  onApprove,
+  onReject,
+  children,
+}: {
+  note: { id: string; status: string };
+  onOpen: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  children: React.ReactNode;
+}) {
+  const [dx, setDx] = useState(0);
+  const startX = useRef<number | null>(null);
+  const startY = useRef<number | null>(null);
+  const swiping = useRef(false);
+  const moved = useRef(false);
+
+  const canApprove = note.status === 'pending';
+  const canReject = note.status === 'activated';
+  const enabled = canApprove || canReject;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!enabled) return;
+    startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
+    swiping.current = false;
+    moved.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (startX.current === null || startY.current === null) return;
+    const deltaX = e.touches[0].clientX - startX.current;
+    const deltaY = e.touches[0].clientY - startY.current;
+    if (!swiping.current) {
+      if (Math.abs(deltaX) > 12 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        swiping.current = true;
+        moved.current = true;
+      } else if (Math.abs(deltaY) > 12) {
+        startX.current = null;
+        return;
+      } else {
+        return;
+      }
+    }
+    // Resist directions that have no action
+    let d = deltaX;
+    if (d > 0 && !canApprove) d = d * 0.2;
+    if (d < 0 && !canReject) d = d * 0.2;
+    setDx(Math.max(-140, Math.min(140, d)));
+  };
+
+  const handleTouchEnd = () => {
+    if (swiping.current) {
+      if (dx >= SWIPE_THRESHOLD && canApprove) onApprove();
+      else if (dx <= -SWIPE_THRESHOLD && canReject) onReject();
+    }
+    startX.current = null;
+    startY.current = null;
+    swiping.current = false;
+    setDx(0);
+  };
+
+  const handleClick = () => {
+    if (moved.current) {
+      moved.current = false;
+      return;
+    }
+    onOpen();
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-lg">
+      {/* Reveal layers behind the card */}
+      {dx > 8 && canApprove && (
+        <div className="absolute inset-0 flex items-center bg-emerald-600 pl-4 text-white text-xs font-semibold rounded-lg">
+          <CheckCircle className="h-4 w-4 mr-1.5" /> Approve
+        </div>
+      )}
+      {dx < -8 && canReject && (
+        <div className="absolute inset-0 flex items-center justify-end bg-destructive pr-4 text-white text-xs font-semibold rounded-lg">
+          Reject <XCircle className="h-4 w-4 ml-1.5" />
+        </div>
+      )}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={dx !== 0 ? { transform: `translateX(${dx}px)` } : undefined}
+        className={cn(
+          'relative w-full text-left rounded-lg border bg-card p-3.5 hover:bg-muted/40 active:bg-muted/60',
+          dx === 0 && 'transition-transform',
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function PromissoryNotesQueue({
   initialStatusFilter,
@@ -728,12 +839,12 @@ export function PromissoryNotesQueue({
                   const config = statusConfig[note.status] || statusConfig.pending;
                   const StatusIcon = config.icon;
                   return (
-                    <div
+                    <SwipeableNoteCard
                       key={note.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedNote(note)}
-                      className="w-full text-left rounded-lg border p-3 hover:bg-muted/40 transition-colors"
+                      note={note}
+                      onOpen={() => setSelectedNote(note)}
+                      onApprove={() => { setApproveReason(''); setApproveTarget(note); }}
+                      onReject={() => { setRejectReason(''); setRejectTarget(note); }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 min-w-0">
@@ -816,7 +927,7 @@ export function PromissoryNotesQueue({
                           </div>
                         )}
                       </div>
-                    </div>
+                    </SwipeableNoteCard>
                   );
                 })}
 
