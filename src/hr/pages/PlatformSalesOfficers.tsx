@@ -213,6 +213,8 @@ interface PersonSummary {
 export default function PlatformSalesOfficersPage() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
+  // 0 = the live Wed–Tue week, -1 = the week before it, and so on.
+  const [weekOffset, setWeekOffset] = useState(0);
 
   // The Kampala calendar date is state, not a one-off computation, so a screen
   // left open rolls its window over at 00:00 EAT without a reload.
@@ -226,8 +228,15 @@ export default function PlatformSalesOfficersPage() {
     return () => clearInterval(id);
   }, []);
 
-  const { from, to, label } = useMemo(() => getWindowDates(mode, todayStr), [mode, todayStr]);
-  const todayWeekday = useMemo(() => kampalaWeekdayIndex(todayStr), [todayStr]);
+  const { from, to, label } = useMemo(
+    () => getWindowDates(mode, todayStr, weekOffset),
+    [mode, todayStr, weekOffset],
+  );
+  // Only the live week highlights today's column.
+  const todayWeekday = useMemo(
+    () => (mode === 'WEEKLY' && weekOffset !== 0 ? -1 : kampalaWeekdayIndex(todayStr)),
+    [mode, weekOffset, todayStr],
+  );
 
   const {
     data: rows = [],
