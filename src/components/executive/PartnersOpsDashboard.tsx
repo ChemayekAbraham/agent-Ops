@@ -239,12 +239,14 @@ export function PartnersOpsDashboard() {
     switch (view) {
       case 'overview': return (
         <div className="space-y-4">
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-            <PromissoryNotesOverviewCard onOpen={(status) => {
-              setPromissoryStatus(status ?? 'all');
-              setView('proxy.promissory');
-            }} />
-          </motion.div>
+          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-4 px-4 lg:mx-0 lg:px-0 border-b">
+            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
+              <PromissoryNotesOverviewCard onOpen={(status) => {
+                setPromissoryStatus(status ?? 'all');
+                setView('proxy.promissory');
+              }} />
+            </motion.div>
+          </div>
           <PartnerOpsSummaryCards onNavigate={setView} />
           <div className="grid gap-4 lg:grid-cols-2">
             <PartnerRoiProjectionChart />
