@@ -38,6 +38,10 @@ export interface NationalIdFieldVerdict {
   valid: boolean;
   confidence: number | null;
   note: string | null;
+  /** What the reader saw even when `valid` is false (e.g. a 10-digit card
+      number). Prefilled for the person to confirm rather than typed blind. */
+  value: string | null;
+  raw: string | null;
 }
 
 export interface NationalIdReading {
@@ -153,17 +157,6 @@ export function normaliseReading(raw: unknown): NationalIdReading {
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
   const num = (v: unknown) => (typeof v === 'number' ? v : null);
 
-  const rawData = (r.data ?? {}) as Record<string, unknown>;
-  const data: NationalIdData = {
-    // `id_number` / `given_names` are the older reader's spelling.
-    surname: str(rawData.surname) || str(r.surname),
-    given_name: str(rawData.given_name) || str(r.given_names) || str(r.given_name),
-    nin: (str(rawData.nin) || str(r.id_number)).toUpperCase(),
-    date_of_birth: toIsoDate(str(rawData.date_of_birth) || str(r.date_of_birth)),
-    card_number: str(rawData.card_number),
-    sex: str(rawData.sex).toUpperCase(),
-  };
-
   const fields: Record<string, NationalIdFieldVerdict> = {};
   const rawFields = (r.fields ?? {}) as Record<string, Record<string, unknown>>;
   for (const [key, f] of Object.entries(rawFields)) {
@@ -172,12 +165,40 @@ export function normaliseReading(raw: unknown): NationalIdReading {
       valid: f.valid === true,
       confidence: num(f.confidence),
       note: typeof f.note === 'string' ? f.note : null,
+      value: str(f.value) || null,
+      raw: str(f.raw) || null,
     };
   }
+
+  /* A field the reader refused (wrong length, odd characters) is left out of
+     `data`, but the reader still reports what it saw under `fields`. Prefill
+     that too — the person confirms or corrects it instead of typing blind.
+     Field-specific cleaning matches what the input itself enforces. */
+  const saw = (key: keyof NationalIdData): string => {
+    const v = fields[key]?.value ?? fields[key]?.raw ?? '';
+    if (!v) return '';
+    if (key === 'card_number') return v.replace(/[^0-9]/g, '');
+    if (key === 'sex') return v.toUpperCase().replace(/[^MF]/g, '');
+    if (key === 'nin') return v.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (key === 'date_of_birth') return toIsoDate(v);
+    return v.toUpperCase();
+  };
+
+  const rawData = (r.data ?? {}) as Record<string, unknown>;
+  const data: NationalIdData = {
+    // `id_number` / `given_names` are the older reader's spelling.
+    surname: str(rawData.surname) || str(r.surname) || saw('surname'),
+    given_name: str(rawData.given_name) || str(r.given_names) || str(r.given_name) || saw('given_name'),
+    nin: (str(rawData.nin) || str(r.id_number) || saw('nin')).toUpperCase(),
+    date_of_birth: toIsoDate(str(rawData.date_of_birth) || str(r.date_of_birth)) || saw('date_of_birth'),
+    card_number: str(rawData.card_number) || saw('card_number'),
+    sex: str(rawData.sex).toUpperCase() || saw('sex'),
+  };
+
   // No per-field verdicts (older reader): treat a value that came back as read.
   if (Object.keys(fields).length === 0) {
     for (const [key, value] of Object.entries(data)) {
-      fields[key] = { valid: !!value, confidence: null, note: null };
+      fields[key] = { valid: !!value, confidence: null, note: null, value: value || null, raw: null };
     }
   }
 
