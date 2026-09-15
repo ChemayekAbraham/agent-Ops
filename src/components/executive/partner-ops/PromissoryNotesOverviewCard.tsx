@@ -23,7 +23,7 @@ import { AgentCallMenu } from '../PromissoryNotesQueue';
 
 const QUICK_LIST_SIZE = 6;
 
-type PromissoryStatus = 'pending' | 'activated' | 'rejected' | 'overdue';
+type PromissoryStatus = 'pending' | 'activated' | 'rejected' | 'overdue' | 'fulfilled';
 
 export interface PromissoryOverviewFilter {
   status?: PromissoryStatus;
@@ -63,7 +63,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<PromissoryStatus>(() => {
     const saved = localStorage.getItem('promissory-queue-status-filter');
-    return saved === 'activated' || saved === 'rejected' || saved === 'pending' || saved === 'overdue' ? saved : 'pending';
+    return saved === 'activated' || saved === 'rejected' || saved === 'pending' || saved === 'overdue' || saved === 'fulfilled' ? saved : 'pending';
   });
   const [search, setSearch] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -94,6 +94,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     activated: filteredNotes.filter((n) => n.status === 'activated').length,
     rejected: filteredNotes.filter((n) => n.status === 'cancelled' || n.status === 'defaulted').length,
     overdue: filteredNotes.filter(isOverdue).length,
+    fulfilled: filteredNotes.filter((n) => n.status === 'fulfilled').length,
   };
 
   const statusNotes = useMemo(() => {
@@ -101,6 +102,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
       selected === 'pending' ? n.status === 'pending'
       : selected === 'activated' ? n.status === 'activated'
       : selected === 'rejected' ? n.status === 'cancelled' || n.status === 'defaulted'
+      : selected === 'fulfilled' ? n.status === 'fulfilled'
       : isOverdue(n);
     return filteredNotes.filter(match).slice(0, QUICK_LIST_SIZE);
   }, [filteredNotes, selected]);
@@ -182,6 +184,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     activated: 'Open approved',
     rejected: 'Open rejected',
     overdue: 'Open overdue',
+    fulfilled: 'Open completed',
   }[selected];
 
   return (
@@ -239,7 +242,14 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
           </div>
         )}
 
-        {!isCollapsed && (<>
+        <div
+          className={cn(
+            'grid transition-all duration-300 ease-in-out',
+            isCollapsed ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
+          )}
+        >
+        <div className="overflow-hidden">
+        <div className="space-y-2.5" aria-hidden={isCollapsed}>
 
         <div className="rounded-2xl border bg-background/70 p-4 space-y-2.5" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -260,6 +270,38 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
                   <X className="h-3 w-3" /> Clear filters
                 </Button>
               )}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Quick view</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { key: 'pending' as PromissoryStatus, label: 'Awaiting review', count: counts.pending },
+                { key: 'fulfilled' as PromissoryStatus, label: 'Completed', count: counts.fulfilled },
+              ]).map(({ key, label, count }) => {
+                const active = selected === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSelected(key)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all',
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30'
+                        : 'bg-background text-muted-foreground hover:bg-accent border'
+                    )}
+                    aria-pressed={active}
+                  >
+                    {label}
+                    {!isLoading && (
+                      <span className={cn('tabular-nums rounded-full px-1.5', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-foreground')}>
+                        {count.toLocaleString()}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -413,7 +455,10 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
             )}
           </div>
         )}
-      </>)}
+
+        </div>
+        </div>
+        </div>
       </CardContent>
 
       <AlertDialog open={!!approveTarget} onOpenChange={(open) => { if (!open && !approving) { setApproveTarget(null); setApproveReason(''); } }}>
