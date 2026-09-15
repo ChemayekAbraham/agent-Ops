@@ -186,13 +186,13 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
 
   return (
     <Card
-      className="bg-primary/[0.04] border border-primary/30 border-l-4 border-l-primary cursor-pointer hover:bg-primary/[0.07] transition-colors shadow-sm"
+      className="rounded-2xl bg-primary/[0.04] border border-primary/30 border-l-4 border-l-primary cursor-pointer hover:bg-primary/[0.07] transition-colors shadow-sm"
       onClick={() => onOpen(activeFilter)}
       role="button"
       aria-label="Open Promissory Notes"
     >
-      <CardContent className="p-4 sm:p-5 space-y-3">
-        <div className="flex items-center gap-3">
+      <CardContent className="p-4 space-y-2.5">
+        <div className="flex items-center gap-2.5">
           <div className="p-3 rounded-2xl bg-primary/15 shrink-0">
             <FileText className="h-7 w-7 text-primary" />
           </div>
@@ -241,7 +241,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
 
         {!isCollapsed && (<>
 
-        <div className="rounded-lg border bg-background/70 p-3 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="rounded-2xl border bg-background/70 p-4 space-y-2.5" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filters</p>
             <div className="flex items-center gap-2">
@@ -293,7 +293,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-2.5">
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Search</p>
               <div className="relative">
