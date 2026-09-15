@@ -1,18 +1,14 @@
 import type { ReactNode } from 'react';
-import { useCfoApprovalAuthority } from '@/hooks/useCfoApprovalAuthority';
 
 /**
- * Renders CFO Dashboard approval controls only for the designated CFO approver.
- *
- * Presentation only, and deliberately silent: everyone else simply does not see
- * the control — no labels, messages, disabled buttons or tooltips, and nothing
- * that identifies who the approver is. The real restriction lives in the
- * database (`public.is_cfo_approver`, enforced inside every CFO decision RPC)
- * and in the shared edge-function gate, so a re-enabled button changes nothing.
+ * CFO Dashboard approval controls are visible to everyone who can access the
+ * dashboard. The restriction is enforced strictly server-side: every CFO
+ * decision RPC checks `public.is_cfo_approver` and the shared edge-function
+ * gate rejects non-approvers with a generic failure. This component is kept as
+ * a pass-through so the markup structure stays stable; it must never hide,
+ * disable, or label its children.
  */
 export function CfoApprovalGate({ children }: { children: ReactNode }) {
-  const { canApprove } = useCfoApprovalAuthority();
-  if (!canApprove) return null;
   return <>{children}</>;
 }
 
