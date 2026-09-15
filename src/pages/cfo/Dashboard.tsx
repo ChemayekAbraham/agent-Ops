@@ -106,7 +106,6 @@ import { useSwipeSensitivity } from '@/hooks/useSwipeSensitivity';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { useCfoAdvanceDisbursementCount } from '@/hooks/useCfoAdvanceDisbursementCount';
 import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotificationsBell';
-import { useCfoApprovalAuthority } from '@/hooks/useCfoApprovalAuthority';
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
 // A parent that only discloses children (e.g. Agent Products) is not itself a
@@ -126,7 +125,7 @@ export default function CFODashboardPage() {
   const isMobile = useIsMobile();
   const { threshold: swipeThreshold, setThreshold: setSwipeThreshold } = useSwipeSensitivity('cfo');
   const advanceDisbursementCount = useCfoAdvanceDisbursementCount();
-  const { canApprove: canApproveAsCfo, loading: cfoApprovalLoading } = useCfoApprovalAuthority();
+
 
   const goToOffset = (delta: number) => {
     const current = CFO_TAB_IDS.indexOf(activeTab);
