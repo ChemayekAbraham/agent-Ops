@@ -212,10 +212,18 @@ export function StaffRequisitionQueue() {
   const [page, setPage] = useState(1);
 
   const fetchAll = useCallback(async () => {
-    const [reqRes, budgetRes] = await Promise.all([
+    const [reqRes, budgetRes, usageRes] = await Promise.all([
       supabase.from('staff_requisitions').select('*').order('created_at', { ascending: false }),
       supabase.from('v_staff_requisition_budget_context').select('*'),
+      supabase
+        .from('staff_requisition_usage_reports')
+        .select('id, requisition_id, amount_used, summary, submitted_at, attachment_paths'),
     ]);
+    if (!usageRes.error) {
+      const umap: Record<string, UsageReport> = {};
+      for (const rep of (usageRes.data || []) as unknown as UsageReport[]) umap[rep.requisition_id] = rep;
+      setUsageReports(umap);
+    }
     if (reqRes.error) {
       toast.error('Could not load requisitions', { description: reqRes.error.message });
     } else {
