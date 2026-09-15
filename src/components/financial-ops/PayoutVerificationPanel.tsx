@@ -931,6 +931,9 @@ export default function PayoutVerificationPanel() {
 
   return (
     <div className="space-y-3">
+      {/* Withdrawal number changes waiting on a Financial Ops decision. */}
+      <PayoutNumberChangeQueue />
+
       {/* National ID groups the holder has already allowed, waiting on staff. */}
       <NationalIdLinkStaffQueue />
 
