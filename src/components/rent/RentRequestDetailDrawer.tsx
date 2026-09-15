@@ -186,8 +186,8 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[90vh] rounded-t-2xl">
-        <SheetHeader className="text-left pb-3">
+      <SheetContent side="bottom" className="h-[90vh] rounded-t-2xl flex flex-col p-5">
+        <SheetHeader className="text-left pb-3 shrink-0">
           <SheetTitle className="flex items-center gap-2">
             Request Details
             {request && (
@@ -199,13 +199,13 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
         </SheetHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12 flex-1">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : !request ? (
           <p className="text-center text-muted-foreground py-8">Request not found</p>
         ) : (
-          <div className="space-y-5 overflow-y-auto max-h-[calc(90vh-80px)] pb-6">
+          <div className="space-y-5 overflow-y-auto flex-1 pb-6">
 
             {/* Tenant status first: renewal vs new tenant, with existing payment history */}
             <TenantPaymentHistoryCard tenantId={request.tenant_id} currentRequestId={request.id} />

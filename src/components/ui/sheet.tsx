@@ -80,12 +80,13 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
 
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
-const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("relative flex flex-col space-y-1 text-center sm:text-left", className)} {...props}>
+const SheetHeader = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("relative flex flex-col space-y-1 text-center sm:text-left pr-9", className)} {...props}>
     <SheetPrimitive.Close className="absolute right-0 top-0 -mt-1 rounded-full p-2 text-muted-foreground transition-colors hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
       <X className="h-4 w-4" />
       <span className="sr-only">Close</span>
     </SheetPrimitive.Close>
+    {children}
   </div>
 );
 SheetHeader.displayName = "SheetHeader";
@@ -99,7 +100,7 @@ const SheetTitle = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <SheetPrimitive.Title ref={ref} className={cn("mt-[25px] text-base font-semibold text-foreground", className)} {...props} />
+  <SheetPrimitive.Title ref={ref} className={cn("text-base font-semibold text-foreground", className)} {...props} />
 ));
 SheetTitle.displayName = SheetPrimitive.Title.displayName;
 
