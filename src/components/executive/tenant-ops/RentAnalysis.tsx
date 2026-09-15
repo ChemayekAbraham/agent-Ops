@@ -252,7 +252,50 @@ export function RentAnalysis() {
   const pageRows = detailRows.slice(page * ROWS_PER_PAGE, page * ROWS_PER_PAGE + ROWS_PER_PAGE);
   const pageCount = Math.max(1, Math.ceil(detailRows.length / ROWS_PER_PAGE));
 
-  const overall = useMemo(() => summariseBand({ key: 'total', label: 'All categories', min: 0, max: null }, searchedRows), [searchedRows]);
+  /** Headline figures always describe exactly the rows on screen. */
+  const overall = useMemo(
+    () =>
+      summariseBand(
+        { key: 'total', label: selectedBand ? selectedBand.label : 'All categories', min: 0, max: null },
+        detailRows,
+      ),
+    [detailRows, selectedBand],
+  );
+
+  const periodDays = useMemo(() => {
+    if (periodEnd < periodStart) return [] as string[];
+    return eachDayOfInterval({ start: periodStart, end: periodEnd }).map((day) => format(day, 'yyyy-MM-dd'));
+  }, [periodEnd, periodStart]);
+
+  /** Daily receipts for exactly the tenants in scope. */
+  const trend = useMemo(
+    () => buildDailyTrend(data?.receipts ?? [], new Set(detailRows.map((row) => row.planId)), periodDays),
+    [data?.receipts, detailRows, periodDays],
+  );
+
+  const trendChart = useMemo(
+    () => trend.map((point) => ({ ...point, label: format(new Date(`${point.day}T00:00:00`), 'dd MMM') })),
+    [trend],
+  );
+
+  /** Distribution across rent categories, respecting search + custom range. */
+  const distribution = useMemo(
+    () =>
+      summaries.map((summary) => ({
+        key: summary.band.key,
+        label: summary.band.label,
+        tenants: summary.tenantCount,
+        arrears: summary.arrearsCount,
+        totalRent: summary.totalRent,
+      })),
+    [summaries],
+  );
+
+  const behaviour = useMemo(() => {
+    const arrears = detailRows.filter((row) => row.schedule.arrears > 0).length;
+    const ahead = detailRows.filter((row) => row.schedule.arrears === 0 && row.schedule.periodsAhead > 0).length;
+    return { arrears, ahead, onSchedule: Math.max(0, detailRows.length - arrears - ahead) };
+  }, [detailRows]);
 
   const scopeLines = useMemo(
     () => [
