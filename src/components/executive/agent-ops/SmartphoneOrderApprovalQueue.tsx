@@ -1003,9 +1003,7 @@ export function SmartphoneOrderApprovalQueue({
                   <span className="text-xs text-muted-foreground">
                     {approveStage === 'cfo'
                       ? 'COO approved amount'
-                      : isMoBanjaIphone(approveTarget.brand, approveTarget.model_type)
-                        ? MO_BANJA.amountLabel
-                        : 'Phone amount'}
+                      : downPaymentCopy(approveTarget.brand, approveTarget.model_type).amountLabel}
                   </span>
                   <span className="text-xs font-semibold">{formatUGX(phoneAmountNumber)}</span>
                 </div>
