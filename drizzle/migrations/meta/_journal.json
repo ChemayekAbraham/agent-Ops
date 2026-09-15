@@ -834,6 +834,13 @@
       "when": 1789492228048,
       "tag": "0118_identity_binding_locked_withdrawal_number",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1789493199126,
+      "tag": "0119_payout_number_change_requests",
+      "breakpoints": true
     }
   ]
 }
