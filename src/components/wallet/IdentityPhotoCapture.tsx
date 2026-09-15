@@ -619,11 +619,12 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               setSelfieOriginal(f);
               setSelfieCropped(null);
               setFaceCheck(null);
+              /* Same order as the tenant passport photo: the face checker is
+                 asked on every shot, never gated behind the local blur grade,
+                 so the verdict is identical in both places. */
+              void runFaceCheck(f);
               void gradePhoto(f, 'Selfie', setCheckingSelfie, setSelfieQuality).then((r) => {
-                if (r.ok) {
-                  setPendingSelfie(f);
-                  void runFaceCheck(f);
-                }
+                if (r.ok) setPendingSelfie(f);
               });
             }}
             onClear={() => {
