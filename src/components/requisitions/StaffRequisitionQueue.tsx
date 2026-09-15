@@ -172,6 +172,18 @@ export function StaffRequisitionQueue() {
   const [rows, setRows] = useState<StaffRequisition[]>([]);
   const [budgets, setBudgets] = useState<Record<string, BudgetContext>>({});
   const [events, setEvents] = useState<Record<string, ReqEvent[]>>({});
+  const [usageReports, setUsageReports] = useState<Record<string, UsageReport>>({});
+  const [viewingPath, setViewingPath] = useState<string | null>(null);
+
+  const viewUsageAttachment = async (requisitionId: string, path: string) => {
+    setViewingPath(path);
+    const { data, error } = await invokeEdgeFunction<{ url: string }>('staff-requisition-attachment-url', {
+      body: { requisition_id: requisitionId, path },
+      errorTitle: 'Could not open receipt',
+    });
+    setViewingPath(null);
+    if (!error && data?.url) window.open(data.url, '_blank');
+  };
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('inbox');
 
