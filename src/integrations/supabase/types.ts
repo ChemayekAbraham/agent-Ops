@@ -29012,6 +29012,121 @@ export type Database = {
           },
         ]
       }
+      payout_destination_declarations: {
+        Row: {
+          borrower_user_id: string
+          consent_attempts: number
+          consent_code_expires_at: string | null
+          consent_code_hash: string | null
+          consented_at: string | null
+          created_at: string
+          destination_owner_name: string
+          destination_type: string
+          destination_verification_id: string
+          id: string
+          name_match_score: number | null
+          owner_phone: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          borrower_user_id: string
+          consent_attempts?: number
+          consent_code_expires_at?: string | null
+          consent_code_hash?: string | null
+          consented_at?: string | null
+          created_at?: string
+          destination_owner_name: string
+          destination_type: string
+          destination_verification_id: string
+          id?: string
+          name_match_score?: number | null
+          owner_phone: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          borrower_user_id?: string
+          consent_attempts?: number
+          consent_code_expires_at?: string | null
+          consent_code_hash?: string | null
+          consented_at?: string | null
+          created_at?: string
+          destination_owner_name?: string
+          destination_type?: string
+          destination_verification_id?: string
+          id?: string
+          name_match_score?: number | null
+          owner_phone?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_destination_declaration_destination_verification_id_fkey"
+            columns: ["destination_verification_id"]
+            isOneToOne: false
+            referencedRelation: "payout_destination_verifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_destination_declarations_borrower_user_id_fkey"
+            columns: ["borrower_user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "payout_destination_declarations_borrower_user_id_fkey"
+            columns: ["borrower_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_destination_declarations_borrower_user_id_fkey"
+            columns: ["borrower_user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "payout_destination_declarations_borrower_user_id_fkey"
+            columns: ["borrower_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_destination_declarations_borrower_user_id_fkey"
+            columns: ["borrower_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "payout_destination_declarations_borrower_user_id_fkey"
+            columns: ["borrower_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "payout_destination_declarations_borrower_user_id_fkey"
+            columns: ["borrower_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "payout_destination_declarations_borrower_user_id_fkey"
+            columns: ["borrower_user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       payout_destination_verifications: {
         Row: {
           account_name: string | null
@@ -59829,6 +59944,10 @@ export type Database = {
       }
       rent_request_is_weekly_shape: {
         Args: { p_duration_days: number; p_registration_type: string }
+        Returns: boolean
+      }
+      rent_request_stale_return: {
+        Args: { p_reason: string }
         Returns: boolean
       }
       rent_sweep_unapplied_collections: { Args: never; Returns: Json }

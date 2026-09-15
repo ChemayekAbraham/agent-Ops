@@ -722,6 +722,13 @@
       "when": 1789459948929,
       "tag": "0102_withdrawal_partner_proxy_destination_carveout",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1789465926733,
+      "tag": "0103_stale_return_does_not_consume_agent_reopen_allowance",
+      "breakpoints": true
     }
   ]
 }
