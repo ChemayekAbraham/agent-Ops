@@ -6,6 +6,7 @@ import { StaffRequisitionQueue } from './StaffRequisitionQueue';
 import { DirectorRequisitionsPanel } from './DirectorRequisitionsPanel';
 
 const ManualRequisitionQueuePanel = lazy(() => import('@/components/financial-ops/ManualRequisitionQueuePanel').then((module) => ({ default: module.ManualRequisitionQueuePanel })));
+const RequisitionUsageReportsReview = lazy(() => import('./RequisitionUsageReportsReview').then((module) => ({ default: module.RequisitionUsageReportsReview })));
 
 /**
  * The single requisitions surface for every reviewing dashboard.
@@ -23,6 +24,13 @@ export function RequisitionsWorkspace({ manualStage = 'coo' }: { manualStage?: '
         <ManualRequisitionQueuePanel stage={manualStage} />
       </Suspense>
       <StaffRequisitionQueue />
+
+      {manualStage === 'cfo' && (
+        <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading accountability reports…</Card>}>
+          <RequisitionUsageReportsReview />
+        </Suspense>
+      )}
+
 
 
       <Card className="rounded-2xl p-4">
