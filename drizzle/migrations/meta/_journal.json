@@ -645,6 +645,13 @@
       "when": 1789420000000,
       "tag": "0091_allow_verify_own_payout_destination",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1789450023810,
+      "tag": "0092_promissory_ops_report_fulfilment_due_on",
+      "breakpoints": true
     }
   ]
 }
