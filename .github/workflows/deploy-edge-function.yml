@@ -44,6 +44,7 @@ on:
           - tenant-pay-rent
           - verify-passport-photo
           - read-national-id
+          - proxy-promissory-note-reminders
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true

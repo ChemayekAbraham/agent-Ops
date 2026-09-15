@@ -38,6 +38,7 @@ import {
 
 import { WithdrawRequestDialog } from '@/components/wallet/WithdrawRequestDialog';
 import { ProxyPerformanceSection } from '@/components/agent/ProxyPerformanceSection';
+import { ProxySupportOpportunities } from '@/components/agent/ProxySupportOpportunities';
 import {
   useProxyCommandCenterSummary,
   useProxyPartnerList,
@@ -318,6 +319,7 @@ export default function ProxyAgentCommandCenter() {
           {/* ---------------- SHARE LINK TO ONBOARD ---------------- */}
           <TabsContent value="share" className="space-y-3 pt-3">
             <ProxyPerformanceSection />
+            <ProxySupportOpportunities />
             <ProxyTargetModeCard agentId={agentId} />
             {summaryQ.isLoading ? (
 

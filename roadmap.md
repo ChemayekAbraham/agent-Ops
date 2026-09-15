@@ -41,3 +41,5 @@
 - [ ] Show agent remaining resubmission attempts before submitting.
 - [x] Verify payout: back of National ID no longer required (no capture UI exists).
 - [x] Stop sending email to placeholder phone-only addresses (central guard + queue skip).
+
+- [ ] Cash & Bank (A1) correction: show exact journal entries + before/after balances for approval, then implement float reclass (A8/X6), verified banked-cash posting, and split Cash at Bank / Agent Float / Cash in Custody presentation.

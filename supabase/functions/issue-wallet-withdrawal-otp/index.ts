@@ -143,17 +143,46 @@ Deno.serve(async (req) => {
     }
     const destRow = Array.isArray(destData) ? destData[0] : destData;
     const destStatus = destRow?.status ?? "waiting";
-    if (destStatus !== "verified") {
+
+    // A destination that Ops has not looked at yet is NOT a blocker when the
+    // user has already submitted their National ID + photos and this number is
+    // the one locked to that identity. This mirrors
+    // public.withdrawal_destination_gate ('identity_captured_pending_review'),
+    // so the OTP path and the submit path agree. Only a REJECTED destination,
+    // or a user who never submitted identity details, is refused here.
+    let identityPendingOk = false;
+    if (destStatus !== "verified" && destStatus !== "rejected" && method === "mobile_money") {
+      const digits = String(mobile_money_number ?? "").replace(/[^0-9]/g, "");
+      const tail = digits.slice(-9);
+      const { data: bindings } = await admin
+        .from("user_identity_bindings")
+        .select("national_id, linked_national_id, national_id_photo_path, selfie_photo_path, locked_payout_number, status")
+        .eq("user_id", userId)
+        .neq("status", "revoked");
+      identityPendingOk = (bindings ?? []).some((b: Record<string, string | null>) => {
+        const locked = String(b.locked_payout_number ?? "").replace(/[^0-9]/g, "");
+        return (
+          tail.length === 9 &&
+          locked.endsWith(tail) &&
+          String(b.national_id ?? b.linked_national_id ?? "").trim() !== "" &&
+          String(b.national_id_photo_path ?? "").trim() !== "" &&
+          String(b.selfie_photo_path ?? "").trim() !== ""
+        );
+      });
+    }
+
+    if (destStatus !== "verified" && !identityPendingOk) {
       // No SMS sent, no challenge created — the withdrawal cannot succeed
       // yet regardless of the code, so don't spend either on it.
       return json({
-        error: destStatus === "rejected" ? "destination_rejected" : "destination_unverified",
+        error: destStatus === "rejected" ? "destination_rejected" : "identity_not_submitted",
         message: destStatus === "rejected"
           ? `This payout destination was rejected by Financial Ops. Reason: ${destRow?.decision_reason ?? "not stated"}. Contact support.`
-          : "This destination is not yet verified. Financial Ops will call you to confirm it belongs to you before you can withdraw here. No verification code was sent.",
+          : "Submit your National ID details and payout phone number first, then you can withdraw. No verification code was sent.",
         destination_status: destStatus,
       }, 400);
     }
+
 
     // ── Gate 1 next: OTP to the account's OWN registered phone (signup/login
     // channel) — never the payout destination just confirmed above. Unlike
