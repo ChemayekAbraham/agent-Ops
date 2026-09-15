@@ -36,6 +36,7 @@ import {
   Sparkles,
   ArrowDownLeft,
   ArrowUpRight,
+  ArrowRight,
   Building2,
   Briefcase,
   UserCog,
@@ -1169,9 +1170,45 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   </p>
                 </div>
                 <span className="text-base font-bold text-white shrink-0 relative">Open →</span>
-              </button>
+            </button>
             )}
 
+            {/* Prominent Rent Requests — one-tap access to posted requests */}
+            {!isMerchant && (
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setMyRentRequestsOpen(true); }}
+                className="group w-full flex items-center gap-3 sm:gap-4 p-3.5 sm:p-5 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/15 active:scale-[0.97] transition-all touch-manipulation text-left relative overflow-hidden min-h-[72px]"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <div className="p-2 sm:p-3 rounded-xl bg-primary text-primary-foreground shrink-0 shadow-sm">
+                  <FileText className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2.2} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-sm sm:text-base text-foreground truncate">Rent Requests</p>
+                    {countsLoading ? (
+                      <Skeleton className="h-5 w-12 rounded-full" />
+                    ) : submittedCount > 0 ? (
+                      <Badge className="bg-primary text-primary-foreground text-[10px] px-2 py-0.5 hover:bg-primary">
+                        {submittedCount} pending
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                        {approvedCount > 0 ? `${approvedCount} approved` : 'No pending'}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                    Track and verify your posted rent requests
+                  </p>
+                </div>
+                <span className="text-sm font-semibold text-primary shrink-0 flex items-center gap-1">
+                  Open
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+              </button>
+            )}
 
             {/* 1) Priorities first — Collect Rent · Add Tenant · List House */}
             <AgentPriorityGrid
