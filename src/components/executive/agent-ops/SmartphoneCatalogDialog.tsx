@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import { smartphoneScheduleGrid } from '@/lib/smartphoneAdvance';
+import { downPaymentCopy } from '@/lib/moBanjaIphone';
 
 const db = supabase as any;
 
@@ -164,10 +165,15 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
   doc.text(`Added between: ${range}`, margin, 30);
   doc.text(`Generated: ${fmtDate(new Date().toISOString())}`, margin, 35);
   doc.text(`Models: ${rows.length}  ·  Active: ${rows.filter((r) => r.is_active).length}`, margin, 40);
+  doc.text(
+    'Amounts are the down payment Welile funds — not the full phone price. The balance is paid to the supplier directly.',
+    margin,
+    45,
+  );
 
   autoTable(doc, {
-    startY: 46,
-    head: [['Brand', 'Model', 'Specifications', 'More specifications', 'Default amount', 'Status', 'Added']],
+    startY: 51,
+    head: [['Brand', 'Model', 'Specifications', 'More specifications', 'Down payment (Welile)', 'Status', 'Added']],
     body: rows.map((r) => [
       r.brand,
       r.model_name || 'Any model',
