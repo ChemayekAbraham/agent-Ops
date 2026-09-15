@@ -83,37 +83,54 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
   /** Set when End Call is pressed before the telephone leg exists. */
   const abortRef = useRef(false);
 
+  /** Pending hang-up retries, so they can never land on a LATER call. */
+  const dropTimersRef = useRef<number[]>([]);
+
+  const cancelDropRetries = useCallback(() => {
+    dropTimersRef.current.forEach((t) => window.clearTimeout(t));
+    dropTimersRef.current = [];
+  }, []);
+
   /**
    * Drop the real telephone leg. `hangup()` is a no-op if the SDK has not yet
-   * attached the outbound call, so it is retried briefly — that window (the
+   * attached the outbound call, so it is retried very briefly — that window (the
    * moment right after `client.call()`) is exactly when an officer's End Call
-   * used to be swallowed. Retries are harmless once the leg is already down.
+   * used to be swallowed.
+   *
+   * The voice client is an app-wide singleton, so those retries MUST be
+   * cancellable: a long retry chain left running would hang up whatever call is
+   * live next (the sequential run's following tenant). They are cleared here and
+   * again whenever a new dial starts.
    *
    * When a session id is known the row is closed too, so a leg dropped during
    * set-up can never be stranded as ringing/active. The write is idempotent
    * server-side.
    */
-  const dropLeg = useCallback((sessionId: string | null) => {
-    let attempts = 0;
-    const tick = () => {
+  const dropLeg = useCallback(
+    (sessionId: string | null) => {
+      cancelDropRetries();
       hangupVoiceCall();
-      attempts += 1;
-      if (attempts < 5) window.setTimeout(tick, 700);
-    };
-    tick();
+      [400, 900].forEach((delay) => {
+        dropTimersRef.current.push(window.setTimeout(() => hangupVoiceCall(), delay));
+      });
 
-    if (sessionId) {
-      void supabase
-        .rpc('crm_finalize_call_from_client', {
-          p_session_id: sessionId,
-          p_hangup_cause: 'ORIGINATOR_CANCEL',
-          p_duration: 0,
-        })
-        .then(({ error }) => {
-          if (error) console.error('[tenantDialer] finalize failed', error.message);
-        });
-    }
-  }, []);
+      if (sessionId) {
+        void supabase
+          .rpc('crm_finalize_call_from_client', {
+            p_session_id: sessionId,
+            p_hangup_cause: 'ORIGINATOR_CANCEL',
+            p_duration: 0,
+          })
+          .then(({ error }) => {
+            if (error) console.error('[tenantDialer] finalize failed', error.message);
+          });
+      }
+    },
+    [cancelDropRetries],
+  );
+
+  /** Nothing may keep hanging up after the screen goes away. */
+  useEffect(() => cancelDropRetries, [cancelDropRetries]);
 
   /**
    * The pending dial has become a real session after an End Call press: drop it
