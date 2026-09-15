@@ -925,7 +925,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   const filtered = rows
     .filter(r => {
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
-      if (stage === 'pending' && hideExpired && isRequestExpired(r.created_at, r.status, r.agent_verified)) {
+      if (stage === 'pending' && hideExpired && isRequestExpired(r.created_at, r.status, r.agent_verified, r.pending_window_reset_at)) {
         return false;
       }
       if (search.trim()) {
@@ -981,7 +981,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
-    if (stage === 'pending' && isRequestExpired(selectedRequest.created_at, selectedRequest.status, selectedRequest.agent_verified)) {
+    if (stage === 'pending' && isRequestExpired(selectedRequest.created_at, selectedRequest.status, selectedRequest.agent_verified, (selectedRequest as any).pending_window_reset_at)) {
       toast({ title: 'Request expired', description: 'Cannot approve a request that has exceeded 30 days without verification.', variant: 'destructive' });
       return;
     }
@@ -1741,7 +1741,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                             Outstanding
                           </span>
                         )}
-                        {isRequestExpired(req.created_at, req.status, req.agent_verified) && (
+                        {isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at) && (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
                             <Clock className="h-2.5 w-2.5" />
                             Expired (&gt;30d)
@@ -2022,9 +2022,9 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     type="button"
                     size="sm"
                     onClick={(e) => handleQuickApprove(req, e)}
-                    disabled={quickProcessingId === req.id || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified)}
+                    disabled={quickProcessingId === req.id || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
                     title={
-                      isRequestExpired(req.created_at, req.status, req.agent_verified)
+                      isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
                         ? "This rent request expired after 30 days without verification"
                         : isLandlordStage && !checklistComplete
                         ? `Complete the landlord verification checklist (${checklistDone}/2)`
