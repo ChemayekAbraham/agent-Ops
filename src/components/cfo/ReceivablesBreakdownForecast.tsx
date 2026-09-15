@@ -32,6 +32,11 @@ import { CollectionsProjectionPanel } from '@/components/executive/tenant-ops/Co
 
 const ALL_PRODUCTS = '__all__';
 const TENANT_CATEGORY_LABEL = 'Tenant Products & Services';
+const TENANT_PRODUCTS = [
+  { key: 'rent_plan', label: 'Rent Access Plans', projectionAvailable: true },
+  { key: 'tenant_service_charge', label: 'Tenant Charges', projectionAvailable: false },
+  { key: 'business_advance', label: 'Business Advances', projectionAvailable: false },
+] as const;
 
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
@@ -42,27 +47,61 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
 
   const validation = breakdown.data?.validation;
 
+  const tenantCategory = useMemo(
+    () => breakdown.data?.categories.find((cat) => cat.key === 'tenant' || cat.label === TENANT_CATEGORY_LABEL),
+    [breakdown.data],
+  );
+
+  const tenantProducts = useMemo(
+    () => TENANT_PRODUCTS.map((definition) => {
+      const recognised = tenantCategory?.products.find((product) => product.key === definition.key);
+      return {
+        ...definition,
+        outstanding: recognised?.outstanding ?? 0,
+        item_count: recognised?.item_count ?? 0,
+      };
+    }),
+    [tenantCategory],
+  );
+
   /** Flat list of every product/service across categories, for the filter. */
   const productOptions = useMemo(() => {
     const cats = breakdown.data?.categories ?? [];
-    return cats.flatMap((cat) =>
-      cat.products.map((prod) => ({
+    return cats.flatMap((cat) => {
+      const products = cat.key === 'tenant' || cat.label === TENANT_CATEGORY_LABEL
+        ? tenantProducts
+        : cat.products;
+      return products.map((prod) => ({
         value: `${cat.key}:${prod.key}`,
-        label: `${prod.label} — ${cat.label}`,
+        label: cat.label === TENANT_CATEGORY_LABEL ? prod.label : `${prod.label} — ${cat.label}`,
         outstanding: prod.outstanding,
         catLabel: cat.label,
-      }))
-    );
-  }, [breakdown.data]);
+        projectionAvailable: 'projectionAvailable' in prod ? prod.projectionAvailable : true,
+      }));
+    });
+  }, [breakdown.data, tenantProducts]);
 
   const filteredTotal = useMemo(() => {
     if (productFilter === ALL_PRODUCTS || !breakdown.data) return null;
     const [catKey, prodKey] = productFilter.split(':');
-    const prod = breakdown.data.categories
-      .find((c) => c.key === catKey)
-      ?.products.find((p) => p.key === prodKey);
+    const category = breakdown.data.categories.find((c) => c.key === catKey);
+    const prod = category?.label === TENANT_CATEGORY_LABEL
+      ? tenantProducts.find((p) => p.key === prodKey)
+      : category?.products.find((p) => p.key === prodKey);
     return prod?.outstanding ?? 0;
-  }, [productFilter, breakdown.data]);
+  }, [productFilter, breakdown.data, tenantProducts]);
+
+  const selectedTenantProduct = useMemo(() => {
+    if (productFilter === ALL_PRODUCTS) return tenantProducts[0];
+    const [catKey, productKey] = productFilter.split(':');
+    if (catKey !== tenantCategory?.key) return tenantProducts[0];
+    return tenantProducts.find((product) => product.key === productKey) ?? tenantProducts[0];
+  }, [productFilter, tenantCategory?.key, tenantProducts]);
+
+  const totalReceivables = total.data?.total ?? breakdown.data?.total ?? 0;
+  const selectedTenantShare = totalReceivables > 0
+    ? (selectedTenantProduct.outstanding / totalReceivables) * 100
+    : 0;
 
   return (
     <div className="space-y-3 sm:space-y-4 max-w-full">
@@ -151,7 +190,9 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                   </SelectItem>
                   {productOptions.map((o) => (
                     <SelectItem key={o.value} value={o.value} className="text-xs">
-                      {o.label} ({formatUGX(o.outstanding)})
+                      {o.label} · {formatUGX(o.outstanding)} · {totalReceivables > 0
+                        ? `${((o.outstanding / totalReceivables) * 100).toFixed(1)}%`
+                        : '0.0%'} · {o.projectionAvailable ? 'projection available' : 'no projection'}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -186,10 +227,11 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                 return 0;
               })
               .map((cat) => {
+                const sourceProducts = cat.label === TENANT_CATEGORY_LABEL ? tenantProducts : cat.products;
                 const products =
                   productFilter === ALL_PRODUCTS
-                    ? cat.products
-                    : cat.products.filter((p) => `${cat.key}:${p.key}` === productFilter);
+                    ? sourceProducts
+                    : sourceProducts.filter((p) => `${cat.key}:${p.key}` === productFilter);
                 return { cat, products };
               })
               .filter(({ products }) => products.length > 0 || productFilter === ALL_PRODUCTS)
@@ -273,7 +315,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                         <DialogHeader className="px-5 pt-5 pb-2">
                           <DialogTitle className="text-base sm:text-lg">{cat.label}</DialogTitle>
                           <DialogDescription>
-                            Payment activity by location and forward collections forecast for Rent Access Plans.
+                            Receivable position and projection for {selectedTenantProduct.label}.
                           </DialogDescription>
                         </DialogHeader>
                         <div className="px-5 pb-6 space-y-4">
@@ -285,10 +327,10 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                                     Outstanding receivable
                                   </p>
                                   <p className="mt-1 text-2xl sm:text-3xl font-bold font-mono tabular-nums">
-                                    {formatUGX(shownOutstanding)}
+                                    {formatUGX(selectedTenantProduct.outstanding)}
                                   </p>
                                   <p className="mt-1 text-[11px] text-muted-foreground">
-                                    {itemCount} open {itemCount === 1 ? 'item' : 'items'} · {share.toFixed(1)}% of total receivables book
+                                    {selectedTenantProduct.item_count} open {selectedTenantProduct.item_count === 1 ? 'item' : 'items'} · {selectedTenantShare.toFixed(1)}% of total receivables book
                                   </p>
                                 </div>
                                 <div className="shrink-0 text-right">
@@ -296,18 +338,35 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                                     Share of book
                                   </p>
                                   <p className="mt-1 text-xl font-bold font-mono tabular-nums">
-                                    {share.toFixed(1)}%
+                                    {selectedTenantShare.toFixed(1)}%
                                   </p>
-                                  <Progress value={share} className="mt-2 h-1.5 w-24 sm:w-32" />
+                                  <Progress value={selectedTenantShare} className="mt-2 h-1.5 w-24 sm:w-32" />
                                 </div>
                               </div>
                               <Separator className="my-4" />
-                              <div className="space-y-1.5">{productList}</div>
+                              <div className="space-y-1.5">
+                                <div className="rounded-lg bg-muted/30 px-2.5 py-2 flex items-center justify-between gap-2 min-h-10">
+                                  <span className="text-[11px] sm:text-xs">{selectedTenantProduct.label}</span>
+                                  <span className="text-[11px] sm:text-xs font-mono tabular-nums font-semibold">
+                                    {formatUGX(selectedTenantProduct.outstanding)}
+                                  </span>
+                                </div>
+                              </div>
                             </CardContent>
                           </Card>
 
-                          <TenantPaymentsLocationFilters />
-                          <CollectionsProjectionPanel />
+                          {selectedTenantProduct.key === 'rent_plan' && (
+                            <>
+                              <TenantPaymentsLocationFilters />
+                              <CollectionsProjectionPanel />
+                            </>
+                          )}
+                          {selectedTenantProduct.key !== 'rent_plan' && (
+                            <PredictiveReceivablesForecast
+                              productLabel={selectedTenantProduct.label}
+                              projectionAvailable={false}
+                            />
+                          )}
                         </div>
                       </DialogContent>
                     </Dialog>
