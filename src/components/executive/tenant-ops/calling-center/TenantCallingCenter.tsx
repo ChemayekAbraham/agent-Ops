@@ -573,10 +573,12 @@ export function TenantCallingCenter() {
                   metricLabel={metricLabel}
                   revealed={revealedPhones}
                   revealing={dialer.starting || hub.reveal.isPending}
-                  wipBlocked={hub.wipBlocked}
+                  /* Opening a finished (engaged) call is a read — the open-attempt
+                     limit only guards revealing a new number to dial. */
+                  wipBlocked={queueState === 'engaged' ? false : hub.wipBlocked}
                   onReveal={openDetails}
-                  actionLabels={CALL_ACTION_LABELS}
-                  actionIcon={Phone}
+                  actionLabels={actionLabels}
+                  actionIcon={queueState === 'engaged' ? Eye : Phone}
                 />
               )}
 
