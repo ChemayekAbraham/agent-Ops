@@ -675,7 +675,7 @@ export function PromissoryNotesQueue({
 
   const statusConfig: Record<string, { icon: any; color: string; label: string }> = {
     pending: { icon: Clock, color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Pending' },
-    activated: { icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Activated' },
+    activated: { icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Approved' },
     fulfilled: { icon: TrendingUp, color: 'bg-primary/10 text-primary border-primary/20', label: 'Fulfilled' },
     defaulted: { icon: AlertTriangle, color: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Defaulted' },
     cancelled: { icon: XCircle, color: 'bg-muted text-muted-foreground border-border', label: 'Cancelled' },
