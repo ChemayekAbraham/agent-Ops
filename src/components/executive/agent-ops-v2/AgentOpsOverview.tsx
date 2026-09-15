@@ -514,42 +514,45 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
   const formatFullUGX = (n: number) => `UGX ${Math.round(n || 0).toLocaleString('en-UG')}`;
 
   return (
-    <Card className="rounded-2xl border-border/50 p-3 sm:p-4 w-full">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div>
-          <h3 className="text-sm font-semibold">Latest Rent Requests</h3>
-          <p className="text-[11px] text-muted-foreground">Quickly narrow the requests needing attention</p>
+    <Card className="rounded-2xl border-border/50 w-full overflow-hidden">
+      <div className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border/40 p-3 sm:p-4 pb-2.5 sm:pb-3">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 className="text-sm font-semibold">Latest Rent Requests</h3>
+            <p className="text-[11px] text-muted-foreground">Quickly narrow the requests needing attention</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={onViewAll} className="gap-1">
+            View all <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
         </div>
-        <Button size="sm" variant="outline" onClick={onViewAll} className="gap-1">
-          View all <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by status">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="agent_ops_approved">Agent Ops approved</SelectItem>
+              <SelectItem value="tenant_ops_approved">Tenant Ops approved</SelectItem>
+              <SelectItem value="landlord_ops_approved">Landlord Ops approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by date">
+              <SelectValue placeholder="Date" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Today</SelectItem>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="all">Any date</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by status">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="agent_ops_approved">Agent Ops approved</SelectItem>
-            <SelectItem value="tenant_ops_approved">Tenant Ops approved</SelectItem>
-            <SelectItem value="landlord_ops_approved">Landlord Ops approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-            <SelectItem value="all">All statuses</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by date">
-            <SelectValue placeholder="Date" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">Today</SelectItem>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="all">Any date</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <div className="p-3 sm:p-4 pt-2.5 sm:pt-3">
       {isLoading ? (
         <Skeleton className="h-32 w-full" />
       ) : !data || data.length === 0 ? (
@@ -596,6 +599,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
           </Table>
         </div>
       )}
+    </div>
     </Card>
   );
 }
