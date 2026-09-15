@@ -393,8 +393,8 @@ export default function PlatformSalesOfficersPage() {
                       <div className="text-xs font-semibold tabular-nums">{officer.notesFunded}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Money funded</div>
-                      <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(officer.amountFunded)}</div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Money deployed</div>
+                      <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(officer.amountDeployed)}</div>
                     </div>
                     <div>
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Commission</div>
