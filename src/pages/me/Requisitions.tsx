@@ -504,6 +504,38 @@ const MyRequisitions = () => {
                   </p>
                 )}
 
+                {usageReports[row.id] && (
+                  <div className="mt-3 rounded-xl border bg-muted/30 p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <FileText className="h-4 w-4 text-emerald-600" /> Usage report submitted
+                    </p>
+                    <p className="mt-1 text-sm">
+                      Used {formatUGX(Number(usageReports[row.id].amount_used))} • {fmtDate(usageReports[row.id].submitted_at)}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                      {usageReports[row.id].summary}
+                    </p>
+                    {(usageReports[row.id].attachment_paths?.length ?? 0) > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {usageReports[row.id].attachment_paths!.map((path, i) => (
+                          <Button
+                            key={path}
+                            size="sm"
+                            variant="outline"
+                            disabled={viewingPath === path}
+                            onClick={() => void viewAttachment(row, path)}
+                          >
+                            {viewingPath === path
+                              ? <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              : <Paperclip className="mr-2 h-3 w-3" />}
+                            Report receipt {i + 1}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {(row.attachment_urls?.length ?? 0) > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {row.attachment_urls!.map((path) => (
