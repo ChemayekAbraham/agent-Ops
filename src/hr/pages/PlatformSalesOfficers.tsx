@@ -472,8 +472,9 @@ export default function PlatformSalesOfficersPage() {
         )}
 
         <p className="text-xs text-muted-foreground">
-          Bands and targets are not set. Officers see a ranked leaderboard of note volume with no
-          money figures.
+          Money deployed is what the funder put in. Commission base is the amount commission was
+          calculated on, capped at the note's promised amount. Pre-enrol counts notes and conversions
+          dated before the officer's assignment start and is excluded from the ranked total.
         </p>
         <p className="text-xs text-muted-foreground">
           as at {fundedAsAt ? formatKampalaDateTime(fundedAsAt) : '—'} · funded figures are never frozen
