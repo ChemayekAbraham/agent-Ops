@@ -1107,7 +1107,12 @@ export function SmartphoneOrderApprovalQueue({
                 </p>
               </div>
 
+              {approveStage === 'cfo' && (
+                <SupplierAccountDetails saleId={approveTarget.id} />
+              )}
+
             </div>
+
           )}
 
           <DialogFooter>
