@@ -30,6 +30,10 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
 
 const REMIND_INTERVAL_MS = 5 * 60 * 1000;
 
+/** Mirrors the limits enforced by the staff-requisition-add-attachment function. */
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+const MAX_BYTES = 10 * 1024 * 1024;
+
 interface PendingReq {
   id: string;
   requisition_code: string;
