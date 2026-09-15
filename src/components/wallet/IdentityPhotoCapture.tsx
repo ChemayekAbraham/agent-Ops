@@ -29,6 +29,7 @@ import { useOtpVerification } from '@/hooks/useOtpVerification';
 
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
+import NationalIdLinkFlow from './NationalIdLinkFlow';
 
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -523,6 +524,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
      what tells Financial Ops where to look. */
   const [form, setForm] = useState<NationalIdData>(EMPTY_ID_DATA);
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
+  /** Set when the ID number is already recorded on another account. */
+  const [duplicateNin, setDuplicateNin] = useState<string | null>(null);
 
   /* Is the selfie a face at all? The server-side checker is the only judge —
      there is no local blur / glare grading, exactly as on tenant onboarding. */
@@ -597,11 +600,17 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         },
       );
       if (error) throw new Error(error.message);
-      const res = data as { success?: boolean; message?: string; field?: string } | null;
+      const res = data as
+        | { success?: boolean; message?: string; field?: string; duplicate?: boolean }
+        | null;
       if (!res?.success) {
         setFieldError({ field: res?.field, message: res?.message || 'Could not save those details.' });
+        // An ID already recorded elsewhere is not a mistake to correct: the
+        // holder of that ID can allow this account to join it.
+        setDuplicateNin(res?.duplicate ? form.nin : null);
         return false;
       }
+      setDuplicateNin(null);
       return true;
     } catch (e) {
       setFieldError({ message: e instanceof Error ? e.message : 'Could not save those details.' });
@@ -883,10 +892,23 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                   })}
                 </div>
 
-                {fieldError && (
+                {fieldError && !duplicateNin && (
                   <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                     {fieldError.message}
                   </p>
+                )}
+
+                {/* The ID belongs to an account already: ask that account's
+                    holder to allow this one instead of simply refusing. */}
+                {duplicateNin && (
+                  <NationalIdLinkFlow
+                    nin={duplicateNin}
+                    onLinked={() => {
+                      setDuplicateNin(null);
+                      setFieldError(null);
+                      toast.success('You are now linked to that National ID. Send your photos to continue.');
+                    }}
+                  />
                 )}
 
                 {verdict === 'match' && (
