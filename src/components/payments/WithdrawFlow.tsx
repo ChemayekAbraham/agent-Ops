@@ -304,6 +304,10 @@ export default function WithdrawFlow({
   //    Postgres exception (which they typically respond to by tapping
   //    again, making the problem worse).
   const isSubmittingRef = useRef(false);
+  // Fingerprint of the details the verification code was last issued for, so a
+  // code is sent exactly once per set of details even though the issuing effect
+  // now re-runs as those details settle.
+  const issuedKeyRef = useRef<string | null>(null);
   const clientRequestIdRef = useRef<string | null>(null);
   const ensureClientRequestId = (): string => {
     if (!clientRequestIdRef.current) {
@@ -531,6 +535,19 @@ export default function WithdrawFlow({
     if (currentStep !== 4) return;
     if (!requiresOtp) return;
     if (walletOtp.challengeId || walletOtp.otpIssuing) return;
+    // The details below can settle AFTER step 4 is reached (the server-resolved
+    // locked destination arrives asynchronously), and any change to them clears
+    // the challenge. Without re-running on those details the cleared challenge
+    // was never re-issued and no code ever arrived. `issuedKeyRef` makes sure a
+    // given set of details is only ever sent once, so this cannot loop, and a
+    // failed attempt is not retried automatically either.
+    const issueKey = [
+      amount, payoutMode, momoNumber.trim(), momoName.trim(), momoProvider,
+      bankName.trim(), bankAccountNumber.trim(), bankAccountName.trim(),
+      effectiveReason || '',
+    ].join('|');
+    if (issuedKeyRef.current === issueKey) return;
+    issuedKeyRef.current = issueKey;
     void walletOtp.issueOtp({
       amount,
       payout_method: payoutMode as 'mobile_money' | 'bank_transfer',
@@ -544,7 +561,12 @@ export default function WithdrawFlow({
       client_request_id: ensureClientRequestId(),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, open, user, requiresOtp]);
+  }, [
+    currentStep, open, user, requiresOtp,
+    walletOtp.challengeId, walletOtp.otpIssuing,
+    amount, payoutMode, momoNumber, momoName, momoProvider,
+    bankName, bankAccountNumber, bankAccountName, effectiveReason,
+  ]);
 
   // Any change to what's actually being submitted invalidates the current
   // verification code — the next time step 4 is (re)entered, the effect
@@ -622,6 +644,7 @@ export default function WithdrawFlow({
     walletOtp.resetOtp();
     setOtpCode('');
     clientRequestIdRef.current = null;
+    issuedKeyRef.current = null;
   };
 
   // Drive the resend cooldown countdown once a cash code is on screen.
@@ -2265,6 +2288,7 @@ export default function WithdrawFlow({
                 setCreatedRequestId(null);
                 setPaymentStatus('pending');
                 clientRequestIdRef.current = null;
+                issuedKeyRef.current = null;
                 walletOtp.resetOtp();
                 setOtpCode('');
                 setCurrentStep(2);
