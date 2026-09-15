@@ -63,8 +63,9 @@ interface NonOfficerFunded {
 
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+// The reporting week runs Wednesday → Tuesday, so the day columns start on Wed.
+const WEEKDAY_LABELS = ['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'];
+const WEEKDAY_INITIALS = ['W', 'T', 'F', 'S', 'S', 'M', 'T'];
 
 function getKampalaParts(d: Date): { year: number; month: number; day: number } {
   const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -114,13 +115,29 @@ function formatUgxCompact(v: number): string {
   return `UGX ${v.toLocaleString('en-UG')}`;
 }
 
-// 0 = Monday. Local getters on a midday anchor, never UTC getters.
+// 0 = Wednesday (the first day of the reporting week).
+// Local getters on a midday anchor, never UTC getters.
 function kampalaWeekdayIndex(day: string): number {
   const d = new Date(`${day}T12:00:00`);
-  return (d.getDay() + 6) % 7;
+  return (d.getDay() + 4) % 7;
 }
 
-function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to: string; label: string } {
+function addDays(d: Date, n: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + n);
+  return next;
+}
+
+// Wednesday that opens the reporting week containing `day`.
+function startOfReportingWeek(day: Date): Date {
+  return addDays(day, -((day.getDay() + 4) % 7));
+}
+
+function getWindowDates(
+  mode: WindowMode,
+  todayStr: string,
+  weekOffset = 0,
+): { from: string; to: string; label: string } {
   const today = new Date(`${todayStr}T12:00:00`);
 
   if (mode === 'DAILY') {
@@ -128,11 +145,15 @@ function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to:
   }
 
   if (mode === 'WEEKLY') {
-    const mondayStr = formatKampalaDate(startOfISOWeek(today));
+    const start = addDays(startOfReportingWeek(today), weekOffset * 7);
+    const end = addDays(start, 6);
+    const startStr = formatKampalaDate(start);
+    // The live week stops at today; a past week shows its full Wed–Tue span.
+    const endStr = end > today ? todayStr : formatKampalaDate(end);
     return {
-      from: mondayStr,
-      to: todayStr,
-      label: `WEEKLY · ${formatKampalaDisplay(mondayStr)} – ${formatKampalaDisplay(todayStr)}`,
+      from: startStr,
+      to: endStr,
+      label: `WEEKLY · ${formatKampalaDisplay(startStr)} – ${formatKampalaDisplay(endStr)}`,
     };
   }
 
