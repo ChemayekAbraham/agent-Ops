@@ -348,20 +348,36 @@ export function AgentOpsExpiredRequestsPanel({
           </div>
 
           {filtered.length > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setBulkDeleteOpen(true)}
-              disabled={isBulkDeleting}
-              className="gap-1.5 shrink-0 font-bold"
-            >
-              {isBulkDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              <span>Delete All ({filtered.length})</span>
-            </Button>
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleRenewAll()}
+                disabled={isBulkRenewing || isBulkDeleting}
+                className="gap-1.5 font-semibold"
+              >
+                {isBulkRenewing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                <span className="truncate">Renew All ({filtered.length})</span>
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDeleteOpen(true)}
+                disabled={isBulkDeleting || isBulkRenewing}
+                className="gap-1.5 font-bold"
+              >
+                {isBulkDeleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                <span className="truncate">Delete All ({filtered.length})</span>
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
