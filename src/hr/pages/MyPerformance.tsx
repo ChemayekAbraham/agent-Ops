@@ -21,9 +21,16 @@ interface PsoFundedSummary {
   staff_id: string;
   staff_ref: string;
   notes_in_cohort: number;
+  notes_unapproved: number;
   notes_funded: number;
-  amount_funded: number;
+  funders_converted: number;
+  topups: number;
+  amount_deployed: number;
+  commission_base: number;
   commission_accrued: number;
+  pre_enrolment_notes: number;
+  pre_enrolment_funded: number;
+  pre_enrolment_amount: number;
   as_at: string;
 }
 
