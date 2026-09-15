@@ -180,6 +180,52 @@ const STAGE_REJECTOR_LABEL: Record<PipelineStage, string> = {
   coo_approved: 'CFO / Financial Ops',
 };
 
+const REVIEW_SLA_HOURS = 24;
+
+function requestStageEnteredAt(request: Record<string, any>, stage: PipelineStage): string {
+  const stageTimestamp: Partial<Record<PipelineStage, string>> = {
+    pending: request.resubmitted_at || request.created_at,
+    agent_ops_approved: request.agent_ops_reviewed_at || request.created_at,
+    tenant_ops_approved: request.tenant_ops_reviewed_at || request.created_at,
+    landlord_ops_approved: request.landlord_ops_reviewed_at || request.created_at,
+    partner_ops_approved: request.partner_ops_reviewed_at || request.created_at,
+    coo_approved: request.coo_reviewed_at || request.created_at,
+  };
+  return stageTimestamp[stage] || request.created_at;
+}
+
+function requestSla(request: Record<string, any>, stage: PipelineStage) {
+  const enteredAt = new Date(requestStageEnteredAt(request, stage));
+  const elapsedHours = Math.max(0, (Date.now() - enteredAt.getTime()) / 3_600_000);
+  const remainingHours = REVIEW_SLA_HOURS - elapsedHours;
+  const ageLabel = elapsedHours < 1
+    ? '<1h old'
+    : elapsedHours < 24
+      ? `${Math.floor(elapsedHours)}h old`
+      : `${Math.floor(elapsedHours / 24)}d old`;
+
+  if (remainingHours <= 0) {
+    const overdueHours = Math.abs(remainingHours);
+    return {
+      tone: 'overdue' as const,
+      label: overdueHours < 24 ? `${Math.ceil(overdueHours)}h overdue` : `${Math.floor(overdueHours / 24)}d overdue`,
+      detail: `${ageLabel} · 24h review SLA missed`,
+    };
+  }
+  if (remainingHours <= 6) {
+    return {
+      tone: 'due-soon' as const,
+      label: `${Math.ceil(remainingHours)}h left`,
+      detail: `${ageLabel} · due soon`,
+    };
+  }
+  return {
+    tone: 'on-track' as const,
+    label: ageLabel,
+    detail: `${Math.ceil(remainingHours)}h remaining in the 24h review SLA`,
+  };
+}
+
 const formatWhatsApp = (phone: string): string => {
   if (!phone) return '';
   let clean = phone.replace(/\D/g, '');
@@ -1599,11 +1645,15 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
               const checklistDone = (cl.called ? 1 : 0) + (cl.acknowledged ? 1 : 0);
               const checklistComplete = checklistDone === 2;
               const isExpanded = expandedCardIds.has(req.id);
+              const sla = requestSla(req, stage);
 
               return (
               <div
                 key={req.id}
-                className="w-full text-left px-3.5 py-3 hover:bg-muted/30 transition-colors"
+                className={cn(
+                  'w-full text-left px-3.5 py-3 hover:bg-muted/30 transition-colors border-l-4',
+                  sla.tone === 'overdue' ? 'border-l-destructive bg-destructive/5' : 'border-l-transparent',
+                )}
               >
                 {/* Header row: Checkbox + Tenant info + Amount + Fold Toggle */}
                 <div
@@ -1679,6 +1729,21 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                             Outstanding
                           </span>
                         )}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge
+                              variant={sla.tone === 'overdue' ? 'destructive' : sla.tone === 'due-soon' ? 'outline' : 'secondary'}
+                              className={cn(
+                                'h-5 gap-1 px-1.5 text-[9px] font-bold uppercase tracking-wide shrink-0',
+                                sla.tone === 'due-soon' && 'border-primary/50 text-primary',
+                              )}
+                            >
+                              <Clock className="h-2.5 w-2.5" />
+                              {sla.label}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">{sla.detail}</TooltipContent>
+                        </Tooltip>
                         {isRequestExpired(req.created_at, req.status, req.agent_verified) && (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
                             <Clock className="h-2.5 w-2.5" />
