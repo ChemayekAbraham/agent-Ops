@@ -335,7 +335,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Repayment:</span> a daily amount is deducted
-                  from your Welile Wallet over the period you choose (3, 6, 9 or 12 months). The amount
+                  from your Welile Wallet over the period you choose (1 to 12 months). The amount
                   reduces every month as your balance comes down.
                 </li>
                 <li>
