@@ -321,6 +321,34 @@ export function PartnerReceivablesVsExpectedChart() {
             </ResponsiveContainer>
           </div>
         )}
+        {!isLoading && topBringers.length > 0 && (
+          <div className="mt-4 border-t pt-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Top 5 who brought partners in
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {topBringers.map((t, i) => (
+                <li
+                  key={`${t.agent}-${t.partner}`}
+                  className="flex items-center gap-3 rounded-md bg-muted/40 px-3 py-2"
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-black text-primary">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold">{t.agent}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      brought in {t.partner}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-xs font-black tabular-nums text-emerald-600">
+                    {formatUGX(t.amount)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
