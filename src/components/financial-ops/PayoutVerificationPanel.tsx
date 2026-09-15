@@ -231,6 +231,40 @@ function nameSourceBadge(source: PayoutDestinationRow['name_source']): {
   return null;
 }
 
+/** The mobile money number or bank account the holder expects withdrawals to go to. */
+function SavedPayoutNumberCard({ row }: { row: PayoutDestinationRow }) {
+  const isMomo = row.destination_type === 'mobile_money';
+  const number = isMomo
+    ? row.momo_number
+    : `${row.bank_name ?? ''} ${row.bank_account_number ?? ''}`.trim() || null;
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-border bg-card p-3">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
+        {isMomo ? (
+          <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+        ) : (
+          <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+        )}
+        Saved withdrawal number
+      </p>
+      <div className="mt-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-foreground">{number ?? '—'}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {isMomo
+              ? `${row.provider ?? 'Mobile money'} · ${row.account_name || 'Name not recorded'}`
+              : row.account_name || 'Name not recorded'}
+          </p>
+        </div>
+        {row.status === 'verified' && (
+          <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-label="Verified" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Every time the name on the account was replaced by the name read from the
  * National ID (or corrected by hand), it is recorded in the audit log. This
@@ -1238,6 +1272,8 @@ export default function PayoutVerificationPanel() {
               );
             })()}
           </div>
+
+          <SavedPayoutNumberCard row={row} />
 
           {/* Both names side by side — the person in the selfie vs the National ID */}
           <div className="mx-5 mt-3 grid grid-cols-2 gap-3">
