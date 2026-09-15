@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 import { AgentRentCapacityPanel } from '../AgentRentCapacityPanel';
@@ -459,14 +460,20 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
 // ---------- Latest rent requests ----------
 
 function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
+  const [statusFilter, setStatusFilter] = useState('pending');
+  const [dateFilter, setDateFilter] = useState('30');
   const { data, isLoading } = useQuery({
-    queryKey: ['agent-ops-latest-rent-requests'],
+    queryKey: ['agent-ops-latest-rent-requests', statusFilter, dateFilter],
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from('rent_requests')
         .select('id, agent_id, tenant_id, rent_amount, status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(5);
+        .order('created_at', { ascending: false });
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      if (dateFilter !== 'all') {
+        query = query.gte('created_at', subDays(new Date(), Number(dateFilter)).toISOString());
+      }
+      const { data } = await query.limit(10);
       if (!data || data.length === 0) return [];
       const agentIds = Array.from(new Set(data.map((r: any) => r.agent_id).filter(Boolean)));
       const { data: links } = agentIds.length
@@ -508,14 +515,40 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
 
   return (
     <Card className="rounded-2xl border-border/50 p-3 sm:p-4 w-full">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between gap-2 mb-3">
         <div>
           <h3 className="text-sm font-semibold">Latest Rent Requests</h3>
-          <p className="text-[11px] text-muted-foreground">The five most recent submissions</p>
+          <p className="text-[11px] text-muted-foreground">Quickly narrow the requests needing attention</p>
         </div>
         <Button size="sm" variant="outline" onClick={onViewAll} className="gap-1">
           View all <ArrowRight className="h-3.5 w-3.5" />
         </Button>
+      </div>
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by status">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="agent_ops_approved">Agent Ops approved</SelectItem>
+            <SelectItem value="tenant_ops_approved">Tenant Ops approved</SelectItem>
+            <SelectItem value="landlord_ops_approved">Landlord Ops approved</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="all">All statuses</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={dateFilter} onValueChange={setDateFilter}>
+          <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by date">
+            <SelectValue placeholder="Date" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">Today</SelectItem>
+            <SelectItem value="7">Last 7 days</SelectItem>
+            <SelectItem value="30">Last 30 days</SelectItem>
+            <SelectItem value="all">Any date</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       {isLoading ? (
         <Skeleton className="h-32 w-full" />
