@@ -526,6 +526,15 @@ export function SmartphoneCatalogDialog() {
             </DialogTitle>
           </DialogHeader>
 
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+            <p className="text-xs font-semibold">Amounts here are down payments</p>
+            <p className="text-[11px] text-muted-foreground">
+              Every amount below is the down payment Welile funds so the supplier releases the phone — not the full
+              phone price. The agent pays the remaining balance to the supplier directly, on the supplier’s own
+              repayment plan, outside Welile. iPhones are supplied by Mo Banja.
+            </p>
+          </div>
+
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1">
@@ -610,7 +619,7 @@ export function SmartphoneCatalogDialog() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">
-                        Default amount (UGX) <span className="text-muted-foreground font-normal">— optional</span>
+                        Down payment (UGX) <span className="text-muted-foreground font-normal">— optional</span>
                       </Label>
                       <Input
                         type="number"
@@ -761,7 +770,7 @@ export function SmartphoneCatalogDialog() {
                         inputMode="numeric"
                         value={editAmount}
                         onChange={(ev) => setEditAmount(ev.target.value)}
-                        placeholder="Default amount"
+                        placeholder="Down payment"
                       />
                     </div>
 
@@ -839,7 +848,9 @@ export function SmartphoneCatalogDialog() {
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {e.os_type ? osLabel(e.os_type) : 'Phone'}
                           {' · '}
-                          {amount > 0 ? formatUGX(amount) : 'No default amount'}
+                          {amount > 0
+                            ? `${formatUGX(amount)} ${downPaymentCopy(e.brand, e.model_name).amountLabelShort.toLowerCase()}`
+                            : 'No down payment set'}
                           {' · added '}
                           {fmtDate(e.created_at)}
                         </p>
@@ -917,7 +928,7 @@ export function SmartphoneCatalogDialog() {
                           </div>
                         ) : (
                           <div className="flex items-center justify-between text-xs py-1 px-1">
-                            <span className="text-muted-foreground italic text-[11px]">No default amount configured for this model.</span>
+                            <span className="text-muted-foreground italic text-[11px]">No down payment set for this model.</span>
                             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => startEdit(e)}>
                               <Pencil className="h-3 w-3" /> Set price
                             </Button>
