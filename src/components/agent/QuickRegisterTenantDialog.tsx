@@ -23,6 +23,7 @@ import {
 } from '@/lib/authValidation';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
+import { NationalIdConsentDialog } from '@/components/shared/NationalIdConsentDialog';
 
 interface QuickRegisterTenantDialogProps {
   open: boolean;
@@ -48,8 +49,17 @@ export function QuickRegisterTenantDialog({
   const setFullName = (next: string) => setNameParts(splitPersonName(next));
   const [phone, setPhone] = useState('');
   const [nationalId, setNationalId] = useState('');
+  const [nationalIdName, setNationalIdName] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  // Consent flow state for borrowed National ID
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
+  const [consentStage, setConsentStage] = useState<'awaiting_owner_phone' | 'awaiting_code'>('awaiting_owner_phone');
+  const [consentDeclarationId, setConsentDeclarationId] = useState<string | null>(null);
+  const [consentErrorMessage, setConsentErrorMessage] = useState<string | null>(null);
+  const [consentOwnerPhone, setConsentOwnerPhone] = useState('');
+  const [consentSubmitting, setConsentSubmitting] = useState(false);
 
   // Live fraud guard: reveal if this phone is already registered.
   const { match: existingTenantByPhone, checking: checkingTenantPhone } =
@@ -65,9 +75,104 @@ export function QuickRegisterTenantDialog({
       setPhone(prefillPhone?.trim() || '');
       setFullName('');
       setNationalId('');
+      setNationalIdName('');
+      setConsentModalOpen(false);
+      setConsentDeclarationId(null);
+      setConsentErrorMessage(null);
+      setConsentOwnerPhone('');
       setDone(false);
     }
   }, [open, prefillPhone]);
+
+  const submitRegistration = async (consentParams?: {
+    id_owner_phone?: string;
+    consent_declaration_id?: string;
+    consent_code?: string;
+  }) => {
+    const nameCheck = validatePersonNameParts(nameParts);
+    if (!nameCheck.valid) {
+      toast.error(nameCheck.error || 'Please enter a real full name');
+      return;
+    }
+
+    if (consentParams) {
+      setConsentSubmitting(true);
+      setConsentErrorMessage(null);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const payload: Record<string, unknown> = {
+        full_name: nameCheck.fullName,
+        phone: phone.trim(),
+        national_id: nationalId.trim().toUpperCase(),
+        national_id_name: nationalIdName.trim() || undefined,
+        telemetry: await collectAgentSignupTelemetry('/agent/quick-register-tenant', 'tenant'),
+        ...(consentParams?.id_owner_phone ? { id_owner_phone: consentParams.id_owner_phone } : {}),
+        ...(consentParams?.consent_declaration_id ? { consent_declaration_id: consentParams.consent_declaration_id } : {}),
+        ...(consentParams?.consent_code ? { consent_code: consentParams.consent_code } : {}),
+      };
+
+      const res = await supabase.functions.invoke('register-tenant', { body: payload });
+
+      let parsedBody: Record<string, unknown> | null = null;
+      if (res.error?.context) {
+        try {
+          parsedBody = (await res.error.context.clone().json()) as Record<string, unknown>;
+        } catch {
+          try {
+            parsedBody = (await res.error.context.json()) as Record<string, unknown>;
+          } catch (_e) {
+            parsedBody = null;
+          }
+        }
+      }
+      if (!parsedBody && res.data) parsedBody = res.data as Record<string, unknown>;
+
+      if (parsedBody?.code === 'id_owner_consent_required') {
+        const nextStage =
+          (parsedBody.stage as 'awaiting_owner_phone' | 'awaiting_code') ||
+          (parsedBody.declaration_id ? 'awaiting_code' : 'awaiting_owner_phone');
+        setConsentStage(nextStage);
+        if (parsedBody.declaration_id) setConsentDeclarationId(String(parsedBody.declaration_id));
+        if (consentParams?.id_owner_phone) setConsentOwnerPhone(consentParams.id_owner_phone);
+        setConsentErrorMessage(typeof parsedBody.error === 'string' ? parsedBody.error : null);
+        setConsentModalOpen(true);
+        return;
+      }
+
+      if (res.error || (parsedBody && parsedBody.error)) {
+        const msg =
+          (typeof parsedBody?.error === 'string' && parsedBody.error) ||
+          res.error?.message ||
+          'Failed to register tenant';
+        if (consentParams) {
+          setConsentErrorMessage(msg);
+        } else {
+          toast.error(msg);
+        }
+        return;
+      }
+
+      setConsentModalOpen(false);
+      setDone(true);
+      if ((res.data as Record<string, unknown>)?.existing) {
+        toast.info(`${fullName.trim()} is already registered`, {
+          description: 'Using the existing tenant record to proceed.',
+        });
+      } else {
+        toast.success(`${fullName.trim()} registered successfully`);
+      }
+      onRegistered?.(phone.trim());
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to register tenant';
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+      setConsentSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,39 +190,7 @@ export function QuickRegisterTenantDialog({
       return;
     }
 
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('register-tenant', {
-        body: {
-          full_name: nameCheck.fullName,
-          phone: phone.trim(),
-          national_id: nationalId.trim().toUpperCase(),
-          telemetry: await collectAgentSignupTelemetry('/agent/quick-register-tenant', 'tenant'),
-        },
-      });
-
-      if (error) {
-        const msg = error?.context
-          ? await error.context.json().then((r: any) => r.error).catch(() => error.message)
-          : error.message;
-        throw new Error(msg || 'Failed to register tenant');
-      }
-      if (data?.error) throw new Error(data.error);
-
-      setDone(true);
-      if (data?.existing) {
-        toast.info(`${fullName.trim()} is already registered`, {
-          description: 'Using the existing tenant record to proceed.',
-        });
-      } else {
-        toast.success(`${fullName.trim()} registered successfully`);
-      }
-      onRegistered?.(phone.trim());
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to register tenant');
-    } finally {
-      setLoading(false);
-    }
+    await submitRegistration();
   };
 
   return (
@@ -188,6 +261,24 @@ export function QuickRegisterTenantDialog({
               />
             </div>
 
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="qr-nid-name">Name on National ID</Label>
+                <span className="text-[10px] text-muted-foreground">Optional</span>
+              </div>
+              <Input
+                id="qr-nid-name"
+                placeholder="Name exactly as printed on ID"
+                value={nationalIdName}
+                onChange={(e) => setNationalIdName(e.target.value)}
+                disabled={loading}
+                className="h-12"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Only needed if using someone else&apos;s ID
+              </p>
+            </div>
+
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -205,6 +296,32 @@ export function QuickRegisterTenantDialog({
           </form>
         )}
       </DialogContent>
+
+      <NationalIdConsentDialog
+        open={consentModalOpen}
+        onOpenChange={setConsentModalOpen}
+        stage={consentStage}
+        declarationId={consentDeclarationId}
+        errorMessage={consentErrorMessage}
+        idOwnerName={nationalIdName}
+        registrantName={fullName}
+        initialOwnerPhone={consentOwnerPhone}
+        submitting={consentSubmitting}
+        onSubmitPhone={async (ownerPhone) => {
+          setConsentOwnerPhone(ownerPhone);
+          await submitRegistration({ id_owner_phone: ownerPhone });
+        }}
+        onSubmitCode={async (consentCode) => {
+          await submitRegistration({
+            id_owner_phone: consentOwnerPhone,
+            consent_declaration_id: consentDeclarationId || undefined,
+            consent_code: consentCode,
+          });
+        }}
+        onResendCode={async () => {
+          await submitRegistration({ id_owner_phone: consentOwnerPhone });
+        }}
+      />
     </Dialog>
   );
 }

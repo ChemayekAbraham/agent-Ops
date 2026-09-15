@@ -86,6 +86,14 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
   const [tenantEmail, setTenantEmail] = useState('');
   const [tenantPhone, setTenantPhone] = useState('');
   const [tenantNationalId, setTenantNationalId] = useState('');
+  const [tenantNationalIdName, setTenantNationalIdName] = useState('');
+  // Consent flow state for borrowed National ID
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
+  const [consentStage, setConsentStage] = useState<'awaiting_owner_phone' | 'awaiting_code'>('awaiting_owner_phone');
+  const [consentDeclarationId, setConsentDeclarationId] = useState<string | null>(null);
+  const [consentErrorMessage, setConsentErrorMessage] = useState<string | null>(null);
+  const [consentOwnerPhone, setConsentOwnerPhone] = useState('');
+  const [consentSubmitting, setConsentSubmitting] = useState(false);
   // Names are captured in parts (first / other / last) but submitted as the
   // same single strings the edge function already expects.
   const [tenantNameParts, setTenantNameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
@@ -147,6 +155,11 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
     setCreatedRentRequestId(null);
     setNationalIdError('');
     setFieldErrors({});
+    setTenantNationalIdName('');
+    setConsentModalOpen(false);
+    setConsentDeclarationId(null);
+    setConsentErrorMessage(null);
+    setConsentOwnerPhone('');
     setStep(1);
   };
   // Friendly labels for the validation summary so the agent knows which field to fix.
@@ -318,62 +331,121 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
       return;
     }
 
-    setLoading(true);
+    await submitRegistration();
+  };
+
+  const submitRegistration = async (consentParams?: {
+    id_owner_phone?: string;
+    consent_declaration_id?: string;
+    consent_code?: string;
+  }) => {
+    if (consentParams) {
+      setConsentSubmitting(true);
+      setConsentErrorMessage(null);
+    } else {
+      setLoading(true);
+    }
 
     try {
-      // Single atomic call — the edge function provisions the tenant AND
-      // creates the landlord, LC1, and rent request inside one transaction.
-      // If any step fails server-side, the auth user is rolled back.
-      const { data: regData, error: regErr } = await invokeEdgeFunction<{
-        user_id: string;
-        existing: boolean;
-        rent_request_id?: string | null;
-      }>('register-tenant', {
-        body: {
-          full_name: tenantFullName.trim(),
-          phone: tenantPhone.trim() || `0${Date.now().toString().slice(-9)}`,
-          email: tenantEmail.trim() || undefined,
-          national_id: tenantNationalId.trim().toUpperCase(),
-          landlord: {
-            name: landlordName.trim(),
-            phone: landlordPhone.trim(),
-            property_address: propertyAddress.trim(),
-            monthly_rent: parseInt(monthlyRent),
-            mobile_money_number: mobileMoneyNumber.trim() || null,
-            latitude,
-            longitude,
-          },
-          lc1: lc1Name.trim() && lc1Phone.trim() && lc1Village.trim()
-            ? {
-                name: lc1Name.trim(),
-                phone: lc1Phone.trim(),
-                village: lc1Village.trim(),
-                // Approved dataset link + derived chain, when picked officially.
-                village_id: lc1VillageSel?.villageId ?? null,
-                region: lc1VillageSel?.region ?? null,
-                district: lc1VillageSel?.district ?? null,
-                county: lc1VillageSel?.county ?? null,
-                sub_county: lc1VillageSel?.subcounty ?? null,
-                parish: lc1VillageSel?.parish ?? null,
-              }
-            : null,
-          rent_request: {
-            rent_amount: parseInt(monthlyRent),
-            duration_days: 30,
-            house_category: 'single-room',
-            request_latitude: latitude,
-            request_longitude: longitude,
-          },
+      const payload: Record<string, unknown> = {
+        full_name: tenantFullName.trim(),
+        phone: tenantPhone.trim() || `0${Date.now().toString().slice(-9)}`,
+        email: tenantEmail.trim() || undefined,
+        national_id: tenantNationalId.trim().toUpperCase(),
+        national_id_name: tenantNationalIdName.trim() || undefined,
+        landlord: {
+          name: landlordName.trim(),
+          phone: landlordPhone.trim(),
+          property_address: propertyAddress.trim(),
+          monthly_rent: parseInt(monthlyRent),
+          mobile_money_number: mobileMoneyNumber.trim() || null,
+          latitude,
+          longitude,
         },
-        errorTitle: 'Could not register tenant',
-      });
+        lc1: lc1Name.trim() && lc1Phone.trim() && lc1Village.trim()
+          ? {
+              name: lc1Name.trim(),
+              phone: lc1Phone.trim(),
+              village: lc1Village.trim(),
+              village_id: lc1VillageSel?.villageId ?? null,
+              region: lc1VillageSel?.region ?? null,
+              district: lc1VillageSel?.district ?? null,
+              county: lc1VillageSel?.county ?? null,
+              sub_county: lc1VillageSel?.subcounty ?? null,
+              parish: lc1VillageSel?.parish ?? null,
+            }
+          : null,
+        rent_request: {
+          rent_amount: parseInt(monthlyRent),
+          duration_days: 30,
+          house_category: 'single-room',
+          request_latitude: latitude,
+          request_longitude: longitude,
+        },
+        ...(consentParams?.id_owner_phone ? { id_owner_phone: consentParams.id_owner_phone } : {}),
+        ...(consentParams?.consent_declaration_id ? { consent_declaration_id: consentParams.consent_declaration_id } : {}),
+        ...(consentParams?.consent_code ? { consent_code: consentParams.consent_code } : {}),
+      };
 
-      if (regErr || !regData?.user_id) {
-        setLoading(false);
+      const res = await supabase.functions.invoke('register-tenant', { body: payload });
+
+      let parsedBody: Record<string, unknown> | null = null;
+      if (res.error?.context) {
+        try {
+          parsedBody = (await res.error.context.clone().json()) as Record<string, unknown>;
+        } catch (_cloneErr) {
+          try {
+            parsedBody = (await res.error.context.json()) as Record<string, unknown>;
+          } catch (_readErr) {
+            // Context stream unreadable as JSON; fall back to res.error.message
+          }
+        }
+      }
+      if (!parsedBody && res.data) {
+        parsedBody = res.data as Record<string, unknown>;
+      }
+
+      if (parsedBody?.code === 'id_owner_consent_required') {
+        const stageVal = parsedBody.stage;
+        const nextStage =
+          stageVal === 'awaiting_code' || stageVal === 'awaiting_owner_phone'
+            ? stageVal
+            : parsedBody.declaration_id
+              ? 'awaiting_code'
+              : 'awaiting_owner_phone';
+        setConsentStage(nextStage);
+        if (typeof parsedBody.declaration_id === 'string') {
+          setConsentDeclarationId(parsedBody.declaration_id);
+        }
+        if (consentParams?.id_owner_phone) {
+          setConsentOwnerPhone(consentParams.id_owner_phone);
+        }
+        setConsentErrorMessage(typeof parsedBody.error === 'string' ? parsedBody.error : null);
+        setConsentModalOpen(true);
         return;
       }
-      setCreatedRentRequestId(regData.rent_request_id ?? null);
 
+      if (res.error || (parsedBody && parsedBody.error)) {
+        const message =
+          (typeof parsedBody?.error === 'string' ? parsedBody.error : null) ||
+          res.error?.message ||
+          'Failed to register tenant';
+        if (consentParams) {
+          setConsentErrorMessage(message);
+        } else {
+          toast.error('Could not register tenant', { description: message });
+        }
+        return;
+      }
+
+      const regData = res.data as { user_id?: string; rent_request_id?: string; existing?: boolean } | null;
+      if (!regData?.user_id) {
+        toast.error('Could not register tenant', { description: 'Missing user ID from server.' });
+        return;
+      }
+
+      setConsentModalOpen(false);
+      setCreatedRentRequestId(regData.rent_request_id ?? null);
       setSuccess(true);
       if (regData.existing) {
         toast.info('✅ Rent request submitted using existing tenant!', {
@@ -387,11 +459,13 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
         });
       }
       onSuccess?.();
-    } catch (err) {
-      toast.error('An unexpected error occurred');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'An unexpected error occurred';
+      toast.error('An unexpected error occurred', { description: errMsg });
       console.error('Error:', err);
     } finally {
       setLoading(false);
+      setConsentSubmitting(false);
     }
   };
 
@@ -677,6 +751,22 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
                     {(nationalIdError || fieldErrors.tenantNationalId) && (
                       <p className="text-[11px] text-destructive font-medium">{nationalIdError || fieldErrors.tenantNationalId}</p>
                     )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="tenantNationalIdName" className="text-xs">Name on National ID</Label>
+                      <span className="text-[10px] text-muted-foreground">Optional</span>
+                    </div>
+                    <Input
+                      id="tenantNationalIdName"
+                      value={tenantNationalIdName}
+                      onChange={(e) => setTenantNationalIdName(e.target.value)}
+                      placeholder="Name exactly as printed on ID"
+                      className="h-11 text-base"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Only needed if using someone else's ID
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1007,6 +1097,32 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
           </div>
         )}
       </DialogContent>
+
+      <NationalIdConsentDialog
+        open={consentModalOpen}
+        onOpenChange={setConsentModalOpen}
+        stage={consentStage}
+        declarationId={consentDeclarationId}
+        errorMessage={consentErrorMessage}
+        idOwnerName={tenantNationalIdName}
+        registrantName={tenantFullName}
+        initialOwnerPhone={consentOwnerPhone}
+        submitting={consentSubmitting}
+        onSubmitPhone={async (phone) => {
+          setConsentOwnerPhone(phone);
+          await submitRegistration({ id_owner_phone: phone });
+        }}
+        onSubmitCode={async (code) => {
+          await submitRegistration({
+            id_owner_phone: consentOwnerPhone,
+            consent_declaration_id: consentDeclarationId || undefined,
+            consent_code: code,
+          });
+        }}
+        onResendCode={async () => {
+          await submitRegistration({ id_owner_phone: consentOwnerPhone });
+        }}
+      />
     </Dialog>
   );
 }

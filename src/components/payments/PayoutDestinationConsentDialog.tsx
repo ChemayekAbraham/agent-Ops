@@ -85,17 +85,19 @@ export function PayoutDestinationConsentDialog({
       });
 
       if (fnError) {
-        let errPayload: any = null;
+        let errPayload: Record<string, unknown> | null = null;
         if (fnError.context) {
           try {
-            errPayload = await fnError.context.clone().json();
-          } catch {
+            errPayload = (await fnError.context.clone().json()) as Record<string, unknown>;
+          } catch (_cloneErr) {
             try {
-              errPayload = await fnError.context.json();
-            } catch {}
+              errPayload = (await fnError.context.json()) as Record<string, unknown>;
+            } catch (_readErr) {
+              // Context stream unreadable as JSON; fall back to fnError.message
+            }
           }
         }
-        if (!errPayload && data) errPayload = data;
+        if (!errPayload && data) errPayload = data as Record<string, unknown>;
 
         if (errPayload?.code === 'owner_phone_required') {
           setStep('enter_phone');
@@ -104,11 +106,15 @@ export function PayoutDestinationConsentDialog({
           return;
         }
 
-        throw new Error(errPayload?.error || fnError.message || 'Failed to request consent code.');
+        const errMsg =
+          (typeof errPayload?.error === 'string' ? errPayload.error : null) ||
+          fnError.message ||
+          'Failed to request consent code.';
+        throw new Error(errMsg);
       }
 
       if (data?.error) {
-        throw new Error(data.error);
+        throw new Error(String(data.error));
       }
 
       if (data?.already_verified) {
@@ -119,18 +125,20 @@ export function PayoutDestinationConsentDialog({
       }
 
       if (data?.declaration_id) {
-        setDeclarationId(data.declaration_id);
+        setDeclarationId(String(data.declaration_id));
         setServerMessage(
-          data.message ||
-            "We've sent a code to the destination owner's phone. Ask them to share it with you, then confirm it here.",
+          typeof data.message === 'string'
+            ? data.message
+            : "We've sent a code to the destination owner's phone. Ask them to share it with you, then confirm it here.",
         );
         setStep('enter_code');
         toast.success('Verification code sent to destination owner');
       } else {
         throw new Error('No declaration received from server.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Could not send verification code. Please try again.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not send verification code. Please try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -161,22 +169,28 @@ export function PayoutDestinationConsentDialog({
       });
 
       if (fnError) {
-        let errPayload: any = null;
+        let errPayload: Record<string, unknown> | null = null;
         if (fnError.context) {
           try {
-            errPayload = await fnError.context.clone().json();
-          } catch {
+            errPayload = (await fnError.context.clone().json()) as Record<string, unknown>;
+          } catch (_cloneErr) {
             try {
-              errPayload = await fnError.context.json();
-            } catch {}
+              errPayload = (await fnError.context.json()) as Record<string, unknown>;
+            } catch (_readErr) {
+              // Context stream unreadable as JSON; fall back to fnError.message
+            }
           }
         }
-        if (!errPayload && data) errPayload = data;
-        throw new Error(errPayload?.error || fnError.message || 'Failed to confirm code.');
+        if (!errPayload && data) errPayload = data as Record<string, unknown>;
+        const errMsg =
+          (typeof errPayload?.error === 'string' ? errPayload.error : null) ||
+          fnError.message ||
+          'Failed to confirm code.';
+        throw new Error(errMsg);
       }
 
       if (data?.error) {
-        throw new Error(data.error);
+        throw new Error(String(data.error));
       }
 
       if (data?.verified) {
@@ -186,8 +200,9 @@ export function PayoutDestinationConsentDialog({
       } else {
         throw new Error('Verification was not confirmed. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Could not verify code. Please check and try again.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not verify code. Please check and try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }

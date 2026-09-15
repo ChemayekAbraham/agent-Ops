@@ -32,6 +32,7 @@ import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
 import { cn } from '@/lib/utils';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { NationalIdConsentDialog } from '@/components/shared/NationalIdConsentDialog';
 
 
 import { Button } from '@/components/ui/button';
@@ -180,6 +181,14 @@ export default function TenantsOnboarding() {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [nin, setNin] = useState('');
+  const [nationalIdName, setNationalIdName] = useState('');
+  // Consent flow state for borrowed National ID
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
+  const [consentStage, setConsentStage] = useState<'awaiting_owner_phone' | 'awaiting_code'>('awaiting_owner_phone');
+  const [consentDeclarationId, setConsentDeclarationId] = useState<string | null>(null);
+  const [consentErrorMessage, setConsentErrorMessage] = useState<string | null>(null);
+  const [consentOwnerPhone, setConsentOwnerPhone] = useState('');
+  const [consentSubmitting, setConsentSubmitting] = useState(false);
   const [occupation, setOccupation] = useState('');
   const [language, setLanguage] = useState('English');
   const [noSmartphone, setNoSmartphone] = useState(false);
@@ -276,6 +285,7 @@ export default function TenantsOnboarding() {
       if (typeof d.lastName === 'string') setLastName(d.lastName);
       if (typeof d.phone === 'string') setPhone(d.phone);
       if (typeof d.nin === 'string') setNin(d.nin);
+      if (typeof d.nationalIdName === 'string') setNationalIdName(d.nationalIdName);
       if (typeof d.occupation === 'string') setOccupation(d.occupation);
       if (typeof d.language === 'string') setLanguage(d.language);
       if (typeof d.noSmartphone === 'boolean') setNoSmartphone(d.noSmartphone);
@@ -295,7 +305,7 @@ export default function TenantsOnboarding() {
     const t = setTimeout(() => {
       try {
         localStorage.setItem(draftKey, JSON.stringify({
-          earner, rentInput, durationDays, firstName, lastName, phone, nin,
+          earner, rentInput, durationDays, firstName, lastName, phone, nin, nationalIdName,
           occupation, language, noSmartphone, houseType, address,
           newLandlordName, newLandlordPhone, note,
         }));
@@ -307,7 +317,7 @@ export default function TenantsOnboarding() {
     }, 600);
     return () => clearTimeout(t);
   }, [draftKey, submitted, earner, rentInput, durationDays, firstName, lastName,
-      phone, nin, occupation, language, noSmartphone, houseType, address,
+      phone, nin, nationalIdName, occupation, language, noSmartphone, houseType, address,
       newLandlordName, newLandlordPhone, note]);
 
   const rentAmount = Number(rentInput.replace(/\D/g, '')) || 0;
@@ -517,13 +527,22 @@ export default function TenantsOnboarding() {
   };
 
   /* ----------------------------------------------------------- submit ---- */
-  const submit = async () => {
-    for (let s = 2; s <= 5; s++) {
-      const e = stepError(s);
-      if (e) { setStep(s); toast.error(e); return; }
+  const submit = async (consentParams?: {
+    id_owner_phone?: string;
+    consent_declaration_id?: string;
+    consent_code?: string;
+  }) => {
+    if (!consentParams) {
+      for (let s = 2; s <= 5; s++) {
+        const e = stepError(s);
+        if (e) { setStep(s); toast.error(e); return; }
+      }
+      setSubmitError(null);
+      setSubmitting(true);
+    } else {
+      setConsentSubmitting(true);
+      setConsentErrorMessage(null);
     }
-    setSubmitError(null);
-    setSubmitting(true);
     try {
       const [tenantB64, housesB64] = await Promise.all([
         tenantPhoto ? toDataUrl(tenantPhoto.file) : Promise.resolve(null),
@@ -538,6 +557,7 @@ export default function TenantsOnboarding() {
           full_name: `${firstName.trim()} ${lastName.trim()}`,
           phone,
           national_id: cleanNin(nin),
+          national_id_name: nationalIdName.trim() || undefined,
           occupation,
           preferred_language: language,
           no_smartphone: noSmartphone,
@@ -566,24 +586,77 @@ export default function TenantsOnboarding() {
           id_photo: idB64,
           lc_letter: lcLetterB64,
           house_photos: housesB64,
+          ...(consentParams?.id_owner_phone ? { id_owner_phone: consentParams.id_owner_phone } : {}),
+          ...(consentParams?.consent_declaration_id ? { consent_declaration_id: consentParams.consent_declaration_id } : {}),
+          ...(consentParams?.consent_code ? { consent_code: consentParams.consent_code } : {}),
         },
       });
 
-      if (error) throw new Error(await readFunctionError(error));
-      if ((data as any)?.error) throw new Error(String((data as any).error));
+      let parsedBody: Record<string, unknown> | null = null;
+      if (error?.context) {
+        try {
+          parsedBody = (await error.context.clone().json()) as Record<string, unknown>;
+        } catch (_cloneErr) {
+          try {
+            parsedBody = (await error.context.json()) as Record<string, unknown>;
+          } catch (_readErr) {
+            // Context stream unreadable as JSON; fall back to error
+          }
+        }
+      }
+      if (!parsedBody && data) parsedBody = data as Record<string, unknown>;
 
-      setSubmitted({ id: String((data as any).rent_request_id) });
+      if (parsedBody?.code === 'id_owner_consent_required') {
+        const stageVal = parsedBody.stage;
+        const nextStage =
+          stageVal === 'awaiting_code' || stageVal === 'awaiting_owner_phone'
+            ? stageVal
+            : parsedBody.declaration_id
+              ? 'awaiting_code'
+              : 'awaiting_owner_phone';
+        setConsentStage(nextStage);
+        if (typeof parsedBody.declaration_id === 'string') setConsentDeclarationId(parsedBody.declaration_id);
+        if (consentParams?.id_owner_phone) setConsentOwnerPhone(consentParams.id_owner_phone);
+        setConsentErrorMessage(typeof parsedBody.error === 'string' ? parsedBody.error : null);
+        setConsentModalOpen(true);
+        return;
+      }
+
+      if (error) {
+        const errText =
+          (typeof parsedBody?.error === 'string' ? parsedBody.error : null) ||
+          (await readFunctionError(error));
+        if (consentParams) {
+          setConsentErrorMessage(errText);
+          return;
+        }
+        throw new Error(errText);
+      }
+      const dataObj = data as Record<string, unknown> | null;
+      if (dataObj?.error) {
+        const errText = String(dataObj.error);
+        if (consentParams) {
+          setConsentErrorMessage(errText);
+          return;
+        }
+        throw new Error(errText);
+      }
+
+      setConsentModalOpen(false);
+      setSubmitted({ id: String(dataObj?.rent_request_id || '') });
       /* The draft has served its purpose — drop it so a returning tenant does
          not reopen a stale copy of a request they already sent. */
       if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
       toast.success('Your rent request has been submitted for verification');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (e: any) {
-      const msg = humaniseSubmitError(e?.message);
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'An unexpected error occurred';
+      const msg = humaniseSubmitError(errMsg);
       toast.error('Could not submit your request', { description: msg, duration: 8000 });
       setSubmitError(msg);
     } finally {
       setSubmitting(false);
+      setConsentSubmitting(false);
     }
   };
 
@@ -1182,11 +1255,21 @@ export default function TenantsOnboarding() {
                   {!idCheck.checking && phoneTakenByOther && <Hint icon={AlertTriangle} tone="bad">This number is already registered on Welile. Sign in with it instead.</Hint>}
                 </Field>
 
-                <Field label="National ID (NIN)" required hint="10 to 14 letters and numbers, exactly as on your card.">
-                  <Input value={nin} onChange={(e) => setNin(e.target.value.toUpperCase())} placeholder="CM9001234567AB" className="font-mono" />
-                  {!idCheck.checking && idCheck.nin_is_you && <Hint icon={CheckCircle2} tone="ok">This National ID matches your account.</Hint>}
-                  {!idCheck.checking && ninTakenByOther && <Hint icon={AlertTriangle} tone="bad">This National ID is already registered to another account. Please check the number.</Hint>}
-                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="National ID (NIN)" required hint="10 to 14 letters and numbers, exactly as on your card.">
+                    <Input value={nin} onChange={(e) => setNin(e.target.value.toUpperCase())} placeholder="CM9001234567AB" className="font-mono" />
+                    {!idCheck.checking && idCheck.nin_is_you && <Hint icon={CheckCircle2} tone="ok">This National ID matches your account.</Hint>}
+                    {!idCheck.checking && ninTakenByOther && <Hint icon={AlertTriangle} tone="bad">This National ID is already registered to another account. Please check the number.</Hint>}
+                  </Field>
+
+                  <Field label="Name exactly as printed on the National ID" hint="Optional — only if using someone else's ID">
+                    <Input
+                      value={nationalIdName}
+                      onChange={(e) => setNationalIdName(e.target.value)}
+                      placeholder="e.g. Mugisha Robert"
+                    />
+                  </Field>
+                </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="What work do you do?">
@@ -1507,7 +1590,7 @@ export default function TenantsOnboarding() {
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
-                <Button type="button" onClick={submit} disabled={submitting || !declared}
+                <Button type="button" onClick={() => submit()} disabled={submitting || !declared}
                   className="min-w-[215px]">
                   {submitting
                     ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
@@ -1527,6 +1610,32 @@ export default function TenantsOnboarding() {
           </CardContent>
         </Card>
       </main>
+
+      <NationalIdConsentDialog
+        open={consentModalOpen}
+        onOpenChange={setConsentModalOpen}
+        stage={consentStage}
+        declarationId={consentDeclarationId}
+        errorMessage={consentErrorMessage}
+        idOwnerName={nationalIdName}
+        registrantName={`${firstName.trim()} ${lastName.trim()}`.trim()}
+        initialOwnerPhone={consentOwnerPhone}
+        submitting={consentSubmitting}
+        onSubmitPhone={async (ownerPhone) => {
+          setConsentOwnerPhone(ownerPhone);
+          await submit({ id_owner_phone: ownerPhone });
+        }}
+        onSubmitCode={async (consentCode) => {
+          await submit({
+            id_owner_phone: consentOwnerPhone,
+            consent_declaration_id: consentDeclarationId || undefined,
+            consent_code: consentCode,
+          });
+        }}
+        onResendCode={async () => {
+          await submit({ id_owner_phone: consentOwnerPhone });
+        }}
+      />
     </div>
   );
 }
@@ -1702,7 +1811,7 @@ function Field({ label, required, hint, children }: {
 }
 
 function Hint({ icon: Icon, children, tone, spin }: {
-  icon: any; children: React.ReactNode; tone?: 'ok' | 'bad'; spin?: boolean;
+  icon: React.ElementType; children: React.ReactNode; tone?: 'ok' | 'bad'; spin?: boolean;
 }) {
   return (
     <p className={cn('flex items-center gap-1.5 text-xs',

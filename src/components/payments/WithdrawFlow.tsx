@@ -36,7 +36,8 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
-import { AlertTriangle, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
+import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 
 /**
  * Maps a Ugandan mobile-money number to its provider based on the operator
@@ -231,6 +232,14 @@ export default function WithdrawFlow({
             : 'unknown';
   const destinationAllowed = destinationStatus === 'exempt' || destinationStatus === 'verified';
 
+  // Payout destination consent dialog (SMS code verification for borrowed accounts)
+  const [consentDialogOpen, setConsentDialogOpen] = useState(false);
+  const [targetConsentDestination, setTargetConsentDestination] = useState<MyPayoutDestination | null>(null);
+
+  const openConsentForDestination = (dest: MyPayoutDestination) => {
+    setTargetConsentDestination(dest);
+    setConsentDialogOpen(true);
+  };
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -1476,21 +1485,37 @@ export default function WithdrawFlow({
                               });
                               const status = st?.status ?? 'waiting';
                               return (
-                                <p
-                                  className={`text-[10px] font-bold mt-0.5 ${
-                                    status === 'verified'
-                                      ? 'text-primary'
+                                <div className="space-y-1 mt-0.5">
+                                  <p
+                                    className={`text-[10px] font-bold ${
+                                      status === 'verified'
+                                        ? 'text-primary'
+                                        : status === 'rejected'
+                                          ? 'text-destructive'
+                                          : 'text-amber-600'
+                                    }`}
+                                  >
+                                    {status === 'verified'
+                                      ? '✓ Verified — ready for payout'
                                       : status === 'rejected'
-                                        ? 'text-destructive'
-                                        : 'text-amber-600'
-                                  }`}
-                                >
-                                  {status === 'verified'
-                                    ? '✓ Verified — ready for payout'
-                                    : status === 'rejected'
-                                      ? `Rejected${st?.decision_reason ? ` — ${st.decision_reason}` : ''}`
-                                      : 'Waiting for verification — Financial Ops will call you'}
-                                </p>
+                                        ? `Rejected${st?.decision_reason ? ` — ${st.decision_reason}` : ''}`
+                                        : 'Waiting for verification — Financial Ops will call you'}
+                                  </p>
+                                  {status === 'waiting' && st && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 px-2 text-[10px] font-semibold text-primary border-primary/30 hover:bg-primary/10"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openConsentForDestination(st);
+                                      }}
+                                    >
+                                      Verify now by SMS
+                                    </Button>
+                                  )}
+                                </div>
                               );
                             })()}
                           </div>
@@ -1727,7 +1752,41 @@ export default function WithdrawFlow({
                         'Use an account in your own name, or send a clear photo of your National ID again.'
                       : 'This account verifies by itself as soon as the name on your National ID matches the name on this number or account. Send your National ID photo and selfie, or use an account in the exact name on your ID. Until then this withdrawal cannot continue.'}
                 </p>
-                {destinationStatus !== 'verified' && (
+                {destinationStatus === 'waiting' && activeDestination && (
+                  <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-950/20 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="text-xs text-amber-900 dark:text-amber-200">
+                        <p className="font-semibold">Verify now by SMS instead of waiting</p>
+                        <p className="text-muted-foreground mt-0.5">
+                          Waiting for Financial Ops? If this account belongs to a relative or partner, get them to confirm by SMS code now to verify instantly.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs font-semibold"
+                        onClick={() => openConsentForDestination(activeDestination)}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Get owner to confirm by SMS
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => void myDestinations.refetch()}
+                        disabled={myDestinations.isFetching}
+                      >
+                        {myDestinations.isFetching ? 'Checking…' : 'Check again'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {destinationStatus !== 'verified' && destinationStatus !== 'waiting' && (
                   <Button
                     type="button"
                     variant="outline"
@@ -1743,6 +1802,7 @@ export default function WithdrawFlow({
                   <DestinationVerificationTimeline
                     destination={activeDestination}
                     accountName={payoutMode === 'mobile_money' ? momoName : bankAccountName}
+                    onVerifyNow={openConsentForDestination}
                   />
                 </div>
               </div>
@@ -2171,38 +2231,49 @@ export default function WithdrawFlow({
   };
 
   return (
-    <StepperModal
-      open={open}
-      onOpenChange={handleClose}
-      title="Withdraw Funds"
-      steps={STEPS}
-      currentStep={currentStep}
-      onStepChange={(next) => {
-        // When the user navigates back to edit amount/method/details after a
-        // failed submission, clear the stale 'failed' banner. The next
-        // Confirm attempt will re-set the status honestly.
-        if (next < currentStep && paymentStatus === 'failed') {
-          setPaymentStatus('pending');
-          setLastFailureMessage(null);
-        }
-        setCurrentStep(next);
-      }}
-      canGoNext={canProceed()}
-      onNext={handleNext}
-      showNavigation={currentStep < 5 && !isProcessing && !isComplete}
-      nextLabel={currentStep === 4 ? 'Confirm Withdrawal' : 'Continue'}
-      nextBusy={currentStep === 4 && (validating || walletOtp.otpVerifying)}
-      nextBusyLabel="Refreshing balance…"
-      isProcessing={isProcessing}
-      isComplete={isComplete}
-    >
-      {/* Rejection banner — pinned above every step until the user resubmits. */}
-      <NationalIdRejectedReminder
-        className="mb-4"
-        withdrawableBalance={Math.max(1, maxAmount)}
-        onResubmit={() => setCurrentStep(0)}
+    <>
+      <StepperModal
+        open={open}
+        onOpenChange={handleClose}
+        title="Withdraw Funds"
+        steps={STEPS}
+        currentStep={currentStep}
+        onStepChange={(next) => {
+          // When the user navigates back to edit amount/method/details after a
+          // failed submission, clear the stale 'failed' banner. The next
+          // Confirm attempt will re-set the status honestly.
+          if (next < currentStep && paymentStatus === 'failed') {
+            setPaymentStatus('pending');
+            setLastFailureMessage(null);
+          }
+          setCurrentStep(next);
+        }}
+        canGoNext={canProceed()}
+        onNext={handleNext}
+        showNavigation={currentStep < 5 && !isProcessing && !isComplete}
+        nextLabel={currentStep === 4 ? 'Confirm Withdrawal' : 'Continue'}
+        nextBusy={currentStep === 4 && (validating || walletOtp.otpVerifying)}
+        nextBusyLabel="Refreshing balance…"
+        isProcessing={isProcessing}
+        isComplete={isComplete}
+      >
+        {/* Rejection banner — pinned above every step until the user resubmits. */}
+        <NationalIdRejectedReminder
+          className="mb-4"
+          withdrawableBalance={Math.max(1, maxAmount)}
+          onResubmit={() => setCurrentStep(0)}
+        />
+        {renderStep()}
+      </StepperModal>
+
+      <PayoutDestinationConsentDialog
+        open={consentDialogOpen}
+        onOpenChange={setConsentDialogOpen}
+        destination={targetConsentDestination}
+        onVerified={() => {
+          void myDestinations.refetch();
+        }}
       />
-      {renderStep()}
-    </StepperModal>
+    </>
   );
 }

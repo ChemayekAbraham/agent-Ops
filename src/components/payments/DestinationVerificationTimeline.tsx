@@ -1,5 +1,6 @@
 import { Check, Clock, X } from 'lucide-react';
 import type { MyPayoutDestination } from '@/hooks/usePayoutVerification';
+import { Button } from '@/components/ui/button';
 
 /**
  * Plain-language history of one payout account's automatic verification:
@@ -57,10 +58,13 @@ interface Step {
 export default function DestinationVerificationTimeline({
   destination,
   accountName,
+  onVerifyNow,
 }: {
   destination: MyPayoutDestination | null;
   /** Name typed on the withdrawal form, used when the row has none yet. */
   accountName?: string | null;
+  /** Optional callback to initiate SMS consent verification when waiting */
+  onVerifyNow?: (destination: MyPayoutDestination) => void;
 }) {
   const d = destination;
   const nameOnAccount = d?.account_name || accountName || null;
@@ -140,6 +144,22 @@ export default function DestinationVerificationTimeline({
           </li>
         ))}
       </ol>
+      {onVerifyNow && d && d.status === 'waiting' && (
+        <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
+          <div className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Name mismatch?</span> Get the owner to confirm by SMS.
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="h-7 text-xs font-semibold shrink-0"
+            onClick={() => onVerifyNow(d)}
+          >
+            Verify now
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
