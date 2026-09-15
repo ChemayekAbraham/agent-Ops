@@ -341,21 +341,21 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
 
 
         <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-lg border bg-background/60 p-2.5">
+          <div className="rounded-2xl border bg-background/60 p-3">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Clock className="h-3.5 w-3.5" />
               <span className="text-[10px] font-medium uppercase tracking-wide">Awaiting review</span>
             </div>
             <p className="text-sm font-bold mt-1">{isLoading ? '…' : counts.pending.toLocaleString()}</p>
           </div>
-          <div className="rounded-lg border bg-background/60 p-2.5">
+          <div className="rounded-2xl border bg-background/60 p-3">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <CheckCircle className="h-3.5 w-3.5" />
               <span className="text-[10px] font-medium uppercase tracking-wide">Approved</span>
             </div>
             <p className="text-sm font-bold mt-1">{isLoading ? '…' : counts.activated.toLocaleString()}</p>
           </div>
-          <div className="rounded-lg border bg-background/60 p-2.5">
+          <div className="rounded-2xl border bg-background/60 p-3">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <TrendingUp className="h-3.5 w-3.5" />
               <span className="text-[10px] font-medium uppercase tracking-wide">Promised</span>
@@ -365,7 +365,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
         </div>
 
         {!isLoading && statusNotes.length > 0 && (
-          <div className="rounded-lg border bg-background/60 divide-y">
+          <div className="rounded-2xl border bg-background/60 divide-y">
             {statusNotes.map((note: any) => (
               <div key={note.id} className="flex items-center gap-2 px-3 py-2" onClick={(e) => e.stopPropagation()}>
                 <div className="flex-1 min-w-0">
