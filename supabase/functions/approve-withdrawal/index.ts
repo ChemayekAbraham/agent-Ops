@@ -639,28 +639,57 @@ Deno.serve(async (req) => {
     // trigger). No money leaves for a phone number or bank account Financial
     // Ops has not personally verified against the holder's National ID.
     if (wrPayoutMethod === "mobile_money" || wrPayoutMethod === "bank_transfer") {
-      const { data: destOk, error: destErr } = await admin.rpc(
-        "payout_destination_is_verified",
-        {
-          p_user_id: (wr as any).user_id,
-          p_method: wrPayoutMethod,
-          p_momo_number: (wr as any).mobile_money_number ?? null,
-          p_bank_name: (wr as any).bank_name ?? null,
-          p_bank_account_number: (wr as any).bank_account_number ?? null,
-        },
-      );
-      if (destErr || destOk !== true) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error:
-              "This payout destination is not verified. Open Financial Ops → Verify Payout Numbers, call the holder to confirm the number and the National ID name, then approve this payout.",
-            code: "DESTINATION_UNVERIFIED",
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      // One-time grandfather: rows explicitly listed in
+      // `withdrawal_verification_exemptions` (snapshot of the queue already
+      // pending at the cutoff) waive THIS gate only. Every other safety
+      // control — balance, proof, claim ownership, duplicate/settlement — is
+      // untouched, and no payout destination is marked verified.
+      let grandfathered = false;
+      {
+        const { data: exemptOk } = await admin.rpc(
+          "withdrawal_verification_exempt",
+          { p_withdrawal_id: withdrawal_id },
         );
+        grandfathered = exemptOk === true;
+      }
+      if (grandfathered) {
+        await admin.from("audit_logs").insert({
+          user_id: user.id,
+          action_type: "withdrawal_verification_exemption_used",
+          table_name: "withdrawal_requests",
+          record_id: withdrawal_id,
+          reason:
+            "Legacy queue exemption applied: payout destination verification waived for this pre-cutoff pending request only.",
+          metadata: {
+            payout_method: wrPayoutMethod,
+            exemption_type: "legacy_pending_cutoff",
+          },
+        });
+      } else {
+        const { data: destOk, error: destErr } = await admin.rpc(
+          "payout_destination_is_verified",
+          {
+            p_user_id: (wr as any).user_id,
+            p_method: wrPayoutMethod,
+            p_momo_number: (wr as any).mobile_money_number ?? null,
+            p_bank_name: (wr as any).bank_name ?? null,
+            p_bank_account_number: (wr as any).bank_account_number ?? null,
+          },
+        );
+        if (destErr || destOk !== true) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error:
+                "This payout destination is not verified. Open Financial Ops → Verify Payout Numbers, call the holder to confirm the number and the National ID name, then approve this payout.",
+              code: "DESTINATION_UNVERIFIED",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
       }
     }
+
 
     // ── Server-side confirmation-SMS verification ───────────────────────
     // When a merchant agent settles a MoMo/bank payout they paste the raw
