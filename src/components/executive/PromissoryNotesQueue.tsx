@@ -478,7 +478,7 @@ export function PromissoryNotesQueue({
             key={r.key}
             onClick={() => setRange(r.key)}
             className={cn(
-              'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+              'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
               range === r.key ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
             )}
           >
@@ -531,7 +531,7 @@ export function PromissoryNotesQueue({
             key={s}
             onClick={() => setStatusFilter(s)}
             className={cn(
-              'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+              'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
               statusFilter === s ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
             )}
           >
@@ -541,7 +541,7 @@ export function PromissoryNotesQueue({
         <button
           onClick={() => setStatusFilter('came_in')}
           className={cn(
-            'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+            'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
             statusFilter === 'came_in' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
           )}
         >
@@ -550,7 +550,7 @@ export function PromissoryNotesQueue({
         <button
           onClick={() => setStatusFilter('not_registered')}
           className={cn(
-            'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+            'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
             statusFilter === 'not_registered' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
           )}
         >
@@ -559,7 +559,7 @@ export function PromissoryNotesQueue({
         <button
           onClick={() => setStatusFilter('portfolio_pending')}
           className={cn(
-            'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+            'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
             statusFilter === 'portfolio_pending' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
           )}
         >
@@ -568,7 +568,7 @@ export function PromissoryNotesQueue({
         <button
           onClick={() => setStatusFilter('portfolio_active')}
           className={cn(
-            'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+            'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
             statusFilter === 'portfolio_active' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
           )}
         >
@@ -808,11 +808,11 @@ export function PromissoryNotesQueue({
                   {(safePage - 1) * NOTES_PER_PAGE + 1}–{Math.min(safePage * NOTES_PER_PAGE, filtered.length)} of {filtered.length}
                 </span>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-7 px-2" disabled={safePage <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                  <Button variant="outline" size="sm" className="h-10 w-10 sm:h-7 sm:w-auto sm:px-2" disabled={safePage <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </Button>
                   <span className="text-[11px] text-muted-foreground">Page {safePage} of {totalPages}</span>
-                  <Button variant="outline" size="sm" className="h-7 px-2" disabled={safePage >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                  <Button variant="outline" size="sm" className="h-10 w-10 sm:h-7 sm:w-auto sm:px-2" disabled={safePage >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
                     <ChevronRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
