@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
-import type { RentBandSummary, TenantRentRow } from './rentAnalysis';
+import type { RentBandSummary, RentTrendPoint, TenantRentRow } from './rentAnalysis';
 
 export interface RentAnalysisPdfInput {
   /** Reporting period actually applied to receipt figures. */
@@ -15,6 +15,13 @@ export interface RentAnalysisPdfInput {
   /** Tenant detail for the selected category, already filtered and sorted. */
   rows: TenantRentRow[];
   selectedLabel: string;
+  /** Headline figures for exactly the filtered population. */
+  headline: RentBandSummary;
+  behaviour: { onSchedule: number; ahead: number; arrears: number };
+  /** Rent-category distribution as shown on screen. */
+  distribution: { key: string; label: string; tenants: number; arrears: number; totalRent: number }[];
+  /** Daily receipts for the filtered population over the selected period. */
+  trend: RentTrendPoint[];
 }
 
 const COL = {
