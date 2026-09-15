@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X } from 'lucide-react';
+import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';

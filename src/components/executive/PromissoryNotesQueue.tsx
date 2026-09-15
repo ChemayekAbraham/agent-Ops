@@ -423,6 +423,18 @@ export function PromissoryNotesQueue({
     return outstanding > 0;
   };
 
+  const isDueSoon = (n: any) => {
+    if (!n.fulfilment_due_on) return false;
+    const due = new Date(n.fulfilment_due_on);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (due < today) return false;
+    const daysUntil = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysUntil > 7) return false;
+    const outstanding = Number(n.outstanding ?? (Number(n.amount) - Number(n.total_collected)));
+    return outstanding > 0;
+  };
+
   const filtered = notes.filter(n => {
     const haystack = [
       n.partner_name, n.whatsapp_number, n.phone_number, n.email,
@@ -919,6 +931,12 @@ export function PromissoryNotesQueue({
                               <Badge variant="outline" className={cn('text-[10px]', stageOf(note).color)}>
                                 {stageOf(note).label}
                               </Badge>
+                              {isDueSoon(note) && (
+                                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Due soon
+                                </Badge>
+                              )}
                               {note.came_in && (
                                 <span title="Partner came in" className="inline-flex">
                                   <BadgeCheck className="h-3.5 w-3.5 text-emerald-600" />
@@ -995,6 +1013,12 @@ export function PromissoryNotesQueue({
                           <Badge variant="outline" className={cn('text-[10px]', stageOf(note).color)}>
                             {stageOf(note).label}
                           </Badge>
+                          {isDueSoon(note) && (
+                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Due soon
+                            </Badge>
+                          )}
                         </div>
                       </div>
 
@@ -1103,11 +1127,21 @@ export function PromissoryNotesQueue({
                     'flex items-center gap-2 rounded-md border p-2.5 text-xs font-medium',
                     new Date(selectedNote.fulfilment_due_on) < new Date()
                       ? 'border-destructive/40 bg-destructive/5 text-destructive'
-                      : 'border-primary/30 bg-primary/5 text-primary',
+                      : isDueSoon(selectedNote)
+                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                        : 'border-primary/30 bg-primary/5 text-primary',
                   )}>
                     <Calendar className="h-3.5 w-3.5" />
-                    Expected to be fulfilled by {format(new Date(selectedNote.fulfilment_due_on), 'dd MMM yyyy')}
-                    {new Date(selectedNote.fulfilment_due_on) < new Date() && ' — overdue'}
+                    <span className="flex-1">
+                      Expected to be fulfilled by {format(new Date(selectedNote.fulfilment_due_on), 'dd MMM yyyy')}
+                      {new Date(selectedNote.fulfilment_due_on) < new Date() && ' — overdue'}
+                    </span>
+                    {isDueSoon(selectedNote) && (
+                      <Badge variant="outline" className="text-[10px] bg-background/80 text-amber-700 border-amber-200">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Due soon
+                      </Badge>
+                    )}
                   </div>
                 )}
 
