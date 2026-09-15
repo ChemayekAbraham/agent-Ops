@@ -510,11 +510,22 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
           }
         />
         <CheckLine
+          label="Payout number confirmed by code"
+          value={otpPassed ? 'Code passed' : numberConfirmed.isLoading ? 'Checking…' : 'No code on file'}
+          outcome={numberConfirmed.isLoading ? null : otpPassed}
+          note={
+            otpPassed
+              ? 'They entered the code sent to that number, so they hold the SIM.'
+              : 'No confirmed code for that number — ask them to confirm it on the identity screen.'
+          }
+        />
+        <CheckLine
           label="Name on card vs account"
           value={namesMatch === true ? 'Names match' : namesMatch === false ? 'Names differ' : 'Nothing to compare'}
           outcome={namesMatch}
           note={idNameOnFile ? `${idNameOnFile} · account: ${accountName || '—'}` : 'No name read off the card yet.'}
         />
+
       </div>
 
       <p className="mt-2 text-[11px] text-muted-foreground">
