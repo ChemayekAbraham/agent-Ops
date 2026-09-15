@@ -275,26 +275,40 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                 ) : (
                   <div className="rounded-xl border border-border divide-y divide-border">
                     {items.map((it) => (
-                      <div key={it.sale_id} className="p-2.5 flex flex-wrap items-center gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {[it.brand, it.model_type].filter(Boolean).join(' ') || it.item_name || '—'}
-                            {Number(it.quantity || 1) > 1 ? ` × ${it.quantity}` : ''}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {dt(it.sale_date || it.created_at)}
-                            {it.payment_plan ? ` · ${it.payment_plan.replace(/_/g, ' ')}` : ''}
-                          </p>
+                      <div key={it.sale_id} className="p-2.5 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">
+                              {[it.brand, it.model_type].filter(Boolean).join(' ') || it.item_name || '—'}
+                              {Number(it.quantity || 1) > 1 ? ` × ${it.quantity}` : ''}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {dt(it.sale_date || it.created_at)}
+                              {it.payment_plan ? ` · ${it.payment_plan.replace(/_/g, ' ')}` : ''}
+                              {Number(it.advance_period_months || 0) > 0
+                                ? ` · ${Number(it.advance_period_months)} month${Number(it.advance_period_months) === 1 ? '' : 's'}`
+                                : ''}
+                              {Number(it.schedule_days || 0) > 0 ? ` (${Number(it.schedule_days)} days)` : ''}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-semibold tabular-nums">{formatUGX(Number(it.amount || 0))}</p>
+                            <p className="text-[11px] text-destructive tabular-nums">
+                              {formatUGX(Number(it.outstanding || 0))} left
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                            {(it.order_status || 'issued').replace(/_/g, ' ')}
+                          </Badge>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold tabular-nums">{formatUGX(Number(it.amount || 0))}</p>
-                          <p className="text-[11px] text-destructive tabular-nums">
-                            {formatUGX(Number(it.outstanding || 0))} left
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="text-[10px] capitalize shrink-0">
-                          {(it.order_status || 'issued').replace(/_/g, ' ')}
-                        </Badge>
+                        {Number(it.advance_period_months || 0) > 0 && (
+                          <SmartphoneRepaymentBreakdown
+                            amount={it.amount}
+                            months={it.advance_period_months}
+                            startsOn={it.repayment_starts_on}
+                            storedDays={it.schedule_days}
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
