@@ -644,6 +644,7 @@ export default function WithdrawFlow({
     walletOtp.resetOtp();
     setOtpCode('');
     clientRequestIdRef.current = null;
+    issuedKeyRef.current = null;
   };
 
   // Drive the resend cooldown countdown once a cash code is on screen.
