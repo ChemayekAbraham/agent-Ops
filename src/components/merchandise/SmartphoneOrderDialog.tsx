@@ -355,7 +355,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             {paymentMethod === 'full' && price > 0 && (
               <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
                 <p className="text-xs text-muted-foreground">
-                  {osType === 'ios' ? `${MO_BANJA.amountLabel} — due in full` : 'Amount due in full'}
+                  {dpCopy.amountLabel} — due in full
                 </p>
                 <p className="text-2xl font-bold tabular-nums">{formatUGX(price)}</p>
                 <p className="text-[11px] text-muted-foreground">
@@ -368,7 +368,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
                 <div className="text-center space-y-1">
                   <p className="text-xs text-muted-foreground">
-                    {osType === 'ios' ? 'Daily repayment to Welile — first month' : 'Daily repayment — first month'}
+                    Daily repayment to Welile — first month
                   </p>
                   <p className="text-2xl font-bold tabular-nums text-green-600">
                     {formatUGX(dailyAmount)}
