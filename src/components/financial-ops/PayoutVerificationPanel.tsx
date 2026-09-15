@@ -78,6 +78,7 @@ import {
   useHolderNameHistory,
   useStoredIdReading,
   sameIdNumber,
+  samePersonName,
   maskIdNumber,
   useDecidePayoutDestination,
   useRevertHolderName,
@@ -445,12 +446,18 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   const enteredMask = maskIdNumber(row.national_id);
   const idNameOnFile = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
+  // The names are fixed at submission, so compare them directly — the
+  // stored score was computed earlier (possibly against a different name)
+  // and only serves as a fuzzy fallback when the direct compare fails.
+  const directName = samePersonName(idNameOnFile, accountName);
   const namesMatch =
-    idNameOnFile && accountName
-      ? row.name_match_score !== null
-        ? row.name_match_score >= 0.8
-        : idNameOnFile.toLowerCase() === accountName.toLowerCase()
-      : null;
+    directName === true
+      ? true
+      : directName === false
+        ? row.name_match_score !== null
+          ? row.name_match_score >= 0.8
+          : false
+        : null;
 
   const allClear = ninMatches === true && data.faceVerified === true && namesMatch === true;
 
