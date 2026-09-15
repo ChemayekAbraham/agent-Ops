@@ -348,15 +348,78 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
             className="h-10 text-sm"
           />
         </div>
-        <Button
-          type="button"
-          className="w-full"
-          disabled={saving}
-          onClick={handleSave}
-        >
-          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          {saving ? 'Saving…' : existingMomo ? 'Update number' : 'Save number'}
-        </Button>
+        {!codeSentTo ? (
+          <>
+            <p className="text-xs text-muted-foreground">
+              We send a 6-digit code to this number first. Nothing is saved until you enter it.
+            </p>
+            <Button
+              type="button"
+              className="w-full"
+              disabled={saving || otp.otpLoading || otp.cooldownSeconds > 0}
+              onClick={handleSendCode}
+            >
+              {otp.otpLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Smartphone className="mr-2 h-4 w-4" />
+              )}
+              {otp.otpLoading
+                ? 'Sending code…'
+                : otp.cooldownSeconds > 0
+                  ? `Wait ${otp.cooldownSeconds}s`
+                  : 'Send code to this number'}
+            </Button>
+          </>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="payout-code" className="text-xs text-muted-foreground">
+                Code sent to {codeSentTo}
+              </Label>
+              <Input
+                id="payout-code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="6-digit code"
+                maxLength={6}
+                value={code}
+                disabled={saving}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="h-10 text-center text-lg tracking-[0.4em]"
+              />
+            </div>
+            {otp.otpError && <p className="text-xs text-destructive">{otp.otpError}</p>}
+            <Button
+              type="button"
+              className="w-full"
+              disabled={saving || otp.otpLoading || code.length !== 6}
+              onClick={handleConfirmAndSave}
+            >
+              {saving || otp.otpLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              {saving || otp.otpLoading
+                ? 'Confirming…'
+                : existingMomo
+                  ? 'Confirm code and update number'
+                  : 'Confirm code and save number'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              disabled={saving || otp.otpLoading || otp.cooldownSeconds > 0}
+              onClick={handleSendCode}
+            >
+              {otp.cooldownSeconds > 0 ? `Resend in ${otp.cooldownSeconds}s` : 'Resend code'}
+            </Button>
+          </>
+        )}
       </div>
 
       <PayoutDestinationConsentDialog
