@@ -12,7 +12,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle, ChevronDown, ChevronUp, Phone, MessageCircle, Mail, Calendar, BadgeCheck } from 'lucide-react';
+import { format } from 'date-fns';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -76,6 +78,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   const [rejectTarget, setRejectTarget] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
+  const [detailNote, setDetailNote] = useState<any>(null);
 
   const isOverdue = (n: any) => {
     if (!n.fulfilment_due_on) return false;
@@ -409,7 +412,13 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
         {!isLoading && statusNotes.length > 0 && (
           <div className="rounded-2xl border bg-background/60 divide-y">
             {statusNotes.map((note: any) => (
-              <div key={note.id} className="flex items-center gap-2 px-3 py-2" onClick={(e) => e.stopPropagation()}>
+              <div
+                key={note.id}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent/60 transition-colors"
+                onClick={(e) => { e.stopPropagation(); setDetailNote(note); }}
+                role="button"
+                aria-label={`View details for ${note.partner_name || 'promissory note'}`}
+              >
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold truncate">{note.partner_name || 'Unknown partner'}</p>
                   <p className="text-[10px] text-muted-foreground truncate">
@@ -460,6 +469,178 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
         </div>
         </div>
       </CardContent>
+
+      {/* Details drawer */}
+      <Sheet open={!!detailNote} onOpenChange={(open) => { if (!open) setDetailNote(null); }}>
+        <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl" onClick={(e) => e.stopPropagation()}>
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              Promissory Note Details
+            </SheetTitle>
+          </SheetHeader>
+          {detailNote && (() => {
+            const statusMeta: Record<string, string> = {
+              pending: 'Awaiting review',
+              activated: 'Approved',
+              fulfilled: 'Completed',
+              cancelled: 'Rejected',
+              defaulted: 'Defaulted',
+            };
+            const outstanding = Number(detailNote.outstanding ?? (Number(detailNote.amount) - Number(detailNote.total_collected)));
+            const progress = Number(detailNote.amount) > 0 ? Math.min(100, (Number(detailNote.total_collected) / Number(detailNote.amount)) * 100) : 0;
+            const overdue = isOverdue(detailNote);
+            return (
+              <div className="space-y-4 mt-4 overflow-y-auto max-h-[calc(85vh-80px)] pb-6">
+                <div className="flex items-center justify-between">
+                  <Badge variant={detailNote.status === 'pending' ? 'secondary' : 'outline'} className="text-xs">
+                    {statusMeta[detailNote.status] ?? detailNote.status}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(detailNote.created_at), 'dd MMM yyyy HH:mm')}
+                  </span>
+                </div>
+
+                {detailNote.fulfilment_due_on && outstanding > 0 && (
+                  <div className={cn(
+                    'flex items-center gap-2 rounded-md border p-2.5 text-xs font-medium',
+                    overdue ? 'border-destructive/40 bg-destructive/5 text-destructive' : 'border-primary/30 bg-primary/5 text-primary',
+                  )}>
+                    <Calendar className="h-3.5 w-3.5" />
+                    Expected to be fulfilled by {format(new Date(detailNote.fulfilment_due_on), 'dd MMM yyyy')}
+                    {overdue && ' — overdue'}
+                  </div>
+                )}
+
+                <div className="rounded-2xl border bg-background/60 p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">Partner</p>
+                  <p className="font-semibold text-sm">{detailNote.partner_name || 'Unknown partner'}</p>
+                  {detailNote.whatsapp_number && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      <span>{detailNote.whatsapp_number}</span>
+                    </div>
+                  )}
+                  {detailNote.phone_number && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5" />
+                      <span>{detailNote.phone_number}</span>
+                    </div>
+                  )}
+                  {detailNote.email && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5" />
+                      <span>{detailNote.email}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border bg-background/60 p-3 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">Financial</p>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Promised</p>
+                      <p className="font-bold text-sm">{formatUGX(Number(detailNote.amount))}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Collected</p>
+                      <p className="font-bold text-sm">{formatUGX(Number(detailNote.total_collected))}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Outstanding</p>
+                      <p className="font-bold text-sm text-primary">{formatUGX(outstanding)}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] text-muted-foreground">
+                      <span>Progress</span>
+                      <span>{progress.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div className="bg-primary rounded-full h-2 transition-all" style={{ width: `${progress}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border bg-background/60 p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">Details</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {detailNote.contribution_type && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Type</p>
+                        <p className="font-medium capitalize">{detailNote.contribution_type}</p>
+                      </div>
+                    )}
+                    {detailNote.deduction_day && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Deduction day</p>
+                        <p className="font-medium">Day {detailNote.deduction_day}</p>
+                      </div>
+                    )}
+                    {detailNote.next_deduction_date && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Next deduction</p>
+                        <p className="font-medium">{format(new Date(detailNote.next_deduction_date), 'dd MMM yyyy')}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs text-muted-foreground">Agent</p>
+                      <p className="font-medium">{detailNote.agent_name || 'No agent'}</p>
+                      {detailNote.agent_phone && <p className="text-xs text-muted-foreground">{detailNote.agent_phone}</p>}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {detailNote.agent_phone && (
+                      <Button asChild size="sm" variant="outline" className="h-10 gap-2">
+                        <a href={`tel:${detailNote.agent_phone}`}>
+                          <Phone className="h-4 w-4" />
+                          Call agent
+                        </a>
+                      </Button>
+                    )}
+                    {(detailNote.phone_number || detailNote.whatsapp_number) && (
+                      <Button asChild size="sm" variant="outline" className="h-10 gap-2">
+                        <a href={`tel:${detailNote.phone_number || detailNote.whatsapp_number}`}>
+                          <Phone className="h-4 w-4" />
+                          Call partner
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                  {detailNote.notes && (
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-muted-foreground">Notes</p>
+                      <p className="text-sm">{detailNote.notes}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  {detailNote.status === 'pending' && (
+                    <Button
+                      className="flex-1"
+                      onClick={() => { setApproveReason(''); setApproveTarget(detailNote); }}
+                    >
+                      <BadgeCheck className="h-4 w-4 mr-2" />
+                      Approve & Pay UGX 1,500
+                    </Button>
+                  )}
+                  {detailNote.status === 'activated' && (
+                    <Button
+                      variant="outline"
+                      className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/10"
+                      onClick={() => { setRejectReason(''); setRejectTarget(detailNote); }}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reject & Reverse Bonus
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
 
       <AlertDialog open={!!approveTarget} onOpenChange={(open) => { if (!open && !approving) { setApproveTarget(null); setApproveReason(''); } }}>
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>
