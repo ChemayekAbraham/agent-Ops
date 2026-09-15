@@ -14,8 +14,8 @@ import {
 } from 'lucide-react';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
-import {
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
+import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
 
