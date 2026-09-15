@@ -242,7 +242,14 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
           </div>
         )}
 
-        {!isCollapsed && (<>
+        <div
+          className={cn(
+            'grid transition-all duration-300 ease-in-out',
+            isCollapsed ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
+          )}
+        >
+        <div className="overflow-hidden">
+        <div className="space-y-2.5" aria-hidden={isCollapsed}>
 
         <div className="rounded-2xl border bg-background/70 p-4 space-y-2.5" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
