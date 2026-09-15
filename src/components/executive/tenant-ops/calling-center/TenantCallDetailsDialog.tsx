@@ -11,14 +11,17 @@
  * the existing call history is shown first, and the same Call button reopens the
  * line — no second calling system, no new call records.
  */
+import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { History, Loader2, Phone } from 'lucide-react';
-import type { CcCallingHub, CcRow } from '@/hooks/useCcCallingHub';
+import { History, Loader2, PencilLine, Phone } from 'lucide-react';
+import type { CcCallingHub, CcRow, CcSeverity } from '@/hooks/useCcCallingHub';
 import { CC_OUTCOME_LABEL } from '@/hooks/useCcCallHistory';
 import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
+import { useCcFeedbackAmendments, type CcFeedbackAmendment } from '@/hooks/useCcFeedbackAmendments';
+import { EditCallFeedbackDialog } from './EditCallFeedbackDialog';
 import { TenantCallContextPanel } from './TenantCallContextPanel';
 import { TenantPaymentHistoryPanel } from './TenantPaymentHistoryPanel';
 
@@ -41,9 +44,65 @@ const stamp = (iso: string | null) =>
  */
 const OUT_OF_QUEUE_STATES = new Set(['engaged', 'closed', 'unreachable', 'parked']);
 
-function PastCallsPanel({ subjectId, enabled }: { subjectId: string | null; enabled: boolean }) {
+/** One line per tracked edit, showing what changed and why. */
+function EditTrail({ amendments }: { amendments: CcFeedbackAmendment[] }) {
+  if (!amendments.length) return null;
+  return (
+    <div className="mt-1.5 space-y-1 border-t border-dashed border-border/60 pt-1.5">
+      {amendments.map((a) => (
+        <div key={a.id} className="text-[10px] text-muted-foreground">
+          <span className="font-semibold text-foreground">Edited</span> {stamp(a.editedAt)}
+          {a.editorName ? ` · ${a.editorName}` : ''} — {a.reason}
+          {a.oldCategoryLabel && a.newCategoryLabel && a.oldCategoryLabel !== a.newCategoryLabel && (
+            <span>
+              {' '}
+              · category {a.oldCategoryLabel} → {a.newCategoryLabel}
+            </span>
+          )}
+          {a.oldSeverity && a.newSeverity && a.oldSeverity !== a.newSeverity && (
+            <span>
+              {' '}
+              · severity {a.oldSeverity} → {a.newSeverity}
+            </span>
+          )}
+          {a.oldNote && a.oldNote !== a.newNote && (
+            <p className="mt-0.5 italic">Previously: “{a.oldNote}”</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PastCallsPanel({
+  hub,
+  subjectId,
+  enabled,
+}: {
+  hub: CcCallingHub;
+  subjectId: string | null;
+  enabled: boolean;
+}) {
   const { data, isLoading } = useCcSubjectCallHistory('tenant', subjectId, enabled);
   const calls = data ?? [];
+
+  const attemptIds = useMemo(() => calls.map((c) => c.id), [calls]);
+  const { data: amendments } = useCcFeedbackAmendments(attemptIds, enabled);
+  const trailByAttempt = useMemo(() => {
+    const map = new Map<string, CcFeedbackAmendment[]>();
+    (amendments ?? []).forEach((a) => {
+      map.set(a.attemptId, [...(map.get(a.attemptId) ?? []), a]);
+    });
+    return map;
+  }, [amendments]);
+
+  const [editing, setEditing] = useState<{
+    feedbackId: string;
+    categoryId: string | null;
+    severity: CcSeverity | null;
+    comment: string | null;
+    attemptNo: number;
+  } | null>(null);
 
   return (
     <div className="rounded-xl border border-primary/25 bg-primary/5 p-2.5">
@@ -71,6 +130,31 @@ function PastCallsPanel({ subjectId, enabled }: { subjectId: string | null; enab
                 </span>
                 <span className="text-muted-foreground">{stamp(c.recordedAt ?? c.revealedAt)}</span>
                 {c.officerName && <span className="text-muted-foreground">· {c.officerName}</span>}
+                {(trailByAttempt.get(c.id)?.length ?? 0) > 0 && (
+                  <Badge variant="secondary" className="text-[10px] font-semibold">
+                    Edited
+                  </Badge>
+                )}
+                {c.feedbackId && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto h-6 gap-1 px-1.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
+                    onClick={() =>
+                      setEditing({
+                        feedbackId: c.feedbackId!,
+                        categoryId: c.categoryId,
+                        severity: c.severity,
+                        comment: c.comment,
+                        attemptNo: c.attemptNo,
+                      })
+                    }
+                  >
+                    <PencilLine className="h-3 w-3" />
+                    Edit feedback
+                  </Button>
+                )}
               </div>
               {(c.categoryLabel || c.comment || c.voidReason) && (
                 <p className="mt-0.5 text-muted-foreground">
@@ -78,10 +162,12 @@ function PastCallsPanel({ subjectId, enabled }: { subjectId: string | null; enab
                   {c.comment || c.voidReason}
                 </p>
               )}
+              <EditTrail amendments={trailByAttempt.get(c.id) ?? []} />
             </li>
           ))}
         </ul>
       )}
+      <EditCallFeedbackDialog hub={hub} open={!!editing} call={editing} onClose={() => setEditing(null)} />
     </div>
   );
 }
@@ -132,7 +218,7 @@ export function TenantCallDetailsDialog({
             </DialogHeader>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-              {outOfQueue && <PastCallsPanel subjectId={row.subject_id} enabled={open} />}
+              {outOfQueue && <PastCallsPanel hub={hub} subjectId={row.subject_id} enabled={open} />}
               <TenantPaymentHistoryPanel tenantId={row.subject_id} enabled={open} />
               <TenantCallContextPanel
                 hub={hub}
