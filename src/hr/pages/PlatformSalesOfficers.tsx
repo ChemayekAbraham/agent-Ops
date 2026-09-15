@@ -422,51 +422,20 @@ export default function PlatformSalesOfficersPage() {
   const combinedFundedTotal = fundedTotal + peopleFundedTotal;
   const combinedMoneyTotal = moneyTotal + peopleMoneyTotal;
 
-  // Column-by-column summation across both tables for the window currently
-  // shown. Recomputes whenever the window or the polled data changes.
-  const columnTotals = useMemo(() => {
+  // Per-table day-column sums for the window currently shown. Recompute
+  // whenever the window or the polled data changes.
+  const officerWeekdayTotals = useMemo(() => {
     const weekday = [0, 0, 0, 0, 0, 0, 0];
-    let unapproved = 0;
-    let funders = 0;
-    let topups = 0;
-    let commissionBase = 0;
-    let commission = 0;
-    let preEnrolNotes = 0;
-    let preEnrolFunded = 0;
-    let preEnrolAmount = 0;
+    for (const o of officers) o.weekday.forEach((v, wi) => { weekday[wi] += v; });
+    return weekday;
+  }, [officers]);
 
-    for (const o of officers) {
-      o.weekday.forEach((v, wi) => { weekday[wi] += v; });
-      unapproved += o.notesUnapproved;
-      funders += o.fundersConverted;
-      topups += o.topups;
-      commissionBase += o.commissionBase;
-      commission += o.commissionAccrued;
-      preEnrolNotes += o.preEnrolmentNotes;
-      preEnrolFunded += o.preEnrolmentFunded;
-      preEnrolAmount += o.preEnrolmentAmount;
-    }
-    for (const p of people) {
-      p.weekday.forEach((v, wi) => { weekday[wi] += v; });
-      unapproved += p.notesUnapproved;
-      funders += p.fundersConverted;
-      topups += p.topups;
-      commissionBase += p.commissionBase;
-      commission += p.commissionAccrued;
-    }
+  const peopleWeekdayTotals = useMemo(() => {
+    const weekday = [0, 0, 0, 0, 0, 0, 0];
+    for (const p of people) p.weekday.forEach((v, wi) => { weekday[wi] += v; });
+    return weekday;
+  }, [people]);
 
-    return {
-      weekday,
-      unapproved,
-      funders,
-      topups,
-      commissionBase,
-      commission,
-      preEnrolNotes,
-      preEnrolFunded,
-      preEnrolAmount,
-    };
-  }, [officers, people]);
 
   const isNotPermitted = error instanceof Error && error.message.includes('not permitted');
 
