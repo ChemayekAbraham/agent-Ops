@@ -617,9 +617,15 @@ export default function PlatformSalesOfficersPage() {
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">#</th>
                       <th className="px-4 py-2 text-left font-medium">Officer</th>
-                      {WEEKDAY_LABELS.map((d) => (
-                        <th key={d} className="px-2 py-2 text-right font-medium">{d}</th>
+                      {WEEKDAY_LABELS.map((d, wi) => (
+                        <th key={d} className="px-2 py-2 text-right font-medium">
+                          <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
+                            {officerWeekdayTotals[wi]}
+                          </span>
+                          {d}
+                        </th>
                       ))}
+
                       <th className="px-4 py-2 text-right font-medium">Total</th>
                       <th className="px-4 py-2 text-right font-medium">Unapproved</th>
                       <th className="px-4 py-2 text-right font-medium">Funded</th>
