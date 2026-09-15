@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Save, Wallet, Lock, Pencil, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { maskPayoutNumber } from "@/hooks/useIdentityBinding";
 
 interface Props {
   userId: string;
@@ -45,25 +46,39 @@ export default function MobileMoneyNameCard({ userId }: Props) {
   const [name, setName] = useState("");
   const [provider, setProvider] = useState<Provider>("mtn");
 
+  /* Once the identity is captured, the withdrawal number is locked to the
+     account and cannot be changed from anywhere in the app. */
+  const [locked, setLocked] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("mobile_money_name, mobile_money_number, mobile_money_provider, full_name, phone")
-        .eq("id", userId)
-        .maybeSingle();
+      const [{ data }, { data: bindingRows }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("mobile_money_name, mobile_money_number, mobile_money_provider, full_name, phone")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabase
+          .from("user_identity_bindings")
+          .select("locked_payout_number")
+          .eq("user_id", userId)
+          .neq("status", "revoked")
+          .limit(1),
+      ]);
       if (cancelled) return;
-      const n = (data?.mobile_money_number ?? "").trim();
+      const lockedNumber = (bindingRows?.[0]?.locked_payout_number ?? "").trim();
+      const n = lockedNumber || (data?.mobile_money_number ?? "").trim();
       const nm = (data?.mobile_money_name ?? "").trim();
       const pv = ((data?.mobile_money_provider ?? "").toLowerCase() === "airtel" ? "airtel" : "mtn") as Provider;
+      setLocked(!!lockedNumber);
       setSavedNumber(n);
       setSavedName(nm);
       setSavedProvider(pv);
       setNumber(n || (data?.phone ?? ""));
       setName(nm || (data?.full_name ?? ""));
       setProvider(detectProvider(n || data?.phone || "") ?? pv);
-      setEditing(!n || !nm);
+      setEditing(!lockedNumber && (!n || !nm));
       setLoading(false);
     })();
     return () => {
@@ -123,33 +138,46 @@ export default function MobileMoneyNameCard({ userId }: Props) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </div>
-        ) : !editing && isSaved ? (
+        ) : locked || (!editing && isSaved) ? (
           <>
             <div className="rounded-xl border bg-muted/40 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase tracking-wider text-muted-foreground">Number</span>
-                <span className="font-bold tracking-wide">{savedNumber}</span>
+                <span className="font-bold tracking-wide">
+                  {locked ? maskPayoutNumber(savedNumber) : savedNumber}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase tracking-wider text-muted-foreground">Provider</span>
                 <Badge variant="secondary" className="uppercase">{savedProvider}</Badge>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">Name</span>
-                <span className="font-semibold text-right truncate">{savedName}</span>
-              </div>
+              {!!savedName && (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground">Name</span>
+                  <span className="font-semibold text-right truncate">{savedName}</span>
+                </div>
+              )}
+              {locked && (
+                <p className="flex items-center gap-1.5 pt-1 text-xs font-semibold text-emerald-700">
+                  <Lock className="h-3.5 w-3.5" /> Locked to your identity
+                </p>
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              Used automatically on every withdrawal — you can't change it during cash-out.
+              {locked
+                ? 'For your security, withdrawals can only be sent to this number.'
+                : "Used automatically on every withdrawal — you can't change it during cash-out."}
             </p>
-            <Button
-              variant="outline"
-              className="w-full gap-2 h-12 rounded-xl text-sm font-bold"
-              onClick={() => setEditing(true)}
-            >
-              <Pencil className="h-4 w-4" /> Edit withdrawal details
-            </Button>
+            {!locked && (
+              <Button
+                variant="outline"
+                className="w-full gap-2 h-12 rounded-xl text-sm font-bold"
+                onClick={() => setEditing(true)}
+              >
+                <Pencil className="h-4 w-4" /> Edit withdrawal details
+              </Button>
+            )}
           </>
         ) : (
           <>

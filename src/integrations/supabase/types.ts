@@ -43232,6 +43232,87 @@ export type Database = {
         }
         Relationships: []
       }
+      user_identity_bindings: {
+        Row: {
+          capture_source: string | null
+          created_at: string
+          date_of_birth: string | null
+          full_legal_name: string | null
+          id: string
+          ip_address: string | null
+          linked_national_id: string | null
+          locked_payout_name: string | null
+          locked_payout_number: string | null
+          locked_payout_provider: string | null
+          national_id: string | null
+          national_id_back_photo_path: string | null
+          national_id_card_number: string | null
+          national_id_given_name: string | null
+          national_id_photo_path: string | null
+          national_id_surname: string | null
+          phone_country_code: string | null
+          selfie_photo_path: string | null
+          sex: string | null
+          status: string
+          submitted_at: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          capture_source?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_legal_name?: string | null
+          id?: string
+          ip_address?: string | null
+          linked_national_id?: string | null
+          locked_payout_name?: string | null
+          locked_payout_number?: string | null
+          locked_payout_provider?: string | null
+          national_id?: string | null
+          national_id_back_photo_path?: string | null
+          national_id_card_number?: string | null
+          national_id_given_name?: string | null
+          national_id_photo_path?: string | null
+          national_id_surname?: string | null
+          phone_country_code?: string | null
+          selfie_photo_path?: string | null
+          sex?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          capture_source?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_legal_name?: string | null
+          id?: string
+          ip_address?: string | null
+          linked_national_id?: string | null
+          locked_payout_name?: string | null
+          locked_payout_number?: string | null
+          locked_payout_provider?: string | null
+          national_id?: string | null
+          national_id_back_photo_path?: string | null
+          national_id_card_number?: string | null
+          national_id_given_name?: string | null
+          national_id_photo_path?: string | null
+          national_id_surname?: string | null
+          phone_country_code?: string | null
+          selfie_photo_path?: string | null
+          sex?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_loan_repayments: {
         Row: {
           amount: number
@@ -52274,6 +52355,10 @@ export type Database = {
         Args: { p_token: string; p_user_id: string }
         Returns: Json
       }
+      complete_identity_binding: {
+        Args: { p_ip_address?: string; p_user_agent?: string }
+        Returns: Json
+      }
       complete_partner_portfolio: {
         Args: { p_portfolio_id: string; p_raw_token: string }
         Returns: string
@@ -60367,6 +60452,16 @@ export type Database = {
         }[]
       }
       resolve_welile_ai_id: { Args: { ai_id: string }; Returns: string }
+      resolve_withdrawal_destination: {
+        Args: { p_user_id: string }
+        Returns: {
+          account_name: string
+          binding_id: string
+          number: string
+          provider: string
+          source: string
+        }[]
+      }
       respond_payout_dispute: {
         Args: { p_dispute_id: string; p_note?: string; p_status: string }
         Returns: undefined

@@ -25,6 +25,12 @@ import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePa
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { Smartphone } from 'lucide-react';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
+import {
+  useIdentityBinding,
+  useCompleteIdentityBinding,
+  maskPayoutNumber,
+} from '@/hooks/useIdentityBinding';
+import { Lock } from 'lucide-react';
 
 
 import SelfieCropDialog from './SelfieCropDialog';
@@ -143,6 +149,9 @@ function detectMomoProvider(raw: string): MomoProvider | null {
 function PayoutNumberVerification({ userId }: { userId: string | null | undefined }) {
   const list = useMyPayoutDestinations(userId);
   const [target, setTarget] = useState<MyPayoutDestination | null>(null);
+  const binding = useIdentityBinding(userId ?? undefined);
+  const bind = useCompleteIdentityBinding();
+  const lockedNumber = binding.data?.locked_payout_number ?? null;
 
   const rows = list.data ?? [];
   const existingMomo = rows.find((d) => d.destination_type === 'mobile_money');
@@ -257,15 +266,24 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
       if (ownErr) throw ownErr;
       const autoVerified = (own as { auto_verified?: boolean } | null)?.auto_verified === true;
 
+      /* Bind the captured identity and lock this number to the account. The
+         server decides whether everything needed is on file; it never
+         overwrites a binding that already exists. */
+      const bound = await bind.tryComplete();
+
       toast.success(existingMomo ? 'Payout number updated' : 'Payout number added', {
-        description: autoVerified
-          ? 'Your ID, your photo and this number all checked out — this number is now approved for payouts.'
-          : 'You confirmed the number with the code sent to it.',
+        description:
+          bound?.code === 'identity_captured'
+            ? 'Your identity details are saved and this number is now locked for your withdrawals.'
+            : autoVerified
+              ? 'This number is confirmed and ready for your withdrawals.'
+              : 'You confirmed the number with the code sent to it.',
       });
       setCode('');
       setCodeSentTo(null);
       otp.resetOtp();
       void list.refetch();
+      void binding.refetch();
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save payout number');
     } finally {
@@ -277,6 +295,34 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
     d.destination_type === 'mobile_money'
       ? d.momo_number || 'Mobile money number'
       : `${d.bank_name ?? 'Bank'} ${d.bank_account_number ?? ''}`.trim();
+
+  /* Once the identity is captured, the number is locked to the account: it is
+     shown masked and read-only, and there is no way to change it from here. */
+  if (lockedNumber) {
+    return (
+      <div className="space-y-3 rounded-lg border p-3">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          Identity details saved
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Your identity details have been securely linked to your account.
+        </p>
+        <div className="rounded-md border bg-muted/40 p-3 space-y-1">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Withdrawal number
+          </p>
+          <p className="text-base font-bold tracking-wide">{maskPayoutNumber(lockedNumber)}</p>
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+            <Lock className="h-3.5 w-3.5" /> Locked to your identity
+          </p>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          For your security, withdrawals from this account can only be sent to this number.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 rounded-lg border p-3">
@@ -514,6 +560,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // One account, one National ID, one photo: a verified account is never asked again.
   const alreadyVerified = useIdentityAlreadyVerified();
   const submit = useSubmitIdentityPhotos();
+  // Binds the captured identity as soon as everything needed is on file.
+  const identityBind = useCompleteIdentityBinding();
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
@@ -774,10 +822,17 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         ? await setSelfieAsProfilePhoto(user.id, selfieCropped, selfiePath)
         : null;
 
+      /* Details + ID photo + selfie + a confirmed number is everything the
+         binding needs. The server refuses politely when something is still
+         missing, so this is safe to attempt on every submission. */
+      const bound = await identityBind.tryComplete();
+
       toast.success(
-        avatar
-          ? 'Photos received. Your original photo is saved for verification and your cropped photo is now your profile picture.'
-          : 'Photos received. Financial Ops will verify them shortly.',
+        bound?.code === 'identity_captured'
+          ? 'Identity details saved and linked to your account. Your withdrawal number is now locked.'
+          : avatar
+            ? 'Photos received. Your original photo is saved and your cropped photo is now your profile picture.'
+            : 'Photos received.',
       );
       setIdPhoto(null);
       setSelfieOriginal(null);

@@ -38,6 +38,7 @@ import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdr
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
 import { AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
+import { maskPayoutNumber } from '@/hooks/useIdentityBinding';
 
 /**
  * Maps a Ugandan mobile-money number to its provider based on the operator
@@ -207,6 +208,8 @@ export default function WithdrawFlow({
     number: string;
     name: string;
     provider: 'MTN' | 'Airtel';
+    /** True when the number comes from the permanent identity binding. */
+    identityLinked: boolean;
   } | null>(null);
 
   // Bank details
@@ -550,26 +553,33 @@ export default function WithdrawFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount, payoutMode, momoNumber, momoName, momoProvider, bankName, bankAccountNumber, bankAccountName, effectiveReason]);
 
-  // Load the user's locked withdrawal account whenever the flow opens.
+  /* Load the destination the server itself will pay to. `resolve_withdrawal_destination`
+     is the single source of truth — it returns the identity-linked locked number
+     when one exists, otherwise the registered withdrawal account. Whatever this
+     screen shows, the server resolves the destination again on submission. */
   useEffect(() => {
     if (!open || !user?.id) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('mobile_money_number, mobile_money_name, mobile_money_provider')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('resolve_withdrawal_destination', {
+        p_user_id: user.id,
+      });
       if (cancelled) return;
-      const num = (data?.mobile_money_number ?? '').trim();
-      const nm = (data?.mobile_money_name ?? '').trim();
-      if (!num || !nm) {
+      const row = Array.isArray(data) ? data[0] : (data as any);
+      const num = (row?.number ?? '').trim();
+      const nm = (row?.account_name ?? '').trim();
+      if (error || !num || !nm) {
         setLockedMomo(null);
         return;
       }
       const prov: 'MTN' | 'Airtel' =
-        (data?.mobile_money_provider ?? '').toLowerCase() === 'airtel' ? 'Airtel' : 'MTN';
-      setLockedMomo({ number: num, name: nm, provider: prov });
+        (row?.destination_provider ?? '').toLowerCase() === 'airtel' ? 'Airtel' : 'MTN';
+      setLockedMomo({
+        number: num,
+        name: nm,
+        provider: prov,
+        identityLinked: row?.source === 'identity_binding',
+      });
       setMomoNumber(num);
       setMomoName(nm);
       setMomoProvider(prov);
@@ -1570,15 +1580,19 @@ export default function WithdrawFlow({
             {payoutMode === 'mobile_money' && lockedMomo && (
               <div className="space-y-3">
                 <div className="text-center mb-1">
-                  <h3 className="font-semibold text-lg">📱 Mobile Money Details</h3>
+                  <h3 className="font-semibold text-lg">Withdraw to</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Funds are paid to your registered withdrawal account
+                    {lockedMomo.identityLinked
+                      ? 'Identity-linked withdrawal number'
+                      : 'Your registered withdrawal account'}
                   </p>
                 </div>
                 <Card className="p-4 space-y-2 bg-muted/40">
                   <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-wider text-muted-foreground">Number</span>
-                    <span className="font-bold tracking-wide">{lockedMomo.number}</span>
+                    <span className="font-bold tracking-wide">
+                      {maskPayoutNumber(lockedMomo.number)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-wider text-muted-foreground">Provider</span>
@@ -1591,8 +1605,7 @@ export default function WithdrawFlow({
                 </Card>
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                   <Lock className="h-3.5 w-3.5" />
-                  Locked to your account. To change it, go to Settings →
-                  Withdrawal account.
+                  For your security, withdrawals can only be sent to this number.
                 </p>
               </div>
             )}
