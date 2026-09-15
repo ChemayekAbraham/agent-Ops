@@ -519,3 +519,94 @@ export function destinationStateFor(
     ) ?? null
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Stored National ID reading                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What the ID reader actually read off the card at submission time, exactly as
+ * it was stored — nothing is re-read or re-checked here. Financial Ops, CFO,
+ * managers and super admins already hold SELECT on `national_id_readings`
+ * ("Payout staff read ID readings"), so this is a plain read of existing rows.
+ */
+export interface StoredIdReading {
+  /** 'valid' | 'incomplete' | … as recorded by the reader. */
+  status: string | null;
+  confidence: number | null;
+  /** Recorded verdict of the live-face check on the selfie. */
+  faceVerified: boolean | null;
+  nin: string | null;
+  cardNumber: string | null;
+  sex: string | null;
+  dateOfBirth: string | null;
+  surname: string | null;
+  givenName: string | null;
+  /** Fields the reader could not read off the card. */
+  missing: string[];
+  readAt: string;
+}
+
+/** The most recent stored reading for one holder. */
+export function useStoredIdReading(userId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['stored-id-reading', userId],
+    enabled: !!userId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<StoredIdReading | null> => {
+      const { data, error } = await supabase
+        .from('national_id_readings')
+        .select('status, confidence, face_verified, ocr, confirmed, missing, created_at')
+        .eq('user_id', userId as string)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) return null;
+
+      // `confirmed` is what the submitter confirmed on screen; `ocr` is the raw
+      // read. Confirmed wins, the raw read fills any gap.
+      const readValue = (key: string): string | null => {
+        const pick = (src: unknown) => {
+          const v = (src as Record<string, unknown> | null)?.[key];
+          return typeof v === 'string' && v.trim() ? v.trim() : null;
+        };
+        return pick(data.confirmed) ?? pick(data.ocr);
+      };
+
+      return {
+        status: data.status ?? null,
+        confidence: data.confidence != null ? Number(data.confidence) : null,
+        faceVerified: data.face_verified ?? null,
+        nin: readValue('nin'),
+        cardNumber: readValue('card_number'),
+        sex: readValue('sex'),
+        dateOfBirth: readValue('date_of_birth'),
+        surname: readValue('surname'),
+        givenName: readValue('given_name'),
+        missing: Array.isArray(data.missing) ? (data.missing as string[]) : [],
+        readAt: data.created_at,
+      };
+    },
+  });
+}
+
+/** Normalised comparison of two ID numbers (case and punctuation ignored). */
+export function sameIdNumber(a: string | null | undefined, b: string | null | undefined): boolean | null {
+  const norm = (v: string | null | undefined) => (v ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase();
+  const left = norm(a);
+  const right = norm(b);
+  if (!left || !right) return null; // nothing to compare
+  return left === right;
+}
+
+/**
+ * Show enough of an ID number to recognise it, never enough to reuse it:
+ * first two and last two characters, the middle starred (`CM****HJ`).
+ */
+export function maskIdNumber(value: string | null | undefined): string | null {
+  const raw = (value ?? '').trim();
+  if (!raw) return null;
+  if (raw.length <= 4) return '*'.repeat(raw.length);
+  return `${raw.slice(0, 2)}${'*'.repeat(Math.min(6, raw.length - 4))}${raw.slice(-2)}`;
+}
