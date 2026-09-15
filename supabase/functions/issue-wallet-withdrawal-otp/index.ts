@@ -184,15 +184,20 @@ Deno.serve(async (req) => {
     }
 
 
-    // ── Gate 1 next: OTP to the account's OWN registered phone (signup/login
-    // channel) — never the payout destination just confirmed above. Unlike
-    // the destination check, this is required on every single withdrawal.
+    // ── Gate 1 next: OTP delivered to the WITHDRAWAL (payout) phone number the
+    // user is sending the money to, so the code lands on the handset that owns
+    // the destination. The account's registered phone is only a fallback when
+    // the payout number is not a usable Ugandan number (e.g. bank transfer).
+    // Routing is by phone NUMBER only — never by MTN/Airtel provider choice;
+    // the shared sender picks the carrier route itself.
     const { data: profile } = await admin.from("profiles").select("phone").eq("id", userId).maybeSingle();
     const accountPhone = String(profile?.phone ?? "").trim();
-    if (!accountPhone || !isUgandanPhone(accountPhone)) {
+    const payoutPhone = method === "mobile_money" ? String(mobile_money_number ?? "").trim() : "";
+    const otpPhone = isUgandanPhone(payoutPhone) ? payoutPhone : accountPhone;
+    if (!otpPhone || !isUgandanPhone(otpPhone)) {
       return json({
         error: "no_account_phone",
-        message: "Your account has no verified phone number on file. Add one in Settings before withdrawing.",
+        message: "We could not find a usable phone number to send the code to. Check the withdrawal number, or add a phone number in Settings.",
       }, 400);
     }
 
