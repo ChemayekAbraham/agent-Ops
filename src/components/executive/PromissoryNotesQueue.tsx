@@ -927,7 +927,7 @@ export function PromissoryNotesQueue({
                           </div>
                         )}
                       </div>
-                    </div>
+                    </SwipeableNoteCard>
                   );
                 })}
 
