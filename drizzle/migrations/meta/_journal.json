@@ -750,6 +750,13 @@
       "when": 1789469269681,
       "tag": "0106_add_usage_report_attachment_paths",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1789469795325,
+      "tag": "0107_usage_report_cfo_review",
+      "breakpoints": true
     }
   ]
 }
