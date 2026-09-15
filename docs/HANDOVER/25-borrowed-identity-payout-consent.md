@@ -24,11 +24,14 @@ the pre-existing `payout_name_match_report()` name-scorer:
 | # | Feature | Commit | Live in production? |
 |---|---|---|---|
 | 1 | National ID borrowing at tenant signup | `9dd4de08b` | **Yes** — `national_id_declarations` confirmed to exist live, 2026-09-15 |
-| 2 | Payout destination borrowing (mobile money / bank) | `d30c09955` | **No** — migration file committed but not yet run; `payout_destination_declarations` does **not** exist in production as of 2026-09-15 |
+| 2 | Payout destination borrowing (mobile money / bank) | `d30c09955` | **Yes** — `payout_destination_declarations` confirmed to exist live, 2026-09-15 (run manually in the SQL editor, same day) |
 
-Josh ran migration 1 (`20260915140000_national_id_declarations.sql`) himself in the SQL editor.
-Migration 2 (`20260915150000_payout_destination_declarations.sql`) has **not** been run — the
-`payout-destination-consent` edge function will fail on first call until it is. Verify with:
+Both migrations (`20260915140000_national_id_declarations.sql` and
+`20260915150000_payout_destination_declarations.sql`) were run manually in the SQL editor on
+2026-09-15 — this was **not** an automatic migration-on-push; re-verify with the query below
+before assuming any *future* migration file in this repo is live without checking. Both edge
+functions (`register-tenant` / `tenant-self-onboarding`'s gate, and `payout-destination-consent`)
+are safe to call now — the tables they write to exist. Verify with:
 
 ```sql
 select table_name from information_schema.tables
@@ -153,10 +156,11 @@ waiting on Ops capacity.
   name / payout name mismatches are common and must never be auto-treated as fraud. This mechanism
   is designed around that reality (self-service resolution, not auto-reject) — don't tighten it
   into a hard block without re-reading that finding.
-- Before deploying `payout-destination-consent` to any environment, confirm migration
-  `20260915150000_payout_destination_declarations.sql` has actually been run — the guard suite
-  (`npm run guard:all`) does not check live schema, only static code; a table that doesn't exist
-  yet will not be caught before the function ships.
+- Before deploying any *new* migration in this repo, confirm it has actually been run against
+  production — the guard suite (`npm run guard:all`) does not check live schema, only static
+  code, and (per `docs/HANDOVER/07-tribal-knowledge.md` / `06-live-state-verification.md`)
+  migrations in this repo do not reliably auto-apply on push. Both migrations here needed a
+  manual run in the SQL editor before their edge functions would work.
 - If you generalize these two tables into one shared `identity_declarations` table later, check
   every place that currently hardcodes `national_id_declarations` / `payout_destination_declarations`
   column names in `_shared/nationalIdDeclaration.ts` and `_shared/payoutDestinationDeclaration.ts`

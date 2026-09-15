@@ -6,8 +6,9 @@
 > self-service SMS-consent path (`payout-destination-consent` edge function) was built to let a
 > destination's real owner confirm by SMS code instead of waiting on a Financial Ops phone call,
 > exactly the "human-override path, not a hard auto-reject" this document called for. It does not
-> add a new block — it adds a second way to drain the existing `waiting` queue. **Not yet live**:
-> the migration creating `payout_destination_declarations` has not been run in production.
+> add a new block — it adds a second way to drain the existing `waiting` queue. **Live as of
+> 2026-09-15** (`payout_destination_declarations` confirmed in production), though the frontend
+> UI to actually trigger it from a withdrawal screen is still unbuilt.
 
 **Status: assessment only, nothing shipped as a result of this document.** Written
 2026-09-14 in response to a proposed policy — block every withdrawal until the user's
