@@ -169,7 +169,29 @@ export default function MobileMoneyNameCard({ userId }: Props) {
                 ? 'For your security, withdrawals can only be sent to this number.'
                 : "Used automatically on every withdrawal — you can't change it during cash-out."}
             </p>
-            {!locked && (
+            {locked ? (
+              changeRequest.data?.status === "pending" ? (
+                <p className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700">
+                  Your request to change this number is with Financial Ops. They will call you to
+                  confirm the new number belongs to you.
+                </p>
+              ) : (
+                <>
+                  {changeRequest.data?.status === "rejected" && changeRequest.data.decision_reason && (
+                    <p className="rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+                      Your last change request was not accepted: {changeRequest.data.decision_reason}
+                    </p>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 h-12 rounded-xl text-sm font-bold"
+                    onClick={() => setChangeOpen(true)}
+                  >
+                    <Pencil className="h-4 w-4" /> Ask to change this number
+                  </Button>
+                </>
+              )
+            ) : (
               <Button
                 variant="outline"
                 className="w-full gap-2 h-12 rounded-xl text-sm font-bold"
@@ -178,6 +200,11 @@ export default function MobileMoneyNameCard({ userId }: Props) {
                 <Pencil className="h-4 w-4" /> Edit withdrawal details
               </Button>
             )}
+            <PayoutNumberChangeDialog
+              open={changeOpen}
+              onOpenChange={setChangeOpen}
+              onSubmitted={() => void changeRequest.refetch()}
+            />
           </>
         ) : (
           <>
