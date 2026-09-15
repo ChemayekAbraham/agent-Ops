@@ -608,7 +608,7 @@ export function PromissoryNotesQueue({
       doc.setFontSize(9);
       doc.setTextColor(100);
       doc.text(
-        `Exported ${format(new Date(), 'yyyy-MM-dd HH:mm')} · Filter: ${statusFilter} · ${exportRows.length.toLocaleString()} notes`,
+        `Exported ${format(new Date(), 'yyyy-MM-dd HH:mm')} · Filter: ${statusFilter === 'activated' ? 'approved' : statusFilter === 'cancelled' ? 'rejected' : statusFilter} · ${exportRows.length.toLocaleString()} notes`,
         14,
         20,
       );
@@ -675,10 +675,10 @@ export function PromissoryNotesQueue({
 
   const statusConfig: Record<string, { icon: any; color: string; label: string }> = {
     pending: { icon: Clock, color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Pending' },
-    activated: { icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Activated' },
+    activated: { icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Approved' },
     fulfilled: { icon: TrendingUp, color: 'bg-primary/10 text-primary border-primary/20', label: 'Fulfilled' },
     defaulted: { icon: AlertTriangle, color: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Defaulted' },
-    cancelled: { icon: XCircle, color: 'bg-muted text-muted-foreground border-border', label: 'Cancelled' },
+    cancelled: { icon: XCircle, color: 'bg-muted text-muted-foreground border-border', label: 'Rejected' },
   };
 
   // Partner journey after a promissory note: matched by phone/email on registration,
@@ -736,7 +736,17 @@ export function PromissoryNotesQueue({
     };
   };
 
-  const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled', 'overdue'];
+  // Ops language: an approved note is stored as "activated", a rejected one as
+  // "cancelled". The pills show the words ops actually use.
+  const statuses: { value: string; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'activated', label: 'Approved' },
+    { value: 'cancelled', label: 'Rejected' },
+    { value: 'fulfilled', label: 'Fulfilled' },
+    { value: 'defaulted', label: 'Defaulted' },
+    { value: 'overdue', label: 'Overdue' },
+  ];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
     { label: 'Promissory notes', value: kpis.notes_count, hint: `${kpis.approved_notes} approved`, tone: 'bg-primary/5 border-primary/20' },
@@ -817,17 +827,23 @@ export function PromissoryNotesQueue({
 
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
         {statuses.map(s => {
-          const count = s === 'overdue' ? overdueCount : (statusCounts[s] || 0);
+          const count =
+            s.value === 'all'
+              ? notes.length
+              : s.value === 'overdue'
+              ? overdueCount
+              : (statusCounts[s.value] || 0);
           return (
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
+              key={s.value}
+              onClick={() => setStatusFilter(s.value)}
+              aria-pressed={statusFilter === s.value}
               className={cn(
                 'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
-                statusFilter === s ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                statusFilter === s.value ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
               )}
             >
-              {s === 'all' ? `All (${notes.length})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${count})`}
+              {`${s.label} (${count})`}
             </button>
           );
         })}
