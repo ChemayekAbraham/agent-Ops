@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { UserAvatar } from '@/components/UserAvatar';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
+import { SmartphoneRepaymentBreakdown } from './SmartphoneRepaymentBreakdown';
 
 interface AgentDetail {
   agent: {
@@ -40,6 +41,11 @@ interface AgentDetail {
     outstanding: number | null;
     order_status: string | null;
     payment_plan: string | null;
+    advance_period_months: number | null;
+    access_repayment_days: number | null;
+    schedule_days: number | null;
+    scheduled_daily_amount: number | null;
+    repayment_starts_on: string | null;
     sale_date: string | null;
     created_at: string | null;
   }>;
@@ -50,6 +56,10 @@ interface AgentDetail {
     amount_recovered: number | null;
     outstanding_balance: number | null;
     daily_deduction_amount: number | null;
+    advance_period_months: number | null;
+    access_repayment_days: number | null;
+    schedule_days: number | null;
+    scheduled_daily_amount: number | null;
     status: string | null;
     starts_on: string | null;
     last_recovery_at: string | null;
@@ -266,26 +276,40 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                 ) : (
                   <div className="rounded-xl border border-border divide-y divide-border">
                     {items.map((it) => (
-                      <div key={it.sale_id} className="p-2.5 flex flex-wrap items-center gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {[it.brand, it.model_type].filter(Boolean).join(' ') || it.item_name || '—'}
-                            {Number(it.quantity || 1) > 1 ? ` × ${it.quantity}` : ''}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {dt(it.sale_date || it.created_at)}
-                            {it.payment_plan ? ` · ${it.payment_plan.replace(/_/g, ' ')}` : ''}
-                          </p>
+                      <div key={it.sale_id} className="p-2.5 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">
+                              {[it.brand, it.model_type].filter(Boolean).join(' ') || it.item_name || '—'}
+                              {Number(it.quantity || 1) > 1 ? ` × ${it.quantity}` : ''}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {dt(it.sale_date || it.created_at)}
+                              {it.payment_plan ? ` · ${it.payment_plan.replace(/_/g, ' ')}` : ''}
+                              {Number(it.advance_period_months || 0) > 0
+                                ? ` · ${Number(it.advance_period_months)} month${Number(it.advance_period_months) === 1 ? '' : 's'}`
+                                : ''}
+                              {Number(it.schedule_days || 0) > 0 ? ` (${Number(it.schedule_days)} days)` : ''}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-semibold tabular-nums">{formatUGX(Number(it.amount || 0))}</p>
+                            <p className="text-[11px] text-destructive tabular-nums">
+                              {formatUGX(Number(it.outstanding || 0))} left
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                            {(it.order_status || 'issued').replace(/_/g, ' ')}
+                          </Badge>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold tabular-nums">{formatUGX(Number(it.amount || 0))}</p>
-                          <p className="text-[11px] text-destructive tabular-nums">
-                            {formatUGX(Number(it.outstanding || 0))} left
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="text-[10px] capitalize shrink-0">
-                          {(it.order_status || 'issued').replace(/_/g, ' ')}
-                        </Badge>
+                        {Number(it.advance_period_months || 0) > 0 && (
+                          <SmartphoneRepaymentBreakdown
+                            amount={it.amount}
+                            months={it.advance_period_months}
+                            startsOn={it.repayment_starts_on}
+                            storedDays={it.schedule_days}
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -312,6 +336,16 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                           <span>Recovered: <span className="font-medium text-success tabular-nums">{formatUGX(Number(p.amount_recovered || 0))}</span></span>
                           <span>Left: <span className="font-medium text-destructive tabular-nums">{formatUGX(Number(p.outstanding_balance || 0))}</span></span>
                           <span>Daily: <span className="font-medium text-foreground tabular-nums">{formatUGX(Number(p.daily_deduction_amount || 0))}</span></span>
+                          {Number(p.advance_period_months || 0) > 0 && (
+                            <span>
+                              Duration:{' '}
+                              <span className="font-medium text-foreground">
+                                {Number(p.advance_period_months)} month
+                                {Number(p.advance_period_months) === 1 ? '' : 's'}
+                                {Number(p.schedule_days || 0) > 0 ? ` · ${Number(p.schedule_days)} days` : ''}
+                              </span>
+                            </span>
+                          )}
                           <span>Started {dt(p.starts_on)}</span>
                           <span>Last recovery {dt(p.last_recovery_at, 'dd MMM yyyy HH:mm')}</span>
                         </div>
