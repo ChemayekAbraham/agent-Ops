@@ -631,3 +631,45 @@ export function maskIdNumber(value: string | null | undefined): string | null {
   if (raw.length <= 4) return '*'.repeat(raw.length);
   return `${raw.slice(0, 2)}${'*'.repeat(Math.min(6, raw.length - 4))}${raw.slice(-2)}`;
 }
+
+/**
+ * The three checks a reviewer would otherwise make by eye, computed from what
+ * is already stored: does the ID number on the card match the one typed in, did
+ * the selfie pass the face check, and does the name on the card match the name
+ * on the account. Read-only — it decides nothing on its own.
+ */
+export interface StoredIdVerdict {
+  ninMatches: boolean | null;
+  faceVerified: boolean | null;
+  namesMatch: boolean | null;
+  /** True only when all three agree — the condition for automatic verification. */
+  allClear: boolean;
+}
+
+export function evaluateStoredIdChecks(
+  row: Pick<PayoutDestinationRow, 'national_id' | 'national_id_name' | 'full_name' | 'account_name' | 'name_match_score'>,
+  reading: StoredIdReading | null | undefined,
+): StoredIdVerdict {
+  if (!reading) return { ninMatches: null, faceVerified: null, namesMatch: null, allClear: false };
+  const ninMatches = sameIdNumber(reading.nin, row.national_id);
+  const idNameOnFile = (row.national_id_name || '').trim();
+  const accountName = (row.full_name || row.account_name || '').trim();
+  // The names are fixed at submission, so compare them directly — the stored
+  // score was computed earlier and only serves as a fuzzy fallback.
+  const direct = samePersonName(idNameOnFile, accountName);
+  const namesMatch =
+    direct === true
+      ? true
+      : direct === false
+        ? row.name_match_score !== null
+          ? row.name_match_score >= 0.8
+          : false
+        : null;
+  const faceVerified = reading.faceVerified;
+  return {
+    ninMatches,
+    faceVerified,
+    namesMatch,
+    allClear: ninMatches === true && faceVerified === true && namesMatch === true,
+  };
+}
