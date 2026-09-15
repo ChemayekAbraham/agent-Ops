@@ -718,6 +718,34 @@ export function StaffRequisitionQueue() {
                 </p>
               )}
 
+              {usageReports[detail.id] && (
+                <div className="rounded-xl border bg-muted/30 p-3">
+                  <p className="text-sm font-semibold">Usage report</p>
+                  <p className="mt-1 text-sm">
+                    Used {formatUGX(Number(usageReports[detail.id].amount_used))}
+                    {usageReports[detail.id].submitted_at ? ` • ${fmtDate(usageReports[detail.id].submitted_at)}` : ''}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                    {usageReports[detail.id].summary}
+                  </p>
+                  {(usageReports[detail.id].attachment_paths?.length ?? 0) > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {usageReports[detail.id].attachment_paths!.map((path, i) => (
+                        <Button
+                          key={path}
+                          size="sm"
+                          variant="outline"
+                          disabled={viewingPath === path}
+                          onClick={() => void viewUsageAttachment(detail.id, path)}
+                        >
+                          Report receipt {i + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {(events[detail.id]?.length ?? 0) > 0 && (
                 <div className="space-y-2 rounded-xl border p-3">
                   <p className="text-xs font-semibold uppercase text-muted-foreground">Audit trail</p>
