@@ -42,6 +42,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { AgentPaymentPosition } from './AgentPaymentPosition';
+import { RentAnalysis } from './RentAnalysis';
 import {
   describePlanSchedule,
   scheduleAwareStatus,
@@ -399,7 +400,7 @@ function StatCard({
   );
 }
 
-type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'before-aug-2026' | 'position';
+type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'before-aug-2026' | 'position' | 'rent-analysis';
 
 /** Same boundary for both cohort tabs — one date rule, read from the existing added date. */
 const AUG_2026_BOUNDARY = '2026-08-02T00:00:00+03:00';
@@ -980,12 +981,14 @@ export function AgentMonitoring() {
           <TabsTrigger value="after-aug-2026" variant="pills" className="text-xs">After 1 Aug 2026</TabsTrigger>
           <TabsTrigger value="before-aug-2026" variant="pills" className="text-xs">Before 1 Aug 2026</TabsTrigger>
           <TabsTrigger value="position" variant="pills" className="text-xs">Expected vs paid</TabsTrigger>
+          <TabsTrigger value="rent-analysis" variant="pills" className="text-xs">Rent Analysis</TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="all" className="space-y-4">{body}</TabsContent>
       <TabsContent value="after-aug-2026" className="space-y-4">{body}</TabsContent>
       <TabsContent value="before-aug-2026" className="space-y-4">{body}</TabsContent>
       <TabsContent value="position" className="space-y-4"><AgentPaymentPosition /></TabsContent>
+      <TabsContent value="rent-analysis" className="space-y-4"><RentAnalysis /></TabsContent>
     </Tabs>
   );
 }
