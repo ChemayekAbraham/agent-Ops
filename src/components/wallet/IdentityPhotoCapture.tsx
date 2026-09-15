@@ -383,6 +383,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             <StoredShot path={storedIdPath!} label="National ID photo" note="Sent for verification." />
             <StoredShot path={storedSelfiePath!} label="Selfie" note="Sent for verification." />
           </div>
+          <PayoutNumberVerification userId={user?.id} />
           <a
             href="/verification-history"
             className="block text-center text-xs text-muted-foreground underline"
@@ -755,6 +756,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {saving ? 'Sending…' : 'Send my photos for verification'}
         </Button>
+
+        <PayoutNumberVerification userId={user?.id} />
 
         <a
           href="/verification-history"
