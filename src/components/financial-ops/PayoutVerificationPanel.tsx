@@ -872,6 +872,28 @@ export default function PayoutVerificationPanel() {
     }
   };
 
+  // Automatic verification: when everything already on file agrees — the ID
+  // number typed in is the same as the one read off the card, the selfie passed
+  // the face check and the name on the card is the name on the account — the
+  // case is verified without waiting for a reviewer. Every other safeguard
+  // stays: both photos must be on file, the read name must be confident, a
+  // double submission is never auto-verified, and the decision still goes
+  // through the same server rule that a tap uses.
+  const storedReading = useStoredIdReading(row?.user_id);
+  const autoVerdict = row ? evaluateStoredIdChecks(row, storedReading.data) : null;
+  const autoDoneRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!row || row.status !== 'waiting') return;
+    if (verifyBlocked || !autoVerdict?.allClear) return;
+    if (quickVerify.isPending || deciding) return;
+    if (autoDoneRef.current.has(row.id)) return;
+    autoDoneRef.current.add(row.id);
+    void runQuickVerify(row, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row?.id, row?.status, verifyBlocked, autoVerdict?.allClear, quickVerify.isPending, deciding]);
+
+
+
 
   return (
     <div className="space-y-3">
