@@ -530,7 +530,7 @@ export default function PlatformSalesOfficersPage() {
           {!isLoading && (officers.length > 0 || people.length > 0) && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
               <span className="font-semibold uppercase tracking-wide">Column totals</span>
-              {mode !== 'DAILY' && WEEKDAY_LABELS.map((d, wi) => (
+              {WEEKDAY_LABELS.map((d, wi) => (
                 <span key={d}>
                   {d} <span className="font-semibold tabular-nums text-foreground">{columnTotals.weekday[wi]}</span>
                 </span>
