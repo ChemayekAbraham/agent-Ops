@@ -855,6 +855,13 @@
       "when": 1789494618257,
       "tag": "0121_remove_weekly_identity_submission_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1789496336920,
+      "tag": "0122_drop_back_of_national_id_verify_gate",
+      "breakpoints": true
     }
   ]
 }
