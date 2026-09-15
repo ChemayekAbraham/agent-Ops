@@ -591,6 +591,15 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // Binds the captured identity as soon as everything needed is on file.
   const identityBind = useCompleteIdentityBinding();
 
+  // Photos cannot be sent until the payout number is verified with a code.
+  const binding = useIdentityBinding(user?.id ?? undefined);
+  const lockedNumber = binding.data?.locked_payout_number ?? null;
+  const payoutList = useMyPayoutDestinations(user?.id);
+  const payoutRows = payoutList.data ?? [];
+  const hasVerifiedPayoutNumber =
+    !!lockedNumber ||
+    payoutRows.some((d) => d.destination_type === 'mobile_money' && d.status === 'verified');
+
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
   const [selfieOriginal, setSelfieOriginal] = useState<File | null>(null);
