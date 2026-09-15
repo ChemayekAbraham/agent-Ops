@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { CheckCircle, XCircle, Loader2, User, Wallet, Pencil } from 'lucide-react';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 interface PendingOp {
   id: string;
@@ -234,6 +235,7 @@ export function ROIPayoutQueue() {
                           {!editValid && (
                             <p className="text-[11px] text-destructive">Enter a valid amount greater than 0.</p>
                           )}
+                          <CfoApprovalGate>
                           <Button
                             size="sm"
                             className="w-full md:w-auto"
@@ -243,6 +245,7 @@ export function ROIPayoutQueue() {
                             {approveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CheckCircle className="h-3.5 w-3.5 mr-1" />}
                             {amountChanged ? `Approve ${formatUGX(editedAmount)}` : 'Approve'}
                           </Button>
+                          </CfoApprovalGate>
                         </div>
 
                         {/* Rejection reason */}
@@ -255,6 +258,7 @@ export function ROIPayoutQueue() {
                             className="text-xs min-h-[60px]"
                             rows={2}
                           />
+                          <CfoApprovalGate>
                           <Button
                             size="sm"
                             variant="destructive"
@@ -265,6 +269,7 @@ export function ROIPayoutQueue() {
                             {rejectMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
                             Reject
                           </Button>
+                          </CfoApprovalGate>
                         </div>
 
                         {/* Treasury impact */}
