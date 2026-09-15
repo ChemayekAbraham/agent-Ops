@@ -10,8 +10,20 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, startOfDay, subDays } from 'date-fns';
+import { eachDayOfInterval, format, startOfDay, subDays } from 'date-fns';
 import { AlertTriangle, Download, FileBarChart2, Loader2, Search } from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
@@ -20,6 +32,7 @@ import {
   CUSTOM_BAND_KEY,
   RENT_BANDS,
   bandLabel,
+  buildDailyTrend,
   buildTenantRows,
   summariseBand,
   type RentAnalysisPlan,
