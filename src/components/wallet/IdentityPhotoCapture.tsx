@@ -596,9 +596,15 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const lockedNumber = binding.data?.locked_payout_number ?? null;
   const payoutList = useMyPayoutDestinations(user?.id);
   const payoutRows = payoutList.data ?? [];
+  // Proof of the number is the code confirmation (or an already-locked number) —
+  // Financial Ops approval comes later and must not block sending the photos.
   const hasVerifiedPayoutNumber =
     !!lockedNumber ||
-    payoutRows.some((d) => d.destination_type === 'mobile_money' && d.status === 'verified');
+    payoutRows.some(
+      (d) =>
+        d.destination_type === 'mobile_money' &&
+        (d.status === 'verified' || !!d.ownership_code_confirmed_at),
+    );
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
