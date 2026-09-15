@@ -59,7 +59,10 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   const { report, isLoading, range, setRange } = usePromissoryOpsReport();
   const { kpis, notes } = report;
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<PromissoryStatus>('pending');
+  const [selected, setSelected] = useState<PromissoryStatus>(() => {
+    const saved = localStorage.getItem('promissory-queue-status-filter');
+    return saved === 'activated' || saved === 'rejected' || saved === 'pending' ? saved : 'pending';
+  });
   const [search, setSearch] = useState('');
   const [approveTarget, setApproveTarget] = useState<any>(null);
   const [approveReason, setApproveReason] = useState('');
