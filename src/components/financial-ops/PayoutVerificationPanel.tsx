@@ -635,6 +635,76 @@ function HeroPhoto({
   );
 }
 
+/**
+ * Earlier submissions for the same person. Every upload keeps its own
+ * timestamped file, so when someone resends their ID and selfie the previous
+ * ones stay readable here next to the current pair.
+ */
+function PriorSubmissions({
+  userId,
+  currentIdPath,
+  currentSelfiePath,
+  onOpen,
+}: {
+  userId: string | null | undefined;
+  currentIdPath: string | null;
+  currentSelfiePath: string | null;
+  onOpen: (url: string, label: string) => void;
+}) {
+  const history = useVerificationHistory(userId);
+  const older = (history.data ?? [])
+    .filter(
+      (e) =>
+        (e.nationalId && e.nationalId.path !== currentIdPath) ||
+        (e.original && e.original.path !== currentSelfiePath),
+    )
+    .slice(0, 4);
+
+  if (older.length === 0) return null;
+
+  return (
+    <div className="mx-5 space-y-2 rounded-2xl bg-muted/40 p-3">
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+        Earlier submissions ({older.length})
+      </p>
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        {older.map((e) => (
+          <div key={e.id} className="w-[132px] shrink-0 space-y-1">
+            <div className="grid grid-cols-2 gap-1">
+              {[
+                { f: e.nationalId, label: 'National ID (earlier)' },
+                { f: e.original, label: 'Selfie (earlier)' },
+              ].map(({ f, label }, i) =>
+                f?.url ? (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => onOpen(f.url!, label)}
+                    aria-label={`Open ${label} full size`}
+                    className="aspect-[4/5] overflow-hidden rounded-lg border bg-muted"
+                  >
+                    <img src={f.url} alt={label} className="h-full w-full object-cover" />
+                  </button>
+                ) : (
+                  <div key={i} className="aspect-[4/5] rounded-lg border border-dashed bg-muted/40" />
+                ),
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {e.submittedAt
+                ? new Date(e.submittedAt).toLocaleString('en-GB', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })
+                : 'Date unknown'}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DecisionDialog({
   row,
   photosReady,
