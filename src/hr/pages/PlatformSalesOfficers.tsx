@@ -515,8 +515,8 @@ export default function PlatformSalesOfficersPage() {
                 className={cn(
                   'min-h-11 px-3 text-xs font-semibold tracking-wide rounded-md transition-colors',
                   mode === m
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-background text-muted-foreground hover:text-foreground',
                 )}
               >
                 {m}
