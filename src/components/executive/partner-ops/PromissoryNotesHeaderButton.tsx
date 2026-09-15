@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { FileText } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PROMISSORY_PENDING_COUNT_KEY, reconcilePromissoryPendingCount } from './promissoryPendingCount';
@@ -27,6 +27,7 @@ export function PromissoryNotesHeaderButton({
 }: PromissoryNotesHeaderButtonProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [isLive, setIsLive] = useState(false);
 
   const { data: promissoryPending = 0, refetch } = useQuery({
     queryKey: [...PROMISSORY_PENDING_COUNT_KEY],
@@ -38,9 +39,9 @@ export function PromissoryNotesHeaderButton({
       return count || 0;
     },
     staleTime: 30000,
-    // Realtime delivers instant updates; a slow 60s poll is just a safety net
-    // in case the socket drops while the tab is open.
-    refetchInterval: 60000,
+    // Realtime delivers instant updates; polling is the safety net. While the
+    // socket is down we poll faster so the badge never looks stuck.
+    refetchInterval: isLive ? 60000 : 15000,
     refetchIntervalInBackground: true,
   });
 
@@ -57,7 +58,11 @@ export function PromissoryNotesHeaderButton({
           reconcilePromissoryPendingCount(queryClient);
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        // SUBSCRIBED = realtime stream confirmed open. Anything else
+        // (joining, dropped, error) shows the fallback state.
+        setIsLive(status === 'SUBSCRIBED');
+      });
     return () => {
       supabase.removeChannel(channel);
     };
@@ -85,6 +90,28 @@ export function PromissoryNotesHeaderButton({
           {promissoryPending > 99 ? '99+' : promissoryPending}
         </span>
       )}
+      <span
+        className={cn(
+          'ml-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[9px] font-medium leading-none',
+          isLive
+            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            : 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+        )}
+        title={isLive ? 'Live updates connected' : 'Live connection lost — refreshing every 15 seconds instead'}
+      >
+        <span className="relative flex h-1.5 w-1.5">
+          {isLive && (
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+          )}
+          <span
+            className={cn(
+              'relative inline-flex h-1.5 w-1.5 rounded-full',
+              isLive ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse',
+            )}
+          />
+        </span>
+        {isLive ? 'Live' : 'Retrying'}
+      </span>
     </Button>
   );
 }
