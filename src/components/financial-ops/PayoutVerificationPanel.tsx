@@ -429,6 +429,7 @@ function CheckLine({
  */
 function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   const { data, isLoading } = useStoredIdReading(row.user_id);
+  const numberConfirmed = usePayoutNumberOtpConfirmed(row.id);
 
   if (isLoading) {
     return (
@@ -446,14 +447,18 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   const enteredMask = maskIdNumber(row.national_id);
   const idNameOnFile = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
+  // An exact spelling match is a match, whatever an older stored score says.
   const namesMatch =
     idNameOnFile && accountName
-      ? row.name_match_score !== null
-        ? row.name_match_score >= 0.8
-        : idNameOnFile.toLowerCase() === accountName.toLowerCase()
+      ? idNameOnFile.toLowerCase() === accountName.toLowerCase()
+        ? true
+        : row.name_match_score !== null
+          ? row.name_match_score >= 0.8
+          : false
       : null;
+  const otpPassed = numberConfirmed.data === true;
 
-  const allClear = ninMatches === true && data.faceVerified === true && namesMatch === true;
+  const allClear = ninMatches === true && data.faceVerified === true && otpPassed;
 
   return (
     <div
