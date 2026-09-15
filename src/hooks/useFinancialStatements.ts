@@ -1301,6 +1301,8 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
           period: formatPeriodLabel(activeFilters),
           byService: {
             revenueFamilies,
+            grossRevenue: serviceGrossRevenue,
+            contraRevenue: contraRevenueGroup,
             totalRevenue: serviceTotalRevenue,
             marketing: marketingGroup,
             operating: operatingGroup,
