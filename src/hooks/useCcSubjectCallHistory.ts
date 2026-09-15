@@ -127,6 +127,8 @@ export function useCcSubjectCallHistory(
           severity: fb?.severity ?? null,
           comment: fb?.note ?? null,
           voidReason: a.void_reason,
+          feedbackId: fb?.id ?? null,
+          categoryId: fb?.category_id ?? null,
         };
       });
     },
