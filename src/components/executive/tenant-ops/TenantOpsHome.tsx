@@ -10,6 +10,7 @@ import {
   Download,
   CalendarX2,
   ChevronRight,
+  ArrowRight,
   ShieldCheck,
   TrendingUp,
   Wallet,
