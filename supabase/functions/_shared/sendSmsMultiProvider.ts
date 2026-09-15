@@ -107,6 +107,8 @@ export interface SmsLogCtx {
    * Africa's Talking instead of leaving the depositor without a code.
    */
   requireDeliveryConfirmation?: boolean;
+  /** Tighten/loosen the Yoola delivery-report polling window. */
+  deliveryConfirmation?: { attempts?: number; delayMs?: number };
 }
 
 /**
@@ -210,7 +212,7 @@ export async function sendSMS(phone: string, message: string, logCtx?: SmsLogCtx
       // handset received it, then fall through to Africa's Talking if it does not.
       if (ok && providerName === "yoola" && logCtx?.requireDeliveryConfirmation) {
         const messageId = extractYoolaMessageId(response);
-        const confirmation = await confirmYoolaDelivery(messageId);
+        const confirmation = await confirmYoolaDelivery(messageId, logCtx.deliveryConfirmation ?? {});
         response = { send_response: response, delivery_confirmation: confirmation };
         if (confirmation.outcome !== "delivered") {
           ok = false;

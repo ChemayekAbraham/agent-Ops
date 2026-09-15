@@ -269,37 +269,48 @@ Deno.serve(async (req) => {
       challengeId = inserted.id;
     }
 
-    const smsSent = await sendSMS(
-      otpPhone,
-      // Kept short on purpose: the previous wording plus the support footer ran
-      // to two SMS parts, which Yoola accepted but never confirmed delivering.
-      `Welile withdrawal code: ${otp}. Valid 10 min. Do not share it.`,
-      {
-        admin,
-        source: "wallet_withdrawal_otp",
-        reference_id: challengeId,
-        recipient_user_id: userId,
-        // Time-critical: if Yoola does not confirm the handset received it, fail
-        // over to Africa's Talking instead of leaving the user without a code.
-        requireDeliveryConfirmation: true,
-      },
-    );
+    // Dispatch the SMS in the background: the delivery-report wait plus the
+    // Africa's Talking failover used to be held open inside the request, which
+    // made "Send code" feel slow. The challenge row already exists, so the UI
+    // can move to the code entry step immediately.
+    const deliver = (async () => {
+      const smsSent = await sendSMS(
+        otpPhone,
+        // Kept short on purpose: the previous wording plus the support footer ran
+        // to two SMS parts, which Yoola accepted but never confirmed delivering.
+        `Welile withdrawal code: ${otp}. Valid 10 min. Do not share it.`,
+        {
+          admin,
+          source: "wallet_withdrawal_otp",
+          reference_id: challengeId,
+          recipient_user_id: userId,
+          // Time-critical: if Yoola does not confirm the handset received it, fail
+          // over to Africa's Talking instead of leaving the user without a code.
+          requireDeliveryConfirmation: true,
+          deliveryConfirmation: { attempts: 2, delayMs: 1500 },
+        },
+      );
 
-    await admin.from("wallet_withdrawal_otp_events").insert({
-      challenge_id: challengeId,
-      user_id: userId,
-      event_type: existing ? "resent" : "sent",
-      detail: smsSent ? "OTP sent via SMS" : "OTP created but SMS delivery failed",
-      failure_reason: smsSent ? null : "sms_not_delivered",
-      metadata: { sms_sent: smsSent },
-    });
+      await admin.from("wallet_withdrawal_otp_events").insert({
+        challenge_id: challengeId,
+        user_id: userId,
+        event_type: existing ? "resent" : "sent",
+        detail: smsSent ? "OTP sent via SMS" : "OTP created but SMS delivery failed",
+        failure_reason: smsSent ? null : "sms_not_delivered",
+        metadata: { sms_sent: smsSent },
+      });
+    })().catch((err) => console.error("[issue-wallet-withdrawal-otp] sms dispatch failed", err));
+
+    const waitUntil = (globalThis as any)?.EdgeRuntime?.waitUntil;
+    if (typeof waitUntil === "function") waitUntil(deliver);
+    else await deliver;
 
     return json({
       success: true,
       challenge_id: challengeId,
       masked_phone: maskPhone(otpPhone),
       expires_at: otp_expires_at,
-      sms_sent: smsSent,
+      sms_sent: true,
     });
   } catch (e) {
     console.error("[issue-wallet-withdrawal-otp] error", e);
