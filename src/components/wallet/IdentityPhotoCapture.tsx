@@ -131,7 +131,24 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
   const [target, setTarget] = useState<MyPayoutDestination | null>(null);
 
   const rows = list.data ?? [];
-  if (rows.length === 0) return null;
+  // Nothing to confirm yet: the number is only on file once a withdrawal
+  // account has been saved. Say so instead of hiding the whole section, so the
+  // step is never invisible.
+  if (!list.isLoading && rows.length === 0) {
+    return (
+      <div className="space-y-1 rounded-lg border p-3">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <Smartphone className="h-4 w-4 text-primary" />
+          Confirm your payout number
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Save the mobile money number you want your money paid to first (Withdrawal account, just
+          below). It then shows up here and we send a code to it to confirm it is yours.
+        </p>
+      </div>
+    );
+  }
+
 
   const label = (d: MyPayoutDestination) =>
     d.destination_type === 'mobile_money'
