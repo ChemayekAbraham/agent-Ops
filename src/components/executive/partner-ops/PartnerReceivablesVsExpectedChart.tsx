@@ -113,27 +113,32 @@ export function PartnerReceivablesVsExpectedChart() {
     const expected = new Map<string, number>();
 
     for (const n of notes ?? []) {
-      const created = new Date(n.created_at);
-      if (created < start || created > windowEnd) continue;
-
-      // Receivables = collected on notes whose attached partner came in.
-      // Expected = outstanding on open notes whose partner hasn't come in yet.
       const status = String(n.status ?? '').toLowerCase();
       if (status === 'cancelled' || status === 'rejected') continue;
 
-      const collected = Number(n.total_collected) || 0;
       const promised = Number(n.amount) || 0;
-      const cameIn = !!n.came_in;
-      const receivedAmount = cameIn ? collected : 0;
+      // Money actually in = what the attached partner has funded (their portfolio),
+      // not the note's collection counter (which the notes flow never fills in).
+      const fundedIn = n.came_in ? Number(n.portfolio_amount) || 0 : 0;
       const openAmount =
-        !cameIn && (status === 'pending' || status === 'activated')
-          ? Math.max(promised - collected, 0)
-          : 0;
+        status === 'pending' || status === 'activated' ? Math.max(promised - fundedIn, 0) : 0;
 
-      const key = hourly ? String(created.getHours()) : isoDay(created);
-      received.set(key, (received.get(key) || 0) + receivedAmount);
-      expected.set(key, (expected.get(key) || 0) + openAmount);
+      // Received money is dated when it came in; the promise is dated when the note was raised.
+      const receivedAt = new Date(n.first_portfolio_at ?? n.came_in_at ?? n.created_at);
+      const raisedAt = new Date(n.created_at);
+      const bucket = (d: Date) => (hourly ? String(d.getHours()) : isoDay(d));
+      const inWindow = (d: Date) => d >= start && d <= windowEnd;
+
+      if (fundedIn > 0 && inWindow(receivedAt)) {
+        const key = bucket(receivedAt);
+        received.set(key, (received.get(key) || 0) + fundedIn);
+      }
+      if (openAmount > 0 && inWindow(raisedAt)) {
+        const key = bucket(raisedAt);
+        expected.set(key, (expected.get(key) || 0) + openAmount);
+      }
     }
+
 
     const out: Point[] = [];
     let runReceived = 0;
