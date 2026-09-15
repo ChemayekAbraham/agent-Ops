@@ -470,6 +470,8 @@ export interface MyPayoutDestination {
   national_id_submitted_at: string | null;
   name_match_score: number | null;
   name_mismatch_tokens: unknown;
+  /** Set when the person proved SIM ownership with the six-digit code. */
+  ownership_code_confirmed_at: string | null;
 }
 
 /**
