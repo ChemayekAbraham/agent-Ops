@@ -302,7 +302,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                       {[
                         { label: 'MTN Money', amount: actualMoney?.mtn ?? 0, logo: mtnLogoAsset.url, line: 'mtn_momo' as const },
                         { label: 'Airtel Money', amount: actualMoney?.airtel ?? 0, logo: airtelLogoAsset.url, line: 'airtel_money' as const },
-                        { label: 'Cash at Hand', amount: actualMoney?.cashAtHand ?? 0, icon: <Banknote className="h-4 w-4 text-emerald-600" />, line: 'cash' as const },
+                        { label: 'Cash in Custody — Not Yet Confirmed Banked (excluded)', amount: actualMoney?.custodyNotConfirmedBanked ?? 0, icon: <Banknote className="h-4 w-4 text-emerald-600" />, line: 'cash' as const },
                         { label: 'Cash at Bank', amount: actualMoney?.bankedCash ?? 0, icon: <Landmark className="h-4 w-4 text-sky-600" />, line: 'banked_cash' as const },
                       ].map((row) => (
                         <button
@@ -441,11 +441,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               items={[
                 { dot: 'bg-indigo-500', label: 'MTN Mobile Money line', value: fmt(actualMoney?.mtn ?? 0), onSelect: () => setActualMoneyLine('mtn_momo') },
                 { dot: 'bg-indigo-500', label: 'Airtel Money line', value: fmt(actualMoney?.airtel ?? 0), onSelect: () => setActualMoneyLine('airtel_money') },
-                { dot: 'bg-indigo-500', label: 'Verified cash at hand (not yet banked)', value: fmt(actualMoney?.cashAtHand ?? 0), onSelect: () => setActualMoneyLine('cash') },
+                { dot: 'bg-indigo-500', label: 'Cash in Custody — Not Yet Confirmed Banked', value: fmt(actualMoney?.custodyNotConfirmedBanked ?? 0), onSelect: () => setActualMoneyLine('cash') },
                 { dot: 'bg-slate-400', label: 'Float held by agents (their wallets)', value: fmt(actualMoney?.agentFloatHeld ?? 0), onSelect: () => setActiveBreakdown('cash') },
                 { dot: 'bg-slate-400', label: 'Float with Agents (A2, accounting)', value: positionUnavailable ? '—' : fmt(position?.float ?? 0), onSelect: () => setActiveBreakdown('cash') },
-                { dot: 'bg-slate-400', label: 'Cash in Transit (A5, accounting)', value: positionUnavailable ? '—' : fmt(position?.inTransit ?? 0), onSelect: () => setActiveBreakdown('cash') },
+                { dot: 'bg-slate-400', label: 'Cash in Custody — Not Yet Confirmed Banked (A5, accounting)', value: positionUnavailable ? '—' : fmt(position?.inTransit ?? 0), onSelect: () => setActiveBreakdown('cash') },
               ]}
+
               footer="Actual cash held outside the bank — part of Money We Have, not added to it"
               footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
               onClick={() => setActiveBreakdown('cash')}
