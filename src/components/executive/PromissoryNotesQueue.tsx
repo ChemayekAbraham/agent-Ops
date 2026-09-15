@@ -730,7 +730,7 @@ export function PromissoryNotesQueue({
               <p className="text-destructive">Could not load promissory notes: {reportError.message}</p>
               <Button variant="outline" size="sm" onClick={() => refetch()}>Try again</Button>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : sortedFiltered.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">No promissory notes found</div>
           ) : (
             <>
