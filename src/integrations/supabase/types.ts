@@ -26170,6 +26170,176 @@ export type Database = {
         }
         Relationships: []
       }
+      national_id_declarations: {
+        Row: {
+          borrower_full_name: string
+          borrower_phone: string
+          borrower_profile_id: string | null
+          consent_attempts: number
+          consent_code_expires_at: string | null
+          consent_code_hash: string | null
+          consented_at: string | null
+          created_at: string
+          id: string
+          id_owner_phone: string
+          id_owner_profile_id: string | null
+          name_match_score: number | null
+          national_id: string
+          national_id_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          borrower_full_name: string
+          borrower_phone: string
+          borrower_profile_id?: string | null
+          consent_attempts?: number
+          consent_code_expires_at?: string | null
+          consent_code_hash?: string | null
+          consented_at?: string | null
+          created_at?: string
+          id?: string
+          id_owner_phone: string
+          id_owner_profile_id?: string | null
+          name_match_score?: number | null
+          national_id: string
+          national_id_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          borrower_full_name?: string
+          borrower_phone?: string
+          borrower_profile_id?: string | null
+          consent_attempts?: number
+          consent_code_expires_at?: string | null
+          consent_code_hash?: string | null
+          consented_at?: string | null
+          created_at?: string
+          id?: string
+          id_owner_phone?: string
+          id_owner_profile_id?: string | null
+          name_match_score?: number | null
+          national_id?: string
+          national_id_name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "national_id_declarations_borrower_profile_id_fkey"
+            columns: ["borrower_profile_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_borrower_profile_id_fkey"
+            columns: ["borrower_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_borrower_profile_id_fkey"
+            columns: ["borrower_profile_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_borrower_profile_id_fkey"
+            columns: ["borrower_profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_borrower_profile_id_fkey"
+            columns: ["borrower_profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_borrower_profile_id_fkey"
+            columns: ["borrower_profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_borrower_profile_id_fkey"
+            columns: ["borrower_profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_borrower_profile_id_fkey"
+            columns: ["borrower_profile_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_id_owner_profile_id_fkey"
+            columns: ["id_owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_id_owner_profile_id_fkey"
+            columns: ["id_owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_id_owner_profile_id_fkey"
+            columns: ["id_owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_id_owner_profile_id_fkey"
+            columns: ["id_owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_id_owner_profile_id_fkey"
+            columns: ["id_owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_id_owner_profile_id_fkey"
+            columns: ["id_owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_id_owner_profile_id_fkey"
+            columns: ["id_owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "national_id_declarations_id_owner_profile_id_fkey"
+            columns: ["id_owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       national_id_ocr_reads: {
         Row: {
           account_name: string | null
