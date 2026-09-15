@@ -40,6 +40,11 @@ interface AgentDetail {
     outstanding: number | null;
     order_status: string | null;
     payment_plan: string | null;
+    advance_period_months: number | null;
+    access_repayment_days: number | null;
+    schedule_days: number | null;
+    scheduled_daily_amount: number | null;
+    repayment_starts_on: string | null;
     sale_date: string | null;
     created_at: string | null;
   }>;
@@ -50,6 +55,10 @@ interface AgentDetail {
     amount_recovered: number | null;
     outstanding_balance: number | null;
     daily_deduction_amount: number | null;
+    advance_period_months: number | null;
+    access_repayment_days: number | null;
+    schedule_days: number | null;
+    scheduled_daily_amount: number | null;
     status: string | null;
     starts_on: string | null;
     last_recovery_at: string | null;
