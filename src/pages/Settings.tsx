@@ -47,6 +47,8 @@ const TrustPrivacySection = lazy(() => import('@/components/settings/TrustPrivac
 const ResidenceAddressForm = lazy(() => import('@/components/profile/ResidenceAddressForm'));
 const EmailEditor = lazy(() => import('@/components/profile/EmailEditor'));
 const MobileMoneyNameCard = lazy(() => import('@/components/settings/MobileMoneyNameCard'));
+const NationalIdCard = lazy(() => import('@/components/settings/NationalIdCard'));
+const IdentityPhotoCapture = lazy(() => import('@/components/wallet/IdentityPhotoCapture'));
 const AccountLinkingCard = lazy(() => import('@/components/settings/AccountLinkingCard'));
 
 
@@ -66,6 +68,8 @@ const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
     () => import('@/components/profile/EmailEditor'),
     () => import('@/components/profile/ResidenceAddressForm'),
     () => import('@/components/settings/MobileMoneyNameCard'),
+    () => import('@/components/settings/NationalIdCard'),
+    () => import('@/components/wallet/IdentityPhotoCapture'),
     () => import('@/components/wallet/WalletCard'),
     () => import('@/components/settings/AccountLinkingCard'),
     () => import('@/components/settings/ArchivedPdfsCard'),
@@ -201,7 +205,7 @@ type AccountTab = 'profile' | 'contact' | 'withdrawal' | 'access' | 'vault';
 const ACCOUNT_TABS: { id: AccountTab; label: string; helper: string; icon: typeof User }[] = [
   { id: 'profile', label: 'Profile', helper: 'Photo, name and phone number', icon: User },
   { id: 'contact', label: 'Contact', helper: 'Email address and notifications', icon: Mail },
-  { id: 'withdrawal', label: 'Withdrawal', helper: 'Mobile money name and wallet', icon: Wallet },
+  { id: 'withdrawal', label: 'Withdrawal & Identity', helper: 'Mobile money, National ID and verification', icon: Wallet },
   { id: 'access', label: 'Sign-in', helper: 'Linked accounts and sign-in methods', icon: ShieldCheck },
   { id: 'vault', label: 'Vault', helper: 'Offline PDF documents', icon: Lock },
 ];
@@ -273,9 +277,13 @@ export default function Settings() {
     next.delete('tab');
     setSearchParams(next);
   };
-  const tabParam = searchParams.get('tab') as AccountTab | null;
+  const tabParam = searchParams.get('tab');
   const openAccountTab: AccountTab | null =
-    tabParam && ACCOUNT_TABS.some(t => t.id === tabParam) ? tabParam : null;
+    tabParam === 'verification' || tabParam === 'identity'
+      ? 'withdrawal'
+      : tabParam && ACCOUNT_TABS.some(t => t.id === tabParam)
+        ? (tabParam as AccountTab)
+        : null;
   const accountTab: AccountTab = openAccountTab ?? 'profile';
   const setAccountTab = (id: AccountTab) => {
     const next = new URLSearchParams(searchParams);
@@ -629,11 +637,33 @@ export default function Settings() {
                   )}
 
                   {accountTab === 'withdrawal' && (
-                    <div className="space-y-4">
-                      <SectionHeading>Withdrawal account</SectionHeading>
+                    <div className="space-y-6">
+                      <div>
+                        <SectionHeading>Withdrawal account</SectionHeading>
+                        <p className="px-1 text-xs text-muted-foreground mt-0.5">
+                          The mobile money destination all your withdrawals are paid to.
+                        </p>
+                      </div>
                       {user && (
                         <LazySection name="MobileMoneyName">
                           <MobileMoneyNameCard userId={user.id} />
+                        </LazySection>
+                      )}
+
+                      <div className="pt-2">
+                        <SectionHeading>Identity verification</SectionHeading>
+                        <p className="px-1 text-xs text-muted-foreground mt-0.5">
+                          Financial Ops verifies your payout destination against your National ID before releasing funds.
+                        </p>
+                      </div>
+                      {user && (
+                        <LazySection name="NationalIdCard">
+                          <NationalIdCard userId={user.id} />
+                        </LazySection>
+                      )}
+                      {user && (
+                        <LazySection name="IdentityPhotoCapture">
+                          <IdentityPhotoCapture compact={false} />
                         </LazySection>
                       )}
                     </div>

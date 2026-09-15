@@ -2273,11 +2273,16 @@ export default function WithdrawFlow({
         isProcessing={isProcessing}
         isComplete={isComplete}
       >
-        {/* Rejection banner — pinned above every step until the user resubmits. */}
+        {/* Rejection banner — pinned above every step until the user resubmits.
+            No onResubmit here on purpose: this banner already renders on step 0
+            ("Select Source"), so `onResubmit={() => setCurrentStep(0)}` was a
+            no-op when the user was already there — clicking "Resubmit National
+            ID" did nothing. Omitting onResubmit lets the banner's own built-in
+            inline form (NationalIdPrompt) render instead, which works from
+            any step. */}
         <NationalIdRejectedReminder
           className="mb-4"
           withdrawableBalance={Math.max(1, maxAmount)}
-          onResubmit={() => setCurrentStep(0)}
         />
         {renderStep()}
       </StepperModal>
