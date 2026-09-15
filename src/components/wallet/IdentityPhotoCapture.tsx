@@ -266,15 +266,24 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
       if (ownErr) throw ownErr;
       const autoVerified = (own as { auto_verified?: boolean } | null)?.auto_verified === true;
 
+      /* Bind the captured identity and lock this number to the account. The
+         server decides whether everything needed is on file; it never
+         overwrites a binding that already exists. */
+      const bound = await bind.tryComplete();
+
       toast.success(existingMomo ? 'Payout number updated' : 'Payout number added', {
-        description: autoVerified
-          ? 'Your ID, your photo and this number all checked out — this number is now approved for payouts.'
-          : 'You confirmed the number with the code sent to it.',
+        description:
+          bound?.code === 'identity_captured'
+            ? 'Your identity details are saved and this number is now locked for your withdrawals.'
+            : autoVerified
+              ? 'This number is confirmed and ready for your withdrawals.'
+              : 'You confirmed the number with the code sent to it.',
       });
       setCode('');
       setCodeSentTo(null);
       otp.resetOtp();
       void list.refetch();
+      void binding.refetch();
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save payout number');
     } finally {
