@@ -15,6 +15,7 @@ import {
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
 import {
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
 
@@ -208,6 +209,7 @@ export function CFOAgentRequisitions() {
                   )}
 
                   {req.status === 'pending' && (
+                    <CfoApprovalGate>
                     <div className="space-y-3 pt-1">
                       <TreasuryImpactBanner payoutAmount={Number(req.amount)} />
                       <div className="flex gap-2">
@@ -231,6 +233,7 @@ export function CFOAgentRequisitions() {
                       </Button>
                       </div>
                     </div>
+                    </CfoApprovalGate>
                   )}
                 </CardContent>
               </Card>
