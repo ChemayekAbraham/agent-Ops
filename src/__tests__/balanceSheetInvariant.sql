@@ -165,8 +165,10 @@ BEGIN
         || 'is_legacy_counterpart boolean) LANGUAGE sql STABLE AS $x$'
         || replace(src, 'general_ledger', 'bs_gl') || '$x$';
 
-  FOR g, diff IN
-    WITH s(name, legs) AS (VALUES
+  INSERT INTO bs_sim (id, transaction_group_id, user_id, ledger_scope, category, direction,
+                      amount, wallet_bucket, source_table, classification, transaction_date,
+                      currency, created_at, maturity_met, maturity_expired)
+  WITH s(name, legs) AS (VALUES
       ('rent collection, agent holds the cash', jsonb_build_array(
         jsonb_build_object('sc','wallet','cat','agent_float_deposit','dir','cash_in','amt',200000,'bucket','float'),
         jsonb_build_object('sc','platform','cat','tenant_repayment','dir','cash_in','amt',200000))),
@@ -192,22 +194,19 @@ BEGIN
       ('company bank transfer', jsonb_build_array(
         jsonb_build_object('sc','platform','cat','treasury_bank_deposit','dir','cash_in','amt',900000),
         jsonb_build_object('sc','platform','cat','cash_at_bank_reclass','dir','cash_out','amt',900000)))
-    ), ins AS (
-      SELECT s.name, gen_random_uuid() gid, l FROM s, jsonb_array_elements(s.legs) l
-    ), w AS (
-      INSERT INTO bs_sim (id, transaction_group_id, user_id, ledger_scope, category, direction,
-                          amount, wallet_bucket, source_table, classification, transaction_date,
-                          currency, created_at, maturity_met, maturity_expired)
-      SELECT gen_random_uuid(), first_value(gid) OVER (PARTITION BY name), gen_random_uuid(),
-             l->>'sc', l->>'cat', l->>'dir', (l->>'amt')::numeric, l->>'bucket',
-             'regression_test', 'production', now(), 'UGX', now(), false, false
-      FROM ins
-      RETURNING transaction_group_id
-    )
+  ), gids AS (
+      SELECT s.name, gen_random_uuid() gid, s.legs FROM s
+  )
+  SELECT gen_random_uuid(), gids.gid, gen_random_uuid(),
+         l->>'sc', l->>'cat', l->>'dir', (l->>'amt')::numeric, l->>'bucket',
+         'regression_test', 'production', now(), 'UGX', now(), false, false
+  FROM gids, jsonb_array_elements(gids.legs) l;
+
+  FOR g, diff IN
     SELECT x.gid, x.d FROM (
       SELECT b.transaction_group_id gid, round(sum(b.dr - b.cr)) d
       FROM pg_temp.bs_sofp(now()) b
-      WHERE b.transaction_group_id IN (SELECT transaction_group_id FROM w)
+      WHERE b.source_table = 'regression_test'
       GROUP BY 1) x
     WHERE abs(x.d) > 0.5
   LOOP
