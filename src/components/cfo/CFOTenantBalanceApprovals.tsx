@@ -162,8 +162,8 @@ export function CFOTenantBalanceApprovals() {
                   </p>
                 )}
 
-                {r.can_decide ? (
-                  <>
+                {r.can_decide && (
+                  <CfoApprovalGate>
                     <Textarea
                       rows={2}
                       className="mt-2.5 text-sm"
@@ -181,12 +181,7 @@ export function CFOTenantBalanceApprovals() {
                         <X className="mr-1.5 h-4 w-4" /> Reject
                       </Button>
                     </div>
-                  </>
-                ) : (
-                  <p className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    Only the designated CFO approver can decide this.
-                  </p>
+                  </CfoApprovalGate>
                 )}
               </div>
             );
