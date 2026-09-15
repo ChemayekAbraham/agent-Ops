@@ -46,6 +46,15 @@ interface ReqEvent {
   created_at: string;
 }
 
+interface UsageReport {
+  id: string;
+  requisition_id: string;
+  amount_used: number;
+  summary: string;
+  submitted_at: string | null;
+  attachment_paths: string[] | null;
+}
+
 interface RouteInfo {
   department_id: string | null;
   department_name: string | null;
@@ -118,6 +127,7 @@ const MyRequisitions = () => {
   const [resubmitId, setResubmitId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [viewingPath, setViewingPath] = useState<string | null>(null);
+  const [usageReports, setUsageReports] = useState<Record<string, UsageReport>>({});
 
   const fetchRows = useCallback(async () => {
     const { data: userRes } = await supabase.auth.getUser();
@@ -136,7 +146,21 @@ const MyRequisitions = () => {
     if (reqRes.error) {
       toast.error('Could not load your requisitions', { description: reqRes.error.message });
     } else {
-      setRows((reqRes.data || []) as unknown as Requisition[]);
+      const list = (reqRes.data || []) as unknown as Requisition[];
+      setRows(list);
+
+      // One batched read for the accountability reports of every listed requisition.
+      if (list.length) {
+        const { data: reports } = await supabase
+          .from('staff_requisition_usage_reports')
+          .select('id, requisition_id, amount_used, summary, submitted_at, attachment_paths')
+          .in('requisition_id', list.map((r) => r.id));
+        const map: Record<string, UsageReport> = {};
+        for (const rep of (reports || []) as unknown as UsageReport[]) map[rep.requisition_id] = rep;
+        setUsageReports(map);
+      } else {
+        setUsageReports({});
+      }
     }
     if (!routeRes.error && routeRes.data) {
       const r = Array.isArray(routeRes.data) ? routeRes.data[0] : routeRes.data;
@@ -478,6 +502,38 @@ const MyRequisitions = () => {
                   <p className="mt-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-700">
                     {row.rejection_reason}
                   </p>
+                )}
+
+                {usageReports[row.id] && (
+                  <div className="mt-3 rounded-xl border bg-muted/30 p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <FileText className="h-4 w-4 text-emerald-600" /> Usage report submitted
+                    </p>
+                    <p className="mt-1 text-sm">
+                      Used {formatUGX(Number(usageReports[row.id].amount_used))} • {fmtDate(usageReports[row.id].submitted_at)}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                      {usageReports[row.id].summary}
+                    </p>
+                    {(usageReports[row.id].attachment_paths?.length ?? 0) > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {usageReports[row.id].attachment_paths!.map((path, i) => (
+                          <Button
+                            key={path}
+                            size="sm"
+                            variant="outline"
+                            disabled={viewingPath === path}
+                            onClick={() => void viewAttachment(row, path)}
+                          >
+                            {viewingPath === path
+                              ? <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              : <Paperclip className="mr-2 h-3 w-3" />}
+                            Report receipt {i + 1}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {(row.attachment_urls?.length ?? 0) > 0 && (

@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardCheck, Loader2, Wallet } from 'lucide-react';
+import { ClipboardCheck, Loader2, Paperclip, Wallet, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 
 /**
@@ -28,6 +29,10 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
  */
 
 const REMIND_INTERVAL_MS = 5 * 60 * 1000;
+
+/** Mirrors the limits enforced by the staff-requisition-add-attachment function. */
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+const MAX_BYTES = 10 * 1024 * 1024;
 
 interface PendingReq {
   id: string;
@@ -53,7 +58,21 @@ export function RequisitionUsageReportGate() {
   const [amountUsed, setAmountUsed] = useState('');
   const [summary, setSummary] = useState('');
   const [saving, setSaving] = useState(false);
+  const [receipt, setReceipt] = useState<File | null>(null);
   const loadedOnceRef = useRef(false);
+
+  const pickReceipt = (file: File | null) => {
+    if (!file) { setReceipt(null); return; }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error('Attach a PDF or a photo (JPG, PNG or WebP)');
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      toast.error('That file is larger than 10MB');
+      return;
+    }
+    setReceipt(file);
+  };
 
   const current = pending[0] ?? null;
   const approvedAmount = useMemo(
@@ -119,11 +138,28 @@ export function RequisitionUsageReportGate() {
     if (summary.trim().length < 20) { toast.error('Explain how the funds were used (at least 20 characters)'); return; }
 
     setSaving(true);
+
+    // Upload the receipt first (existing storage + auth path) so we never save a
+    // report that claims an attachment it does not have.
+    let attachmentPaths: string[] | null = null;
+    if (receipt) {
+      const form = new FormData();
+      form.append('requisition_id', current.id);
+      form.append('file', receipt);
+      const { data: up, error: upErr } = await invokeEdgeFunction<{ path: string }>(
+        'staff-requisition-add-attachment',
+        { body: form, errorTitle: 'Could not attach your receipt' },
+      );
+      if (upErr || !up?.path) { setSaving(false); return; }
+      attachmentPaths = [up.path];
+    }
+
     const { error } = await supabase.from('staff_requisition_usage_reports').insert({
       requisition_id: current.id,
       requester_id: user.id,
       amount_used: used,
       summary: summary.trim(),
+      attachment_paths: attachmentPaths,
     });
     setSaving(false);
 
@@ -135,6 +171,7 @@ export function RequisitionUsageReportGate() {
     toast.success('Usage report submitted');
     setAmountUsed('');
     setSummary('');
+    setReceipt(null);
     setShowForm(false);
     setOpen(false);
     await load();
@@ -195,6 +232,35 @@ export function RequisitionUsageReportGate() {
                   onChange={(e) => setSummary(e.target.value)}
                   placeholder="List what you paid for, to whom, and what it achieved (at least 20 characters)"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="usage-receipt">Receipt or supporting document (optional)</Label>
+                {receipt ? (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
+                    <span className="flex min-w-0 items-center gap-2 text-sm">
+                      <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{receipt.name}</span>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => setReceipt(null)}
+                      disabled={saving}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Input
+                    id="usage-receipt"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={(e) => { pickReceipt(e.target.files?.[0] ?? null); e.target.value = ''; }}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">Photo or PDF, up to 10MB.</p>
               </div>
             </div>
           )}
