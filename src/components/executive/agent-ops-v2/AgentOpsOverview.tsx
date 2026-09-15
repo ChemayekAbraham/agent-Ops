@@ -459,10 +459,14 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
 
 // ---------- Latest rent requests ----------
 
+type SortOption = 'newest' | 'oldest' | 'amount-high' | 'amount-low' | 'tenant-az' | 'agent-az';
+
 function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
   const [statusFilter, setStatusFilter] = useState('pending');
   const [dateFilter, setDateFilter] = useState('30');
-  const { data, isLoading } = useQuery({
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const { data: rawRows, isLoading } = useQuery({
     queryKey: ['agent-ops-latest-rent-requests', statusFilter, dateFilter],
     queryFn: async () => {
       let query = supabase
@@ -473,7 +477,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
       if (dateFilter !== 'all') {
         query = query.gte('created_at', subDays(new Date(), Number(dateFilter)).toISOString());
       }
-      const { data } = await query.limit(10);
+      const { data } = await query.limit(50);
       if (!data || data.length === 0) return [];
       const agentIds = Array.from(new Set(data.map((r: any) => r.agent_id).filter(Boolean)));
       const { data: links } = agentIds.length
@@ -503,6 +507,38 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
     staleTime: 60_000,
   });
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+
+  const data = useMemo(() => {
+    let rows = (rawRows || []).slice();
+    if (normalizedSearch) {
+      rows = rows.filter((r: any) =>
+        (r.tenant_name || '').toLowerCase().includes(normalizedSearch) ||
+        (r.agent_name || '').toLowerCase().includes(normalizedSearch) ||
+        (r.parent_agent_name || '').toLowerCase().includes(normalizedSearch) ||
+        String(r.rent_amount || '').includes(normalizedSearch)
+      );
+    }
+    rows.sort((a: any, b: any) => {
+      switch (sortBy) {
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'amount-high':
+          return Number(b.rent_amount || 0) - Number(a.rent_amount || 0);
+        case 'amount-low':
+          return Number(a.rent_amount || 0) - Number(b.rent_amount || 0);
+        case 'tenant-az':
+          return (a.tenant_name || '').localeCompare(b.tenant_name || '');
+        case 'agent-az':
+          return (a.agent_name || '').localeCompare(b.agent_name || '');
+        case 'newest':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+    return rows.slice(0, 10);
+  }, [rawRows, normalizedSearch, sortBy]);
+
   const statusTone = (s: string) =>
     ['rejected', 'deleted_by_agent'].includes(s) ? 'destructive'
       : ['repaying', 'funded', 'disbursed', 'approved'].includes(s) ? 'default'
@@ -525,7 +561,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
             View all <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="mb-2 grid grid-cols-2 gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by status">
               <SelectValue placeholder="Status" />
@@ -548,6 +584,32 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
               <SelectItem value="7">Last 7 days</SelectItem>
               <SelectItem value="30">Last 30 days</SelectItem>
               <SelectItem value="all">Any date</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tenant or agent..."
+              className="h-11 w-full rounded-md border border-input bg-background px-3 pl-9 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Search rent requests by tenant or agent"
+            />
+          </div>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+            <SelectTrigger className="h-11 text-sm min-w-[7.5rem]" aria-label="Sort rent requests">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest first</SelectItem>
+              <SelectItem value="oldest">Oldest first</SelectItem>
+              <SelectItem value="amount-high">Amount: high</SelectItem>
+              <SelectItem value="amount-low">Amount: low</SelectItem>
+              <SelectItem value="tenant-az">Tenant A–Z</SelectItem>
+              <SelectItem value="agent-az">Agent A–Z</SelectItem>
             </SelectContent>
           </Select>
         </div>
