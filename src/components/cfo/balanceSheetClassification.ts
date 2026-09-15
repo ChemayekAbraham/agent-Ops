@@ -48,7 +48,10 @@ export function accountCodeOf(line: PositionLine): string | null {
 /* ── Assets ────────────────────────────────────────────────────────────── */
 
 export const ASSET_CATEGORIES = [
-  'Cash and Bank Balances',
+  'Cash at Bank',
+  'Agent Float — Amounts with Agents',
+  'Cash in Custody — Not Yet Confirmed Banked',
+  'Agent and Merchant Float Cycle Control',
   'Receivables from Tenant Products and Services',
   'Receivables from Agent Products and Services',
   'Receivables from Landlord Products and Services',
@@ -60,6 +63,9 @@ export const ASSET_CATEGORIES = [
   'Intangible Assets',
   'Goodwill',
 ] as const;
+
+/** The bank line is A1 alone — float and custody are never bank cash. */
+export const CASH_AT_BANK_LABEL = 'Cash at Bank';
 
 /**
  * Only mappings that are unambiguous.
