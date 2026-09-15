@@ -608,7 +608,7 @@ export function PromissoryNotesQueue({
       doc.setFontSize(9);
       doc.setTextColor(100);
       doc.text(
-        `Exported ${format(new Date(), 'yyyy-MM-dd HH:mm')} · Filter: ${statusFilter} · ${exportRows.length.toLocaleString()} notes`,
+        `Exported ${format(new Date(), 'yyyy-MM-dd HH:mm')} · Filter: ${statusFilter === 'activated' ? 'approved' : statusFilter === 'cancelled' ? 'rejected' : statusFilter} · ${exportRows.length.toLocaleString()} notes`,
         14,
         20,
       );
