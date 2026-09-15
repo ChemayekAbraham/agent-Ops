@@ -122,22 +122,46 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
       setRequest(req as any);
 
       // Fetch related data in parallel
-      const profileIds = [req.tenant_id, req.agent_id, req.supporter_id].filter(Boolean) as string[];
+      const profileIds = [
+        req.tenant_id, req.agent_id, (req as any).assigned_agent_id, req.supporter_id,
+      ].filter(Boolean) as string[];
 
-      const [profilesRes, landlordRes, repaymentsRes, ledgerRes] = await Promise.all([
+      // One batched read per source — never one query per person.
+      const [profilesRes, landlordRes, repaymentsRes, ledgerRes, listingRes] = await Promise.all([
         profileIds.length > 0
-          ? supabase.from('profiles').select('id, full_name, phone, email').in('id', profileIds)
+          ? supabase
+              .from('profiles')
+              .select('id, full_name, phone, email, village, parish, sub_county, district, city')
+              .in('id', profileIds)
           : Promise.resolve({ data: [] }),
         supabase.from('landlords').select('name, phone, property_address, mobile_money_number, mobile_money_name').eq('id', req.landlord_id).single(),
         supabase.from('repayments').select('id, amount, created_at').eq('rent_request_id', requestId).order('created_at', { ascending: false }),
         supabase.from('general_ledger').select('id, amount, direction, category, description, transaction_date, reference_id').eq('source_id', requestId).order('transaction_date', { ascending: false }),
+        (req as any).house_listing_id
+          ? supabase.from('house_listings').select('address, village, district').eq('id', (req as any).house_listing_id).maybeSingle()
+          : Promise.resolve({ data: null }),
       ]);
 
+      const withResidence = (p: any): ProfileInfo | null => p ? ({
+        ...p,
+        residence: [p.village, p.parish, p.sub_county, p.district, p.city]
+          .map((s: string | null) => (s || '').trim()).filter(Boolean).join(', ') || null,
+      }) : null;
+
       const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
-      setTenant(profileMap.get(req.tenant_id) || null);
-      setAgent(req.agent_id ? profileMap.get(req.agent_id) || null : null);
-      setSupporter(req.supporter_id ? profileMap.get(req.supporter_id) || null : null);
+      setTenant(withResidence(profileMap.get(req.tenant_id)));
+      setAgent(req.agent_id ? withResidence(profileMap.get(req.agent_id)) : null);
+      const assignedId = (req as any).assigned_agent_id as string | null;
+      setAssignedAgent(assignedId && assignedId !== req.agent_id ? withResidence(profileMap.get(assignedId)) : null);
+      setSupporter(req.supporter_id ? withResidence(profileMap.get(req.supporter_id)) : null);
       setLandlord(landlordRes.data as any || null);
+      const listing = (listingRes as any)?.data;
+      setListingAddress(
+        listing
+          ? ([listing.address, listing.village, listing.district]
+              .map((s: string | null) => (s || '').trim()).filter(Boolean).join(', ') || null)
+          : null,
+      );
       setRepayments((repaymentsRes.data || []) as RepaymentEntry[]);
       setLedgerEntries((ledgerRes.data || []) as LedgerEntry[]);
       setLoading(false);
