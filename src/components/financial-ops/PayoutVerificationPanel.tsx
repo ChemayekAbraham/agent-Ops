@@ -76,6 +76,9 @@ import {
   last9,
   useAdoptNationalIdName,
   useHolderNameHistory,
+  useStoredIdReading,
+  sameIdNumber,
+  maskIdNumber,
   useDecidePayoutDestination,
   useRevertHolderName,
 
@@ -1207,6 +1210,9 @@ export default function PayoutVerificationPanel() {
           {row.name_match_score !== null && row.name_match_score < 0.8 && (
             <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
           )}
+
+          {/* What the reader stored off the card, with the matching checks */}
+          <StoredIdReadingCard row={row} />
 
           {/* Audit trail of name replacements */}
           <NameChangeHistory userId={row.user_id} />
