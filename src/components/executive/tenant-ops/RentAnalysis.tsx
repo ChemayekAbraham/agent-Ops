@@ -334,6 +334,10 @@ export function RentAnalysis() {
       summaries: selectedBand ? summaries.filter((summary) => summary.band.key === selectedBand.key) : summaries,
       rows: detailRows,
       selectedLabel: selectedBand ? selectedBand.label : 'All categories',
+      headline: overall,
+      behaviour,
+      distribution,
+      trend,
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -457,6 +461,81 @@ export function RentAnalysis() {
         <StatTile label="Paid in period" value={`${overall.paymentRate.toFixed(1)}%`} hint={`${overall.payingCount} of ${overall.tenantCount} tenants`} />
         <StatTile label="Outstanding balances" value={formatUGX(overall.outstanding)} hint="remaining on active plans" />
       </div>
+
+      <div className="grid gap-3 lg:grid-cols-5">
+        <Card className="overflow-hidden border-border/70 shadow-sm lg:col-span-2">
+          <CardHeader className="border-b bg-muted/30 pb-3">
+            <CardTitle className="text-sm font-semibold tracking-tight">Tenants by rent category</CardTitle>
+            <p className="text-[11px] text-muted-foreground">Tap a bar to filter every figure below to that category.</p>
+          </CardHeader>
+          <CardContent className="p-3">
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={distribution} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 9 }} interval={0} angle={-18} textAnchor="end" height={46} />
+                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={28} />
+                  <Tooltip
+                    contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                    formatter={(value: number, name) => [String(value), name === 'tenants' ? 'Tenants' : 'In arrears']}
+                  />
+                  <Bar dataKey="tenants" radius={[4, 4, 0, 0]} onClick={(entry: { key?: string }) => { if (entry?.key) { setSelectedBandKey(entry.key); setPage(0); } }}>
+                    {distribution.map((item) => (
+                      <Cell
+                        key={item.key}
+                        cursor="pointer"
+                        fill={selectedBandKey === item.key ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.35)'}
+                      />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="arrears" radius={[4, 4, 0, 0]} fill="hsl(var(--destructive) / 0.55)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-border/70 shadow-sm lg:col-span-3">
+          <CardHeader className="flex flex-col gap-1 border-b bg-muted/30 pb-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-sm font-semibold tracking-tight">Collections over the period</CardTitle>
+              <p className="text-[11px] text-muted-foreground">
+                {selectedBand ? selectedBand.label : 'All categories'} · {format(periodStart, 'dd MMM')} – {format(periodEnd, 'dd MMM yyyy')}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-[10px] text-emerald-600 dark:text-emerald-400">
+                On schedule {behaviour.onSchedule}
+              </Badge>
+              <Badge variant="outline" className="border-primary/40 bg-primary/10 text-[10px] text-primary">Ahead {behaviour.ahead}</Badge>
+              <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-[10px] text-destructive">
+                In arrears {behaviour.arrears}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3">
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={trendChart} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 9 }} minTickGap={16} />
+                  <YAxis yAxisId="amount" tick={{ fontSize: 9 }} width={44} tickFormatter={(value: number) => `${Math.round(value / 1000)}k`} />
+                  <YAxis yAxisId="count" orientation="right" tick={{ fontSize: 9 }} width={26} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                    formatter={(value: number, name) =>
+                      name === 'amount' ? [formatUGX(value), 'Collected'] : [String(value), 'Receipts']
+                    }
+                  />
+                  <Bar yAxisId="amount" dataKey="amount" radius={[3, 3, 0, 0]} fill="hsl(var(--primary) / 0.5)" />
+                  <Line yAxisId="count" type="monotone" dataKey="count" dot={false} strokeWidth={2} stroke="hsl(var(--primary))" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
 
       <Card className="overflow-hidden border-border/70 shadow-sm">
         <CardHeader className="border-b bg-muted/30 pb-3">
