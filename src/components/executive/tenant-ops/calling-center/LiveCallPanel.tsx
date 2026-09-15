@@ -5,12 +5,14 @@
  * `RecordOutcomeDialog`), so a call recorded here is indistinguishable from one
  * recorded in the Calling Hub.
  */
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Phone, PhoneOff, MessageCircle } from 'lucide-react';
+import { Mic, MicOff, Phone, PhoneOff, MessageCircle, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { startRingback, type RingbackHandle } from '@/lib/ringbackTone';
 import { describeHangupCause, formatTalkTime } from '@/lib/callCentre';
 import { isTerminalCallState, type CallState } from '@/hooks/useCrmVoiceCall';
 import { QUICK_OUTCOMES, ccErrorText, type CcCallingHub } from '@/hooks/useCcCallingHub';
@@ -47,6 +49,31 @@ export function LiveCallPanel({
 }) {
   const { current, call, needsOutcome, suggestion } = dialer;
 
+  const [soundOn, setSoundOn] = useState(true);
+  const ringbackRef = useRef<RingbackHandle | null>(null);
+
+  const stopRingback = useCallback(() => {
+    ringbackRef.current?.stop();
+    ringbackRef.current = null;
+  }, []);
+
+  const dialling =
+    call.state === 'initializing' || call.state === 'calling' || call.state === 'ringing';
+
+  /* Audible ringback while the far end rings — the same tone the CRM dialer uses,
+     so an officer can hear that the tenant's phone is actually ringing. */
+  useEffect(() => {
+    if (!(dialling && soundOn && !!current)) {
+      stopRingback();
+      return;
+    }
+    ringbackRef.current = startRingback(120);
+    return stopRingback;
+  }, [dialling, soundOn, current, stopRingback]);
+
+  /** A leaked oscillator would ring over the whole app. */
+  useEffect(() => stopRingback, [stopRingback]);
+
   if (!current) {
     return (
       <Card className="p-8 text-center">
@@ -61,9 +88,7 @@ export function LiveCallPanel({
     );
   }
 
-
   const ended = isTerminalCallState(call.state);
-  const dialling = call.state === 'initializing' || call.state === 'calling' || call.state === 'ringing';
   const statusLine =
     call.state === 'connected'
       ? formatTalkTime(call.elapsed)
@@ -142,7 +167,7 @@ export function LiveCallPanel({
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-3 border-y border-border/60 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-center gap-3 border-y border-border/60 px-4 py-3">
         <Button
           type="button"
           variant="outline"
@@ -154,6 +179,18 @@ export function LiveCallPanel({
           aria-pressed={call.muted}
         >
           {call.muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 rounded-full"
+          onClick={() => setSoundOn((s) => !s)}
+          aria-label={soundOn ? 'Mute ringing tone' : 'Unmute ringing tone'}
+          aria-pressed={!soundOn}
+        >
+          {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
         </Button>
 
         {!ended ? (
