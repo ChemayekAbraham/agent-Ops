@@ -90,7 +90,13 @@ export function useOtpVerification() {
     // Ran out of attempts; leave status as 'pending' (code may still arrive).
   }, []);
 
-  const sendOtp = useCallback(async (phone: string) => {
+  /**
+   * `extra` lets a caller tell the backend what the code is FOR, so the SMS can
+   * carry the wording that fits that flow (e.g. payout-number confirmation)
+   * instead of the generic verification sentence. It never changes the code,
+   * its storage or the rate limits.
+   */
+  const sendOtp = useCallback(async (phone: string, extra?: Record<string, unknown>) => {
     // Hard guard: never fire an overlapping send while a cooldown is active or
     // another request is in flight. Keeps duplicate SMS sends from being queued.
     if (cooldownSeconds > 0) {
