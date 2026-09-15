@@ -1284,6 +1284,13 @@ export default function PayoutVerificationPanel() {
             <HeroPhoto label="National ID" path={idPath} onOpen={(url, label) => setLightbox({ url, label })} />
           </div>
 
+          <PriorSubmissions
+            userId={row.user_id}
+            currentIdPath={idPath}
+            currentSelfiePath={selfiePath}
+            onOpen={(url, label) => setLightbox({ url, label })}
+          />
+
           {/* Glanceable match strip */}
           <div className="mx-5 flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3">
             {(() => {
