@@ -862,6 +862,13 @@
       "when": 1789496336920,
       "tag": "0122_drop_back_of_national_id_verify_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1789497783897,
+      "tag": "0123_withdrawal_gate_allow_pending_verification",
+      "breakpoints": true
     }
   ]
 }
