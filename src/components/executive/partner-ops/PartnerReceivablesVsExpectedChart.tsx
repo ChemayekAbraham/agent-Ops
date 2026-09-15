@@ -96,37 +96,49 @@ export function PartnerReceivablesVsExpectedChart() {
 
   const range = useMemo(() => resolveRange(rangeKey, custom), [rangeKey, custom]);
 
+  // A window of one day is charted hour by hour so single-day filters still show a shape.
+  const hourly = useMemo(() => {
+    const { start, end } = range;
+    return Math.round((end.getTime() - start.getTime()) / 86_400_000) === 0;
+  }, [range]);
+
   const rows = useMemo<Point[]>(() => {
     const { start, end } = range;
-    // Daily deltas keyed by note creation day.
+    const windowEnd = new Date(end);
+    windowEnd.setHours(23, 59, 59, 999);
+
     const received = new Map<string, number>();
     const expected = new Map<string, number>();
-    let baseReceived = 0;
-    let baseExpected = 0;
 
     for (const n of notes ?? []) {
       const created = new Date(n.created_at);
-      const createdDay = new Date(created);
-      createdDay.setHours(0, 0, 0, 0);
-      const key = isoDay(created);
+      if (created < start || created > windowEnd) continue;
+
       const cameIn = Boolean(n.came_in);
       const collected = Number(n.total_collected) || 0;
       const promised = Number(n.amount) || 0;
       const openAmount = cameIn ? 0 : Math.max(promised - collected, 0);
       const receivedAmount = cameIn ? (collected > 0 ? collected : promised) : collected;
 
-      if (createdDay < start) {
-        baseReceived += receivedAmount;
-        baseExpected += openAmount;
-        continue;
-      }
+      const key = hourly ? String(created.getHours()) : isoDay(created);
       received.set(key, (received.get(key) || 0) + receivedAmount);
       expected.set(key, (expected.get(key) || 0) + openAmount);
     }
 
     const out: Point[] = [];
-    let runReceived = baseReceived;
-    let runExpected = baseExpected;
+    let runReceived = 0;
+    let runExpected = 0;
+
+    if (hourly) {
+      for (let h = 0; h < 24; h += 1) {
+        const key = String(h);
+        runReceived += received.get(key) || 0;
+        runExpected += expected.get(key) || 0;
+        out.push({ day: `h${h}`, receivables: Math.round(runReceived), expected: Math.round(runExpected) });
+      }
+      return out;
+    }
+
     for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const key = isoDay(d);
       runReceived += received.get(key) || 0;
@@ -134,9 +146,13 @@ export function PartnerReceivablesVsExpectedChart() {
       out.push({ day: key, receivables: Math.round(runReceived), expected: Math.round(runExpected) });
     }
     return out;
-  }, [notes, range]);
+  }, [notes, range, hourly]);
 
   const last = rows[rows.length - 1];
+  const hasActivity = (last?.receivables ?? 0) > 0 || (last?.expected ?? 0) > 0;
+
+  const tickLabel = (v: string) =>
+    hourly ? `${String(v).replace('h', '').padStart(2, '0')}:00` : shortDay(v);
 
   const customLabel =
     rangeKey === 'custom' && custom?.from
