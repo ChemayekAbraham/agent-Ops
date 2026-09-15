@@ -63,8 +63,9 @@ interface NonOfficerFunded {
 
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+// The reporting week runs Wednesday → Tuesday, so the day columns start on Wed.
+const WEEKDAY_LABELS = ['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'];
+const WEEKDAY_INITIALS = ['W', 'T', 'F', 'S', 'S', 'M', 'T'];
 
 function getKampalaParts(d: Date): { year: number; month: number; day: number } {
   const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -114,13 +115,29 @@ function formatUgxCompact(v: number): string {
   return `UGX ${v.toLocaleString('en-UG')}`;
 }
 
-// 0 = Monday. Local getters on a midday anchor, never UTC getters.
+// 0 = Wednesday (the first day of the reporting week).
+// Local getters on a midday anchor, never UTC getters.
 function kampalaWeekdayIndex(day: string): number {
   const d = new Date(`${day}T12:00:00`);
-  return (d.getDay() + 6) % 7;
+  return (d.getDay() + 4) % 7;
 }
 
-function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to: string; label: string } {
+function addDays(d: Date, n: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + n);
+  return next;
+}
+
+// Wednesday that opens the reporting week containing `day`.
+function startOfReportingWeek(day: Date): Date {
+  return addDays(day, -((day.getDay() + 4) % 7));
+}
+
+function getWindowDates(
+  mode: WindowMode,
+  todayStr: string,
+  weekOffset = 0,
+): { from: string; to: string; label: string } {
   const today = new Date(`${todayStr}T12:00:00`);
 
   if (mode === 'DAILY') {
@@ -128,11 +145,15 @@ function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to:
   }
 
   if (mode === 'WEEKLY') {
-    const mondayStr = formatKampalaDate(startOfISOWeek(today));
+    const start = addDays(startOfReportingWeek(today), weekOffset * 7);
+    const end = addDays(start, 6);
+    const startStr = formatKampalaDate(start);
+    // The live week stops at today; a past week shows its full Wed–Tue span.
+    const endStr = end > today ? todayStr : formatKampalaDate(end);
     return {
-      from: mondayStr,
-      to: todayStr,
-      label: `WEEKLY · ${formatKampalaDisplay(mondayStr)} – ${formatKampalaDisplay(todayStr)}`,
+      from: startStr,
+      to: endStr,
+      label: `WEEKLY · ${formatKampalaDisplay(startStr)} – ${formatKampalaDisplay(endStr)}`,
     };
   }
 
@@ -192,6 +213,8 @@ interface PersonSummary {
 export default function PlatformSalesOfficersPage() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
+  // 0 = the live Wed–Tue week, -1 = the week before it, and so on.
+  const [weekOffset, setWeekOffset] = useState(0);
 
   // The Kampala calendar date is state, not a one-off computation, so a screen
   // left open rolls its window over at 00:00 EAT without a reload.
@@ -205,8 +228,15 @@ export default function PlatformSalesOfficersPage() {
     return () => clearInterval(id);
   }, []);
 
-  const { from, to, label } = useMemo(() => getWindowDates(mode, todayStr), [mode, todayStr]);
-  const todayWeekday = useMemo(() => kampalaWeekdayIndex(todayStr), [todayStr]);
+  const { from, to, label } = useMemo(
+    () => getWindowDates(mode, todayStr, weekOffset),
+    [mode, todayStr, weekOffset],
+  );
+  // Only the live week highlights today's column.
+  const todayWeekday = useMemo(
+    () => (mode === 'WEEKLY' && weekOffset !== 0 ? -1 : kampalaWeekdayIndex(todayStr)),
+    [mode, weekOffset, todayStr],
+  );
 
   const {
     data: rows = [],
@@ -410,15 +440,53 @@ export default function PlatformSalesOfficersPage() {
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {label}
             </span>
-            <span className="text-[11px] text-muted-foreground">live · refreshes every minute</span>
+            <span className="text-[11px] text-muted-foreground">
+              {mode === 'WEEKLY' && weekOffset !== 0
+                ? 'past week · Wed to Tue'
+                : 'live · refreshes every minute'}
+            </span>
           </div>
+
+          {mode === 'WEEKLY' && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setWeekOffset((w) => w - 1)}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                className="min-h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Previous week"
+              >
+                ← Previous week
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeekOffset((w) => Math.min(0, w + 1))}
+                disabled={weekOffset >= 0}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                className="min-h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                aria-label="Next week"
+              >
+                Next week →
+              </button>
+              {weekOffset !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => setWeekOffset(0)}
+                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                  className="min-h-9 rounded-md border px-3 text-xs font-semibold text-foreground"
+                >
+                  This week
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="grid w-full grid-cols-3 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
             {(['DAILY', 'WEEKLY', 'MONTHLY'] as WindowMode[]).map((m) => (
               <button
                 key={m}
                 type="button"
-                onClick={() => setMode(m)}
+                onClick={() => { setMode(m); if (m !== 'WEEKLY') setWeekOffset(0); }}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={cn(
                   'min-h-11 px-3 text-xs font-semibold tracking-wide rounded-md transition-colors',
