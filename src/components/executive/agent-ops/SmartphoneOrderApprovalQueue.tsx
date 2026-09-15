@@ -1046,6 +1046,18 @@ export function SmartphoneOrderApprovalQueue({
                 )}
               </div>
 
+              {approveStage === 'cfo' && (
+                <SmartphoneRepaymentBreakdown
+                  amount={approveTarget.total_amount}
+                  months={approveTarget.advance_period_months}
+                  startsOn={approveTarget.repayment_starts_on}
+                  storedTotalRepayable={approveTarget.total_repayable}
+                  storedDays={approveTarget.access_repayment_days}
+                />
+              )}
+
+
+
               {isReviewStage && (
                 <>
                   <div className="space-y-1">
