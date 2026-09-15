@@ -886,6 +886,57 @@ export default function PayoutVerificationPanel() {
     }
   };
 
+  // ---------------------------------------------------------------------
+  // Automatic verification.
+  //
+  // When all three machine checks on the case pass — the ID number read off
+  // the card is the number they typed, the selfie passed the face check, and
+  // the payout number itself passed the SMS ownership code — there is nothing
+  // left for a reviewer to add, so the case verifies itself. Every existing
+  // guard still applies: the decision goes through the same server function,
+  // which independently refuses double submissions, duplicate National IDs,
+  // an unreadable ID name and a missing back-of-ID.
+  // ---------------------------------------------------------------------
+  const reading = useStoredIdReading(row?.user_id);
+  const numberConfirmed = usePayoutNumberOtpConfirmed(row?.id);
+  const autoDoneRef = useRef<string | null>(null);
+
+  const autoChecksPass =
+    !!row &&
+    row.status === 'waiting' &&
+    !verifyBlocked &&
+    !!reading.data &&
+    sameIdNumber(reading.data.nin, row.national_id) === true &&
+    reading.data.faceVerified === true &&
+    numberConfirmed.data === true;
+
+  useEffect(() => {
+    if (!row || !autoChecksPass) return;
+    if (autoDoneRef.current === row.id) return;
+    autoDoneRef.current = row.id;
+    void (async () => {
+      try {
+        await quickVerify.mutateAsync({
+          id: row.id,
+          userId: row.user_id,
+          decision: 'verified',
+          reason:
+            'Automatically verified: the ID number read off the card matches the number given, the selfie passed the face check, and the payout number was confirmed with the code sent to it.',
+        });
+        toast.success('Verified automatically — ID number, selfie and payout number code all passed.');
+        if (position > 1 && position >= total) goTo(position - 2);
+        queue.refetch();
+        counts.refetch();
+      } catch (e) {
+        autoDoneRef.current = null;
+        toast.error(e instanceof Error ? e.message : 'Could not verify this case automatically.');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row?.id, autoChecksPass]);
+
+
+
 
   return (
     <div className="space-y-3">
