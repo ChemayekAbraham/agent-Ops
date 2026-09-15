@@ -180,17 +180,39 @@ Deno.serve(async (req) => {
     const rawFields = (payload.fields ?? {}) as Record<string, IdField>;
 
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-    const data = {
-      surname: str(rawData.surname),
-      given_name: str(rawData.given_name),
-      nin: str(rawData.nin).toUpperCase(),
-      date_of_birth: str(rawData.date_of_birth), // already ISO — never re-parse
-      card_number: str(rawData.card_number),
-      sex: str(rawData.sex).toUpperCase(),
+
+    /* PassGate puts every field it saw under `fields`, and only fields that
+       pass their format check under `data` (a full `data` object may be absent
+       entirely). A refused field must still reach the screen so the person
+       confirms or corrects it instead of typing blind — so `data` falls back
+       to the field's own value, cleaned the way the input itself enforces. */
+    const fromField = (key: string) => str(rawFields[key]?.value) || str(rawFields[key]?.raw);
+
+    /* The field value is already ISO; the printed `raw` is DD.MM.YYYY. */
+    const toIso = (v: string): string => {
+      const s = v.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const m = /^(\d{1,2})[.\/\- ](\d{1,2})[.\/\- ](\d{4})$/.exec(s);
+      if (!m) return "";
+      const [, d, mo, y] = m;
+      return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
     };
 
-    // Only the flags the screen branches on. `raw` is deliberately dropped.
-    const fields: Record<string, { valid: boolean; confidence: number | null; note: string | null }> = {};
+    const data = {
+      surname: (str(rawData.surname) || fromField("surname")).toUpperCase(),
+      given_name: (str(rawData.given_name) || fromField("given_name")).toUpperCase(),
+      nin: (str(rawData.nin) || fromField("nin")).toUpperCase().replace(/[^A-Z0-9]/g, ""),
+      date_of_birth: toIso(str(rawData.date_of_birth) || fromField("date_of_birth")),
+      card_number: (str(rawData.card_number) || fromField("card_number")).replace(/[^0-9]/g, ""),
+      sex: (str(rawData.sex) || fromField("sex")).toUpperCase().replace(/[^MF]/g, "").slice(0, 1),
+    };
+
+    // The flags the screen branches on, plus what the reader saw so the screen
+    // can prefill and mark a refused field "not sure — check it".
+    const fields: Record<
+      string,
+      { valid: boolean; confidence: number | null; note: string | null; value: string | null; raw: string | null }
+    > = {};
     for (const key of REQUIRED_FIELDS) {
       const f = rawFields[key];
       if (!f) continue;
@@ -198,6 +220,8 @@ Deno.serve(async (req) => {
         valid: f.valid === true,
         confidence: typeof f.confidence === "number" ? f.confidence : null,
         note: typeof f.note === "string" ? f.note : null,
+        value: str(f.value) || null,
+        raw: str(f.raw) || null,
       };
     }
 
