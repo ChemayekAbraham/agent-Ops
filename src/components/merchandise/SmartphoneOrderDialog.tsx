@@ -25,7 +25,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { useSmartphoneCatalog, type SmartphoneOsType, type SmartphoneCatalogEntry } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { SMARTPHONE_PERIODS as PERIODS, smartphoneSchedule } from '@/lib/smartphoneAdvance';
-import { MO_BANJA } from '@/lib/moBanjaIphone';
+import { downPaymentCopy } from '@/lib/moBanjaIphone';
 
 const db = supabase as any;
 
@@ -91,6 +91,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
 
   const selected = options.find((c) => c.id === catalogId);
+  const dpCopy = downPaymentCopy(selected?.brand ?? (osType === 'ios' ? 'Apple' : 'Android'), selected?.model_name);
   const price = Math.max(0, Math.round(Number(selected?.default_amount ?? 0)));
 
   useEffect(() => {
@@ -250,24 +251,26 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </Select>
             </div>
 
-            {osType === 'ios' && (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
-                <p className="text-xs font-semibold">How the {MO_BANJA.partner} iPhone works</p>
-                <p className="text-[11px] text-muted-foreground">{MO_BANJA.amountNote}</p>
-                <ul className="space-y-1 text-[11px] text-muted-foreground">
-                  {MO_BANJA.twoLegs.map((line) => (
-                    <li key={line} className="flex gap-1.5">
-                      <span className="text-primary">•</span>
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+              <p className="text-xs font-semibold">
+                {dpCopy.partner ? `How the ${dpCopy.partner} iPhone works` : 'How this phone works'}
+              </p>
+              <p className="text-[11px] text-muted-foreground">{dpCopy.amountNote}</p>
+              <ul className="space-y-1 text-[11px] text-muted-foreground">
+                {dpCopy.twoLegs.map((line) => (
+                  <li key={line} className="flex gap-1.5">
+                    <span className="text-primary">•</span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+              {dpCopy.lockNotice && (
                 <p className="text-[11px] text-muted-foreground flex gap-1.5">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                  <span>{MO_BANJA.lockNotice}</span>
+                  <span>{dpCopy.lockNotice}</span>
                 </p>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label className="text-xs">Payment method</Label>
@@ -352,7 +355,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             {paymentMethod === 'full' && price > 0 && (
               <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
                 <p className="text-xs text-muted-foreground">
-                  {osType === 'ios' ? `${MO_BANJA.amountLabel} — due in full` : 'Amount due in full'}
+                  {dpCopy.amountLabel} — due in full
                 </p>
                 <p className="text-2xl font-bold tabular-nums">{formatUGX(price)}</p>
                 <p className="text-[11px] text-muted-foreground">
@@ -365,7 +368,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
                 <div className="text-center space-y-1">
                   <p className="text-xs text-muted-foreground">
-                    {osType === 'ios' ? 'Daily repayment to Welile — first month' : 'Daily repayment — first month'}
+                    Daily repayment to Welile — first month
                   </p>
                   <p className="text-2xl font-bold tabular-nums text-green-600">
                     {formatUGX(dailyAmount)}
@@ -375,9 +378,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                     Reduces to {formatUGX(lastDaily)}/day in your last month · {scheduleDays} days ·{' '}
                     {formatUGX(totalRepayable)} in total. Deductions start 7 days after your phone is
                     released.
-                    {osType === 'ios'
-                      ? ` This covers Welile only — you also pay ${MO_BANJA.partner} weekly, directly to them.`
-                      : ''}
+                    {` This covers the Welile down payment only — you also repay ${
+                      dpCopy.partner ?? 'the supplier'
+                    } on their own plan, directly to them.`}
                   </p>
                 </div>
 

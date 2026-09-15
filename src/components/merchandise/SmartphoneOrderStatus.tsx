@@ -32,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import DeviceAccessDialog from '@/components/merchandise/DeviceAccessDialog';
-import { isMoBanjaIphone, MO_BANJA } from '@/lib/moBanjaIphone';
+import { downPaymentCopy } from '@/lib/moBanjaIphone';
 
 
 const db = supabase as any;
@@ -468,24 +468,27 @@ export default function SmartphoneOrderStatus({
                     </div>
                   </div>
                 )}
-                {isMoBanjaIphone(null, o.item_name) && (
-                  <div className="rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-2 space-y-1">
-                    <p className="text-[11px] font-semibold">
-                      {MO_BANJA.partner} iPhone — two payments
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">{MO_BANJA.amountNote}</p>
-                    <ul className="space-y-0.5 text-[11px] text-muted-foreground">
-                      {MO_BANJA.twoLegs.map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                    <p className="text-[11px] text-muted-foreground">{MO_BANJA.lockNotice}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Welile pays the down payment straight to the supplier. The daily repayment stays yours —
-                      it is deducted from your wallet or commission.
-                    </p>
-                  </div>
-                )}
+                {(() => {
+                  const copy = downPaymentCopy(null, o.item_name);
+                  return (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-2 space-y-1">
+                      <p className="text-[11px] font-semibold">{copy.title}</p>
+                      <p className="text-[11px] text-muted-foreground">{copy.amountNote}</p>
+                      <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+                        {copy.twoLegs.map((line) => (
+                          <li key={line}>• {line}</li>
+                        ))}
+                      </ul>
+                      {copy.lockNotice && (
+                        <p className="text-[11px] text-muted-foreground">{copy.lockNotice}</p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Welile pays the down payment straight to the supplier. The daily repayment stays yours —
+                        it is deducted from your wallet or commission.
+                      </p>
+                    </div>
+                  );
+                })()}
                 {status === 'rejected' && (
                   <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-2">
                     <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />

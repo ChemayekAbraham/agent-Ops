@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
-import type { RentBandSummary, TenantRentRow } from './rentAnalysis';
+import type { RentBandSummary, RentTrendPoint, TenantRentRow } from './rentAnalysis';
 
 export interface RentAnalysisPdfInput {
   /** Reporting period actually applied to receipt figures. */
@@ -15,6 +15,13 @@ export interface RentAnalysisPdfInput {
   /** Tenant detail for the selected category, already filtered and sorted. */
   rows: TenantRentRow[];
   selectedLabel: string;
+  /** Headline figures for exactly the filtered population. */
+  headline: RentBandSummary;
+  behaviour: { onSchedule: number; ahead: number; arrears: number };
+  /** Rent-category distribution as shown on screen. */
+  distribution: { key: string; label: string; tenants: number; arrears: number; totalRent: number }[];
+  /** Daily receipts for the filtered population over the selected period. */
+  trend: RentTrendPoint[];
 }
 
 const COL = {
@@ -74,7 +81,109 @@ export function generateRentAnalysisPdf(input: RentAnalysisPdfInput): Blob {
     doc.text(line, margin, y);
     y += 4;
   });
-  y += 3;
+  y += 4;
+
+  // Summary cards — the same headline figures as the screen, for this filter
+  const cards: { label: string; value: string; hint: string; danger?: boolean }[] = [
+    { label: 'ACTIVE TENANTS', value: num(input.headline.tenantCount), hint: `${num(input.headline.dailyCount)} daily / ${num(input.headline.weeklyCount)} weekly` },
+    { label: 'TOTAL MONTHLY RENT', value: num(input.headline.totalRent), hint: `avg ${num(input.headline.averageRent)} | median ${num(input.headline.medianRent)}` },
+    { label: 'COLLECTED IN PERIOD', value: num(input.headline.paidInPeriod), hint: `${num(input.headline.paymentsInPeriod)} receipts` },
+    { label: 'TENANTS IN ARREARS', value: num(input.headline.arrearsCount), hint: `${num(input.headline.arrearsAmount)} UGX outstanding to date`, danger: input.headline.arrearsCount > 0 },
+    { label: 'PAID IN PERIOD', value: pct(input.headline.paymentRate), hint: `${num(input.headline.payingCount)} of ${num(input.headline.tenantCount)} tenants` },
+    { label: 'OUTSTANDING BALANCES', value: num(input.headline.outstanding), hint: `adherence ${pct(input.headline.scheduleAdherence)}` },
+  ];
+  const cardW = (contentW - 5 * 3) / 6;
+  cards.forEach((card, index) => {
+    const x = margin + index * (cardW + 3);
+    doc.setFillColor(248, 249, 252);
+    doc.setDrawColor(...COL.border);
+    doc.roundedRect(x, y, cardW, 17, 1.5, 1.5, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6);
+    doc.setTextColor(...COL.muted);
+    doc.text(card.label, x + 2.5, y + 4.5);
+    doc.setFontSize(11);
+    if (card.danger) doc.setTextColor(...COL.red);
+    else doc.setTextColor(...COL.ink);
+    doc.text(card.value, x + 2.5, y + 10.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(...COL.muted);
+    doc.text(card.hint.slice(0, 46), x + 2.5, y + 14.5);
+  });
+  y += 22;
+
+  // Charts — distribution and daily collections, both for this exact filter
+  const chartH = 34;
+  const chartW = (contentW - 4) / 2;
+  const drawChartFrame = (x: number, title: string) => {
+    doc.setDrawColor(...COL.border);
+    doc.roundedRect(x, y, chartW, chartH + 10, 1.5, 1.5, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...COL.ink);
+    doc.text(title, x + 3, y + 5);
+  };
+
+  newPageIfNeeded(chartH + 16);
+  drawChartFrame(margin, 'TENANTS BY RENT CATEGORY');
+  const distMax = Math.max(1, ...input.distribution.map((item) => item.tenants));
+  const distSlot = (chartW - 8) / Math.max(1, input.distribution.length);
+  input.distribution.forEach((item, index) => {
+    const barW = Math.min(14, distSlot - 4);
+    const x = margin + 4 + index * distSlot + (distSlot - barW) / 2;
+    const h = (item.tenants / distMax) * chartH;
+    const base = y + 7 + chartH;
+    doc.setFillColor(59, 130, 246);
+    doc.rect(x, base - h, barW, h, 'F');
+    if (item.arrears > 0) {
+      const ah = (item.arrears / distMax) * chartH;
+      doc.setFillColor(...COL.red);
+      doc.rect(x + barW - 3, base - ah, 3, ah, 'F');
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.5);
+    doc.setTextColor(...COL.ink);
+    doc.text(num(item.tenants), x + barW / 2, base - h - 1, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COL.muted);
+    doc.text(item.label.replace(/,000/g, 'k').slice(0, 16), x + barW / 2, base + 3.5, { align: 'center' });
+  });
+
+  drawChartFrame(margin + chartW + 4, 'COLLECTED PER DAY IN THE PERIOD');
+  const trendMax = Math.max(1, ...input.trend.map((point) => point.amount));
+  const trendSlot = (chartW - 8) / Math.max(1, input.trend.length);
+  input.trend.forEach((point, index) => {
+    const x = margin + chartW + 8 + index * trendSlot;
+    const h = (point.amount / trendMax) * chartH;
+    const base = y + 7 + chartH;
+    doc.setFillColor(59, 130, 246);
+    doc.rect(x, base - h, Math.max(0.8, trendSlot - 0.8), h, 'F');
+    const step = Math.ceil(input.trend.length / 8);
+    if (index % step === 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(...COL.muted);
+      doc.text(format(new Date(`${point.day}T00:00:00`), 'dd MMM'), x, base + 3.5);
+    }
+  });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
+  doc.setTextColor(...COL.muted);
+  doc.text(`Peak day ${num(trendMax)} UGX`, margin + chartW * 2 + 1, y + 5, { align: 'right' });
+  y += chartH + 15;
+
+  // Payment behaviour line
+  newPageIfNeeded(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...COL.muted);
+  doc.text(
+    `Payment behaviour: ${num(input.behaviour.onSchedule)} on schedule | ${num(input.behaviour.ahead)} ahead of schedule | ${num(input.behaviour.arrears)} in arrears | average gap between receipts ${input.headline.averageGapDays === null ? 'not enough receipts' : `${input.headline.averageGapDays.toFixed(1)} days`}.`,
+    margin,
+    y,
+  );
+  y += 7;
 
   // Category table
   const headers = ['Rent category', 'Tenants', 'Total rent', 'Avg rent', 'In arrears', 'Arrears UGX', 'Paid in period', 'Receipts', 'Paying %', 'Adherence', 'Avg gap', 'Outstanding'];

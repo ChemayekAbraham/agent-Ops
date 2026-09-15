@@ -31,6 +31,7 @@ import { CollectionsProjectionPanel } from '@/components/executive/tenant-ops/Co
 
 
 const ALL_PRODUCTS = '__all__';
+const ALL_CATEGORIES = '__all__';
 const TENANT_CATEGORY_LABEL = 'Tenant Products & Services';
 const TENANT_PRODUCTS = [
   { key: 'rent_plan', label: 'Rent Access Plans', projectionAvailable: true },
@@ -40,6 +41,7 @@ const TENANT_PRODUCTS = [
 
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>(ALL_CATEGORIES);
   const [productFilter, setProductFilter] = useState<string>(ALL_PRODUCTS);
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
   const total = useReceivablesTotal();
@@ -63,6 +65,16 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
     }),
     [tenantCategory],
   );
+
+  /** Categories sorted with the tenant book pinned first, for the category drill-down. */
+  const sortedCategories = useMemo(() => {
+    const cats = breakdown.data?.categories ?? [];
+    return cats.slice().sort((a, b) => {
+      if (a.label === TENANT_CATEGORY_LABEL && b.label !== TENANT_CATEGORY_LABEL) return -1;
+      if (b.label === TENANT_CATEGORY_LABEL && a.label !== TENANT_CATEGORY_LABEL) return 1;
+      return 0;
+    });
+  }, [breakdown.data]);
 
   /** Flat list of every product/service across categories, for the filter. */
   const productOptions = useMemo(() => {
@@ -163,6 +175,53 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             )}
           </div>
 
+          {/* Category drill-down */}
+          {sortedCategories.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
+              <Select
+                value={categoryFilter}
+                onValueChange={(v) => {
+                  setCategoryFilter(v);
+                  if (v !== ALL_CATEGORIES) {
+                    setOpenCategory(v);
+                    const cat = sortedCategories.find((c) => c.key === v);
+                    if (cat?.label === TENANT_CATEGORY_LABEL) {
+                      setTenantModalOpen(true);
+                    }
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 flex-1 text-xs">
+                  <SelectValue placeholder="All categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_CATEGORIES} className="text-xs">
+                    All categories
+                  </SelectItem>
+                  {sortedCategories.map((cat) => (
+                    <SelectItem key={cat.key} value={cat.key} className="text-xs">
+                      {cat.label} · {formatUGX(cat.outstanding)} · {breakdown.data && breakdown.data.total > 0
+                        ? `${((cat.outstanding / breakdown.data.total) * 100).toFixed(1)}%`
+                        : '0.0%'} · {cat.item_count} item{cat.item_count === 1 ? '' : 's'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {categoryFilter !== ALL_CATEGORIES && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-[11px] shrink-0"
+                  onClick={() => setCategoryFilter(ALL_CATEGORIES)}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
+
           {/* Product / service filter */}
           {productOptions.length > 0 && (
             <div className="flex items-center gap-2">
@@ -218,14 +277,8 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           )}
 
           <div className="space-y-2">
-            {breakdown.data?.categories
-              .slice()
-              .sort((a, b) => {
-                const pinned = TENANT_CATEGORY_LABEL;
-                if (a.label === pinned && b.label !== pinned) return -1;
-                if (b.label === pinned && a.label !== pinned) return 1;
-                return 0;
-              })
+            {sortedCategories
+              .filter((cat) => categoryFilter === ALL_CATEGORIES || cat.key === categoryFilter)
               .map((cat) => {
                 const sourceProducts = cat.label === TENANT_CATEGORY_LABEL ? tenantProducts : cat.products;
                 const products =

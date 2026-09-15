@@ -27,6 +27,7 @@ import DestinationVerificationTimeline from '@/components/payments/DestinationVe
 import NationalIdPrompt, { useMyNationalId } from '@/components/wallet/NationalIdPrompt';
 import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
 import { useMyIdentityPhotos } from '@/hooks/useIdentityPhotos';
+import { useIsPurePartner } from '@/hooks/useIsPurePartner';
 import NationalIdRejectedReminder from '@/components/wallet/NationalIdRejectedReminder';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Star } from 'lucide-react';
@@ -115,6 +116,11 @@ export default function WithdrawFlow({
     !myNationalId.isLoading &&
     !myNationalId.isFetching &&
     !myNationalId.data?.national_id;
+  // Pure partners (one or more portfolios, no agent activity) are exempt from
+  // the payout-destination / identity verification gate SERVER-SIDE
+  // (`withdrawal_destination_gate` → `user_is_pure_partner`). We call the very
+  // same function here so this dialog never demands a step the server waives.
+  const { isPurePartner, isLoading: purePartnerLoading } = useIsPurePartner(user?.id);
   // Identity photos: the ORIGINAL National ID shot and selfie must be archived
   // for Financial Ops before a payout destination can be verified.
   const myIdentityPhotos = useMyIdentityPhotos();
@@ -122,6 +128,8 @@ export default function WithdrawFlow({
     !!user?.id &&
     !myIdentityPhotos.isLoading &&
     !myIdentityPhotos.isFetching &&
+    !purePartnerLoading &&
+    !isPurePartner &&
     !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
 
   const [currentStep, setCurrentStep] = useState(0);

@@ -20,6 +20,7 @@ import { RentPipelineQueue } from './RentPipelineQueue';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
 import { AgentOpsApprovedRequestsPanel } from './AgentOpsApprovedRequestsPanel';
 import { AgentOpsRejectedRequestsPanel } from './AgentOpsRejectedRequestsPanel';
+import { RejectedRequestsQueue } from './RejectedRequestsQueue';
 import { AgentOpsExpiredRequestsPanel } from './AgentOpsExpiredRequestsPanel';
 import { NewTenantsWithoutRequestPanel } from './NewTenantsWithoutRequestPanel';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
@@ -358,7 +359,12 @@ export function AgentOpsPipelineHub() {
       <TabsContent value="landlords"><LandlordsPipeline /></TabsContent>
       <TabsContent value="approved"><AgentOpsApprovedRequestsPanel /></TabsContent>
       <TabsContent value="expired"><AgentOpsExpiredRequestsPanel /></TabsContent>
-      <TabsContent value="rejected"><AgentOpsRejectedRequestsPanel /></TabsContent>
+      <TabsContent value="rejected" className="space-y-4">
+        {/* Managers reopen Agent Ops-stage returns here, using the same
+            reason-required reopen workflow as every other stage. */}
+        <RejectedRequestsQueue stageFilter="pending" title="Rejected at Agent Ops" collapsible />
+        <AgentOpsRejectedRequestsPanel />
+      </TabsContent>
     </Tabs>
   );
 }
