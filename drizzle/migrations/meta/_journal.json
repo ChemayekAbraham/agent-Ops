@@ -687,6 +687,13 @@
       "when": 1789454687720,
       "tag": "0097_pso_conversions_ledger_and_funded_summary",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1789455489954,
+      "tag": "0098_cfo_approver_generic_refusal_message",
+      "breakpoints": true
     }
   ]
 }
