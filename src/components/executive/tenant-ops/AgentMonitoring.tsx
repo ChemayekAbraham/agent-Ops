@@ -42,6 +42,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { AgentPaymentPosition } from './AgentPaymentPosition';
+import { RentAnalysis } from './RentAnalysis';
 import {
   describePlanSchedule,
   scheduleAwareStatus,
@@ -399,7 +400,7 @@ function StatCard({
   );
 }
 
-type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'before-aug-2026' | 'position';
+type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'before-aug-2026' | 'position' | 'rent-analysis';
 
 /** Same boundary for both cohort tabs — one date rule, read from the existing added date. */
 const AUG_2026_BOUNDARY = '2026-08-02T00:00:00+03:00';

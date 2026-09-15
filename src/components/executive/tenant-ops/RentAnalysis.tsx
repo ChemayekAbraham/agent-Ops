@@ -20,7 +20,6 @@ import {
   CUSTOM_BAND_KEY,
   RENT_BANDS,
   bandLabel,
-  bandOf,
   buildTenantRows,
   summariseBand,
   type RentAnalysisPlan,
