@@ -66,7 +66,8 @@ export function WithdrawalPayoutCard({
   readOnly = false,
 }: WithdrawalPayoutCardProps) {
   const { enabled: payoutsUiEnabled } = usePayoutsUiEnabled();
-  const [reference, setReference] = useState('');
+  const { isExempt: isLegacyExempt } = useWithdrawalVerificationExemption(withdrawal?.id);
+
   // Raw confirmation SMS the merchant agent pastes after sending the money.
   // We parse out the TID (auto-fills the reference) and the sent amount, then
   // enforce that the sent amount matches the amount the user requested.
