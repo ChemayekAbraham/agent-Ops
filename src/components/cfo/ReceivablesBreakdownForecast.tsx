@@ -277,14 +277,8 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           )}
 
           <div className="space-y-2">
-            {breakdown.data?.categories
-              .slice()
-              .sort((a, b) => {
-                const pinned = TENANT_CATEGORY_LABEL;
-                if (a.label === pinned && b.label !== pinned) return -1;
-                if (b.label === pinned && a.label !== pinned) return 1;
-                return 0;
-              })
+            {sortedCategories
+              .filter((cat) => categoryFilter === ALL_CATEGORIES || cat.key === categoryFilter)
               .map((cat) => {
                 const sourceProducts = cat.label === TENANT_CATEGORY_LABEL ? tenantProducts : cat.products;
                 const products =
