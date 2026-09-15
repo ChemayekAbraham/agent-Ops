@@ -617,6 +617,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // Stays on screen until the person fixes it — a toast alone disappears and
   // people were left thinking nothing happened.
   const [sendError, setSendError] = useState<string | null>(null);
+  /* Replacing what is already on file: the stored shots are ignored so both a
+     fresh ID photo and a fresh selfie must be taken. Every upload keeps its own
+     timestamped file, so Financial Ops still sees the earlier submission next
+     to the new one. */
+  const [replacing, setReplacing] = useState(false);
 
   // What we read off the ID card photo.
   const [reading, setReading] = useState(false);
