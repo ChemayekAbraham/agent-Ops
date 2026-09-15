@@ -274,6 +274,7 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
               <DetailRow label="Name" value={tenant?.full_name || 'Unknown'} />
               <DetailRow label="Phone" value={tenant?.phone || '—'} />
               <DetailRow label="Email" value={tenant?.email || '—'} />
+              <DetailRow label="Residence" value={tenant?.residence || '—'} />
               {request.tenant_no_smartphone !== undefined && (
                 <DetailRow label="Phone Type" value={request.tenant_no_smartphone ? '📱 No Smartphone' : '📱 Smartphone'} />
               )}
