@@ -45312,6 +45312,103 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_verification_exemptions: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          cutoff_at: string
+          exemption_type: string
+          id: string
+          reason: string
+          snapshot_amount: number | null
+          snapshot_bank_account_number: string | null
+          snapshot_bank_name: string | null
+          snapshot_momo_number: string | null
+          snapshot_payout_method: string | null
+          snapshot_status: string | null
+          snapshot_user_id: string | null
+          withdrawal_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          cutoff_at?: string
+          exemption_type?: string
+          id?: string
+          reason: string
+          snapshot_amount?: number | null
+          snapshot_bank_account_number?: string | null
+          snapshot_bank_name?: string | null
+          snapshot_momo_number?: string | null
+          snapshot_payout_method?: string | null
+          snapshot_status?: string | null
+          snapshot_user_id?: string | null
+          withdrawal_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          cutoff_at?: string
+          exemption_type?: string
+          id?: string
+          reason?: string
+          snapshot_amount?: number | null
+          snapshot_bank_account_number?: string | null
+          snapshot_bank_name?: string | null
+          snapshot_momo_number?: string | null
+          snapshot_payout_method?: string | null
+          snapshot_status?: string | null
+          snapshot_user_id?: string | null
+          withdrawal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "cashout_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_merchant_commission_outstanding"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_merchant_payout_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_unsettled_payouts"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_withdrawal_holds_unbacked"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "withdrawal_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       agent_advance_requests_privileged: {
@@ -61026,6 +61123,10 @@ export type Database = {
       }
       withdrawal_user_id_verified: {
         Args: { p_user_id: string }
+        Returns: boolean
+      }
+      withdrawal_verification_exempt: {
+        Args: { p_withdrawal_id: string }
         Returns: boolean
       }
       writedown_historical_drift: {
