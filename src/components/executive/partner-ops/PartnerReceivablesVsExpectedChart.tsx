@@ -166,6 +166,31 @@ export function PartnerReceivablesVsExpectedChart() {
   const last = rows[rows.length - 1];
   const hasActivity = (last?.receivables ?? 0) > 0 || (last?.expected ?? 0) > 0;
 
+  // Top 5 proxy agents whose attached partners came in within the window,
+  // with the partner they brought and the money that came in.
+  const topBringers = useMemo(() => {
+    const { start, end } = range;
+    const windowEnd = new Date(end);
+    windowEnd.setHours(23, 59, 59, 999);
+
+    const byPair = new Map<string, { agent: string; partner: string; amount: number }>();
+    for (const n of notes ?? []) {
+      const status = String(n.status ?? '').toLowerCase();
+      if (!n.came_in || status === 'cancelled' || status === 'rejected') continue;
+      const fundedIn = Number(n.portfolio_amount) || 0;
+      if (fundedIn <= 0) continue;
+      const receivedAt = new Date(n.first_portfolio_at ?? n.came_in_at ?? n.created_at);
+      if (receivedAt < start || receivedAt > windowEnd) continue;
+      const agent = String(n.agent_name ?? '').trim() || 'Unknown agent';
+      const partner = String(n.came_in_name ?? n.partner_name ?? '').trim() || 'Unnamed partner';
+      const key = `${agent}::${partner}`;
+      const cur = byPair.get(key) ?? { agent, partner, amount: 0 };
+      cur.amount += fundedIn;
+      byPair.set(key, cur);
+    }
+    return [...byPair.values()].sort((a, b) => b.amount - a.amount).slice(0, 5);
+  }, [notes, range]);
+
   const tickLabel = (v: string) =>
     hourly ? `${String(v).replace('h', '').padStart(2, '0')}:00` : shortDay(v);
 
@@ -294,6 +319,34 @@ export function PartnerReceivablesVsExpectedChart() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+          </div>
+        )}
+        {!isLoading && topBringers.length > 0 && (
+          <div className="mt-4 border-t pt-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Top 5 who brought partners in
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {topBringers.map((t, i) => (
+                <li
+                  key={`${t.agent}-${t.partner}`}
+                  className="flex items-center gap-3 rounded-md bg-muted/40 px-3 py-2"
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-black text-primary">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold">{t.agent}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      brought in {t.partner}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-xs font-black tabular-nums text-emerald-600">
+                    {formatUGX(t.amount)}
+                  </p>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </CardContent>
