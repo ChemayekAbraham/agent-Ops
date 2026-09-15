@@ -736,7 +736,17 @@ export function PromissoryNotesQueue({
     };
   };
 
-  const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled', 'overdue'];
+  // Ops language: an approved note is stored as "activated", a rejected one as
+  // "cancelled". The pills show the words ops actually use.
+  const statuses: { value: string; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'activated', label: 'Approved' },
+    { value: 'cancelled', label: 'Rejected' },
+    { value: 'fulfilled', label: 'Fulfilled' },
+    { value: 'defaulted', label: 'Defaulted' },
+    { value: 'overdue', label: 'Overdue' },
+  ];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
     { label: 'Promissory notes', value: kpis.notes_count, hint: `${kpis.approved_notes} approved`, tone: 'bg-primary/5 border-primary/20' },
