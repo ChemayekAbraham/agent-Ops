@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -11,9 +11,15 @@ import {
   setSelfieAsProfilePhoto,
   identityPhotoUrl,
 } from '@/hooks/useIdentityPhotos';
-import { useSubmitNationalId } from '@/hooks/usePayoutVerification';
 import { useIdentityAlreadyVerified } from '@/hooks/useIdentityAlreadyVerified';
-import { readNationalIdPhoto, idNameVerdict, type NationalIdReading } from '@/lib/nationalIdOcr';
+import {
+  readNationalIdPhoto, idNameVerdict, readingGuidance, EMPTY_ID_DATA, ID_FIELD_LABEL,
+  type NationalIdReading, type NationalIdData,
+} from '@/lib/nationalIdOcr';
+import { runPassportFaceCheck, faceCheckBlocker, type PassportFaceCheck } from '@/lib/passportFaceCheck';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
 import { checkPhotoQuality, retakeMessage, type PhotoQualityResult } from '@/lib/imageQuality';
 import { imageFingerprint } from '@/lib/imageFingerprint';
 
@@ -33,9 +39,11 @@ interface ShotTileProps {
   /** Result of the automatic blur / glare / contrast check on this photo. */
   quality?: PhotoQualityResult | null;
   checking?: boolean;
+  /** Which camera to open. A selfie must not open the rear camera. */
+  facing?: 'user' | 'environment';
 }
 
-function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, checking }: ShotTileProps) {
+function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, checking, facing }: ShotTileProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = file ? URL.createObjectURL(file) : null;
 
@@ -61,7 +69,7 @@ function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, check
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
+        capture={facing ?? 'environment'}
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -179,7 +187,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // One account, one National ID, one photo: a verified account is never asked again.
   const alreadyVerified = useIdentityAlreadyVerified();
   const submit = useSubmitIdentityPhotos();
-  const submitNid = useSubmitNationalId();
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
@@ -198,6 +205,15 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [savingDetails, setSavingDetails] = useState(false);
+  /* The six fields, prefilled by the reader and editable by the person. What
+     they submit is compared against what the reader saw, and the difference is
+     what tells Financial Ops where to look. */
+  const [form, setForm] = useState<NationalIdData>(EMPTY_ID_DATA);
+  const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
+
+  /* Is the selfie a face at all? The blur check answers "is this photo sharp",
+     which a crisp photo of a wall also passes. */
+  const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
 
   // Automatic blur / glare / contrast check, per photo.
   const [idQuality, setIdQuality] = useState<PhotoQualityResult | null>(null);
@@ -224,23 +240,73 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setReading(true);
     setIdReading(null);
     setReadError(null);
+    setFieldError(null);
     const res = await readNationalIdPhoto(file);
-    if ('error' in res && res.error) setReadError(res.error);
-    else setIdReading(res as NationalIdReading);
+    if ('error' in res && res.error) {
+      setReadError(res.error);
+      setReading(false);
+      return;
+    }
+    const r = res as NationalIdReading;
+    setIdReading(r);
+    // A photo that is not a National ID prefills nothing — there is nothing on
+    // it to confirm, and a half-filled form would invite the person to guess.
+    if (r.status === 'invalid') setForm(EMPTY_ID_DATA);
+    else setForm({ ...EMPTY_ID_DATA, ...r.data });
     setReading(false);
   };
 
-  const saveDetectedDetails = async () => {
-    if (!idReading?.full_name) return;
+  /** Ask the checker whether the selfie contains a face. */
+  const runFaceCheck = async (file: File) => {
+    setFaceCheck({ status: 'checking' });
+    const result = await runPassportFaceCheck(file, { source: 'identity_verification' });
+    setFaceCheck(result);
+    if (result.status === 'no_face') {
+      toast.error('No face found', { description: 'Retake the selfie with your face clearly visible.' });
+    }
+  };
+
+  /**
+   * Send the six confirmed fields. The server re-checks every format and the
+   * one-ID-one-account rule, so this call can be refused even when the screen
+   * is happy — the refusal names the field at fault.
+   */
+  const saveDetails = async (): Promise<boolean> => {
     setSavingDetails(true);
+    setFieldError(null);
     try {
-      await submitNid.mutateAsync({
-        nationalId: idReading.id_number || '',
-        idName: idReading.full_name,
-      });
-      toast.success('Saved the names and number we read from your ID.');
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string, args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'submit_national_id_details',
+        {
+          p_surname: form.surname,
+          p_given_name: form.given_name,
+          p_nin: form.nin,
+          p_date_of_birth: form.date_of_birth || null,
+          p_card_number: form.card_number,
+          p_sex: form.sex,
+          p_reading: idReading
+            ? {
+                sha256: idReading.sha256, status: idReading.status,
+                confidence: idReading.confidence, data: idReading.data,
+                fields: idReading.fields, missing: idReading.missing,
+                consistency: idReading.consistency,
+                face_verified: faceCheck?.status === 'ok',
+              }
+            : {},
+        },
+      );
+      if (error) throw new Error(error.message);
+      const res = data as { success?: boolean; message?: string; field?: string } | null;
+      if (!res?.success) {
+        setFieldError({ field: res?.field, message: res?.message || 'Could not save those details.' });
+        return false;
+      }
+      return true;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save those details.');
+      setFieldError({ message: e instanceof Error ? e.message : 'Could not save those details.' });
+      return false;
     } finally {
       setSavingDetails(false);
     }
@@ -267,7 +333,18 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     selfieOriginal && selfieQuality && !selfieQuality.ok ? 'Selfie' : null,
   ].filter(Boolean) as string[];
   const checkingPhotos = checkingId || checkingSelfie;
-  const ready = haveId && haveSelfie && idQualityOk && selfieQualityOk && !checkingPhotos;
+
+  // Every one of the six must be present before anything is sent — a partly
+  // filled ID is exactly the record Financial Ops cannot act on.
+  const missingDetails = (Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[])
+    .filter((k) => !String(form[k] ?? '').trim());
+  const detailsComplete = missingDetails.length === 0;
+  // A photo the reader says is not a National ID is refused outright.
+  const idRejected = idReading?.status === 'invalid';
+  const faceProblem = faceCheckBlocker(faceCheck);
+
+  const ready = haveId && haveSelfie && idQualityOk && selfieQualityOk
+    && !checkingPhotos && detailsComplete && !idRejected && !faceProblem;
 
   // Spelled out on screen so nobody stares at a dead button wondering why.
   const blockers = [
@@ -278,6 +355,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       : null,
     idPhoto && idQuality && !idQuality.ok ? 'Retake the National ID photo — it did not pass the photo check.' : null,
     selfieOriginal && selfieQuality && !selfieQuality.ok ? 'Retake the selfie — it did not pass the photo check.' : null,
+    idRejected ? 'That photo is not a Ugandan National ID. Take a photo of the front of your card.' : null,
+    faceProblem,
+    !idRejected && !detailsComplete
+      ? `Fill in ${missingDetails.map((k) => ID_FIELD_LABEL[k]).join(', ')} from your card.`
+      : null,
     checkingPhotos ? 'Checking your photos — this takes a moment.' : null,
   ].filter(Boolean) as string[];
 
@@ -297,6 +379,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setSaving(true);
     setSendError(null);
     try {
+      /* The confirmed six go first. `submit_identity_photos` auto-verifies on a
+         name match, and it reads the name this call writes — sending the photos
+         first would make that check run against a stale or empty name. */
+      const detailsOk = await saveDetails();
+      if (!detailsOk) {
+        setSaving(false);
+        return;
+      }
       // Archive the ORIGINALS in the private verification bucket; reuse the
       // stored original when the user is only filling in the missing shot.
       const idPath = idPhoto
@@ -384,6 +474,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               setIdReading(null);
               setReadError(null);
               setIdQuality(null);
+              setForm(EMPTY_ID_DATA);
+              setFieldError(null);
             }}
             disabled={saving}
           />
@@ -403,21 +495,78 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         )}
 
         {!reading && idReading && (
-          <div className="space-y-2 rounded-lg border p-3">
+          <div className="space-y-3 rounded-lg border p-3">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <ScanLine className="h-4 w-4 text-primary" />
               What we read on your ID
             </p>
-            {idReading.readable ? (
+
+            {/* The reader refuses a field it could not read rather than
+                guessing, so `incomplete` is the normal failure and it names
+                exactly what to fix. `invalid` means it is not an ID at all. */}
+            {readingGuidance(idReading) && (
+              <p
+                className={`rounded-md border p-2 text-xs ${
+                  idReading.status === 'invalid'
+                    ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                    : 'border-amber-500/40 bg-amber-500/10 text-amber-700'
+                }`}
+              >
+                {readingGuidance(idReading)}
+              </p>
+            )}
+
+            {idReading.status !== 'invalid' && (
               <>
-                <p className="text-sm">
-                  Names: <span className="font-semibold">{idReading.full_name}</span>
+                <p className="text-xs text-muted-foreground">
+                  Check every line against your card and correct anything that is wrong.
                 </p>
-                {idReading.id_number && (
-                  <p className="text-sm">
-                    ID number: <span className="font-semibold">{idReading.id_number}</span>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[]).map((key) => {
+                    const readOk = idReading.fields?.[key]?.valid === true;
+                    return (
+                      <div key={key} className={key === 'sex' ? '' : 'sm:col-span-1'}>
+                        <Label htmlFor={`nid-${key}`} className="text-xs">
+                          {ID_FIELD_LABEL[key]}
+                          {!readOk && (
+                            <span className="ml-1 text-[10px] font-normal text-amber-600">
+                              not read — type it
+                            </span>
+                          )}
+                        </Label>
+                        <Input
+                          id={`nid-${key}`}
+                          className="mt-1 h-9 text-sm"
+                          type={key === 'date_of_birth' ? 'date' : 'text'}
+                          inputMode={key === 'card_number' ? 'numeric' : undefined}
+                          maxLength={key === 'sex' ? 1 : undefined}
+                          placeholder={key === 'sex' ? 'M or F' : undefined}
+                          value={form[key]}
+                          disabled={savingDetails || saving}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const next =
+                              key === 'date_of_birth' ? raw
+                              : key === 'card_number' ? raw.replace(/[^0-9]/g, '')
+                              : key === 'sex' ? raw.toUpperCase().replace(/[^MF]/g, '')
+                              : key === 'nin' ? raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
+                              : raw.toUpperCase();
+                            setForm((f) => ({ ...f, [key]: next }));
+                            setFieldError(null);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {fieldError && (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                    {fieldError.message}
                   </p>
                 )}
+
                 {verdict === 'match' && (
                   <p className="flex items-center gap-2 text-xs text-emerald-600">
                     <CheckCircle2 className="h-3.5 w-3.5" />
@@ -425,32 +574,26 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                   </p>
                 )}
                 {(verdict === 'partial' || verdict === 'mismatch') && (
-                  <p className="flex items-center gap-2 text-xs text-amber-600">
-                    <AlertTriangle className="h-3.5 w-3.5" />
+                  <p className="flex items-start gap-2 text-xs text-amber-600">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     These names differ from your account name ({idReading.account_name}). Financial
                     Ops will check this on the call.
                   </p>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  disabled={savingDetails || !idReading.full_name}
-                  onClick={saveDetectedDetails}
-                >
-                  {savingDetails ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Use these details
-                </Button>
+
+                {/* A failed cross-check is a reason for a person to look, never
+                    proof of anything — the NIN's internal layout is inferred. */}
+                {idReading.consistency.length > 0 && (
+                  <p className="flex items-start gap-2 text-xs text-amber-600">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    Some details on the card do not agree with each other. Financial Ops will look
+                    at this.
+                  </p>
+                )}
               </>
-            ) : (
-              <p className="text-xs text-amber-600">
-                The card was hard to read. Retake the photo in better light, or type your details.
-              </p>
             )}
           </div>
         )}
-
-
 
         {storedSelfiePath ? (
           <StoredShot
@@ -462,19 +605,55 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           <ShotTile
             label="Selfie"
             hint="Face the camera in good light."
+            facing="user"
             file={selfieOriginal}
             quality={selfieQuality}
             checking={checkingSelfie}
             onPick={(f) => {
               setSelfieOriginal(f);
               setSelfieCropped(null);
+              setFaceCheck(null);
               void gradePhoto(f, 'Selfie', setCheckingSelfie, setSelfieQuality).then((r) => {
-                if (r.ok) setPendingSelfie(f);
+                if (r.ok) {
+                  setPendingSelfie(f);
+                  void runFaceCheck(f);
+                }
               });
             }}
-            onClear={() => { setSelfieOriginal(null); setSelfieCropped(null); setSelfieQuality(null); }}
+            onClear={() => {
+              setSelfieOriginal(null); setSelfieCropped(null);
+              setSelfieQuality(null); setFaceCheck(null);
+            }}
             disabled={saving}
           />
+        )}
+
+        {/* Is the selfie a face? Separate question from "is it sharp". */}
+        {faceCheck?.status === 'checking' && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Checking the selfie for a face…
+          </p>
+        )}
+        {faceCheck?.status === 'no_face' && (
+          <p className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs font-semibold text-destructive">
+            <ScanFace className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            No face was found in this selfie. Retake it — you cannot send until a face is
+            recognised.
+          </p>
+        )}
+        {faceCheck?.status === 'ok' && (
+          <p className="flex items-center gap-2 text-xs text-emerald-600">
+            <ScanFace className="h-3.5 w-3.5" />
+            Face recognised.
+          </p>
+        )}
+        {faceCheck?.status === 'unavailable' && (
+          <p className="flex items-start gap-2 text-xs text-amber-600">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            We could not check the selfie just now. You can still send — Financial Ops will look
+            at it.
+          </p>
         )}
 
         {failedShots.length > 0 && (
