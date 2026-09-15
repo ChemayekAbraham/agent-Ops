@@ -1107,12 +1107,7 @@ export function SmartphoneOrderApprovalQueue({
                 </p>
               </div>
 
-              {approveStage === 'cfo' && (
-                <SupplierAccountDetails saleId={approveTarget.id} />
-              )}
-
             </div>
-
           )}
 
           <DialogFooter>
@@ -1235,67 +1230,5 @@ export function SmartphoneOrderApprovalQueue({
         </AlertDialogContent>
       </AlertDialog>
     </Card>
-  );
-}
-
-/** Supplier payout account details, shown to the CFO before paying. */
-function SupplierAccountDetails({ saleId }: { saleId: string }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ['smartphone-supplier-payout-details', saleId],
-    queryFn: async () => {
-      const { data, error } = await db.rpc('get_smartphone_supplier_payout_details', {
-        p_sale_id: saleId,
-      });
-      if (error) throw error;
-      return data as Record<string, string | null> | null;
-    },
-    staleTime: 60_000,
-  });
-
-  if (isLoading) {
-    return (
-      <div className="rounded-lg border p-3 flex items-center gap-2 text-xs text-muted-foreground">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading supplier account…
-      </div>
-    );
-  }
-
-  if (!data?.supplier_id) {
-    return (
-      <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 p-3 text-[11px] text-muted-foreground">
-        No registered supplier is attached to this application yet.
-      </div>
-    );
-  }
-
-  const rows: Array<[string, string | null | undefined]> = [
-    ['Supplier', data.full_name],
-    ['Phone', data.phone],
-    ['Mobile money', [data.momo_provider, data.momo_number].filter(Boolean).join(' · ') || null],
-    ['Mobile money name', data.momo_name],
-    ['Bank', data.bank_name],
-    ['Bank account name', data.bank_account_name],
-    ['Bank account number', data.bank_account_number],
-  ].filter(([, v]) => !!v) as Array<[string, string]>;
-
-  return (
-    <div className="rounded-lg border divide-y">
-      <div className="px-3 py-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Supplier account
-        </p>
-      </div>
-      {rows.map(([label, value]) => (
-        <div key={label} className="flex items-center justify-between gap-3 px-3 py-2">
-          <span className="text-xs text-muted-foreground">{label}</span>
-          <span className="text-xs font-semibold text-right break-all">{value}</span>
-        </div>
-      ))}
-      {rows.length <= 2 && (
-        <p className="px-3 py-2 text-[11px] text-muted-foreground">
-          The supplier has not saved a payout account. Pay them using the phone number above.
-        </p>
-      )}
-    </div>
   );
 }

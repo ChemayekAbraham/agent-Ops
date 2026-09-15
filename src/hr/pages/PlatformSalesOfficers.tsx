@@ -434,24 +434,6 @@ export default function PlatformSalesOfficersPage() {
   const combinedFundedTotal = fundedTotal + peopleFundedTotal;
   const combinedMoneyTotal = moneyTotal + peopleMoneyTotal;
 
-  // Benchmark for the window currently open: 100 promissory notes a day,
-  // 700 for a full Wed–Tue week. A part-week (the live week, or a month in
-  // progress) is measured against 100 for each day the window covers.
-  const windowDayCount = useMemo(() => {
-    const start = new Date(`${from}T12:00:00`);
-    const end = new Date(`${to}T12:00:00`);
-    const days = Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
-    return days > 0 ? days : 1;
-  }, [from, to]);
-  const windowNoteTarget = useMemo(
-    () => (mode === 'DAILY' ? 100 : mode === 'WEEKLY' && windowDayCount >= 7 ? 700 : windowDayCount * 100),
-    [mode, windowDayCount],
-  );
-  const windowNotePct = useMemo(
-    () => (windowNoteTarget > 0 ? Math.round((combinedNetTotal / windowNoteTarget) * 100) : 0),
-    [combinedNetTotal, windowNoteTarget],
-  );
-
   // Per-table day-column sums for the window currently shown. Recompute
   // whenever the window or the polled data changes.
   const officerWeekdayTotals = useMemo(() => {
@@ -875,66 +857,6 @@ export default function PlatformSalesOfficersPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!isLoading && (
-          <div className="space-y-2 border-t pt-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Combined total · {label}
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                platform sales officers and other contributors added together, against a benchmark of
-                100 promissory notes a day ({windowNoteTarget.toLocaleString('en-UG')} for this window)
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-lg border bg-card px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Net notes
-                </div>
-                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedNetTotal}</div>
-                <div className="text-[10px] text-muted-foreground">
-                  officers {netTotal} + others {peopleNetTotal}
-                </div>
-              </div>
-              <div className="rounded-lg border bg-card px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Target
-                </div>
-                <div className="text-base font-bold tabular-nums sm:text-lg">
-                  {windowNoteTarget.toLocaleString('en-UG')}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {windowDayCount === 1 ? '1 day × 100' : `${windowDayCount} days × 100`}
-                </div>
-              </div>
-              <div className="rounded-lg border bg-card px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Of target
-                </div>
-                <div className="text-base font-bold tabular-nums sm:text-lg">{windowNotePct}%</div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${Math.min(100, Math.max(0, windowNotePct))}%` }}
-                  />
-                </div>
-              </div>
-              <div className="rounded-lg border bg-card px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {combinedNetTotal >= windowNoteTarget ? 'Above target' : 'Short of target'}
-                </div>
-                <div className="text-base font-bold tabular-nums sm:text-lg">
-                  {Math.abs(windowNoteTarget - combinedNetTotal).toLocaleString('en-UG')}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  funded {combinedFundedTotal} · {formatUgxCompact(combinedMoneyTotal)} deployed
-                </div>
               </div>
             </div>
           </div>

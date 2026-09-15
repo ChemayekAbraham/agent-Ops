@@ -77,9 +77,8 @@ import {
   useAdoptNationalIdName,
   useHolderNameHistory,
   useStoredIdReading,
-  evaluateStoredIdChecks,
+  sameIdNumber,
   maskIdNumber,
-
   useDecidePayoutDestination,
   useRevertHolderName,
 
@@ -440,13 +439,18 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   }
   if (!data) return null;
 
-  const { ninMatches, namesMatch } = evaluateStoredIdChecks(row, data);
+  const ninMatches = sameIdNumber(data.nin, row.national_id);
   const maskedNin = maskIdNumber(data.nin);
   const maskedCard = maskIdNumber(data.cardNumber);
   const enteredMask = maskIdNumber(row.national_id);
   const idNameOnFile = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
-
+  const namesMatch =
+    idNameOnFile && accountName
+      ? row.name_match_score !== null
+        ? row.name_match_score >= 0.8
+        : idNameOnFile.toLowerCase() === accountName.toLowerCase()
+      : null;
 
   const allClear = ninMatches === true && data.faceVerified === true && namesMatch === true;
 
@@ -827,17 +831,15 @@ export default function PayoutVerificationPanel() {
 
   // One tap verifies and saves everything: the National ID name becomes the
   // account name, the note is written for the audit trail, and the queue moves on.
-  const runQuickVerify = async (target: PayoutDestinationRow, auto = false) => {
+  const runQuickVerify = async (target: PayoutDestinationRow) => {
     try {
       await quickVerify.mutateAsync({
         id: target.id,
         userId: target.user_id,
         decision: 'verified',
-        reason: auto
-          ? 'Verified automatically: the ID number typed in matches the National ID that was read, the selfie passed the face check, and the name on the card matches the name on the account.'
-          : 'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.',
+        reason:
+          'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.',
       });
-
       const idName = (target.national_id_name || '').trim();
       const before = (target.full_name || target.account_name || '').trim();
       if (
@@ -850,12 +852,7 @@ export default function PayoutVerificationPanel() {
           })
           .catch(() => undefined);
       }
-      toast.success(
-        auto
-          ? 'Everything matched — verified automatically.'
-          : 'Verified. The name from the ID is saved on the account.',
-      );
-
+      toast.success('Verified. The name from the ID is saved on the account.');
 
       // Move on to the next case. Under a filtered list (Waiting, Mismatch,
       // No ID, Double) the verified row leaves the queue, so the next case
@@ -871,28 +868,6 @@ export default function PayoutVerificationPanel() {
       toast.error(e instanceof Error ? e.message : 'Could not save the decision.');
     }
   };
-
-  // Automatic verification: when everything already on file agrees — the ID
-  // number typed in is the same as the one read off the card, the selfie passed
-  // the face check and the name on the card is the name on the account — the
-  // case is verified without waiting for a reviewer. Every other safeguard
-  // stays: both photos must be on file, the read name must be confident, a
-  // double submission is never auto-verified, and the decision still goes
-  // through the same server rule that a tap uses.
-  const storedReading = useStoredIdReading(row?.user_id);
-  const autoVerdict = row ? evaluateStoredIdChecks(row, storedReading.data) : null;
-  const autoDoneRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!row || row.status !== 'waiting') return;
-    if (verifyBlocked || !autoVerdict?.allClear) return;
-    if (quickVerify.isPending || deciding) return;
-    if (autoDoneRef.current.has(row.id)) return;
-    autoDoneRef.current.add(row.id);
-    void runQuickVerify(row, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [row?.id, row?.status, verifyBlocked, autoVerdict?.allClear, quickVerify.isPending, deciding]);
-
-
 
 
   return (

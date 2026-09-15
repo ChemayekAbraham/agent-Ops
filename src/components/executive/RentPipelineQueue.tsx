@@ -707,7 +707,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       const statuses = [stage, ...additionalStatuses];
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified, pending_window_reset_at')
+        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, pending_window_reset_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified')
         .in('status', statuses);
 
       // Outstanding-balance rent requests bypass COO + CFO (DB trigger short-circuits
@@ -872,19 +872,13 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-  /** Renewals reset the 30-day window, so measure from the reset timestamp when present. */
-  const windowStart = (createdAt: string, resetAt?: string | null) =>
-    new Date(resetAt || createdAt).getTime();
-  const isRequestExpired = (
-    createdAt: string,
-    requestStatus: string,
-    agentVerified?: boolean | null,
-    resetAt?: string | null,
-  ) => {
+  const isRequestExpired = (createdAt: string, requestStatus: string, agentVerified?: boolean | null, windowResetAt?: string | null) => {
     if (stage !== 'pending') return false;
     if (requestStatus !== 'pending') return false;
     if (agentVerified) return false;
-    return Date.now() - windowStart(createdAt, resetAt) > THIRTY_DAYS_MS;
+    // A renewal stamps pending_window_reset_at and restarts the 30-day window.
+    const windowStart = windowResetAt || createdAt;
+    return Date.now() - new Date(windowStart).getTime() > THIRTY_DAYS_MS;
   };
   const expiredCount = rows.filter(r => isRequestExpired(r.created_at, r.status, r.agent_verified, r.pending_window_reset_at)).length;
 
@@ -987,7 +981,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
-    if (stage === 'pending' && isRequestExpired(selectedRequest.created_at, selectedRequest.status, selectedRequest.agent_verified, selectedRequest.pending_window_reset_at)) {
+    if (stage === 'pending' && isRequestExpired(selectedRequest.created_at, selectedRequest.status, selectedRequest.agent_verified, (selectedRequest as any).pending_window_reset_at)) {
       toast({ title: 'Request expired', description: 'Cannot approve a request that has exceeded 30 days without verification.', variant: 'destructive' });
       return;
     }
@@ -1881,7 +1875,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono pt-1">
                       <span>Submitted: {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}</span>
                       {stage === 'pending' && (() => {
-                        const expiryDate = new Date(windowStart(req.created_at, req.pending_window_reset_at) + 30 * 24 * 60 * 60 * 1000);
+                        const expiryDate = new Date(new Date(req.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
                         const isPastExpiry = Date.now() > expiryDate.getTime();
                         return (
                           <span className={`font-mono flex items-center gap-1 ${isPastExpiry ? 'text-destructive font-semibold' : 'text-amber-600 dark:text-amber-400'}`}>
@@ -2151,7 +2145,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <p className="text-xs text-muted-foreground">Expiry Date</p>
                   <p className="font-semibold text-xs font-mono text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {format(new Date(windowStart(selectedRequest.created_at, selectedRequest.pending_window_reset_at) + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}
+                    {format(new Date(new Date(selectedRequest.created_at).getTime() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}
                   </p>
                 </div>
                 {selectedRequest.house_category && (
