@@ -4840,6 +4840,13 @@ export type Database = {
             foreignKeyName: "agent_ops_report_actions_owner_staff_id_fkey"
             columns: ["owner_staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "agent_ops_report_actions_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -9018,6 +9025,13 @@ export type Database = {
             foreignKeyName: "cc_feedback_routed_to_actual_fkey"
             columns: ["routed_to_actual"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "cc_feedback_routed_to_actual_fkey"
+            columns: ["routed_to_actual"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -9039,6 +9053,13 @@ export type Database = {
             foreignKeyName: "cc_feedback_routed_to_expected_fkey"
             columns: ["routed_to_expected"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "cc_feedback_routed_to_expected_fkey"
+            columns: ["routed_to_expected"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -9054,6 +9075,74 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "hr_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_feedback_amendments: {
+        Row: {
+          attempt_id: string
+          edited_at: string
+          edited_by: string
+          feedback_id: string
+          id: string
+          new_category_id: string | null
+          new_note: string | null
+          new_severity: Database["public"]["Enums"]["hr_ticket_severity"] | null
+          old_category_id: string | null
+          old_note: string | null
+          old_severity: Database["public"]["Enums"]["hr_ticket_severity"] | null
+          reason: string
+        }
+        Insert: {
+          attempt_id: string
+          edited_at?: string
+          edited_by: string
+          feedback_id: string
+          id?: string
+          new_category_id?: string | null
+          new_note?: string | null
+          new_severity?:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+          old_category_id?: string | null
+          old_note?: string | null
+          old_severity?:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+          reason: string
+        }
+        Update: {
+          attempt_id?: string
+          edited_at?: string
+          edited_by?: string
+          feedback_id?: string
+          id?: string
+          new_category_id?: string | null
+          new_note?: string | null
+          new_severity?:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+          old_category_id?: string | null
+          old_note?: string | null
+          old_severity?:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_feedback_amendments_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "cc_call_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_feedback_amendments_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "cc_feedback"
             referencedColumns: ["id"]
           },
         ]
@@ -9238,6 +9327,13 @@ export type Database = {
             foreignKeyName: "cc_followups_completed_by_fkey"
             columns: ["completed_by"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "cc_followups_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -9268,6 +9364,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_followups_owed_by_staff_id_fkey"
+            columns: ["owed_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "cc_followups_owed_by_staff_id_fkey"
@@ -12814,6 +12917,13 @@ export type Database = {
             foreignKeyName: "engrep_adjudicators_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "engrep_adjudicators_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -12888,6 +12998,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_engineers_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "engrep_engineers_staff_id_fkey"
@@ -15925,6 +16042,13 @@ export type Database = {
             foreignKeyName: "hr_assignments_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_assignments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -16014,6 +16138,13 @@ export type Database = {
             foreignKeyName: "hr_contracts_owner_staff_id_fkey"
             columns: ["owner_staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_contracts_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -16030,6 +16161,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_contracts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_contracts_staff_id_fkey"
@@ -16161,6 +16299,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_documents_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_documents_staff_id_fkey"
@@ -16413,6 +16558,13 @@ export type Database = {
             foreignKeyName: "hr_metric_snapshots_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_metric_snapshots_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -16517,6 +16669,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_metric_targets_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_metric_targets_staff_id_fkey"
@@ -16682,6 +16841,13 @@ export type Database = {
             foreignKeyName: "hr_pay_advances_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_advances_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -16758,6 +16924,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_arrears_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_pay_arrears_staff_id_fkey"
@@ -16880,6 +17053,13 @@ export type Database = {
             foreignKeyName: "hr_pay_bank_details_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_bank_details_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -16995,6 +17175,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_compensation_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_pay_compensation_staff_id_fkey"
@@ -17146,6 +17333,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_disbursements_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_pay_disbursements_staff_id_fkey"
@@ -17464,6 +17658,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payslips_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_pay_payslips_staff_id_fkey"
@@ -17808,6 +18009,13 @@ export type Database = {
             foreignKeyName: "hr_pay_statutory_ids_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: true
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_statutory_ids_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -17867,6 +18075,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_statutory_profiles_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_pay_statutory_profiles_staff_id_fkey"
@@ -17992,6 +18207,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_perf_assessments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_perf_assessments_staff_id_fkey"
@@ -18181,6 +18403,13 @@ export type Database = {
             foreignKeyName: "hr_perf_month_awards_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_perf_month_awards_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -18228,6 +18457,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_perf_participants_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_perf_participants_staff_id_fkey"
@@ -18316,6 +18552,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_perf_week_scores_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_perf_week_scores_staff_id_fkey"
@@ -18434,6 +18677,13 @@ export type Database = {
             foreignKeyName: "hr_position_access_grants_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_position_access_grants_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -18525,6 +18775,13 @@ export type Database = {
             foreignKeyName: "hr_review_weeks_locked_by_fkey"
             columns: ["locked_by"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_review_weeks_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -18608,6 +18865,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_task_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_task_assessments_assessed_by_fkey"
@@ -18826,6 +19090,13 @@ export type Database = {
             foreignKeyName: "hr_tasks_assignee_staff_id_fkey"
             columns: ["assignee_staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_tasks_assignee_staff_id_fkey"
+            columns: ["assignee_staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -18842,6 +19113,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_tasks_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_tasks_created_by_staff_id_fkey"
@@ -18998,6 +19276,13 @@ export type Database = {
             foreignKeyName: "hr_tickets_closed_no_task_by_fkey"
             columns: ["closed_no_task_by"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_tickets_closed_no_task_by_fkey"
+            columns: ["closed_no_task_by"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -19021,6 +19306,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_tickets_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "hr_tickets_raised_by_fkey"
@@ -41239,6 +41531,13 @@ export type Database = {
             foreignKeyName: "tppo_report_actions_owner_staff_id_fkey"
             columns: ["owner_staff_id"]
             isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tppo_report_actions_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
             referencedRelation: "v_pso_note_events"
             referencedColumns: ["staff_id"]
           },
@@ -45244,6 +45543,103 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_verification_exemptions: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          cutoff_at: string
+          exemption_type: string
+          id: string
+          reason: string
+          snapshot_amount: number | null
+          snapshot_bank_account_number: string | null
+          snapshot_bank_name: string | null
+          snapshot_momo_number: string | null
+          snapshot_payout_method: string | null
+          snapshot_status: string | null
+          snapshot_user_id: string | null
+          withdrawal_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          cutoff_at?: string
+          exemption_type?: string
+          id?: string
+          reason: string
+          snapshot_amount?: number | null
+          snapshot_bank_account_number?: string | null
+          snapshot_bank_name?: string | null
+          snapshot_momo_number?: string | null
+          snapshot_payout_method?: string | null
+          snapshot_status?: string | null
+          snapshot_user_id?: string | null
+          withdrawal_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          cutoff_at?: string
+          exemption_type?: string
+          id?: string
+          reason?: string
+          snapshot_amount?: number | null
+          snapshot_bank_account_number?: string | null
+          snapshot_bank_name?: string | null
+          snapshot_momo_number?: string | null
+          snapshot_payout_method?: string | null
+          snapshot_status?: string | null
+          snapshot_user_id?: string | null
+          withdrawal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "cashout_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_merchant_commission_outstanding"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_merchant_payout_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_unsettled_payouts"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_withdrawal_holds_unbacked"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "withdrawal_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       agent_advance_requests_privileged: {
@@ -48285,6 +48681,26 @@ export type Database = {
           },
         ]
       }
+      v_pso_conversions: {
+        Row: {
+          amount_deployed: number | null
+          commission_amount: number | null
+          commission_base: number | null
+          conversion_kind: string | null
+          converted_at: string | null
+          converted_day: string | null
+          from_pre_enrolment_note: boolean | null
+          note_id: string | null
+          officer_since: string | null
+          officer_user_id: string | null
+          partner_id: string | null
+          source: string | null
+          source_id: string | null
+          staff_id: string | null
+          staff_ref: string | null
+        }
+        Relationships: []
+      }
       v_pso_note_events: {
         Row: {
           amount: number | null
@@ -48295,6 +48711,8 @@ export type Database = {
           officer_since: string | null
           officer_user_id: string | null
           partner_registered: boolean | null
+          pre_enrolment: boolean | null
+          recorded_day: string | null
           reversal_kind: string | null
           reversed_at: string | null
           staff_id: string | null
@@ -50872,6 +51290,16 @@ export type Database = {
       cc_abandon_cycle: {
         Args: { p_cycle_id: string; p_reason: string }
         Returns: undefined
+      }
+      cc_amend_feedback: {
+        Args: {
+          p_category_id: string
+          p_feedback_id: string
+          p_note: string
+          p_reason: string
+          p_severity: Database["public"]["Enums"]["hr_ticket_severity"]
+        }
+        Returns: string
       }
       cc_attempt_guard: {
         Args: { p_attempt_id: string }
@@ -58656,13 +59084,20 @@ export type Database = {
       pso_funded_summary: {
         Args: { p_from: string; p_staff_id?: string; p_to: string }
         Returns: {
-          amount_funded: number
+          amount_deployed: number
           as_at: string
           commission_accrued: number
+          commission_base: number
+          funders_converted: number
           notes_funded: number
           notes_in_cohort: number
+          notes_unapproved: number
+          pre_enrolment_amount: number
+          pre_enrolment_funded: number
+          pre_enrolment_notes: number
           staff_id: string
           staff_ref: string
+          topups: number
         }[]
       }
       pso_is_officer: { Args: never; Returns: boolean }
@@ -60948,6 +61383,10 @@ export type Database = {
       }
       withdrawal_user_id_verified: {
         Args: { p_user_id: string }
+        Returns: boolean
+      }
+      withdrawal_verification_exempt: {
+        Args: { p_withdrawal_id: string }
         Returns: boolean
       }
       writedown_historical_drift: {

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { parsePayoutConfirmationSms } from '@/utils/smsParser';
 import { usePayoutsUiEnabled } from '@/hooks/usePayoutsUiEnabled';
+import { useWithdrawalVerificationExemption } from '@/hooks/useWithdrawalVerificationExemption';
 import { humanizeWithdrawalError } from '@/lib/withdrawalErrorText';
 import {
   beginAuthCriticalSection,
@@ -66,7 +67,11 @@ export function WithdrawalPayoutCard({
   readOnly = false,
 }: WithdrawalPayoutCardProps) {
   const { enabled: payoutsUiEnabled } = usePayoutsUiEnabled();
+  const { isExempt: isLegacyExempt } = useWithdrawalVerificationExemption(withdrawal?.id);
   const [reference, setReference] = useState('');
+
+
+
   // Raw confirmation SMS the merchant agent pastes after sending the money.
   // We parse out the TID (auto-fills the reference) and the sent amount, then
   // enforce that the sent amount matches the amount the user requested.
@@ -652,7 +657,17 @@ export function WithdrawalPayoutCard({
         {/* Expanded body */}
         <CollapsibleContent>
           <CardContent className="px-4 pb-4 pt-0 space-y-3">
+            {isLegacyExempt && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
+                  Legacy queue exemption — payout verification waived for this existing request only.
+                  All other payment checks still apply.
+                </p>
+              </div>
+            )}
             {/* Contact + status row */}
+
             <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground flex-wrap">
               <span className="inline-flex items-center gap-1">
                 <Phone className="h-4 w-4" />
