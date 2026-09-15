@@ -21,7 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { UGANDA_BANKS, PAYOUT_METHODS } from '@/lib/ugandaBanks';
 import { useSavedPayoutMethods, type SavedPayoutMethod } from '@/hooks/useSavedPayoutMethods';
-import { useMyPayoutDestinations, destinationStateFor } from '@/hooks/usePayoutVerification';
+import { useMyPayoutDestinations, destinationStateFor, type MyPayoutDestination } from '@/hooks/usePayoutVerification';
 import { useIsFunderWithPortfolio } from '@/hooks/useIsFunderWithPortfolio';
 import DestinationVerificationTimeline from '@/components/payments/DestinationVerificationTimeline';
 import NationalIdPrompt, { useMyNationalId } from '@/components/wallet/NationalIdPrompt';
