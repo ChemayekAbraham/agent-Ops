@@ -141,6 +141,11 @@ export function PartnerOpsTopBar({ active, onSelect, badges, actions }: Props) {
 
         <BudgetDepartmentNotificationBell dashboard="partner-ops" />
 
+        <PromissoryNotesHeaderButton
+          active={active === 'proxy.promissory'}
+          onClick={() => onSelect('proxy.promissory')}
+        />
+
         {actions}
 
         {/* date & time */}

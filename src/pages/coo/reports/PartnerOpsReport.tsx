@@ -51,7 +51,12 @@ export default function PartnerOpsReportPage() {
   };
 
   return (
-    <ExecutiveDashboardLayout role="coo" activeTab="reports-partner-ops" onTabChange={setActiveTab}>
+    <ExecutiveDashboardLayout
+      role="coo"
+      activeTab="reports-partner-ops"
+      onTabChange={setActiveTab}
+      headerActions={<PromissoryNotesHeaderButton variant="outline" />}
+    >
       <COOReportPage
         title="Partner Ops Report"
         description="Live monitor of partner portfolios, CFO verifications, and supporter withdrawal requests across the last 30 days."
