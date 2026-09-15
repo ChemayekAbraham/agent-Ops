@@ -15,6 +15,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyPayoutDestinations } from '@/hooks/usePayoutVerification';
 import { Button } from '@/components/ui/button';
 import NationalIdPrompt from '@/components/wallet/NationalIdPrompt';
+import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const REMINDED_KEY = 'welile-nid-rejection-reminded';
 
