@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
           bank_account_number: method === "bank_transfer" ? String(bank_account_number).trim() : null,
           bank_account_name: method === "bank_transfer" ? String(bank_account_name).trim() : null,
           reason: reason ? String(reason).slice(0, 200) : null,
-          account_phone: accountPhone,
+          account_phone: otpPhone,
           otp_hash,
           otp_expires_at,
           attempts: 0,
@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
           bank_account_number: method === "bank_transfer" ? String(bank_account_number).trim() : null,
           bank_account_name: method === "bank_transfer" ? String(bank_account_name).trim() : null,
           reason: reason ? String(reason).slice(0, 200) : null,
-          account_phone: accountPhone,
+          account_phone: otpPhone,
           otp_hash,
           otp_expires_at,
         })
@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
     }
 
     const smsSent = await sendSMS(
-      accountPhone,
+      otpPhone,
       `Your withdrawal verification code is ${otp}. Valid 10 minutes. Do not share this code with anyone, including Welile staff or agents.`,
       {
         admin,
@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
     return json({
       success: true,
       challenge_id: challengeId,
-      masked_phone: maskPhone(accountPhone),
+      masked_phone: maskPhone(otpPhone),
       expires_at: otp_expires_at,
       sms_sent: smsSent,
     });
