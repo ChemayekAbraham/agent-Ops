@@ -25,6 +25,12 @@ import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePa
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { Smartphone } from 'lucide-react';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
+import {
+  useIdentityBinding,
+  useCompleteIdentityBinding,
+  maskPayoutNumber,
+} from '@/hooks/useIdentityBinding';
+import { Lock } from 'lucide-react';
 
 
 import SelfieCropDialog from './SelfieCropDialog';
@@ -143,6 +149,9 @@ function detectMomoProvider(raw: string): MomoProvider | null {
 function PayoutNumberVerification({ userId }: { userId: string | null | undefined }) {
   const list = useMyPayoutDestinations(userId);
   const [target, setTarget] = useState<MyPayoutDestination | null>(null);
+  const binding = useIdentityBinding(userId ?? undefined);
+  const bind = useCompleteIdentityBinding();
+  const lockedNumber = binding.data?.locked_payout_number ?? null;
 
   const rows = list.data ?? [];
   const existingMomo = rows.find((d) => d.destination_type === 'mobile_money');
