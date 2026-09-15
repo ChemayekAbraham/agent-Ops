@@ -48,7 +48,10 @@ export function accountCodeOf(line: PositionLine): string | null {
 /* ── Assets ────────────────────────────────────────────────────────────── */
 
 export const ASSET_CATEGORIES = [
-  'Cash and Bank Balances',
+  'Cash at Bank',
+  'Agent Float — Amounts with Agents',
+  'Cash in Custody — Not Yet Confirmed Banked',
+  'Agent and Merchant Float Cycle Control',
   'Receivables from Tenant Products and Services',
   'Receivables from Agent Products and Services',
   'Receivables from Landlord Products and Services',
@@ -61,11 +64,19 @@ export const ASSET_CATEGORIES = [
   'Goodwill',
 ] as const;
 
+/** The bank line is A1 alone — float and custody are never bank cash. */
+export const CASH_AT_BANK_LABEL = 'Cash at Bank';
+
 /**
  * Only mappings that are unambiguous.
  *
- * A1 Cash and Bank, A2 Cash at Hand — Float with Agents and A5 Cash in Transit
- * are all cash; the cash flow statement already defines cash as A1 + A2.
+ * Cash presentation (approved correction, 2026-09-15): A1 is the ONLY bank
+ * line. A2 is money in agents' hands, A5 is physical cash received and not yet
+ * confirmed banked, and A8 is the agent/merchant float cycle control account —
+ * none of the three is company bank cash, so each reports on its own line and
+ * none is added into "Cash at Bank". They were previously grouped together,
+ * which presented float and custody as bank money.
+ *
  * A3 is tenant rent access receivables.
  *
  * A4 "Advances and Other Receivables" now carries only agent advance
@@ -79,9 +90,10 @@ export const ASSET_CATEGORIES = [
  * A9 Suspense is unresolved postings by definition and is never classified.
  */
 const ASSET_ACCOUNT_MAP: Record<string, string> = {
-  A1: 'Cash and Bank Balances',
-  A2: 'Cash and Bank Balances',
-  A5: 'Cash and Bank Balances',
+  A1: 'Cash at Bank',
+  A2: 'Agent Float — Amounts with Agents',
+  A5: 'Cash in Custody — Not Yet Confirmed Banked',
+  A8: 'Agent and Merchant Float Cycle Control',
   A3: 'Receivables from Tenant Products and Services',
   A4: 'Receivables from Agent Products and Services',
   // A6 and A7 recognise the Welile Homes and promissory note receivables that

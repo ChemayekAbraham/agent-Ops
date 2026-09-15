@@ -2019,6 +2019,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agent_collections_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
+          },
+          {
             foreignKeyName: "agent_collections_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
@@ -6483,6 +6490,66 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_cash_recognition_log: {
+        Row: {
+          amount: number
+          backing: string
+          deposit_request_id: string
+          id: string
+          notes: string | null
+          posted_at: string
+          posted_by: string | null
+          transaction_group_id: string | null
+          verification_id: string
+        }
+        Insert: {
+          amount: number
+          backing: string
+          deposit_request_id: string
+          id?: string
+          notes?: string | null
+          posted_at?: string
+          posted_by?: string | null
+          transaction_group_id?: string | null
+          verification_id: string
+        }
+        Update: {
+          amount?: number
+          backing?: string
+          deposit_request_id?: string
+          id?: string
+          notes?: string | null
+          posted_at?: string
+          posted_by?: string | null
+          transaction_group_id?: string | null
+          verification_id?: string
+        }
+        Relationships: []
+      }
+      bank_cash_recognition_runs: {
+        Row: {
+          dry_run: boolean
+          id: string
+          result: Json
+          run_at: string
+          run_by: string | null
+        }
+        Insert: {
+          dry_run?: boolean
+          id?: string
+          result: Json
+          run_at?: string
+          run_by?: string | null
+        }
+        Update: {
+          dry_run?: boolean
+          id?: string
+          result?: Json
+          run_at?: string
+          run_by?: string | null
+        }
+        Relationships: []
+      }
       bd3_pricing_subsidy_population: {
         Row: {
           access_fee: number
@@ -8295,6 +8362,13 @@ export type Database = {
             referencedRelation: "cash_deposit_verifications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "cash_deposit_verification_events_verification_id_fkey"
+            columns: ["verification_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["verification_id"]
+          },
         ]
       }
       cash_deposit_verifications: {
@@ -8357,6 +8431,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "deposit_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_deposit_verifications_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
           },
         ]
       }
@@ -11746,6 +11827,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "deposit_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_relink_attempts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
           },
         ]
       }
@@ -15433,6 +15521,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "deposit_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_transactions_linked_deposit_request_id_fkey"
+            columns: ["linked_deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
           },
         ]
       }
@@ -26945,6 +27040,13 @@ export type Database = {
             referencedRelation: "deposit_requests"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "operational_float_audit_log_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
+          },
         ]
       }
       operations_departments: {
@@ -30641,6 +30743,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "deposit_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pre_registered_tids_matched_deposit_id_fkey"
+            columns: ["matched_deposit_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
           },
         ]
       }
@@ -35783,6 +35892,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "deposit_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repayments_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
           },
           {
             foreignKeyName: "repayments_rent_request_id_fkey"
@@ -41517,6 +41633,13 @@ export type Database = {
             referencedRelation: "deposit_requests"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tenant_self_repayment_attempts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
+          },
         ]
       }
       tenant_self_repayment_notices: {
@@ -41576,6 +41699,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "deposit_requests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_self_repayment_notices_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
           },
         ]
       }
@@ -50106,6 +50236,13 @@ export type Database = {
             referencedRelation: "deposit_requests"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tenant_self_repayment_attempts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
+          },
         ]
       }
       v_tlb_tenant_base: {
@@ -50240,6 +50377,23 @@ export type Database = {
           total_visible: number | null
           user_id: string | null
           withdrawable: number | null
+        }
+        Relationships: []
+      }
+      v_verified_bank_declarations: {
+        Row: {
+          already_banked: boolean | null
+          already_debited_to_bank: boolean | null
+          amount: number | null
+          approved_at: string | null
+          backing: string | null
+          custody_leg: boolean | null
+          deposit_request_id: string | null
+          float_leg: boolean | null
+          leg_count: number | null
+          transaction_id: string | null
+          user_id: string | null
+          verification_id: string | null
         }
         Relationships: []
       }
@@ -51426,6 +51580,15 @@ export type Database = {
       backfill_receivables_summary: {
         Args: { p_repair?: boolean }
         Returns: Json
+      }
+      bank_cash_recognition_schedule: {
+        Args: never
+        Returns: {
+          amount: number
+          backing: string
+          declarations: number
+          treatment: string
+        }[]
       }
       begin_ledger_maintenance: {
         Args: { p_minutes?: number; p_reason?: string }
@@ -59881,6 +60044,10 @@ export type Database = {
       }
       recognise_partner_receivable: {
         Args: { p_note_id: string }
+        Returns: Json
+      }
+      recognise_verified_bank_cash: {
+        Args: { p_dry_run?: boolean }
         Returns: Json
       }
       recompute_agent_earned_vouch:
