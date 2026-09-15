@@ -60848,6 +60848,18 @@ export type Database = {
         Args: { p_id_name: string; p_national_id: string }
         Returns: Json
       }
+      submit_national_id_details: {
+        Args: {
+          p_card_number: string
+          p_date_of_birth: string
+          p_given_name: string
+          p_nin: string
+          p_reading?: Json
+          p_sex: string
+          p_surname: string
+        }
+        Returns: Json
+      }
       submit_service_center_request: {
         Args: {
           p_agent_location: string
