@@ -778,7 +778,7 @@ export function SmartphoneCatalogDialog() {
                       <div className="rounded-md border border-border bg-background/60 p-2">
                         <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground mb-1.5">
                           <span>Receivables &amp; Returns preview (28%/month reducing)</span>
-                          <span className="font-semibold text-foreground">{formatUGX(previewAmount(editAmount))} cost</span>
+                          <span className="font-semibold text-foreground">{formatUGX(previewAmount(editAmount))} down payment</span>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                           {smartphoneScheduleGrid(previewAmount(editAmount)).map((s) => {
@@ -930,7 +930,7 @@ export function SmartphoneCatalogDialog() {
                           <div className="flex items-center justify-between text-xs py-1 px-1">
                             <span className="text-muted-foreground italic text-[11px]">No down payment set for this model.</span>
                             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => startEdit(e)}>
-                              <Pencil className="h-3 w-3" /> Set price
+                              <Pencil className="h-3 w-3" /> Set down payment
                             </Button>
                           </div>
                         )}
