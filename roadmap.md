@@ -39,3 +39,5 @@
 - [ ] Agent Ops-stage rejected requests reopenable by managers (existing reopen workflow, required reason).
 - [ ] Stale/expired returns should not consume the agent reopen allowance.
 - [ ] Show agent remaining resubmission attempts before submitting.
+- [x] Verify payout: back of National ID no longer required (no capture UI exists).
+- [x] Stop sending email to placeholder phone-only addresses (central guard + queue skip).
