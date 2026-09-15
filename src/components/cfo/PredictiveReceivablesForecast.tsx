@@ -126,13 +126,21 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
   URL.revokeObjectURL(url);
 }
 
-export default function PredictiveReceivablesForecast() {
+interface PredictiveReceivablesForecastProps {
+  productLabel?: string;
+  projectionAvailable?: boolean;
+}
+
+export default function PredictiveReceivablesForecast({
+  productLabel,
+  projectionAvailable = true,
+}: PredictiveReceivablesForecastProps = {}) {
   const [granularity, setGranularity] = useState<ForecastGranularity>('month');
   const [periods, setPeriods] = useState(12);
   const [openPeriod, setOpenPeriod] = useState<number | null>(null);
   const [showStreams, setShowStreams] = useState(false);
 
-  const q = useReceivablesPredictiveForecast(granularity, periods);
+  const q = useReceivablesPredictiveForecast(granularity, periods, projectionAvailable);
   const data = q.data;
 
   const chartData = useMemo(() => {
@@ -245,9 +253,13 @@ export default function PredictiveReceivablesForecast() {
               <Sparkles className="h-4 w-4 text-primary" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-semibold tracking-tight">Predictive receivables forecast</p>
+              <p className="text-sm font-semibold tracking-tight">
+                {productLabel ? `${productLabel} projection` : 'Predictive receivables forecast'}
+              </p>
               <p className="text-[11px] text-muted-foreground">
-                Modelled from real collection history · all forward amounts are estimates
+                {projectionAvailable
+                  ? 'Modelled from real collection history · all forward amounts are estimates'
+                  : 'No recognised receivable or sufficient projection data'}
               </p>
             </div>
           </div>
@@ -279,13 +291,15 @@ export default function PredictiveReceivablesForecast() {
           </div>
         </div>
 
-        {q.isError && (
+        {projectionAvailable && q.isError && (
           <p className="text-xs text-destructive">
             Could not load the forecast: {(q.error as Error)?.message}
           </p>
         )}
 
-        {q.isLoading ? (
+        {!projectionAvailable ? (
+          <EmptyProjection granularity={granularity} periods={periods} />
+        ) : q.isLoading ? (
           <div className="flex justify-center py-10">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
@@ -698,6 +712,77 @@ export default function PredictiveReceivablesForecast() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function EmptyProjection({
+  granularity,
+  periods,
+}: {
+  granularity: ForecastGranularity;
+  periods: number;
+}) {
+  const periodNoun = `${granularity}${periods === 1 ? '' : 's'}`;
+
+  return (
+    <>
+      <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            On the books today
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Tile label="Actual recorded" value={formatUGX(0)} hint="0 open items" />
+            <Tile label="Overdue" value={formatUGX(0)} hint="Past due date" />
+            <Tile label="Not yet due" value={formatUGX(0)} hint="On the books" />
+          </div>
+        </div>
+        <div className="lg:w-64">
+          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
+            <TrendingUp className="h-3 w-3" /> Forecast · estimate
+          </p>
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+            <p className="font-mono text-lg font-bold tabular-nums">{formatUGX(0)}</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              no projection across {periods} {periodNoun}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex h-56 w-full items-center justify-center rounded-xl border border-border/60 bg-muted/10 sm:h-64 lg:h-80">
+        <div className="text-center">
+          <TrendingUp className="mx-auto h-5 w-5 text-muted-foreground/40" />
+          <p className="mt-2 text-xs font-medium text-muted-foreground">UGX 0</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">No projection available</p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-border/60">
+        <table className="w-full min-w-[320px] text-xs">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="px-2.5 py-1.5 text-left font-medium">Period</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">Forecast (est.)</th>
+              <th className="hidden px-2.5 py-1.5 text-right font-medium sm:table-cell">Range · UGX</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">Confidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-border/40">
+              <td className="px-2.5 py-3 text-muted-foreground">No projection</td>
+              <td className="px-2.5 py-3 text-right font-mono font-semibold tabular-nums">{formatUGX(0)}</td>
+              <td className="hidden px-2.5 py-3 text-right font-mono text-muted-foreground sm:table-cell">—</td>
+              <td className="px-2.5 py-3 text-right">
+                <Badge className={`border-0 px-1.5 py-0 text-[10px] ${QUALITY_STYLE.insufficient}`}>
+                  no projection
+                </Badge>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
