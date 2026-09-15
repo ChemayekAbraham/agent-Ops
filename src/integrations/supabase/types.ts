@@ -53611,10 +53611,12 @@ export type Database = {
           changed_by: string
           changed_by_name: string
           id: string
+          ip_address: string
           new_name: string
           old_name: string
           reason: string
           source: string
+          user_agent: string
         }[]
       }
       finops_manual_float_credit: {
