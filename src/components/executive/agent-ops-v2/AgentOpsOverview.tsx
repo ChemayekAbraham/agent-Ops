@@ -599,6 +599,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
           </Table>
         </div>
       )}
+    </div>
     </Card>
   );
 }
