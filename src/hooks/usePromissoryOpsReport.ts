@@ -68,6 +68,7 @@ export interface PromissoryNoteRow {
   contribution_type: string | null;
   deduction_day: number | null;
   next_deduction_date: string | null;
+  fulfilment_due_on: string | null;
   status: string;
   created_at: string;
   approved_at: string | null;
