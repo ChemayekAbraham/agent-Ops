@@ -72,9 +72,10 @@ const resolveRange = (key: RangeKey, custom: DateRange | undefined): Range => {
 };
 
 /**
- * Receivables (money from partners who actually came in) vs Expected
- * (promissory notes still open because the partner has not come in yet).
- * Cumulative daily lines over the chosen window.
+ * Receivables vs Expected, aggregated purely from promissory note data:
+ * receivables = total_collected on each note; expected = outstanding
+ * (amount - total_collected) on notes still open (pending/activated).
+ * Cumulative lines over the chosen window.
  */
 export function PartnerReceivablesVsExpectedChart() {
   const [rangeKey, setRangeKey] = useState<RangeKey>('monthly');
