@@ -287,9 +287,46 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const storedSelfiePath = mine.data?.selfie_photo_path ?? null;
 
   const alreadyDone = !!storedIdPath && !!storedSelfiePath;
-  if (alreadyDone) return null;
-  // Verified once means verified for good — nothing more to send.
+  // Verified once means verified for good — nothing more to send or explain.
   if (alreadyVerified.data === true) return null;
+
+  /* Everything is in and Financial Ops has it. This used to render NOTHING,
+     which read as the screen being broken: the upload tiles vanished, the
+     withdraw gate still refused, and there was no sentence anywhere saying the
+     photos had arrived or what happens next. Waiting is a state, and it has to
+     look like one. */
+  if (alreadyDone) {
+    return (
+      <Card className={compact ? 'border-2 border-amber-500/60' : undefined}>
+        <CardContent className="space-y-3 p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <ShieldCheck className="h-4 w-4 text-amber-600" />
+            Your ID and selfie are with Financial Ops
+          </p>
+          <p className="text-xs text-muted-foreground">
+            They were received
+            {mine.data?.identity_photos_submitted_at
+              ? ` on ${new Date(mine.data.identity_photos_submitted_at).toLocaleString('en-GB', {
+                  dateStyle: 'medium', timeStyle: 'short',
+                })}`
+              : ''}
+            . You do not need to send them again. Withdrawals open once your payout number is
+            verified against the name on your National ID.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <StoredShot path={storedIdPath!} label="National ID photo" note="Sent for verification." />
+            <StoredShot path={storedSelfiePath!} label="Selfie" note="Sent for verification." />
+          </div>
+          <a
+            href="/verification-history"
+            className="block text-center text-xs text-muted-foreground underline"
+          >
+            See my verification history
+          </a>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const haveId = !!idPhoto || !!storedIdPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
