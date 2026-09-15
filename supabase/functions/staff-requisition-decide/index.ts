@@ -11,6 +11,10 @@ const corsHeaders = {
 };
 
 const OVERRIDE_ROLES = new Set(["super_admin", "manager"]);
+/** Executive override: the CEO may approve or decline at any stage, including
+ *  CFO stage, without being a designated CFO approver. Deciding your own
+ *  requisition stays blocked for the CEO like everyone else. */
+const EXEC_OVERRIDE_ROLES = new Set(["ceo"]);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
