@@ -195,6 +195,63 @@ export function AgentOpsExpiredRequestsPanel({
     return filtered.reduce((sum, r) => sum + r.rent_amount, 0);
   }, [filtered]);
 
+  // Renew a single request: restarts the 30-day verification window server-side.
+  const handleRenew = async (req: ExpiredRequestRow) => {
+    setRenewingId(req.id);
+    try {
+      const { error } = await supabase.rpc('renew_expired_rent_request', {
+        p_request_id: req.id,
+        p_reason: `Renewed expired pending window for ${req.tenant_name}`,
+      });
+      if (error) throw error;
+      toast({
+        title: '♻️ Request renewed',
+        description: `${req.tenant_name}'s request is back in the active pending queue with a fresh 30-day window.`,
+      });
+      invalidateAll();
+    } catch (err: any) {
+      toast({
+        title: 'Renew failed',
+        description: err.message || 'Could not renew this request',
+        variant: 'destructive',
+      });
+    } finally {
+      setRenewingId(null);
+    }
+  };
+
+  const handleRenewAll = async () => {
+    if (filtered.length === 0) return;
+    setIsBulkRenewing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const req of filtered) {
+      const { error } = await supabase.rpc('renew_expired_rent_request', {
+        p_request_id: req.id,
+        p_reason: `Bulk renewal of expired pending window for ${req.tenant_name}`,
+      });
+      if (error) failCount++;
+      else successCount++;
+    }
+
+    setIsBulkRenewing(false);
+    invalidateAll();
+
+    if (failCount === 0) {
+      toast({
+        title: '✅ All requests renewed',
+        description: `${successCount} request${successCount === 1 ? '' : 's'} returned to the active pending queue.`,
+      });
+    } else {
+      toast({
+        title: `Renewed ${successCount} request${successCount === 1 ? '' : 's'}`,
+        description: `${failCount} could not be renewed.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Delete single request
   const handleDeleteSingle = async () => {
     if (!requestToDelete) return;
