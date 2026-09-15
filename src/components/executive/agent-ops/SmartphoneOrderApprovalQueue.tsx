@@ -733,14 +733,18 @@ export function SmartphoneOrderApprovalQueue({
                   ))}
                 </div>
 
-                {isMoBanjaIphone(detailsTarget.brand, detailsTarget.model_type) && (
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
-                    <p className="text-xs font-semibold flex items-center gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> {MO_BANJA.partner} programme
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">{MO_BANJA.opsNote}</p>
-                  </div>
-                )}
+                {(() => {
+                  const copy = downPaymentCopy(detailsTarget.brand, detailsTarget.model_type);
+                  return (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
+                      <p className="text-xs font-semibold flex items-center gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />{' '}
+                        {copy.partner ? `${copy.partner} programme` : 'Down payment programme'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">{copy.opsNote}</p>
+                    </div>
+                  );
+                })()}
 
                 <p className="text-[11px] text-muted-foreground">
                   Paid to{' '}
