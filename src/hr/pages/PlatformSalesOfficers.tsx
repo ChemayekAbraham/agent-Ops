@@ -341,9 +341,56 @@ export default function PlatformSalesOfficersPage() {
     return out;
   }, [officers]);
 
+  const people = useMemo<PersonSummary[]>(() => {
+    const fundedById = new Map(nonOfficerFunded.map((s) => [s.person_user_id, s]));
+    const byId = new Map<string, PersonSummary>();
+
+    for (const row of nonOfficerRows) {
+      let entry = byId.get(row.person_user_id);
+      if (!entry) {
+        const funded = fundedById.get(row.person_user_id);
+        entry = {
+          person_user_id: row.person_user_id,
+          person_name: row.person_name,
+          netNotes: 0,
+          weekday: [0, 0, 0, 0, 0, 0, 0],
+          notesUnapproved: funded?.notes_unapproved ?? 0,
+          notesFunded: funded?.notes_funded ?? 0,
+          fundersConverted: funded?.funders_converted ?? 0,
+          topups: funded?.topups ?? 0,
+          amountDeployed: funded?.amount_deployed ?? 0,
+          commissionBase: funded?.commission_base ?? 0,
+          commissionAccrued: funded?.commission_accrued ?? 0,
+        };
+        byId.set(row.person_user_id, entry);
+      }
+      entry.netNotes += row.net_notes ?? 0;
+      entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes ?? 0;
+    }
+
+    return Array.from(byId.values()).sort(
+      (a, b) => b.netNotes - a.netNotes || a.person_name.localeCompare(b.person_name),
+    );
+  }, [nonOfficerRows, nonOfficerFunded]);
+
+  const peopleRanks = useMemo(() => {
+    const out: number[] = [];
+    people.forEach((p, i) => {
+      out.push(i > 0 && people[i - 1].netNotes === p.netNotes ? out[i - 1] : i + 1);
+    });
+    return out;
+  }, [people]);
+
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
   const fundedTotal = useMemo(() => officers.reduce((s, o) => s + o.notesFunded, 0), [officers]);
   const moneyTotal = useMemo(() => officers.reduce((s, o) => s + o.amountDeployed, 0), [officers]);
+
+  const peopleNetTotal = useMemo(() => people.reduce((s, p) => s + p.netNotes, 0), [people]);
+  const peopleFundedTotal = useMemo(() => people.reduce((s, p) => s + p.notesFunded, 0), [people]);
+  const peopleMoneyTotal = useMemo(() => people.reduce((s, p) => s + p.amountDeployed, 0), [people]);
+  const combinedNetTotal = netTotal + peopleNetTotal;
+  const combinedFundedTotal = fundedTotal + peopleFundedTotal;
+  const combinedMoneyTotal = moneyTotal + peopleMoneyTotal;
 
   const isNotPermitted = error instanceof Error && error.message.includes('not permitted');
 
