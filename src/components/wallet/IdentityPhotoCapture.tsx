@@ -252,7 +252,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     // A photo that is not a National ID prefills nothing — there is nothing on
     // it to confirm, and a half-filled form would invite the person to guess.
     if (r.status === 'invalid') setForm(EMPTY_ID_DATA);
-    else setForm({ ...EMPTY_ID_DATA, ...r.data });
+    else setForm({ ...EMPTY_ID_DATA, ...(r.data ?? {}) });
     setReading(false);
   };
 
@@ -583,7 +583,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
                 {/* A failed cross-check is a reason for a person to look, never
                     proof of anything — the NIN's internal layout is inferred. */}
-                {idReading.consistency.length > 0 && (
+                {(idReading.consistency ?? []).length > 0 && (
                   <p className="flex items-start gap-2 text-xs text-amber-600">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     Some details on the card do not agree with each other. Financial Ops will look

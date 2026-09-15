@@ -97,10 +97,93 @@ export async function readNationalIdPhoto(file: File): Promise<NationalIdReading
     if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) {
       return { error: String((data as { error: string }).error) };
     }
-    return data as NationalIdReading;
+    return normaliseReading(data);
   } catch {
     return { error: 'Could not read that photo automatically.' };
   }
+}
+
+/**
+ * Give every caller the same shape, whatever came back.
+ *
+ * Two things make this necessary rather than defensive padding. Edge functions
+ * in this project are deployed by hand, so the browser and the function can be
+ * different versions for hours - the older reader returned `id_number` and no
+ * `consistency` at all, and a render that trusted the new shape crashed on it.
+ * And the response crosses a network, so its shape is an assumption either way.
+ *
+ * Missing arrays become empty, missing fields become empty strings, and an
+ * older response is mapped onto the six-field form so the person still gets a
+ * prefill instead of a blank one.
+ */
+export function normaliseReading(raw: unknown): NationalIdReading {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const num = (v: unknown) => (typeof v === 'number' ? v : null);
+
+  const rawData = (r.data ?? {}) as Record<string, unknown>;
+  const data: NationalIdData = {
+    // `id_number` / `given_names` are the older reader's spelling.
+    surname: str(rawData.surname) || str(r.surname),
+    given_name: str(rawData.given_name) || str(r.given_names) || str(r.given_name),
+    nin: (str(rawData.nin) || str(r.id_number)).toUpperCase(),
+    date_of_birth: str(rawData.date_of_birth) || str(r.date_of_birth),
+    card_number: str(rawData.card_number),
+    sex: str(rawData.sex).toUpperCase(),
+  };
+
+  const fields: Record<string, NationalIdFieldVerdict> = {};
+  const rawFields = (r.fields ?? {}) as Record<string, Record<string, unknown>>;
+  for (const [key, f] of Object.entries(rawFields)) {
+    if (!f || typeof f !== 'object') continue;
+    fields[key] = {
+      valid: f.valid === true,
+      confidence: num(f.confidence),
+      note: typeof f.note === 'string' ? f.note : null,
+    };
+  }
+  // No per-field verdicts (older reader): treat a value that came back as read.
+  if (Object.keys(fields).length === 0) {
+    for (const [key, value] of Object.entries(data)) {
+      fields[key] = { valid: !!value, confidence: null, note: null };
+    }
+  }
+
+  const missing = Array.isArray(r.missing)
+    ? (r.missing as unknown[]).map(str).filter(Boolean)
+    : (Object.keys(data) as (keyof NationalIdData)[]).filter((k) => !data[k]);
+
+  const consistency = Array.isArray(r.consistency)
+    ? (r.consistency as Record<string, unknown>[])
+        .filter((c) => c && typeof c === 'object')
+        .map((c) => ({ id: str(c.id), detail: str(c.detail) }))
+    : [];
+
+  const isNationalId = r.is_national_id !== false;
+  const status: NationalIdStatus =
+    r.status === 'valid' || r.status === 'incomplete' || r.status === 'invalid'
+      ? r.status
+      : !isNationalId
+        ? 'invalid'
+        : missing.length === 0
+          ? 'valid'
+          : 'incomplete';
+
+  return {
+    status,
+    is_national_id: isNationalId,
+    confidence: num(r.confidence),
+    sha256: str(r.sha256) || null,
+    full_name: str(r.full_name) || [data.given_name, data.surname].filter(Boolean).join(' '),
+    data,
+    fields,
+    missing,
+    consistency,
+    message: str(r.message) || null,
+    account_name: str(r.account_name),
+    account_national_id: str(r.account_national_id) || null,
+    name_match_score: num(r.name_match_score),
+  };
 }
 
 /** Plain-language verdict on how well the ID name matches the account name. */
@@ -117,7 +200,7 @@ export function readingGuidance(r: NationalIdReading): string | null {
     return 'That photo is not a Ugandan National ID card. Take a photo of the front of your National ID.';
   }
   if (r.status === 'incomplete') {
-    const names = r.missing.map((m) => ID_FIELD_LABEL[m as keyof NationalIdData] ?? m);
+    const names = (r.missing ?? []).map((m) => ID_FIELD_LABEL[m as keyof NationalIdData] ?? m);
     const list = names.length ? names.join(', ') : 'some details';
     return `We could not read ${list} on this card. Retake the photo of the same card in better light, or type ${
       names.length === 1 ? 'it' : 'them'
