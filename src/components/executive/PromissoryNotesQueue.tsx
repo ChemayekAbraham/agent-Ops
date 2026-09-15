@@ -827,17 +827,23 @@ export function PromissoryNotesQueue({
 
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
         {statuses.map(s => {
-          const count = s === 'overdue' ? overdueCount : (statusCounts[s] || 0);
+          const count =
+            s.value === 'all'
+              ? notes.length
+              : s.value === 'overdue'
+              ? overdueCount
+              : (statusCounts[s.value] || 0);
           return (
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
+              key={s.value}
+              onClick={() => setStatusFilter(s.value)}
+              aria-pressed={statusFilter === s.value}
               className={cn(
                 'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
-                statusFilter === s ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                statusFilter === s.value ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
               )}
             >
-              {s === 'all' ? `All (${notes.length})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${count})`}
+              {`${s.label} (${count})`}
             </button>
           );
         })}
