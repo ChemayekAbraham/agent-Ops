@@ -34,4 +34,3 @@
 - [x] Make Agent Ops smartphone navigation simpler and add status/date filters to Rent Requests.
 - [x] Show a stage-aware SLA/aging indicator on every Rent Request in the pipeline.
 - [x] Add a one-tap call action for the original agent on every Rent Request.
-- [x] Add one-tap status filter chips to the Rent Requests overview card.
