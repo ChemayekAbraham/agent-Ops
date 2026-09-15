@@ -416,9 +416,15 @@ export default function PlatformSalesOfficersPage() {
                         <th key={d} className="px-2 py-2 text-right font-medium">{d}</th>
                       ))}
                       <th className="px-4 py-2 text-right font-medium">Total</th>
+                      <th className="px-4 py-2 text-right font-medium">Unapproved</th>
                       <th className="px-4 py-2 text-right font-medium">Funded</th>
-                      <th className="px-4 py-2 text-right font-medium">Money funded</th>
+                      <th className="px-4 py-2 text-right font-medium">Funders</th>
+                      <th className="px-4 py-2 text-right font-medium">Top-ups</th>
+                      <th className="px-4 py-2 text-right font-medium">Money deployed</th>
+                      <th className="px-4 py-2 text-right font-medium">Commission base</th>
                       <th className="px-4 py-2 text-right font-medium">Commission</th>
+                      <th className="px-4 py-2 text-right font-medium">Pre-enrol</th>
+                      <th className="px-4 py-2 text-right font-medium">Pre-enrol funded</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -430,12 +436,31 @@ export default function PlatformSalesOfficersPage() {
                           <td key={wi} className="px-2 py-2 text-right tabular-nums">{v}</td>
                         ))}
                         <td className="px-4 py-2 text-right tabular-nums">{officer.netNotes}</td>
-                        <td className="px-4 py-2 text-right tabular-nums">{officer.notesFunded}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
-                          UGX {officer.amountFunded.toLocaleString('en-UG')}
+                          {officer.notesUnapproved === 0 ? '—' : officer.notesUnapproved}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">{officer.notesFunded}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{officer.fundersConverted}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {officer.topups === 0 ? '—' : officer.topups}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {officer.amountDeployed.toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {officer.commissionBase.toLocaleString('en-UG')}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {officer.commissionAccrued.toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {officer.preEnrolmentNotes === 0 ? '—' : officer.preEnrolmentNotes}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          <div>{officer.preEnrolmentFunded}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            UGX {officer.preEnrolmentAmount.toLocaleString('en-UG')}
+                          </div>
                         </td>
                       </tr>
                     ))}
