@@ -56021,6 +56021,10 @@ export type Database = {
         Args: { p_end: string; p_granularity?: string; p_start: string }
         Returns: Json
       }
+      get_smartphone_supplier_payout_details: {
+        Args: { p_sale_id: string }
+        Returns: Json
+      }
       get_sms_broadcast_status: {
         Args: never
         Returns: {
