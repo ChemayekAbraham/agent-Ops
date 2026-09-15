@@ -462,6 +462,12 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
 function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
   const [statusFilter, setStatusFilter] = useState('pending');
   const [dateFilter, setDateFilter] = useState('30');
+  const quickStatuses = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'all', label: 'All' },
+  ];
   const { data, isLoading } = useQuery({
     queryKey: ['agent-ops-latest-rent-requests', statusFilter, dateFilter],
     queryFn: async () => {
@@ -469,7 +475,11 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
         .from('rent_requests')
         .select('id, agent_id, tenant_id, rent_amount, status, created_at')
         .order('created_at', { ascending: false });
-      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      if (statusFilter === 'approved') {
+        query = query.in('status', ['agent_ops_approved', 'tenant_ops_approved', 'landlord_ops_approved', 'partner_ops_approved', 'coo_approved', 'approved', 'funded', 'disbursed', 'repaying', 'completed']);
+      } else if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
       if (dateFilter !== 'all') {
         query = query.gte('created_at', subDays(new Date(), Number(dateFilter)).toISOString());
       }
@@ -524,6 +534,25 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
           View all <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>
+      <div className="mb-2 flex gap-2 overflow-x-auto pb-1 scrollbar-hide" aria-label="Quick rent request status filters">
+        {quickStatuses.map((option) => {
+          const selected = statusFilter === option.value
+            || (option.value === 'approved' && ['agent_ops_approved', 'tenant_ops_approved', 'landlord_ops_approved'].includes(statusFilter));
+          return (
+            <Button
+              key={option.value}
+              type="button"
+              size="sm"
+              variant={selected ? 'default' : 'outline'}
+              aria-pressed={selected}
+              onClick={() => setStatusFilter(option.value)}
+              className="h-9 shrink-0 rounded-full px-4 text-xs font-semibold"
+            >
+              {option.label}
+            </Button>
+          );
+        })}
+      </div>
       <div className="mb-3 grid grid-cols-2 gap-2">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by status">
@@ -531,6 +560,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="approved">All approved stages</SelectItem>
             <SelectItem value="agent_ops_approved">Agent Ops approved</SelectItem>
             <SelectItem value="tenant_ops_approved">Tenant Ops approved</SelectItem>
             <SelectItem value="landlord_ops_approved">Landlord Ops approved</SelectItem>
