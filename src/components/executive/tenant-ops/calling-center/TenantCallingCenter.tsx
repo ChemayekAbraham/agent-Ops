@@ -24,6 +24,7 @@ import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  Eye,
   Headphones,
   History,
   LayoutDashboard,
