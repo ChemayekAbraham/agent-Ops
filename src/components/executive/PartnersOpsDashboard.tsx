@@ -399,6 +399,20 @@ export function PartnersOpsDashboard() {
         badges={badges}
         actions={
           <div className="flex items-center gap-1.5">
+            <Button
+              variant={view === 'proxy.promissory' ? 'default' : 'outline'}
+              size="sm"
+              className="relative gap-1.5 text-xs"
+              onClick={() => { setPromissoryFilter({}); setView('proxy.promissory'); }}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Promissory Notes</span>
+              {promissoryPending > 0 && (
+                <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+                  {promissoryPending > 99 ? '99+' : promissoryPending}
+                </span>
+              )}
+            </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => refetch()} aria-label="Refresh">
               <RefreshCw className="h-4 w-4" />
             </Button>
