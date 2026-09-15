@@ -560,6 +560,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // One account, one National ID, one photo: a verified account is never asked again.
   const alreadyVerified = useIdentityAlreadyVerified();
   const submit = useSubmitIdentityPhotos();
+  // Binds the captured identity as soon as everything needed is on file.
+  const identityBind = useCompleteIdentityBinding();
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
@@ -820,10 +822,17 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         ? await setSelfieAsProfilePhoto(user.id, selfieCropped, selfiePath)
         : null;
 
+      /* Details + ID photo + selfie + a confirmed number is everything the
+         binding needs. The server refuses politely when something is still
+         missing, so this is safe to attempt on every submission. */
+      const bound = await identityBind.tryComplete();
+
       toast.success(
-        avatar
-          ? 'Photos received. Your original photo is saved for verification and your cropped photo is now your profile picture.'
-          : 'Photos received. Financial Ops will verify them shortly.',
+        bound?.code === 'identity_captured'
+          ? 'Identity details saved and linked to your account. Your withdrawal number is now locked.'
+          : avatar
+            ? 'Photos received. Your original photo is saved and your cropped photo is now your profile picture.'
+            : 'Photos received.',
       );
       setIdPhoto(null);
       setSelfieOriginal(null);
