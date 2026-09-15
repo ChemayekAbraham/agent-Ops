@@ -180,7 +180,7 @@ export function smartphoneSchedule(
   };
 }
 
-/** Full 3 / 6 / 9 / 12 month grid for a device amount. */
+/** Full 1–12 month grid for a device amount. */
 export function smartphoneScheduleGrid(baseAmount: number, startDate?: string | Date): SmartphoneScheduleRow[] {
   return SMARTPHONE_PERIODS.map((p) => smartphoneSchedule(baseAmount, p.months, startDate));
 }
