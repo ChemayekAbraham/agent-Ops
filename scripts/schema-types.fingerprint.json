@@ -1,7 +1,7 @@
 {
   "algorithm": "sha256",
   "file": "src/integrations/supabase/types.ts",
-  "sha256": "54ae3b252c25b4a0fe0dd5b46fe7fe9051a64229fac0ac3a1d206b5fedfa7b0b",
-  "bytes": 1968658,
-  "lines": 61755
+  "sha256": "72f2c22c3ac4a7db570ae9f369ba9d6f598e049f3ea0007a8fba3c0dc522b68b",
+  "bytes": 1977931,
+  "lines": 62015
 }
