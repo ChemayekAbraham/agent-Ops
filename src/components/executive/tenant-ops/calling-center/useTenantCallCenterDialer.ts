@@ -24,7 +24,6 @@ import {
 } from '@/hooks/useCcCallingHub';
 import { isTerminalCallState, useCrmVoiceCall, type CallState } from '@/hooks/useCrmVoiceCall';
 import { hangupVoiceCall } from '@/lib/atVoiceClient';
-import { supabase } from '@/integrations/supabase/client';
 
 /** Attended sequential run states. Nothing dials without an officer starting it. */
 export type AutoMode = 'off' | 'running' | 'paused' | 'awaiting_outcome' | 'finished';
