@@ -45,25 +45,39 @@ export default function MobileMoneyNameCard({ userId }: Props) {
   const [name, setName] = useState("");
   const [provider, setProvider] = useState<Provider>("mtn");
 
+  /* Once the identity is captured, the withdrawal number is locked to the
+     account and cannot be changed from anywhere in the app. */
+  const [locked, setLocked] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("mobile_money_name, mobile_money_number, mobile_money_provider, full_name, phone")
-        .eq("id", userId)
-        .maybeSingle();
+      const [{ data }, { data: bindingRows }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("mobile_money_name, mobile_money_number, mobile_money_provider, full_name, phone")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabase
+          .from("user_identity_bindings")
+          .select("locked_payout_number")
+          .eq("user_id", userId)
+          .neq("status", "revoked")
+          .limit(1),
+      ]);
       if (cancelled) return;
-      const n = (data?.mobile_money_number ?? "").trim();
+      const lockedNumber = (bindingRows?.[0]?.locked_payout_number ?? "").trim();
+      const n = lockedNumber || (data?.mobile_money_number ?? "").trim();
       const nm = (data?.mobile_money_name ?? "").trim();
       const pv = ((data?.mobile_money_provider ?? "").toLowerCase() === "airtel" ? "airtel" : "mtn") as Provider;
+      setLocked(!!lockedNumber);
       setSavedNumber(n);
       setSavedName(nm);
       setSavedProvider(pv);
       setNumber(n || (data?.phone ?? ""));
       setName(nm || (data?.full_name ?? ""));
       setProvider(detectProvider(n || data?.phone || "") ?? pv);
-      setEditing(!n || !nm);
+      setEditing(!lockedNumber && (!n || !nm));
       setLoading(false);
     })();
     return () => {
