@@ -181,8 +181,26 @@ export function TenantCallingCenter() {
 
   const metricLabel = hub.rows[0]?.metric_label ?? 'Metric';
   const activeQueueTab = CALLING_TABS.find((t) => t.key === queueState) ?? CALLING_TABS[0];
-  const leanColumns = useMemo(
-    () => activeQueueTab.columns.filter((c) => CENTER_COLUMNS.has(c)),
+  /**
+   * The shared column contract is unchanged. The Engaged tab carries no action
+   * column of its own, so the Center appends its own "Open details" control —
+   * presentation only, no phone column and no change to the queue's data.
+   */
+  const leanColumns = useMemo(() => {
+    const cols = activeQueueTab.columns.filter((c) => CENTER_COLUMNS.has(c));
+    return cols.includes('actions') ? cols : [...cols, 'actions' as CallingColumnKey];
+  }, [activeQueueTab]);
+  const actionLabels = useMemo(
+    () =>
+      activeQueueTab.columns.includes('actions')
+        ? CALL_ACTION_LABELS
+        : {
+            compact: 'Details',
+            full: 'View details',
+            compactOpen: 'Details',
+            fullOpen: 'View details',
+            title: 'View call details and recorded feedback',
+          },
     [activeQueueTab],
   );
 
