@@ -7,6 +7,7 @@ import {
   MARKETING_LEGACY_DESC_BUCKETS,
   OPERATING_EXPENSE_CATEGORIES,
   OPERATING_LEGACY_DESC_BUCKETS,
+  CONTRA_REVENUE_CATEGORIES,
   classifyLedgerCategory,
   prettyCategory,
   type ServiceFamilyKey,
@@ -41,6 +42,11 @@ export interface UnmappedLedgerLine {
 
 export interface ServiceIncomeStatement {
   revenueFamilies: ServiceRevenueFamily[];
+  /** Gross service revenue before contra-revenue deductions. */
+  grossRevenue: number;
+  /** Revenue deductions (e.g. pricing subsidies) that debit R1 Platform Revenue. */
+  contraRevenue: ExpenseGroup;
+  /** Net service revenue = grossRevenue − contraRevenue.total. */
   totalRevenue: number;
   marketing: ExpenseGroup;
   operating: ExpenseGroup;
