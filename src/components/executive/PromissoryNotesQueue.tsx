@@ -218,7 +218,6 @@ export function PromissoryNotesQueue({
     }
   };
 
-  const { range, setRange, report, isLoading, refetch, error: reportError } = usePromissoryOpsReport();
   const notes = report.notes;
   const kpis = report.kpis;
 
