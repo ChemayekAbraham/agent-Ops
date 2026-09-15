@@ -527,31 +527,8 @@ export default function PlatformSalesOfficersPage() {
             </div>
           )}
 
-          {!isLoading && (officers.length > 0 || people.length > 0) && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-              <span className="font-semibold uppercase tracking-wide">Column totals</span>
-              {WEEKDAY_LABELS.map((d, wi) => (
-                <span key={d}>
-                  {d} <span className="font-semibold tabular-nums text-foreground">{columnTotals.weekday[wi]}</span>
-                </span>
-              ))}
-              <span>Total <span className="font-semibold tabular-nums text-foreground">{combinedNetTotal}</span></span>
-              <span>Unapproved <span className="font-semibold tabular-nums text-foreground">{columnTotals.unapproved}</span></span>
-              <span>Funded <span className="font-semibold tabular-nums text-foreground">{combinedFundedTotal}</span></span>
-              <span>Funders <span className="font-semibold tabular-nums text-foreground">{columnTotals.funders}</span></span>
-              <span>Top-ups <span className="font-semibold tabular-nums text-foreground">{columnTotals.topups}</span></span>
-              <span>Money deployed <span className="font-semibold tabular-nums text-foreground">UGX {combinedMoneyTotal.toLocaleString('en-UG')}</span></span>
-              <span>Commission base <span className="font-semibold tabular-nums text-foreground">UGX {columnTotals.commissionBase.toLocaleString('en-UG')}</span></span>
-              <span>Commission <span className="font-semibold tabular-nums text-foreground">UGX {columnTotals.commission.toLocaleString('en-UG')}</span></span>
-              <span>Pre-enrol <span className="font-semibold tabular-nums text-foreground">{columnTotals.preEnrolNotes}</span></span>
-              <span>
-                Pre-enrol funded{' '}
-                <span className="font-semibold tabular-nums text-foreground">
-                  {columnTotals.preEnrolFunded} · UGX {columnTotals.preEnrolAmount.toLocaleString('en-UG')}
-                </span>
-              </span>
-            </div>
-          )}
+
+
 
           <div className="grid w-full grid-cols-3 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
 
