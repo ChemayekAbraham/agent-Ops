@@ -827,9 +827,10 @@ export default function PlatformSalesOfficersPage() {
                       <tr key={person.person_user_id} className="border-t">
                         <td className="px-4 py-2 text-left tabular-nums">{peopleRanks[i]}</td>
                         <td className="px-4 py-2 font-medium">{person.person_name}</td>
-                        {person.weekday.map((v, wi) => (
-                          <td key={wi} className="px-2 py-2 text-right tabular-nums">{v}</td>
+                        {dayIndices.map((wi) => (
+                          <td key={wi} className="px-2 py-2 text-right tabular-nums">{person.weekday[wi]}</td>
                         ))}
+
                         <td className="px-4 py-2 text-right tabular-nums">{person.netNotes}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {person.notesUnapproved === 0 ? '—' : person.notesUnapproved}
