@@ -2314,11 +2314,23 @@ export default function WithdrawFlow({
             no-op when the user was already there — clicking "Resubmit National
             ID" did nothing. Omitting onResubmit lets the banner's own built-in
             inline form (NationalIdPrompt) render instead, which works from
-            any step. */}
-        <NationalIdRejectedReminder
-          className="mb-4"
-          withdrawableBalance={Math.max(1, maxAmount)}
-        />
+            any step.
+
+            Suppressed while identityBlock.data?.blocked is true: that's the
+            newer, more complete payout_withdrawal_block_reasons check
+            rendered inline below (with its own headline/checklist/photo
+            capture) — showing both stacked two "your ID/payout was
+            rejected" banners at once, sometimes citing two DIFFERENT
+            rejected destinations by name, which is confusing rather than
+            informative. Kept as a fallback for when identityBlock hasn't
+            loaded yet or errors, since it still reflects real rejected
+            destinations independently. */}
+        {!identityBlock.data?.blocked && (
+          <NationalIdRejectedReminder
+            className="mb-4"
+            withdrawableBalance={Math.max(1, maxAmount)}
+          />
+        )}
         {renderStep()}
       </StepperModal>
 
