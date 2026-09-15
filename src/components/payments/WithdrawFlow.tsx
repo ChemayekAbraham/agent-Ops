@@ -27,6 +27,7 @@ import DestinationVerificationTimeline from '@/components/payments/DestinationVe
 import NationalIdPrompt, { useMyNationalId } from '@/components/wallet/NationalIdPrompt';
 import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
 import { useMyIdentityPhotos } from '@/hooks/useIdentityPhotos';
+import { useIsPurePartner } from '@/hooks/useIsPurePartner';
 import NationalIdRejectedReminder from '@/components/wallet/NationalIdRejectedReminder';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Star } from 'lucide-react';
