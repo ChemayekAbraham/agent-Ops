@@ -698,6 +698,25 @@ export function PromissoryNotesQueue({
         >
           Portfolio active ({kpis.partners_portfolio_active})
         </button>
+        <div className="ml-auto flex items-center shrink-0">
+          <label htmlFor="promissory-sort" className="sr-only">Sort by</label>
+          <div className="relative">
+            <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <select
+              id="promissory-sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="h-9 pl-8 pr-7 rounded-full bg-muted/50 text-xs font-medium text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+            >
+              <option value="default">Default order</option>
+              <option value="fulfilment_asc">Fulfils soonest first</option>
+              <option value="fulfilment_desc">Fulfils latest first</option>
+            </select>
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+              <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0h10L5 6z"/></svg>
+            </div>
+          </div>
+        </div>
       </div>
       </div>
 
