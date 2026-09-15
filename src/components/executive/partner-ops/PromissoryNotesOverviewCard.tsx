@@ -267,6 +267,38 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
           </div>
 
           <div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Quick view</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { key: 'pending' as PromissoryStatus, label: 'Awaiting review', count: counts.pending },
+                { key: 'fulfilled' as PromissoryStatus, label: 'Completed', count: counts.fulfilled },
+              ]).map(({ key, label, count }) => {
+                const active = selected === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSelected(key)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all',
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30'
+                        : 'bg-background text-muted-foreground hover:bg-accent border'
+                    )}
+                    aria-pressed={active}
+                  >
+                    {label}
+                    {!isLoading && (
+                      <span className={cn('tabular-nums rounded-full px-1.5', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-foreground')}>
+                        {count.toLocaleString()}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Status</p>
             <div className="flex flex-wrap gap-2">
               {PILL_CONFIG.map(({ key, label, icon: Icon }) => {
