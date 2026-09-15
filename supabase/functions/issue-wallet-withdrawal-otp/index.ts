@@ -271,12 +271,17 @@ Deno.serve(async (req) => {
 
     const smsSent = await sendSMS(
       otpPhone,
-      `Your withdrawal verification code is ${otp}. Valid 10 minutes. Do not share this code with anyone, including Welile staff or agents.`,
+      // Kept short on purpose: the previous wording plus the support footer ran
+      // to two SMS parts, which Yoola accepted but never confirmed delivering.
+      `Welile withdrawal code: ${otp}. Valid 10 min. Do not share it.`,
       {
         admin,
         source: "wallet_withdrawal_otp",
         reference_id: challengeId,
         recipient_user_id: userId,
+        // Time-critical: if Yoola does not confirm the handset received it, fail
+        // over to Africa's Talking instead of leaving the user without a code.
+        requireDeliveryConfirmation: true,
       },
     );
 
