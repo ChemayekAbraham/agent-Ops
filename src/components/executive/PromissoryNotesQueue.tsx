@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -146,6 +147,61 @@ function SwipeableNoteCard({
         {children}
       </div>
     </div>
+  );
+}
+
+/**
+ * Tappable agent name that opens one-tap call links for the agent who posted
+ * the note and the partner who promised. Falls back to plain text when neither
+ * side has a phone number on record.
+ */
+function AgentCallMenu({ note, className }: { note: any; className?: string }) {
+  const agentPhone = note.agent_phone || null;
+  const partnerPhone = note.phone_number || note.whatsapp_number || null;
+  if (!agentPhone && !partnerPhone) {
+    return <span className={className}>{note.agent_name}</span>;
+  }
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={stop}
+          className={cn(
+            'inline-flex max-w-full items-center gap-1 text-left font-medium text-primary underline-offset-2 hover:underline',
+            className,
+          )}
+          aria-label={`Call options for note by ${note.agent_name}`}
+        >
+          <span className="truncate">{note.agent_name}</span>
+          <Phone className="h-3 w-3 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-2" onClick={stop}>
+        <p className="px-2 pb-1 text-[11px] font-medium text-muted-foreground">Call about this promissory note</p>
+        <div className="space-y-1">
+          {agentPhone && (
+            <Button asChild variant="outline" className="h-11 w-full justify-start gap-2">
+              <a href={`tel:${agentPhone}`}>
+                <Phone className="h-4 w-4 shrink-0" />
+                <span className="truncate">Call agent {note.agent_name}</span>
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">{agentPhone}</span>
+              </a>
+            </Button>
+          )}
+          {partnerPhone && (
+            <Button asChild variant="outline" className="h-11 w-full justify-start gap-2">
+              <a href={`tel:${partnerPhone}`}>
+                <Phone className="h-4 w-4 shrink-0" />
+                <span className="truncate">Call partner {note.partner_name}</span>
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">{partnerPhone}</span>
+              </a>
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
