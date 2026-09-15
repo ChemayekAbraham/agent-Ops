@@ -99,7 +99,10 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
   const [tenant, setTenant] = useState<ProfileInfo | null>(null);
   const [agent, setAgent] = useState<ProfileInfo | null>(null);
   const [supporter, setSupporter] = useState<ProfileInfo | null>(null);
+  // The agent the office put on the case, when that differs from the one who filed it.
+  const [assignedAgent, setAssignedAgent] = useState<ProfileInfo | null>(null);
   const [landlord, setLandlord] = useState<LandlordInfo | null>(null);
+  const [listingAddress, setListingAddress] = useState<string | null>(null);
   const [repayments, setRepayments] = useState<RepaymentEntry[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
 
