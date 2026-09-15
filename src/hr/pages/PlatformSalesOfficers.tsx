@@ -412,6 +412,11 @@ export default function PlatformSalesOfficersPage() {
   }, [people]);
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
+  const officerNetTarget = useMemo(() => officers.length * 40, [officers]);
+  const officerNetPct = useMemo(() => {
+    if (officerNetTarget <= 0) return 0;
+    return Math.round((netTotal / officerNetTarget) * 100);
+  }, [netTotal, officerNetTarget]);
   const fundedTotal = useMemo(() => officers.reduce((s, o) => s + o.notesFunded, 0), [officers]);
   const moneyTotal = useMemo(() => officers.reduce((s, o) => s + o.amountDeployed, 0), [officers]);
 
