@@ -25,7 +25,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { useSmartphoneCatalog, type SmartphoneOsType, type SmartphoneCatalogEntry } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { SMARTPHONE_PERIODS as PERIODS, smartphoneSchedule } from '@/lib/smartphoneAdvance';
-import { MO_BANJA } from '@/lib/moBanjaIphone';
+import { downPaymentCopy } from '@/lib/moBanjaIphone';
 
 const db = supabase as any;
 
@@ -91,6 +91,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
 
   const selected = options.find((c) => c.id === catalogId);
+  const dpCopy = downPaymentCopy(selected?.brand ?? (osType === 'ios' ? 'Apple' : 'Android'), selected?.model_name);
   const price = Math.max(0, Math.round(Number(selected?.default_amount ?? 0)));
 
   useEffect(() => {
