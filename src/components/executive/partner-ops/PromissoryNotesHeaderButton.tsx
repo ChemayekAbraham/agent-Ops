@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { FileText } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -24,8 +25,9 @@ export function PromissoryNotesHeaderButton({
   onClick,
 }: PromissoryNotesHeaderButtonProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const { data: promissoryPending = 0 } = useQuery({
+  const { data: promissoryPending = 0, refetch } = useQuery({
     queryKey: ['promissory-notes-pending-count'],
     queryFn: async () => {
       const { count } = await supabase
@@ -35,7 +37,30 @@ export function PromissoryNotesHeaderButton({
       return count || 0;
     },
     staleTime: 30000,
+    // Live-feed fallback: the promissory_notes table is not in the realtime
+    // publication, so poll every 15s until realtime events are available.
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
   });
+
+  // Live updates: any insert/update/delete on promissory_notes refreshes the
+  // pending count so every mounted copy of this button stays in sync.
+  useEffect(() => {
+    const channel = supabase
+      .channel('promissory-notes-pending-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'promissory_notes' },
+        () => {
+          refetch();
+          queryClient.invalidateQueries({ queryKey: ['promissory-notes-pending-count'] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch, queryClient]);
 
   const handleClick = () => {
     if (onClick) {
