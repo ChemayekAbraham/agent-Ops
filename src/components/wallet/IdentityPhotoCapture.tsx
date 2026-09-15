@@ -24,6 +24,7 @@ import { imageFingerprint } from '@/lib/imageFingerprint';
 import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePayoutVerification';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { Smartphone } from 'lucide-react';
+import { useOtpVerification } from '@/hooks/useOtpVerification';
 
 
 import SelfieCropDialog from './SelfieCropDialog';
