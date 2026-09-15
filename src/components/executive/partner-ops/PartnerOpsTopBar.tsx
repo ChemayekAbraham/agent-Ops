@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { PartnerOpsSidebar } from './PartnerOpsSidebar';
 import { searchPartnerOpsNav, type PartnerOpsViewKey } from './partnerOpsNav';
 import { BudgetDepartmentNotificationBell } from '@/components/budget/BudgetDepartmentNotificationBell';
+import { PromissoryNotesHeaderButton } from './PromissoryNotesHeaderButton';
 
 interface Props {
   active: PartnerOpsViewKey;
@@ -139,6 +140,11 @@ export function PartnerOpsTopBar({ active, onSelect, badges, actions }: Props) {
         </div>
 
         <BudgetDepartmentNotificationBell dashboard="partner-ops" />
+
+        <PromissoryNotesHeaderButton
+          active={active === 'proxy.promissory'}
+          onClick={() => onSelect('proxy.promissory')}
+        />
 
         {actions}
 
