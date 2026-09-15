@@ -10,6 +10,7 @@ import { Lc1VillagePicker } from '@/components/location/Lc1VillagePicker';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GuarantorConsentCheckbox } from '@/components/agent/GuarantorConsentCheckbox';
+import { NationalIdConsentDialog } from '@/components/shared/NationalIdConsentDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
