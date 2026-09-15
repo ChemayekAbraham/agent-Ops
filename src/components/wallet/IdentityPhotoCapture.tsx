@@ -24,6 +24,7 @@ import { imageFingerprint } from '@/lib/imageFingerprint';
 import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePayoutVerification';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { Smartphone } from 'lucide-react';
+import { useOtpVerification } from '@/hooks/useOtpVerification';
 
 
 import SelfieCropDialog from './SelfieCropDialog';
@@ -149,6 +150,12 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
   const [name, setName] = useState('');
   const [provider, setProvider] = useState<MomoProvider>('mtn');
   const [saving, setSaving] = useState(false);
+  const [code, setCode] = useState('');
+  /* The number the code was actually sent to. The save can only ever use this
+     value, so editing the field after the SMS went out cannot slip an
+     unverified number through. */
+  const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
+  const otp = useOtpVerification();
 
   useEffect(() => {
     if (list.isLoading) return;
@@ -162,29 +169,57 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
     );
   }, [list.data, list.isLoading]);
 
-  const handleSave = async () => {
-    if (!userId) return;
+  /** Shared validation for both steps. */
+  const validate = () => {
     const trimmedName = name.trim();
     const digits = number.replace(/\D/g, '');
     if (digits.length < 9) {
       toast.error('Enter a valid mobile money number');
-      return;
+      return null;
     }
     if (trimmedName.split(/\s+/).filter(Boolean).length < 2) {
       toast.error('Enter the full name exactly as it shows on mobile money');
+      return null;
+    }
+    return { trimmedName, digits };
+  };
+
+  /* Step 1 — prove the person holds the SIM before anything is stored. */
+  const handleSendCode = async () => {
+    if (!validate()) return;
+    const sent = await otp.sendOtp(number.trim());
+    if (sent) {
+      setCode('');
+      setCodeSentTo(number.trim());
+    }
+  };
+
+  /* Step 2 — the code must verify against THIS number before the save runs. */
+  const handleConfirmAndSave = async () => {
+    if (!userId || !codeSentTo) return;
+    const v = validate();
+    if (!v) return;
+    if (code.replace(/\D/g, '').length !== 6) {
+      toast.error('Enter the 6-digit code we sent to that number');
       return;
     }
     setSaving(true);
     try {
+      const ok = await otp.verifyOtp(codeSentTo, code.replace(/\D/g, ''));
+      if (!ok) {
+        toast.error(otp.otpError || 'That code is not correct. Check the SMS and try again.');
+        return;
+      }
+
       const { data, error } = await supabase.rpc('set_withdrawal_account', {
-        p_number: number.trim(),
-        p_name: trimmedName,
+        p_number: codeSentTo,
+        p_name: v.trimmedName,
         p_provider: provider,
       });
       if (error) throw error;
       const saved = (data ?? {}) as Record<string, string>;
-      const savedNumber = saved.mobile_money_number ?? number.trim();
-      const savedName = saved.mobile_money_name ?? trimmedName;
+      const savedNumber = saved.mobile_money_number ?? codeSentTo;
+      const savedName = saved.mobile_money_name ?? v.trimmedName;
       const savedProvider = (saved.mobile_money_provider?.toLowerCase() as MomoProvider) ?? provider;
 
       const { error: ensureErr } = await supabase.rpc('ensure_payout_destination', {
@@ -196,7 +231,12 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
       });
       if (ensureErr) throw ensureErr;
 
-      toast.success(existingMomo ? 'Payout number updated' : 'Payout number added');
+      toast.success(existingMomo ? 'Payout number updated' : 'Payout number added', {
+        description: 'You confirmed the number with the code sent to it.',
+      });
+      setCode('');
+      setCodeSentTo(null);
+      otp.resetOtp();
       void list.refetch();
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save payout number');
@@ -265,6 +305,12 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
               setNumber(v);
               const d = detectMomoProvider(v);
               if (d) setProvider(d);
+              // Editing the number invalidates any code already sent.
+              if (codeSentTo && v.trim() !== codeSentTo) {
+                setCodeSentTo(null);
+                setCode('');
+                otp.resetOtp();
+              }
             }}
             className="h-10 text-sm"
           />
@@ -302,15 +348,78 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
             className="h-10 text-sm"
           />
         </div>
-        <Button
-          type="button"
-          className="w-full"
-          disabled={saving}
-          onClick={handleSave}
-        >
-          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          {saving ? 'Saving…' : existingMomo ? 'Update number' : 'Save number'}
-        </Button>
+        {!codeSentTo ? (
+          <>
+            <p className="text-xs text-muted-foreground">
+              We send a 6-digit code to this number first. Nothing is saved until you enter it.
+            </p>
+            <Button
+              type="button"
+              className="w-full"
+              disabled={saving || otp.otpLoading || otp.cooldownSeconds > 0}
+              onClick={handleSendCode}
+            >
+              {otp.otpLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Smartphone className="mr-2 h-4 w-4" />
+              )}
+              {otp.otpLoading
+                ? 'Sending code…'
+                : otp.cooldownSeconds > 0
+                  ? `Wait ${otp.cooldownSeconds}s`
+                  : 'Send code to this number'}
+            </Button>
+          </>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="payout-code" className="text-xs text-muted-foreground">
+                Code sent to {codeSentTo}
+              </Label>
+              <Input
+                id="payout-code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="6-digit code"
+                maxLength={6}
+                value={code}
+                disabled={saving}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="h-10 text-center text-lg tracking-[0.4em]"
+              />
+            </div>
+            {otp.otpError && <p className="text-xs text-destructive">{otp.otpError}</p>}
+            <Button
+              type="button"
+              className="w-full"
+              disabled={saving || otp.otpLoading || code.length !== 6}
+              onClick={handleConfirmAndSave}
+            >
+              {saving || otp.otpLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              {saving || otp.otpLoading
+                ? 'Confirming…'
+                : existingMomo
+                  ? 'Confirm code and update number'
+                  : 'Confirm code and save number'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              disabled={saving || otp.otpLoading || otp.cooldownSeconds > 0}
+              onClick={handleSendCode}
+            >
+              {otp.cooldownSeconds > 0 ? `Resend in ${otp.cooldownSeconds}s` : 'Resend code'}
+            </Button>
+          </>
+        )}
       </div>
 
       <PayoutDestinationConsentDialog
