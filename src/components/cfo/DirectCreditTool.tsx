@@ -42,6 +42,7 @@ import { UGANDA_BANKS } from '@/lib/ugandaBanks';
 import { CFO_PAYOUT_LABELS, CFO_PAYOUT_VERB, CFO_PAYOUT_TOAST } from '@/lib/cfoPayoutLabels';
 import { logStandingOrderAction } from '@/lib/standingOrderAudit';
 import { useCfoApprovalNotifications } from '@/hooks/useCfoApprovalNotifications';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 type Operation = 'credit' | 'debit' | 'withdraw';
 type FinancialImpact = 'expense' | 'revenue' | 'neutral';
@@ -1406,6 +1407,7 @@ export function DirectCreditTool() {
               </div>
             )}
 
+            <CfoApprovalGate>
             <Button
               className={`w-full ${
                 operation === 'withdraw'
