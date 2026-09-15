@@ -853,18 +853,6 @@ export default function PlatformSalesOfficersPage() {
           </div>
         )}
 
-        {!isLoading && (officers.length > 0 || people.length > 0) && (
-          <div className="rounded-lg border bg-muted/30 px-4 py-3">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Combined totals · officers + other contributors
-            </div>
-            <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold tabular-nums">
-              <span>Net notes {combinedNetTotal}</span>
-              <span>Funded {combinedFundedTotal}</span>
-              <span>Money funded UGX {combinedMoneyTotal.toLocaleString('en-UG')}</span>
-            </div>
-          </div>
-        )}
 
         <p className="text-xs text-muted-foreground">
           Money deployed is what the funder put in. Commission base is the amount commission was
