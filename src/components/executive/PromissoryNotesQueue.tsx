@@ -1353,6 +1353,24 @@ export function PromissoryNotesQueue({
                         {selectedNote.agent_phone && <p className="text-xs text-muted-foreground">{selectedNote.agent_phone}</p>}
                       </div>
                     </div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {selectedNote.agent_phone && (
+                        <Button asChild size="sm" variant="outline" className="h-10 gap-2">
+                          <a href={`tel:${selectedNote.agent_phone}`}>
+                            <Phone className="h-4 w-4" />
+                            Call agent
+                          </a>
+                        </Button>
+                      )}
+                      {(selectedNote.phone_number || selectedNote.whatsapp_number) && (
+                        <Button asChild size="sm" variant="outline" className="h-10 gap-2">
+                          <a href={`tel:${selectedNote.phone_number || selectedNote.whatsapp_number}`}>
+                            <Phone className="h-4 w-4" />
+                            Call partner {selectedNote.partner_name}
+                          </a>
+                        </Button>
+                      )}
+                    </div>
                     {selectedNote.notes && (
                       <div className="pt-2 border-t">
                         <p className="text-xs text-muted-foreground">Notes</p>
