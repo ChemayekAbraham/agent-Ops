@@ -226,11 +226,22 @@ export const NON_PL_CATEGORIES = [
   // leg as revenue would double count the fee.
   'treasury_fee_recognised',              // L7 Platform Treasury Control
   'treasury_fee_drawdown',                // L7 Platform Treasury Control
-  // NOT LISTED - 'treasury_net_revenue'. It maps to R1 Platform Revenue, but
-  // with debit_when 'cash_in' its cash_in leg DEBITS R1, i.e. it reduces
-  // revenue: a BD-3 contra-revenue pricing subsidy (1 row, 940,292,
-  // 2026-09-07). It stays in the review queue pending an accounting and
-  // presentation decision; it is not a missing mapping.
+  // NOT LISTED - 'treasury_net_revenue'. See CONTRA_REVENUE_CATEGORIES below:
+  // it is a revenue deduction, not a non-P&L item.
+];
+
+/**
+ * Contra-revenue: categories that map to R1 Platform Revenue but whose leg
+ * DEBITS revenue (debit_when 'cash_in'), i.e. they REDUCE revenue rather than
+ * earn it. Presented as a deduction under Revenue by Welile Service, never as
+ * an expense (which would understate revenue and overstate cost) and never in
+ * the unmapped review queue.
+ *
+ * `treasury_net_revenue` is the BD-3 pricing subsidy: a discount granted on
+ * priced fees, correctly shown as a deduction from gross service revenue.
+ */
+export const CONTRA_REVENUE_CATEGORIES = [
+  'treasury_net_revenue',                 // R1 Platform Revenue (debit leg)
 ];
 
 const revenueLookup = new Map<string, ServiceFamilyKey>();
