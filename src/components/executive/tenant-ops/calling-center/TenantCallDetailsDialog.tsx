@@ -44,9 +44,65 @@ const stamp = (iso: string | null) =>
  */
 const OUT_OF_QUEUE_STATES = new Set(['engaged', 'closed', 'unreachable', 'parked']);
 
-function PastCallsPanel({ subjectId, enabled }: { subjectId: string | null; enabled: boolean }) {
+/** One line per tracked edit, showing what changed and why. */
+function EditTrail({ amendments }: { amendments: CcFeedbackAmendment[] }) {
+  if (!amendments.length) return null;
+  return (
+    <div className="mt-1.5 space-y-1 border-t border-dashed border-border/60 pt-1.5">
+      {amendments.map((a) => (
+        <div key={a.id} className="text-[10px] text-muted-foreground">
+          <span className="font-semibold text-foreground">Edited</span> {stamp(a.editedAt)}
+          {a.editorName ? ` · ${a.editorName}` : ''} — {a.reason}
+          {a.oldCategoryLabel && a.newCategoryLabel && a.oldCategoryLabel !== a.newCategoryLabel && (
+            <span>
+              {' '}
+              · category {a.oldCategoryLabel} → {a.newCategoryLabel}
+            </span>
+          )}
+          {a.oldSeverity && a.newSeverity && a.oldSeverity !== a.newSeverity && (
+            <span>
+              {' '}
+              · severity {a.oldSeverity} → {a.newSeverity}
+            </span>
+          )}
+          {a.oldNote && a.oldNote !== a.newNote && (
+            <p className="mt-0.5 italic">Previously: “{a.oldNote}”</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PastCallsPanel({
+  hub,
+  subjectId,
+  enabled,
+}: {
+  hub: CcCallingHub;
+  subjectId: string | null;
+  enabled: boolean;
+}) {
   const { data, isLoading } = useCcSubjectCallHistory('tenant', subjectId, enabled);
   const calls = data ?? [];
+
+  const attemptIds = useMemo(() => calls.map((c) => c.id), [calls]);
+  const { data: amendments } = useCcFeedbackAmendments(attemptIds, enabled);
+  const trailByAttempt = useMemo(() => {
+    const map = new Map<string, CcFeedbackAmendment[]>();
+    (amendments ?? []).forEach((a) => {
+      map.set(a.attemptId, [...(map.get(a.attemptId) ?? []), a]);
+    });
+    return map;
+  }, [amendments]);
+
+  const [editing, setEditing] = useState<{
+    feedbackId: string;
+    categoryId: string | null;
+    severity: CcSeverity | null;
+    comment: string | null;
+    attemptNo: number;
+  } | null>(null);
 
   return (
     <div className="rounded-xl border border-primary/25 bg-primary/5 p-2.5">
