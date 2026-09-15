@@ -36,7 +36,7 @@ export function TenantOpsSidebar({ active, onSelect, badges = {}, className }: P
 
   const Badge = ({ n }: { n?: number }) =>
     n && n > 0 ? (
-      <span className="ml-auto rounded-full bg-destructive/15 px-1.5 py-0.5 text-[9px] font-bold leading-none text-destructive">
+      <span className="ml-auto rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold leading-none text-destructive lg:px-1.5 lg:py-0.5 lg:text-[9px]">
         {n}
       </span>
     ) : null;
@@ -59,13 +59,13 @@ export function TenantOpsSidebar({ active, onSelect, badges = {}, className }: P
                     onClick={() => onSelect((item.view || key) as TenantOpsViewKey)}
                     aria-current={active === (item.view || key) ? 'page' : undefined}
                     className={cn(
-                      'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors',
+                      'flex w-full items-center gap-2.5 rounded-lg px-3 py-3 text-sm font-medium transition-colors lg:px-2.5 lg:py-2 lg:text-xs',
                       active === (item.view || key)
                         ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
                     )}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <Icon className="h-5 w-5 shrink-0 lg:h-4 lg:w-4" />
                     <span className="truncate">{item.label}</span>
                     <Badge n={badges[item.view || key]} />
                   </button>
@@ -75,14 +75,14 @@ export function TenantOpsSidebar({ active, onSelect, badges = {}, className }: P
                       type="button"
                       onClick={() => setOpen((prev) => ({ ...prev, [key]: !prev[key] }))}
                       aria-expanded={expanded}
-                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary lg:px-2.5 lg:py-2 lg:text-xs"
                     >
-                      <Icon className="h-4 w-4 shrink-0" />
+                      <Icon className="h-5 w-5 shrink-0 lg:h-4 lg:w-4" />
                       <span className="truncate">{item.label}</span>
                       {expanded ? (
-                        <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0" />
+                        <ChevronDown className="ml-auto h-4 w-4 shrink-0 lg:h-3.5 lg:w-3.5" />
                       ) : (
-                        <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0" />
+                        <ChevronRight className="ml-auto h-4 w-4 shrink-0 lg:h-3.5 lg:w-3.5" />
                       )}
                     </button>
                     {expanded && (
@@ -97,13 +97,13 @@ export function TenantOpsSidebar({ active, onSelect, badges = {}, className }: P
                                 onClick={() => onSelect(child.key)}
                                 aria-current={isActive ? 'page' : undefined}
                                 className={cn(
-                                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors',
+                                  'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors lg:px-2.5 lg:py-1.5 lg:text-xs',
                                   isActive
                                     ? 'bg-primary/10 font-semibold text-primary'
                                     : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
                                 )}
                               >
-                                <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                                <ChildIcon className="h-4 w-4 shrink-0 lg:h-3.5 lg:w-3.5" />
                                 <span className="truncate">{child.label}</span>
                                 <Badge n={badges[child.key]} />
                               </button>
