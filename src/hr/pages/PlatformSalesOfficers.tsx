@@ -693,6 +693,25 @@ export default function PlatformSalesOfficersPage() {
               </span>
             </div>
 
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Contributors</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{people.length}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Net notes</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{peopleNetTotal}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funded</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{peopleFundedTotal}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Money funded</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(peopleMoneyTotal)}</div>
+              </div>
+            </div>
+
             <div className="space-y-2 md:hidden">
               {people.map((person, i) => (
                 <div key={person.person_user_id} className="rounded-xl border bg-card p-3">

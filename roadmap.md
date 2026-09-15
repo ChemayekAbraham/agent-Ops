@@ -32,5 +32,5 @@
 - [x] Redesign Verify Payout Numbers panel to focus-mode (Split-Screen Focus v2 direction, Welile purple, Outfit/Figtree).
 - [x] Add accessible labels/ARIA to verification-history photo viewer controls (position, resolution mode, shortcuts announced).
 
-- [ ] Add the same live summary to Other contributors.
-- [ ] Update Tenant Products & Services options and consistent zero-state projections.
+- [x] Add the same live summary to Other contributors.
+- [x] Update Tenant Products & Services options and consistent zero-state projections.
