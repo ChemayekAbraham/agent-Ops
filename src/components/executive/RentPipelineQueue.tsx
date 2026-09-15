@@ -817,11 +817,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       );
 
       return data.map(r => {
-        const agentProfile = r.assigned_agent_id
-          ? profileMap.get(r.assigned_agent_id)
-          : r.agent_id
-            ? profileMap.get(r.agent_id)
-            : null;
+        const postingAgentProfile = r.agent_id ? profileMap.get(r.agent_id) : null;
+        const assignedAgentProfile = r.assigned_agent_id ? profileMap.get(r.assigned_agent_id) : null;
         const tenantProfile = profileMap.get(r.tenant_id) as any;
         const landlord = landlordMap.get(r.landlord_id) as any;
         const lc1 = r.lc1_id ? (lc1Map.get(r.lc1_id) as any) : null;
@@ -850,10 +847,11 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           tenant_phone: tenantProfile?.phone || '',
           tenant_district: tenantProfile?.district || '',
           tenant_address: tenantAddress,
-          agent_name: r.agent_id ? (profileMap.get(r.agent_id)?.full_name || 'Unassigned') : 'Unassigned',
-          agent_phone: agentProfile?.phone || '',
-          agent_email: agentProfile?.email || '',
-          assigned_agent_name: r.assigned_agent_id ? (profileMap.get(r.assigned_agent_id)?.full_name || '') : '',
+          agent_name: postingAgentProfile?.full_name || 'Unassigned',
+          agent_phone: postingAgentProfile?.phone || '',
+          agent_email: postingAgentProfile?.email || '',
+          assigned_agent_name: assignedAgentProfile?.full_name || '',
+          assigned_agent_phone: assignedAgentProfile?.phone || '',
           landlord_name: landlord?.name || 'Unknown',
           landlord_phone: landlord?.phone || '',
           landlord_momo: landlord?.mobile_money_number || landlord?.phone || '',
@@ -1992,6 +1990,30 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                       </div>
                     )}
                   </div>
+                )}
+
+                {req.agent_phone && (
+                  <Button
+                    asChild
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2.5 h-11 w-full justify-start gap-2 border-primary/40 bg-primary/5 px-3 text-primary hover:bg-primary/10 sm:w-auto"
+                  >
+                    <a
+                      href={`tel:${String(req.agent_phone).replace(/\s/g, '')}`}
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={`Call agent ${req.agent_name} at ${req.agent_phone}`}
+                    >
+                      <PhoneCall className="h-4 w-4 shrink-0" />
+                      <span className="min-w-0 text-left">
+                        <span className="block text-xs font-bold">Call agent who posted</span>
+                        <span className="block truncate text-[11px] font-normal text-muted-foreground">
+                          {req.agent_name} · {req.agent_phone}
+                        </span>
+                      </span>
+                    </a>
+                  </Button>
                 )}
 
                 {/* Bottom Action Row: Reject on far left, Details in center, Approve on far right */}
