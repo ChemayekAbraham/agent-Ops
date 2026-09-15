@@ -29255,6 +29255,7 @@ export type Database = {
           national_id: string | null
           national_id_name: string | null
           national_id_submitted_at: string | null
+          ownership_code_confirmed_at: string | null
           provider: string | null
           status: string
           updated_at: string
@@ -29282,6 +29283,7 @@ export type Database = {
           national_id?: string | null
           national_id_name?: string | null
           national_id_submitted_at?: string | null
+          ownership_code_confirmed_at?: string | null
           provider?: string | null
           status?: string
           updated_at?: string
@@ -29309,6 +29311,7 @@ export type Database = {
           national_id?: string | null
           national_id_name?: string | null
           national_id_submitted_at?: string | null
+          ownership_code_confirmed_at?: string | null
           provider?: string | null
           status?: string
           updated_at?: string
@@ -52359,6 +52362,10 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_payout_number_ownership: {
+        Args: { p_number: string }
+        Returns: Json
+      }
       consume_merchant_float: {
         Args: {
           p_agent_id: string
@@ -59302,6 +59309,10 @@ export type Database = {
         }[]
       }
       payables_guard: { Args: never; Returns: undefined }
+      payout_auto_verify_ready: {
+        Args: { p_destination_id: string }
+        Returns: boolean
+      }
       payout_destination_is_verified: {
         Args: {
           p_bank_account_number?: string
@@ -59324,6 +59335,10 @@ export type Database = {
       payout_name_match_report: {
         Args: { p_a: string; p_b: string }
         Returns: Json
+      }
+      payout_number_ownership_confirmed: {
+        Args: { p_destination_id: string }
+        Returns: boolean
       }
       payout_reconciliation_bucket: {
         Args: { p_missing: Json; p_settlement_state: string; p_status: string }
