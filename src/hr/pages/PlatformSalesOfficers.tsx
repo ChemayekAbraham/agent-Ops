@@ -650,7 +650,6 @@ export default function PlatformSalesOfficersPage() {
                           {officer.notesUnapproved === 0 ? '—' : officer.notesUnapproved}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">{officer.notesFunded}</td>
-                        <td className="px-4 py-2 text-right tabular-nums">{officer.fundersConverted}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {officer.topups === 0 ? '—' : officer.topups}
                         </td>
