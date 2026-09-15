@@ -820,6 +820,13 @@
       "when": 1789490987716,
       "tag": "0116_payout_number_ownership_durable_auto_verify",
       "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1789491045727,
+      "tag": "0117_allow_holder_auto_verify_payout_destination",
+      "breakpoints": true
     }
   ]
 }
