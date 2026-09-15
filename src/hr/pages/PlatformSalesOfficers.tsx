@@ -238,6 +238,13 @@ export default function PlatformSalesOfficersPage() {
     [mode, weekOffset, todayStr],
   );
 
+  // In DAILY mode the table shows just the selected day; otherwise the full Wed–Tue week.
+  const dayIndices = useMemo(
+    () => (mode === 'DAILY' ? [kampalaWeekdayIndex(todayStr)] : [0, 1, 2, 3, 4, 5, 6]),
+    [mode, todayStr],
+  );
+
+
   const {
     data: rows = [],
     isLoading,
