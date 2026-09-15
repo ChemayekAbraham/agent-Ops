@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace } from 'lucide-react';
+import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace, Wallet, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -126,29 +126,84 @@ function StoredShot({ path, label, note }: { path: string; label: string; note: 
  * identity screen. Sending the code, checking it and correcting the registered
  * name all happen in the shared consent dialog — nothing is decided locally.
  */
+type MomoProvider = 'mtn' | 'airtel';
+
+/** Detects MTN / Airtel from the Ugandan operator prefix. */
+function detectMomoProvider(raw: string): MomoProvider | null {
+  const d = raw.replace(/\D/g, '');
+  const local = d.startsWith('256') ? `0${d.slice(3)}` : d.startsWith('0') ? d : `0${d}`;
+  const p = local.slice(0, 3);
+  if (['077', '078', '076', '039'].includes(p)) return 'mtn';
+  if (['075', '070', '074', '020'].includes(p)) return 'airtel';
+  return null;
+}
+
 function PayoutNumberVerification({ userId }: { userId: string | null | undefined }) {
   const list = useMyPayoutDestinations(userId);
   const [target, setTarget] = useState<MyPayoutDestination | null>(null);
 
   const rows = list.data ?? [];
-  // Nothing to confirm yet: the number is only on file once a withdrawal
-  // account has been saved. Say so instead of hiding the whole section, so the
-  // step is never invisible.
-  if (!list.isLoading && rows.length === 0) {
-    return (
-      <div className="space-y-1 rounded-lg border p-3">
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <Smartphone className="h-4 w-4 text-primary" />
-          Confirm your payout number
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Save the mobile money number you want your money paid to first (Withdrawal account, just
-          below). It then shows up here and we send a code to it to confirm it is yours.
-        </p>
-      </div>
-    );
-  }
+  const existingMomo = rows.find((d) => d.destination_type === 'mobile_money');
 
+  const [number, setNumber] = useState('');
+  const [name, setName] = useState('');
+  const [provider, setProvider] = useState<MomoProvider>('mtn');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (list.isLoading) return;
+    const momo = rows.find((d) => d.destination_type === 'mobile_money');
+    setNumber(momo?.momo_number ?? '');
+    setName(momo?.account_name ?? '');
+    setProvider(
+      (momo?.provider?.toLowerCase() as MomoProvider) ??
+        detectMomoProvider(momo?.momo_number ?? '') ??
+        'mtn',
+    );
+  }, [list.data, list.isLoading]);
+
+  const handleSave = async () => {
+    if (!userId) return;
+    const trimmedName = name.trim();
+    const digits = number.replace(/\D/g, '');
+    if (digits.length < 9) {
+      toast.error('Enter a valid mobile money number');
+      return;
+    }
+    if (trimmedName.split(/\s+/).filter(Boolean).length < 2) {
+      toast.error('Enter the full name exactly as it shows on mobile money');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.rpc('set_withdrawal_account', {
+        p_number: number.trim(),
+        p_name: trimmedName,
+        p_provider: provider,
+      });
+      if (error) throw error;
+      const saved = (data ?? {}) as Record<string, string>;
+      const savedNumber = saved.mobile_money_number ?? number.trim();
+      const savedName = saved.mobile_money_name ?? trimmedName;
+      const savedProvider = (saved.mobile_money_provider?.toLowerCase() as MomoProvider) ?? provider;
+
+      const { error: ensureErr } = await supabase.rpc('ensure_payout_destination', {
+        p_user_id: userId,
+        p_method: 'mobile_money',
+        p_momo_number: savedNumber,
+        p_momo_name: savedName,
+        p_provider: savedProvider,
+      });
+      if (ensureErr) throw ensureErr;
+
+      toast.success(existingMomo ? 'Payout number updated' : 'Payout number added');
+      void list.refetch();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save payout number');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const label = (d: MyPayoutDestination) =>
     d.destination_type === 'mobile_money'
@@ -156,7 +211,7 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
       : `${d.bank_name ?? 'Bank'} ${d.bank_account_number ?? ''}`.trim();
 
   return (
-    <div className="space-y-2 rounded-lg border p-3">
+    <div className="space-y-3 rounded-lg border p-3">
       <p className="flex items-center gap-2 text-sm font-semibold">
         <Smartphone className="h-4 w-4 text-primary" />
         Confirm your payout number
@@ -187,6 +242,76 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
           )}
         </div>
       ))}
+
+      <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+        <p className="flex items-center gap-2 text-xs font-semibold">
+          <Wallet className="h-3.5 w-3.5" />
+          {existingMomo ? 'Update payout number' : 'Add payout number'}
+        </p>
+        <div className="space-y-1.5">
+          <Label htmlFor="payout-number" className="text-xs text-muted-foreground">
+            Mobile money number
+          </Label>
+          <Input
+            id="payout-number"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="e.g. 0770123456"
+            value={number}
+            disabled={saving}
+            onChange={(e) => {
+              const v = e.target.value;
+              setNumber(v);
+              const d = detectMomoProvider(v);
+              if (d) setProvider(d);
+            }}
+            className="h-10 text-sm"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Provider</Label>
+          <div className="flex gap-2">
+            {(['mtn', 'airtel'] as MomoProvider[]).map((p) => (
+              <Button
+                key={p}
+                type="button"
+                size="sm"
+                variant={provider === p ? 'default' : 'outline'}
+                className="flex-1 capitalize"
+                disabled={saving}
+                onClick={() => setProvider(p)}
+              >
+                {p}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="payout-name" className="text-xs text-muted-foreground">
+            Name on the mobile money account
+          </Label>
+          <Input
+            id="payout-name"
+            type="text"
+            autoComplete="name"
+            placeholder="e.g. SSENKALI PIUS LUBEGA"
+            value={name}
+            disabled={saving}
+            onChange={(e) => setName(e.target.value)}
+            className="h-10 text-sm"
+          />
+        </div>
+        <Button
+          type="button"
+          className="w-full"
+          disabled={saving}
+          onClick={handleSave}
+        >
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          {saving ? 'Saving…' : existingMomo ? 'Update number' : 'Save number'}
+        </Button>
+      </div>
 
       <PayoutDestinationConsentDialog
         open={!!target}
