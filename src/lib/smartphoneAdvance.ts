@@ -13,9 +13,17 @@
  * daily amounts, the monthly schedule and the total repayable.
  */
 export const SMARTPHONE_PERIODS = [
+  { months: 1, days: 30 },
+  { months: 2, days: 60 },
   { months: 3, days: 90 },
+  { months: 4, days: 120 },
+  { months: 5, days: 150 },
   { months: 6, days: 180 },
+  { months: 7, days: 210 },
+  { months: 8, days: 240 },
   { months: 9, days: 270 },
+  { months: 10, days: 300 },
+  { months: 11, days: 330 },
   { months: 12, days: 365 },
 ] as const;
 
