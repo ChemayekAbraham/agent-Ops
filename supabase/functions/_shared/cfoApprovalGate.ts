@@ -26,10 +26,9 @@ export async function isCfoApprover(
   return data === true;
 }
 
-export const CFO_APPROVER_DENIED_MESSAGE =
-  'Only the designated CFO approver may approve CFO requests. Your access to this dashboard is read-only for approvals.';
+export const CFO_APPROVER_DENIED_MESSAGE = 'This request could not be completed.';
 
-/** Standard 403 for a caller who is not the designated CFO approver. */
+/** Standard, non-disclosing 403 for a caller who may not act here. */
 export function cfoApproverDenied(corsHeaders: Record<string, string>): Response {
   return new Response(
     JSON.stringify({ error: CFO_APPROVER_DENIED_MESSAGE }),
