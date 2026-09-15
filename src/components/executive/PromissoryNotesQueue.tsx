@@ -20,7 +20,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Search, User, Phone, Calendar, TrendingUp, CheckCircle, Clock, AlertTriangle, XCircle, Mail, MessageCircle, FileText, Trash2, BadgeCheck, MapPin, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, User, Phone, Calendar, TrendingUp, CheckCircle, Clock, AlertTriangle, XCircle, Mail, MessageCircle, FileText, Trash2, BadgeCheck, MapPin, RefreshCw, ChevronLeft, ChevronRight, Download, FileSpreadsheet, FileDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useEffect } from 'react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -248,6 +254,88 @@ export function PromissoryNotesQueue({
     return acc;
   }, {} as Record<string, number>);
 
+  const exportRows = filtered.map(n => ({
+    Partner: n.partner_name || '',
+    Agent: n.agent_name || '',
+    Phone: n.phone_number || '',
+    WhatsApp: n.whatsapp_number || '',
+    Email: n.email || '',
+    'Amount (UGX)': Number(n.amount || 0),
+    'Collected (UGX)': Number(n.total_collected || 0),
+    'Outstanding (UGX)': Number(n.outstanding || 0),
+    Status: n.status || '',
+    Registered: n.came_in ? 'Yes' : 'No',
+    'Created at': n.created_at ? format(new Date(n.created_at), 'yyyy-MM-dd HH:mm') : '',
+  }));
+
+  const downloadFile = (content: Blob, filename: string) => {
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportStamp = format(new Date(), 'yyyy-MM-dd-HHmm');
+  const exportBase = `promissory-notes-${statusFilter}-${exportStamp}`;
+
+  const handleExportCsv = () => {
+    if (exportRows.length === 0) {
+      toast.error('Nothing to export with the current filters.');
+      return;
+    }
+    const headers = Object.keys(exportRows[0]);
+    const escape = (v: unknown) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [
+      headers.join(','),
+      ...exportRows.map(row => headers.map(h => escape((row as any)[h])).join(',')),
+    ].join('\n');
+    downloadFile(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }), `${exportBase}.csv`);
+    toast.success(`Exported ${exportRows.length.toLocaleString()} promissory notes as CSV.`);
+  };
+
+  const handleExportPdf = async () => {
+    if (exportRows.length === 0) {
+      toast.error('Nothing to export with the current filters.');
+      return;
+    }
+    try {
+      const [{ default: JsPDF }, autoTableMod] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      const autoTable = (autoTableMod as any).default ?? autoTableMod;
+      const doc = new JsPDF({ orientation: 'landscape' });
+      doc.setFontSize(14);
+      doc.text('Promissory Notes', 14, 14);
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(
+        `Exported ${format(new Date(), 'yyyy-MM-dd HH:mm')} · Filter: ${statusFilter} · ${exportRows.length.toLocaleString()} notes`,
+        14,
+        20,
+      );
+      const headers = Object.keys(exportRows[0]);
+      autoTable(doc, {
+        startY: 24,
+        head: [headers],
+        body: exportRows.map(row => headers.map(h => String((row as any)[h] ?? ''))),
+        styles: { fontSize: 7, cellPadding: 1.5 },
+        headStyles: { fillColor: [30, 64, 175] },
+      });
+      doc.save(`${exportBase}.pdf`);
+      toast.success(`Exported ${exportRows.length.toLocaleString()} promissory notes as PDF.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to export PDF.');
+    }
+  };
+
   const NOTES_PER_PAGE = 10;
   const totalPages = Math.max(1, Math.ceil(filtered.length / NOTES_PER_PAGE));
   const safePage = Math.min(page, totalPages);
@@ -394,7 +482,22 @@ export function PromissoryNotesQueue({
             {r.label}
           </button>
         ))}
-        <Button variant="ghost" size="sm" className="ml-auto shrink-0" onClick={() => refetch()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="ml-auto shrink-0">
+              <Download className="h-3.5 w-3.5 mr-1" /> Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleExportCsv}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Download CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { void handleExportPdf(); }}>
+              <FileDown className="h-4 w-4 mr-2" /> Download PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => refetch()}>
           <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
         </Button>
       </div>
