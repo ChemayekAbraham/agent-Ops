@@ -9,6 +9,8 @@ import { Loader2, Save, Wallet, Lock, Pencil, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { maskPayoutNumber } from "@/hooks/useIdentityBinding";
+import { useMyNumberChangeRequest } from "@/hooks/usePayoutNumberChange";
+import PayoutNumberChangeDialog from "@/components/wallet/PayoutNumberChangeDialog";
 
 interface Props {
   userId: string;
