@@ -157,6 +157,23 @@ function IncomeStatementSection({ d, cm }: { d: FinancialStatementsData['incomeS
           </div>
         </div>
       ))}
+      {bs.contraRevenue.lines.length > 0 && (
+        <>
+          <LineItem label="Gross Revenue (Services)" value={bs.grossRevenue} bold />
+          <SectionHeader>Revenue Deductions</SectionHeader>
+          <p className="text-[10px] text-muted-foreground pl-4 -mt-1 mb-1">
+            Pricing subsidies and discounts granted on priced fees. These debit Platform Revenue, so they reduce
+            revenue rather than count as a cost.
+          </p>
+          {bs.contraRevenue.lines.map(l => (
+            <div key={l.source} className="flex justify-between items-center text-sm pl-6" title={`Ledger source: ${l.source}`}>
+              <span className="text-muted-foreground">{l.label}</span>
+              <span className="font-mono text-destructive">({formatUGX(l.amount)})</span>
+            </div>
+          ))}
+          <LineItem label="Total Revenue Deductions" value={bs.contraRevenue.total} negative bold />
+        </>
+      )}
       <LineItem label="Total Revenue (Services)" value={bs.totalRevenue} bold />
 
       <SectionHeader>Marketing Expenses</SectionHeader>
