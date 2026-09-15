@@ -27,6 +27,8 @@ import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { PromissoryPlanMatcher } from '@/components/agent/PromissoryPlanMatcher';
 import { normalizeWa } from '@/lib/whatsapp';
+import { useQueryClient } from '@tanstack/react-query';
+import { reconcilePromissoryPendingCount } from '@/components/executive/partner-ops/promissoryPendingCount';
 
 
 interface PromissoryNoteDialogProps {
@@ -50,6 +52,7 @@ const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 type StepKey = 'who' | 'contact' | 'promise' | 'tenants' | 'review';
 
 export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' }: PromissoryNoteDialogProps) {
+  const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdNote, setCreatedNote] = useState<Record<string, unknown> | null>(null);
@@ -279,6 +282,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
       const result = (data ?? {}) as { note?: Record<string, unknown>; attached_count?: number; attached_amount?: number };
       if (!result.note) throw new Error('Note was not created');
       setCreatedNote(result.note);
+      // Refresh the Partner Ops pending badge right away (realtime also covers it).
+      reconcilePromissoryPendingCount(queryClient);
       // Fire-and-forget: partner gets the pledge SMS + email (tenants + 12-month
       // earnings). A 10-minute cron sweep retries anything that fails here.
       const noteId = (result.note as { id?: string }).id;
