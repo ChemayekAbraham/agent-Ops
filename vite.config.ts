@@ -112,6 +112,11 @@ export default defineConfig(({ mode }) => {
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
   build: {
+    // The gzip-size report loads every emitted chunk back into memory and
+    // compresses it after the render phase — that step alone was pushing the
+    // build over the container's 3 GB heap cap (SIGABRT: ineffective
+    // mark-compact). It is a cosmetic log line, so it is off.
+    reportCompressedSize: false,
     rollupOptions: {
       // Cap peak memory during the render phase: instead of one enormous
       // entry chunk (8 MB+) that rollup must hold + minify in memory at once,
