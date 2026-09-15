@@ -7,6 +7,10 @@ const corsHeaders = {
 };
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 import { bytesToBase64, renderPartnershipTopupReceipt } from '../_shared/partnerTopupReceiptPdf.ts'
+import {
+  isPlaceholderRecipient,
+  PLACEHOLDER_SUPPRESSION_REASON,
+} from '../_shared/recipientMailbox.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
