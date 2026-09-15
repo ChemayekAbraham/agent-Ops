@@ -257,10 +257,21 @@ export function PromissoryNotesQueue({
       toast.error('Please provide a reason of at least 20 characters.');
       return;
     }
+    if ((rejectTarget as any).__swipe) {
+      scheduleSwipeAction('reject', rejectTarget, reason, null);
+      setRejectTarget(null);
+      setRejectReason('');
+      setSelectedNote(null);
+      return;
+    }
+    await runReverseBonus(rejectTarget, reason);
+  };
+
+  const runReverseBonus = async (target: any, reason: string) => {
     setRejecting(true);
     try {
       const { data, error } = await supabase.rpc('reverse_promissory_note_bonus' as any, {
-        p_note_id: rejectTarget.id,
+        p_note_id: target.id,
         p_reason: reason,
       });
       if (error) throw error;
