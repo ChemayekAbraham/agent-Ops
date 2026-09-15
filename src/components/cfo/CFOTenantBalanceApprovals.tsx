@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowRight, Check, Loader2, ScrollText, X } from 'lucide-react';
+import { ArrowRight, Check, Loader2, ScrollText, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
 /**
  * Tenant balance changes awaiting the CFO.
