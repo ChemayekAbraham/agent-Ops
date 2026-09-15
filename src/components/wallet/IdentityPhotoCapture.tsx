@@ -804,6 +804,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     !idRejected && !detailsComplete
       ? `Fill in ${missingDetails.map((k) => ID_FIELD_LABEL[k]).join(', ')} from your card.`
       : null,
+    !hasVerifiedPayoutNumber ? 'Confirm your payout number with the code.' : null,
   ].filter(Boolean) as string[];
 
 
