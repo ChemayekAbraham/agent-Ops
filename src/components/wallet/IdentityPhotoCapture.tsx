@@ -192,8 +192,8 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
     const v = validate();
     if (!v) return;
     const requesterName =
-      (user?.user_metadata?.full_name as string | undefined)?.trim() ||
-      (user?.user_metadata?.name as string | undefined)?.trim() ||
+      (authUser?.user_metadata?.full_name as string | undefined)?.trim() ||
+      (authUser?.user_metadata?.name as string | undefined)?.trim() ||
       v.trimmedName;
     const sent = await otp.sendOtp(number.trim(), {
       purpose: 'payout_number',
