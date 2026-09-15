@@ -249,9 +249,11 @@ REVENUE_SERVICE_FAMILIES.forEach(f => f.categories.forEach(c => revenueLookup.se
 const marketingSet = new Set(MARKETING_EXPENSE_CATEGORIES);
 const operatingSet = new Set(OPERATING_EXPENSE_CATEGORIES);
 const nonPlSet = new Set(NON_PL_CATEGORIES);
+const contraRevenueSet = new Set(CONTRA_REVENUE_CATEGORIES);
 
 export type CategoryBucket =
   | { kind: 'revenue'; family: ServiceFamilyKey }
+  | { kind: 'contra_revenue' }
   | { kind: 'marketing' }
   | { kind: 'operating' }
   | { kind: 'non_pl' }
@@ -260,6 +262,7 @@ export type CategoryBucket =
 export function classifyLedgerCategory(category: string): CategoryBucket {
   const fam = revenueLookup.get(category);
   if (fam) return { kind: 'revenue', family: fam };
+  if (contraRevenueSet.has(category)) return { kind: 'contra_revenue' };
   if (marketingSet.has(category)) return { kind: 'marketing' };
   if (operatingSet.has(category)) return { kind: 'operating' };
   if (nonPlSet.has(category)) return { kind: 'non_pl' };
