@@ -378,9 +378,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                     Reduces to {formatUGX(lastDaily)}/day in your last month · {scheduleDays} days ·{' '}
                     {formatUGX(totalRepayable)} in total. Deductions start 7 days after your phone is
                     released.
-                    {osType === 'ios'
-                      ? ` This covers Welile only — you also pay ${MO_BANJA.partner} weekly, directly to them.`
-                      : ''}
+                    {` This covers the Welile down payment only — you also repay ${
+                      dpCopy.partner ?? 'the supplier'
+                    } on their own plan, directly to them.`}
                   </p>
                 </div>
 
