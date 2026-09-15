@@ -431,10 +431,20 @@ export function AgentOpsExpiredRequestsPanel({
       <div className="space-y-2">
         {filtered.map(req => {
           const isDeletingThis = deletingId === req.id;
+          const isRenewingThis = renewingId === req.id;
           return (
             <Card
               key={req.id}
-              className="border border-border/80 hover:border-destructive/40 transition-colors"
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailId(req.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setDetailId(req.id);
+                }
+              }}
+              className="cursor-pointer border border-border/80 transition-colors hover:border-destructive/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <CardContent className="p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-1">
@@ -473,27 +483,45 @@ export function AgentOpsExpiredRequestsPanel({
                   </div>
                 </div>
 
-                {/* Right Area: Amount and Single Delete Icon Button */}
-                <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0">
+                {/* Right Area: Amount, Renew and Delete */}
+                <div className="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-2 sm:w-auto sm:flex-nowrap sm:justify-end sm:gap-4 sm:border-t-0 sm:pt-0">
                   <div className="text-left sm:text-right">
                     <p className="font-bold text-sm text-foreground">UGX {req.rent_amount.toLocaleString()}</p>
                     <p className="text-[10px] text-muted-foreground font-mono">Unverified</p>
                   </div>
 
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setRequestToDelete(req)}
-                    disabled={isDeletingThis || isBulkDeleting}
-                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 shrink-0"
-                    title="Delete this expired request"
-                  >
-                    {isDeletingThis ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => { e.stopPropagation(); void handleRenew(req); }}
+                      disabled={isRenewingThis || isBulkRenewing || isDeletingThis || isBulkDeleting}
+                      className="h-8 gap-1.5 px-2.5 text-xs font-semibold shrink-0"
+                      title="Restart the 30-day verification window"
+                    >
+                      {isRenewingThis ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                      <span>Renew</span>
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => { e.stopPropagation(); setRequestToDelete(req); }}
+                      disabled={isDeletingThis || isBulkDeleting || isRenewingThis}
+                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 shrink-0"
+                      title="Delete this expired request"
+                    >
+                      {isDeletingThis ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
