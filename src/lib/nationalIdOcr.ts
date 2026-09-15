@@ -54,6 +54,10 @@ export interface NationalIdReading {
   /** Cross-checks that FAILED — a reason for a human to look, never proof of forgery. */
   consistency: { id: string; detail: string }[];
   message: string | null;
+  /** Returned by the reader but not required for `valid`. */
+  nationality: string | null;
+  /** ISO. The reader's `card_not_expired` cross-check is date arithmetic on this. */
+  date_of_expiry: string | null;
   account_name: string;
   account_national_id: string | null;
   name_match_score: number | null;
@@ -116,6 +120,34 @@ export async function readNationalIdPhoto(file: File): Promise<NationalIdReading
  * older response is mapped onto the six-field form so the person still gets a
  * prefill instead of a blank one.
  */
+/**
+ * Coerce a printed date to ISO `YYYY-MM-DD`.
+ *
+ * PassGate already returns ISO and its value passes through untouched. The
+ * older reader returned the card's own spelling - `14.06.1990` - and a date
+ * input silently refuses anything that is not ISO, so the field simply appeared
+ * blank with no explanation. Day-first is assumed because that is how Ugandan
+ * National IDs print, and a value that is not a real date is dropped rather
+ * than guessed.
+ */
+function toIsoDate(v: string): string {
+  const raw = (v || '').trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const m = /^(\d{1,2})[.\/\- ](\d{1,2})[.\/\- ](\d{4})$/.exec(raw);
+  if (!m) return '';
+  const [, d, mo, y] = m;
+  const day = Number(d), month = Number(mo), year = Number(y);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return '';
+  if (year < 1900 || year > new Date().getFullYear()) return '';
+  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  // Reject the impossible (31 February) rather than let the browser roll it over.
+  const probe = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(probe.getTime()) || probe.getUTCDate() !== day) return '';
+  return iso;
+}
+
 export function normaliseReading(raw: unknown): NationalIdReading {
   const r = (raw ?? {}) as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
@@ -127,7 +159,7 @@ export function normaliseReading(raw: unknown): NationalIdReading {
     surname: str(rawData.surname) || str(r.surname),
     given_name: str(rawData.given_name) || str(r.given_names) || str(r.given_name),
     nin: (str(rawData.nin) || str(r.id_number)).toUpperCase(),
-    date_of_birth: str(rawData.date_of_birth) || str(r.date_of_birth),
+    date_of_birth: toIsoDate(str(rawData.date_of_birth) || str(r.date_of_birth)),
     card_number: str(rawData.card_number),
     sex: str(rawData.sex).toUpperCase(),
   };
@@ -180,6 +212,8 @@ export function normaliseReading(raw: unknown): NationalIdReading {
     missing,
     consistency,
     message: str(r.message) || null,
+    nationality: str(rawData.nationality) || str(r.nationality) || null,
+    date_of_expiry: toIsoDate(str(rawData.date_of_expiry) || str(r.date_of_expiry)) || null,
     account_name: str(r.account_name),
     account_national_id: str(r.account_national_id) || null,
     name_match_score: num(r.name_match_score),
@@ -198,6 +232,9 @@ export function idNameVerdict(score: number | null): 'match' | 'partial' | 'mism
 export function readingGuidance(r: NationalIdReading): string | null {
   if (r.status === 'invalid') {
     return 'That photo is not a Ugandan National ID card. Take a photo of the front of your National ID.';
+  }
+  if (r.status === 'incomplete' && r.missing.length >= 5) {
+    return 'Almost nothing could be read on that card. Hold it upright (landscape), fill the frame, and keep it square to the camera.';
   }
   if (r.status === 'incomplete') {
     const names = (r.missing ?? []).map((m) => ID_FIELD_LABEL[m as keyof NationalIdData] ?? m);

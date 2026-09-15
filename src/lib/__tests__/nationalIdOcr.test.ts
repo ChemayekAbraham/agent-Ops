@@ -58,3 +58,26 @@ describe('normaliseReading', () => {
     expect(readingGuidance(bad)).toContain('not a Ugandan National ID');
   });
 });
+
+describe('date of birth', () => {
+  it('accepts the ISO the new reader returns', () => {
+    const r = normaliseReading({ data: { date_of_birth: '1990-06-14' } });
+    expect(r.data.date_of_birth).toBe('1990-06-14');
+  });
+
+  it("converts the old reader's printed spelling so the date field fills", () => {
+    // `14.06.1990` is what the card prints and what the older reader returned
+    // verbatim. A date input silently refuses it, so the field looked empty.
+    for (const printed of ['14.06.1990', '14/06/1990', '14-06-1990', '4.6.1990']) {
+      expect(normaliseReading({ date_of_birth: printed }).data.date_of_birth)
+        .toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+    expect(normaliseReading({ date_of_birth: '14.06.1990' }).data.date_of_birth).toBe('1990-06-14');
+  });
+
+  it('drops a date that is not real rather than letting the browser roll it over', () => {
+    expect(normaliseReading({ date_of_birth: '31.02.1990' }).data.date_of_birth).toBe('');
+    expect(normaliseReading({ date_of_birth: '14.13.1990' }).data.date_of_birth).toBe('');
+    expect(normaliseReading({ date_of_birth: 'not a date' }).data.date_of_birth).toBe('');
+  });
+});

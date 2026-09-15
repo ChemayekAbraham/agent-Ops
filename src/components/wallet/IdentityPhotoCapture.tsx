@@ -292,6 +292,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                 confidence: idReading.confidence, data: idReading.data,
                 fields: idReading.fields, missing: idReading.missing,
                 consistency: idReading.consistency,
+                nationality: idReading.nationality,
+                date_of_expiry: idReading.date_of_expiry,
                 face_verified: faceCheck?.status === 'ok',
               }
             : {},

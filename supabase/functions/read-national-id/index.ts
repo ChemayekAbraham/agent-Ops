@@ -234,6 +234,10 @@ Deno.serve(async (req) => {
       missing,
       consistency,                              // FAILED cross-checks only
       message: str(payload.message) || null,
+      // Returned by the reader, not required for `valid`. `date_of_expiry` is
+      // what the `card_not_expired` cross-check is arithmetic on.
+      nationality: str(rawData.nationality) || null,
+      date_of_expiry: str(rawData.date_of_expiry) || null,
       account_name: accountName,
       account_national_id: profile?.national_id ?? null,
       name_match_score: score,
