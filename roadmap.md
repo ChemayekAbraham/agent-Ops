@@ -32,3 +32,4 @@
 - [x] Redesign Verify Payout Numbers panel to focus-mode (Split-Screen Focus v2 direction, Welile purple, Outfit/Figtree).
 - [x] Add accessible labels/ARIA to verification-history photo viewer controls (position, resolution mode, shortcuts announced).
 - [x] Make Agent Ops smartphone navigation simpler and add status/date filters to Rent Requests.
+- [ ] Show a stage-aware SLA/aging indicator on every Rent Request in the pipeline.
