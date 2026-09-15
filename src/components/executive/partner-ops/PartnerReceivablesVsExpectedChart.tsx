@@ -114,11 +114,16 @@ export function PartnerReceivablesVsExpectedChart() {
       const created = new Date(n.created_at);
       if (created < start || created > windowEnd) continue;
 
-      const cameIn = Boolean(n.came_in);
+      // Aggregate the promissory note itself, not the partner match:
+      // receivables = money actually collected on the note (total_collected);
+      // expected = outstanding promise on notes that are still open.
+      const status = String(n.status ?? '').toLowerCase();
+      if (status === 'cancelled' || status === 'rejected') continue;
+
       const collected = Number(n.total_collected) || 0;
       const promised = Number(n.amount) || 0;
-      const openAmount = cameIn ? 0 : Math.max(promised - collected, 0);
-      const receivedAmount = cameIn ? (collected > 0 ? collected : promised) : collected;
+      const receivedAmount = collected;
+      const openAmount = status === 'pending' || status === 'activated' ? Math.max(promised - collected, 0) : 0;
 
       const key = hourly ? String(created.getHours()) : isoDay(created);
       received.set(key, (received.get(key) || 0) + receivedAmount);
