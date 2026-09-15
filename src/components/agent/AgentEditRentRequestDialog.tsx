@@ -19,6 +19,7 @@ import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { optimizeImage } from '@/lib/imageOptimizer';
 import { useAuth } from '@/hooks/useAuth';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
+import { RESUBMIT_CAP, resubmitAttemptsLeft } from '@/lib/rentRequestReopen';
 
 const HOUSE_CATEGORIES = [
   { value: 'single-room', label: 'Single Room' },
@@ -660,6 +661,25 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
             <p className="text-foreground/90">{request.rejected_reason}</p>
           </div>
         )}
+
+        {/* Attempts left, shown before submitting — mirrors the server rule. */}
+        {(() => {
+          const left = resubmitAttemptsLeft(request.reopen_count, request.rejected_reason);
+          if (left === null) {
+            return (
+              <p className="text-xs text-muted-foreground">
+                This was returned as out of date, so it does not use up your resubmission attempts.
+              </p>
+            );
+          }
+          return (
+            <p className={`text-xs ${left === 0 ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+              {left === 0
+                ? `No resubmission attempts left (${RESUBMIT_CAP} of ${RESUBMIT_CAP} used). A manager must reopen this request for you.`
+                : `${left} of ${RESUBMIT_CAP} resubmission attempts left.`}
+            </p>
+          );
+        })()}
 
         <div className="space-y-3">
           <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">

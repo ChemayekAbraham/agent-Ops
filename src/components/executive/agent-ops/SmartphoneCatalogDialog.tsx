@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import { smartphoneScheduleGrid } from '@/lib/smartphoneAdvance';
+import { downPaymentCopy } from '@/lib/moBanjaIphone';
 
 const db = supabase as any;
 
@@ -164,10 +165,15 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
   doc.text(`Added between: ${range}`, margin, 30);
   doc.text(`Generated: ${fmtDate(new Date().toISOString())}`, margin, 35);
   doc.text(`Models: ${rows.length}  ·  Active: ${rows.filter((r) => r.is_active).length}`, margin, 40);
+  doc.text(
+    'Amounts are the down payment Welile funds — not the full phone price. The balance is paid to the supplier directly.',
+    margin,
+    45,
+  );
 
   autoTable(doc, {
-    startY: 46,
-    head: [['Brand', 'Model', 'Specifications', 'More specifications', 'Default amount', 'Status', 'Added']],
+    startY: 51,
+    head: [['Brand', 'Model', 'Specifications', 'More specifications', 'Down payment (Welile)', 'Status', 'Added']],
     body: rows.map((r) => [
       r.brand,
       r.model_name || 'Any model',
@@ -520,6 +526,15 @@ export function SmartphoneCatalogDialog() {
             </DialogTitle>
           </DialogHeader>
 
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+            <p className="text-xs font-semibold">Amounts here are down payments</p>
+            <p className="text-[11px] text-muted-foreground">
+              Every amount below is the down payment Welile funds so the supplier releases the phone — not the full
+              phone price. The agent pays the remaining balance to the supplier directly, on the supplier’s own
+              repayment plan, outside Welile. iPhones are supplied by Mo Banja.
+            </p>
+          </div>
+
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1">
@@ -604,7 +619,7 @@ export function SmartphoneCatalogDialog() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">
-                        Default amount (UGX) <span className="text-muted-foreground font-normal">— optional</span>
+                        Down payment (UGX) <span className="text-muted-foreground font-normal">— optional</span>
                       </Label>
                       <Input
                         type="number"
@@ -755,7 +770,7 @@ export function SmartphoneCatalogDialog() {
                         inputMode="numeric"
                         value={editAmount}
                         onChange={(ev) => setEditAmount(ev.target.value)}
-                        placeholder="Default amount"
+                        placeholder="Down payment"
                       />
                     </div>
 
@@ -763,7 +778,7 @@ export function SmartphoneCatalogDialog() {
                       <div className="rounded-md border border-border bg-background/60 p-2">
                         <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground mb-1.5">
                           <span>Receivables &amp; Returns preview (28%/month reducing)</span>
-                          <span className="font-semibold text-foreground">{formatUGX(previewAmount(editAmount))} cost</span>
+                          <span className="font-semibold text-foreground">{formatUGX(previewAmount(editAmount))} down payment</span>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                           {smartphoneScheduleGrid(previewAmount(editAmount)).map((s) => {
@@ -833,7 +848,9 @@ export function SmartphoneCatalogDialog() {
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {e.os_type ? osLabel(e.os_type) : 'Phone'}
                           {' · '}
-                          {amount > 0 ? formatUGX(amount) : 'No default amount'}
+                          {amount > 0
+                            ? `${formatUGX(amount)} ${downPaymentCopy(e.brand, e.model_name).amountLabelShort.toLowerCase()}`
+                            : 'No down payment set'}
                           {' · added '}
                           {fmtDate(e.created_at)}
                         </p>
@@ -911,9 +928,9 @@ export function SmartphoneCatalogDialog() {
                           </div>
                         ) : (
                           <div className="flex items-center justify-between text-xs py-1 px-1">
-                            <span className="text-muted-foreground italic text-[11px]">No default amount configured for this model.</span>
+                            <span className="text-muted-foreground italic text-[11px]">No down payment set for this model.</span>
                             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => startEdit(e)}>
-                              <Pencil className="h-3 w-3" /> Set price
+                              <Pencil className="h-3 w-3" /> Set down payment
                             </Button>
                           </div>
                         )}

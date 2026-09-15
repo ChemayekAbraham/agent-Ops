@@ -34,3 +34,8 @@
 
 - [x] Add the same live summary to Other contributors.
 - [x] Update Tenant Products & Services options and consistent zero-state projections.
+
+- [ ] Smartphone amounts framed as Welile down payment (Mo Banja balance paid separately) across Agent Ops + Agent dashboards; wording only.
+- [ ] Agent Ops-stage rejected requests reopenable by managers (existing reopen workflow, required reason).
+- [ ] Stale/expired returns should not consume the agent reopen allowance.
+- [ ] Show agent remaining resubmission attempts before submitting.
