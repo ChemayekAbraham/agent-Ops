@@ -2288,6 +2288,7 @@ export default function WithdrawFlow({
                 setCreatedRequestId(null);
                 setPaymentStatus('pending');
                 clientRequestIdRef.current = null;
+                issuedKeyRef.current = null;
                 walletOtp.resetOtp();
                 setOtpCode('');
                 setCurrentStep(2);
