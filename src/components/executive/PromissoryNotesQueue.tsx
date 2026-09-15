@@ -1127,11 +1127,21 @@ export function PromissoryNotesQueue({
                     'flex items-center gap-2 rounded-md border p-2.5 text-xs font-medium',
                     new Date(selectedNote.fulfilment_due_on) < new Date()
                       ? 'border-destructive/40 bg-destructive/5 text-destructive'
-                      : 'border-primary/30 bg-primary/5 text-primary',
+                      : isDueSoon(selectedNote)
+                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                        : 'border-primary/30 bg-primary/5 text-primary',
                   )}>
                     <Calendar className="h-3.5 w-3.5" />
-                    Expected to be fulfilled by {format(new Date(selectedNote.fulfilment_due_on), 'dd MMM yyyy')}
-                    {new Date(selectedNote.fulfilment_due_on) < new Date() && ' — overdue'}
+                    <span className="flex-1">
+                      Expected to be fulfilled by {format(new Date(selectedNote.fulfilment_due_on), 'dd MMM yyyy')}
+                      {new Date(selectedNote.fulfilment_due_on) < new Date() && ' — overdue'}
+                    </span>
+                    {isDueSoon(selectedNote) && (
+                      <Badge variant="outline" className="text-[10px] bg-background/80 text-amber-700 border-amber-200">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Due soon
+                      </Badge>
+                    )}
                   </div>
                 )}
 
