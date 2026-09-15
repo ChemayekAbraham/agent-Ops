@@ -31,6 +31,8 @@ import {
   maskPayoutNumber,
 } from '@/hooks/useIdentityBinding';
 import { Lock } from 'lucide-react';
+import { useMyNumberChangeRequest } from '@/hooks/usePayoutNumberChange';
+import PayoutNumberChangeDialog from './PayoutNumberChangeDialog';
 
 
 import SelfieCropDialog from './SelfieCropDialog';
@@ -152,6 +154,8 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
   const binding = useIdentityBinding(userId ?? undefined);
   const bind = useCompleteIdentityBinding();
   const lockedNumber = binding.data?.locked_payout_number ?? null;
+  const changeRequest = useMyNumberChangeRequest();
+  const [changeOpen, setChangeOpen] = useState(false);
 
   const rows = list.data ?? [];
   const existingMomo = rows.find((d) => d.destination_type === 'mobile_money');
