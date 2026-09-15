@@ -137,33 +137,46 @@ export default function MobileMoneyNameCard({ userId }: Props) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </div>
-        ) : !editing && isSaved ? (
+        ) : locked || (!editing && isSaved) ? (
           <>
             <div className="rounded-xl border bg-muted/40 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase tracking-wider text-muted-foreground">Number</span>
-                <span className="font-bold tracking-wide">{savedNumber}</span>
+                <span className="font-bold tracking-wide">
+                  {locked ? maskPayoutNumber(savedNumber) : savedNumber}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase tracking-wider text-muted-foreground">Provider</span>
                 <Badge variant="secondary" className="uppercase">{savedProvider}</Badge>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">Name</span>
-                <span className="font-semibold text-right truncate">{savedName}</span>
-              </div>
+              {!!savedName && (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground">Name</span>
+                  <span className="font-semibold text-right truncate">{savedName}</span>
+                </div>
+              )}
+              {locked && (
+                <p className="flex items-center gap-1.5 pt-1 text-xs font-semibold text-emerald-700">
+                  <Lock className="h-3.5 w-3.5" /> Locked to your identity
+                </p>
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              Used automatically on every withdrawal — you can't change it during cash-out.
+              {locked
+                ? 'For your security, withdrawals can only be sent to this number.'
+                : "Used automatically on every withdrawal — you can't change it during cash-out."}
             </p>
-            <Button
-              variant="outline"
-              className="w-full gap-2 h-12 rounded-xl text-sm font-bold"
-              onClick={() => setEditing(true)}
-            >
-              <Pencil className="h-4 w-4" /> Edit withdrawal details
-            </Button>
+            {!locked && (
+              <Button
+                variant="outline"
+                className="w-full gap-2 h-12 rounded-xl text-sm font-bold"
+                onClick={() => setEditing(true)}
+              >
+                <Pencil className="h-4 w-4" /> Edit withdrawal details
+              </Button>
+            )}
           </>
         ) : (
           <>
