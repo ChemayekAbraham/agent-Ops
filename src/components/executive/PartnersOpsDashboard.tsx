@@ -225,19 +225,6 @@ export function PartnersOpsDashboard() {
     staleTime: 30000,
   });
 
-  // ═══ PROMISSORY NOTES pending badge (sticky top-bar button) ═══
-  const { data: promissoryPending = 0 } = useQuery({
-    queryKey: ['promissory-notes-pending-count'],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from('promissory_notes')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      return count || 0;
-    },
-    staleTime: 30000,
-  });
-
   // ═══ SIDEBAR BADGES ═══
   const badges: Partial<Record<PartnerOpsViewKey, number>> = {
     'portfolios.invited': invitedCount,

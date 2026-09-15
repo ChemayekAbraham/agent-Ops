@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { PartnerOpsSidebar } from './PartnerOpsSidebar';
 import { searchPartnerOpsNav, type PartnerOpsViewKey } from './partnerOpsNav';
 import { BudgetDepartmentNotificationBell } from '@/components/budget/BudgetDepartmentNotificationBell';
+import { PromissoryNotesHeaderButton } from './PromissoryNotesHeaderButton';
 
 interface Props {
   active: PartnerOpsViewKey;

@@ -2,6 +2,7 @@ import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayo
 import COOReportPage from '@/components/coo/COOReportPage';
 import PartnerOpsBreakdown from '@/components/coo/PartnerOpsBreakdown';
 import { usePartnerOpsReportData } from '@/components/coo/useCOOReportData';
+import { PromissoryNotesHeaderButton } from '@/components/executive/partner-ops/PromissoryNotesHeaderButton';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
