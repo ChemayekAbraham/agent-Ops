@@ -449,28 +449,38 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAppDetail(p); }
         }}
-        className="p-3 flex flex-wrap items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
+        className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
       >
-        <UserAvatar avatarUrl={p.avatar_url} fullName={p.full_name || undefined} size="sm" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold truncate">{p.full_name || 'Unknown agent'}</p>
-          <p className="text-xs text-muted-foreground truncate">
-            {[p.brand, p.model_type].filter(Boolean).join(' ') || p.item_name || '—'}
-            {p.quantity > 1 ? ` × ${p.quantity}` : ''} · {formatUGX(Number(p.requested_amount || 0))}
-            {p.phone ? ` · ${p.phone}` : ''}
-          </p>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <UserAvatar avatarUrl={p.avatar_url} fullName={p.full_name || undefined} size="sm" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold truncate text-foreground">{p.full_name || 'Unknown agent'}</p>
+              <span className="sm:hidden text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                {p.created_at ? format(new Date(p.created_at), 'dd MMM') : ''}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground truncate">
+              {[p.brand, p.model_type].filter(Boolean).join(' ') || p.item_name || '—'}
+              {p.quantity > 1 ? ` × ${p.quantity}` : ''} · {formatUGX(Number(p.requested_amount || 0))}
+              {p.phone ? ` · ${p.phone}` : ''}
+            </p>
+          </div>
         </div>
-        <span className="hidden sm:block text-[11px] text-muted-foreground shrink-0">
+
+        <span className="hidden sm:block text-[11px] text-muted-foreground shrink-0 tabular-nums">
           {p.created_at ? format(new Date(p.created_at), 'dd MMM') : '—'}
         </span>
 
         {canDecide ? (
-          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-
+          <div
+            className="flex items-center gap-1.5 justify-end sm:shrink-0 pl-11 sm:pl-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Button
               size="sm"
               variant="outline"
-              className="h-7 gap-1 text-success"
+              className="h-7 px-2.5 gap-1 text-xs text-success border-success/30 hover:bg-success/10 hover:text-success"
               disabled={busy}
               onClick={() => approveApp.mutate(p)}
             >
@@ -482,7 +492,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 gap-1 text-destructive hover:text-destructive"
+              className="h-7 px-2.5 gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
               disabled={busy}
               onClick={() => { setRejectTarget(p); setRejectReason(''); }}
             >
@@ -491,7 +501,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
             </Button>
           </div>
         ) : (
-          <Badge variant="outline" className="text-[10px] shrink-0">Awaiting review</Badge>
+          <Badge variant="outline" className="text-[10px] shrink-0 self-end sm:self-auto">Awaiting review</Badge>
         )}
       </div>
     );
@@ -501,8 +511,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {scopeLabel && <Badge variant="secondary" className="text-[11px]">{scopeLabel}</Badge>}
+      <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2">
+        {scopeLabel && <Badge variant="secondary" className="text-[11px] font-medium">{scopeLabel}</Badge>}
         {(showIssued || showApplications) && (
           <>
             <div className="relative flex-1 min-w-[200px]">
@@ -539,14 +549,16 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
           </>
         )}
 
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5">
-          <RefreshCw className={isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-          Refresh
-        </Button>
-        <Button variant="outline" size="sm" onClick={exportPdf} disabled={!effectiveKpis} className="gap-1.5">
-          <Download className="h-4 w-4" />
-          Export PDF
-        </Button>
+        <div className="flex items-center gap-2 ml-auto sm:ml-0">
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5 h-8 text-xs">
+            <RefreshCw className={isFetching ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+            Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPdf} disabled={!effectiveKpis} className="gap-1.5 h-8 text-xs">
+            <Download className="h-3.5 w-3.5" />
+            Export PDF
+          </Button>
+        </div>
         {showIssued && (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
@@ -637,9 +649,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px]">
                       <span className="text-muted-foreground">Outstanding</span>
-                      <span className="font-medium">{formatUGX(Number(effectiveKpis.in_field_amount || 0))} total</span>
+                      <span className="font-medium tabular-nums">{formatUGX(Number(effectiveKpis.in_field_amount || 0))} total</span>
                     </div>
                     <Progress
                       value={Number(effectiveKpis.in_field_amount || 0) > 0 ? Math.round(((Number(effectiveKpis.in_field_amount || 0) - Number(effectiveKpis.in_field_outstanding || 0)) / Number(effectiveKpis.in_field_amount || 0)) * 100) : 0}
@@ -764,7 +776,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
       {showApplications && (
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-500" />
@@ -794,7 +806,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
       {showOverview && (
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Pending applications quick-action queue */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 min-w-0">
             <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Clock className="h-4 w-4 text-amber-500" />
@@ -817,7 +829,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
           {/* Catalog & brand inventory breakdown */}
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Layers className="h-4 w-4 text-primary" />
@@ -853,7 +865,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
           </Card>
 
           {/* Recent field devices activity feed */}
-          <Card className="lg:col-span-3">
+          <Card className="lg:col-span-3 min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Activity className="h-4 w-4 text-info" />
@@ -870,23 +882,27 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
               ) : (
                 <div className="divide-y divide-border">
                   {activity.slice(0, 10).map((a) => (
-                    <div key={a.sale_id} className="p-3 flex items-center gap-3">
-                      <UserAvatar avatarUrl={a.avatar_url} fullName={a.full_name || undefined} size="sm" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold truncate">{a.full_name || 'Unknown agent'}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {[a.brand, a.model_type].filter(Boolean).join(' ') || a.item_name || '—'}
-                        </p>
+                    <div key={a.sale_id} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <UserAvatar avatarUrl={a.avatar_url} fullName={a.full_name || undefined} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate">{a.full_name || 'Unknown agent'}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {[a.brand, a.model_type].filter(Boolean).join(' ') || a.item_name || '—'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold tabular-nums">{formatUGX(Number(a.amount || 0))}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {a.happened_at ? format(new Date(a.happened_at), 'dd MMM yyyy HH:mm') : '—'}
-                        </p>
+                      <div className="flex items-center justify-between sm:justify-end gap-2 pl-11 sm:pl-0 sm:shrink-0">
+                        <div className="sm:text-right">
+                          <p className="text-sm font-semibold tabular-nums">{formatUGX(Number(a.amount || 0))}</p>
+                          <p className="text-[10px] text-muted-foreground tabular-nums">
+                            {a.happened_at ? format(new Date(a.happened_at), 'dd MMM yyyy HH:mm') : '—'}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                          {(a.order_status || '').replace(/_/g, ' ') || 'issued'}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-[10px] capitalize shrink-0">
-                        {(a.order_status || '').replace(/_/g, ' ') || 'issued'}
-                      </Badge>
                     </div>
                   ))}
                 </div>
