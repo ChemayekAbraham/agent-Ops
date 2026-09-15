@@ -251,24 +251,26 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </Select>
             </div>
 
-            {osType === 'ios' && (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
-                <p className="text-xs font-semibold">How the {MO_BANJA.partner} iPhone works</p>
-                <p className="text-[11px] text-muted-foreground">{MO_BANJA.amountNote}</p>
-                <ul className="space-y-1 text-[11px] text-muted-foreground">
-                  {MO_BANJA.twoLegs.map((line) => (
-                    <li key={line} className="flex gap-1.5">
-                      <span className="text-primary">•</span>
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+              <p className="text-xs font-semibold">
+                {dpCopy.partner ? `How the ${dpCopy.partner} iPhone works` : 'How this phone works'}
+              </p>
+              <p className="text-[11px] text-muted-foreground">{dpCopy.amountNote}</p>
+              <ul className="space-y-1 text-[11px] text-muted-foreground">
+                {dpCopy.twoLegs.map((line) => (
+                  <li key={line} className="flex gap-1.5">
+                    <span className="text-primary">•</span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+              {dpCopy.lockNotice && (
                 <p className="text-[11px] text-muted-foreground flex gap-1.5">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                  <span>{MO_BANJA.lockNotice}</span>
+                  <span>{dpCopy.lockNotice}</span>
                 </p>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label className="text-xs">Payment method</Label>
