@@ -211,13 +211,35 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Review partner commitments, approve notes &amp; track collections
+              {isCollapsed ? 'Tap to expand filters & queue preview' : 'Review partner commitments, approve notes &amp; track collections'}
             </p>
           </div>
-          <Button size="sm" className="gap-1.5 shrink-0" onClick={(e) => { e.stopPropagation(); onOpen(activeFilter); }} aria-label={openLabel}>
-            {openLabel} <ArrowRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-9 w-9 px-0"
+              onClick={(e) => { e.stopPropagation(); setIsCollapsed((c) => !c); }}
+              aria-label={isCollapsed ? 'Expand Promissory Notes panel' : 'Collapse Promissory Notes panel'}
+              aria-expanded={!isCollapsed}
+            >
+              {isCollapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+            </Button>
+            <Button size="sm" className="gap-1.5" onClick={(e) => { e.stopPropagation(); onOpen(activeFilter); }} aria-label={openLabel}>
+              {openLabel} <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
+
+        {isCollapsed && !isLoading && (
+          <div className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">{counts.pending.toLocaleString()}</span> awaiting review
+            {' · '}
+            <span className="font-semibold text-foreground">{formatUGX(kpis.promised_total)}</span> promised
+          </div>
+        )}
+
+        {!isCollapsed && (<>
 
         <div className="rounded-lg border bg-background/70 p-3 space-y-3" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
