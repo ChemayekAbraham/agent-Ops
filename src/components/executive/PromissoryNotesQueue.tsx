@@ -38,6 +38,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 
 
 const SWIPE_THRESHOLD = 90;
+const SWIPE_UNDO_WINDOW_MS = 8000;
 
 /**
  * Swipeable wrapper for mobile promissory note cards.
@@ -190,6 +191,51 @@ export function PromissoryNotesQueue({
   const [sortBy, setSortBy] = useState<'default' | 'fulfilment_asc' | 'fulfilment_desc'>(() =>
     (localStorage.getItem('promissory-queue-sort') as any) || 'default'
   );
+
+  // Swipe approve/reject is deferred for a short window so a mis-swipe can be
+  // undone BEFORE any wallet money moves or the note status changes. A post-hoc
+  // undo is not safe (approval credits real money and can fund tenant plans),
+  // so "Undo" cancels the scheduled action instead of reversing a committed one.
+  const swipeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [swipeUndo, setSwipeUndo] = useState<{
+    type: 'approve' | 'reject';
+    note: any;
+    reason: string;
+    lead: any;
+  } | null>(null);
+
+  const clearSwipeTimer = () => {
+    if (swipeTimerRef.current) {
+      clearTimeout(swipeTimerRef.current);
+      swipeTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => clearSwipeTimer, []);
+
+  const cancelSwipeUndo = () => {
+    clearSwipeTimer();
+    setSwipeUndo(null);
+    toast.success('Cancelled — nothing was changed.');
+  };
+
+  const scheduleSwipeAction = (type: 'approve' | 'reject', note: any, reason: string, lead: any) => {
+    clearSwipeTimer();
+    setSwipeUndo({ type, note, reason, lead });
+    const verb = type === 'approve' ? 'Approving' : 'Rejecting';
+    toast(`${verb} ${note.partner_name}'s note in ${SWIPE_UNDO_WINDOW_MS / 1000}s…`, {
+      description: 'Tap Undo to cancel before anything is recorded.',
+      duration: SWIPE_UNDO_WINDOW_MS,
+      action: { label: 'Undo', onClick: cancelSwipeUndo },
+    });
+    swipeTimerRef.current = setTimeout(() => {
+      swipeTimerRef.current = null;
+      setSwipeUndo(null);
+      if (type === 'approve') void runApprove(note, reason, lead);
+      else void runReverseBonus(note, reason);
+    }, SWIPE_UNDO_WINDOW_MS);
+  };
+
 
 
   const { data: leadCandidates = [], isFetching: leadLoading } = useQuery({
