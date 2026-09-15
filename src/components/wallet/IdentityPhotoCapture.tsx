@@ -256,15 +256,19 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setReading(false);
   };
 
-  /** Ask the checker whether the selfie contains a face. */
+  /** Ask the same checker the rent request uses whether the selfie is a real face. */
   const runFaceCheck = async (file: File) => {
     setFaceCheck({ status: 'checking' });
-    const result = await runPassportFaceCheck(file, { source: 'identity_verification' });
+    const result = await runPassportFaceCheck(file, {
+      source: 'identity_verification',
+      subjectUserId: user?.id ?? null,
+    });
     setFaceCheck(result);
     if (result.status === 'no_face') {
       toast.error('No face found', { description: 'Retake the selfie with your face clearly visible.' });
     }
   };
+
 
   /**
    * Send the six confirmed fields. The server re-checks every format and the
@@ -645,11 +649,23 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </p>
         )}
         {faceCheck?.status === 'ok' && (
-          <p className="flex items-center gap-2 text-xs text-emerald-600">
-            <ScanFace className="h-3.5 w-3.5" />
-            Face recognised.
-          </p>
+          <div className="space-y-1 text-xs text-emerald-600">
+            <p className="flex items-center gap-2">
+              <ScanFace className="h-3.5 w-3.5" />
+              Real face recognised
+              {faceCheck.isPassportPhoto === false && ' — but this is not passport-style'}
+            </p>
+            {(faceCheck.failures?.length ?? 0) > 0 && (
+              <p className="text-amber-600">
+                Worth fixing: {faceCheck.failures!.slice(0, 3).map((f) => f.label).join(', ')}
+              </p>
+            )}
+            {faceCheck.sha256 && (
+              <p className="font-mono text-muted-foreground">{faceCheck.sha256.slice(0, 16)}…</p>
+            )}
+          </div>
         )}
+
         {faceCheck?.status === 'unavailable' && (
           <p className="flex items-start gap-2 text-xs text-amber-600">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
