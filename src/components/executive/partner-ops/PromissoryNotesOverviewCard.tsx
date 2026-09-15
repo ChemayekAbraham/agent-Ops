@@ -3,10 +3,24 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { usePromissoryOpsReport, PROMISSORY_RANGES, type PromissoryRange } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
+
+const QUICK_LIST_SIZE = 6;
 
 type PromissoryStatus = 'pending' | 'activated' | 'rejected';
 
@@ -44,8 +58,15 @@ function matchesSearch(note: any, query: string): boolean {
 export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: PromissoryOverviewFilter) => void }) {
   const { report, isLoading, range, setRange } = usePromissoryOpsReport();
   const { kpis, notes } = report;
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<PromissoryStatus>('pending');
   const [search, setSearch] = useState('');
+  const [approveTarget, setApproveTarget] = useState<any>(null);
+  const [approveReason, setApproveReason] = useState('');
+  const [approving, setApproving] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
 
   const filteredNotes = useMemo(() => notes.filter((n) => matchesSearch(n, search)), [notes, search]);
 
@@ -53,6 +74,72 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     pending: filteredNotes.filter((n) => n.status === 'pending').length,
     activated: filteredNotes.filter((n) => n.status === 'activated').length,
     rejected: filteredNotes.filter((n) => n.status === 'cancelled' || n.status === 'defaulted').length,
+  };
+
+  const statusNotes = useMemo(() => {
+    const match = (n: any) =>
+      selected === 'pending' ? n.status === 'pending'
+      : selected === 'activated' ? n.status === 'activated'
+      : n.status === 'cancelled' || n.status === 'defaulted';
+    return filteredNotes.filter(match).slice(0, QUICK_LIST_SIZE);
+  }, [filteredNotes, selected]);
+
+  const handleQuickApprove = async () => {
+    if (!approveTarget) return;
+    const reason = approveReason.trim();
+    if (reason.length < 20) {
+      toast.error('Please provide a reason of at least 20 characters.');
+      return;
+    }
+    setApproving(true);
+    try {
+      const { data, error } = await supabase.rpc('approve_promissory_note', {
+        p_note_id: approveTarget.id,
+        p_reason: reason,
+      });
+      if (error) throw error;
+      const res = data as any;
+      if (res?.status === 'error') throw new Error(res.message);
+      if (res?.status === 'already_approved') {
+        toast.info('This promissory note was already approved.');
+      } else {
+        toast.success('Approved — UGX 1,500 credited to the agent’s wallet.');
+      }
+      setApproveTarget(null);
+      setApproveReason('');
+      queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to approve promissory note.');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleQuickReject = async () => {
+    if (!rejectTarget) return;
+    const reason = rejectReason.trim();
+    if (reason.length < 20) {
+      toast.error('Please provide a reason of at least 20 characters.');
+      return;
+    }
+    setRejecting(true);
+    try {
+      const { data, error } = await supabase.rpc('reverse_promissory_note_bonus' as any, {
+        p_note_id: rejectTarget.id,
+        p_reason: reason,
+      });
+      if (error) throw error;
+      const res = data as any;
+      if (res?.status === 'error') throw new Error(res.message);
+      toast.success(res?.status === 'reversed' ? 'Rejected — bonus reversed.' : (res?.message || 'Note rejected.'));
+      setRejectTarget(null);
+      setRejectReason('');
+      queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to reject promissory note.');
+    } finally {
+      setRejecting(false);
+    }
   };
 
   const activeFilter: PromissoryOverviewFilter = { status: selected, search, range };
@@ -178,7 +265,105 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
             <p className="text-sm font-bold mt-1 truncate">{isLoading ? '…' : formatUGX(kpis.promised_total)}</p>
           </div>
         </div>
+
+        {!isLoading && statusNotes.length > 0 && (
+          <div className="rounded-lg border bg-background/60 divide-y">
+            {statusNotes.map((note: any) => (
+              <div key={note.id} className="flex items-center gap-2 px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate">{note.partner_name || 'Unknown partner'}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {note.agent_name ? `Agent: ${note.agent_name}` : 'No agent'}
+                    {note.promised_amount ? ` · ${formatUGX(Number(note.promised_amount))}` : ''}
+                  </p>
+                </div>
+                {selected === 'pending' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px] gap-1 shrink-0 border-emerald-500/40 text-emerald-700 hover:bg-emerald-50"
+                    onClick={() => { setApproveReason(''); setApproveTarget(note); }}
+                    aria-label={`Approve ${note.partner_name || 'note'}`}
+                  >
+                    <Check className="h-3 w-3" /> Approve
+                  </Button>
+                )}
+                {selected === 'activated' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px] gap-1 shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10"
+                    onClick={() => { setRejectReason(''); setRejectTarget(note); }}
+                    aria-label={`Reject ${note.partner_name || 'note'}`}
+                  >
+                    <X className="h-3 w-3" /> Reject
+                  </Button>
+                )}
+              </div>
+            ))}
+            {counts[selected] > QUICK_LIST_SIZE && (
+              <button
+                className="w-full px-3 py-1.5 text-[10px] text-primary font-medium hover:underline text-center"
+                onClick={(e) => { e.stopPropagation(); onOpen(activeFilter); }}
+              >
+                View all {counts[selected].toLocaleString()} →
+              </button>
+            )}
+          </div>
+        )}
       </CardContent>
+
+      <AlertDialog open={!!approveTarget} onOpenChange={(open) => { if (!open && !approving) { setApproveTarget(null); setApproveReason(''); } }}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve promissory note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This marks {approveTarget?.partner_name}'s promissory note as verified and credits UGX 1,500 to {approveTarget?.agent_name}'s wallet. A reason is required and this action is recorded in the audit trail.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={approveReason}
+            onChange={(e) => setApproveReason(e.target.value)}
+            placeholder="Reason for approval (min 20 characters)"
+            className="min-h-[80px] text-sm"
+          />
+          <AlertDialogFooter>
+            <Button variant="outline" disabled={approving} onClick={() => { setApproveTarget(null); setApproveReason(''); }}>
+              Cancel
+            </Button>
+            <Button disabled={approving || approveReason.trim().length < 20} onClick={handleQuickApprove}>
+              {approving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              {approving ? 'Approving…' : 'Approve & Pay'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!rejectTarget} onOpenChange={(open) => { if (!open && !rejecting) { setRejectTarget(null); setRejectReason(''); } }}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject approved promissory note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This reverses the approval of {rejectTarget?.partner_name}'s promissory note. A reason of at least 20 characters is required and this action is recorded.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Reason for rejection (min 20 characters)"
+            className="min-h-[80px] text-sm"
+          />
+          <AlertDialogFooter>
+            <Button variant="outline" disabled={rejecting} onClick={() => { setRejectTarget(null); setRejectReason(''); }}>
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={rejecting || rejectReason.trim().length < 20} onClick={handleQuickReject}>
+              {rejecting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              {rejecting ? 'Rejecting…' : 'Reject & Reverse'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
