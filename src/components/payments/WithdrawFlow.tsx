@@ -557,7 +557,12 @@ export default function WithdrawFlow({
       client_request_id: ensureClientRequestId(),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, open, user, requiresOtp]);
+  }, [
+    currentStep, open, user, requiresOtp,
+    walletOtp.challengeId, walletOtp.otpIssuing,
+    amount, payoutMode, momoNumber, momoName, momoProvider,
+    bankName, bankAccountNumber, bankAccountName, effectiveReason,
+  ]);
 
   // Any change to what's actually being submitted invalidates the current
   // verification code — the next time step 4 is (re)entered, the effect
