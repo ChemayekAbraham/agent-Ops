@@ -459,6 +459,7 @@ export function PromissoryNotesQueue({
     acc[n.status] = (acc[n.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+  const overdueCount = notes.filter(isOverdue).length;
 
   const exportRows = sortedFiltered.map(n => ({
     Partner: n.partner_name || '',
