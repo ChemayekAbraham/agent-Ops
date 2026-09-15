@@ -9058,6 +9058,74 @@ export type Database = {
           },
         ]
       }
+      cc_feedback_amendments: {
+        Row: {
+          attempt_id: string
+          edited_at: string
+          edited_by: string
+          feedback_id: string
+          id: string
+          new_category_id: string | null
+          new_note: string | null
+          new_severity: Database["public"]["Enums"]["hr_ticket_severity"] | null
+          old_category_id: string | null
+          old_note: string | null
+          old_severity: Database["public"]["Enums"]["hr_ticket_severity"] | null
+          reason: string
+        }
+        Insert: {
+          attempt_id: string
+          edited_at?: string
+          edited_by: string
+          feedback_id: string
+          id?: string
+          new_category_id?: string | null
+          new_note?: string | null
+          new_severity?:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+          old_category_id?: string | null
+          old_note?: string | null
+          old_severity?:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+          reason: string
+        }
+        Update: {
+          attempt_id?: string
+          edited_at?: string
+          edited_by?: string
+          feedback_id?: string
+          id?: string
+          new_category_id?: string | null
+          new_note?: string | null
+          new_severity?:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+          old_category_id?: string | null
+          old_note?: string | null
+          old_severity?:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_feedback_amendments_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "cc_call_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_feedback_amendments_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "cc_feedback"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cc_feedback_categories: {
         Row: {
           active: boolean
@@ -50872,6 +50940,16 @@ export type Database = {
       cc_abandon_cycle: {
         Args: { p_cycle_id: string; p_reason: string }
         Returns: undefined
+      }
+      cc_amend_feedback: {
+        Args: {
+          p_category_id: string
+          p_feedback_id: string
+          p_note: string
+          p_reason: string
+          p_severity: Database["public"]["Enums"]["hr_ticket_severity"]
+        }
+        Returns: string
       }
       cc_attempt_guard: {
         Args: { p_attempt_id: string }
