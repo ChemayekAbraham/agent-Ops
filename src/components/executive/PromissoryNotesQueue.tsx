@@ -670,7 +670,17 @@ export function PromissoryNotesQueue({
 
                           <td className="py-2 pr-3 text-right font-medium"><CompactAmount value={Number(note.amount)} /></td>
                           <td className="py-2 pr-3 text-right font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></td>
-                          <td className="py-2 pr-3">{format(new Date(note.created_at), 'dd MMM yyyy')}</td>
+                          <td className="py-2 pr-3">
+                            {format(new Date(note.created_at), 'dd MMM yyyy')}
+                            {note.fulfilment_due_on && Number(note.outstanding ?? (Number(note.amount) - Number(note.total_collected))) > 0 && (
+                              <span className={cn(
+                                'block text-[10px]',
+                                new Date(note.fulfilment_due_on) < new Date() ? 'text-destructive font-medium' : 'text-muted-foreground',
+                              )}>
+                                Fulfils by {format(new Date(note.fulfilment_due_on), 'dd MMM yyyy')}
+                              </span>
+                            )}
+                          </td>
                           <td className="py-2 pr-3">
                             <div className="flex flex-wrap items-center gap-1">
                               <Badge variant="outline" className={cn('text-[10px]', config.color)}>
@@ -795,6 +805,16 @@ export function PromissoryNotesQueue({
                           {format(new Date(note.created_at), 'dd MMM yyyy')}
                           {note.came_in && <span className="ml-auto text-emerald-700 font-medium">Came in</span>}
                         </div>
+                        {note.fulfilment_due_on && Number(note.amount) - Number(note.total_collected) > 0 && (
+                          <div className={cn(
+                            'col-span-2 flex items-center gap-1 font-medium',
+                            new Date(note.fulfilment_due_on) < new Date() ? 'text-destructive' : 'text-primary',
+                          )}>
+                            <Calendar className="h-3 w-3" />
+                            Fulfils by {format(new Date(note.fulfilment_due_on), 'dd MMM yyyy')}
+                            {new Date(note.fulfilment_due_on) < new Date() && ' (overdue)'}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -849,6 +869,18 @@ export function PromissoryNotesQueue({
                     {format(new Date(selectedNote.created_at), 'dd MMM yyyy HH:mm')}
                   </span>
                 </div>
+                {selectedNote.fulfilment_due_on && outstanding > 0 && (
+                  <div className={cn(
+                    'flex items-center gap-2 rounded-md border p-2.5 text-xs font-medium',
+                    new Date(selectedNote.fulfilment_due_on) < new Date()
+                      ? 'border-destructive/40 bg-destructive/5 text-destructive'
+                      : 'border-primary/30 bg-primary/5 text-primary',
+                  )}>
+                    <Calendar className="h-3.5 w-3.5" />
+                    Expected to be fulfilled by {format(new Date(selectedNote.fulfilment_due_on), 'dd MMM yyyy')}
+                    {new Date(selectedNote.fulfilment_due_on) < new Date() && ' — overdue'}
+                  </div>
+                )}
 
                 {/* Partner Info */}
                 <Card>
