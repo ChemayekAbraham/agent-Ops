@@ -49,6 +49,31 @@ export function LiveCallPanel({
 }) {
   const { current, call, needsOutcome, suggestion } = dialer;
 
+  const [soundOn, setSoundOn] = useState(true);
+  const ringbackRef = useRef<RingbackHandle | null>(null);
+
+  const stopRingback = useCallback(() => {
+    ringbackRef.current?.stop();
+    ringbackRef.current = null;
+  }, []);
+
+  const dialling =
+    call.state === 'initializing' || call.state === 'calling' || call.state === 'ringing';
+
+  /* Audible ringback while the far end rings — the same tone the CRM dialer uses,
+     so an officer can hear that the tenant's phone is actually ringing. */
+  useEffect(() => {
+    if (!(dialling && soundOn && !!current)) {
+      stopRingback();
+      return;
+    }
+    ringbackRef.current = startRingback(120);
+    return stopRingback;
+  }, [dialling, soundOn, current, stopRingback]);
+
+  /** A leaked oscillator would ring over the whole app. */
+  useEffect(() => stopRingback, [stopRingback]);
+
   if (!current) {
     return (
       <Card className="p-8 text-center">
@@ -63,9 +88,7 @@ export function LiveCallPanel({
     );
   }
 
-
   const ended = isTerminalCallState(call.state);
-  const dialling = call.state === 'initializing' || call.state === 'calling' || call.state === 'ringing';
   const statusLine =
     call.state === 'connected'
       ? formatTalkTime(call.elapsed)
