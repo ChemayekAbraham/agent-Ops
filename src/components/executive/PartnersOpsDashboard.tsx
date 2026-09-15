@@ -92,7 +92,7 @@ export function PartnersOpsDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForUser, setCreateForUser] = useState<{ id: string; name: string } | null>(null);
   const [maturityAccount, setMaturityAccount] = useState<any>(null);
-  const [promissoryStatus, setPromissoryStatus] = useState<string>('all');
+  const [promissoryFilter, setPromissoryFilter] = useState<{ status?: string; search?: string; range?: string }>({});
   const autoRenewedRef = useRef(false);
 
   // ═══ REALTIME: auto-refresh on portfolio changes ═══
@@ -240,12 +240,12 @@ export function PartnersOpsDashboard() {
       case 'overview': return (
         <div className="space-y-4">
           <div className="sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-4 px-4 lg:mx-0 lg:px-0 border-b">
-            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-              <PromissoryNotesOverviewCard onOpen={(status) => {
-                setPromissoryStatus(status ?? 'all');
-                setView('proxy.promissory');
-              }} />
-            </motion.div>
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
+            <PromissoryNotesOverviewCard onOpen={(filter) => {
+              setPromissoryFilter(filter ?? {});
+              setView('proxy.promissory');
+            }} />
+          </motion.div>
           </div>
           <PartnerOpsSummaryCards onNavigate={setView} />
           <div className="grid gap-4 lg:grid-cols-2">
@@ -321,7 +321,11 @@ export function PartnersOpsDashboard() {
       case 'proxy.promissory': return (
         <div className="space-y-6">
           <PartnerOpsScoreboard />
-          <PromissoryNotesQueue initialStatusFilter={promissoryStatus} />
+          <PromissoryNotesQueue
+            initialStatusFilter={promissoryFilter.status}
+            initialSearch={promissoryFilter.search}
+            initialRange={promissoryFilter.range}
+          />
         </div>
       );
       case 'maturity': return <MaturityRequestsQueue />;
