@@ -46,7 +46,7 @@ GRANT EXECUTE ON FUNCTION public.is_partner_not_agent(uuid) TO authenticated, se
 -- Financial Ops rejection stands regardless of exemption status. Never
 -- reopens a 'verified' row to 'waiting' on a name change for an exempt user
 -- either, since re-verification is exactly what the exemption skips.
-CREATE OR REPLACE FUNCTION public.ensure_payout_destination(p_user_id uuid, p_method text, p_momo_number text, p_momo_name text, p_provider text, p_bank_name text, p_bank_account_number text, p_bank_account_name text)
+CREATE OR REPLACE FUNCTION public.ensure_payout_destination(p_user_id uuid, p_method text, p_momo_number text DEFAULT NULL::text, p_momo_name text DEFAULT NULL::text, p_provider text DEFAULT NULL::text, p_bank_name text DEFAULT NULL::text, p_bank_account_number text DEFAULT NULL::text, p_bank_account_name text DEFAULT NULL::text)
  RETURNS TABLE(id uuid, status text, decision_reason text)
  LANGUAGE plpgsql
  SECURITY DEFINER

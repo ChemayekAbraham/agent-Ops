@@ -8,6 +8,7 @@
  * the moment they open the wallet.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, IdCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,6 +46,7 @@ export default function NationalIdRejectedReminder({
   /** When provided, the main CTA navigates back to the National ID submission form instead of expanding inline. */
   onResubmit?: () => void;
 }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: destinations } = useMyPayoutDestinations(user?.id);
   const [resubmitOpen, setResubmitOpen] = useState(false);
@@ -133,14 +135,26 @@ export default function NationalIdRejectedReminder({
               allowResubmit
               withdrawableBalance={Math.max(1, withdrawableBalance)}
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-muted-foreground"
-              onClick={() => setResubmitOpen(false)}
-            >
-              Hide form
-            </Button>
+            <div className="flex items-center justify-between pt-1">
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs text-destructive hover:underline font-medium"
+                onClick={() => navigate('/settings?section=account&tab=verification')}
+              >
+                Or manage in Settings →
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto px-2 py-1 text-xs text-muted-foreground"
+                onClick={() => setResubmitOpen(false)}
+              >
+                Hide form
+              </Button>
+            </div>
           </div>
         )}
       </div>
