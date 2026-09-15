@@ -890,6 +890,13 @@
       "when": 1789500506070,
       "tag": "0126_s2_float_restatement_same_account",
       "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1789500607096,
+      "tag": "0127_s2_allowlist_bank_recognition_categories",
+      "breakpoints": true
     }
   ]
 }
