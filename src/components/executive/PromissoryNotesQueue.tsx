@@ -38,6 +38,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 
 
 const SWIPE_THRESHOLD = 90;
+const SWIPE_UNDO_WINDOW_MS = 8000;
 
 /**
  * Swipeable wrapper for mobile promissory note cards.
@@ -191,6 +192,51 @@ export function PromissoryNotesQueue({
     (localStorage.getItem('promissory-queue-sort') as any) || 'default'
   );
 
+  // Swipe approve/reject is deferred for a short window so a mis-swipe can be
+  // undone BEFORE any wallet money moves or the note status changes. A post-hoc
+  // undo is not safe (approval credits real money and can fund tenant plans),
+  // so "Undo" cancels the scheduled action instead of reversing a committed one.
+  const swipeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [swipeUndo, setSwipeUndo] = useState<{
+    type: 'approve' | 'reject';
+    note: any;
+    reason: string;
+    lead: any;
+  } | null>(null);
+
+  const clearSwipeTimer = () => {
+    if (swipeTimerRef.current) {
+      clearTimeout(swipeTimerRef.current);
+      swipeTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => clearSwipeTimer, []);
+
+  const cancelSwipeUndo = () => {
+    clearSwipeTimer();
+    setSwipeUndo(null);
+    toast.success('Cancelled — nothing was changed.');
+  };
+
+  const scheduleSwipeAction = (type: 'approve' | 'reject', note: any, reason: string, lead: any) => {
+    clearSwipeTimer();
+    setSwipeUndo({ type, note, reason, lead });
+    const verb = type === 'approve' ? 'Approving' : 'Rejecting';
+    toast(`${verb} ${note.partner_name}'s note in ${SWIPE_UNDO_WINDOW_MS / 1000}s…`, {
+      description: 'Tap Undo to cancel before anything is recorded.',
+      duration: SWIPE_UNDO_WINDOW_MS,
+      action: { label: 'Undo', onClick: cancelSwipeUndo },
+    });
+    swipeTimerRef.current = setTimeout(() => {
+      swipeTimerRef.current = null;
+      setSwipeUndo(null);
+      if (type === 'approve') void runApprove(note, reason, lead);
+      else void runReverseBonus(note, reason);
+    }, SWIPE_UNDO_WINDOW_MS);
+  };
+
+
 
   const { data: leadCandidates = [], isFetching: leadLoading } = useQuery({
     queryKey: ['partner-lead-candidates', leadSearch],
@@ -211,10 +257,21 @@ export function PromissoryNotesQueue({
       toast.error('Please provide a reason of at least 20 characters.');
       return;
     }
+    if ((rejectTarget as any).__swipe) {
+      scheduleSwipeAction('reject', rejectTarget, reason, null);
+      setRejectTarget(null);
+      setRejectReason('');
+      setSelectedNote(null);
+      return;
+    }
+    await runReverseBonus(rejectTarget, reason);
+  };
+
+  const runReverseBonus = async (target: any, reason: string) => {
     setRejecting(true);
     try {
       const { data, error } = await supabase.rpc('reverse_promissory_note_bonus' as any, {
-        p_note_id: rejectTarget.id,
+        p_note_id: target.id,
         p_reason: reason,
       });
       if (error) throw error;
@@ -249,14 +306,27 @@ export function PromissoryNotesQueue({
       toast.error('Please provide a reason of at least 20 characters.');
       return;
     }
+    if ((approveTarget as any).__swipe) {
+      scheduleSwipeAction('approve', approveTarget, reason, selectedLead);
+      setApproveTarget(null);
+      setApproveReason('');
+      setSelectedLead(null);
+      setLeadSearch('');
+      setSelectedNote(null);
+      return;
+    }
+    await runApprove(approveTarget, reason, selectedLead);
+  };
+
+  const runApprove = async (target: any, reason: string, lead: any) => {
     setApproving(true);
     try {
-      if (selectedLead?.user_id && approveTarget.agent_id) {
+      if (lead?.user_id && target.agent_id) {
         const { error: assignError } = await supabase
           .from('partner_lead_assignments' as any)
           .insert({
-            lead_user_id: selectedLead.user_id,
-            agent_id: approveTarget.agent_id,
+            lead_user_id: lead.user_id,
+            agent_id: target.agent_id,
             reason,
           } as any);
         // 23505 = unique violation: an active assignment already exists. Continue.
@@ -265,7 +335,7 @@ export function PromissoryNotesQueue({
         }
       }
       const { data, error } = await supabase.rpc('approve_promissory_note', {
-        p_note_id: approveTarget.id,
+        p_note_id: target.id,
         p_reason: reason,
       });
       if (error) throw error;
@@ -875,8 +945,8 @@ export function PromissoryNotesQueue({
                       key={note.id}
                       note={note}
                       onOpen={() => setSelectedNote(note)}
-                      onApprove={() => { setApproveReason(''); setApproveTarget(note); }}
-                      onReject={() => { setRejectReason(''); setRejectTarget(note); }}
+                      onApprove={() => { setApproveReason(''); setApproveTarget({ ...note, __swipe: true }); }}
+                      onReject={() => { setRejectReason(''); setRejectTarget({ ...note, __swipe: true }); }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 min-w-0">
