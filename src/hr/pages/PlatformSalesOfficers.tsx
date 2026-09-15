@@ -255,6 +255,36 @@ export default function PlatformSalesOfficersPage() {
     };
   }, [queryClient]);
 
+  const { data: nonOfficerRows = [] } = useQuery<NonOfficerRow[]>({
+    queryKey: ['pso-daily-series-non-officers', from, to],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_non_officer_series' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: NonOfficerRow[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
+  const { data: nonOfficerFunded = [] } = useQuery<NonOfficerFunded[]>({
+    queryKey: ['pso-funded-summary-non-officers', from, to],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_non_officer_funded_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: NonOfficerFunded[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
   const fundedAsAt = fundedSummaries[0]?.as_at ?? null;
 
 
