@@ -850,7 +850,12 @@ export default function PayoutVerificationPanel() {
           })
           .catch(() => undefined);
       }
-      toast.success('Verified. The name from the ID is saved on the account.');
+      toast.success(
+        auto
+          ? 'Everything matched — verified automatically.'
+          : 'Verified. The name from the ID is saved on the account.',
+      );
+
 
       // Move on to the next case. Under a filtered list (Waiting, Mismatch,
       // No ID, Double) the verified row leaves the queue, so the next case
