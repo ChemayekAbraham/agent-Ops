@@ -217,12 +217,18 @@ export function AgentOpsPipelineHub() {
         supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
         supabase
           .from('rent_requests')
-          .select('id, agent_verified')
+          .select('id, agent_verified, created_at, pending_window_reset_at')
           .eq('status', 'pending')
           .lt('created_at', thirtyDaysAgo),
       ]);
       const uniqueLandlords = new Set(landlordsData.data?.map((r: any) => r.landlord_id)).size;
-      const expiredCount = (expiredData.data || []).filter((r: any) => !r.agent_verified).length;
+      // A renewal stamps pending_window_reset_at and restarts the 30-day window,
+      // so renewed requests drop out of the expired count until the new window lapses.
+      const expiredCount = (expiredData.data || []).filter((r: any) => {
+        if (r.agent_verified) return false;
+        const windowStart = r.pending_window_reset_at || r.created_at;
+        return new Date(windowStart).getTime() < Date.now() - 30 * 24 * 60 * 60 * 1000;
+      }).length;
       return {
         tenants: tenants.count || 0,
         notes: notes.count || 0,

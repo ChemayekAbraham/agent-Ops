@@ -21,6 +21,7 @@ import {
   ArrowLeft,
   Building2,
   Smartphone,
+  UserRound,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -43,6 +44,7 @@ export function PayoutDestinationConsentDialog({
   const [ownerPhone, setOwnerPhone] = useState('');
   const [declarationId, setDeclarationId] = useState<string | null>(null);
   const [code, setCode] = useState('');
+  const [confirmedName, setConfirmedName] = useState('');
   const [serverMessage, setServerMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export function PayoutDestinationConsentDialog({
       setCode('');
       setDeclarationId(null);
       setServerMessage(null);
+      setConfirmedName(destination.account_name || '');
       // For bank transfer, start at phone entry if no phone known
       if (isBank) {
         setStep('enter_phone');
@@ -156,6 +159,12 @@ export function PayoutDestinationConsentDialog({
       return;
     }
 
+    const cleanName = confirmedName.trim().replace(/\s+/g, ' ');
+    if (cleanName.length < 3) {
+      setError('Enter the name this number is registered in.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -165,6 +174,7 @@ export function PayoutDestinationConsentDialog({
           action: 'confirm',
           declaration_id: declarationId,
           code: cleanCode,
+          confirmed_account_name: cleanName,
         },
       });
 
@@ -378,6 +388,35 @@ export function PayoutDestinationConsentDialog({
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="consentRegisteredName" className="text-xs font-semibold">
+                Name this {isBank ? 'account' : 'number'} is registered in
+              </Label>
+              <div className="relative">
+                <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="consentRegisteredName"
+                  type="text"
+                  placeholder="e.g. SSENKALI PIUS LUBEGA"
+                  value={confirmedName}
+                  onChange={(e) => {
+                    setConfirmedName(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  className="h-11 pl-9 text-base"
+                  maxLength={80}
+                  required
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                We have it as{' '}
+                <span className="font-semibold text-foreground">
+                  {destination.account_name || 'not recorded'}
+                </span>
+                . Correct the spelling here if it is wrong — it is saved once the code is confirmed.
+              </p>
+            </div>
+
             <div className="flex items-center justify-between text-xs pt-1">
               <button
                 type="button"
@@ -410,7 +449,10 @@ export function PayoutDestinationConsentDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || code.trim().length !== 6}>
+              <Button
+                type="submit"
+                disabled={loading || code.trim().length !== 6 || confirmedName.trim().length < 3}
+              >
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

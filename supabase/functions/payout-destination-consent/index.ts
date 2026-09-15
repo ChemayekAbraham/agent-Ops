@@ -118,7 +118,19 @@ Deno.serve(async (req) => {
       if (!declaration) return err("Declaration not found", 404);
       if (declaration.borrower_user_id !== userId) return err("This declaration doesn't belong to you", 403);
 
-      const result = await confirmPayoutDestinationConsent(admin, declarationId, code);
+      // Optional correction to the name the destination is registered in. Only
+      // accepted alongside a correct owner code, i.e. after ownership of that
+      // number/account has just been proven.
+      let confirmedName: string | null = null;
+      if (typeof body.confirmed_account_name === "string" && body.confirmed_account_name.trim()) {
+        const candidate = body.confirmed_account_name.trim().replace(/\s+/g, " ");
+        if (candidate.length < 3 || candidate.length > 80 || !/^[A-Za-z][A-Za-z .'-]*$/.test(candidate)) {
+          return err("Enter the name on the account as it is registered — letters only, at least 3 characters.");
+        }
+        confirmedName = candidate;
+      }
+
+      const result = await confirmPayoutDestinationConsent(admin, declarationId, code, confirmedName);
       if (!result.ok) return err(result.error, 400);
 
       return ok({ verified: true });
