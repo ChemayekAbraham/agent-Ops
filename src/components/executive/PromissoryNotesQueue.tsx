@@ -187,6 +187,9 @@ export function PromissoryNotesQueue({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkReason, setBulkReason] = useState('');
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [sortBy, setSortBy] = useState<'default' | 'fulfilment_asc' | 'fulfilment_desc'>(() =>
+    (localStorage.getItem('promissory-queue-sort') as any) || 'default'
+  );
 
 
   const { data: leadCandidates = [], isFetching: leadLoading } = useQuery({
