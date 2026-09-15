@@ -76,6 +76,9 @@ import {
   last9,
   useAdoptNationalIdName,
   useHolderNameHistory,
+  useStoredIdReading,
+  sameIdNumber,
+  maskIdNumber,
   useDecidePayoutDestination,
   useRevertHolderName,
 
@@ -384,6 +387,145 @@ function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSav
   );
 }
 
+/** One line of the stored-reading card: a tick, a cross or a neutral dash. */
+function CheckLine({
+  label,
+  value,
+  outcome,
+  note,
+}: {
+  label: string;
+  value: string;
+  outcome: boolean | null;
+  note?: string | null;
+}) {
+  return (
+    <div className="flex items-start gap-2 rounded-xl bg-background/70 px-3 py-2">
+      {outcome === true ? (
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+      ) : outcome === false ? (
+        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+      ) : (
+        <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      )}
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{label}</p>
+        <p className="truncate text-sm font-bold tabular-nums text-foreground">{value}</p>
+        {note && <p className="text-[11px] leading-snug text-muted-foreground">{note}</p>}
+      </div>
+      <span className="sr-only">
+        {outcome === true ? 'Checked' : outcome === false ? 'Does not match' : 'Nothing to compare'}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * What was read off the National ID at submission, straight from the stored
+ * reading — no re-read, no new check, no writes. ID numbers are shown part-
+ * hidden (`CM****HJ`) so a reviewer can recognise the card without the panel
+ * handing out a reusable number.
+ */
+function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
+  const { data, isLoading } = useStoredIdReading(row.user_id);
+
+  if (isLoading) {
+    return (
+      <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="mt-3 h-12 w-full rounded-xl" />
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  const ninMatches = sameIdNumber(data.nin, row.national_id);
+  const maskedNin = maskIdNumber(data.nin);
+  const maskedCard = maskIdNumber(data.cardNumber);
+  const enteredMask = maskIdNumber(row.national_id);
+  const idNameOnFile = (row.national_id_name || '').trim();
+  const accountName = (row.full_name || row.account_name || '').trim();
+  const namesMatch =
+    idNameOnFile && accountName
+      ? row.name_match_score !== null
+        ? row.name_match_score >= 0.8
+        : idNameOnFile.toLowerCase() === accountName.toLowerCase()
+      : null;
+
+  const allClear = ninMatches === true && data.faceVerified === true && namesMatch === true;
+
+  return (
+    <div
+      className={`mx-5 mt-3 rounded-2xl border p-4 ${
+        allClear ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-border bg-muted/40'
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <IdCard className="h-3.5 w-3.5" aria-hidden="true" /> Read from the National ID
+        </p>
+        <p className="text-[10px] font-semibold text-muted-foreground">
+          {data.status === 'valid' ? 'Card read in full' : 'Card partly read'}
+          {data.missing.length > 0 && ` · missing: ${data.missing.join(', ')}`}
+        </p>
+      </div>
+
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <CheckLine
+          label="ID number (NIN)"
+          value={maskedNin ?? 'Not read'}
+          outcome={ninMatches}
+          note={
+            ninMatches === true
+              ? 'Same as the number they typed in.'
+              : ninMatches === false
+                ? `They typed ${enteredMask ?? '—'} — different card.`
+                : row.national_id
+                  ? 'Nothing was read off the card to compare.'
+                  : 'They have not typed an ID number yet.'
+          }
+        />
+        <CheckLine
+          label="Card number"
+          value={maskedCard ?? 'Not read'}
+          outcome={maskedCard ? true : null}
+          note={maskedCard ? 'Printed on the front of the card.' : 'Could not be read off the photo.'}
+        />
+        <CheckLine
+          label="Selfie is a real face"
+          value={data.faceVerified === true ? 'Face confirmed' : data.faceVerified === false ? 'Not a face' : 'Not checked'}
+          outcome={data.faceVerified}
+          note={
+            data.faceVerified === true
+              ? 'The photo passed the face check.'
+              : data.faceVerified === false
+                ? 'The photo did not pass the face check — ask for a new selfie.'
+                : 'No face check was recorded for this photo.'
+          }
+        />
+        <CheckLine
+          label="Name on card vs account"
+          value={namesMatch === true ? 'Names match' : namesMatch === false ? 'Names differ' : 'Nothing to compare'}
+          outcome={namesMatch}
+          note={idNameOnFile ? `${idNameOnFile} · account: ${accountName || '—'}` : 'No name read off the card yet.'}
+        />
+      </div>
+
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        {data.sex ? `Sex ${data.sex}` : 'Sex not read'}
+        {data.dateOfBirth ? ` · Born ${data.dateOfBirth}` : ''}
+        {' · Read '}
+        {new Date(data.readAt).toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </p>
+    </div>
+  );
+}
 
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
@@ -1068,6 +1210,9 @@ export default function PayoutVerificationPanel() {
           {row.name_match_score !== null && row.name_match_score < 0.8 && (
             <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
           )}
+
+          {/* What the reader stored off the card, with the matching checks */}
+          <StoredIdReadingCard row={row} />
 
           {/* Audit trail of name replacements */}
           <NameChangeHistory userId={row.user_id} />
