@@ -268,7 +268,6 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
         p_number: savedNumber,
       });
       if (ownErr) throw ownErr;
-      const autoVerified = (own as { auto_verified?: boolean } | null)?.auto_verified === true;
 
       /* Bind the captured identity and lock this number to the account. The
          server decides whether everything needed is on file; it never
@@ -279,9 +278,7 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
         description:
           bound?.code === 'identity_captured'
             ? 'Your identity details are saved and this number is now locked for your withdrawals.'
-            : autoVerified
-              ? 'This number is confirmed and ready for your withdrawals.'
-              : 'You confirmed the number with the code sent to it.',
+            : 'You confirmed the number with the code sent to it.',
       });
       setCode('');
       setCodeSentTo(null);
