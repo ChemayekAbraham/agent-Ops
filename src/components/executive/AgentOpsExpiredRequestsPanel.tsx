@@ -592,6 +592,13 @@ export function AgentOpsExpiredRequestsPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Full request details */}
+      <RentRequestDetailDrawer
+        requestId={detailId}
+        open={!!detailId}
+        onOpenChange={(open) => { if (!open) setDetailId(null); }}
+      />
     </div>
   );
 }
