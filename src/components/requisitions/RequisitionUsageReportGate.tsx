@@ -58,7 +58,21 @@ export function RequisitionUsageReportGate() {
   const [amountUsed, setAmountUsed] = useState('');
   const [summary, setSummary] = useState('');
   const [saving, setSaving] = useState(false);
+  const [receipt, setReceipt] = useState<File | null>(null);
   const loadedOnceRef = useRef(false);
+
+  const pickReceipt = (file: File | null) => {
+    if (!file) { setReceipt(null); return; }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error('Attach a PDF or a photo (JPG, PNG or WebP)');
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      toast.error('That file is larger than 10MB');
+      return;
+    }
+    setReceipt(file);
+  };
 
   const current = pending[0] ?? null;
   const approvedAmount = useMemo(
