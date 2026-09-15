@@ -258,12 +258,16 @@ export function StaffRequisitionQueue() {
     setEvents((prev) => ({ ...prev, [id]: (data || []) as unknown as ReqEvent[] }));
   }, []);
 
+  /** The CEO holds an executive override and may act at any stage, so a
+   *  requisition sitting with the COO or CFO still shows Approve / Decline for
+   *  them. The server enforces the same rule, and self-approval stays blocked. */
   const isMine = useCallback(
     (row: StaffRequisition) =>
       !!row.current_approver_role &&
       ((roles as string[]).includes(row.current_approver_role) ||
         (roles as string[]).includes('super_admin') ||
-        (roles as string[]).includes('manager')),
+        (roles as string[]).includes('manager') ||
+        (roles as string[]).includes('ceo')),
     [roles],
   );
 

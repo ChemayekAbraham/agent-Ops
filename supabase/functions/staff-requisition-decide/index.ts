@@ -11,6 +11,10 @@ const corsHeaders = {
 };
 
 const OVERRIDE_ROLES = new Set(["super_admin", "manager"]);
+/** Executive override: the CEO may approve or decline at any stage, including
+ *  CFO stage, without being a designated CFO approver. Deciding your own
+ *  requisition stays blocked for the CEO like everyone else. */
+const EXEC_OVERRIDE_ROLES = new Set(["ceo"]);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -70,7 +74,10 @@ Deno.serve(async (req) => {
       .eq("user_id", actor.id)
       .eq("enabled", true);
     const roles = (roleRows || []).map((r: { role: string }) => r.role);
-    const ownsStage = roles.includes(row.current_approver_role) || roles.some((r: string) => OVERRIDE_ROLES.has(r));
+    const isExecOverride = roles.some((r: string) => EXEC_OVERRIDE_ROLES.has(r));
+    const ownsStage = roles.includes(row.current_approver_role)
+      || roles.some((r: string) => OVERRIDE_ROLES.has(r))
+      || isExecOverride;
     if (!ownsStage) {
       return json({ error: "forbidden", message: `This requisition is with ${row.current_approver_role}.` }, 403);
     }
@@ -79,7 +86,8 @@ Deno.serve(async (req) => {
     }
 
     // CFO-stage decisions are restricted; refusal is deliberately non-disclosing.
-    if (row.current_approver_role === "cfo" && !(await isCfoApprover(admin, actor.id))) {
+    // The CEO's executive override passes this gate.
+    if (row.current_approver_role === "cfo" && !isExecOverride && !(await isCfoApprover(admin, actor.id))) {
       return json({
         error: "forbidden",
         message: "This request could not be completed.",
