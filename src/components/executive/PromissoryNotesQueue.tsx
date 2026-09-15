@@ -518,10 +518,11 @@ export function PromissoryNotesQueue({
         ))}
       </div>
 
-      {/* Search & Filter */}
+      {/* Search & Filter — sticky on phones so it stays reachable while scrolling */}
+      <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 space-y-2 rounded-b-lg">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by partner, agent, phone or email..." className="pl-9" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by partner, agent, phone or email..." className="pl-9 h-11 sm:h-10" />
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
@@ -573,6 +574,7 @@ export function PromissoryNotesQueue({
         >
           Portfolio active ({kpis.partners_portfolio_active})
         </button>
+      </div>
       </div>
 
       {/* Notes list */}
