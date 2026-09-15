@@ -39,6 +39,7 @@ import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
 import { AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { maskPayoutNumber } from '@/hooks/useIdentityBinding';
+import { useWithdrawalBlockReasons } from '@/hooks/usePayoutNumberChange';
 
 /**
  * Maps a Ugandan mobile-money number to its provider based on the operator
@@ -110,6 +111,8 @@ export default function WithdrawFlow({
   // Migrating both dialogs onto this hook eliminates gate drift where one
   // dialog enforced a rule the other missed (e.g. the payout-freeze bug).
   const withdrawCtx = useWithdrawContext(user?.id);
+  // What Financial Ops still needs from this person before money can leave.
+  const identityBlock = useWithdrawalBlockReasons(user?.id);
   // No National ID on file means no withdrawal: the first step is a hard stop
   // until a correctly formatted ID and the name printed on it are submitted.
   const myNationalId = useMyNationalId();
