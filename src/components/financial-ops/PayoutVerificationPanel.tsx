@@ -68,6 +68,7 @@ import { doubleSubmissionLabel } from '@/lib/doubleSubmission';
 import { supabase } from '@/integrations/supabase/client';
 import { PayoutQueueBlockedList, blockedReasonFor } from './PayoutQueueBlockedList';
 import NationalIdLinkStaffQueue from './NationalIdLinkStaffQueue';
+import PayoutNumberChangeQueue from './PayoutNumberChangeQueue';
 
 import { useUserAvatars } from '@/hooks/useUserAvatars';
 import { useAuth } from '@/hooks/useAuth';
