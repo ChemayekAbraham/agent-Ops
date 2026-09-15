@@ -5,12 +5,14 @@
  * `RecordOutcomeDialog`), so a call recorded here is indistinguishable from one
  * recorded in the Calling Hub.
  */
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Phone, PhoneOff, MessageCircle } from 'lucide-react';
+import { Mic, MicOff, Phone, PhoneOff, MessageCircle, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { startRingback, type RingbackHandle } from '@/lib/ringbackTone';
 import { describeHangupCause, formatTalkTime } from '@/lib/callCentre';
 import { isTerminalCallState, type CallState } from '@/hooks/useCrmVoiceCall';
 import { QUICK_OUTCOMES, ccErrorText, type CcCallingHub } from '@/hooks/useCcCallingHub';
