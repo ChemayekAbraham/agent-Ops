@@ -40,6 +40,11 @@ interface AgentDetail {
     outstanding: number | null;
     order_status: string | null;
     payment_plan: string | null;
+    advance_period_months: number | null;
+    access_repayment_days: number | null;
+    schedule_days: number | null;
+    scheduled_daily_amount: number | null;
+    repayment_starts_on: string | null;
     sale_date: string | null;
     created_at: string | null;
   }>;
@@ -50,6 +55,10 @@ interface AgentDetail {
     amount_recovered: number | null;
     outstanding_balance: number | null;
     daily_deduction_amount: number | null;
+    advance_period_months: number | null;
+    access_repayment_days: number | null;
+    schedule_days: number | null;
+    scheduled_daily_amount: number | null;
     status: string | null;
     starts_on: string | null;
     last_recovery_at: string | null;
@@ -68,6 +77,17 @@ const dt = (v: string | null | undefined, pattern = 'dd MMM yyyy') => {
   if (!v) return '—';
   const d = new Date(String(v).length <= 10 ? `${String(v).slice(0, 10)}T00:00:00` : v);
   return Number.isNaN(d.getTime()) ? '—' : format(d, pattern);
+};
+
+/** Recorded repayment duration, in the terms it was captured in on the order. */
+const durationLabel = (months?: number | null, days?: number | null, scheduleDays?: number | null) => {
+  const m = Number(months || 0);
+  const d = Number(days || 0);
+  const sd = Number(scheduleDays || 0);
+  if (m > 0) return `${m} month${m === 1 ? '' : 's'}${d > 0 ? ` · ${d} day${d === 1 ? '' : 's'}` : ''}`;
+  if (d > 0) return `${d} day${d === 1 ? '' : 's'}`;
+  if (sd > 0) return `${sd} day${sd === 1 ? '' : 's'}`;
+  return null;
 };
 
 interface Props {
@@ -275,6 +295,9 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                           <p className="text-[11px] text-muted-foreground">
                             {dt(it.sale_date || it.created_at)}
                             {it.payment_plan ? ` · ${it.payment_plan.replace(/_/g, ' ')}` : ''}
+                            {durationLabel(it.advance_period_months, it.access_repayment_days, it.schedule_days)
+                              ? ` · over ${durationLabel(it.advance_period_months, it.access_repayment_days, it.schedule_days)}`
+                              : ''}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
@@ -311,7 +334,14 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                           <span>Plan: <span className="font-medium text-foreground tabular-nums">{formatUGX(Number(p.original_amount || 0))}</span></span>
                           <span>Recovered: <span className="font-medium text-success tabular-nums">{formatUGX(Number(p.amount_recovered || 0))}</span></span>
                           <span>Left: <span className="font-medium text-destructive tabular-nums">{formatUGX(Number(p.outstanding_balance || 0))}</span></span>
-                          <span>Daily: <span className="font-medium text-foreground tabular-nums">{formatUGX(Number(p.daily_deduction_amount || 0))}</span></span>
+                          <span>Daily: <span className="font-medium text-foreground tabular-nums">
+                            {formatUGX(Number(p.scheduled_daily_amount ?? p.daily_deduction_amount ?? 0))}
+                          </span></span>
+                          {durationLabel(p.advance_period_months, p.access_repayment_days, p.schedule_days) && (
+                            <span>Duration: <span className="font-medium text-foreground">
+                              {durationLabel(p.advance_period_months, p.access_repayment_days, p.schedule_days)}
+                            </span></span>
+                          )}
                           <span>Started {dt(p.starts_on)}</span>
                           <span>Last recovery {dt(p.last_recovery_at, 'dd MMM yyyy HH:mm')}</span>
                         </div>
