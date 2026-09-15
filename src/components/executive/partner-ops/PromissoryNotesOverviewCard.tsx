@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle } from 'lucide-react';
+import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,6 +66,10 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     return saved === 'activated' || saved === 'rejected' || saved === 'pending' || saved === 'overdue' ? saved : 'pending';
   });
   const [search, setSearch] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem('promissory-overview-collapsed');
+    return saved === 'true';
+  });
   const [approveTarget, setApproveTarget] = useState<any>(null);
   const [approveReason, setApproveReason] = useState('');
   const [approving, setApproving] = useState(false);
@@ -169,6 +173,10 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     localStorage.setItem('promissory-queue-status-filter', selected);
   }, [selected]);
 
+  React.useEffect(() => {
+    localStorage.setItem('promissory-overview-collapsed', String(isCollapsed));
+  }, [isCollapsed]);
+
   const openLabel = {
     pending: 'Open awaiting review',
     activated: 'Open approved',
@@ -203,13 +211,35 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Review partner commitments, approve notes &amp; track collections
+              {isCollapsed ? 'Tap to expand filters & queue preview' : 'Review partner commitments, approve notes &amp; track collections'}
             </p>
           </div>
-          <Button size="sm" className="gap-1.5 shrink-0" onClick={(e) => { e.stopPropagation(); onOpen(activeFilter); }} aria-label={openLabel}>
-            {openLabel} <ArrowRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-9 w-9 px-0"
+              onClick={(e) => { e.stopPropagation(); setIsCollapsed((c) => !c); }}
+              aria-label={isCollapsed ? 'Expand Promissory Notes panel' : 'Collapse Promissory Notes panel'}
+              aria-expanded={!isCollapsed}
+            >
+              {isCollapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+            </Button>
+            <Button size="sm" className="gap-1.5" onClick={(e) => { e.stopPropagation(); onOpen(activeFilter); }} aria-label={openLabel}>
+              {openLabel} <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
+
+        {isCollapsed && !isLoading && (
+          <div className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">{counts.pending.toLocaleString()}</span> awaiting review
+            {' · '}
+            <span className="font-semibold text-foreground">{formatUGX(kpis.promised_total)}</span> promised
+          </div>
+        )}
+
+        {!isCollapsed && (<>
 
         <div className="rounded-lg border bg-background/70 p-3 space-y-3" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -383,6 +413,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
             )}
           </div>
         )}
+      </>)}
       </CardContent>
 
       <AlertDialog open={!!approveTarget} onOpenChange={(open) => { if (!open && !approving) { setApproveTarget(null); setApproveReason(''); } }}>
