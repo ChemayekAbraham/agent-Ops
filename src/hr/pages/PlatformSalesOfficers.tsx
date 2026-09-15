@@ -486,7 +486,7 @@ export default function PlatformSalesOfficersPage() {
               <button
                 key={m}
                 type="button"
-                onClick={() => setMode(m)}
+                onClick={() => { setMode(m); if (m !== 'WEEKLY') setWeekOffset(0); }}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={cn(
                   'min-h-11 px-3 text-xs font-semibold tracking-wide rounded-md transition-colors',
