@@ -62,6 +62,7 @@ const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agen
 const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/components/merchant/MerchantAgentReferralGate"), "MerchantAgentReferralGate");
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
 const UserLocationCorrectionGate = optionalLazyWithRetry(() => import("@/components/location/UserLocationCorrectionGate"), "UserLocationCorrectionGate");
+const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/components/requisitions/RequisitionUsageReportGate"), "RequisitionUsageReportGate");
 
 // Field recruitment campaign pages
 const CampaignRedirect = lazyWithRetry(() => import("@/pages/CampaignRedirect"));
@@ -419,6 +420,7 @@ function GlobalOnboardingGates() {
       <SubAgentInviteGate />
       <MerchantAgentReferralGate />
       <UserLocationCorrectionGate />
+      <RequisitionUsageReportGate />
     </>
   );
 }
