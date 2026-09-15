@@ -1,13 +1,20 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp } from 'lucide-react';
-import { usePromissoryOpsReport } from '@/hooks/usePromissoryOpsReport';
+import { Input } from '@/components/ui/input';
+import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search } from 'lucide-react';
+import { usePromissoryOpsReport, PROMISSORY_RANGES, type PromissoryRange } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 
 type PromissoryStatus = 'pending' | 'activated' | 'rejected';
+
+export interface PromissoryOverviewFilter {
+  status?: PromissoryStatus;
+  search?: string;
+  range?: PromissoryRange;
+}
 
 const PILL_CONFIG: { key: PromissoryStatus; label: string; icon: React.ElementType }[] = [
   { key: 'pending', label: 'Awaiting Review', icon: Clock },
@@ -15,20 +22,40 @@ const PILL_CONFIG: { key: PromissoryStatus; label: string; icon: React.ElementTy
   { key: 'rejected', label: 'Rejected', icon: XCircle },
 ];
 
+function matchesSearch(note: any, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.toLowerCase();
+  const haystack = [
+    note.partner_name,
+    note.agent_name,
+    note.whatsapp_number,
+    note.phone_number,
+    note.email,
+    note.came_in_name,
+    note.lead_partner_name,
+  ].filter(Boolean).join(' ').toLowerCase();
+  return haystack.includes(q);
+}
+
 /**
  * Prominent overview entry point for the Promissory Notes workspace.
  * Surfaces live queue stats so Partner Ops can see workload at a glance.
  */
-export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (status?: PromissoryStatus) => void }) {
-  const { report, isLoading } = usePromissoryOpsReport();
+export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: PromissoryOverviewFilter) => void }) {
+  const { report, isLoading, range, setRange } = usePromissoryOpsReport();
   const { kpis, notes } = report;
   const [selected, setSelected] = useState<PromissoryStatus>('pending');
+  const [search, setSearch] = useState('');
+
+  const filteredNotes = useMemo(() => notes.filter((n) => matchesSearch(n, search)), [notes, search]);
 
   const counts = {
-    pending: notes.filter((n) => n.status === 'pending').length,
-    activated: notes.filter((n) => n.status === 'activated').length,
-    rejected: notes.filter((n) => n.status === 'cancelled' || n.status === 'defaulted').length,
+    pending: filteredNotes.filter((n) => n.status === 'pending').length,
+    activated: filteredNotes.filter((n) => n.status === 'activated').length,
+    rejected: filteredNotes.filter((n) => n.status === 'cancelled' || n.status === 'defaulted').length,
   };
+
+  const activeFilter: PromissoryOverviewFilter = { status: selected, search, range };
 
   const openLabel = {
     pending: 'Open awaiting review',
@@ -39,7 +66,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (status?: Prom
   return (
     <Card
       className="border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
-      onClick={() => onOpen(selected)}
+      onClick={() => onOpen(activeFilter)}
       role="button"
       aria-label="Open Promissory Notes"
     >
@@ -66,9 +93,39 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (status?: Prom
               Review partner commitments, approve notes &amp; track collections
             </p>
           </div>
-          <Button size="sm" className="gap-1.5 shrink-0" onClick={(e) => { e.stopPropagation(); onOpen(selected); }} aria-label={openLabel}>
+          <Button size="sm" className="gap-1.5 shrink-0" onClick={(e) => { e.stopPropagation(); onOpen(activeFilter); }} aria-label={openLabel}>
             {openLabel} <ArrowRight className="h-4 w-4" />
           </Button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search partner, agent, phone or email..."
+              className="h-8 pl-8 text-xs"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+            {PROMISSORY_RANGES.map((r) => (
+              <button
+                key={r.key}
+                onClick={(e) => { e.stopPropagation(); setRange(r.key); }}
+                className={cn(
+                  'shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition-all',
+                  range === r.key
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background/80 text-muted-foreground hover:bg-background border'
+                )}
+                aria-pressed={range === r.key}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
