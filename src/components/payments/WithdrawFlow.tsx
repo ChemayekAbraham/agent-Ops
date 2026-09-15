@@ -565,8 +565,8 @@ export default function WithdrawFlow({
       });
       if (cancelled) return;
       const row = Array.isArray(data) ? data[0] : (data as any);
-      const num = (row?.destination_number ?? '').trim();
-      const nm = (row?.destination_name ?? '').trim();
+      const num = (row?.number ?? '').trim();
+      const nm = (row?.account_name ?? '').trim();
       if (error || !num || !nm) {
         setLockedMomo(null);
         return;
