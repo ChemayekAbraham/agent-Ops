@@ -130,6 +130,31 @@ function PastCallsPanel({
                 </span>
                 <span className="text-muted-foreground">{stamp(c.recordedAt ?? c.revealedAt)}</span>
                 {c.officerName && <span className="text-muted-foreground">· {c.officerName}</span>}
+                {(trailByAttempt.get(c.id)?.length ?? 0) > 0 && (
+                  <Badge variant="secondary" className="text-[10px] font-semibold">
+                    Edited
+                  </Badge>
+                )}
+                {c.feedbackId && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto h-6 gap-1 px-1.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
+                    onClick={() =>
+                      setEditing({
+                        feedbackId: c.feedbackId!,
+                        categoryId: c.categoryId,
+                        severity: c.severity,
+                        comment: c.comment,
+                        attemptNo: c.attemptNo,
+                      })
+                    }
+                  >
+                    <PencilLine className="h-3 w-3" />
+                    Edit feedback
+                  </Button>
+                )}
               </div>
               {(c.categoryLabel || c.comment || c.voidReason) && (
                 <p className="mt-0.5 text-muted-foreground">
@@ -137,10 +162,12 @@ function PastCallsPanel({
                   {c.comment || c.voidReason}
                 </p>
               )}
+              <EditTrail amendments={trailByAttempt.get(c.id) ?? []} />
             </li>
           ))}
         </ul>
       )}
+      <EditCallFeedbackDialog hub={hub} open={!!editing} call={editing} onClose={() => setEditing(null)} />
     </div>
   );
 }
