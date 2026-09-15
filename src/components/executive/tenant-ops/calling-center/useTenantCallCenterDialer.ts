@@ -312,27 +312,27 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
   /**
    * End Call.
    *
-   * For a live leg this defers to the voice hook's own `end()` — exactly what the
-   * CRM Calling Centre does. It flags the row, calls the SDK's `hangup()` on the
-   * real leg, keeps the talk time and finalises the session once. Re-closing the
-   * row here as well is what used to throw away the duration of an answered call.
+   * One path only, exactly as the CRM Calling Centre does it:
+   *  - `end()` raises the cancel flag on the session (`crm_cancel_call`), which is
+   *    what makes the provider callback answer `<Hangup/>` and refuse to bridge,
+   *    issues the SDK hang-up on the real leg, holds the UI at "Ending…" and
+   *    finalises once — on the SDK hangup event, the provider webhook, or its own
+   *    safety net. It keeps the talk time of an answered call.
+   *  - `insistHangup()` re-issues the SDK hang-up across the attach window, so a
+   *    press made while the leg is still being set up is not swallowed.
    *
-   * The raw leg is only dropped directly in the two cases `end()` cannot cover:
-   *  - the hook has already settled its UI (safety-net finalise) while the
-   *    telephone leg may still be talking, and
-   *  - the officer pressed End while the leg was still being set up (token,
-   *    registration, `crm_start_webrtc_call`). The abort flag makes that pending
-   *    start drop itself the moment it becomes a real session.
+   * When the leg is still being set up (token, registration,
+   * `crm_start_webrtc_call`) there is no session id yet, so the abort flag makes
+   * that pending start cancel itself the moment it becomes a real session.
+   * Repeat presses are absorbed by `end()`'s own single-shot guard.
    */
   const hangUp = useCallback(() => {
-    const settingUp = starting || call.state === 'initializing';
-    const liveLeg = !isTerminalCallState(call.state) && call.state !== 'idle';
+    if (isTerminalCallState(call.state) || call.state === 'idle') return;
+    if (starting || !call.callId) abortRef.current = true;
 
-    if (settingUp) abortRef.current = true;
-    if (liveLeg) call.end();
-
-    if (!liveLeg || settingUp) dropLeg(settingUp ? call.callId : null);
-  }, [call, starting, dropLeg]);
+    call.end();
+    insistHangup();
+  }, [call, starting, insistHangup]);
 
   const clearCurrent = useCallback(() => {
     hangUp();
