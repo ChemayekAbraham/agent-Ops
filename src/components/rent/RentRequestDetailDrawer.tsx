@@ -49,12 +49,24 @@ interface FullRequestDetail {
   approval_comment: string | null;
   rejected_reason: string | null;
   schedule_status: string | null;
+  /* Everything below was captured at submission time and is what a reviewer
+     needs when a request has sat unattended and expired. */
+  repayment_frequency: string | null;
+  repayment_starts_on: string | null;
+  assigned_agent_id: string | null;
+  house_listing_id: string | null;
+  tenant_photo_url: string | null;
+  house_image_urls: string[] | null;
+  latest_rent_receipt_url: string | null;
+  latest_rent_receipt_uploaded_at: string | null;
 }
 
 interface ProfileInfo {
   full_name: string;
   phone: string;
   email: string;
+  /** The tenant's own residence, assembled the same way the funder view does. */
+  residence?: string | null;
 }
 
 interface LandlordInfo {
