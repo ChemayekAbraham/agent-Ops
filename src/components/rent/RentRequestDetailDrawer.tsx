@@ -354,6 +354,57 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
               <DetailRow label="Platform Fee" value={formatUGX(request.request_fee)} />
               <DetailRow label="Total Repayment" value={formatUGX(request.total_repayment)} bold />
               <DetailRow label="Daily Repayment" value={formatUGX(request.daily_repayment)} />
+              <DetailRow
+                label="Repayment frequency"
+                value={(request.repayment_frequency || 'daily').replace(/_/g, ' ')}
+              />
+              {request.repayment_starts_on && (
+                <DetailRow
+                  label="Repayment starts"
+                  value={format(new Date(request.repayment_starts_on), 'dd MMM yyyy')}
+                />
+              )}
+            </Section>
+
+            <Separator />
+
+            {/* Everything the agent photographed when the request was filed. */}
+            <Section title="Photos captured at submission" icon={<Receipt className="h-3.5 w-3.5" />}>
+              {!request.latest_rent_receipt_url && !request.tenant_photo_url && !(request.house_image_urls?.length) ? (
+                <p className="text-xs text-muted-foreground">No photos were captured with this request</p>
+              ) : (
+                <div className="space-y-3">
+                  {request.latest_rent_receipt_url && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Latest rent receipt from the landlord
+                        {request.latest_rent_receipt_uploaded_at
+                          ? ` · ${format(new Date(request.latest_rent_receipt_uploaded_at), 'dd MMM yyyy')}`
+                          : ''}
+                      </p>
+                      <PhotoTile url={request.latest_rent_receipt_url} alt="Rent receipt" />
+                    </div>
+                  )}
+                  {request.tenant_photo_url && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Tenant verification photo</p>
+                      <PhotoTile url={request.tenant_photo_url} alt="Tenant photo" />
+                    </div>
+                  )}
+                  {!!request.house_image_urls?.length && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        House verification photos ({request.house_image_urls.length})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {request.house_image_urls.filter(Boolean).map((url, i) => (
+                          <PhotoTile key={`${url}-${i}`} url={url} alt={`House photo ${i + 1}`} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </Section>
 
             <Separator />
