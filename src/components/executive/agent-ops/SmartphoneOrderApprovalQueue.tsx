@@ -30,6 +30,7 @@ import { Smartphone, Check, X, Loader2, Trash2, AlertTriangle } from 'lucide-rea
 import { formatUGX } from '@/lib/rentCalculations';
 import { SupplierPicker, type SupplierChoice } from './SmartphoneCatalogDialog';
 import { downPaymentCopy } from '@/lib/moBanjaIphone';
+import { SmartphoneRepaymentBreakdown } from './SmartphoneRepaymentBreakdown';
 import { format } from 'date-fns';
 
 const db = supabase as any;
@@ -890,6 +891,16 @@ export function SmartphoneOrderApprovalQueue({
                     </div>
                   )}
                 </div>
+
+                <SmartphoneRepaymentBreakdown
+                  amount={detailsTarget.total_amount}
+                  months={detailsTarget.advance_period_months}
+                  startsOn={detailsTarget.repayment_starts_on}
+                  storedTotalRepayable={detailsTarget.total_repayable}
+                  storedDays={detailsTarget.access_repayment_days}
+                />
+
+
 
                 <div className="rounded-lg border p-3 space-y-2">
                   <p className="text-xs font-semibold">Agent wallet (live)</p>
