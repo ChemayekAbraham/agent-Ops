@@ -164,6 +164,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     pending: 'Open awaiting review',
     activated: 'Open approved',
     rejected: 'Open rejected',
+    overdue: 'Open overdue',
   }[selected];
 
   return (
