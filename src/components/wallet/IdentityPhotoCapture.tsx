@@ -139,7 +139,11 @@ function sendFailureMessage(e: unknown): string {
   if (t.includes('back')) {
     return 'The back of your National ID is still missing. Take a photo of the back of the card and send again.';
   }
-  if (t.includes('best candidate') || t.includes('function') || t.includes('schema')) {
+  /* Only genuine wiring faults get this wording. It used to catch any message
+     containing "function", which swallowed the backend's real reason (the SDK
+     says "Edge Function returned a non-2xx status code") and left people
+     retrying a submission that would never succeed. */
+  if (t.includes('best candidate') || t.includes('schema cache') || t.includes('non-2xx')) {
     return 'Your photos reached us but the request was incomplete, so nothing was saved. Please tap send once more.';
   }
   if (t.includes('fetch') || t.includes('network') || t.includes('timeout') || t.includes('failed to send')) {
