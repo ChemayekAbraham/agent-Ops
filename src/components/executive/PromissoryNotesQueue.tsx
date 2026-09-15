@@ -413,6 +413,16 @@ export function PromissoryNotesQueue({
   const notes = report.notes;
   const kpis = report.kpis;
 
+  const isOverdue = (n: any) => {
+    if (!n.fulfilment_due_on) return false;
+    const due = new Date(n.fulfilment_due_on);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (due >= today) return false;
+    const outstanding = Number(n.outstanding ?? (Number(n.amount) - Number(n.total_collected)));
+    return outstanding > 0;
+  };
+
   const filtered = notes.filter(n => {
     const haystack = [
       n.partner_name, n.whatsapp_number, n.phone_number, n.email,
@@ -425,6 +435,8 @@ export function PromissoryNotesQueue({
     const matchesStatus =
       statusFilter === 'all'
         ? true
+        : statusFilter === 'overdue'
+        ? isOverdue(n)
         : statusFilter === 'came_in'
         ? !!n.came_in
         : statusFilter === 'not_registered'
@@ -447,6 +459,7 @@ export function PromissoryNotesQueue({
     acc[n.status] = (acc[n.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+  const overdueCount = notes.filter(isOverdue).length;
 
   const exportRows = sortedFiltered.map(n => ({
     Partner: n.partner_name || '',
@@ -640,7 +653,7 @@ export function PromissoryNotesQueue({
     };
   };
 
-  const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
+  const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled', 'overdue'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
     { label: 'Promissory notes', value: kpis.notes_count, hint: `${kpis.approved_notes} approved`, tone: 'bg-primary/5 border-primary/20' },
@@ -720,18 +733,21 @@ export function PromissoryNotesQueue({
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-        {statuses.map(s => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={cn(
-              'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
-              statusFilter === s ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-            )}
-          >
-            {s === 'all' ? `All (${notes.length})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${statusCounts[s] || 0})`}
-          </button>
-        ))}
+        {statuses.map(s => {
+          const count = s === 'overdue' ? overdueCount : (statusCounts[s] || 0);
+          return (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={cn(
+                'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+                statusFilter === s ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+              )}
+            >
+              {s === 'all' ? `All (${notes.length})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${count})`}
+            </button>
+          );
+        })}
         <button
           onClick={() => setStatusFilter('came_in')}
           className={cn(

@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 const QUICK_LIST_SIZE = 6;
 
-type PromissoryStatus = 'pending' | 'activated' | 'rejected';
+type PromissoryStatus = 'pending' | 'activated' | 'rejected' | 'overdue';
 
 export interface PromissoryOverviewFilter {
   status?: PromissoryStatus;
@@ -34,6 +34,7 @@ const PILL_CONFIG: { key: PromissoryStatus; label: string; icon: React.ElementTy
   { key: 'pending', label: 'Awaiting Review', icon: Clock },
   { key: 'activated', label: 'Approved', icon: CheckCircle },
   { key: 'rejected', label: 'Rejected', icon: XCircle },
+  { key: 'overdue', label: 'Overdue', icon: AlertTriangle },
 ];
 
 function matchesSearch(note: any, query: string): boolean {
@@ -61,7 +62,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<PromissoryStatus>(() => {
     const saved = localStorage.getItem('promissory-queue-status-filter');
-    return saved === 'activated' || saved === 'rejected' || saved === 'pending' ? saved : 'pending';
+    return saved === 'activated' || saved === 'rejected' || saved === 'pending' || saved === 'overdue' ? saved : 'pending';
   });
   const [search, setSearch] = useState('');
   const [approveTarget, setApproveTarget] = useState<any>(null);
@@ -71,19 +72,31 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
 
+  const isOverdue = (n: any) => {
+    if (!n.fulfilment_due_on) return false;
+    const due = new Date(n.fulfilment_due_on);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (due >= today) return false;
+    const outstanding = Number(n.outstanding ?? (Number(n.amount) - Number(n.total_collected)));
+    return outstanding > 0;
+  };
+
   const filteredNotes = useMemo(() => notes.filter((n) => matchesSearch(n, search)), [notes, search]);
 
   const counts = {
     pending: filteredNotes.filter((n) => n.status === 'pending').length,
     activated: filteredNotes.filter((n) => n.status === 'activated').length,
     rejected: filteredNotes.filter((n) => n.status === 'cancelled' || n.status === 'defaulted').length,
+    overdue: filteredNotes.filter(isOverdue).length,
   };
 
   const statusNotes = useMemo(() => {
     const match = (n: any) =>
       selected === 'pending' ? n.status === 'pending'
       : selected === 'activated' ? n.status === 'activated'
-      : n.status === 'cancelled' || n.status === 'defaulted';
+      : selected === 'rejected' ? n.status === 'cancelled' || n.status === 'defaulted'
+      : isOverdue(n);
     return filteredNotes.filter(match).slice(0, QUICK_LIST_SIZE);
   }, [filteredNotes, selected]);
 
@@ -151,6 +164,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     pending: 'Open awaiting review',
     activated: 'Open approved',
     rejected: 'Open rejected',
+    overdue: 'Open overdue',
   }[selected];
 
   return (
