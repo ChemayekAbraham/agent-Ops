@@ -1,14 +1,14 @@
 import { createPortal } from 'react-dom';
-import { LayoutDashboard, Users, FileText, Wallet, MoreHorizontal } from 'lucide-react';
+import { LayoutDashboard, Users, Compass, Wallet, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type BottomTab = 'home' | 'pipeline' | 'agents' | 'finance' | 'more';
 
 const TABS: { key: BottomTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'home', label: 'Overview', icon: LayoutDashboard },
-  { key: 'pipeline', label: 'Rent Requests', icon: FileText },
+  { key: 'pipeline', label: 'Field', icon: Compass },
   { key: 'agents', label: 'Agents', icon: Users },
-  { key: 'finance', label: 'Money', icon: Wallet },
+  { key: 'finance', label: 'Finance', icon: Wallet },
   { key: 'more', label: 'More', icon: MoreHorizontal },
 ];
 
@@ -24,8 +24,8 @@ export function AgentOpsBottomNav({
   return createPortal(
     <nav
       className={cn(
-        'fixed bottom-0 inset-x-0 z-50 lg:hidden',
-        'bg-card/95 backdrop-blur-xl border-t border-border shadow-lg',
+        'fixed bottom-0 inset-x-0 z-50 sm:hidden',
+        'bg-card/95 backdrop-blur border-t border-border',
         'pb-[env(safe-area-inset-bottom)]',
       )}
       aria-label="Agent Ops navigation"
@@ -41,13 +41,14 @@ export function AgentOpsBottomNav({
                 onClick={() => onChange(tab.key)}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'w-full min-h-[64px] px-1 flex flex-col items-center justify-center gap-1 touch-manipulation',
+                  'w-full flex flex-col items-center justify-center gap-0.5 py-2 touch-manipulation',
                   'transition-colors active:scale-95',
-                  isActive ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground',
+                  isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                <Icon className={cn('h-5 w-5 shrink-0', isActive && 'drop-shadow-sm')} />
-                <span className="max-w-full text-center text-[10px] font-semibold leading-[1.05]">{tab.label}</span>
+                <Icon className={cn('h-5 w-5', isActive && 'drop-shadow-sm')} />
+                <span className="text-[10px] font-semibold">{tab.label}</span>
+                {isActive && <span className="h-0.5 w-6 rounded-full bg-primary" aria-hidden />}
               </button>
             </li>
           );

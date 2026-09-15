@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
@@ -75,7 +75,6 @@ import { AgentsSpacePanel } from './AgentsSpacePanel';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { 
   Users, Banknote, DollarSign, Search, UserPlus, Trophy, BarChart3, 
   ClipboardList, AlertTriangle, Building2, Wallet, Bell, ArrowLeftRight,
@@ -164,7 +163,6 @@ export function AgentOpsDashboard() {
   const [bottomTab, setBottomTab] = useState<BottomTab>('home');
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
-  const [mobileSectionSearch, setMobileSectionSearch] = useState('');
   const [sidebarWidth, setSidebarWidth] = useState(224); // default w-56
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
@@ -439,9 +437,6 @@ export function AgentOpsDashboard() {
 
   const selectView = (key: ActiveView) => {
     setActiveView(key);
-    if (key === 'pipeline') setBottomTab('pipeline');
-    else if (key === 'directory' || key === 'performance' || key === 'sub-agents') setBottomTab('agents');
-    else if (key === 'balances' || key === 'float-payouts' || key === 'earnings' || key === 'locked-transfers') setBottomTab('finance');
   };
 
   const handleOpenSection = (key: string) => {
@@ -461,31 +456,18 @@ export function AgentOpsDashboard() {
     { title: 'Reports', keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
 
-  const visibleMoreGroups = useMemo(() => {
-    const query = mobileSectionSearch.trim().toLowerCase();
-    if (!query) return MORE_GROUPS;
-    return MORE_GROUPS
-      .map((group) => ({
-        ...group,
-        keys: group.keys.filter((key) => NAV_ITEMS.find((item) => item.key === key)?.label.toLowerCase().includes(query)),
-      }))
-      .filter((group) => group.keys.length > 0);
-  }, [mobileSectionSearch]);
-
   // Main content region — sub-view when one is active, else the overview / more-grid.
   const contentRegion = activeView ? (
     <div className="space-y-4">
       {activeView !== 'agents-space' && (
         <>
-           <Button
-             type="button"
-             variant="outline"
-             onClick={() => { setBottomTab('home'); setActiveView(null); }}
-             className="sticky top-0 z-20 h-11 w-full justify-start gap-2 bg-background/95 text-sm font-semibold text-primary backdrop-blur lg:hidden"
-           >
+          <button
+            onClick={() => setActiveView(null)}
+            className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline lg:hidden"
+          >
             <ChevronLeft className="h-4 w-4" />
             Back to Agent Ops Overview
-           </Button>
+          </button>
           <h2 className="text-lg font-bold">{viewLabel}</h2>
         </>
       )}
@@ -497,25 +479,12 @@ export function AgentOpsDashboard() {
     </div>
   ) : (
     <div className="space-y-5 pb-20 sm:pb-4">
-      <div className="sticky top-0 z-20 bg-background/95 pb-2 backdrop-blur lg:hidden">
-        <label htmlFor="agent-ops-section-search" className="mb-1.5 block text-sm font-semibold text-foreground">Find a section</label>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id="agent-ops-section-search"
-            value={mobileSectionSearch}
-            onChange={(event) => setMobileSectionSearch(event.target.value)}
-            placeholder="Search Agent Ops"
-            className="h-12 pl-10 text-base"
-          />
-        </div>
-      </div>
-      {visibleMoreGroups.map((group) => (
+      {MORE_GROUPS.map((group) => (
         <section key={group.title} className="space-y-2">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
             {group.title}
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
             {group.keys.map((key) => {
               const item = NAV_ITEMS.find((n) => n.key === key);
               if (!item) return null;
@@ -525,8 +494,8 @@ export function AgentOpsDashboard() {
                   key={item.key}
                   onClick={() => selectView(item.key)}
                   className={cn(
-                    'flex flex-row sm:flex-col items-center gap-3 sm:gap-2 p-3 rounded-xl sm:rounded-2xl border border-border bg-card text-left sm:text-center',
-                    'active:scale-95 transition-all touch-manipulation min-h-[56px] sm:min-h-[84px]',
+                    'flex flex-col items-center gap-2 p-3 rounded-2xl border border-border bg-card',
+                    'active:scale-95 transition-all touch-manipulation min-h-[84px]',
                     'hover:shadow-md hover:border-primary/30',
                     'relative',
                   )}
@@ -539,7 +508,7 @@ export function AgentOpsDashboard() {
                   <div className={cn('p-2.5 rounded-xl shadow-sm', item.color)}>
                     <item.icon className="h-4 w-4 text-white" />
                   </div>
-                  <span className="text-sm sm:text-xs font-semibold sm:text-center leading-tight">
+                  <span className="text-[11px] sm:text-xs font-semibold text-center leading-tight">
                     {item.label}
                   </span>
                 </button>
@@ -555,7 +524,7 @@ export function AgentOpsDashboard() {
   return (
     <div className="space-y-4 pb-[calc(env(safe-area-inset-bottom)+72px)] sm:pb-4">
       {/* Greeting header */}
-       <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-base sm:text-lg font-bold text-foreground">Good day 👋</h2>
           <p className="text-xs text-muted-foreground">Agent Operations Manager</p>
@@ -567,11 +536,11 @@ export function AgentOpsDashboard() {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                 className="lg:hidden h-11 px-3 rounded-lg border border-border bg-card flex items-center gap-1.5 text-sm font-semibold text-foreground hover:border-primary/30 active:scale-95 transition-all touch-manipulation"
+                className="lg:hidden h-9 px-3 rounded-full border border-border bg-card flex items-center gap-1.5 text-xs font-semibold text-foreground hover:border-primary/30 active:scale-95 transition-all touch-manipulation"
                 aria-label="All Agent Ops sections"
               >
                 <LayoutGrid className="h-4 w-4 text-primary" />
-                 <span>All sections</span>
+                <span className="hidden xs:inline">All sections</span>
                 <ChevronDown className="h-3.5 w-3.5 opacity-70" />
               </button>
             </DropdownMenuTrigger>

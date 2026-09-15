@@ -461,21 +461,38 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
 
 type SortOption = 'newest' | 'oldest' | 'amount-high' | 'amount-low' | 'tenant-az' | 'agent-az';
 
+const DEFAULT_STATUS = 'pending';
+const DEFAULT_DATE = '30';
+const DEFAULT_SORT: SortOption = 'newest';
+
 function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
-  const [statusFilter, setStatusFilter] = useState('pending');
-  const [dateFilter, setDateFilter] = useState('30');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  // Draft = what's on the controls; applied = what's currently driving the list.
+  const [draftStatus, setDraftStatus] = useState(DEFAULT_STATUS);
+  const [draftDate, setDraftDate] = useState(DEFAULT_DATE);
+  const [draftSearch, setDraftSearch] = useState('');
+  const [draftSort, setDraftSort] = useState<SortOption>(DEFAULT_SORT);
+
+  const [appliedStatus, setAppliedStatus] = useState(DEFAULT_STATUS);
+  const [appliedDate, setAppliedDate] = useState(DEFAULT_DATE);
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedSort, setAppliedSort] = useState<SortOption>(DEFAULT_SORT);
+
+  const hasDraftChanges =
+    draftStatus !== appliedStatus ||
+    draftDate !== appliedDate ||
+    draftSearch !== appliedSearch ||
+    draftSort !== appliedSort;
+
   const { data: rawRows, isLoading } = useQuery({
-    queryKey: ['agent-ops-latest-rent-requests', statusFilter, dateFilter],
+    queryKey: ['agent-ops-latest-rent-requests', appliedStatus, appliedDate],
     queryFn: async () => {
       let query = supabase
         .from('rent_requests')
         .select('id, agent_id, tenant_id, rent_amount, status, created_at')
         .order('created_at', { ascending: false });
-      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
-      if (dateFilter !== 'all') {
-        query = query.gte('created_at', subDays(new Date(), Number(dateFilter)).toISOString());
+      if (appliedStatus !== 'all') query = query.eq('status', appliedStatus);
+      if (appliedDate !== 'all') {
+        query = query.gte('created_at', subDays(new Date(), Number(appliedDate)).toISOString());
       }
       const { data } = await query.limit(50);
       if (!data || data.length === 0) return [];
@@ -507,7 +524,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
     staleTime: 60_000,
   });
 
-  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const normalizedSearch = appliedSearch.trim().toLowerCase();
 
   const data = useMemo(() => {
     let rows = (rawRows || []).slice();
@@ -520,7 +537,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
       );
     }
     rows.sort((a: any, b: any) => {
-      switch (sortBy) {
+      switch (appliedSort) {
         case 'oldest':
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         case 'amount-high':
@@ -537,7 +554,25 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
       }
     });
     return rows.slice(0, 10);
-  }, [rawRows, normalizedSearch, sortBy]);
+  }, [rawRows, normalizedSearch, appliedSort]);
+
+  const handleApply = () => {
+    setAppliedStatus(draftStatus);
+    setAppliedDate(draftDate);
+    setAppliedSearch(draftSearch);
+    setAppliedSort(draftSort);
+  };
+
+  const handleReset = () => {
+    setDraftStatus(DEFAULT_STATUS);
+    setDraftDate(DEFAULT_DATE);
+    setDraftSearch('');
+    setDraftSort(DEFAULT_SORT);
+    setAppliedStatus(DEFAULT_STATUS);
+    setAppliedDate(DEFAULT_DATE);
+    setAppliedSearch('');
+    setAppliedSort(DEFAULT_SORT);
+  };
 
   const statusTone = (s: string) =>
     ['rejected', 'deleted_by_agent'].includes(s) ? 'destructive'
@@ -562,7 +597,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
           </Button>
         </div>
         <div className="mb-2 grid grid-cols-2 gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={draftStatus} onValueChange={setDraftStatus}>
             <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -575,7 +610,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
               <SelectItem value="all">All statuses</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={dateFilter} onValueChange={setDateFilter}>
+          <Select value={draftDate} onValueChange={setDraftDate}>
             <SelectTrigger className="h-11 text-sm" aria-label="Filter rent requests by date">
               <SelectValue placeholder="Date" />
             </SelectTrigger>
@@ -587,19 +622,19 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
             </SelectContent>
           </Select>
         </div>
-        <div className="grid grid-cols-[1fr_auto] gap-2">
+        <div className="mb-2 grid grid-cols-[1fr_auto] gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={draftSearch}
+              onChange={(e) => setDraftSearch(e.target.value)}
               placeholder="Search tenant or agent..."
               className="h-11 w-full rounded-md border border-input bg-background px-3 pl-9 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               aria-label="Search rent requests by tenant or agent"
             />
           </div>
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+          <Select value={draftSort} onValueChange={(v) => setDraftSort(v as SortOption)}>
             <SelectTrigger className="h-11 text-sm min-w-[7.5rem]" aria-label="Sort rent requests">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
@@ -612,6 +647,26 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
               <SelectItem value="agent-az">Agent A–Z</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 text-xs"
+            onClick={handleReset}
+          >
+            Reset
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-10 text-xs"
+            onClick={handleApply}
+            disabled={!hasDraftChanges}
+          >
+            Apply
+          </Button>
         </div>
       </div>
       <div className="p-3 sm:p-4 pt-2.5 sm:pt-3">
