@@ -15,6 +15,14 @@
  * No wallet or ledger writes happen here.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  scoreNameMatch,
+  isLikelyDifferentPerson,
+  findConsentedDeclaration,
+  requestDeclarationConsent,
+  confirmDeclarationConsent,
+  linkBorrowerProfile,
+} from "../_shared/nationalIdDeclaration.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -193,6 +201,61 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- National ID borrowing consent gate --------------------------------
+    // One account, one national ID, one phone — but sometimes a tenant is
+    // registered using a relative's National ID (no ID of their own yet). If
+    // the caller supplies national_id_name (the name on the ID) and it does
+    // not match this tenant's own full_name, the claimed ID owner must
+    // confirm by SMS code before the registration proceeds. No-op when
+    // national_id_name isn't supplied (existing callers are unaffected).
+    let pendingDeclarationId: string | null = null;
+    const rawNationalIdName = typeof body.national_id_name === "string" ? body.national_id_name.trim() : "";
+    if (national_id && rawNationalIdName) {
+      const matchScore = await scoreNameMatch(admin, full_name, rawNationalIdName);
+      if (isLikelyDifferentPerson(matchScore)) {
+        const alreadyConsented = await findConsentedDeclaration(admin, phone, national_id);
+        if (alreadyConsented) {
+          pendingDeclarationId = alreadyConsented.id;
+        } else {
+          const rawConsentCode = typeof body.consent_code === "string" ? body.consent_code.trim() : "";
+          const rawDeclarationId = typeof body.consent_declaration_id === "string" ? body.consent_declaration_id.trim() : "";
+
+          if (rawConsentCode && rawDeclarationId) {
+            const result = await confirmDeclarationConsent(admin, rawDeclarationId, rawConsentCode);
+            if (!result.ok) {
+              return new Response(JSON.stringify({
+                error: result.error, code: "id_owner_consent_required", stage: "awaiting_code", declaration_id: rawDeclarationId,
+              }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+            pendingDeclarationId = rawDeclarationId;
+          } else {
+            const rawIdOwnerPhone = validPhone(body.id_owner_phone);
+            if (!rawIdOwnerPhone) {
+              return new Response(JSON.stringify({
+                error: `This National ID appears to belong to ${rawNationalIdName}, not ${full_name}. Enter the ID owner's phone number so we can confirm they've allowed this.`,
+                code: "id_owner_consent_required", stage: "awaiting_owner_phone",
+              }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+            const { data: ownerProfile } = await admin
+              .from("profiles").select("id").eq("national_id", national_id).maybeSingle();
+            const { declarationId } = await requestDeclarationConsent(admin, {
+              borrowerPhone: phone,
+              borrowerFullName: full_name,
+              nationalId: national_id,
+              nationalIdName: rawNationalIdName,
+              idOwnerPhone: rawIdOwnerPhone,
+              idOwnerProfileId: (ownerProfile as any)?.id ?? null,
+              matchScore,
+            });
+            return new Response(JSON.stringify({
+              error: `We've sent a code to the ID owner's phone. Ask them to share it with you, then resubmit with the same consent_declaration_id and the code.`,
+              code: "id_owner_consent_required", stage: "awaiting_code", declaration_id: declarationId,
+            }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+        }
+      }
+    }
+
     // One open request at a time.
     {
       const { data: open } = await admin
@@ -281,6 +344,7 @@ Deno.serve(async (req) => {
     if (ug_village_id) profilePatch.ug_village_id = ug_village_id;
     const { error: pErr } = await admin.from("profiles").update(profilePatch).eq("id", userId);
     if (pErr) return err(`Could not save your details: ${pErr.message}`, 400);
+    if (pendingDeclarationId) await linkBorrowerProfile(admin, pendingDeclarationId, userId).catch(() => {});
 
     /* ---- Photo uploads ---------------------------------------------------
        These run BEFORE the insert on purpose. `enforce_rent_request_tenant_photo`

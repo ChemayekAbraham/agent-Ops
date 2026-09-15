@@ -2,6 +2,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateFullName, FULL_NAME_ERROR } from "../_shared/validateFullName.ts";
 import { validateUgandaPhone } from "../_shared/ugandaPhone.ts";
 import { guardAgentAssistedSignup, attachAgentSignupUser } from "../_shared/agentSignupGuard.ts";
+import {
+  scoreNameMatch,
+  isLikelyDifferentPerson,
+  findConsentedDeclaration,
+  requestDeclarationConsent,
+  confirmDeclarationConsent,
+  linkBorrowerProfile,
+} from "../_shared/nationalIdDeclaration.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -145,6 +153,61 @@ Deno.serve(async (req) => {
     const last9 = digits.slice(-9);
     const virtualEmail = (rawEmail ? validateEmail(rawEmail) : null) || `${digits}@noapp.welile.user`;
 
+    // ---- National ID borrowing consent gate --------------------------------
+    // One account, one national ID, one phone — but sometimes a tenant is
+    // registered using a relative's National ID (no ID of their own yet). If
+    // the caller supplies national_id_name (the name on the ID) and it does
+    // not match this registrant's full_name, the claimed ID owner must
+    // confirm by SMS code before the registration proceeds. No-op when
+    // national_id_name isn't supplied (existing callers are unaffected).
+    let pendingDeclarationId: string | null = null;
+    const rawNationalIdName = typeof (body as any)?.national_id_name === 'string' ? (body as any).national_id_name.trim() : '';
+    if (national_id && rawNationalIdName) {
+      const matchScore = await scoreNameMatch(supabaseAdmin, full_name, rawNationalIdName);
+      if (isLikelyDifferentPerson(matchScore)) {
+        const alreadyConsented = await findConsentedDeclaration(supabaseAdmin, cleanPhone, national_id);
+        if (alreadyConsented) {
+          pendingDeclarationId = alreadyConsented.id;
+        } else {
+          const rawConsentCode = typeof (body as any)?.consent_code === 'string' ? (body as any).consent_code.trim() : '';
+          const rawDeclarationId = typeof (body as any)?.consent_declaration_id === 'string' ? (body as any).consent_declaration_id.trim() : '';
+
+          if (rawConsentCode && rawDeclarationId) {
+            const result = await confirmDeclarationConsent(supabaseAdmin, rawDeclarationId, rawConsentCode);
+            if (!result.ok) {
+              return new Response(JSON.stringify({
+                error: result.error, code: 'id_owner_consent_required', stage: 'awaiting_code', declaration_id: rawDeclarationId,
+              }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+            pendingDeclarationId = rawDeclarationId;
+          } else {
+            const rawIdOwnerPhone = validatePhone((body as any)?.id_owner_phone);
+            if (!rawIdOwnerPhone) {
+              return new Response(JSON.stringify({
+                error: `This National ID appears to belong to ${rawNationalIdName}, not ${full_name}. Enter the ID owner's phone number so we can confirm they've allowed this.`,
+                code: 'id_owner_consent_required', stage: 'awaiting_owner_phone',
+              }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+            const { data: ownerProfile } = await supabaseAdmin
+              .from('profiles').select('id').eq('national_id', national_id).maybeSingle();
+            const { declarationId } = await requestDeclarationConsent(supabaseAdmin, {
+              borrowerPhone: cleanPhone,
+              borrowerFullName: full_name,
+              nationalId: national_id,
+              nationalIdName: rawNationalIdName,
+              idOwnerPhone: rawIdOwnerPhone,
+              idOwnerProfileId: (ownerProfile as any)?.id ?? null,
+              matchScore,
+            });
+            return new Response(JSON.stringify({
+              error: `We've sent a code to the ID owner's phone. Ask them to share it with you, then resubmit with the same consent_declaration_id and the code.`,
+              code: 'id_owner_consent_required', stage: 'awaiting_code', declaration_id: declarationId,
+            }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+        }
+      }
+    }
+
     // Check if a profile with this phone already exists before National ID conflict handling.
     // Agents often renew Rent Plans for existing tenants; that must reuse the tenant,
     // not fail as a duplicate National ID.
@@ -189,6 +252,7 @@ Deno.serve(async (req) => {
       } else {
         await supabaseAdmin.from("profiles").update({ referrer_id: callingUser.id }).eq("id", existingByPhone.id);
       }
+      if (pendingDeclarationId) await linkBorrowerProfile(supabaseAdmin, pendingDeclarationId, existingByPhone.id).catch(() => {});
       return new Response(JSON.stringify({ user_id: existingByPhone.id, existing: true }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -206,6 +270,7 @@ Deno.serve(async (req) => {
         phone: cleanPhone,
         email: virtualEmail,
       }, { onConflict: "id" });
+      if (pendingDeclarationId) await linkBorrowerProfile(supabaseAdmin, pendingDeclarationId, existingAuth.id).catch(() => {});
       return new Response(JSON.stringify({ user_id: existingAuth.id, existing: true }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -288,6 +353,7 @@ Deno.serve(async (req) => {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (pendingDeclarationId) await linkBorrowerProfile(supabaseAdmin, pendingDeclarationId, userId).catch(() => {});
 
     // Assign tenant role
     const { error: roleErr } = await supabaseAdmin
