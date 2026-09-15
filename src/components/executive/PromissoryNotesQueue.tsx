@@ -482,7 +482,22 @@ export function PromissoryNotesQueue({
             {r.label}
           </button>
         ))}
-        <Button variant="ghost" size="sm" className="ml-auto shrink-0" onClick={() => refetch()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="ml-auto shrink-0">
+              <Download className="h-3.5 w-3.5 mr-1" /> Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleExportCsv}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Download CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { void handleExportPdf(); }}>
+              <FileDown className="h-4 w-4 mr-2" /> Download PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => refetch()}>
           <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
         </Button>
       </div>
