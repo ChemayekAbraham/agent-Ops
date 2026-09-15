@@ -23,7 +23,7 @@ import { AgentCallMenu } from '../PromissoryNotesQueue';
 
 const QUICK_LIST_SIZE = 6;
 
-type PromissoryStatus = 'pending' | 'activated' | 'rejected' | 'overdue';
+type PromissoryStatus = 'pending' | 'activated' | 'rejected' | 'overdue' | 'fulfilled';
 
 export interface PromissoryOverviewFilter {
   status?: PromissoryStatus;
@@ -63,7 +63,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<PromissoryStatus>(() => {
     const saved = localStorage.getItem('promissory-queue-status-filter');
-    return saved === 'activated' || saved === 'rejected' || saved === 'pending' || saved === 'overdue' ? saved : 'pending';
+    return saved === 'activated' || saved === 'rejected' || saved === 'pending' || saved === 'overdue' || saved === 'fulfilled' ? saved : 'pending';
   });
   const [search, setSearch] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -94,6 +94,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     activated: filteredNotes.filter((n) => n.status === 'activated').length,
     rejected: filteredNotes.filter((n) => n.status === 'cancelled' || n.status === 'defaulted').length,
     overdue: filteredNotes.filter(isOverdue).length,
+    fulfilled: filteredNotes.filter((n) => n.status === 'fulfilled').length,
   };
 
   const statusNotes = useMemo(() => {
@@ -101,6 +102,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
       selected === 'pending' ? n.status === 'pending'
       : selected === 'activated' ? n.status === 'activated'
       : selected === 'rejected' ? n.status === 'cancelled' || n.status === 'defaulted'
+      : selected === 'fulfilled' ? n.status === 'fulfilled'
       : isOverdue(n);
     return filteredNotes.filter(match).slice(0, QUICK_LIST_SIZE);
   }, [filteredNotes, selected]);
@@ -182,6 +184,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
     activated: 'Open approved',
     rejected: 'Open rejected',
     overdue: 'Open overdue',
+    fulfilled: 'Open completed',
   }[selected];
 
   return (
