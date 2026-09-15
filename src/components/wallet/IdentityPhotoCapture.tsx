@@ -246,8 +246,21 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
       });
       if (ensureErr) throw ensureErr;
 
+      /* Record the code confirmation on the destination itself (the code table
+         is short-lived) and let the server verify the number straight away when
+         the ID number, the selfie face check and this code all passed. Every
+         server guard still applies, so this can only ever confirm a case a
+         reviewer would have confirmed by hand. */
+      const { data: own, error: ownErr } = await supabase.rpc('confirm_payout_number_ownership', {
+        p_number: savedNumber,
+      });
+      if (ownErr) throw ownErr;
+      const autoVerified = (own as { auto_verified?: boolean } | null)?.auto_verified === true;
+
       toast.success(existingMomo ? 'Payout number updated' : 'Payout number added', {
-        description: 'You confirmed the number with the code sent to it.',
+        description: autoVerified
+          ? 'Your ID, your photo and this number all checked out — this number is now approved for payouts.'
+          : 'You confirmed the number with the code sent to it.',
       });
       setCode('');
       setCodeSentTo(null);
