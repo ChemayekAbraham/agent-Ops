@@ -434,6 +434,24 @@ export default function PlatformSalesOfficersPage() {
   const combinedFundedTotal = fundedTotal + peopleFundedTotal;
   const combinedMoneyTotal = moneyTotal + peopleMoneyTotal;
 
+  // Benchmark for the window currently open: 100 promissory notes a day,
+  // 700 for a full Wed–Tue week. A part-week (the live week, or a month in
+  // progress) is measured against 100 for each day the window covers.
+  const windowDayCount = useMemo(() => {
+    const start = new Date(`${from}T12:00:00`);
+    const end = new Date(`${to}T12:00:00`);
+    const days = Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
+    return days > 0 ? days : 1;
+  }, [from, to]);
+  const windowNoteTarget = useMemo(
+    () => (mode === 'DAILY' ? 100 : mode === 'WEEKLY' && windowDayCount >= 7 ? 700 : windowDayCount * 100),
+    [mode, windowDayCount],
+  );
+  const windowNotePct = useMemo(
+    () => (windowNoteTarget > 0 ? Math.round((combinedNetTotal / windowNoteTarget) * 100) : 0),
+    [combinedNetTotal, windowNoteTarget],
+  );
+
   // Per-table day-column sums for the window currently shown. Recompute
   // whenever the window or the polled data changes.
   const officerWeekdayTotals = useMemo(() => {
