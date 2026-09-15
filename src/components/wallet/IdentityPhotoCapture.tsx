@@ -548,7 +548,18 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     // A photo that is not a National ID prefills nothing — there is nothing on
     // it to confirm, and a half-filled form would invite the person to guess.
     if (r.status === 'invalid') setForm(EMPTY_ID_DATA);
-    else setForm({ ...EMPTY_ID_DATA, ...(r.data ?? {}) });
+    else {
+      /* Normalise letter case up front: ID numbers are compared
+         case-insensitively everywhere (typed input, duplicate check, link
+         requests), so a lowercase read must not reach the form as-is. */
+      const d = (r.data ?? {}) as Partial<NationalIdData>;
+      setForm({
+        ...EMPTY_ID_DATA,
+        ...d,
+        nin: (d.nin ?? '').toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        card_number: (d.card_number ?? '').toUpperCase(),
+      });
+    }
     setReading(false);
   };
 
