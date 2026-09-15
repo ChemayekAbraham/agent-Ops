@@ -944,7 +944,7 @@ export function PromissoryNotesQueue({
                               aria-label={`Select note for ${note.partner_name}`}
                             />
                           </td>
-                          <td className="py-2 pr-3 truncate max-w-[160px]">{note.agent_name}</td>
+                          <td className="py-2 pr-3 max-w-[160px]"><AgentCallMenu note={note} /></td>
                           <td className="py-2 pr-3">
                             <span className="font-medium block truncate max-w-[160px]">{note.partner_name}</span>
                             <span className="text-[10px] text-muted-foreground">{note.whatsapp_number}</span>
@@ -1049,7 +1049,9 @@ export function PromissoryNotesQueue({
                           </span>
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">Promissory note: {note.partner_name}</p>
-                            <p className="text-[11px] text-muted-foreground truncate">Agent: {note.agent_name}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              Agent: <AgentCallMenu note={note} className="text-[11px] font-medium" />
+                            </p>
                             {(() => {
                               const ci = cameInIdentity(note);
                               if (!ci) return null;
