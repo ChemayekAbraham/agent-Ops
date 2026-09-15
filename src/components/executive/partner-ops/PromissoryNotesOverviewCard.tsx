@@ -161,6 +161,14 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
 
   const activeFilter: PromissoryOverviewFilter = { status: selected, search, range };
 
+  const selectedLabel = PILL_CONFIG.find((p) => p.key === selected)?.label ?? 'Awaiting Review';
+  const rangeLabel = PROMISSORY_RANGES.find((r) => r.key === range)?.label ?? 'All time';
+  const filtersChanged = selected !== 'pending' || !!search.trim() || range !== 'all';
+
+  React.useEffect(() => {
+    localStorage.setItem('promissory-queue-status-filter', selected);
+  }, [selected]);
+
   const openLabel = {
     pending: 'Open awaiting review',
     activated: 'Open approved',
@@ -203,62 +211,104 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
           </Button>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search partner, agent, phone or email..."
-              className="h-8 pl-8 text-xs"
-              onClick={(e) => e.stopPropagation()}
-            />
+        <div className="rounded-lg border bg-background/70 p-3 space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filters</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] text-muted-foreground">
+                Showing <span className="font-semibold text-foreground">{selectedLabel}</span>
+                {' · '}<span className="font-semibold text-foreground">{rangeLabel}</span>
+                {search.trim() ? <> · search “<span className="font-semibold text-foreground">{search.trim()}</span>”</> : null}
+              </p>
+              {filtersChanged && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-[11px] gap-1"
+                  onClick={() => { setSelected('pending'); setSearch(''); setRange('all'); }}
+                >
+                  <X className="h-3 w-3" /> Clear filters
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
-            {PROMISSORY_RANGES.map((r) => (
-              <button
-                key={r.key}
-                onClick={(e) => { e.stopPropagation(); setRange(r.key); }}
-                className={cn(
-                  'shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition-all',
-                  range === r.key
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background/80 text-muted-foreground hover:bg-background border'
+
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Status</p>
+            <div className="flex flex-wrap gap-2">
+              {PILL_CONFIG.map(({ key, label, icon: Icon }) => {
+                const active = selected === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSelected(key)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30'
+                        : 'bg-background text-muted-foreground hover:bg-accent border'
+                    )}
+                    aria-pressed={active}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span>{label}</span>
+                    {!isLoading && (
+                      <span className={cn('ml-0.5 tabular-nums', active ? 'text-primary-foreground/80' : 'text-muted-foreground/80')}>
+                        {counts[key].toLocaleString()}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Search</p>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Partner, agent, phone or email..."
+                  className="h-8 pl-8 pr-7 text-xs"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 )}
-                aria-pressed={range === r.key}
-              >
-                {r.label}
-              </button>
-            ))}
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Date range</p>
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                {PROMISSORY_RANGES.map((r) => (
+                  <button
+                    key={r.key}
+                    onClick={() => setRange(r.key)}
+                    className={cn(
+                      'shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition-all',
+                      range === r.key
+                        ? 'bg-primary text-primary-foreground ring-2 ring-primary/30'
+                        : 'bg-background text-muted-foreground hover:bg-accent border'
+                    )}
+                    aria-pressed={range === r.key}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {PILL_CONFIG.map(({ key, label, icon: Icon }) => {
-            const active = selected === key;
-            return (
-              <button
-                key={key}
-                onClick={(e) => { e.stopPropagation(); setSelected(key); }}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
-                  active
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-background/80 text-muted-foreground hover:bg-background border'
-                )}
-                aria-pressed={active}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                <span>{label}</span>
-                {!isLoading && (
-                  <span className={cn('ml-0.5 tabular-nums', active ? 'text-primary-foreground/80' : 'text-muted-foreground/80')}>
-                    {counts[key].toLocaleString()}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
 
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-lg border bg-background/60 p-2.5">
