@@ -839,12 +839,12 @@ export function PromissoryNotesQueue({
                   const config = statusConfig[note.status] || statusConfig.pending;
                   const StatusIcon = config.icon;
                   return (
-                    <div
+                    <SwipeableNoteCard
                       key={note.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedNote(note)}
-                      className="w-full text-left rounded-lg border p-3 hover:bg-muted/40 transition-colors"
+                      note={note}
+                      onOpen={() => setSelectedNote(note)}
+                      onApprove={() => { setApproveReason(''); setApproveTarget(note); }}
+                      onReject={() => { setRejectReason(''); setRejectTarget(note); }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 min-w-0">
