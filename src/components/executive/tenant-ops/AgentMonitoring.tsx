@@ -978,15 +978,15 @@ export function AgentMonitoring() {
       <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
         <TabsList variant="pills" className="w-max">
           <TabsTrigger value="all" variant="pills" className="text-xs">All agents</TabsTrigger>
-          <TabsTrigger value="after-aug-2026" variant="pills" className="text-xs">After 1 Aug 2026</TabsTrigger>
-          <TabsTrigger value="before-aug-2026" variant="pills" className="text-xs">Before 1 Aug 2026</TabsTrigger>
+          <TabsTrigger value="after-sep-2026" variant="pills" className="text-xs">After 1 Sep 2026</TabsTrigger>
+          <TabsTrigger value="before-sep-2026" variant="pills" className="text-xs">Before 1 Sep 2026</TabsTrigger>
           <TabsTrigger value="position" variant="pills" className="text-xs">Expected vs paid</TabsTrigger>
           <TabsTrigger value="rent-analysis" variant="pills" className="text-xs">Rent Analysis</TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="all" className="space-y-4">{body}</TabsContent>
-      <TabsContent value="after-aug-2026" className="space-y-4">{body}</TabsContent>
-      <TabsContent value="before-aug-2026" className="space-y-4">{body}</TabsContent>
+      <TabsContent value="after-sep-2026" className="space-y-4">{body}</TabsContent>
+      <TabsContent value="before-sep-2026" className="space-y-4">{body}</TabsContent>
       <TabsContent value="position" className="space-y-4"><AgentPaymentPosition /></TabsContent>
       <TabsContent value="rent-analysis" className="space-y-4"><RentAnalysis /></TabsContent>
     </Tabs>
