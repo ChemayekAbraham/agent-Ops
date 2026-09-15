@@ -707,7 +707,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       const statuses = [stage, ...additionalStatuses];
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified')
+        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, pending_window_reset_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified')
         .in('status', statuses);
 
       // Outstanding-balance rent requests bypass COO + CFO (DB trigger short-circuits
@@ -872,13 +872,15 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-  const isRequestExpired = (createdAt: string, requestStatus: string, agentVerified?: boolean | null) => {
+  const isRequestExpired = (createdAt: string, requestStatus: string, agentVerified?: boolean | null, windowResetAt?: string | null) => {
     if (stage !== 'pending') return false;
     if (requestStatus !== 'pending') return false;
     if (agentVerified) return false;
-    return Date.now() - new Date(createdAt).getTime() > THIRTY_DAYS_MS;
+    // A renewal stamps pending_window_reset_at and restarts the 30-day window.
+    const windowStart = windowResetAt || createdAt;
+    return Date.now() - new Date(windowStart).getTime() > THIRTY_DAYS_MS;
   };
-  const expiredCount = rows.filter(r => isRequestExpired(r.created_at, r.status, r.agent_verified)).length;
+  const expiredCount = rows.filter(r => isRequestExpired(r.created_at, r.status, r.agent_verified, r.pending_window_reset_at)).length;
 
 /**
  * Multi-token search matcher:
