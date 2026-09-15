@@ -1435,6 +1435,7 @@ export function DirectCreditTool() {
                   ? `${isCredit ? CFO_PAYOUT_VERB.credit : CFO_PAYOUT_VERB.debit} ${locationRecipients.length} recipients' wallets · UGX ${amt.toLocaleString()} each`
                   : `${isCredit ? CFO_PAYOUT_VERB.credit : CFO_PAYOUT_VERB.debit} ${selectedUser?.full_name || '...'}'s wallet · UGX ${amt.toLocaleString()}`}
             </Button>
+            </CfoApprovalGate>
 
             <AlertDialog open={floatConfirmOpen} onOpenChange={setFloatConfirmOpen}>
               <AlertDialogContent>
