@@ -33,10 +33,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Star } from 'lucide-react';
 import { downloadWithdrawalReceiptPdf, shareWithdrawalReceiptPdf } from '@/lib/withdrawalReceiptPdf';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useNavigate } from 'react-router-dom';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
-import { AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, MessageSquare, Camera } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { maskPayoutNumber } from '@/hooks/useIdentityBinding';
 import { useWithdrawalBlockReasons } from '@/hooks/usePayoutNumberChange';
@@ -104,8 +105,10 @@ export default function WithdrawFlow({
   defaultWithdrawalReason = WITHDRAWAL_REASON_OPTIONS[0].value,
 }: WithdrawFlowProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const { language } = useLanguage();
+  const identityPanelRef = useRef<HTMLDivElement>(null);
   // Unified withdrawal context — single source of truth for paused flag,
   // KYC daily limits, frozen accounts and server-computed `canSubmit`.
   // Migrating both dialogs onto this hook eliminates gate drift where one
@@ -138,14 +141,11 @@ export default function WithdrawFlow({
     !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
   /* The panel is shown whenever it has something to say — asking for the photos
      OR reporting that they are already with Financial Ops. It hides itself once
-     the account is verified. Gating it on `needsIdentityPhotos` alone meant that
-     the moment someone submitted, this step went blank while the gate below
-     still refused the withdrawal, with nothing on screen joining the two. */
+     the account is verified. Also shown immediately when identityBlock reports
+     unmet criteria, so it never stays hidden behind slow photo query loading. */
   const showIdentityPanel =
     !!user?.id &&
-    !myIdentityPhotos.isLoading &&
-    !purePartnerLoading &&
-    !isPurePartner;
+    (identityBlock.data?.blocked || (!purePartnerLoading && !isPurePartner));
 
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
@@ -748,6 +748,19 @@ export default function WithdrawFlow({
     setTimeout(handleReset, 300);
   };
 
+  const handleScrollToIdentity = () => {
+    if (identityPanelRef.current) {
+      identityPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const firstTarget = identityPanelRef.current.querySelector<HTMLElement>(
+        'button:not([disabled]), input:not([disabled])'
+      );
+      firstTarget?.focus();
+    } else {
+      handleClose();
+      navigate('/settings?section=account&tab=verification');
+    }
+  };
+
   const canProceed = () => {
     // Global gates — apply on every step. Server-computed so a paused
     // platform / frozen account / exhausted daily count blocks the flow
@@ -765,6 +778,7 @@ export default function WithdrawFlow({
       case 0:
         // A Financial Ops rejection closes withdrawals until it is put right.
         if (identityBlock.data?.code === 'destination_rejected') return false;
+        if (identityBlock.data?.blocked) return false;
         return !needsNationalId && !needsIdentityPhotos;
       case 1:
         // Mirror the Confirm-step pattern: keep Continue tappable even when
@@ -1267,9 +1281,9 @@ export default function WithdrawFlow({
                 answers: photos already on file but no ID number recorded. */}
             {/* What Financial Ops needs put right, in the order to fix it. */}
             {identityBlock.data?.blocked && (identityBlock.data.reasons?.length ?? 0) > 0 && (
-              <div className="rounded-xl border-2 border-destructive bg-destructive/10 p-4 space-y-2">
+              <div className="rounded-xl border-2 border-destructive bg-destructive/10 p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                   <h4 className="font-bold text-destructive">
                     {identityBlock.data.headline ?? 'Oops! Your details did not meet the criteria.'}
                   </h4>
@@ -1279,12 +1293,39 @@ export default function WithdrawFlow({
                     <li key={i}>{r}</li>
                   ))}
                 </ol>
+                <div className="pt-1 space-y-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-full font-bold h-11 gap-2 shadow-sm"
+                    onClick={handleScrollToIdentity}
+                  >
+                    <Camera className="h-4 w-4" />
+                    Add My Details Now
+                  </Button>
+                  <div className="text-center">
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs text-destructive/80 hover:text-destructive underline font-medium"
+                      onClick={() => {
+                        handleClose();
+                        navigate('/settings?section=account&tab=verification');
+                      }}
+                    >
+                      Or complete in Settings →
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
-            {showIdentityPanel && <IdentityPhotoCapture compact />}
-            {needsNationalId && !needsIdentityPhotos && (
-              <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
-            )}
+            <div ref={identityPanelRef} id="identity-verification-panel" className="scroll-mt-4">
+              {showIdentityPanel && <IdentityPhotoCapture compact />}
+              {needsNationalId && !needsIdentityPhotos && (
+                <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
+              )}
+            </div>
             {!withdrawCtx.isLoading && !withdrawCtx.gates.canSubmit && (
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-1">
                 <div className="flex items-center gap-2">
