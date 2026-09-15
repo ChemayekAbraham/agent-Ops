@@ -46,6 +46,15 @@ interface ReqEvent {
   created_at: string;
 }
 
+interface UsageReport {
+  id: string;
+  requisition_id: string;
+  amount_used: number;
+  summary: string;
+  submitted_at: string | null;
+  attachment_paths: string[] | null;
+}
+
 interface RouteInfo {
   department_id: string | null;
   department_name: string | null;
