@@ -124,7 +124,7 @@ export function useOtpVerification() {
     pollTokenRef.current += 1;
     try {
       const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'send', phone: cleanPhoneNumber(phone) },
+        body: { action: 'send', phone: cleanPhoneNumber(phone), ...(extra ?? {}) },
       });
       if (error) {
         // Parse the response body once so we can recover both the message and
