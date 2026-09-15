@@ -707,7 +707,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       const statuses = [stage, ...additionalStatuses];
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified')
+        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified, pending_window_reset_at')
         .in('status', statuses);
 
       // Outstanding-balance rent requests bypass COO + CFO (DB trigger short-circuits
@@ -872,13 +872,21 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-  const isRequestExpired = (createdAt: string, requestStatus: string, agentVerified?: boolean | null) => {
+  /** Renewals reset the 30-day window, so measure from the reset timestamp when present. */
+  const windowStart = (createdAt: string, resetAt?: string | null) =>
+    new Date(resetAt || createdAt).getTime();
+  const isRequestExpired = (
+    createdAt: string,
+    requestStatus: string,
+    agentVerified?: boolean | null,
+    resetAt?: string | null,
+  ) => {
     if (stage !== 'pending') return false;
     if (requestStatus !== 'pending') return false;
     if (agentVerified) return false;
-    return Date.now() - new Date(createdAt).getTime() > THIRTY_DAYS_MS;
+    return Date.now() - windowStart(createdAt, resetAt) > THIRTY_DAYS_MS;
   };
-  const expiredCount = rows.filter(r => isRequestExpired(r.created_at, r.status, r.agent_verified)).length;
+  const expiredCount = rows.filter(r => isRequestExpired(r.created_at, r.status, r.agent_verified, r.pending_window_reset_at)).length;
 
 /**
  * Multi-token search matcher:
@@ -923,7 +931,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   const filtered = rows
     .filter(r => {
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
-      if (stage === 'pending' && hideExpired && isRequestExpired(r.created_at, r.status, r.agent_verified)) {
+      if (stage === 'pending' && hideExpired && isRequestExpired(r.created_at, r.status, r.agent_verified, r.pending_window_reset_at)) {
         return false;
       }
       if (search.trim()) {
@@ -979,7 +987,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
-    if (stage === 'pending' && isRequestExpired(selectedRequest.created_at, selectedRequest.status, selectedRequest.agent_verified)) {
+    if (stage === 'pending' && isRequestExpired(selectedRequest.created_at, selectedRequest.status, selectedRequest.agent_verified, selectedRequest.pending_window_reset_at)) {
       toast({ title: 'Request expired', description: 'Cannot approve a request that has exceeded 30 days without verification.', variant: 'destructive' });
       return;
     }
@@ -1739,7 +1747,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                             Outstanding
                           </span>
                         )}
-                        {isRequestExpired(req.created_at, req.status, req.agent_verified) && (
+                        {isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at) && (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
                             <Clock className="h-2.5 w-2.5" />
                             Expired (&gt;30d)
@@ -1873,7 +1881,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono pt-1">
                       <span>Submitted: {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}</span>
                       {stage === 'pending' && (() => {
-                        const expiryDate = new Date(new Date(req.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
+                        const expiryDate = new Date(windowStart(req.created_at, req.pending_window_reset_at) + 30 * 24 * 60 * 60 * 1000);
                         const isPastExpiry = Date.now() > expiryDate.getTime();
                         return (
                           <span className={`font-mono flex items-center gap-1 ${isPastExpiry ? 'text-destructive font-semibold' : 'text-amber-600 dark:text-amber-400'}`}>
@@ -2020,9 +2028,9 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     type="button"
                     size="sm"
                     onClick={(e) => handleQuickApprove(req, e)}
-                    disabled={quickProcessingId === req.id || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified)}
+                    disabled={quickProcessingId === req.id || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
                     title={
-                      isRequestExpired(req.created_at, req.status, req.agent_verified)
+                      isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
                         ? "This rent request expired after 30 days without verification"
                         : isLandlordStage && !checklistComplete
                         ? `Complete the landlord verification checklist (${checklistDone}/2)`
@@ -2143,7 +2151,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <p className="text-xs text-muted-foreground">Expiry Date</p>
                   <p className="font-semibold text-xs font-mono text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {format(new Date(new Date(selectedRequest.created_at).getTime() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}
+                    {format(new Date(windowStart(selectedRequest.created_at, selectedRequest.pending_window_reset_at) + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}
                   </p>
                 </div>
                 {selectedRequest.house_category && (
