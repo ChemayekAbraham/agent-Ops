@@ -780,6 +780,21 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             <StoredShot path={storedIdPath!} label="National ID photo" note="Sent for verification." />
             <StoredShot path={storedSelfiePath!} label="Selfie" note="Sent for verification." />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              setReplacing(true);
+              setSendError(null);
+            }}
+          >
+            <Camera className="mr-2 h-4 w-4" />
+            Send new photos instead
+          </Button>
+          <p className="text-[11px] text-muted-foreground">
+            Your earlier photos are kept, so Financial Ops sees both the old and the new ones.
+          </p>
           <PayoutNumberVerification userId={user?.id} />
           <a
             href="/verification-history"
