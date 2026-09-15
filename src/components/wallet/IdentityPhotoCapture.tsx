@@ -20,7 +20,7 @@ import { runPassportFaceCheck, faceCheckBlocker, type PassportFaceCheck } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { checkPhotoQuality, retakeMessage, type PhotoQualityResult } from '@/lib/imageQuality';
+import { imageFingerprint } from '@/lib/imageFingerprint';
 import { imageFingerprint } from '@/lib/imageFingerprint';
 
 import SelfieCropDialog from './SelfieCropDialog';
@@ -36,14 +36,11 @@ interface ShotTileProps {
   onPick: (file: File) => void;
   onClear: () => void;
   disabled?: boolean;
-  /** Result of the automatic blur / glare / contrast check on this photo. */
-  quality?: PhotoQualityResult | null;
-  checking?: boolean;
   /** Which camera to open. A selfie must not open the rear camera. */
   facing?: 'user' | 'environment';
 }
 
-function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, checking, facing }: ShotTileProps) {
+function ShotTile({ label, hint, file, onPick, onClear, disabled, facing }: ShotTileProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = file ? URL.createObjectURL(file) : null;
 
@@ -82,29 +79,9 @@ function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, check
           onPick(f);
         }}
       />
-      {checking && (
-        <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Checking this photo…
-        </p>
-      )}
-
-      {!checking && file && quality && !quality.ok && (
-        <p className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>{retakeMessage(label, quality)}</span>
-        </p>
-      )}
-
-      {!checking && file && quality?.ok && (
-        <p className="flex items-center gap-2 text-xs text-emerald-600">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          This photo is clear.
-        </p>
-      )}
 
       <Button
-        variant={file && quality?.ok ? 'outline' : 'default'}
+        variant={file ? 'outline' : 'default'}
         className="w-full"
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
@@ -115,6 +92,7 @@ function ShotTile({ label, hint, file, onPick, onClear, disabled, quality, check
     </div>
   );
 }
+
 
 /** Thumbnail of a photo already archived in the verification history. */
 function StoredShot({ path, label, note }: { path: string; label: string; note: string }) {
@@ -211,30 +189,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [form, setForm] = useState<NationalIdData>(EMPTY_ID_DATA);
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
 
-  /* Is the selfie a face at all? The blur check answers "is this photo sharp",
-     which a crisp photo of a wall also passes. */
+  /* Is the selfie a face at all? The server-side checker is the only judge —
+     there is no local blur / glare grading, exactly as on tenant onboarding. */
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
 
-  // Automatic blur / glare / contrast check, per photo.
-  const [idQuality, setIdQuality] = useState<PhotoQualityResult | null>(null);
-  const [selfieQuality, setSelfieQuality] = useState<PhotoQualityResult | null>(null);
-  const [checkingId, setCheckingId] = useState(false);
-  const [checkingSelfie, setCheckingSelfie] = useState(false);
-
-  /** Scores the shot; a failed photo is announced so the person retakes it. */
-  const gradePhoto = async (
-    file: File,
-    label: string,
-    setChecking: (v: boolean) => void,
-    setQuality: (r: PhotoQualityResult) => void,
-  ): Promise<PhotoQualityResult> => {
-    setChecking(true);
-    const result = await checkPhotoQuality(file);
-    setQuality(result);
-    setChecking(false);
-    if (!result.ok) toast.error(retakeMessage(label, result));
-    return result;
-  };
 
   const readIdPhoto = async (file: File) => {
     setReading(true);
@@ -331,14 +289,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   const haveId = !!idPhoto || !!storedIdPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
-  // A freshly taken photo must pass the automatic quality check first.
-  const idQualityOk = !idPhoto || idQuality?.ok === true;
-  const selfieQualityOk = !selfieOriginal || selfieQuality?.ok === true;
-  const failedShots = [
-    idPhoto && idQuality && !idQuality.ok ? 'National ID photo' : null,
-    selfieOriginal && selfieQuality && !selfieQuality.ok ? 'Selfie' : null,
-  ].filter(Boolean) as string[];
-  const checkingPhotos = checkingId || checkingSelfie;
 
   // Every one of the six must be present before anything is sent — a partly
   // filled ID is exactly the record Financial Ops cannot act on.
@@ -349,8 +299,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const idRejected = idReading?.status === 'invalid';
   const faceProblem = faceCheckBlocker(faceCheck);
 
-  const ready = haveId && haveSelfie && idQualityOk && selfieQualityOk
-    && !checkingPhotos && detailsComplete && !idRejected && !faceProblem;
+  const ready = haveId && haveSelfie && detailsComplete && !idRejected && !faceProblem;
 
   // Spelled out on screen so nobody stares at a dead button wondering why.
   const blockers = [
@@ -359,15 +308,13 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     !storedSelfiePath && selfieOriginal && !selfieCropped
       ? 'Finish choosing your profile picture from the selfie you took.'
       : null,
-    idPhoto && idQuality && !idQuality.ok ? 'Retake the National ID photo — it did not pass the photo check.' : null,
-    selfieOriginal && selfieQuality && !selfieQuality.ok ? 'Retake the selfie — it did not pass the photo check.' : null,
     idRejected ? 'That photo is not a Ugandan National ID. Take a photo of the front of your card.' : null,
     faceProblem,
     !idRejected && !detailsComplete
       ? `Fill in ${missingDetails.map((k) => ID_FIELD_LABEL[k]).join(', ')} from your card.`
       : null,
-    checkingPhotos ? 'Checking your photos — this takes a moment.' : null,
   ].filter(Boolean) as string[];
+
 
   const verdict = idNameVerdict(idReading?.name_match_score ?? null);
 
