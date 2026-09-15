@@ -774,7 +774,7 @@ function EmptyProjection({
               <td className="px-2.5 py-3 text-right font-mono font-semibold tabular-nums">{formatUGX(0)}</td>
               <td className="hidden px-2.5 py-3 text-right font-mono text-muted-foreground sm:table-cell">—</td>
               <td className="px-2.5 py-3 text-right">
-                <Badge className={cn('border-0 px-1.5 py-0 text-[10px]', QUALITY_STYLE.insufficient)}>
+                <Badge className={`border-0 px-1.5 py-0 text-[10px] ${QUALITY_STYLE.insufficient}`}>
                   no projection
                 </Badge>
               </td>
