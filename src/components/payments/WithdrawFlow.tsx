@@ -748,19 +748,6 @@ export default function WithdrawFlow({
     setTimeout(handleReset, 300);
   };
 
-  const handleScrollToIdentity = () => {
-    if (identityPanelRef.current) {
-      identityPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      const firstTarget = identityPanelRef.current.querySelector<HTMLElement>(
-        'button:not([disabled]), input:not([disabled])'
-      );
-      firstTarget?.focus();
-    } else {
-      handleClose();
-      navigate('/settings?section=account&tab=verification');
-    }
-  };
-
   const canProceed = () => {
     // Global gates — apply on every step. Server-computed so a paused
     // platform / frozen account / exhausted daily count blocks the flow
@@ -1298,25 +1285,14 @@ export default function WithdrawFlow({
                     type="button"
                     variant="destructive"
                     className="w-full font-bold h-11 gap-2 shadow-sm"
-                    onClick={handleScrollToIdentity}
+                    onClick={() => {
+                      handleClose();
+                      navigate('/settings?section=account&tab=verification');
+                    }}
                   >
                     <Camera className="h-4 w-4" />
                     Add My Details Now
                   </Button>
-                  <div className="text-center">
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs text-destructive/80 hover:text-destructive underline font-medium"
-                      onClick={() => {
-                        handleClose();
-                        navigate('/settings?section=account&tab=verification');
-                      }}
-                    >
-                      Or complete in Settings →
-                    </Button>
-                  </div>
                 </div>
               </div>
             )}
