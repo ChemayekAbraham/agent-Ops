@@ -21,9 +21,16 @@ interface PsoFundedSummary {
   staff_id: string;
   staff_ref: string;
   notes_in_cohort: number;
+  notes_unapproved: number;
   notes_funded: number;
-  amount_funded: number;
+  funders_converted: number;
+  topups: number;
+  amount_deployed: number;
+  commission_base: number;
   commission_accrued: number;
+  pre_enrolment_notes: number;
+  pre_enrolment_funded: number;
+  pre_enrolment_amount: number;
   as_at: string;
 }
 
@@ -457,10 +464,10 @@ export default function MyPerformancePage() {
             </div>
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Money funded
+                Money deployed
               </div>
               <div className="text-sm font-bold tabular-nums">
-                {formatUgxCompact(fundedSummary?.amount_funded ?? 0)}
+                {formatUgxCompact(fundedSummary?.amount_deployed ?? 0)}
               </div>
             </div>
             <div>
@@ -470,6 +477,18 @@ export default function MyPerformancePage() {
               <div className="text-sm font-bold tabular-nums">
                 {formatUgxCompact(fundedSummary?.commission_accrued ?? 0)}
               </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Funders
+              </div>
+              <div className="text-sm font-bold tabular-nums">{fundedSummary?.funders_converted ?? 0}</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Top-ups
+              </div>
+              <div className="text-sm font-bold tabular-nums">{fundedSummary?.topups ?? 0}</div>
             </div>
           </div>
           <div className="mt-2 space-y-1">

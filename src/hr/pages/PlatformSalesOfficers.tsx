@@ -21,9 +21,16 @@ interface PsoFundedSummary {
   staff_id: string;
   staff_ref: string;
   notes_in_cohort: number;
+  notes_unapproved: number;
   notes_funded: number;
-  amount_funded: number;
+  funders_converted: number;
+  topups: number;
+  amount_deployed: number;
+  commission_base: number;
   commission_accrued: number;
+  pre_enrolment_notes: number;
+  pre_enrolment_funded: number;
+  pre_enrolment_amount: number;
   as_at: string;
 }
 
@@ -129,9 +136,16 @@ interface OfficerSummary {
   netNotes: number;
   partnerRegistered: number;
   weekday: number[];
+  notesUnapproved: number;
   notesFunded: number;
-  amountFunded: number;
+  fundersConverted: number;
+  topups: number;
+  amountDeployed: number;
+  commissionBase: number;
   commissionAccrued: number;
+  preEnrolmentNotes: number;
+  preEnrolmentFunded: number;
+  preEnrolmentAmount: number;
 }
 
 export default function PlatformSalesOfficersPage() {
@@ -220,9 +234,16 @@ export default function PlatformSalesOfficersPage() {
           netNotes: 0,
           partnerRegistered: 0,
           weekday: [0, 0, 0, 0, 0, 0, 0],
+          notesUnapproved: funded?.notes_unapproved ?? 0,
           notesFunded: funded?.notes_funded ?? 0,
-          amountFunded: funded?.amount_funded ?? 0,
+          fundersConverted: funded?.funders_converted ?? 0,
+          topups: funded?.topups ?? 0,
+          amountDeployed: funded?.amount_deployed ?? 0,
+          commissionBase: funded?.commission_base ?? 0,
           commissionAccrued: funded?.commission_accrued ?? 0,
+          preEnrolmentNotes: funded?.pre_enrolment_notes ?? 0,
+          preEnrolmentFunded: funded?.pre_enrolment_funded ?? 0,
+          preEnrolmentAmount: funded?.pre_enrolment_amount ?? 0,
         };
         byId.set(row.staff_id, entry);
       }
@@ -251,7 +272,7 @@ export default function PlatformSalesOfficersPage() {
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
   const fundedTotal = useMemo(() => officers.reduce((s, o) => s + o.notesFunded, 0), [officers]);
-  const moneyTotal = useMemo(() => officers.reduce((s, o) => s + o.amountFunded, 0), [officers]);
+  const moneyTotal = useMemo(() => officers.reduce((s, o) => s + o.amountDeployed, 0), [officers]);
 
   const isNotPermitted = error instanceof Error && error.message.includes('not permitted');
 
@@ -372,8 +393,8 @@ export default function PlatformSalesOfficersPage() {
                       <div className="text-xs font-semibold tabular-nums">{officer.notesFunded}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Money funded</div>
-                      <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(officer.amountFunded)}</div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Money deployed</div>
+                      <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(officer.amountDeployed)}</div>
                     </div>
                     <div>
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Commission</div>
@@ -395,9 +416,15 @@ export default function PlatformSalesOfficersPage() {
                         <th key={d} className="px-2 py-2 text-right font-medium">{d}</th>
                       ))}
                       <th className="px-4 py-2 text-right font-medium">Total</th>
+                      <th className="px-4 py-2 text-right font-medium">Unapproved</th>
                       <th className="px-4 py-2 text-right font-medium">Funded</th>
-                      <th className="px-4 py-2 text-right font-medium">Money funded</th>
+                      <th className="px-4 py-2 text-right font-medium">Funders</th>
+                      <th className="px-4 py-2 text-right font-medium">Top-ups</th>
+                      <th className="px-4 py-2 text-right font-medium">Money deployed</th>
+                      <th className="px-4 py-2 text-right font-medium">Commission base</th>
                       <th className="px-4 py-2 text-right font-medium">Commission</th>
+                      <th className="px-4 py-2 text-right font-medium">Pre-enrol</th>
+                      <th className="px-4 py-2 text-right font-medium">Pre-enrol funded</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -409,12 +436,31 @@ export default function PlatformSalesOfficersPage() {
                           <td key={wi} className="px-2 py-2 text-right tabular-nums">{v}</td>
                         ))}
                         <td className="px-4 py-2 text-right tabular-nums">{officer.netNotes}</td>
-                        <td className="px-4 py-2 text-right tabular-nums">{officer.notesFunded}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
-                          UGX {officer.amountFunded.toLocaleString('en-UG')}
+                          {officer.notesUnapproved === 0 ? '—' : officer.notesUnapproved}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">{officer.notesFunded}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{officer.fundersConverted}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {officer.topups === 0 ? '—' : officer.topups}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {officer.amountDeployed.toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {officer.commissionBase.toLocaleString('en-UG')}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {officer.commissionAccrued.toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {officer.preEnrolmentNotes === 0 ? '—' : officer.preEnrolmentNotes}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          <div>{officer.preEnrolmentFunded}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            UGX {officer.preEnrolmentAmount.toLocaleString('en-UG')}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -426,8 +472,9 @@ export default function PlatformSalesOfficersPage() {
         )}
 
         <p className="text-xs text-muted-foreground">
-          Bands and targets are not set. Officers see a ranked leaderboard of note volume with no
-          money figures.
+          Money deployed is what the funder put in. Commission base is the amount commission was
+          calculated on, capped at the note's promised amount. Pre-enrol counts notes and conversions
+          dated before the officer's assignment start and is excluded from the ranked total.
         </p>
         <p className="text-xs text-muted-foreground">
           as at {fundedAsAt ? formatKampalaDateTime(fundedAsAt) : '—'} · funded figures are never frozen
