@@ -15,7 +15,7 @@ import {
 import {
   Users, UserPlus, Activity, FileText, Home, Wallet, Banknote, TrendingDown,
   TrendingUp, ArrowRight, Coins, Hourglass, Receipt, Trophy,
-  RefreshCw,
+  RefreshCw, Search,
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
