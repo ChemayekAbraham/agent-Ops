@@ -207,6 +207,8 @@ export default function WithdrawFlow({
     number: string;
     name: string;
     provider: 'MTN' | 'Airtel';
+    /** True when the number comes from the permanent identity binding. */
+    identityLinked: boolean;
   } | null>(null);
 
   // Bank details
@@ -550,26 +552,33 @@ export default function WithdrawFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount, payoutMode, momoNumber, momoName, momoProvider, bankName, bankAccountNumber, bankAccountName, effectiveReason]);
 
-  // Load the user's locked withdrawal account whenever the flow opens.
+  /* Load the destination the server itself will pay to. `resolve_withdrawal_destination`
+     is the single source of truth — it returns the identity-linked locked number
+     when one exists, otherwise the registered withdrawal account. Whatever this
+     screen shows, the server resolves the destination again on submission. */
   useEffect(() => {
     if (!open || !user?.id) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('mobile_money_number, mobile_money_name, mobile_money_provider')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('resolve_withdrawal_destination', {
+        p_user_id: user.id,
+      });
       if (cancelled) return;
-      const num = (data?.mobile_money_number ?? '').trim();
-      const nm = (data?.mobile_money_name ?? '').trim();
-      if (!num || !nm) {
+      const row = Array.isArray(data) ? data[0] : (data as any);
+      const num = (row?.destination_number ?? '').trim();
+      const nm = (row?.destination_name ?? '').trim();
+      if (error || !num || !nm) {
         setLockedMomo(null);
         return;
       }
       const prov: 'MTN' | 'Airtel' =
-        (data?.mobile_money_provider ?? '').toLowerCase() === 'airtel' ? 'Airtel' : 'MTN';
-      setLockedMomo({ number: num, name: nm, provider: prov });
+        (row?.destination_provider ?? '').toLowerCase() === 'airtel' ? 'Airtel' : 'MTN';
+      setLockedMomo({
+        number: num,
+        name: nm,
+        provider: prov,
+        identityLinked: row?.source === 'identity_binding',
+      });
       setMomoNumber(num);
       setMomoName(nm);
       setMomoProvider(prov);
