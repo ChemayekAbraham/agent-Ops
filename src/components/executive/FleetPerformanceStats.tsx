@@ -1035,12 +1035,13 @@ export function FleetPerformanceStats({
         const k = dayKey(cursor);
         const bs = new Date(cursor);
         const be = new Date(cursor); be.setDate(be.getDate() + 1);
-        out.push({ label: format(cursor, 'MMM d'), collected: collectedBuckets[k] || 0, expected: expectedPerDay, bucketStart: Math.max(bs.getTime(), start.getTime()), bucketEnd: Math.min(be.getTime(), endMs) });
+        out.push({ label: format(cursor, 'MMM d'), collected: collectedBuckets[k] || 0, expected: expectedForDay(cursor), bucketStart: Math.max(bs.getTime(), start.getTime()), bucketEnd: Math.min(be.getTime(), endMs) });
         cursor.setDate(cursor.getDate() + 1);
       }
     }
     return out;
-  }, [start, end, granularity, collectedBuckets, expectedPerDay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, end, granularity, collectedBuckets, expectedByDay, expectedRangeTotal]);
 
   const trendTitle =
     granularity === 'hour' ? 'Collection trend · hourly flow vs target'
