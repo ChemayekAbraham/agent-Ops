@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import { formatUGX } from '@/lib/rentCalculations';
-import { format, subDays, startOfDay, eachDayOfInterval } from 'date-fns';
+import { format, subDays, eachDayOfInterval } from 'date-fns';
 import { TrendingUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,7 +65,7 @@ export function RepaymentTrendChart({ dailyExpected }: RepaymentTrendChartProps)
       <CardHeader className="pb-2 px-3 sm:px-4">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
-          Gross Repayment Trend (7 Days)
+          Collected vs Expected (7 Days)
         </CardTitle>
       </CardHeader>
       <CardContent className="px-2 sm:px-4 pb-3">
