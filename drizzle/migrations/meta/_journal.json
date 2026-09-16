@@ -981,6 +981,13 @@
       "when": 1789543932646,
       "tag": "0139_restore_payout_number_change_approval_steps",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1789544927077,
+      "tag": "0140_promissory_fulfilment_due_notices",
+      "breakpoints": true
     }
   ]
 }
