@@ -364,28 +364,6 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
         number is registered in — it is confirmed straight away, with no waiting.
       </p>
 
-      {rows.map((d) => (
-        <div key={d.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 p-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{label(d)}</p>
-            <p className="text-xs text-muted-foreground">
-              {d.status === 'verified'
-                ? 'Confirmed'
-                : d.status === 'rejected'
-                  ? 'Not accepted — confirm it again'
-                  : 'Not confirmed yet'}
-            </p>
-          </div>
-          {d.status === 'verified' ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setTarget(d)}>
-              Send code
-            </Button>
-          )}
-        </div>
-      ))}
-
       <div className="space-y-2 rounded-md border bg-muted/20 p-3">
         <p className="flex items-center gap-2 text-xs font-semibold">
           <Wallet className="h-3.5 w-3.5" />
