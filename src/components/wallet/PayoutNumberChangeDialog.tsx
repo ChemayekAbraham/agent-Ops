@@ -61,6 +61,10 @@ export default function PayoutNumberChangeDialog({
 
   const digits = number.replace(/\D/g, '');
   const nameOk = name.trim().split(/\s+/).filter(Boolean).length >= 2;
+  const check = usePayoutNumberAvailability(number);
+  const checkState = check.data?.state;
+  const takenByOther = checkState === 'taken';
+  const isOwnNumber = checkState === 'mine';
 
   const sendCode = async () => {
     if (digits.length < 9) {
@@ -69,6 +73,10 @@ export default function PayoutNumberChangeDialog({
     }
     if (!nameOk) {
       toast.error('Enter the full name exactly as it shows on that number.');
+      return;
+    }
+    if (takenByOther) {
+      toast.error(check.data?.message || 'That number belongs to another account.');
       return;
     }
     const requesterName =
