@@ -1,5 +1,5 @@
 /**
- * The partner portfolio statement, as a PDF.
+ * The partner portfolio statement.
  *
  * A record of what actually happened: every portfolio, what was put in, the
  * Returns added to it, money taken out, renewals and office corrections. That
@@ -7,15 +7,32 @@
  * portfolio is *expected* to earn — one looks back, the other forward, and a
  * partner usually wants to be asked which.
  *
- * Drawn with jsPDF + autoTable like every other statement in the product, so
- * the text is real vector text a person can select and search, page breaks and
- * repeating table headers are handled, and the file is a few tens of KB rather
- * than a screenshot of a web page.
+ * Built as an HTML document on the shared Welile report kit
+ * (`welileReportDocument.ts`) and printed to PDF, exactly like the Agent
+ * Operations reports. That is the house contract: the document the partner
+ * sees IS the document that prints, on the same stylesheet as every other
+ * report. An earlier version of this file drew itself in jsPDF instead, which
+ * is why it came out looking like a generic table dump rather than a Welile
+ * report.
  *
  * Read-only. `my_portfolio_statement` proves ownership from `auth.uid()`, so
  * the browser cannot ask for anyone else's portfolios.
  */
 import { supabase } from '@/integrations/supabase/client';
+import {
+  DASH,
+  docHeader,
+  esc,
+  kpiGrid,
+  n,
+  num,
+  page,
+  printReportHtml,
+  sectionTitle,
+  shell,
+  table,
+  ugx,
+} from './welileReportDocument';
 
 export interface StatementCompound { date: string; amount: number; reference: string | null }
 export interface StatementPayout { date: string; amount: number; reference: string | null }
@@ -67,16 +84,25 @@ export async function fetchPartnerStatement(portfolioId?: string): Promise<State
   };
 }
 
-/* ───────────────────────────── shared helpers ──────────────────────────── */
+/* ───────────────────────────── presentation ────────────────────────────── */
 
-const PURPLE: [number, number, number] = [107, 33, 168];
-const INK: [number, number, number] = [15, 23, 42];
-const MUTED: [number, number, number] = [100, 116, 139];
-const DASH = '—';
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const n = (v: unknown) => (typeof v === 'number' ? v : Number(v ?? 0) || 0);
-const ugx = (v: unknown) => Math.round(n(v)).toLocaleString('en-US');
-const day = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : DASH);
+/**
+ * Format a date the server already resolved to a calendar day.
+ *
+ * Deliberately string-only: `new Date('2026-03-05')` is parsed as UTC midnight
+ * and then rendered in the reader's zone, which shows the previous day to
+ * anyone west of Greenwich. A contribution date must not move because of where
+ * the statement is opened.
+ */
+const day = (v: string | null | undefined): string => {
+  const s = String(v ?? '').slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return DASH;
+  return `${m[3]} ${MONTHS[Number(m[2]) - 1] ?? '?'} ${m[1]}`;
+};
 
 const STATUS: Record<string, string> = {
   active: 'Active',
@@ -86,6 +112,16 @@ const STATUS: Record<string, string> = {
   pending_ops_approval: 'Being set up',
 };
 const statusOf = (s: string) => STATUS[s] ?? s.replace(/_/g, ' ');
+
+const STATUS_BADGE: Record<string, string> = {
+  active: 'badge-target',
+  cancelled: 'badge-silver',
+  awaiting_partner_details: 'badge-warn',
+  locked: 'badge-info',
+  pending_ops_approval: 'badge-info',
+};
+const statusBadge = (s: string) =>
+  `<span class="doc-badge ${STATUS_BADGE[s] ?? 'badge-silver'}">${esc(statusOf(s))}</span>`;
 
 /** Compound, Payout or Self support, in the partner's own words. */
 export function typeOf(p: StatementPortfolio): string {
@@ -108,276 +144,319 @@ const compoundedOf = (p: StatementPortfolio) =>
   (p.compounds ?? []).reduce((s, c) => s + n(c.amount), 0);
 const principalOf = (p: StatementPortfolio) =>
   Math.max(0, n(p.current_value) - compoundedOf(p));
+const monthlyOf = (p: StatementPortfolio) =>
+  Math.round(principalOf(p) * n(p.rate) / 100);
 
-/* Only the parts of the jsPDF document this file touches. Enough to keep the
-   call sites honest without pulling the library's types into the bundle. */
-interface JsPdfDoc {
-  internal: { pageSize: { getWidth(): number; getHeight(): number } };
-  setFillColor(r: number, g: number, b: number): void;
-  setDrawColor(r: number, g: number, b: number): void;
-  setTextColor(r: number, g: number, b: number): void;
-  setFont(name: string, style?: string): void;
-  setFontSize(size: number): void;
-  text(text: string | string[], x: number, y: number, opts?: { align?: string }): void;
-  rect(x: number, y: number, w: number, h: number, style?: string): void;
-  roundedRect(x: number, y: number, w: number, h: number, rx: number, ry: number, style?: string): void;
-  splitTextToSize(text: string, width: number): string[];
-  addPage(): void;
-  setPage(n: number): void;
-  getNumberOfPages(): number;
-  output(type: string): Blob;
-  lastAutoTable: { finalY: number };
+const td = (v: string, cls = '') => `<td${cls ? ` class="${cls}"` : ''}>${esc(v)}</td>`;
+const th = (v: string, cls = '') => `<th${cls ? ` class="${cls}"` : ''}>${esc(v)}</th>`;
+
+/* ─────────────────────────── the detail cards ──────────────────────────── */
+
+function bio(label: string, value: string): string {
+  return `<div class="bio-item"><span class="bio-lbl">${esc(label)}</span><span class="bio-val">${esc(value)}</span></div>`;
 }
 
-/* ─────────────────────────────── the PDF ───────────────────────────────── */
+function pill(label: string, value: string): string {
+  return `<div class="tenant-kpi-pill"><div class="t-lbl">${esc(label)}</div><div class="t-val num">${esc(value)}</div></div>`;
+}
 
-export async function generateStatementPdf(d: StatementData): Promise<Blob> {
-  /* jspdf is published with both a named and a default export, and the two
-     other PDF builders in this repo each pick a different one. Under the
-     bundler either works; outside it (a test, SSR) only one does. Take
-     whichever is actually there rather than betting on the packaging. */
-  const pdfMod = await import('jspdf') as unknown as Record<string, unknown>;
-  const jsPDF = (pdfMod.jsPDF
-    ?? (pdfMod.default as Record<string, unknown> | undefined)?.jsPDF
-    ?? pdfMod.default) as new (opts: Record<string, unknown>) => JsPdfDoc;
+const cap = (t: string) => `<div class="chart-summary-cap">${esc(t)}</div>`;
 
-  const tableMod = await import('jspdf-autotable') as unknown as Record<string, unknown>;
-  const autoTable = (tableMod.default ?? tableMod) as
-    (doc: unknown, opts: Record<string, unknown>) => void;
+/** One portfolio, broken down the way the template lays it out. */
+function portfolioCard(p: StatementPortfolio): string {
+  const principal = principalOf(p);
+  const compounded = compoundedOf(p);
 
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const pw = doc.internal.pageSize.getWidth();
-  const ph = doc.internal.pageSize.getHeight();
-  const margin = 12;
-  const lastY = () => doc.lastAutoTable.finalY;
+  const payouts = table({
+    head: `<tr>${th('Date')}${th('Reference')}${th('Amount (UGX)', 'right')}</tr>`,
+    rows: (p.payouts ?? []).map(
+      (w) => `<tr>${td(day(w.date), 'nowrap')}${td(w.reference ?? DASH)}${td(num(w.amount), 'right num')}</tr>`,
+    ),
+    colspan: 3,
+    emptyText: 'No payout is linked to this portfolio.',
+  });
 
+  const topups = table({
+    head: `<tr>${th('Date')}${th('What happened')}${th('Amount (UGX)', 'right')}</tr>`,
+    rows: [`<tr>${td(day(p.start_date), 'nowrap')}${td('Portfolio opened')}${td(num(principal), 'right num')}</tr>`],
+    colspan: 3,
+  });
+
+  const compounds = table({
+    head: `<tr>${th('Date')}${th('Reference')}${th('Amount (UGX)', 'right')}</tr>`,
+    rows: (p.compounds ?? []).map(
+      (c) => `<tr>${td(day(c.date), 'nowrap')}${td(c.reference ?? DASH)}${td(num(c.amount), 'right num')}</tr>`,
+    ),
+    foot: `<tr>${td('Total')}${td('')}${td(num(compounded), 'right num')}</tr>`,
+    colspan: 3,
+    emptyText: 'No Return has been added to this portfolio yet.',
+  });
+
+  const events = [
+    ...(p.renewals ?? []).map((r) => ({ date: r.date, what: 'Renewed for another term' })),
+    ...(p.changes ?? []),
+  ].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+  const changes = table({
+    head: `<tr>${th('Date')}${th('What happened')}</tr>`,
+    rows: events.map((c) => `<tr>${td(day(c.date), 'nowrap')}${td(c.what)}</tr>`),
+    colspan: 2,
+    emptyText: 'No renewal or change recorded.',
+  });
+
+  return `<div class="tenant-card-block avoid-break">
+  <div class="tenant-card-header">
+    <div class="tenant-name-title">${esc(p.code ?? p.id.slice(0, 8))} ${statusBadge(p.status)}</div>
+    <div class="cell-sub">${esc(`${n(p.rate)}% · ${modeWords(p)}`)}</div>
+  </div>
+  <div class="tenant-bio-grid">
+    ${bio('Contribution date', day(p.start_date))}
+    ${bio('Portfolio name', p.name || p.code || DASH)}
+    ${bio('Portfolio ID', p.id.slice(0, 8))}
+    ${bio('Return rate', `${n(p.rate)}%`)}
+    ${bio('Maturity date', day(p.maturity_date))}
+    ${bio('Days left', p.days_left == null ? DASH : num(p.days_left))}
+    ${bio('Term', p.duration_months == null ? DASH : `${p.duration_months} months`)}
+    ${bio('Type', typeOf(p))}
+  </div>
+  <div class="tenant-kpi-bar">
+    ${pill('Principal', ugx(principal))}
+    ${pill('Return added', ugx(compounded))}
+    ${pill('Return each month', ugx(monthlyOf(p)))}
+    ${pill('Worth now', ugx(p.current_value))}
+  </div>
+  <div style="padding:8px 12px 4px 12px">
+    ${cap('Payouts (money taken out)')}${payouts}
+    ${cap('Top-ups')}${topups}
+    ${cap('Compounds (Return added)')}${compounds}
+    ${cap('Renewals & changes')}${changes}
+  </div>
+</div>`;
+}
+
+/**
+ * Density rules for this document only.
+ *
+ * A statement is four small tables per portfolio, most of them empty, and the
+ * shared stylesheet's padding is tuned for ops reports with far fewer, denser
+ * blocks. Without this a portfolio card runs ~500px and only two fit a sheet,
+ * with a third of the page left blank; tightened, the same card is ~440px and
+ * the document loses three sheets. Nothing here changes a figure or a colour.
+ */
+const STATEMENT_CSS = `
+.report-table{margin-bottom:6px}
+.report-table th{padding:3px 6px}
+.report-table td{padding:2px 6px}
+.empty-row td{padding:7px 6px}
+.pdf-header{padding-bottom:9px;margin-bottom:10px}
+.section-title{margin-top:8px;margin-bottom:5px}
+.kpi-card{padding:6px 10px}
+.entity-card{padding:9px 14px}
+.chart-summary-cap{margin-top:4px;margin-bottom:1px}
+.tenant-card-block{margin-bottom:10px}
+.tenant-bio-grid{padding:6px 12px}
+.tenant-kpi-bar{padding:5px 12px}
+.entity-card{margin-bottom:8px}
+.kpi-grid{margin-bottom:8px}
+.observation-callout{margin-top:5px;margin-bottom:0}
+`;
+
+/**
+ * Pack the detail cards onto A4 sheets.
+ *
+ * `.report-page` is `overflow:hidden` and carries its own "Page N of M"
+ * footer, so a page handed more than a sheet holds does not just look wrong —
+ * it spills onto an unnumbered extra sheet. Pagination is therefore explicit.
+ *
+ * The constants are measured, not guessed: a card rendered under print media
+ * at A4 width is a fixed ~400px of chrome (header, bio grid, KPI bar and four
+ * table headings) plus ~21px per data row, against ~990px of usable sheet once
+ * the page footer is taken off. `scripts/` has no harness for this; the check
+ * is that the printed sheet count equals the number of footers.
+ */
+const CARD_BASE_PX = 400;
+const CARD_ROW_PX = 21;
+const SHEET_PX = 990;
+const SECTION_TITLE_PX = 32;
+
+/* Page 1 spends this much on the document header, the partner card, the four
+   figures, the section heading, the totals row and the payouts note, before a
+   single portfolio row is drawn. A summary row is shorter than a card row
+   because the tightened padding above applies to it. */
+const PAGE1_CHROME_PX = 430;
+const SUMMARY_ROW_PX = 19;
+
+function paginate(ps: StatementPortfolio[]): StatementPortfolio[][] {
+  const out: StatementPortfolio[][] = [];
+  let current: StatementPortfolio[] = [];
+  let used = 0;
+  for (const p of ps) {
+    const rows = (p.payouts?.length ?? 0) + (p.compounds?.length ?? 0)
+      + (p.renewals?.length ?? 0) + (p.changes?.length ?? 0) + 1;
+    const cost = CARD_BASE_PX + rows * CARD_ROW_PX;
+    // The first detail page also carries the section heading.
+    const budget = SHEET_PX - (out.length === 0 ? SECTION_TITLE_PX : 0);
+    if (current.length && used + cost > budget) {
+      out.push(current);
+      current = [];
+      used = 0;
+    }
+    current.push(p);
+    used += cost;
+  }
+  if (current.length) out.push(current);
+  return out;
+}
+
+/* ───────────────────────────── the document ────────────────────────────── */
+
+/** The statement as a standalone printable HTML document. */
+export function buildPartnerStatementHtml(d: StatementData): string {
   const ps = d.portfolios;
   const totalPrincipal = ps.reduce((s, p) => s + principalOf(p), 0);
   const totalCompounded = ps.reduce((s, p) => s + compoundedOf(p), 0);
   const totalValue = ps.reduce((s, p) => s + n(p.current_value), 0);
-  const totalMonthly = ps.reduce((s, p) => s + Math.round(principalOf(p) * n(p.rate) / 100), 0);
+  const totalMonthly = ps.reduce((s, p) => s + monthlyOf(p), 0);
   const active = ps.filter((p) => p.status === 'active').length;
-  const dateStr = String(d.generated_at).slice(0, 10);
+
+  const stamp = String(d.generated_at).slice(0, 10);
   const who = d.partner?.name ?? 'Partner';
+  const ref = `W-PPS-${stamp.replace(/-/g, '')}`;
 
-  /* ---- masthead ---- */
-  doc.setFillColor(...PURPLE);
-  doc.rect(0, 0, pw, 28, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('WELILE TECHNOLOGIES LIMITED', margin, 11);
-  doc.setFontSize(15);
-  doc.text('Partner Portfolio Statement', margin, 19);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.text('Everything you have put in, what it has earned, and what it is worth today',
-    margin, 24.5);
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.text(who, pw - margin, 12, { align: 'right' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.text(`Statement date ${dateStr}`, pw - margin, 17, { align: 'right' });
-  doc.text(`${ps.length} portfolios · ${active} still running`, pw - margin, 21.5, { align: 'right' });
-
-  /* ---- who this is ---- */
-  doc.setTextColor(...INK);
-  autoTable(doc, {
-    startY: 34,
-    head: [['Partner', 'Mobile money', 'Phone']],
-    body: [[who, d.partner?.mobile_money ?? DASH, d.partner?.phone ?? DASH]],
-    theme: 'grid',
-    styles: { fontSize: 8.5, cellPadding: 2 },
-    headStyles: { fillColor: PURPLE, textColor: 255, fontSize: 8 },
-    margin: { left: margin, right: margin },
+  const header = docHeader({
+    title: 'Partner Portfolio Statement',
+    subtitle: 'Everything you have put in, what it has earned, and what it is worth today',
+    meta: [
+      { label: 'Statement Date', value: day(stamp) },
+      { label: 'Statement Ref', value: ref },
+      { label: 'Portfolios', value: `${ps.length} · ${active} running` },
+      { label: 'Currency', value: 'UGX' },
+    ],
   });
 
-  /* ---- the four figures ---- */
-  autoTable(doc, {
-    startY: lastY() + 5,
-    head: [['MONEY YOU PUT IN', 'RETURN ADDED', 'TOTAL CAPITAL', 'RETURN EACH MONTH']],
-    body: [[
-      `UGX ${ugx(totalPrincipal)}`,
-      `UGX ${ugx(totalCompounded)}`,
-      `UGX ${ugx(totalValue)}`,
-      `UGX ${ugx(totalMonthly)}`,
-    ]],
-    theme: 'grid',
-    styles: { fontSize: 10, cellPadding: 3, halign: 'center', fontStyle: 'bold' },
-    headStyles: { fillColor: [248, 250, 252], textColor: MUTED, fontSize: 7, fontStyle: 'bold' },
-    margin: { left: margin, right: margin },
-  });
+  const entity = `<section class="entity-card">
+  <div class="entity-info">
+    <div class="entity-header-row">
+      <span class="entity-eyebrow">Partner</span>
+      <span class="doc-badge badge-primary">${esc(`${ps.length} portfolios`)}</span>
+    </div>
+    <h2>${esc(who)}</h2>
+    <div class="entity-phone">${esc(d.partner?.phone ?? DASH)}</div>
+    <div class="entity-meta">Mobile money <strong>${esc(d.partner?.mobile_money ?? DASH)}</strong></div>
+  </div>
+  <div class="entity-stats">
+    <div class="entity-stat-pill">
+      <span class="label">Total Capital</span>
+      <span class="val num">${esc(ugx(totalValue))}</span>
+      <span class="stat-sub">${esc(`across ${ps.length} portfolios`)}</span>
+    </div>
+    <div class="entity-stat-pill">
+      <span class="label">Total Payouts</span>
+      <span class="val num">${esc(ugx(d.payouts_total.amount))}</span>
+      <span class="stat-sub">${esc(`${num(d.payouts_total.count)} payouts`)}</span>
+    </div>
+  </div>
+</section>`;
 
-  /* ---- every portfolio on one page ---- */
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text(`All your portfolios (${ps.length})`, margin, lastY() + 9);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(...MUTED);
-  doc.text('Return is what one month earns on the principal, at the rate shown.',
-    margin, lastY() + 13);
-  doc.setTextColor(...INK);
+  const kpis = kpiGrid([
+    { label: 'Money You Put In', value: ugx(totalPrincipal), sub: 'your own contributions', variant: 'primary' },
+    { label: 'Return Added', value: ugx(totalCompounded), sub: 'folded into your balance', variant: 'success' },
+    { label: 'Total Capital', value: ugx(totalValue), sub: 'what it is worth today' },
+    { label: 'Return Each Month', value: ugx(totalMonthly), sub: 'at the rates shown' },
+  ], 4);
 
-  autoTable(doc, {
-    startY: lastY() + 16,
-    head: [['#', 'Portfolio', 'Status', 'Rate', 'Principal', 'Return', 'Current value',
-            'Start', 'Matures', 'Days', 'Type']],
-    body: ps.map((p, i) => {
-      const principal = principalOf(p);
-      return [
-        String(i + 1),
-        p.code ?? p.id.slice(0, 8),
-        statusOf(p.status),
-        `${n(p.rate)}%`,
-        ugx(principal),
-        ugx(Math.round(principal * n(p.rate) / 100)),
-        ugx(p.current_value),
-        day(p.start_date),
-        day(p.maturity_date),
-        p.days_left == null ? DASH : String(p.days_left),
-        typeOf(p),
-      ];
-    }),
-    foot: [['', 'TOTALS', '', '', ugx(totalPrincipal), ugx(totalMonthly), ugx(totalValue),
-            '', '', '', '']],
-    theme: 'grid',
-    styles: { fontSize: 6.8, cellPadding: 1.4, overflow: 'linebreak' },
-    headStyles: { fillColor: PURPLE, textColor: 255, fontSize: 6.5 },
-    footStyles: { fillColor: [248, 250, 252], textColor: INK, fontStyle: 'bold', fontSize: 6.8 },
-    columnStyles: {
-      0: { cellWidth: 6, halign: 'right' },
-      3: { halign: 'right' }, 4: { halign: 'right' },
-      5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' },
-      9: { halign: 'right' },
-    },
-    margin: { left: margin, right: margin },
-  });
+  /* Money is plain here and the unit sits in the column head: eleven columns on
+     A4 have no room to repeat "UGX" 81 times, and doing so wraps every figure
+     and every date onto a second line. */
+  const SUMMARY_HEAD = `<tr>${th('#')}${th('Portfolio')}${th('Status')}${th('Rate', 'right')}${th('Principal (UGX)', 'right')}${th('Return (UGX)', 'right')}${th('Current Value (UGX)', 'right')}${th('Start')}${th('Matures')}${th('Days Left', 'right')}${th('Type')}</tr>`;
 
-  /* ---- the caveat, stated plainly rather than left as an empty table ---- */
-  const noteY = lastY() + 6;
-  doc.setFillColor(250, 245, 255);
-  doc.setDrawColor(233, 213, 255);
-  doc.roundedRect(margin, noteY, pw - margin * 2, 16, 1.5, 1.5, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text('About money taken out', margin + 3, noteY + 5);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.8);
-  doc.setTextColor(...MUTED);
-  doc.text(
-    doc.splitTextToSize(
-      `${d.payouts_total.count} payouts totalling UGX ${ugx(d.payouts_total.amount)} are recorded on this ` +
-      'account. A payout only appears against a portfolio below when it records which portfolio it came ' +
-      'from, so "current value" is the portfolio balance rather than the balance after money was taken out.',
-      pw - margin * 2 - 6),
-    margin + 3, noteY + 9);
-  doc.setTextColor(...INK);
-
-  /* ---- one block per portfolio ---- */
-  for (const p of ps) {
-    doc.addPage();
+  const summaryRows = ps.map((p, i) => {
     const principal = principalOf(p);
-    const compounded = compoundedOf(p);
+    return `<tr>${td(String(i + 1))}${td(p.code ?? p.id.slice(0, 8), 'cell-strong')}${
+      `<td>${statusBadge(p.status)}</td>`
+    }${td(`${n(p.rate)}%`, 'right')}${td(num(principal), 'right num')}${td(num(monthlyOf(p)), 'right num')}${
+      td(num(p.current_value), 'right num cell-strong')
+    }${td(day(p.start_date), 'nowrap')}${td(day(p.maturity_date), 'nowrap')}${
+      td(p.days_left == null ? DASH : num(p.days_left), 'right')
+    }${td(typeOf(p), 'nowrap')}</tr>`;
+  });
 
-    doc.setFillColor(...PURPLE);
-    doc.rect(0, 0, pw, 16, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text(p.code ?? p.id.slice(0, 8), margin, 10);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.text(`${statusOf(p.status)} · ${n(p.rate)}% · ${modeWords(p)}`, pw - margin, 10,
-      { align: 'right' });
-    doc.setTextColor(...INK);
+  const summaryFoot = `<tr class="total-row">${td('')}${td('TOTALS')}${td('')}${td('')}${
+    td(num(totalPrincipal), 'right num')}${td(num(totalMonthly), 'right num')}${
+    td(num(totalValue), 'right num')}${td('')}${td('')}${td('')}${td('')}</tr>`;
 
-    autoTable(doc, {
-      startY: 22,
-      head: [['Portfolio details', '']],
-      body: [
-        ['Contribution date', day(p.start_date)],
-        ['Portfolio name', p.name || p.code || DASH],
-        ['Portfolio ID', p.id.slice(0, 8)],
-        ['Return rate', `${n(p.rate)}%`],
-        ['Maturity date', day(p.maturity_date)],
-        ['Days left', p.days_left == null ? DASH : String(p.days_left)],
-        ['Term', p.duration_months == null ? DASH : `${p.duration_months} months`],
-        ['Principal', `UGX ${ugx(principal)}`],
-        ['Return each month', `UGX ${ugx(Math.round(principal * n(p.rate) / 100))}`],
-        ['Worth now', `UGX ${ugx(p.current_value)}`],
-      ],
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 1.8 },
-      headStyles: { fillColor: PURPLE, textColor: 255, fontSize: 8 },
-      columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
-      margin: { left: margin, right: margin },
+  const caveat = `<div class="observation-callout">
+  <strong>About money taken out.</strong> ${esc(
+    `${num(d.payouts_total.count)} payouts totalling ${ugx(d.payouts_total.amount)} are recorded on this account. `
+    + 'A payout only appears against a portfolio below when it records which portfolio it came from, so '
+    + '"Current Value" is the portfolio balance rather than the balance after money was taken out.',
+  )}
+</div>`;
+
+  /* The summary table is paginated too. Page 1 already spends most of a sheet
+     on the header, the partner card and the four figures, so it holds far
+     fewer rows than a continuation page — a partner with enough portfolios
+     would otherwise push the totals off the bottom of a fixed-height page. */
+  const FIRST_PAGE_ROWS = Math.floor((SHEET_PX - PAGE1_CHROME_PX) / SUMMARY_ROW_PX);
+  const CONT_PAGE_ROWS = Math.floor((SHEET_PX - SECTION_TITLE_PX) / SUMMARY_ROW_PX);
+  const summaryChunks: string[][] = [];
+  for (let i = 0; i < summaryRows.length || i === 0;) {
+    const size = summaryChunks.length === 0 ? FIRST_PAGE_ROWS : CONT_PAGE_ROWS;
+    summaryChunks.push(summaryRows.slice(i, i + size));
+    i += size;
+    if (i >= summaryRows.length) break;
+  }
+
+  const detailChunks = paginate(ps);
+  const total = summaryChunks.length + detailChunks.length;
+  const foot = (i: number) => `Partner Portfolio Statement | Page ${i} of ${total}`;
+
+  const summaryPages = summaryChunks.map((rows, i) => {
+    const last = i === summaryChunks.length - 1;
+    const body = table({
+      head: SUMMARY_HEAD,
+      rows,
+      foot: last ? summaryFoot : undefined,
+      colspan: 11,
+      emptyText: 'No portfolio has been opened on this account yet.',
     });
+    const title = i === 0
+      ? sectionTitle(`All Your Portfolios (${ps.length})`,
+          'Return is what one month earns on the principal, at the rate shown')
+      : sectionTitle('All Your Portfolios (continued)');
+    return page(
+      `${i === 0 ? `${header}${entity}${kpis}` : ''}${title}${body}${last ? caveat : ''}`,
+      foot(i + 1),
+    );
+  });
 
-    const section = (
-      title: string,
-      head: string[],
-      body: string[][],
-      empty: string,
-      foot?: string[],
-    ) => {
-      autoTable(doc, {
-        startY: lastY() + 5,
-        head: [[{ content: title, colSpan: head.length, styles: { halign: 'left' } }], head],
-        body: body.length ? body : [[{ content: empty, colSpan: head.length,
-                                       styles: { textColor: MUTED, fontStyle: 'italic' } }]],
-        foot: foot ? [foot] : undefined,
-        theme: 'grid',
-        styles: { fontSize: 7.5, cellPadding: 1.6 },
-        headStyles: { fillColor: PURPLE, textColor: 255, fontSize: 7.5 },
-        footStyles: { fillColor: [248, 250, 252], textColor: INK, fontStyle: 'bold', fontSize: 7.5 },
-        columnStyles: { [head.length - 1]: { halign: 'right' } },
-        margin: { left: margin, right: margin },
-      });
-    };
+  const pages = [
+    ...summaryPages,
+    ...detailChunks.map((chunk, i) =>
+      page(
+        `${i === 0 ? sectionTitle('Each Portfolio in Detail', 'contributions, payouts, Returns and changes') : ''}${
+          chunk.map(portfolioCard).join('')
+        }`,
+        foot(summaryChunks.length + i + 1),
+      ),
+    ),
+  ];
 
-    section('Payouts (money taken out)', ['Date', 'Reference', 'Amount (UGX)'],
-      (p.payouts ?? []).map((w) => [day(w.date), w.reference ?? DASH, ugx(w.amount)]),
-      'No payout is linked to this portfolio.');
-
-    section('Top-ups', ['Date', 'What happened', 'Amount (UGX)'],
-      [[day(p.start_date), 'Portfolio opened', ugx(principal)]],
-      'No top-up recorded.');
-
-    section('Compounds (Return added)', ['Date', 'Reference', 'Amount (UGX)'],
-      (p.compounds ?? []).map((c) => [day(c.date), c.reference ?? DASH, ugx(c.amount)]),
-      'No Return has been added to this portfolio yet.',
-      compounded > 0 ? ['Total', '', ugx(compounded)] : undefined);
-
-    const changes = [
-      ...(p.renewals ?? []).map((r) => ({ date: r.date, what: 'Renewed for another term' })),
-      ...(p.changes ?? []),
-    ].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-
-    section('Renewals & changes', ['Date', 'What happened'],
-      changes.map((c) => [day(c.date), c.what]),
-      'No renewal or change recorded.');
-  }
-
-  /* ---- footer on every page, numbered once the total is known ---- */
-  const pages = doc.getNumberOfPages();
-  for (let i = 1; i <= pages; i += 1) {
-    doc.setPage(i);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    doc.setTextColor(...MUTED);
-    doc.text(`WELILE TECHNOLOGIES LIMITED · PARTNER PORTFOLIO STATEMENT · ${who}`,
-      margin, ph - 7);
-    doc.text(`${dateStr} · Page ${i} of ${pages}`, pw - margin, ph - 7, { align: 'right' });
-  }
-
-  return doc.output('blob');
+  return shell({
+    title: `Welile — Partner Portfolio Statement — ${who}`,
+    pages,
+    noCharts: true,
+    extraCss: STATEMENT_CSS,
+  });
 }
 
 /**
- * Build and save the statement as a PDF.
+ * Build the statement and print it.
+ *
+ * Printing is what produces the PDF, on the same path the Agent Operations
+ * reports use, so the exported file is the document itself rather than a
+ * redrawing of it.
+ *
  * @param portfolioId omit for every portfolio the partner holds.
  */
 export async function downloadPartnerStatement(portfolioId?: string): Promise<void> {
@@ -385,18 +464,10 @@ export async function downloadPartnerStatement(portfolioId?: string): Promise<vo
   if (data.portfolios.length === 0) {
     throw new Error('There are no portfolios to put in a statement yet.');
   }
-  const blob = await generateStatementPdf(data);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const html = buildPartnerStatementHtml(data);
   const who = (data.partner?.name ?? 'partner').replace(/[^A-Za-z0-9]+/g, '-').toLowerCase();
   const scope = portfolioId
     ? (data.portfolios[0].code ?? portfolioId.slice(0, 8))
     : 'all-portfolios';
-  a.href = url;
-  a.download = `welile-statement-${who}-${scope}-${String(data.generated_at).slice(0, 10)}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Revoked on a later tick so the download has taken its reference.
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  printReportHtml(html, `welile-statement-${who}-${scope}-${String(data.generated_at).slice(0, 10)}`);
 }
