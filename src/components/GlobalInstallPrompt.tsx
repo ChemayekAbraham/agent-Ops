@@ -16,13 +16,17 @@ export default function GlobalInstallPrompt() {
     return subscribeInstallCards((count) => setSuppressed(count > 0));
   }, []);
 
-  if (suppressed) return null;
-
   return (
-    <div className="fixed bottom-3 left-0 right-0 z-40 px-3 pointer-events-none">
-      <div className="mx-auto w-full max-w-md pointer-events-auto">
-        <InstallAppCard global />
-      </div>
-    </div>
+    <>
+      {/* Smartphone-only repeat install nag — independent of the inline card. */}
+      <InstallNagOverlay />
+      {!suppressed && (
+        <div className="fixed bottom-3 left-0 right-0 z-40 px-3 pointer-events-none">
+          <div className="mx-auto w-full max-w-md pointer-events-auto">
+            <InstallAppCard global />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
