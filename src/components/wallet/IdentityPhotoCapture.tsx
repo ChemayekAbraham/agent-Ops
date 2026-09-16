@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace, Wallet, Save } from 'lucide-react';
+import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace, Wallet, Save, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -25,6 +26,8 @@ import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePa
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { Smartphone } from 'lucide-react';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
+import mtnLogo from '@/assets/mtn-logo-uploaded.png.asset.json';
+import airtelLogo from '@/assets/airtel-logo.png.asset.json';
 import {
   useIdentityBinding,
   useCompleteIdentityBinding,
@@ -363,28 +366,6 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
         number is registered in — it is confirmed straight away, with no waiting.
       </p>
 
-      {rows.map((d) => (
-        <div key={d.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 p-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{label(d)}</p>
-            <p className="text-xs text-muted-foreground">
-              {d.status === 'verified'
-                ? 'Confirmed'
-                : d.status === 'rejected'
-                  ? 'Not accepted — confirm it again'
-                  : 'Not confirmed yet'}
-            </p>
-          </div>
-          {d.status === 'verified' ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setTarget(d)}>
-              Send code
-            </Button>
-          )}
-        </div>
-      ))}
-
       <div className="space-y-2 rounded-md border bg-muted/20 p-3">
         <p className="flex items-center gap-2 text-xs font-semibold">
           <Wallet className="h-3.5 w-3.5" />
@@ -426,11 +407,16 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
                 type="button"
                 size="sm"
                 variant={provider === p ? 'default' : 'outline'}
-                className="flex-1 capitalize"
+                className="flex-1 px-5 py-2.5"
                 disabled={saving}
                 onClick={() => setProvider(p)}
+                aria-label={p === 'mtn' ? 'MTN' : 'Airtel'}
               >
-                {p}
+                <img
+                  src={p === 'mtn' ? mtnLogo.url : airtelLogo.url}
+                  alt={p === 'mtn' ? 'MTN' : 'Airtel'}
+                  className="h-5 w-auto object-contain"
+                />
               </Button>
             ))}
           </div>
@@ -584,6 +570,7 @@ interface Props {
 
 export default function IdentityPhotoCapture({ compact }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const mine = useMyIdentityPhotos();
   // One account, one National ID, one photo: a verified account is never asked again.
   const alreadyVerified = useIdentityAlreadyVerified();
@@ -635,10 +622,57 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
   /** Set when the ID number is already recorded on another account. */
   const [duplicateNin, setDuplicateNin] = useState<string | null>(null);
+  /* What the ID number typed says about itself, checked as it is typed rather
+     than only when everything else is ready. The duplicate rule used to be
+     applied on send alone, so somebody typing an ID that already belongs to
+     another account saw nothing at all until both photos and the payout code
+     were done — it read as the screen ignoring them. */
+  const [ninHint, setNinHint] = useState<
+    { holder_first_name: string | null; accounts_on_id: number | null; limit_reached: boolean } | null
+  >(null);
 
   /* Is the selfie a face at all? The server-side checker is the only judge —
      there is no local blur / glare grading, exactly as on tenant onboarding. */
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
+
+  /* As soon as a complete ID number is on screen, ask the server whose it is.
+     Only the holder's first name and how many accounts already sit on the ID
+     come back — never a surname, number or anything else. */
+  useEffect(() => {
+    const nin = String(form.nin ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!/^[A-Z0-9]{12,16}$/.test(nin)) {
+      setNinHint(null);
+      setDuplicateNin(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const { data } = await (supabase.rpc as unknown as (
+        fn: string, args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'national_id_holder_hint', { p_nin: nin },
+      );
+      if (cancelled) return;
+      const hint = (data ?? {}) as {
+        found?: boolean; holder_first_name?: string | null;
+        accounts_on_id?: number | null; limit_reached?: boolean;
+      };
+      if (hint.found) {
+        setNinHint({
+          holder_first_name: hint.holder_first_name ?? null,
+          accounts_on_id: hint.accounts_on_id ?? null,
+          limit_reached: !!hint.limit_reached,
+        });
+        setDuplicateNin(hint.limit_reached ? null : nin);
+      } else {
+        setNinHint(null);
+        setDuplicateNin(null);
+      }
+    }, 500);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [form.nin]);
+
+
 
 
   const readIdPhoto = async (file: File) => {
@@ -916,6 +950,36 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   };
 
 
+  /* In the withdraw flow we send people to Settings to complete verification in
+     the dedicated "Withdrawal & Identity" tab, then they return to continue the
+     withdrawal. The full inline form stays available on the Settings page. */
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={() => navigate('/settings?section=account&tab=verification')}
+        className="block w-full text-left"
+        aria-label="Verify your identity before you withdraw. Opens settings."
+      >
+        <Card className="border-2 border-destructive transition-colors hover:bg-accent/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span className="flex-1 text-emerald-600">Verify your identity before you withdraw</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Complete your National ID, selfie and payout number verification in Settings, then
+              return here to withdraw.
+            </p>
+          </CardContent>
+        </Card>
+      </button>
+    );
+  }
+
   return (
     <Card className={compact ? 'border-2 border-destructive' : undefined}>
       <CardHeader className="pb-3">
@@ -929,6 +993,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           Take a clear photo of your National ID and a selfie. Your original selfie is kept in your
           verification history for Financial Ops; the version you crop becomes your profile picture.
         </p>
+
 
         {storedIdPath ? (
           <StoredShot
@@ -1041,6 +1106,25 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                 {fieldError && !duplicateNin && (
                   <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                     {fieldError.message}
+                  </p>
+                )}
+
+                {/* Answered while the number is still being typed, so nobody
+                    fills in a whole form before being told the ID is taken. */}
+                {ninHint?.limit_reached && (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                    This National ID has reached its limit of 20 accounts. No more accounts can be
+                    added to it.
+                  </p>
+                )}
+                {ninHint && !ninHint.limit_reached && (
+                  <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+                    {ninHint.holder_first_name
+                      ? `This National ID is already on ${ninHint.holder_first_name}'s Welile account. You can be added under ${ninHint.holder_first_name}, but they must agree first.`
+                      : 'This National ID is already recorded on another account. Ask the person who holds it to confirm you.'}
+                    {typeof ninHint.accounts_on_id === 'number'
+                      ? ` ${ninHint.accounts_on_id} of 20 accounts are on it.`
+                      : ''}
                   </p>
                 )}
 
