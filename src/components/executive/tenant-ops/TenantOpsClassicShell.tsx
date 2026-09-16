@@ -10,8 +10,9 @@ import { TenantCallingCenter } from './calling-center/TenantCallingCenter';
 import { TenantPhoneDuplicatePanel } from '@/components/ops/TenantPhoneDuplicatePanel';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 
-/** Portfolio Performance renders inside the shell so the sidebar stays visible. */
+/** These render inside the shell so the sidebar stays visible. */
 const PortfolioPerformanceReport = lazy(() => import('@/pages/tenant-ops/PortfolioPerformanceReport'));
+const TenantNotificationAnalyticsPage = lazy(() => import('@/pages/tenant-ops/TenantNotificationAnalyticsPage'));
 import {
   isTenantOpsAction,
   tenantOpsLabelFor,
