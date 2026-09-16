@@ -156,11 +156,23 @@ function SwipeableNoteCard({
  * the note and the partner who promised. Falls back to plain text when neither
  * side has a phone number on record.
  */
-export function AgentCallMenu({ note, className }: { note: any; className?: string }) {
+export function AgentCallMenu({ note, noteCount, className }: { note: any; noteCount?: number; className?: string }) {
   const agentPhone = note.agent_phone || null;
   const partnerPhone = note.phone_number || note.whatsapp_number || null;
   if (!agentPhone && !partnerPhone) {
-    return <span className={className}>{note.agent_name}</span>;
+    return (
+      <span className={cn('inline-flex items-center gap-1', className)}>
+        <span className="truncate">{note.agent_name}</span>
+        {typeof noteCount === 'number' && noteCount > 0 && (
+          <span
+            title={`${noteCount} promissory note${noteCount === 1 ? '' : 's'} registered`}
+            className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary/10 px-1 text-[9px] font-semibold text-primary"
+          >
+            {noteCount}
+          </span>
+        )}
+      </span>
+    );
   }
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
@@ -176,6 +188,14 @@ export function AgentCallMenu({ note, className }: { note: any; className?: stri
           aria-label={`Call options for note by ${note.agent_name}`}
         >
           <span className="truncate">{note.agent_name}</span>
+          {typeof noteCount === 'number' && noteCount > 0 && (
+            <span
+              title={`${noteCount} promissory note${noteCount === 1 ? '' : 's'} registered`}
+              className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary/10 px-1 text-[9px] font-semibold text-primary"
+            >
+              {noteCount}
+            </span>
+          )}
           <Phone className="h-3 w-3 shrink-0" />
         </button>
       </PopoverTrigger>
