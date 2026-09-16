@@ -622,10 +622,57 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
   /** Set when the ID number is already recorded on another account. */
   const [duplicateNin, setDuplicateNin] = useState<string | null>(null);
+  /* What the ID number typed says about itself, checked as it is typed rather
+     than only when everything else is ready. The duplicate rule used to be
+     applied on send alone, so somebody typing an ID that already belongs to
+     another account saw nothing at all until both photos and the payout code
+     were done — it read as the screen ignoring them. */
+  const [ninHint, setNinHint] = useState<
+    { holder_first_name: string | null; accounts_on_id: number | null; limit_reached: boolean } | null
+  >(null);
 
   /* Is the selfie a face at all? The server-side checker is the only judge —
      there is no local blur / glare grading, exactly as on tenant onboarding. */
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
+
+  /* As soon as a complete ID number is on screen, ask the server whose it is.
+     Only the holder's first name and how many accounts already sit on the ID
+     come back — never a surname, number or anything else. */
+  useEffect(() => {
+    const nin = String(form.nin ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!/^[A-Z0-9]{12,16}$/.test(nin)) {
+      setNinHint(null);
+      setDuplicateNin(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const { data } = await (supabase.rpc as unknown as (
+        fn: string, args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'national_id_holder_hint', { p_nin: nin },
+      );
+      if (cancelled) return;
+      const hint = (data ?? {}) as {
+        found?: boolean; holder_first_name?: string | null;
+        accounts_on_id?: number | null; limit_reached?: boolean;
+      };
+      if (hint.found) {
+        setNinHint({
+          holder_first_name: hint.holder_first_name ?? null,
+          accounts_on_id: hint.accounts_on_id ?? null,
+          limit_reached: !!hint.limit_reached,
+        });
+        setDuplicateNin(hint.limit_reached ? null : nin);
+      } else {
+        setNinHint(null);
+        setDuplicateNin(null);
+      }
+    }, 500);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [form.nin]);
+
+
 
 
   const readIdPhoto = async (file: File) => {
@@ -1059,6 +1106,25 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                 {fieldError && !duplicateNin && (
                   <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                     {fieldError.message}
+                  </p>
+                )}
+
+                {/* Answered while the number is still being typed, so nobody
+                    fills in a whole form before being told the ID is taken. */}
+                {ninHint?.limit_reached && (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                    This National ID has reached its limit of 20 accounts. No more accounts can be
+                    added to it.
+                  </p>
+                )}
+                {ninHint && !ninHint.limit_reached && (
+                  <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+                    {ninHint.holder_first_name
+                      ? `This National ID is already on ${ninHint.holder_first_name}'s Welile account. You can be added under ${ninHint.holder_first_name}, but they must agree first.`
+                      : 'This National ID is already recorded on another account. Ask the person who holds it to confirm you.'}
+                    {typeof ninHint.accounts_on_id === 'number'
+                      ? ` ${ninHint.accounts_on_id} of 20 accounts are on it.`
+                      : ''}
                   </p>
                 )}
 
