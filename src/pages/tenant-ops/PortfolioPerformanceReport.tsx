@@ -497,9 +497,14 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
         }}
       />
 
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2 pt-1">
-        <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
-        <h2 className="text-sm font-bold text-foreground">Past reports</h2>
+      <div className="flex items-start gap-2 border-b border-border/60 pb-2 pt-1">
+        <span className="rounded-xl bg-primary/10 p-1.5 text-primary">
+          <FileText className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold tracking-tight text-foreground">Past reports</h3>
+          <p className="text-[11px] text-muted-foreground">Submitted portfolio reports, newest first.</p>
+        </div>
       </div>
       <ReportArchiveList source="tppo" />
     </div>
