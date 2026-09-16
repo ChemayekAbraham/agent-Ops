@@ -405,10 +405,15 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
         ? Number(pinned.get(r.id) || 0)
         : Number(r.daily_repayment || 0);
       const tenantCollections = collectionsByTenant.get(r.tenant_id) || [];
-      const collected = tenantCollections.reduce((s, c) => s + Number(c.amount || 0), 0);
+      const rawCollected = tenantCollections.reduce((s, c) => s + Number(c.amount || 0), 0);
+      // Collected is measured AGAINST the day's bill only. Anything paid over the
+      // bill is clearing earlier days (arrears) and is deliberately excluded, so
+      // Collected + Outstanding always equals Expected on this page and matches
+      // the Agent Operations figures.
+      const collected = Math.min(rawCollected, expected);
       const balance = Math.max(0, expected - collected);
       const status: TenantTrackerRow['status'] =
-        collected <= 0 ? 'missed' : balance <= 0 ? 'paid' : 'partial';
+        rawCollected <= 0 ? 'missed' : balance <= 0 ? 'paid' : 'partial';
       const last = tenantCollections[tenantCollections.length - 1];
       return {
         rentRequestId: r.id,
