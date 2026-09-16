@@ -1,18 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Check, Copy, Eye, Home, ImageIcon, Loader2, MapPin, MessageCircle, Share2, ShieldCheck, Sparkles, TrendingUp, Users } from 'lucide-react';
-import { toast } from 'sonner';
+import { Eye, MapPin, Sparkles, TrendingUp, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { useVerifiedEmptyHouses, houseTitleLine, houseAddressLine, HOUSE_MONTHLY_ROI_RATE, type SupportableHouse } from '@/components/partner/SelfSupportHousesSection';
+import { HOUSE_MONTHLY_ROI_RATE } from '@/components/partner/SelfSupportHousesSection';
 import { PlanShareButton } from '@/components/partner/PlanShareButton';
-import { createHouseShareLink, houseShareMessage } from '@/lib/houseSupportShare';
+import { EmptyHouseShareBrowser } from '@/components/agent/EmptyHouseShareBrowser';
 
 const money = (v: unknown) => formatDynamic(v);
 
@@ -28,144 +27,7 @@ interface AgentFundablePlan {
   landlord_name: string | null;
 }
 
-const photoOf = (h: SupportableHouse) =>
-  (h.image_urls && h.image_urls.length ? h.image_urls[0] : h.image_url) || null;
-
 const monthlyReturn = (rent: number) => Math.round((rent * HOUSE_MONTHLY_ROI_RATE) / 100);
-
-const houseSummary = (house: SupportableHouse) => ({
-  title: houseTitleLine(house),
-  place: houseAddressLine(house),
-  monthly_rent: Number(house.monthly_rent || 0),
-});
-
-/**
- * Share actions for one empty house.
- *
- * The link is the opaque, attribution-carrying support deep link created by
- * `get_or_create_house_share_link` — welileapp.com/s/<code> — so whoever opens
- * it lands on the public support page and this agent stays credited server-side.
- */
-function HouseShareActions({ house }: { house: SupportableHouse }) {
-  const [copied, setCopied] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  const build = async () => {
-    const { share_url } = await createHouseShareLink(house.house_id);
-    return { url: share_url, message: houseShareMessage(houseSummary(house), share_url) };
-  };
-
-  const withLink = async (fn: (v: { url: string; message: string }) => void | Promise<void>) => {
-    setBusy(true);
-    try {
-      await fn(await build());
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not create the share link');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const share = () =>
-    withLink(async ({ url, message }) => {
-      const payload: ShareData = { title: houseTitleLine(house), text: message, url };
-      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-        try {
-          await navigator.share(payload);
-          return;
-        } catch (e: any) {
-          if (e?.name === 'AbortError') return;
-        }
-      }
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-    });
-
-  const whatsapp = () =>
-    withLink(({ message }) => {
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-    });
-
-  const copy = () =>
-    withLink(async ({ message }) => {
-      await navigator.clipboard.writeText(message);
-      setCopied(true);
-      toast.success('Support link copied');
-      setTimeout(() => setCopied(false), 2000);
-    });
-
-  return (
-    <div className="flex gap-2">
-      <Button className="flex-1 gap-2 rounded-xl font-semibold" disabled={busy} onClick={share}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-        Share to support
-      </Button>
-      <Button
-        variant="outline"
-        className="gap-2 rounded-xl"
-        disabled={busy}
-        onClick={whatsapp}
-        aria-label="Share on WhatsApp"
-      >
-        <MessageCircle className="h-4 w-4" />
-      </Button>
-      <Button variant="outline" className="rounded-xl" disabled={busy} onClick={copy} aria-label="Copy support link">
-        {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-      </Button>
-    </div>
-  );
-}
-
-function HouseCard({ house }: { house: SupportableHouse }) {
-  const photo = photoOf(house);
-  const rent = Number(house.monthly_rent || 0);
-  return (
-    <Card className="overflow-hidden border-border/70">
-      {/* This is the same photo social apps show as the link preview image. */}
-      <div className="relative aspect-[16/9] w-full bg-muted">
-        {photo ? (
-          <img src={photo} alt={houseTitleLine(house)} loading="lazy" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
-            <ImageIcon className="h-5 w-5" />
-            <span className="text-[11px]">No photo on file</span>
-          </div>
-        )}
-        <div className="absolute left-2 top-2 flex gap-1.5">
-          <Badge className="gap-1 bg-background/90 text-[10px] font-bold text-foreground backdrop-blur">
-            <Home className="h-3 w-3" /> Empty house
-          </Badge>
-          {house.verified && (
-            <Badge variant="outline" className="gap-1 border-emerald-500/40 bg-background/90 text-[10px] font-bold text-emerald-600 backdrop-blur">
-              <ShieldCheck className="h-3 w-3" /> Verified
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      <CardContent className="space-y-3 p-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-black">{houseTitleLine(house)}</p>
-          <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-            <MapPin className="h-3 w-3 shrink-0" /> {houseAddressLine(house)}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 text-[11px]">
-          <div className="rounded-xl border border-border/60 p-2">
-            <p className="text-muted-foreground">One month's rent</p>
-            <p className="font-black tabular-nums">{money(rent)}</p>
-          </div>
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2">
-            <p className="text-emerald-700 dark:text-emerald-400">Monthly return</p>
-            <p className="font-black tabular-nums text-emerald-700 dark:text-emerald-400">{money(monthlyReturn(rent))}</p>
-          </div>
-        </div>
-
-        <HouseShareActions house={house} />
-      </CardContent>
-    </Card>
-  );
-}
 
 function PlanCard({ plan }: { plan: AgentFundablePlan }) {
   const rent = Number(plan.funding_amount || 0);
@@ -216,16 +78,15 @@ function PlanCard({ plan }: { plan: AgentFundablePlan }) {
 }
 
 /**
- * Shareable support opportunities for a proxy agent: verified EMPTY houses
- * first, then approved Rent Plans. Every card carries the photo social apps
- * use as the link preview image and a support-framed message the agent can
- * send straight to a partner.
+ * Shareable support opportunities for a proxy agent. The empty-houses tab is
+ * the full browsing experience (search, filters, landlord contact, GPS,
+ * progress badges, details) with one-tap support share links on every card;
+ * the Rent Plans tab lists approved plans waiting for support.
  */
 export function ProxySupportOpportunities({ className }: { className?: string }) {
-  const [housesShown, setHousesShown] = useState(6);
   const [plansShown, setPlansShown] = useState(6);
+  const [housesTotal, setHousesTotal] = useState(0);
 
-  const housesQ = useVerifiedEmptyHouses();
   const plansQ = useQuery({
     queryKey: ['proxy-support-fundable-plans'],
     staleTime: 5 * 60 * 1000,
@@ -242,9 +103,7 @@ export function ProxySupportOpportunities({ className }: { className?: string })
     },
   });
 
-  const houses = housesQ.data?.houses ?? [];
   const plans = plansQ.data?.plans ?? [];
-  const visibleHouses = houses.slice(0, housesShown);
   const visiblePlans = plans.slice(0, plansShown);
   const perfQ = useQuery({
     queryKey: ['house-share-performance'],
@@ -265,7 +124,7 @@ export function ProxySupportOpportunities({ className }: { className?: string })
         <TrendingUp className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-black">Share these to bring in support</h2>
         <Badge variant="outline" className="ml-auto text-[10px]">
-          {houses.length} houses · {plans.length} plans
+          {housesTotal} houses · {plans.length} plans
         </Badge>
       </div>
 
@@ -284,31 +143,12 @@ export function ProxySupportOpportunities({ className }: { className?: string })
 
       <Tabs defaultValue="houses">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="houses">Empty houses ({houses.length})</TabsTrigger>
+          <TabsTrigger value="houses">Empty houses ({housesTotal})</TabsTrigger>
           <TabsTrigger value="plans">Rent Plans ({plans.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="houses" className="pt-3">
-          {housesQ.isLoading ? (
-            <div className={grid}>
-              {[0, 1, 2].map((i) => <Skeleton key={i} className="h-72 rounded-2xl" />)}
-            </div>
-          ) : housesQ.error ? (
-            <Card><CardContent className="p-4 text-sm text-destructive">{(housesQ.error as Error).message}</CardContent></Card>
-          ) : houses.length === 0 ? (
-            <Card><CardContent className="p-4 text-sm text-muted-foreground">No verified empty houses waiting for support right now.</CardContent></Card>
-          ) : (
-            <>
-              <div className={grid}>
-                {visibleHouses.map((h) => <HouseCard key={h.house_id} house={h} />)}
-              </div>
-              {housesShown < houses.length && (
-                <Button variant="outline" className="mt-3 w-full font-semibold" onClick={() => setHousesShown((n) => n + 6)}>
-                  Show more houses ({houses.length - housesShown} left)
-                </Button>
-              )}
-            </>
-          )}
+          <EmptyHouseShareBrowser onTotalChange={setHousesTotal} />
         </TabsContent>
 
         <TabsContent value="plans" className="pt-3">
