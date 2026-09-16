@@ -34,6 +34,19 @@ export interface TenantCallReportMetadata {
   reportPeriod: string;
 }
 
+/** Derived feedback analysis for the same period — see tenantCallFeedbackAnalysis. */
+export interface TenantCallReportAnalysis {
+  commented: number;
+  totalCalls: number;
+  insufficient: boolean;
+  themes: { label: string; hint: string; count: number; pct: number; tone: string }[];
+  categories: { label: string; count: number; pct: number }[];
+  severities: { label: string; count: number }[];
+  sentiment: { positive: number; negative: number; neutral: number };
+  unresolved: { openAttempts: number; followUpsPending: number; disputesOpen: number; unreachable: number };
+  recommendations: { title: string; detail: string }[];
+}
+
 async function loadLogoBase64(): Promise<string | null> {
   try {
     const res = await fetch(welileLogoUrl);
