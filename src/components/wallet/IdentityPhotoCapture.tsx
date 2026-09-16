@@ -1017,7 +1017,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                           id={`nid-${key}`}
                           className="mt-1 h-9 text-sm"
                           type={key === 'date_of_birth' ? 'date' : 'text'}
-                          inputMode={key === 'card_number' ? 'numeric' : undefined}
                           maxLength={key === 'sex' ? 1 : undefined}
                           placeholder={key === 'sex' ? 'M or F' : undefined}
                           value={form[key]}
@@ -1026,7 +1025,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                             const raw = e.target.value;
                             const next =
                               key === 'date_of_birth' ? raw
-                              : key === 'card_number' ? raw.replace(/[^0-9]/g, '')
+                              : key === 'card_number' ? raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
                               : key === 'sex' ? raw.toUpperCase().replace(/[^MF]/g, '')
                               : key === 'nin' ? raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
                               : raw.toUpperCase();

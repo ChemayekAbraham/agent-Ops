@@ -177,7 +177,7 @@ export function normaliseReading(raw: unknown): NationalIdReading {
   const saw = (key: keyof NationalIdData): string => {
     const v = fields[key]?.value ?? fields[key]?.raw ?? '';
     if (!v) return '';
-    if (key === 'card_number') return v.replace(/[^0-9]/g, '');
+    if (key === 'card_number') return v.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (key === 'sex') return v.toUpperCase().replace(/[^MF]/g, '');
     if (key === 'nin') return v.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (key === 'date_of_birth') return toIsoDate(v);

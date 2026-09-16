@@ -57,6 +57,21 @@ describe('normaliseReading', () => {
     expect(bad.status).toBe('invalid');
     expect(readingGuidance(bad)).toContain('not a Ugandan National ID');
   });
+
+  it('keeps letters in a new-format NIRA card number instead of stripping them', () => {
+    const r = normaliseReading({
+      status: 'valid', is_national_id: true,
+      data: { card_number: 'CA144787388' },
+      fields: {},
+    });
+    expect(r.data.card_number).toBe('CA144787388');
+
+    // Also exercised via the `fields`-only fallback path (older reader shape).
+    const viaFields = normaliseReading({
+      fields: { card_number: { value: 'ca144787388', valid: false } },
+    });
+    expect(viaFields.data.card_number).toBe('CA144787388');
+  });
 });
 
 describe('date of birth', () => {
