@@ -73,10 +73,20 @@ export function HouseShareActions({ house }: { house: SupportableHouse }) {
 
   return (
     <div className="flex gap-2">
-      <Button className="flex-1 gap-2 rounded-xl font-semibold" disabled={busy} onClick={share}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-        Share to support
+      <Button
+        className="flex-1 gap-2 rounded-xl font-semibold"
+        disabled={busy}
+        onClick={() => setNoteOpen(true)}
+      >
+        <FileText className="h-4 w-4" />
+        Create &amp; Share
       </Button>
+      <PromissoryNoteDialog
+        open={noteOpen}
+        onOpenChange={setNoteOpen}
+        supportMode="self"
+        initialAmount={Number(house.monthly_rent || 0) || undefined}
+      />
       <Button
         variant="outline"
         className="gap-2 rounded-xl"
