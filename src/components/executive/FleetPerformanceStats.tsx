@@ -1007,7 +1007,7 @@ export function FleetPerformanceStats({
     if (granularity === 'hour') {
       const cursor = new Date(start);
       cursor.setMinutes(0, 0, 0);
-      const expectedPerHour = expectedPerDay / 24;
+      const expectedPerHour = expectedForDay(start) / 24;
       while (cursor.getTime() < endMs) {
         const k = hourKey(cursor);
         const bs = new Date(cursor);
