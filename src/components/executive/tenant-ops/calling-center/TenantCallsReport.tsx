@@ -234,7 +234,7 @@ export function TenantCallsReport() {
             .join('\n'),
           officer: r.officer,
         })),
-        analysis,
+        analysis: JSON.parse(JSON.stringify(analysis)),
         metadata: {
           generatedBy: profile?.full_name?.trim() || (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : ''),
           email: profile?.email?.trim() || user?.email?.trim() || '',
