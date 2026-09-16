@@ -193,6 +193,34 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
     staleTime: 60_000,
   });
 
+  // ---- Pinned daily bill for the selected day (`agent_expected_day_plans`).
+  // This is the SAME frozen figure the Collections Command Center and the Agent
+  // Ops "Today, as it stands" panel bill. Expected must never be re-derived from
+  // `rent_requests.daily_repayment` here: that re-derivation reads far above the
+  // bill (it counts plans the bill excludes) and made this page disagree with
+  // Agent Ops. Days before pinning began have no rows — those fall back below.
+  const { data: pinnedExpected } = useQuery({
+    queryKey: ['daily-collection-pinned-expected', format(day, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const PAGE = 1000;
+      const map = new Map<string, number>();
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('agent_expected_day_plans')
+          .select('rent_request_id, expected_ugx')
+          .eq('day', format(day, 'yyyy-MM-dd'))
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        (data || []).forEach((r: any) => {
+          map.set(r.rent_request_id, (map.get(r.rent_request_id) || 0) + (Number(r.expected_ugx) || 0));
+        });
+        if (!data || data.length < PAGE) break;
+      }
+      return map;
+    },
+    staleTime: 60_000,
+  });
+
   // ---- Collections in selected range
   const { data: collections, isLoading: loadingCollections, refetch: refetchCollections } = useQuery({
     queryKey: ['daily-collection-collections', rangeFrom.toISOString(), rangeTo.toISOString()],
@@ -359,7 +387,11 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
     });
 
     const targetEnd = endOfDay(target);
+    // When the day is pinned, the bill defines the population as well as the
+    // amount: a plan absent from the bill is not billed that day.
+    const pinned = pinnedExpected && pinnedExpected.size > 0 ? pinnedExpected : null;
     const activeForDay = (rentReqs || []).filter((r: any) => {
+      if (pinned) return pinned.has(r.id) || collectionsByTenant.has(r.tenant_id);
       // Only include rent requests that already existed on/before the selected day.
       if (!r.created_at) return true;
       return new Date(r.created_at) <= targetEnd;
@@ -369,7 +401,9 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
       const agentName = r.agent_id ? (profiles?.get(r.agent_id)?.full_name || '—') : '—';
       const landlordName = r.landlord_id ? (profiles?.get(r.landlord_id)?.full_name || '') : '';
       const property = [r.house_category, landlordName].filter(Boolean).join(' / ') || '—';
-      const expected = Number(r.daily_repayment || 0);
+      const expected = pinned
+        ? Number(pinned.get(r.id) || 0)
+        : Number(r.daily_repayment || 0);
       const tenantCollections = collectionsByTenant.get(r.tenant_id) || [];
       const collected = tenantCollections.reduce((s, c) => s + Number(c.amount || 0), 0);
       const balance = Math.max(0, expected - collected);
@@ -393,7 +427,7 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
       };
     });
     return rows;
-  }, [rentReqs, collections, profiles, day]);
+  }, [rentReqs, collections, profiles, day, pinnedExpected]);
 
   // ---- Missed payments lookback window — computed server-side in one RPC call
   const asOfKey = format(day, 'yyyy-MM-dd');
