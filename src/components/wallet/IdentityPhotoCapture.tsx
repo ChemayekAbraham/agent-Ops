@@ -407,7 +407,7 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
                 type="button"
                 size="sm"
                 variant={provider === p ? 'default' : 'outline'}
-                className="flex-1"
+                className="flex-1 px-5 py-2.5"
                 disabled={saving}
                 onClick={() => setProvider(p)}
                 aria-label={p === 'mtn' ? 'MTN' : 'Airtel'}
@@ -415,7 +415,7 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
                 <img
                   src={p === 'mtn' ? mtnLogo.url : airtelLogo.url}
                   alt={p === 'mtn' ? 'MTN' : 'Airtel'}
-                  className="h-4 w-auto object-contain"
+                  className="h-5 w-auto object-contain"
                 />
               </Button>
             ))}
