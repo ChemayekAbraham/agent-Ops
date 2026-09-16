@@ -69,6 +69,13 @@ Deno.serve(async (req) => {
       if (error) return json({ error: "Could not send the code. Please try again." }, 502);
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) return json({ error: res.error ?? "Could not send the code." }, 502);
+
+      // Only now is the code genuinely on its way, so only now is the request
+      // marked as "code sent" — a failed send must not show a code box.
+      await admin.rpc("national_id_link_mark_code_sent", {
+        p_request_id: requestId,
+        p_requester_id: uid,
+      });
       return json({ success: true });
     }
 
