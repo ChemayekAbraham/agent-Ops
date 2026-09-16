@@ -753,7 +753,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
             <p className="text-xs font-semibold text-primary">{earningsLine}</p>
             {supportMode === 'self' && (
               <p className="text-[11px] text-muted-foreground">
-                {selectedPlanIds.length} tenant plan{selectedPlanIds.length === 1 ? '' : 's'} selected
+                {selectedHouseIds.length > 0
+                  ? `${selectedHouseIds.length} house${selectedHouseIds.length === 1 ? '' : 's'} selected`
+                  : `${selectedPlanIds.length} tenant plan${selectedPlanIds.length === 1 ? '' : 's'} selected`}
               </p>
             )}
           </div>
@@ -824,8 +826,10 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
                 </p>
                 {attached.count > 0 && (
                   <p>
-                    {attached.count} tenant plan{attached.count === 1 ? '' : 's'} earmarked ·{' '}
-                    <span className="font-semibold text-foreground">{formatUGX(attached.amount)}</span>
+                    {attached.kind === 'houses'
+                      ? `${attached.count} house${attached.count === 1 ? '' : 's'} booked for 7 days`
+                      : `${attached.count} tenant plan${attached.count === 1 ? '' : 's'} earmarked`}{' '}
+                    · <span className="font-semibold text-foreground">{formatUGX(attached.amount)}</span>
                   </p>
                 )}
               </div>
