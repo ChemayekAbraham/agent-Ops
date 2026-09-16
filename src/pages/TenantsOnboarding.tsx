@@ -705,29 +705,7 @@ export default function TenantsOnboarding() {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen grid place-items-center bg-muted/30 px-4">
-        {onboardingHead}
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center space-y-4">
-            <img src={welileLogo} alt="Welile" className="h-9 mx-auto" />
-            <h1 className="text-xl font-bold">Request rent support yourself</h1>
-            <p className="text-sm text-muted-foreground">
-              Create your account or sign in first — we save your request to your own profile so you can follow it.
-            </p>
-            <Button asChild className="w-full">
-              <Link to={authHref(true)}>Create my account</Link>
-            </Button>
-            <Button asChild variant="outline" className="w-full">
-              <Link to={authHref(false)}>I already have an account</Link>
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              We bring you straight back to this form afterwards.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <Navigate to={authHref(true)} replace />;
   }
 
   if (gate.checking && !submitted) {
