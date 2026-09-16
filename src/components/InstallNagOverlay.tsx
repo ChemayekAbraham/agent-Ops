@@ -44,7 +44,11 @@ function snoozedUntil(): number {
 }
 
 export default function InstallNagOverlay() {
-  const { isInstalled, isIOS, hasPrompt, promptInstall, canShow } = usePWAInstall();
+  const { isInstalled, isIOS, isAndroid, hasPrompt, promptInstall, canShow } = usePWAInstall();
+  // Manual override when the OS can't be detected (unusual WebViews, etc.).
+  const [manualPlatform, setManualPlatform] = useState<'ios' | 'android' | null>(null);
+  const osDetected = isIOS || isAndroid;
+  const effectiveIsIOS = manualPlatform ? manualPlatform === 'ios' : isIOS;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
@@ -193,9 +197,46 @@ export default function InstallNagOverlay() {
                 </div>
               </div>
 
+              {/* Manual platform picker when the OS can't be detected. */}
+              {!osDetected && !manualPlatform && (
+                <div className="mt-4 rounded-2xl bg-muted/50 p-3">
+                  <p className="text-sm font-medium text-foreground">Choose your phone:</p>
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setManualPlatform('ios');
+                        trackInstallEvent('install_instructions_opened', {
+                          source: 'nag_overlay',
+                          manual_platform: 'ios',
+                        });
+                      }}
+                    >
+                      iPhone
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setManualPlatform('android');
+                        trackInstallEvent('install_instructions_opened', {
+                          source: 'nag_overlay',
+                          manual_platform: 'android',
+                        });
+                      }}
+                    >
+                      Android
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Platform-specific install steps, shown inline so the user
                   never has to open a guide to know what to tap. */}
-              {isIOS ? (
+              {(osDetected || manualPlatform) && (effectiveIsIOS ? (
                 <ol className="mt-4 space-y-2 rounded-2xl bg-muted/50 p-3 text-sm text-foreground">
                   <li className="flex gap-2.5">
                     <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>
@@ -225,7 +266,7 @@ export default function InstallNagOverlay() {
                     <span>Confirm — Welile appears with your other apps.</span>
                   </li>
                 </ol>
-              )}
+              ))}
 
               <ul className="mt-4 grid gap-2 text-sm text-foreground/90">
                 <li className="flex items-center gap-2">

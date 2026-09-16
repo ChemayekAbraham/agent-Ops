@@ -61,6 +61,7 @@ export function usePWAInstall() {
     typeof window === 'undefined' ? false : detectStandalone(),
   );
   const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
     // Live installed/standalone detection on every mount, so a user who removed
@@ -70,6 +71,7 @@ export function usePWAInstall() {
     // Detect iOS
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(ios);
+    setIsAndroid(/Android/i.test(navigator.userAgent));
 
     // Subscribe to global prompt changes
     const onPromptChange = (v: boolean) => setHasPrompt(v);
@@ -130,6 +132,7 @@ export function usePWAInstall() {
     hasPrompt,
     isInstalled,
     isIOS,
+    isAndroid,
     promptInstall,
     /**
      * No native one-tap prompt available (Firefox, in-app browsers, some
