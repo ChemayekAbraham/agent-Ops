@@ -59,7 +59,7 @@ export async function generateAgentRentCollectionsPdf(params: {
 
   const { data, error } = await supabase
     .from('agent_collections')
-    .select('amount, created_at, payment_method, location_name, tenant_id, momo_provider')
+    .select('amount, created_at, payment_method, location_name, tenant_id, momo_provider').is('reversed_at', null)
     .eq('agent_id', agentId)
     .gte('created_at', from.toISOString())
     .lte('created_at', to.toISOString())

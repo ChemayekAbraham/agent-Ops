@@ -165,7 +165,7 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('agent_collections')
-        .select('id, amount, created_at, tenant_id, tenant:profiles!agent_collections_tenant_id_fkey(full_name)')
+        .select('id, amount, created_at, tenant_id, tenant:profiles!agent_collections_tenant_id_fkey(full_name)').is('reversed_at', null)
         .eq('agent_id', user.id)
         .order('created_at', { ascending: false })
         .limit(15);

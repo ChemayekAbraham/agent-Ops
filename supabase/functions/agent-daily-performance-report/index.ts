@@ -166,7 +166,9 @@ async function loadRows(admin: Admin, dateStr: string): Promise<Row[]> {
     admin,
     "agent_collections",
     "agent_id, tenant_id, amount, created_at",
-    (q) => q.gte("created_at", startISO).lt("created_at", endISO),
+    // A reversed collection did not happen: it must not count toward an
+    // agent's collected total or their tenants-paid count.
+    (q) => q.is("reversed_at", null).gte("created_at", startISO).lt("created_at", endISO),
   );
 
   const agentIds = Array.from(new Set([

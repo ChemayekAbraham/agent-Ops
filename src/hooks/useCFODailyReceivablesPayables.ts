@@ -84,7 +84,7 @@ export function useCFODailyReceivablesPayables(range: DailyRange) {
           .select('rent_request_id, tenant_id, daily_repayment, amount_repaid, total_repayment, start_at, status'),
         supabase
           .from('agent_collections')
-          .select('amount')
+          .select('amount').is('reversed_at', null)
           .gte('created_at', from.toISOString())
           .lte('created_at', to.toISOString()),
         (supabase.rpc as any)('get_payables_due_range', {

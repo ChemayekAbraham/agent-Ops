@@ -87,6 +87,10 @@ serve(async (req) => {
       const { data: recentCols } = await supabase
         .from("agent_collections")
         .select("created_at")
+        // Cadence is inferred from the gaps between real payments. A reversed
+        // collection never happened, so counting it would read as a shorter
+        // gap and could lock an agent against a schedule they never kept.
+        .is("reversed_at", null)
         .eq("agent_id", agentId)
         .eq("tenant_id", row.tenant_id)
         .order("created_at", { ascending: false })

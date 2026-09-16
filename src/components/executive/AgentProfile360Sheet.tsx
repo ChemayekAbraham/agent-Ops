@@ -38,7 +38,7 @@ function TargetCards({ agentId, dailyTarget }: { agentId: string | null; dailyTa
       since.setHours(0, 0, 0, 0);
       const { data, error } = await supabase
         .from('agent_collections')
-        .select('amount, created_at')
+        .select('amount, created_at').is('reversed_at', null)
         .eq('agent_id', agentId as string)
         .gte('created_at', since.toISOString())
         .limit(5000);
@@ -119,7 +119,7 @@ function CollectionPerformance({ agentId, dailyTarget = 0 }: { agentId: string |
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agent_collections')
-        .select('amount, created_at')
+        .select('amount, created_at').is('reversed_at', null)
         .eq('agent_id', agentId as string)
         .gte('created_at', since)
         .order('created_at', { ascending: true })

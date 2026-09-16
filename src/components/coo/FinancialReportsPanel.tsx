@@ -38,7 +38,7 @@ export default function FinancialReportsPanel() {
       }
 
       if (type === 'agent') {
-        const { data } = await supabase.from('agent_collections').select('*').gte('created_at', fromDate).order('created_at', { ascending: false });
+        const { data } = await supabase.from('agent_collections').select('*').is('reversed_at', null).gte('created_at', fromDate).order('created_at', { ascending: false });
         const headers = ['Date', 'Agent ID', 'Tenant ID', 'Amount', 'Payment Method', 'Location', 'MoMo Provider', 'MoMo Phone'];
         const rows = (data || []).map(r => [
           r.created_at, r.agent_id, r.tenant_id, r.amount,

@@ -21,7 +21,7 @@ export function RepaymentTrendChart({ dailyExpected }: RepaymentTrendChartProps)
       const startDate = format(subDays(today, 6), 'yyyy-MM-dd') + 'T00:00:00';
       const { data, error } = await supabase
         .from('agent_collections')
-        .select('amount, created_at')
+        .select('amount, created_at').is('reversed_at', null)
         .gte('created_at', startDate);
       if (error) throw error;
       return data || [];

@@ -423,7 +423,7 @@ export async function fetchCollectedByAgent(start: Date, end: Date): Promise<Rec
   while (true) {
     const { data, error } = await supabase
       .from('agent_collections')
-      .select('agent_id, amount, rent_request_id')
+      .select('agent_id, amount, rent_request_id').is('reversed_at', null)
       .gte('created_at', start.toISOString())
       .lt('created_at', end.toISOString())
       .gt('amount', 0)
@@ -498,7 +498,7 @@ export async function fetchCollectedBuckets(start: Date, end: Date, gran: TrendG
   while (true) {
     const { data, error } = await supabase
       .from('agent_collections')
-      .select('amount, created_at, rent_request_id')
+      .select('amount, created_at, rent_request_id').is('reversed_at', null)
       .gte('created_at', start.toISOString())
       .lt('created_at', end.toISOString())
       .gt('amount', 0)
@@ -898,7 +898,7 @@ export function FleetPerformanceStats({
       while (true) {
         const { data, error } = await supabase
           .from('agent_collections')
-          .select('agent_id, amount, rent_request_id, tracking_id')
+          .select('agent_id, amount, rent_request_id, tracking_id').is('reversed_at', null)
           .gte('created_at', start.toISOString())
           .lt('created_at', end.toISOString())
           .gt('amount', 0)
@@ -1674,7 +1674,7 @@ async function fetchAgentCollectionRecords(agentId: string, start: Date, end: Da
   while (true) {
     const { data, error } = await supabase
       .from('agent_collections')
-      .select('id, tenant_id, amount, created_at, payment_method')
+      .select('id, tenant_id, amount, created_at, payment_method').is('reversed_at', null)
       .eq('agent_id', agentId)
       .gte('created_at', start.toISOString())
       .lt('created_at', end.toISOString())

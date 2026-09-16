@@ -737,7 +737,7 @@ function PartialCollectionsOverview() {
       const [{ data: cols, error: colsErr }, { data: expectedRows, error: expErr }] = await Promise.all([
         supabase
           .from('agent_collections')
-          .select('id, amount, created_at, tenant_id, rent_request_id')
+          .select('id, amount, created_at, tenant_id, rent_request_id').is('reversed_at', null)
           .gte('created_at', since.toISOString())
           .gt('amount', 0)
           .limit(5000),

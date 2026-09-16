@@ -257,7 +257,7 @@ export function AgentPerformanceReport() {
       // 1) agent_collections (cash collected by agents in field)
       const collections = (paymentSource === 'all' || paymentSource === 'agent_collections')
         ? await fetchAll<{ agent_id: string; amount: number; tenant_id: string | null; created_at: string }>(() => {
-            let q = supabase.from('agent_collections').select('agent_id, amount, tenant_id, created_at');
+            let q = supabase.from('agent_collections').select('agent_id, amount, tenant_id, created_at').is('reversed_at', null);
             if (startISO) q = q.gte('created_at', startISO);
             return q.lte('created_at', endISO);
           })

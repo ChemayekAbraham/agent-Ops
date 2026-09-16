@@ -32,7 +32,7 @@ export function AgentCashReconciliation() {
       // Fetch agent collections for the day
       const { data: collections } = await supabase
         .from('agent_collections')
-        .select('agent_id, amount')
+        .select('agent_id, amount').is('reversed_at', null)
         .gte('created_at', dayStart)
         .lte('created_at', dayEnd);
 

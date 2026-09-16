@@ -62,7 +62,7 @@ export function FloatTransactionHistory({ open, onOpenChange }: Props) {
           .limit(200),
         supabase
           .from('agent_collections')
-          .select('id, amount, created_at, notes, tenant_id, payment_method, float_before, float_after')
+          .select('id, amount, created_at, notes, tenant_id, payment_method, float_before, float_after').is('reversed_at', null)
           .eq('agent_id', user.id)
           .order('created_at', { ascending: false })
           .limit(300),

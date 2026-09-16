@@ -253,7 +253,7 @@ export default function DepositReferenceMatcher({
     const since = new Date(Date.now() - MAX_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('agent_collections')
-      .select('id, amount, tenant_id, momo_transaction_id, created_at')
+      .select('id, amount, tenant_id, momo_transaction_id, created_at').is('reversed_at', null)
       .eq('agent_id', agentId)
       .gte('created_at', since)
       .order('created_at', { ascending: false })
@@ -305,7 +305,7 @@ export default function DepositReferenceMatcher({
     const since = new Date(Date.now() - MAX_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('agent_collections')
-      .select('id, amount, created_at, tenant_id, payment_method, momo_transaction_id')
+      .select('id, amount, created_at, tenant_id, payment_method, momo_transaction_id').is('reversed_at', null)
       .eq('agent_id', agentId)
       .gte('created_at', since)
       .order('created_at', { ascending: false })

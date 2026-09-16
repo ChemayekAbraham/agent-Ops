@@ -132,7 +132,7 @@ export function useTenantPipelineHubData(historyDays = 400) {
         pageAll<any>((from, to) =>
           supabase
             .from('agent_collections')
-            .select('id, amount, created_at, tenant_id, agent_id, rent_request_id, payment_method')
+            .select('id, amount, created_at, tenant_id, agent_id, rent_request_id, payment_method').is('reversed_at', null)
             .gte('created_at', sinceIso)
             .order('created_at', { ascending: false })
             .range(from, to),

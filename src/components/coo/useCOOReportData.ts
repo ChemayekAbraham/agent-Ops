@@ -168,7 +168,7 @@ export function useAgentOpsReportData() {
       const [collectionsRes, advancesRes, depositsRes] = await Promise.all([
         supabase
           .from('agent_collections')
-          .select('id, agent_id, tenant_id, amount, payment_method, location_name, created_at')
+          .select('id, agent_id, tenant_id, amount, payment_method, location_name, created_at').is('reversed_at', null)
           .gte('created_at', since)
           .order('created_at', { ascending: false })
           .limit(MAX_ROWS),

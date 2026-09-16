@@ -26268,6 +26268,30 @@ export type Database = {
         }
         Relationships: []
       }
+      money_path_drift_events: {
+        Row: {
+          check_name: string
+          detail: string | null
+          detected_at: string
+          id: string
+          resolved_at: string | null
+        }
+        Insert: {
+          check_name: string
+          detail?: string | null
+          detected_at?: string
+          id?: string
+          resolved_at?: string | null
+        }
+        Update: {
+          check_name?: string
+          detail?: string | null
+          detected_at?: string
+          id?: string
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
       money_requests: {
         Row: {
           amount: number
@@ -51546,6 +51570,14 @@ export type Database = {
       }
       assert_merchant_capacity_override_admin: { Args: never; Returns: string }
       assert_merchant_float_alloc_access: { Args: never; Returns: boolean }
+      assert_money_path_intact: {
+        Args: never
+        Returns: {
+          check_name: string
+          detail: string
+          ok: boolean
+        }[]
+      }
       assert_no_promissory_self_support: {
         Args: { p_path: string; p_user: string }
         Returns: undefined
@@ -60384,6 +60416,7 @@ export type Database = {
         Args: { p_days?: number }
         Returns: string
       }
+      record_money_path_drift: { Args: never; Returns: number }
       record_payout_acceptance_run: {
         Args: { p_window_days?: number }
         Returns: string

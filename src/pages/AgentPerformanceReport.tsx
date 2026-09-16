@@ -222,7 +222,7 @@ async function fetchAgentReport(agentId: string) {
   // Agent rent collections (recorded field collections) last 30 days
   const { data: agentCollectionsData } = await supabase
     .from('agent_collections')
-    .select('amount, created_at, payment_method, tenant_id, momo_payer_name')
+    .select('amount, created_at, payment_method, tenant_id, momo_payer_name').is('reversed_at', null)
     .eq('agent_id', agentId)
     .gte('created_at', visitsSince)
     .order('created_at', { ascending: false })

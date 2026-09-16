@@ -125,7 +125,7 @@ export function AgentDailyOverviewReportButton() {
       const collections = await fetchAll<any>((from, to) =>
         supabase
           .from('agent_collections')
-          .select('agent_id, tenant_id, amount, created_at')
+          .select('agent_id, tenant_id, amount, created_at').is('reversed_at', null)
           .gte('created_at', dayStart)
           .lte('created_at', dayEnd)
           .range(from, to),
