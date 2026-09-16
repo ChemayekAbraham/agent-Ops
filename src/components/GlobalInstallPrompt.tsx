@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import InstallAppCard from '@/components/InstallAppCard';
+import InstallNagOverlay from '@/components/InstallNagOverlay';
 import { hasPriorityInstallCard, subscribeInstallCards } from '@/lib/installCardRegistry';
 
 /**
