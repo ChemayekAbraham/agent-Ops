@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays, addMonths, format, parseISO, subDays, subMonths } from 'date-fns';
-import { BarChart3, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, FileText, ArrowLeft, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, FileText, ArrowLeft, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
