@@ -635,6 +635,45 @@ export default function IdentityPhotoCapture({ compact }: Props) {
      there is no local blur / glare grading, exactly as on tenant onboarding. */
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
 
+  /* As soon as a complete ID number is on screen, ask the server whose it is.
+     Only the holder's first name and how many accounts already sit on the ID
+     come back — never a surname, number or anything else. */
+  useEffect(() => {
+    const nin = String(form.nin ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!/^[A-Z0-9]{12,16}$/.test(nin)) {
+      setNinHint(null);
+      setDuplicateNin(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const { data } = await (supabase.rpc as unknown as (
+        fn: string, args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'national_id_holder_hint', { p_nin: nin },
+      );
+      if (cancelled) return;
+      const hint = (data ?? {}) as {
+        found?: boolean; holder_first_name?: string | null;
+        accounts_on_id?: number | null; limit_reached?: boolean;
+      };
+      if (hint.found) {
+        setNinHint({
+          holder_first_name: hint.holder_first_name ?? null,
+          accounts_on_id: hint.accounts_on_id ?? null,
+          limit_reached: !!hint.limit_reached,
+        });
+        setDuplicateNin(hint.limit_reached ? null : nin);
+      } else {
+        setNinHint(null);
+        setDuplicateNin(null);
+      }
+    }, 500);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [form.nin]);
+
+
+
 
   const readIdPhoto = async (file: File) => {
     setReading(true);
