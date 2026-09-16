@@ -215,10 +215,12 @@ export default function InstallNagOverlay() {
                       size="sm"
                       className="flex-1"
                       onClick={() => {
-                      setManualPlatform('ios');
+                        setManualPlatform('ios');
+                        setInstallPlatformPreference('ios');
                         trackInstallEvent('manual_platform_selected', {
                           source: 'nag_overlay',
                           selected_platform: 'ios',
+                          saved: true,
                         });
                         trackInstallEvent('platform_steps_shown', {
                           source: 'nag_overlay',
@@ -234,10 +236,12 @@ export default function InstallNagOverlay() {
                       size="sm"
                       className="flex-1"
                       onClick={() => {
-                      setManualPlatform('android');
+                        setManualPlatform('android');
+                        setInstallPlatformPreference('android');
                         trackInstallEvent('manual_platform_selected', {
                           source: 'nag_overlay',
                           selected_platform: 'android',
+                          saved: true,
                         });
                         trackInstallEvent('platform_steps_shown', {
                           source: 'nag_overlay',
