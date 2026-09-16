@@ -16,13 +16,17 @@ const houseSummary = (house: SupportableHouse) => ({
 /**
  * Share actions for one empty house.
  *
- * The link is the opaque, attribution-carrying support deep link created by
+ * The primary action opens the self-support promissory note dialog so the agent
+ * creates the note and shares its activation link from there. The WhatsApp and
+ * copy buttons keep the original house share logic: the opaque,
+ * attribution-carrying support deep link created by
  * `get_or_create_house_share_link` — welileapp.com/s/<code> — so whoever opens
  * it lands on the public support page and this agent stays credited server-side.
  */
 export function HouseShareActions({ house }: { house: SupportableHouse }) {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
 
   const build = async () => {
     const { share_url } = await createHouseShareLink(house.house_id);
