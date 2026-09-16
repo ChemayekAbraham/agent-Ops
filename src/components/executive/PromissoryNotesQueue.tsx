@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { bumpPromissoryPendingCount, reconcilePromissoryPendingCount } from './partner-ops/promissoryPendingCount';
@@ -156,11 +156,23 @@ function SwipeableNoteCard({
  * the note and the partner who promised. Falls back to plain text when neither
  * side has a phone number on record.
  */
-export function AgentCallMenu({ note, className }: { note: any; className?: string }) {
+export function AgentCallMenu({ note, noteCount, className }: { note: any; noteCount?: number; className?: string }) {
   const agentPhone = note.agent_phone || null;
   const partnerPhone = note.phone_number || note.whatsapp_number || null;
   if (!agentPhone && !partnerPhone) {
-    return <span className={className}>{note.agent_name}</span>;
+    return (
+      <span className={cn('inline-flex items-center gap-1', className)}>
+        <span className="truncate">{note.agent_name}</span>
+        {typeof noteCount === 'number' && noteCount > 0 && (
+          <span
+            title={`${noteCount} promissory note${noteCount === 1 ? '' : 's'} registered`}
+            className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary/10 px-1 text-[9px] font-semibold text-primary"
+          >
+            {noteCount}
+          </span>
+        )}
+      </span>
+    );
   }
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
@@ -176,6 +188,14 @@ export function AgentCallMenu({ note, className }: { note: any; className?: stri
           aria-label={`Call options for note by ${note.agent_name}`}
         >
           <span className="truncate">{note.agent_name}</span>
+          {typeof noteCount === 'number' && noteCount > 0 && (
+            <span
+              title={`${noteCount} promissory note${noteCount === 1 ? '' : 's'} registered`}
+              className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary/10 px-1 text-[9px] font-semibold text-primary"
+            >
+              {noteCount}
+            </span>
+          )}
           <Phone className="h-3 w-3 shrink-0" />
         </button>
       </PopoverTrigger>
@@ -483,6 +503,16 @@ export function PromissoryNotesQueue({
 
   const notes = report.notes;
   const kpis = report.kpis;
+
+  const agentNoteCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const agent of report.proxy_agents || []) {
+      if (agent.agent_user_id) {
+        map.set(agent.agent_user_id, agent.notes_count || 0);
+      }
+    }
+    return map;
+  }, [report.proxy_agents]);
 
   const isOverdue = (n: any) => {
     if (!n.fulfilment_due_on) return false;
@@ -992,7 +1022,7 @@ export function PromissoryNotesQueue({
                               aria-label={`Select note for ${note.partner_name}`}
                             />
                           </td>
-                          <td className="py-2 pr-3 max-w-[160px]"><AgentCallMenu note={note} /></td>
+                          <td className="py-2 pr-3 max-w-[160px]"><AgentCallMenu note={note} noteCount={agentNoteCounts.get(note.agent_id) ?? 0} /></td>
                           <td className="py-2 pr-3">
                             <span className="font-medium block truncate max-w-[160px]">{note.partner_name}</span>
                             <span className="text-[10px] text-muted-foreground">{note.whatsapp_number}</span>
@@ -1108,7 +1138,7 @@ export function PromissoryNotesQueue({
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">Promissory note: {note.partner_name}</p>
                             <p className="text-[11px] text-muted-foreground truncate">
-                              Agent: <AgentCallMenu note={note} className="text-[11px] font-medium" />
+                              Agent: <AgentCallMenu note={note} noteCount={agentNoteCounts.get(note.agent_id) ?? 0} className="text-[11px] font-medium" />
                             </p>
                             {(() => {
                               const ci = cameInIdentity(note);
