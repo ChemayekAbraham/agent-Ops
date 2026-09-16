@@ -393,6 +393,8 @@ export function TenantCallsReport() {
         </CardContent>
       </Card>
 
+      {isLoading ? null : <FeedbackAnalysisSection analysis={analysis} periodLabel={win.label} />}
+
       <Card className="min-w-0 overflow-hidden">
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-3">
           <CardTitle className="flex items-center gap-2 text-xs font-bold">
