@@ -1,7 +1,6 @@
 import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { confirmYoolaDelivery, extractYoolaMessageId } from "../_shared/yoolaDeliveryConfirm.ts";
 
 
 const corsHeaders = {
@@ -517,41 +516,12 @@ async function sendSMS(
     }
     const result = await run(current.provider, current.fn);
     if (result.accepted) {
-      // Yoola's send endpoint answers "success" even when the carrier later
-      // drops the message. For OTPs that acceptance is not enough: poll the
-      // delivery report briefly and fail over to the next provider when the
-      // handset delivery is not confirmed.
-      if (current.provider === "yoola") {
-        const { outcome: confirmation, detail } = await confirmYoolaDelivery(
-          extractYoolaMessageId(result.response) ?? result.messageId ?? null,
-          { attempts: 4, delayMs: 2000 },
-        );
-        const last = attempts.at(-1);
-        if (last) {
-          last.reason = `yoola_delivery_${confirmation}${detail ? `:${detail}` : ""}`;
-        }
-        if (confirmation !== "delivered") {
-          console.warn(
-            `[sms-otp] Yoola accepted but delivery ${confirmation} (${detail ?? "no detail"}); failing over`,
-          );
-          if (last) last.accepted = false;
-          bestReason = `yoola_delivery_${confirmation}`;
-          continue;
-        }
-      }
+      // Gateway acceptance is the routing boundary. In particular, Yoola's
+      // accepted response must end the chain: AT and LANA are fallbacks only
+      // when Yoola is unconfigured or rejects the request.
       return { accepted: true, provider: current.provider, attempts };
     }
     if (result.reason && !wasSkipped(result.reason)) bestReason = result.reason;
-  }
-
-  // Every provider failed to confirm. If Yoola at least accepted the message,
-  // treat the send as accepted rather than telling the user nothing was sent —
-  // late carrier delivery is common here.
-  const yoolaAccepted = attempts.find(
-    (a) => a.provider === "yoola" && String(a.reason ?? "").startsWith("yoola_delivery_"),
-  );
-  if (yoolaAccepted) {
-    return { accepted: true, provider: "yoola", attempts };
   }
 
   return { accepted: false, reason: bestReason ?? attempts.at(-1)?.reason, attempts };
