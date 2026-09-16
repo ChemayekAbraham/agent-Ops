@@ -116,7 +116,7 @@ export default function AgentServiceCenter() {
 
   return (
     <div className="min-h-[100dvh] bg-background">
-      <header className="sticky top-0 z-10 border-b border-border/60 bg-background/95 backdrop-blur relative">
+      <header className="border-b border-border/60 bg-background relative">
         <Button
           variant="ghost"
           size="icon"
