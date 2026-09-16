@@ -240,6 +240,19 @@ export default function InstallAppCard({ className, global = false }: InstallApp
                 </p>
               )}
 
+              {/* Platform-specific quick steps, visible without opening a guide. */}
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                {isIOS ? (
+                  <>
+                    On iPhone: tap <strong>Share</strong> <Share className="inline h-3 w-3 -mt-0.5" /> in Safari, then <strong>"Add to Home Screen"</strong>, then <strong>"Add"</strong>.
+                  </>
+                ) : (
+                  <>
+                    On Android: tap <strong>Install App</strong> below — or open the browser menu <strong>(⋮)</strong> and choose <strong>"Install app"</strong> / <strong>"Add to Home screen"</strong>.
+                  </>
+                )}
+              </p>
+
               <div className="mt-3 flex items-center gap-2 flex-wrap">
                 <Button
                   onClick={handleInstall}
