@@ -374,16 +374,6 @@ export function expandLandlordFloat(
   });
 }
 
-        value: self,
-        lines: [],
-        subtotal: true,
-        depth: 1,
-      },
-      { label: LANDLORD_FLOAT_TOTAL_LABEL, value: g.value, lines: [], subtotal: true, depth: 0 },
-    ];
-  });
-}
-
 
 /**
  * Lines worth showing inside the flagged block. Accounts sitting at exactly
