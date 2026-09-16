@@ -5,14 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Check, Copy, Home, ImageIcon, MapPin, MessageCircle, Share2, ShieldCheck, Sparkles, TrendingUp, Users } from 'lucide-react';
+import { Check, Copy, Eye, Home, ImageIcon, Loader2, MapPin, MessageCircle, Share2, ShieldCheck, Sparkles, TrendingUp, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { useVerifiedEmptyHouses, houseTitleLine, houseAddressLine, HOUSE_MONTHLY_ROI_RATE, type SupportableHouse } from '@/components/partner/SelfSupportHousesSection';
 import { PlanShareButton } from '@/components/partner/PlanShareButton';
-import { SHARE_LINK_HOST } from '@/lib/planShareLink';
+import { createHouseShareLink, houseShareMessage } from '@/lib/houseSupportShare';
 
 const money = (v: unknown) => formatDynamic(v);
 
@@ -33,92 +33,89 @@ const photoOf = (h: SupportableHouse) =>
 
 const monthlyReturn = (rent: number) => Math.round((rent * HOUSE_MONTHLY_ROI_RATE) / 100);
 
-/** Support-framed message: what the partner puts in, what comes back monthly. */
-function houseShareMessage(house: SupportableHouse, url: string) {
-  const rent = Number(house.monthly_rent || 0);
-  return [
-    `🏠 *Support this empty house on Welile*`,
-    ``,
-    `*${houseTitleLine(house)}*`,
-    `📍 ${houseAddressLine(house)}`,
-    ...(house.number_of_rooms ? [`🚪 ${house.number_of_rooms} room${house.number_of_rooms > 1 ? 's' : ''}`] : []),
-    `💰 Pay one month's rent: ${money(rent)}`,
-    `📈 Earn ${money(monthlyReturn(rent))} every month for the next 12 months`,
-    ``,
-    `A family moves in as soon as this house is supported.`,
-    `👉 See the house & support it: ${url}`,
-  ].join('\n');
-}
+const houseSummary = (house: SupportableHouse) => ({
+  title: houseTitleLine(house),
+  place: houseAddressLine(house),
+  monthly_rent: Number(house.monthly_rent || 0),
+});
 
-function useHouseShortCodes(ids: string[]) {
-  const key = ids.slice().sort().join(',');
-  return useQuery({
-    queryKey: ['proxy-house-short-codes', key],
-    enabled: ids.length > 0,
-    staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('house_listings')
-        .select('id, short_code')
-        .in('id', ids);
-      if (error) throw error;
-      const map: Record<string, string> = {};
-      for (const row of data ?? []) if (row.short_code) map[row.id] = row.short_code;
-      return map;
-    },
-  });
-}
-
-function HouseShareActions({ house, shortCode }: { house: SupportableHouse; shortCode?: string }) {
+/**
+ * Share actions for one empty house.
+ *
+ * The link is the opaque, attribution-carrying support deep link created by
+ * `get_or_create_house_share_link` — welileapp.com/s/<code> — so whoever opens
+ * it lands on the public support page and this agent stays credited server-side.
+ */
+function HouseShareActions({ house }: { house: SupportableHouse }) {
   const [copied, setCopied] = useState(false);
-  const url = `${SHARE_LINK_HOST}/house/${shortCode || house.house_id}`;
-  const message = houseShareMessage(house, url);
+  const [busy, setBusy] = useState(false);
 
-  const share = async () => {
-    const payload: ShareData = { title: houseTitleLine(house), text: message, url };
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share(payload);
-        return;
-      } catch (e: any) {
-        if (e?.name === 'AbortError') return;
-      }
-    }
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  const build = async () => {
+    const { share_url } = await createHouseShareLink(house.house_id);
+    return { url: share_url, message: houseShareMessage(houseSummary(house), share_url) };
   };
 
-  const copy = async () => {
+  const withLink = async (fn: (v: { url: string; message: string }) => void | Promise<void>) => {
+    setBusy(true);
     try {
+      await fn(await build());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not create the share link');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const share = () =>
+    withLink(async ({ url, message }) => {
+      const payload: ShareData = { title: houseTitleLine(house), text: message, url };
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        try {
+          await navigator.share(payload);
+          return;
+        } catch (e: any) {
+          if (e?.name === 'AbortError') return;
+        }
+      }
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    });
+
+  const whatsapp = () =>
+    withLink(({ message }) => {
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    });
+
+  const copy = () =>
+    withLink(async ({ message }) => {
       await navigator.clipboard.writeText(message);
       setCopied(true);
-      toast.success('Support message copied');
+      toast.success('Support link copied');
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error('Could not copy the message');
-    }
-  };
+    });
 
   return (
     <div className="flex gap-2">
-      <Button className="flex-1 gap-2 rounded-xl font-semibold" onClick={share}>
-        <Share2 className="h-4 w-4" /> Share to support
+      <Button className="flex-1 gap-2 rounded-xl font-semibold" disabled={busy} onClick={share}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+        Share to support
       </Button>
       <Button
         variant="outline"
         className="gap-2 rounded-xl"
-        onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')}
+        disabled={busy}
+        onClick={whatsapp}
         aria-label="Share on WhatsApp"
       >
         <MessageCircle className="h-4 w-4" />
       </Button>
-      <Button variant="outline" className="rounded-xl" onClick={copy} aria-label="Copy support message">
+      <Button variant="outline" className="rounded-xl" disabled={busy} onClick={copy} aria-label="Copy support link">
         {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
       </Button>
     </div>
   );
 }
 
-function HouseCard({ house, shortCode }: { house: SupportableHouse; shortCode?: string }) {
+function HouseCard({ house }: { house: SupportableHouse }) {
   const photo = photoOf(house);
   const rent = Number(house.monthly_rent || 0);
   return (
@@ -164,7 +161,7 @@ function HouseCard({ house, shortCode }: { house: SupportableHouse; shortCode?: 
           </div>
         </div>
 
-        <HouseShareActions house={house} shortCode={shortCode} />
+        <HouseShareActions house={house} />
       </CardContent>
     </Card>
   );
@@ -249,8 +246,16 @@ export function ProxySupportOpportunities({ className }: { className?: string })
   const plans = plansQ.data?.plans ?? [];
   const visibleHouses = houses.slice(0, housesShown);
   const visiblePlans = plans.slice(0, plansShown);
-  const codesQ = useHouseShortCodes(useMemo(() => visibleHouses.map((h) => h.house_id), [visibleHouses]));
-  const codes = codesQ.data ?? {};
+  const perfQ = useQuery({
+    queryKey: ['house-share-performance'],
+    staleTime: 2 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('house_share_performance');
+      if (error) throw error;
+      return (data ?? {}) as { opened?: number; support_clicked?: number; support_completed?: number; links?: number };
+    },
+  });
+  const perf = perfQ.data;
 
   const grid = 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4';
 
@@ -263,6 +268,19 @@ export function ProxySupportOpportunities({ className }: { className?: string })
           {houses.length} houses · {plans.length} plans
         </Badge>
       </div>
+
+      {perf && (Number(perf.links) > 0 || Number(perf.opened) > 0) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <Eye className="h-3.5 w-3.5 text-primary" /> {Number(perf.opened || 0)} link opens
+          </span>
+          <span>{Number(perf.support_clicked || 0)} started support</span>
+          <span>{Number(perf.support_completed || 0)} supported</span>
+          <span className="ml-auto">{Number(perf.links || 0)} links shared</span>
+        </div>
+      )}
+
+
 
       <Tabs defaultValue="houses">
         <TabsList className="grid w-full grid-cols-2">
@@ -282,7 +300,7 @@ export function ProxySupportOpportunities({ className }: { className?: string })
           ) : (
             <>
               <div className={grid}>
-                {visibleHouses.map((h) => <HouseCard key={h.house_id} house={h} shortCode={codes[h.house_id]} />)}
+                {visibleHouses.map((h) => <HouseCard key={h.house_id} house={h} />)}
               </div>
               {housesShown < houses.length && (
                 <Button variant="outline" className="mt-3 w-full font-semibold" onClick={() => setHousesShown((n) => n + 6)}>

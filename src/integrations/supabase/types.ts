@@ -16063,6 +16063,42 @@ export type Database = {
         }
         Relationships: []
       }
+      house_support_share_events: {
+        Row: {
+          commitment_id: string | null
+          created_at: string
+          event: string
+          house_id: string | null
+          id: string
+          share_code: string
+          sharing_user_id: string | null
+          user_agent: string | null
+          visitor_user_id: string | null
+        }
+        Insert: {
+          commitment_id?: string | null
+          created_at?: string
+          event: string
+          house_id?: string | null
+          id?: string
+          share_code: string
+          sharing_user_id?: string | null
+          user_agent?: string | null
+          visitor_user_id?: string | null
+        }
+        Update: {
+          commitment_id?: string | null
+          created_at?: string
+          event?: string
+          house_id?: string | null
+          id?: string
+          share_code?: string
+          sharing_user_id?: string | null
+          user_agent?: string | null
+          visitor_user_id?: string | null
+        }
+        Relationships: []
+      }
       hr_assignments: {
         Row: {
           created_at: string
@@ -55918,6 +55954,17 @@ export type Database = {
           successes: number
         }[]
       }
+      get_or_create_house_share_link: {
+        Args: { p_house_id: string }
+        Returns: {
+          code: string
+          created: boolean
+          destination_path: string
+          og_description: string
+          og_image_url: string
+          og_title: string
+        }[]
+      }
       get_or_create_plan_share_link: {
         Args: { p_plan_id: string }
         Returns: {
@@ -57272,6 +57319,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      house_share_performance: { Args: never; Returns: Json }
       hr_can_assign_tasks: { Args: never; Returns: boolean }
       hr_change_department: {
         Args: {
@@ -58092,6 +58140,15 @@ export type Database = {
         }
         Returns: string
       }
+      log_house_support_share_event: {
+        Args: {
+          p_code: string
+          p_commitment_id?: string
+          p_event: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
       log_proxy_partner_invite: {
         Args: {
           p_channel?: string
@@ -58469,6 +58526,10 @@ export type Database = {
           decision_reason: string
           status: string
         }[]
+      }
+      my_portfolio_statement: {
+        Args: { p_portfolio_id?: string }
+        Returns: Json
       }
       my_proxy_agent_status: { Args: never; Returns: Json }
       my_proxy_agreement_record: {
@@ -59984,6 +60045,7 @@ export type Database = {
           person_user_id: string
         }[]
       }
+      public_house_support_offer: { Args: { p_code: string }; Returns: Json }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
         Args: {

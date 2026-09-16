@@ -26,6 +26,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { downloadPortfolioPdf, type PortfolioPdfData } from '@/lib/portfolioPdf';
+import { downloadPartnerStatement } from '@/lib/partnerStatement';
 import { differenceInCalendarDays } from 'date-fns';
 
 /** Support line that handles rejected portfolio top-ups (WhatsApp chat). */
@@ -139,6 +140,11 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  /* Two different documents, so the person is asked which they want:
+     the projection shows what this portfolio is expected to earn,
+     the statement shows what has actually happened on it. */
+  const [reportChoiceOpen, setReportChoiceOpen] = useState(false);
+  const [downloadingStatement, setDownloadingStatement] = useState(false);
   const [togglingReinvest, setTogglingReinvest] = useState(false);
   const [localAutoReinvest, setLocalAutoReinvest] = useState<boolean | null>(null);
   const [pendingTopup, setPendingTopup] = useState(0);
@@ -248,11 +254,27 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
     setDownloading(true);
     try {
       await downloadPortfolioPdf(buildPdfData());
-      toast.success('PDF downloaded');
+      toast.success('Projection report downloaded');
+      setReportChoiceOpen(false);
     } catch {
-      toast.error('Failed to generate PDF');
+      toast.error('Could not create the projection report');
     }
     setDownloading(false);
+  };
+
+  const handleDownloadStatement = async () => {
+    if (!portfolio?.id) return;
+    setDownloadingStatement(true);
+    try {
+      await downloadPartnerStatement(portfolio.id);
+      toast.success('Statement downloaded', {
+        description: 'A PDF of everything that has happened on this account.',
+      });
+      setReportChoiceOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not create the statement');
+    }
+    setDownloadingStatement(false);
   };
 
   const handleToggleAutoReinvest = async () => {
@@ -462,11 +484,13 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
             <Button
               variant="outline"
               className="flex-1 h-10 gap-2 text-xs font-semibold"
-              onClick={handleDownloadPdf}
-              disabled={downloading}
+              onClick={() => { hapticTap(); setReportChoiceOpen(true); }}
+              disabled={downloading || downloadingStatement}
             >
-              {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-              Download PDF
+              {(downloading || downloadingStatement)
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Download className="h-3.5 w-3.5" />}
+              Download report
             </Button>
             <Button
               variant="outline"
@@ -477,6 +501,48 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
               Share
             </Button>
           </div>
+
+          {/* Which report? The two answer different questions, so the choice is
+              spelled out rather than hidden behind one ambiguous button. */}
+          <Dialog open={reportChoiceOpen} onOpenChange={setReportChoiceOpen}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="text-base">Choose a report</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={downloading || downloadingStatement}
+                  className="w-full text-left rounded-xl border border-border/60 p-3.5 hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-60"
+                >
+                  <p className="flex items-center gap-2 text-sm font-bold">
+                    {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 text-primary" />}
+                    Projection report
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    What this account is expected to earn over its term. PDF.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadStatement}
+                  disabled={downloading || downloadingStatement}
+                  className="w-full text-left rounded-xl border border-border/60 p-3.5 hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-60"
+                >
+                  <p className="flex items-center gap-2 text-sm font-bold">
+                    {downloadingStatement ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 text-primary" />}
+                    Statement
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    What has actually happened: top-ups, Returns added, payouts and
+                    changes. PDF.
+                  </p>
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Auto-Reinvest Toggle */}
           {isActive && (
@@ -567,16 +633,47 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
     }
   }, [open, initialPortfolioId, portfolios]);
 
+  // One statement covering every portfolio the partner holds.
+  const [exportingAll, setExportingAll] = useState(false);
+
+  const handleExportAll = async () => {
+    hapticTap();
+    setExportingAll(true);
+    try {
+      await downloadPartnerStatement();
+      toast.success('Statement downloaded', {
+        description: 'Every portfolio in one PDF.',
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not create the statement');
+    }
+    setExportingAll(false);
+  };
+
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl p-0 flex flex-col">
           <SheetHeader className="px-5 pt-5 pb-3 border-b border-border/60 shrink-0">
-            <SheetTitle className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-primary/10">
-                <Briefcase className="h-4 w-4 text-primary" />
-              </div>
-              <span className="text-base font-black">My Investments</span>
+            <SheetTitle className="flex items-center justify-between gap-2.5">
+              <span className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-primary/10">
+                  <Briefcase className="h-4 w-4 text-primary" />
+                </span>
+                <span className="text-base font-black">My Support</span>
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-[11px] font-semibold shrink-0"
+                onClick={handleExportAll}
+                disabled={exportingAll}
+              >
+                {exportingAll
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <FileText className="h-3.5 w-3.5" />}
+                Full statement
+              </Button>
             </SheetTitle>
           </SheetHeader>
 
