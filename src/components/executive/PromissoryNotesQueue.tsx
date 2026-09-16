@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { bumpPromissoryPendingCount, reconcilePromissoryPendingCount } from './partner-ops/promissoryPendingCount';
@@ -156,11 +156,23 @@ function SwipeableNoteCard({
  * the note and the partner who promised. Falls back to plain text when neither
  * side has a phone number on record.
  */
-export function AgentCallMenu({ note, className }: { note: any; className?: string }) {
+export function AgentCallMenu({ note, noteCount, className }: { note: any; noteCount?: number; className?: string }) {
   const agentPhone = note.agent_phone || null;
   const partnerPhone = note.phone_number || note.whatsapp_number || null;
   if (!agentPhone && !partnerPhone) {
-    return <span className={className}>{note.agent_name}</span>;
+    return (
+      <span className={cn('inline-flex items-center gap-1', className)}>
+        <span className="truncate">{note.agent_name}</span>
+        {typeof noteCount === 'number' && noteCount > 0 && (
+          <span
+            title={`${noteCount} promissory note${noteCount === 1 ? '' : 's'} registered`}
+            className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary/10 px-1 text-[9px] font-semibold text-primary"
+          >
+            {noteCount}
+          </span>
+        )}
+      </span>
+    );
   }
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
@@ -176,6 +188,14 @@ export function AgentCallMenu({ note, className }: { note: any; className?: stri
           aria-label={`Call options for note by ${note.agent_name}`}
         >
           <span className="truncate">{note.agent_name}</span>
+          {typeof noteCount === 'number' && noteCount > 0 && (
+            <span
+              title={`${noteCount} promissory note${noteCount === 1 ? '' : 's'} registered`}
+              className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary/10 px-1 text-[9px] font-semibold text-primary"
+            >
+              {noteCount}
+            </span>
+          )}
           <Phone className="h-3 w-3 shrink-0" />
         </button>
       </PopoverTrigger>
@@ -484,6 +504,16 @@ export function PromissoryNotesQueue({
   const notes = report.notes;
   const kpis = report.kpis;
 
+  const agentNoteCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const agent of report.proxy_agents || []) {
+      if (agent.agent_user_id) {
+        map.set(agent.agent_user_id, agent.notes_count || 0);
+      }
+    }
+    return map;
+  }, [report.proxy_agents]);
+
   const isOverdue = (n: any) => {
     if (!n.fulfilment_due_on) return false;
     const due = new Date(n.fulfilment_due_on);
@@ -505,6 +535,21 @@ export function PromissoryNotesQueue({
     const outstanding = Number(n.outstanding ?? (Number(n.amount) - Number(n.total_collected)));
     return outstanding > 0;
   };
+
+  function fulfillmentCountdown(fulfilmentDueOn: string | null | undefined): { date: string | null; label: string; overdue: boolean } {
+    if (!fulfilmentDueOn) return { date: null, label: '', overdue: false };
+    const due = new Date(fulfilmentDueOn);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const diffMs = dueDay.getTime() - today.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const dateStr = format(due, 'dd MMM yyyy');
+    if (diffDays < 0) return { date: dateStr, label: `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'} overdue`, overdue: true };
+    if (diffDays === 0) return { date: dateStr, label: 'Due today', overdue: false };
+    return { date: dateStr, label: `${diffDays} day${diffDays === 1 ? '' : 's'} left`, overdue: false };
+  }
+
 
   const filtered = notes.filter(n => {
     const haystack = [
@@ -959,8 +1004,10 @@ export function PromissoryNotesQueue({
                       <th className="py-2 pr-3 font-medium text-right">Promised</th>
                       <th className="py-2 pr-3 font-medium text-right">Fulfilled</th>
                       <th className="py-2 pr-3 font-medium">Created</th>
+                      <th className="py-2 pr-3 font-medium">Fulfils by</th>
                       <th className="py-2 pr-3 font-medium">Status</th>
                     </tr>
+
                   </thead>
                   <tbody>
                     {pagedNotes.map(note => {
@@ -975,7 +1022,7 @@ export function PromissoryNotesQueue({
                               aria-label={`Select note for ${note.partner_name}`}
                             />
                           </td>
-                          <td className="py-2 pr-3 max-w-[160px]"><AgentCallMenu note={note} /></td>
+                          <td className="py-2 pr-3 max-w-[160px]"><AgentCallMenu note={note} noteCount={agentNoteCounts.get(note.agent_id) ?? 0} /></td>
                           <td className="py-2 pr-3">
                             <span className="font-medium block truncate max-w-[160px]">{note.partner_name}</span>
                             <span className="text-[10px] text-muted-foreground">{note.whatsapp_number}</span>
@@ -1000,15 +1047,25 @@ export function PromissoryNotesQueue({
                           <td className="py-2 pr-3 text-right font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></td>
                           <td className="py-2 pr-3">
                             {format(new Date(note.created_at), 'dd MMM yyyy')}
-                            {note.fulfilment_due_on && Number(note.outstanding ?? (Number(note.amount) - Number(note.total_collected))) > 0 && (
-                              <span className={cn(
-                                'block text-[10px]',
-                                new Date(note.fulfilment_due_on) < new Date() ? 'text-destructive font-medium' : 'text-muted-foreground',
-                              )}>
-                                Fulfils by {format(new Date(note.fulfilment_due_on), 'dd MMM yyyy')}
-                              </span>
-                            )}
                           </td>
+                          <td className="py-2 pr-3">
+                            {note.fulfilment_due_on && Number(note.outstanding ?? (Number(note.amount) - Number(note.total_collected))) > 0 && (() => {
+                              const cd = fulfillmentCountdown(note.fulfilment_due_on);
+                              return (
+                                <div className="space-y-0.5">
+                                  <span className="block">{cd.date}</span>
+                                  <span className={cn(
+                                    'inline-flex items-center gap-1 text-[10px] font-medium',
+                                    cd.overdue ? 'text-destructive' : 'text-muted-foreground'
+                                  )}>
+                                    <Clock className="h-3 w-3" />
+                                    {cd.label}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </td>
+
                           <td className="py-2 pr-3">
                             <div className="flex flex-wrap items-center gap-1">
                               <Badge variant="outline" className={cn('text-[10px]', config.color)}>
@@ -1081,7 +1138,7 @@ export function PromissoryNotesQueue({
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">Promissory note: {note.partner_name}</p>
                             <p className="text-[11px] text-muted-foreground truncate">
-                              Agent: <AgentCallMenu note={note} className="text-[11px] font-medium" />
+                              Agent: <AgentCallMenu note={note} noteCount={agentNoteCounts.get(note.agent_id) ?? 0} className="text-[11px] font-medium" />
                             </p>
                             {(() => {
                               const ci = cameInIdentity(note);
@@ -1147,16 +1204,26 @@ export function PromissoryNotesQueue({
                           {format(new Date(note.created_at), 'dd MMM yyyy')}
                           {note.came_in && <span className="ml-auto text-emerald-700 font-medium">Came in</span>}
                         </div>
-                        {note.fulfilment_due_on && Number(note.amount) - Number(note.total_collected) > 0 && (
-                          <div className={cn(
-                            'col-span-2 flex items-center gap-1 font-medium',
-                            new Date(note.fulfilment_due_on) < new Date() ? 'text-destructive' : 'text-primary',
-                          )}>
-                            <Calendar className="h-3 w-3" />
-                            Fulfils by {format(new Date(note.fulfilment_due_on), 'dd MMM yyyy')}
-                            {new Date(note.fulfilment_due_on) < new Date() && ' (overdue)'}
-                          </div>
-                        )}
+                        {note.fulfilment_due_on && Number(note.amount) - Number(note.total_collected) > 0 && (() => {
+                          const cd = fulfillmentCountdown(note.fulfilment_due_on);
+                          return (
+                            <div className={cn(
+                              'col-span-2 flex items-center gap-1 font-medium',
+                              cd.overdue ? 'text-destructive' : 'text-primary',
+                            )}>
+                              <Calendar className="h-3 w-3" />
+                              <span>Fulfils by {cd.date}</span>
+                              <span className={cn(
+                                'ml-auto inline-flex items-center gap-1 text-[10px] font-medium',
+                                cd.overdue ? 'text-destructive' : 'text-muted-foreground'
+                              )}>
+                                <Clock className="h-3 w-3" />
+                                {cd.label}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
                       </div>
                     </SwipeableNoteCard>
                   );

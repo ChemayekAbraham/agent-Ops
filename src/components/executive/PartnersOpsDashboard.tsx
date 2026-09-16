@@ -48,6 +48,7 @@ import { SelfManagedNearingPayouts } from './SelfManagedNearingPayouts';
 import { PartnerOpsSidebar } from './partner-ops/PartnerOpsSidebar';
 import { PartnerOpsTopBar } from './partner-ops/PartnerOpsTopBar';
 import { PartnerOpsSummaryCards } from './partner-ops/PartnerOpsSummaryCards';
+import { PartnerReceivablesVsExpectedChart } from './partner-ops/PartnerReceivablesVsExpectedChart';
 import { ExpiringPortfoliosPanel } from './partner-ops/ExpiringPortfoliosPanel';
 import { NearingPayoutsPanel } from './partner-ops/NearingPayoutsPanel';
 import { PartnerOpsRentRequestQueue } from './partner-ops/PartnerOpsRentRequestQueue';
@@ -252,6 +253,7 @@ export function PartnersOpsDashboard() {
             <PartnerRoiProjectionChart />
             <PartnerSupportMixChart />
           </div>
+          <PartnerReceivablesVsExpectedChart />
           <PartnerRecentWithdrawals />
           <PartnerNewTrend />
           <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>

@@ -120,6 +120,7 @@ import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
 import { AgentExpiredCyclesCard } from '@/components/agent/AgentExpiredCyclesCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
+import { AgentConvertToFloatCard } from '@/components/agent/AgentConvertToFloatCard';
 import { ReceiptNumberCheckDialog } from '@/components/agent/ReceiptNumberCheckDialog';
 import { AgentPendingReceiptPanel } from '@/components/agent/AgentPendingReceiptPanel';
 import { AgentTenantHealthCard } from '@/components/agent/AgentTenantHealthCard';
@@ -1475,6 +1476,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               </div>
             )}
 
+            <AgentConvertToFloatCard />
 
             <AgentCompanyDebtCard onViewBreakdown={() => { hapticTap(); setTenantsSheetOpen(true); }} />
             <AgentMyAdvancesCard />
