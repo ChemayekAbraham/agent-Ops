@@ -1,6 +1,11 @@
 # Reversed collections: full surface audit
 
-**As at 2026-09-16, after reporting sweep batch 2 (`20260916210000`).**
+**As at 2026-09-16, after the final sweep (`20260916240000`).**
+
+> **DATABASE SIDE COMPLETE.** 72 functions now exclude reversed collections and
+> **zero money readers remain**. The per-function backlog listed further down has
+> been worked through; the EDGE FUNCTION and FRONTEND sections below are now the
+> whole of the remaining work.
 
 Once `20260916180000` marks the 1,210 duplicate collections `reversed_at`, any
 surface that does not exclude reversed rows keeps reporting them as money
