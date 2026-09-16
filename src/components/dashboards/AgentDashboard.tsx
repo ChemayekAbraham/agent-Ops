@@ -1476,6 +1476,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               </div>
             )}
 
+            <AgentConvertToFloatCard />
 
             <AgentCompanyDebtCard onViewBreakdown={() => { hapticTap(); setTenantsSheetOpen(true); }} />
             <AgentMyAdvancesCard />
@@ -1490,7 +1491,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               onOpenOtpAudit={() => { hapticTap(); setOtpAuditOpen(true); }}
             />
             )}
-            <AgentConvertToFloatCard />
             {!isMerchant && (
               <button
                 onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}
