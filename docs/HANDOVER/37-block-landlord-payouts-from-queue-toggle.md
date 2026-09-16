@@ -1,8 +1,10 @@
 # 37 — CTO Platform Controls: "Block landlord payouts from queue" toggle (2026-09-16)
 
-**Migration written but NOT yet applied to production — verified live, the
-`landlord_payouts_blocked` control row does not exist yet.** Read this before assuming the
-toggle is visible in Platform Controls or does anything.
+**Status: fixed, verified live in production (2026-09-16).** Deployed and confirmed: the
+`landlord_payouts_blocked` control row exists (default `false`), `landlord_payouts_blocked_from_queue()`
+exists, and `v_merchant_payout_queue`, `claim_withdrawal_verified`, and `get_withdrawal_claim_status`
+all carry the fix (checked via `pg_get_viewdef`/`prosrc` against live production, not the migration
+file — see the verify block below, which is exactly what was re-run to confirm this).
 
 ## What was requested
 
@@ -59,15 +61,7 @@ default-on guard).
 - `src/components/cto/PlatformControlsPanel.tsx`
 - `src/components/agent/AgentCashPayoutsTab.tsx`
 
-## Still needs doing
-
-- **Deploy the migration.** Confirmed via live query that `treasury_controls` has no
-  `landlord_payouts_blocked` row yet — an agent session cannot push migrations to production
-  (same limitation noted in doc 34). Someone needs to run this migration through whatever
-  deploy pipeline this project uses.
-- After deploying, verify with the queries below before trusting the toggle.
-
-## Verify this is live
+## Verify this is still live
 
 ```sql
 -- Row should exist, default false:
