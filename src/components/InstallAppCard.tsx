@@ -97,10 +97,13 @@ export default function InstallAppCard({ className, global = false }: InstallApp
       hasPrompt,
       degraded: preflight.degraded,
       surface: global ? 'global_card' : 'header_card',
+      effective_platform: effectiveIsIOS ? 'ios' : 'android',
+      from_preference: !isIOS && !isAndroid && !!preferredPlatform,
     });
     trackInstallEvent('platform_steps_shown', {
       surface: global ? 'global_card' : 'header_card',
-      platform: isIOS ? 'ios' : 'android',
+      platform: effectiveIsIOS ? 'ios' : 'android',
+      from_preference: !isIOS && !isAndroid && !!preferredPlatform,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preflight.loading, preflight.degraded]);
@@ -132,12 +135,12 @@ export default function InstallAppCard({ className, global = false }: InstallApp
   const handleDismiss = () => {
     writeSnooze('snoozed');
     setDismissed(true);
-    trackInstallEvent('install_card_dismissed', { isIOS });
+    trackInstallEvent('install_card_dismissed', { isIOS, effective_platform: effectiveIsIOS ? 'ios' : 'android' });
   };
 
   const handleInstall = async () => {
-    trackInstallEvent('install_cta_clicked', { isIOS, hasPrompt });
-    if (isIOS) {
+    trackInstallEvent('install_cta_clicked', { isIOS, hasPrompt, effective_platform: effectiveIsIOS ? 'ios' : 'android' });
+    if (effectiveIsIOS) {
       // Open the full guide (with in-app-browser detection + copy link).
       // A toast alone is not enough — most iPhone install failures are users
       // opening the link from WhatsApp/Facebook/Instagram in-app browsers.
@@ -164,7 +167,8 @@ export default function InstallAppCard({ className, global = false }: InstallApp
         trackInstallEvent('app_installed');
         trackInstallEvent('install_attributed', {
           surface: global ? 'global_card' : 'header_card',
-          platform: isIOS ? 'ios' : 'android',
+          platform: effectiveIsIOS ? 'ios' : 'android',
+          from_preference: !isIOS && !isAndroid && !!preferredPlatform,
         });
         toast.success('App installed successfully!');
         handleDismiss();
@@ -188,7 +192,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
 
   const ctaLabel = isInstalling
     ? 'Installing…'
-    : isIOS
+    : effectiveIsIOS
       ? 'How to install'
       : hasPrompt
         ? 'Install App'
