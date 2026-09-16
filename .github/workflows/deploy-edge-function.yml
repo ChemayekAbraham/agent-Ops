@@ -45,6 +45,9 @@ on:
           - verify-passport-photo
           - read-national-id
           - proxy-promissory-note-reminders
+          - agent-daily-performance-report
+          - agent-ops-daily-report
+          - notify-agent-collection-lapse
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
@@ -78,17 +81,54 @@ jobs:
             || { echo "::error::function source not found"; exit 1; }
           echo "Source present at supabase/functions/${{ inputs.function }}/index.ts"
 
-      - name: Confirm verify_jwt convention is unchanged
+      - name: Confirm verify_jwt posture is what we expect for THIS function
         run: |
           set -euo pipefail
-          # config.toml lists ONLY functions that need verify_jwt = false. Our two
-          # authenticate via the Authorization header and must keep the default
-          # (true). If either ever appears in config.toml, stop and re-review.
-          if grep -q "functions.${{ inputs.function }}\]" supabase/config.toml; then
-            echo "::error::${{ inputs.function }} now has an explicit config.toml entry - review verify_jwt before deploying"
-            exit 1
+          # config.toml lists only functions that need verify_jwt = false, so the
+          # ABSENCE of an entry means the default (true) applies.
+          #
+          # The original check refused any function carrying an entry at all.
+          # That was right for the two money functions, which authenticate via
+          # the Authorization header and must stay on the default - but 73 of the
+          # 333 functions legitimately carry an entry, and the cron-invoked
+          # reports are among them: nothing presents a user JWT at 03:00, so they
+          # would fail every run with verify_jwt = true. A blanket refusal made
+          # those undeployable.
+          #
+          # So the posture is declared per function and asserted, rather than
+          # assumed. Either direction being wrong stops the deploy: an unexpected
+          # entry appearing on a JWT function, or a public function quietly
+          # losing the entry that keeps its scheduler able to call it.
+          case "${{ inputs.function }}" in
+            agent-daily-performance-report|agent-ops-daily-report)
+              EXPECT_PUBLIC=yes ;;   # invoked by pg_cron, no user JWT exists
+            *)
+              EXPECT_PUBLIC=no ;;    # authenticates via the Authorization header
+          esac
+
+          if grep -q "\[functions.${{ inputs.function }}\]" supabase/config.toml; then
+            HAS_ENTRY=yes
+          else
+            HAS_ENTRY=no
           fi
-          echo "No explicit entry: default verify_jwt = true preserved."
+
+          if [ "$EXPECT_PUBLIC" = "yes" ]; then
+            if [ "$HAS_ENTRY" != "yes" ]; then
+              echo "::error::${{ inputs.function }} is scheduler-invoked and needs verify_jwt = false, but config.toml has no entry. A cron call would 401 on every run."
+              exit 1
+            fi
+            if ! grep -A2 "\[functions.${{ inputs.function }}\]" supabase/config.toml | grep -q "verify_jwt = false"; then
+              echo "::error::${{ inputs.function }} has a config.toml entry that is not verify_jwt = false - review before deploying"
+              exit 1
+            fi
+            echo "Expected posture confirmed: verify_jwt = false (scheduler-invoked)."
+          else
+            if [ "$HAS_ENTRY" = "yes" ]; then
+              echo "::error::${{ inputs.function }} now has an explicit config.toml entry - review verify_jwt before deploying"
+              exit 1
+            fi
+            echo "No explicit entry: default verify_jwt = true preserved."
+          fi
 
       - uses: supabase/setup-cli@v1
         with:

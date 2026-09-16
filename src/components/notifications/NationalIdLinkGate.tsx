@@ -11,6 +11,10 @@ import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -21,6 +25,7 @@ export default function NationalIdLinkGate() {
   const requests = useNationalIdLinkRequestsForHolder();
   const decide = useNationalIdLinkOwnerDecision();
   const [note, setNote] = useState('');
+  const [confirming, setConfirming] = useState<'approve' | 'reject' | null>(null);
 
   const row = requests.data?.[0];
   if (!row) return null;
@@ -30,6 +35,7 @@ export default function NationalIdLinkGate() {
       await decide.mutateAsync({ id: row.id, approve, note: approve ? undefined : note });
       toast.success(approve ? 'Thank you — you allowed it.' : 'Thank you — you refused it.');
       setNote('');
+      setConfirming(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not send your answer.');
     }
@@ -86,14 +92,14 @@ export default function NationalIdLinkGate() {
             <Button
               variant="outline"
               className="h-11"
-              onClick={() => answer(false)}
+              onClick={() => setConfirming('reject')}
               disabled={decide.isPending}
             >
               No, I do not agree
             </Button>
             <Button
               className="h-11"
-              onClick={() => answer(true)}
+              onClick={() => setConfirming('approve')}
               disabled={decide.isPending || !codeEntered}
             >
               {decide.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
@@ -101,6 +107,34 @@ export default function NationalIdLinkGate() {
             </Button>
           </div>
         </div>
+
+        <AlertDialog open={confirming !== null} onOpenChange={(o) => !o && setConfirming(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {confirming === 'approve' ? 'Allow this account on your National ID?' : 'Refuse this request?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirming === 'approve'
+                  ? 'This account will be added to your National ID. Only agree if you know the person.'
+                  : 'The account will not be added to your National ID.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={decide.isPending}>Go back</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  answer(confirming === 'approve');
+                }}
+                disabled={decide.isPending}
+              >
+                {decide.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                {confirming === 'approve' ? 'Yes, allow it' : 'Yes, refuse it'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

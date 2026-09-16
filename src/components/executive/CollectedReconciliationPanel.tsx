@@ -56,6 +56,7 @@ async function fetchReconciliation(startISO: string, endISO: string): Promise<Ro
     const { data, error } = await supabase
       .from("agent_collections")
       .select("amount, created_at, rent_request_id")
+      .is("reversed_at", null)
       .gte("created_at", startISO)
       .lt("created_at", endISO)
       .gt("amount", 0)
@@ -390,6 +391,7 @@ async function fetchDayDetails(day: string): Promise<{
     const { data, error } = await supabase
       .from("agent_collections")
       .select("id, amount, created_at, tracking_id, rent_request_id, agent_id")
+      .is("reversed_at", null)
       .gte("created_at", s.toISOString())
       .lt("created_at", e.toISOString())
       .gt("amount", 0)

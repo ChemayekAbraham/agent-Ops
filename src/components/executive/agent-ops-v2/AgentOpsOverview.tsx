@@ -176,16 +176,30 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   const { data: windowTotals, isLoading: windowLoading } = useQuery({
     queryKey: ['agent-ops-overview', 'window-pending', startIso, endIso],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+      // `get_agent_collections_coverage` rather than the Command Center,
+      // because only it splits the cash. The Command Center returns a single
+      // `collected`, which is ALL cash in the door including arrears — and a
+      // tenant clearing an old debt is not progress against today's bill. That
+      // figure routinely exceeds `expected_due` several times over, so
+      // `expected - collected` clamped to zero and Pending Collections read
+      // 0 on a day with 4.2M genuinely outstanding.
+      const { data, error } = await supabase.rpc('get_agent_collections_coverage', {
         p_start: startIso,
         p_end: endIso,
-        p_bucket: 'day',
       });
       if (error) throw error;
-      const t = (data as any)?.totals || {};
+      const t = ((data as any)?.totals ?? data ?? {}) as Record<string, unknown>;
+      // CAPPED, not the uncapped on-schedule figure. Uncapped lets one tenant
+      // clearing arrears cover a tenant who paid nothing: on 2026-09-16 it read
+      // 18.2M against a 6.08M bill, so `expected - collected` went negative and
+      // clamped to zero. Capped answers "did today's tenants meet today's
+      // obligation" — 1.8M collected, 4.3M genuinely still outstanding.
       return {
         expected: Number(t.expected_due || 0),
-        collected: Number(t.collected || 0),
+        collected: Number(t.collected_on_schedule_capped ?? t.collected_on_schedule ?? 0),
+        pending: Number(t.pending_capped ?? 0),
+        arrears: Number(t.collected_arrears || 0),
+        totalCash: Number(t.collected_total || 0),
       };
     },
     staleTime: 60_000,
@@ -339,7 +353,10 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Pending Collections"
-          value={fmtMoney(Math.max(0, (windowTotals?.expected || 0) - (windowTotals?.collected || 0)))}
+          value={fmtMoney(
+            windowTotals?.pending ??
+              Math.max(0, (windowTotals?.expected || 0) - (windowTotals?.collected || 0)),
+          )}
           subtitle={
             <>
               Unpaid of{' '}
@@ -347,6 +364,9 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
                 {fmtMoney(windowTotals?.expected || 0)}
               </span>{' '}
               expected {phrase}
+              {(windowTotals?.arrears || 0) > 0 && (
+                <> · plus {fmtMoney(windowTotals?.arrears || 0)} arrears cleared</>
+              )}
             </>
           }
           icon={Hourglass}

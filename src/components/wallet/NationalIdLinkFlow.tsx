@@ -60,8 +60,32 @@ export default function NationalIdLinkFlow({
   }, [nin]);
 
   const s = state.data;
+  const [seen, setSeen] = useState<string | null>(null);
+
+  // The moment the ID holder answers, say so here — the person asking should
+  // never have to guess or refresh.
   useEffect(() => {
-    if (s?.status === 'active') onLinked?.();
+    const now = s?.status;
+    if (!now || now === seen) return;
+    if (seen !== null) {
+      if (now === 'owner_approved') {
+        toast.success('The ID holder allowed it. You can carry on with your details now.');
+      } else if (now === 'rejected_by_owner') {
+        toast.error('The ID holder did not agree, so your account was not linked.');
+      } else if (now === 'active') {
+        toast.success('Welile staff confirmed it. Your account is now on that National ID.');
+      } else if (now === 'rejected_by_staff') {
+        toast.error('Welile staff did not confirm it. Contact Welile Support on 0748747134.');
+      } else if (now === 'expired') {
+        toast.error('Nobody answered within 7 days, so this request closed. You can start again.');
+      }
+    }
+    setSeen(now);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s?.status]);
+
+  useEffect(() => {
+    if (s?.status === 'active' || s?.status === 'owner_approved') onLinked?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s?.status]);
 
