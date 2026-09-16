@@ -986,11 +986,19 @@ export function FleetPerformanceStats({
     setPage(0);
   }, [search, sort, rangeKey]);
 
-  // Daily expected target across the whole fleet (constant per day).
-  const expectedPerDay = useMemo(
-    () => Object.values(expectedByAgent).reduce((s, v) => s + (Number(v) || 0), 0),
-    [expectedByAgent],
+  // Fleet expected across the selected range, from the pinned daily bill.
+  const expectedRangeTotal = useMemo(
+    () => Object.values(expectedByDay).reduce((s, v) => s + (Number(v) || 0), 0),
+    [expectedByDay],
   );
+  /** That day's own frozen bill; falls back to the range average for unpinned days. */
+  const expectedForDay = (d: Date) => {
+    const pinned = expectedByDay[isoDay(d)];
+    if (pinned !== undefined) return Number(pinned) || 0;
+    const dayCount = Object.keys(expectedByDay).length;
+    return dayCount > 0 ? expectedRangeTotal / dayCount : 0;
+  };
+
 
   // Trend series of collected vs expected, bucketed by hour / day / month.
   const trendData = useMemo(() => {
