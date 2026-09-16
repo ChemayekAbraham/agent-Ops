@@ -108,6 +108,7 @@ function CMOMarketingDashboard() {
         const s = startOfMonth(m);
         const e = endOfMonth(m);
         let q = supabase.from('profiles').select('*', { count: 'exact', head: true })
+          .is('deleted_at', null)
           .gte('created_at', s.toISOString()).lte('created_at', e.toISOString());
         if (signupSource === 'referred') q = q.not('referrer_id', 'is', null);
         if (signupSource === 'organic') q = q.is('referrer_id', null);
@@ -119,23 +120,26 @@ function CMOMarketingDashboard() {
     staleTime: 600000,
   });
 
+  // Every referrals query below joins the referred profile (!inner) and
+  // requires deleted_at IS NULL, so a soft-deleted bot/fraud account (the
+  // referral-bonus rings — see docs/HANDOVER/21, 23, 39, 42) never counts as
+  // a real referral. Without this, "Total/Completed Referrals" and
+  // "Conversion Rate" were counting ~34,300 purged bot accounts as growth.
   const { data: referralStats } = useQuery({
     queryKey: ['exec-referral-stats', startMonth, endMonth, datePreset, customStartDate, customEndDate],
     queryFn: async () => {
       const rangeFilter = (q: any) =>
         q.gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
+      const activeReferred = () =>
+        supabase.from('referrals')
+          .select('*, referred:profiles!referrals_referred_id_fkey!inner(deleted_at)', { count: 'exact', head: true })
+          .is('referred.deleted_at', null);
 
-      const { count: totalReferrals } = await rangeFilter(
-        supabase.from('referrals').select('*', { count: 'exact', head: true })
-      );
+      const { count: totalReferrals } = await rangeFilter(activeReferred());
 
-      const { count: pendingReferrals } = await rangeFilter(
-        supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('credited', false)
-      );
+      const { count: pendingReferrals } = await rangeFilter(activeReferred().eq('credited', false));
 
-      const { count: completedReferrals } = await rangeFilter(
-        supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('credited', true)
-      );
+      const { count: completedReferrals } = await rangeFilter(activeReferred().eq('credited', true));
 
       const byMonth: Record<string, { total: number; pending: number; completed: number }> = {};
       for (const m of months) {
@@ -145,9 +149,9 @@ function CMOMarketingDashboard() {
           q.gte('created_at', s.toISOString()).lte('created_at', e.toISOString());
 
         const [{ count: total }, { count: pending }, { count: completed }] = await Promise.all([
-          monthQ(supabase.from('referrals').select('*', { count: 'exact', head: true })),
-          monthQ(supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('credited', false)),
-          monthQ(supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('credited', true)),
+          monthQ(activeReferred()),
+          monthQ(activeReferred().eq('credited', false)),
+          monthQ(activeReferred().eq('credited', true)),
         ]);
 
         byMonth[format(s, 'MMM yyyy')] = {
@@ -171,6 +175,7 @@ function CMOMarketingDashboard() {
     queryKey: ['exec-total-users-cmo', datePreset, startMonth, endMonth, customStartDate, customEndDate, signupSource],
     queryFn: async () => {
       let q = supabase.from('profiles').select('*', { count: 'exact', head: true })
+        .is('deleted_at', null)
         .gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
       if (signupSource === 'referred') q = q.not('referrer_id', 'is', null);
       if (signupSource === 'organic') q = q.is('referrer_id', null);
@@ -278,7 +283,8 @@ function CMOMarketingDashboard() {
     queryFn: async () => {
       let q = supabase
         .from('referrals')
-        .select('id, referred_id, referrer_id, credited, created_at')
+        .select('id, referred_id, referrer_id, credited, created_at, referred:profiles!referrals_referred_id_fkey!inner(deleted_at)')
+        .is('referred.deleted_at', null)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false })
@@ -314,7 +320,8 @@ function CMOMarketingDashboard() {
     queryFn: async () => {
       let q = supabase
         .from('referrals')
-        .select('referrer_id, credited')
+        .select('referrer_id, credited, referred:profiles!referrals_referred_id_fkey!inner(deleted_at)')
+        .is('referred.deleted_at', null)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
