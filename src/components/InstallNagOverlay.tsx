@@ -76,6 +76,10 @@ export default function InstallNagOverlay() {
   useEffect(() => {
     if (!open) return;
     trackInstallEvent('install_card_shown', { isIOS, hasPrompt, surface: 'nag_overlay' });
+    trackInstallEvent('platform_steps_shown', {
+      surface: 'nag_overlay',
+      platform: isIOS ? 'ios' : 'android',
+    });
   }, [open, isIOS, hasPrompt]);
 
   const snooze = useCallback(() => {
@@ -108,6 +112,10 @@ export default function InstallNagOverlay() {
       if (accepted) {
         trackInstallEvent('native_prompt_accepted', { surface: 'nag_overlay' });
         trackInstallEvent('app_installed', { surface: 'nag_overlay' });
+        trackInstallEvent('install_attributed', {
+          surface: 'nag_overlay',
+          platform: isIOS ? 'ios' : 'android',
+        });
         toast.success('App installed successfully!');
         setOpen(false);
       } else {

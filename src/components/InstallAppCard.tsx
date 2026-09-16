@@ -92,6 +92,11 @@ export default function InstallAppCard({ className, global = false }: InstallApp
       isIOS,
       hasPrompt,
       degraded: preflight.degraded,
+      surface: global ? 'global_card' : 'header_card',
+    });
+    trackInstallEvent('platform_steps_shown', {
+      surface: global ? 'global_card' : 'header_card',
+      platform: isIOS ? 'ios' : 'android',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preflight.loading, preflight.degraded]);
@@ -153,6 +158,10 @@ export default function InstallAppCard({ className, global = false }: InstallApp
       if (accepted) {
         trackInstallEvent('native_prompt_accepted');
         trackInstallEvent('app_installed');
+        trackInstallEvent('install_attributed', {
+          surface: global ? 'global_card' : 'header_card',
+          platform: isIOS ? 'ios' : 'android',
+        });
         toast.success('App installed successfully!');
         handleDismiss();
       } else {
