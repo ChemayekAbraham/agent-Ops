@@ -24,6 +24,8 @@ import {
   type CcHistoryRow,
 } from '@/hooks/useCcCallHistory';
 import { generateTenantCallsReportPdf } from '@/lib/tenantCallsReportPdf';
+import { analyseCallFeedback } from '@/lib/tenantCallFeedbackAnalysis';
+import { FeedbackAnalysisSection } from './FeedbackAnalysisSection';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -119,6 +121,26 @@ export function TenantCallsReport() {
     };
   }, [rows]);
 
+  /**
+   * Feedback analysis over EXACTLY the rows in the selected period — it
+   * recomputes whenever the preset/date range (and therefore `rows`) changes.
+   */
+  const analysis = useMemo(
+    () =>
+      analyseCallFeedback(
+        rows.map((r) => ({
+          comment: r.comment ?? r.voidReason,
+          category: r.categoryLabel,
+          severity: r.severity,
+          answered: isAnsweredOutcome(r.outcome),
+          open: !r.outcome,
+          followUpDueAt: r.followUpDueAt,
+          followUpCompletedAt: r.followUpCompletedAt,
+        })),
+      ),
+    [rows],
+  );
+
   const exportPdf = async () => {
     setBusy(true);
     try {
@@ -162,11 +184,16 @@ export function TenantCallsReport() {
           generatedAt,
           reportPeriod: win.label,
         },
+        analysis,
       );
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const span =
+        periodDays.startDay === periodDays.endDay
+          ? periodDays.startDay
+          : `${periodDays.startDay}_to_${periodDays.endDay}`;
+      a.download = `tenant-calls-report-${span}.pdf`;
       a.href = url;
-      a.download = `tenant-calls-report-${isoDay(new Date())}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -207,6 +234,7 @@ export function TenantCallsReport() {
             .join('\n'),
           officer: r.officer,
         })),
+        analysis: JSON.parse(JSON.stringify(analysis)),
         metadata: {
           generatedBy: profile?.full_name?.trim() || (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : ''),
           email: profile?.email?.trim() || user?.email?.trim() || '',
@@ -364,6 +392,8 @@ export function TenantCallsReport() {
           </div>
         </CardContent>
       </Card>
+
+      {isLoading ? null : <FeedbackAnalysisSection analysis={analysis} periodLabel={win.label} />}
 
       <Card className="min-w-0 overflow-hidden">
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-3">
