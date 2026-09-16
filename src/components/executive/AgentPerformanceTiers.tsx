@@ -42,7 +42,7 @@ export function AgentPerformanceTiers() {
       const [profilesData, earningsData, collectionsData, visitsData, referralsData] = await Promise.all([
         batchedQuery<any>(ids, b => supabase.from('profiles').select('id, full_name').in('id', b)),
         batchedQuery<any>(ids, b => supabase.from('agent_earnings').select('agent_id, amount').in('agent_id', b)),
-        batchedQuery<any>(ids, b => supabase.from('agent_collections').select('agent_id').in('agent_id', b)),
+        batchedQuery<any>(ids, b => supabase.from('agent_collections').select('agent_id').is('reversed_at', null).in('agent_id', b)),
         batchedQuery<any>(ids, b => supabase.from('agent_visits').select('agent_id').in('agent_id', b)),
         batchedQuery<any>(ids, b => supabase.from('supporter_invites').select('created_by').in('created_by', b).eq('status', 'activated')),
       ]);
