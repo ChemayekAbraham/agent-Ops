@@ -35,7 +35,6 @@ interface Props {
  * overview suppressed.
  */
 export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGenerateWordReport }: Props) {
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { data: counts } = useTenantOpsToolCounts();
 
