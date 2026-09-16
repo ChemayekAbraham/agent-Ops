@@ -27,6 +27,7 @@ export type InstallEventType =
   | 'install_card_degraded'
   | 'install_instructions_opened'
   | 'manual_platform_selected'
+  | 'manual_platform_changed'
   | 'platform_steps_shown'
   | 'install_attributed'
   | 'whatsapp_banner_shown';

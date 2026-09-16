@@ -2,7 +2,12 @@ import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Share, HelpCircle, X, Zap, Wifi, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePWAInstall } from '@/hooks/usePWAInstall';
+import {
+  usePWAInstall,
+  getInstallPlatformPreference,
+  setInstallPlatformPreference,
+  clearInstallPlatformPreference,
+} from '@/hooks/usePWAInstall';
 import { trackInstallEvent } from '@/lib/installTracking';
 import { toast } from 'sonner';
 
@@ -46,8 +51,11 @@ function snoozedUntil(): number {
 export default function InstallNagOverlay() {
   const { isInstalled, isIOS, isAndroid, hasPrompt, promptInstall, canShow } = usePWAInstall();
   // Manual override when the OS can't be detected (unusual WebViews, etc.).
-  const [manualPlatform, setManualPlatform] = useState<'ios' | 'android' | null>(null);
+  // A saved preference lets the prompt skip the picker on future visits.
   const osDetected = isIOS || isAndroid;
+  const [manualPlatform, setManualPlatform] = useState<'ios' | 'android' | null>(() =>
+    osDetected ? null : getInstallPlatformPreference(),
+  );
   const effectiveIsIOS = manualPlatform ? manualPlatform === 'ios' : isIOS;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -79,12 +87,18 @@ export default function InstallNagOverlay() {
 
   useEffect(() => {
     if (!open) return;
-    trackInstallEvent('install_card_shown', { isIOS, hasPrompt, surface: 'nag_overlay' });
+    trackInstallEvent('install_card_shown', {
+      isIOS,
+      hasPrompt,
+      surface: 'nag_overlay',
+      effective_platform: effectiveIsIOS ? 'ios' : 'android',
+    });
     trackInstallEvent('platform_steps_shown', {
       surface: 'nag_overlay',
-      platform: isIOS ? 'ios' : 'android',
+      platform: effectiveIsIOS ? 'ios' : 'android',
+      from_preference: !!manualPlatform,
     });
-  }, [open, isIOS, hasPrompt]);
+  }, [open, isIOS, hasPrompt, effectiveIsIOS, manualPlatform]);
 
   const snooze = useCallback(() => {
     try {
@@ -97,8 +111,13 @@ export default function InstallNagOverlay() {
   }, [isIOS]);
 
   const handleInstall = async () => {
-    trackInstallEvent('install_cta_clicked', { isIOS, hasPrompt, surface: 'nag_overlay' });
-    if (isIOS) {
+    trackInstallEvent('install_cta_clicked', {
+      isIOS,
+      hasPrompt,
+      surface: 'nag_overlay',
+      effective_platform: effectiveIsIOS ? 'ios' : 'android',
+    });
+    if (effectiveIsIOS) {
       setShowIOSGuide(true);
       trackInstallEvent('ios_guide_opened', { source: 'nag_overlay' });
       return;
@@ -118,7 +137,8 @@ export default function InstallNagOverlay() {
         trackInstallEvent('app_installed', { surface: 'nag_overlay' });
         trackInstallEvent('install_attributed', {
           surface: 'nag_overlay',
-          platform: isIOS ? 'ios' : 'android',
+          platform: effectiveIsIOS ? 'ios' : 'android',
+          from_preference: !!manualPlatform,
         });
         toast.success('App installed successfully!');
         setOpen(false);
@@ -190,7 +210,7 @@ export default function InstallNagOverlay() {
                     Get the Welile app on your phone
                   </h2>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    {isIOS
+                    {effectiveIsIOS
                       ? 'Add Welile to your home screen — it opens instantly, like a normal app.'
                       : 'Install it in seconds. It opens instantly from your home screen, uses less data and works on weak network.'}
                   </p>
@@ -207,10 +227,12 @@ export default function InstallNagOverlay() {
                       size="sm"
                       className="flex-1"
                       onClick={() => {
-                      setManualPlatform('ios');
+                        setManualPlatform('ios');
+                        setInstallPlatformPreference('ios');
                         trackInstallEvent('manual_platform_selected', {
                           source: 'nag_overlay',
                           selected_platform: 'ios',
+                          saved: true,
                         });
                         trackInstallEvent('platform_steps_shown', {
                           source: 'nag_overlay',
@@ -226,10 +248,12 @@ export default function InstallNagOverlay() {
                       size="sm"
                       className="flex-1"
                       onClick={() => {
-                      setManualPlatform('android');
+                        setManualPlatform('android');
+                        setInstallPlatformPreference('android');
                         trackInstallEvent('manual_platform_selected', {
                           source: 'nag_overlay',
                           selected_platform: 'android',
+                          saved: true,
                         });
                         trackInstallEvent('platform_steps_shown', {
                           source: 'nag_overlay',
@@ -278,6 +302,23 @@ export default function InstallNagOverlay() {
                 </ol>
               ))}
 
+              {!osDetected && manualPlatform && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearInstallPlatformPreference();
+                    setManualPlatform(null);
+                    trackInstallEvent('manual_platform_changed', {
+                      source: 'nag_overlay',
+                      previous_platform: manualPlatform,
+                    });
+                  }}
+                  className="mt-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  Not your phone? Change phone type
+                </button>
+              )}
+
               <ul className="mt-4 grid gap-2 text-sm text-foreground/90">
                 <li className="flex items-center gap-2">
                   <Zap className="h-4 w-4 text-primary" /> Opens instantly from your home screen
@@ -297,14 +338,14 @@ export default function InstallNagOverlay() {
                   size="lg"
                   className="w-full gap-2 font-semibold"
                 >
-                  {isIOS ? (
+                  {effectiveIsIOS ? (
                     <Share className="h-4 w-4" />
                   ) : hasPrompt ? (
                     <Download className="h-4 w-4" />
                   ) : (
                     <HelpCircle className="h-4 w-4" />
                   )}
-                  {busy ? 'Installing…' : isIOS ? 'Show me how' : hasPrompt ? 'Install now' : 'Show me how'}
+                  {busy ? 'Installing…' : effectiveIsIOS ? 'Show me how' : hasPrompt ? 'Install now' : 'Show me how'}
                 </Button>
                 <Button onClick={snooze} variant="ghost" size="sm" className="text-muted-foreground">
                   Maybe later

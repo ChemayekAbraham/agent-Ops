@@ -2,7 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Share, Zap, RefreshCw, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { usePWAInstall, getInstallPlatformPreference } from '@/hooks/usePWAInstall';
 import { useInstallPreflight } from '@/hooks/useInstallPreflight';
 import { toast } from 'sonner';
 import { trackInstallEvent } from '@/lib/installTracking';
@@ -62,7 +62,11 @@ interface InstallAppCardProps {
 }
 
 export default function InstallAppCard({ className, global = false }: InstallAppCardProps) {
-  const { canShow, isInstalled, isIOS, hasPrompt, canInstructInstead, promptInstall } = usePWAInstall();
+  const { canShow, isInstalled, isIOS, isAndroid, hasPrompt, canInstructInstead, promptInstall } = usePWAInstall();
+  // Honour a manually chosen platform when OS detection fails, so the card
+  // shows the right steps on future visits.
+  const preferredPlatform = getInstallPlatformPreference();
+  const effectiveIsIOS = isIOS ? true : isAndroid ? false : preferredPlatform === 'ios';
   // Preflight is ADVISORY, never a gate: a failed check degrades the copy but
   // the card still renders, because slow mobile networks fail these routinely.
   const preflight = useInstallPreflight(!isInstalled);
@@ -93,10 +97,13 @@ export default function InstallAppCard({ className, global = false }: InstallApp
       hasPrompt,
       degraded: preflight.degraded,
       surface: global ? 'global_card' : 'header_card',
+      effective_platform: effectiveIsIOS ? 'ios' : 'android',
+      from_preference: !isIOS && !isAndroid && !!preferredPlatform,
     });
     trackInstallEvent('platform_steps_shown', {
       surface: global ? 'global_card' : 'header_card',
-      platform: isIOS ? 'ios' : 'android',
+      platform: effectiveIsIOS ? 'ios' : 'android',
+      from_preference: !isIOS && !isAndroid && !!preferredPlatform,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preflight.loading, preflight.degraded]);
@@ -128,12 +135,12 @@ export default function InstallAppCard({ className, global = false }: InstallApp
   const handleDismiss = () => {
     writeSnooze('snoozed');
     setDismissed(true);
-    trackInstallEvent('install_card_dismissed', { isIOS });
+    trackInstallEvent('install_card_dismissed', { isIOS, effective_platform: effectiveIsIOS ? 'ios' : 'android' });
   };
 
   const handleInstall = async () => {
-    trackInstallEvent('install_cta_clicked', { isIOS, hasPrompt });
-    if (isIOS) {
+    trackInstallEvent('install_cta_clicked', { isIOS, hasPrompt, effective_platform: effectiveIsIOS ? 'ios' : 'android' });
+    if (effectiveIsIOS) {
       // Open the full guide (with in-app-browser detection + copy link).
       // A toast alone is not enough — most iPhone install failures are users
       // opening the link from WhatsApp/Facebook/Instagram in-app browsers.
@@ -160,7 +167,8 @@ export default function InstallAppCard({ className, global = false }: InstallApp
         trackInstallEvent('app_installed');
         trackInstallEvent('install_attributed', {
           surface: global ? 'global_card' : 'header_card',
-          platform: isIOS ? 'ios' : 'android',
+          platform: effectiveIsIOS ? 'ios' : 'android',
+          from_preference: !isIOS && !isAndroid && !!preferredPlatform,
         });
         toast.success('App installed successfully!');
         handleDismiss();
@@ -184,7 +192,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
 
   const ctaLabel = isInstalling
     ? 'Installing…'
-    : isIOS
+    : effectiveIsIOS
       ? 'How to install'
       : hasPrompt
         ? 'Install App'
@@ -239,7 +247,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
                 Install App
               </h3>
               <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                {isIOS
+                {effectiveIsIOS
                   ? 'Add Welile to your home screen for faster access and a native app feel.'
                   : 'Faster access, offline-ready, and a native app feel right from your home screen.'}
               </p>
@@ -251,7 +259,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
 
               {/* Platform-specific quick steps, visible without opening a guide. */}
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                {isIOS ? (
+                {effectiveIsIOS ? (
                   <>
                     On iPhone: tap <strong>Share</strong> <Share className="inline h-3 w-3 -mt-0.5" /> in Safari, then <strong>"Add to Home Screen"</strong>, then <strong>"Add"</strong>.
                   </>
@@ -269,7 +277,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
                   size="sm"
                   className="gap-1.5 font-semibold"
                 >
-                  {isIOS ? (
+                  {effectiveIsIOS ? (
                     <Share className="h-4 w-4" />
                   ) : hasPrompt ? (
                     <Download className="h-4 w-4" />
