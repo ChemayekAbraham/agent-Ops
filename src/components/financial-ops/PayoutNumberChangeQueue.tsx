@@ -16,11 +16,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useDecideNumberChange,
   useNumberChangeQueue,
+  useNumberChangeVetting,
   type NumberChangeRequest,
 } from '@/hooks/usePayoutNumberChange';
 
 function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boolean }) {
   const decide = useDecideNumberChange();
+  const vetting = useNumberChangeVetting(r.id, !readOnly);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<'approved' | 'rejected' | null>(null);
 
