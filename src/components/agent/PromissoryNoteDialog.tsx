@@ -299,14 +299,28 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
         payload.next_deduction_date = nextDate.toISOString().split('T')[0];
       }
 
-      // One atomic server call: note + optional plan earmarks, validated server-side.
-      const { data, error } = await supabase.rpc('agent_create_promissory_note', {
-        p_payload: payload,
-        p_rent_request_ids: selectedPlanIds,
-      });
+      // One atomic server call: note + optional earmarks, validated server-side.
+      // Houses and rent plans live in different earmark tables — a note carries
+      // one kind, chosen by what the agent selected.
+      const useHouses = selectedHouseIds.length > 0;
+      const { data, error } = useHouses
+        ? await supabase.rpc('agent_create_promissory_note_for_houses', {
+            p_payload: { ...payload, promised_funding_date: fulfilmentDueOn || null },
+            p_house_ids: selectedHouseIds,
+          })
+        : await supabase.rpc('agent_create_promissory_note', {
+            p_payload: payload,
+            p_rent_request_ids: selectedPlanIds,
+          });
       if (error) throw error;
 
-      const result = (data ?? {}) as { note?: Record<string, unknown>; attached_count?: number; attached_amount?: number };
+      const result = (data ?? {}) as {
+        note?: Record<string, unknown>;
+        attached_count?: number;
+        attached_amount?: number;
+        house_count?: number;
+        houses_monthly_rent?: number;
+      };
       if (!result.note) throw new Error('Note was not created');
       setCreatedNote(result.note);
       // Refresh the Partner Ops pending badge right away (realtime also covers it).
@@ -317,10 +331,14 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
       void supabase.functions
         .invoke('notify-promissory-note-pledge', { body: { note_id: noteId } })
         .catch(() => {});
-      setAttached({ count: Number(result.attached_count || 0), amount: Number(result.attached_amount || 0) });
+      const attachedCount = useHouses ? Number(result.house_count || 0) : Number(result.attached_count || 0);
+      const attachedAmount = useHouses ? Number(result.houses_monthly_rent || 0) : Number(result.attached_amount || 0);
+      setAttached({ count: attachedCount, amount: attachedAmount, kind: useHouses ? 'houses' : 'plans' });
       toast.success(
-        Number(result.attached_count || 0) > 0
-          ? `Note created with ${result.attached_count} tenant plan${Number(result.attached_count) === 1 ? '' : 's'} attached`
+        attachedCount > 0
+          ? useHouses
+            ? `Note created with ${attachedCount} house${attachedCount === 1 ? '' : 's'} booked for 7 days`
+            : `Note created with ${attachedCount} tenant plan${attachedCount === 1 ? '' : 's'} attached`
           : 'Promissory note created',
       );
     } catch (err) {
