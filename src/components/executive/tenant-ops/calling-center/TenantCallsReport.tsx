@@ -121,6 +121,26 @@ export function TenantCallsReport() {
     };
   }, [rows]);
 
+  /**
+   * Feedback analysis over EXACTLY the rows in the selected period — it
+   * recomputes whenever the preset/date range (and therefore `rows`) changes.
+   */
+  const analysis = useMemo(
+    () =>
+      analyseCallFeedback(
+        rows.map((r) => ({
+          comment: r.comment ?? r.voidReason,
+          category: r.categoryLabel,
+          severity: r.severity,
+          answered: isAnsweredOutcome(r.outcome),
+          open: !r.outcome,
+          followUpDueAt: r.followUpDueAt,
+          followUpCompletedAt: r.followUpCompletedAt,
+        })),
+      ),
+    [rows],
+  );
+
   const exportPdf = async () => {
     setBusy(true);
     try {
