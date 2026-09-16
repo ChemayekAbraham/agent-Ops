@@ -715,13 +715,16 @@ export function FleetPerformanceStats({
   const granularity = granularityFor(days);
 
   const queryClient = useQueryClient();
-  const { data: expectedByAgent = {}, isLoading: expLoading, dataUpdatedAt: expUpdatedAt, isFetching: expFetching } = useQuery({
-    queryKey: ['fleet-perf-expected-by-agent'],
-    queryFn: fetchExpectedDailyByAgent,
+  const { data: expectedData, isLoading: expLoading, dataUpdatedAt: expUpdatedAt, isFetching: expFetching } = useQuery({
+    queryKey: ['fleet-perf-expected-by-agent', rangeKey],
+    queryFn: () => fetchExpectedByAgent(start, end),
     staleTime: 60_000,
     refetchInterval: autoRefreshMs || false,
     refetchIntervalInBackground: false,
   });
+  const expectedByAgent = expectedData?.byAgent ?? {};
+  const expectedByDay = expectedData?.byDay ?? {};
+
 
   const { data: collectedByAgent = {}, isLoading: colLoading, dataUpdatedAt: colUpdatedAt, isFetching: colFetching } = useQuery({
     queryKey: ['fleet-perf-collected-by-agent', rangeKey],
