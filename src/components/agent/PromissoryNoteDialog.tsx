@@ -92,6 +92,14 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [amount, setAmount] = useState('');
+  // Prefill the promised amount when the dialog is opened from a context that
+  // already knows a figure (e.g. a house card's monthly rent).
+  useEffect(() => {
+    if (open && initialAmount && initialAmount > 0) {
+      setAmount(String(Math.round(initialAmount)));
+      setAmountTouched(false);
+    }
+  }, [open, initialAmount]);
   const todayIso = new Date().toISOString().split('T')[0];
   // When the note was written down, and when the partner promises to fulfil it.
   const [recordedOn, setRecordedOn] = useState(todayIso);
