@@ -140,7 +140,12 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
             placeholder="What did the call establish? (10 characters minimum)"
           />
           <div className="flex gap-2">
-            <Button className="flex-1" size="sm" disabled={!!busy} onClick={() => act('approved')}>
+            <Button
+              className="flex-1"
+              size="sm"
+              disabled={!!busy || vetting.data?.approvable === false}
+              onClick={() => act('approved')}
+            >
               {busy === 'approved' ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (
