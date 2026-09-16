@@ -337,14 +337,14 @@ export default function InstallNagOverlay() {
                   size="lg"
                   className="w-full gap-2 font-semibold"
                 >
-                  {isIOS ? (
+                  {effectiveIsIOS ? (
                     <Share className="h-4 w-4" />
                   ) : hasPrompt ? (
                     <Download className="h-4 w-4" />
                   ) : (
                     <HelpCircle className="h-4 w-4" />
                   )}
-                  {busy ? 'Installing…' : isIOS ? 'Show me how' : hasPrompt ? 'Install now' : 'Show me how'}
+                  {busy ? 'Installing…' : effectiveIsIOS ? 'Show me how' : hasPrompt ? 'Install now' : 'Show me how'}
                 </Button>
                 <Button onClick={snooze} variant="ghost" size="sm" className="text-muted-foreground">
                   Maybe later
