@@ -1,9 +1,9 @@
-# 40 — 2026-09-16: doc 38's fix was silently reverted hours later, blocking a second agent
+# 43 — 2026-09-16: doc 38's fix was silently reverted hours later, blocking a second agent
 
-**Migration written, NOT yet deployed** (`20260916180000_reapply_block_reasons_recency_ordering_after_revert.sql`
-— run it manually in the SQL editor, same as doc 38 required). Before touching
-`payout_withdrawal_block_reasons` again, read this AND doc 38 — the function has now regressed
-once already within the same day.
+**Superseded by [`44-block-reasons-locked-number-not-recency.md`](./44-block-reasons-locked-number-not-recency.md)
+— the migration below ran successfully but Kirunda Ivan was still blocked afterward.** Before
+touching `payout_withdrawal_block_reasons` again, read this doc, doc 38, AND doc 44 in that order —
+the function has regressed twice and been fixed three times in the same day.
 
 ## What happened
 
@@ -47,7 +47,9 @@ No new logic — this is a straight re-application of an already-reviewed fix.
 - Consider adding `payout_withdrawal_block_reasons` to the `critical_function_baselines` drift
   watchlist (doc 17) given it has now regressed once already in a matter of hours purely from a
   same-day edit race, not malice.
-- Did not investigate why Kirunda has 9 rejected destinations under other people's names with an
-  identical timestamp — looks like synthetic/test data, not something he actually submitted, but
-  not root-caused here. Doesn't block the fix.
-- Same as doc 38: after this migration runs, re-verify Kirunda Ivan's account directly.
+- **This migration ran successfully but did not actually fix Kirunda's case.** Re-verifying his
+  account afterward still showed `blocked: true` — turned out the 9 rejected rows' identical
+  `updated_at` wasn't a one-time coincidence: a `profiles` trigger re-touches every destination row
+  a user has on any National ID edit, so the tie re-forms on every resubmission and recency alone
+  can never reliably break it. Root-caused and actually fixed in doc 44 by keying off
+  `user_identity_bindings.locked_payout_number` instead of timestamps.
