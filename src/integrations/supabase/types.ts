@@ -59100,6 +59100,7 @@ export type Database = {
           starts_on: string
         }[]
       }
+      ops_repayment_trend_daily: { Args: { p_days?: number }; Returns: Json }
       ops_resolve_agent_segment: {
         Args: {
           _district?: string
