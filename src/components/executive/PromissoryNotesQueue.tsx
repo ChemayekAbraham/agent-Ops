@@ -506,6 +506,21 @@ export function PromissoryNotesQueue({
     return outstanding > 0;
   };
 
+  function fulfillmentCountdown(fulfilmentDueOn: string | null | undefined): { date: string | null; label: string; overdue: boolean } {
+    if (!fulfilmentDueOn) return { date: null, label: '', overdue: false };
+    const due = new Date(fulfilmentDueOn);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const diffMs = dueDay.getTime() - today.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const dateStr = format(due, 'dd MMM yyyy');
+    if (diffDays < 0) return { date: dateStr, label: `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'} overdue`, overdue: true };
+    if (diffDays === 0) return { date: dateStr, label: 'Due today', overdue: false };
+    return { date: dateStr, label: `${diffDays} day${diffDays === 1 ? '' : 's'} left`, overdue: false };
+  }
+
+
   const filtered = notes.filter(n => {
     const haystack = [
       n.partner_name, n.whatsapp_number, n.phone_number, n.email,
@@ -959,8 +974,10 @@ export function PromissoryNotesQueue({
                       <th className="py-2 pr-3 font-medium text-right">Promised</th>
                       <th className="py-2 pr-3 font-medium text-right">Fulfilled</th>
                       <th className="py-2 pr-3 font-medium">Created</th>
+                      <th className="py-2 pr-3 font-medium">Fulfils by</th>
                       <th className="py-2 pr-3 font-medium">Status</th>
                     </tr>
+
                   </thead>
                   <tbody>
                     {pagedNotes.map(note => {
@@ -1000,15 +1017,25 @@ export function PromissoryNotesQueue({
                           <td className="py-2 pr-3 text-right font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></td>
                           <td className="py-2 pr-3">
                             {format(new Date(note.created_at), 'dd MMM yyyy')}
-                            {note.fulfilment_due_on && Number(note.outstanding ?? (Number(note.amount) - Number(note.total_collected))) > 0 && (
-                              <span className={cn(
-                                'block text-[10px]',
-                                new Date(note.fulfilment_due_on) < new Date() ? 'text-destructive font-medium' : 'text-muted-foreground',
-                              )}>
-                                Fulfils by {format(new Date(note.fulfilment_due_on), 'dd MMM yyyy')}
-                              </span>
-                            )}
                           </td>
+                          <td className="py-2 pr-3">
+                            {note.fulfilment_due_on && Number(note.outstanding ?? (Number(note.amount) - Number(note.total_collected))) > 0 && (() => {
+                              const cd = fulfillmentCountdown(note.fulfilment_due_on);
+                              return (
+                                <div className="space-y-0.5">
+                                  <span className="block">{cd.date}</span>
+                                  <span className={cn(
+                                    'inline-flex items-center gap-1 text-[10px] font-medium',
+                                    cd.overdue ? 'text-destructive' : 'text-muted-foreground'
+                                  )}>
+                                    <Clock className="h-3 w-3" />
+                                    {cd.label}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </td>
+
                           <td className="py-2 pr-3">
                             <div className="flex flex-wrap items-center gap-1">
                               <Badge variant="outline" className={cn('text-[10px]', config.color)}>
@@ -1147,16 +1174,26 @@ export function PromissoryNotesQueue({
                           {format(new Date(note.created_at), 'dd MMM yyyy')}
                           {note.came_in && <span className="ml-auto text-emerald-700 font-medium">Came in</span>}
                         </div>
-                        {note.fulfilment_due_on && Number(note.amount) - Number(note.total_collected) > 0 && (
-                          <div className={cn(
-                            'col-span-2 flex items-center gap-1 font-medium',
-                            new Date(note.fulfilment_due_on) < new Date() ? 'text-destructive' : 'text-primary',
-                          )}>
-                            <Calendar className="h-3 w-3" />
-                            Fulfils by {format(new Date(note.fulfilment_due_on), 'dd MMM yyyy')}
-                            {new Date(note.fulfilment_due_on) < new Date() && ' (overdue)'}
-                          </div>
-                        )}
+                        {note.fulfilment_due_on && Number(note.amount) - Number(note.total_collected) > 0 && (() => {
+                          const cd = fulfillmentCountdown(note.fulfilment_due_on);
+                          return (
+                            <div className={cn(
+                              'col-span-2 flex items-center gap-1 font-medium',
+                              cd.overdue ? 'text-destructive' : 'text-primary',
+                            )}>
+                              <Calendar className="h-3 w-3" />
+                              <span>Fulfils by {cd.date}</span>
+                              <span className={cn(
+                                'ml-auto inline-flex items-center gap-1 text-[10px] font-medium',
+                                cd.overdue ? 'text-destructive' : 'text-muted-foreground'
+                              )}>
+                                <Clock className="h-3 w-3" />
+                                {cd.label}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
                       </div>
                     </SwipeableNoteCard>
                   );
