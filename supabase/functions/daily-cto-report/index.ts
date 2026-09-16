@@ -356,7 +356,8 @@ Deno.serve(async (req) => {
       kpi('Connections', `${fmt(I.connections)} / ${fmt(I.max_connections)}`, `${connSat.toFixed(0)}% saturation`, connSat < 60 ? 'good' : connSat < 85 ? 'warn' : 'bad'),
       kpi('Uptime', `${fmt(I.uptime_hours)} h`, 'since last restart'),
       kpi('Deadlocks', fmt(I.deadlocks), 'cumulative since boot', n(I.deadlocks) < 100 ? 'good' : 'warn'),
-      kpi('Rolled-back txns', fmt(I.rollbacks), `${fmt(I.commits)} commits`),
+      kpi('Rolled-back txns', I.rollback_trustworthy === true ? fmt(I.rollbacks) : 'Unavailable',
+        I.rollback_trustworthy === true ? `${fmt(I.commits)} commits` : 'No trustworthy same-day snapshot pair'),
       kpi('Scheduled jobs', fmt(J.total_scheduled), `${fmt(J.runs_24h)} runs in 24h`),
       kpi('Job failure rate', `${jobFailRate.toFixed(1)}%`, `${fmt(J.failed_24h)} failed runs`, jobFailRate < 1 ? 'good' : jobFailRate < 5 ? 'warn' : 'bad'),
     ]);
@@ -1080,7 +1081,14 @@ Deno.serve(async (req) => {
       : `<div style="font-size:12px;color:${C.muted};">No diagnosable issues detected for this reporting day.</div>`;
 
     // --- Rendering: CTO Engineering Action Plan
-    const today = issues.filter((i) => i.eta === 'Today' || i.severity === 'Critical');
+    // eta is the authoritative same-day-urgency signal set deliberately per
+    // issue type (see the push sites above) — every type already sets
+    // eta:'Today' when it means same-day, INCLUDING when severity is
+    // Critical, except slow queries, which are intentionally never 'Today'
+    // (pg_stat_statements is lifetime-cumulative, not a daily figure).
+    // Falling back to `|| i.severity === 'Critical'` here used to override
+    // that and force chronic 30+ day old slow queries into "Today" anyway.
+    const today = issues.filter((i) => i.eta === 'Today');
     const thisWeek = issues.filter((i) => !today.includes(i) && i.eta === 'This week');
     const nextSprint = issues.filter((i) => !today.includes(i) && !thisWeek.includes(i));
     const prodRisks = issues.filter((i) => i.blockingProd || i.revenueRisk === 'High');
@@ -1229,7 +1237,8 @@ Deno.serve(async (req) => {
         ['Database size', bytes(I.db_size_bytes)], ['Cache hit ratio', `${cacheHit.toFixed(2)}%`],
         ['Connections', `${fmt(I.connections)} / ${fmt(I.max_connections)}`], ['Connection saturation', `${connSat.toFixed(0)}%`],
         ['Uptime hours', fmt(I.uptime_hours)], ['Deadlocks since boot', fmt(I.deadlocks)],
-        ['Commits', fmt(I.commits)], ['Rolled-back transactions', fmt(I.rollbacks)],
+        ['Commits', I.rollback_trustworthy === true ? fmt(I.commits) : 'Unavailable'],
+        ['Rolled-back transactions', I.rollback_trustworthy === true ? fmt(I.rollbacks) : 'Unavailable'],
         ['Scheduled automations', fmt(J.total_scheduled)], ['Automation runs 24h', fmt(J.runs_24h)],
         ['Failed runs 24h', fmt(J.failed_24h)], ['Automation failure rate', `${jobFailRate.toFixed(1)}%`],
       ],
@@ -1609,6 +1618,13 @@ Deno.serve(async (req) => {
 
     const GUARDRAIL_RE = /advance|recover|guardrail|bonus|trust|wallet|ledger|payout|commission|deposit|solvency|drift|receivable/i;
     const guardrailJobs = failingJobs.filter((j: any) => GUARDRAIL_RE.test(String(j.jobname || '')));
+    // J.total_scheduled counts rows in cron.job only. failingJobs also
+    // includes ad-hoc/unscheduled invocations (e.g. email_queue_dispatch,
+    // triggered via cron.schedule_in_background rather than a fixed
+    // schedule) that were never part of that count — subtracting all of
+    // failingJobs from total_scheduled understated "N of 165 scheduled"
+    // even on a day where every actually-scheduled job succeeded.
+    const scheduledFailingJobs = failingJobs.filter((j: any) => j.unscheduled !== true);
     // Name up to four failing jobs, then count the remainder. Naming three of
     // eleven silently understated the problem in earlier memos.
     const jobList = (jobs: any[]) => {
@@ -1813,7 +1829,7 @@ Deno.serve(async (req) => {
       ['SMS accepted by a provider', `${smsAcceptedRate.toFixed(1)}% of ${fmt(smsTotal)} over 30 days`, '95.0% or above', smsAcceptedRate >= 95 ? 'On target' : 'Below target'],
       ['SMS confirmed on the handset', smsConfirmCell, smsConfirmBroken ? 'Measurement fault — being fixed' : `Confirmable traffic only (${num(n(SMS.dlr_capable), smsTotal)})`, smsConfirmBroken ? 'Not measured' : (smsConfirmedRate >= 50 ? 'On target' : 'Below target')],
       ['Transaction rollback rate', wRollbackTrustworthy ? `${wRollbackRate.toFixed(2)}%` : 'Not trustworthy', wRollbackTrustworthy ? 'Below 5.00%' : 'Snapshot history has a gap', wRollbackTrustworthy ? (wRollbackRate < 5 ? 'On target' : 'Below target') : 'Not measured'],
-      ['Financial controls automated', `${fmt(Math.max(0, n(J.total_scheduled) - failingJobs.length))} of ${fmt(J.total_scheduled)}`, 'All scheduled jobs', failingJobs.length ? 'Below target' : 'On target'],
+      ['Financial controls automated', `${fmt(Math.max(0, n(J.total_scheduled) - scheduledFailingJobs.length))} of ${fmt(J.total_scheduled)}`, 'All scheduled jobs', scheduledFailingJobs.length ? 'Below target' : 'On target'],
     ];
 
 
