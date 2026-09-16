@@ -209,7 +209,7 @@ export default function InstallNagOverlay() {
                     Get the Welile app on your phone
                   </h2>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    {isIOS
+                    {effectiveIsIOS
                       ? 'Add Welile to your home screen — it opens instantly, like a normal app.'
                       : 'Install it in seconds. It opens instantly from your home screen, uses less data and works on weak network.'}
                   </p>
@@ -300,6 +300,23 @@ export default function InstallNagOverlay() {
                   </li>
                 </ol>
               ))}
+
+              {!osDetected && manualPlatform && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearInstallPlatformPreference();
+                    setManualPlatform(null);
+                    trackInstallEvent('manual_platform_changed', {
+                      source: 'nag_overlay',
+                      previous_platform: manualPlatform,
+                    });
+                  }}
+                  className="mt-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  Not your phone? Change phone type
+                </button>
+              )}
 
               <ul className="mt-4 grid gap-2 text-sm text-foreground/90">
                 <li className="flex items-center gap-2">
