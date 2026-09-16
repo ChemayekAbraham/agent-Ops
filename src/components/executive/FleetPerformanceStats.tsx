@@ -783,7 +783,8 @@ export function FleetPerformanceStats({
   const rawRows = useMemo(() => {
     return agentIds
       .map((id) => {
-        const expected = (expectedByAgent[id] || 0) * days;
+        // Already the range total from the pinned daily bill — never multiply by days.
+        const expected = expectedByAgent[id] || 0;
         const collected = collectedByAgent[id] || 0;
         const rate = expected > 0 ? Math.round((collected / expected) * 100) : 0;
         return { id, name: names[id] || id.slice(0, 8), expected, collected, rate };
