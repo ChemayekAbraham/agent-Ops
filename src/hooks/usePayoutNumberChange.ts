@@ -83,6 +83,54 @@ export function useMyNumberChangeRequest() {
   });
 }
 
+/** Server-side answer to "whose number is this?" while the person types it. */
+export interface NumberAvailability {
+  state: 'free' | 'mine' | 'taken' | 'invalid' | 'unknown';
+  message: string;
+}
+
+export function usePayoutNumberAvailability(rawNumber: string) {
+  const digits = rawNumber.replace(/\D/g, '').slice(-9);
+  return useQuery({
+    queryKey: ['payout-number-availability', digits],
+    enabled: digits.length === 9,
+    staleTime: 30_000,
+    queryFn: async (): Promise<NumberAvailability> => {
+      const { data, error } = await supabase.rpc('check_payout_number_availability', {
+        p_number: digits,
+      });
+      if (error) throw error;
+      const r = (data ?? {}) as Partial<NumberAvailability>;
+      return { state: r.state ?? 'unknown', message: r.message ?? '' };
+    },
+  });
+}
+
+/** Financial Ops re-check of the number at vetting time. */
+export interface NumberVettingCheck {
+  state: 'free' | 'mine' | 'taken' | 'same_as_current';
+  kind: 'number_change' | 'name_or_provider_update';
+  is_same_number: boolean;
+  approvable: boolean;
+  other_holder_name: string | null;
+  message: string;
+}
+
+export function useNumberChangeVetting(requestId?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['finops-number-change-vetting', requestId],
+    enabled: !!requestId && enabled,
+    staleTime: 15_000,
+    queryFn: async (): Promise<NumberVettingCheck> => {
+      const { data, error } = await supabase.rpc('finops_payout_number_check', {
+        p_request_id: requestId!,
+      });
+      if (error) throw error;
+      return data as unknown as NumberVettingCheck;
+    },
+  });
+}
+
 export function useRequestNumberChange() {
   const qc = useQueryClient();
   const { user } = useAuth();
