@@ -285,18 +285,15 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
 
 
   return (
-    <div
-      className="w-full space-y-4 overflow-x-hidden pb-28 pt-1 sm:space-y-5"
-      style={{ fontFamily: "'Courier New', Courier, monospace" }}
-    >
-      <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3 min-w-0">
+    <div className="w-full space-y-4 overflow-x-hidden pb-28 pt-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleClose}
-            className="h-9 gap-1.5 px-3 shrink-0 rounded-lg border-border hover:bg-muted font-medium"
+            className="h-9 shrink-0 gap-1.5 rounded-lg px-3 font-medium"
             title="Close report and return to dashboard"
           >
             <ArrowLeft className="h-4 w-4 text-muted-foreground" />
@@ -305,15 +302,15 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-primary">
               <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <p className="text-[11px] font-semibold uppercase tracking-wider">Portfolio reporting</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider">Tenant Ops · portfolio reporting</p>
             </div>
-            <h1 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">Portfolio Performance</h1>
-            <p className="mt-1 max-w-2xl text-xs text-muted-foreground sm:text-sm">
+            <h2 className="mt-1 text-base font-bold tracking-tight text-foreground lg:text-lg">Portfolio Performance</h2>
+            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
               Collections and rent requests across the selected reporting period.
             </p>
           </div>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-2">
           <div className="w-full sm:w-auto">
             <PeriodToggle value={granularity} onChange={setGranularity} />
           </div>
@@ -322,7 +319,7 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
             variant="ghost"
             size="icon"
             onClick={handleClose}
-            className="h-9 w-9 self-end rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 sm:self-auto"
+            className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
             title="Close report"
           >
             <X className="h-5 w-5" />
@@ -331,7 +328,7 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-card p-2.5 shadow-sm sm:flex-nowrap sm:justify-end">
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <Button
             type="button"
