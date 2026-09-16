@@ -63,6 +63,12 @@ const UI_OVERRIDE_CONTROLS: ControlDef[] = [
     protective: true,
   },
   {
+    key: 'landlord_payouts_blocked',
+    label: 'Block landlord payouts from queue',
+    description: 'ON: Landlord float payouts are hidden from the Merchant Agent Payout Queue and cannot be claimed by anyone. The withdrawal requests are NOT cancelled — they stay queued and reappear the moment this is switched back OFF. OFF (default): landlord payouts flow normally.',
+    danger: true,
+  },
+  {
     key: 'proxy_payout_priority',
     label: 'Show Proxy Agent withdrawals first',
     description: 'ON: Proxy Agent withdrawals are Priority #1 — they show at the top of the Merchant Agent Payout Queue and no normal withdrawal can be claimed until they are handled. OFF: the hold is released and merchant agents process normal customer withdrawals in the usual order.',
