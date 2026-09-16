@@ -387,7 +387,11 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
     });
 
     const targetEnd = endOfDay(target);
+    // When the day is pinned, the bill defines the population as well as the
+    // amount: a plan absent from the bill is not billed that day.
+    const pinned = pinnedExpected && pinnedExpected.size > 0 ? pinnedExpected : null;
     const activeForDay = (rentReqs || []).filter((r: any) => {
+      if (pinned) return pinned.has(r.id) || collectionsByTenant.has(r.tenant_id);
       // Only include rent requests that already existed on/before the selected day.
       if (!r.created_at) return true;
       return new Date(r.created_at) <= targetEnd;
@@ -397,7 +401,9 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
       const agentName = r.agent_id ? (profiles?.get(r.agent_id)?.full_name || '—') : '—';
       const landlordName = r.landlord_id ? (profiles?.get(r.landlord_id)?.full_name || '') : '';
       const property = [r.house_category, landlordName].filter(Boolean).join(' / ') || '—';
-      const expected = Number(r.daily_repayment || 0);
+      const expected = pinned
+        ? Number(pinned.get(r.id) || 0)
+        : Number(r.daily_repayment || 0);
       const tenantCollections = collectionsByTenant.get(r.tenant_id) || [];
       const collected = tenantCollections.reduce((s, c) => s + Number(c.amount || 0), 0);
       const balance = Math.max(0, expected - collected);
