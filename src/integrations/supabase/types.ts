@@ -58042,6 +58042,7 @@ export type Database = {
         Args: { p_house_id: string; p_reason: string }
         Returns: Json
       }
+      landlord_payouts_blocked_from_queue: { Args: never; Returns: boolean }
       ledger_category_allowlist: { Args: never; Returns: string[] }
       lending_find_user_by_phone: {
         Args: { p_phone: string }
