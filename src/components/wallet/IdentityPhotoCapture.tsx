@@ -918,6 +918,36 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   };
 
 
+  /* In the withdraw flow we send people to Settings to complete verification in
+     the dedicated "Withdrawal & Identity" tab, then they return to continue the
+     withdrawal. The full inline form stays available on the Settings page. */
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={() => navigate('/settings?section=account&tab=verification')}
+        className="block w-full text-left"
+        aria-label="Verify your identity before you withdraw. Opens settings."
+      >
+        <Card className="border-2 border-destructive transition-colors hover:bg-accent/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span className="flex-1">Verify your identity before you withdraw</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Complete your National ID, selfie and payout number verification in Settings, then
+              return here to withdraw.
+            </p>
+          </CardContent>
+        </Card>
+      </button>
+    );
+  }
+
   return (
     <Card className={compact ? 'border-2 border-destructive' : undefined}>
       <CardHeader className="pb-3">
@@ -931,6 +961,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           Take a clear photo of your National ID and a selfie. Your original selfie is kept in your
           verification history for Financial Ops; the version you crop becomes your profile picture.
         </p>
+
 
         {storedIdPath ? (
           <StoredShot
