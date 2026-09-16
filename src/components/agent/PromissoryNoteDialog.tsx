@@ -56,7 +56,7 @@ const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 type StepKey = 'who' | 'contact' | 'promise' | 'tenants' | 'review';
 
-export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self', initialAmount }: PromissoryNoteDialogProps) {
+export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self', initialAmount, initialHouse }: PromissoryNoteDialogProps) {
   const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -112,9 +112,22 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const [amountTouched, setAmountTouched] = useState(false);
   const [contributionType, setContributionType] = useState<'monthly' | 'compounding'>('compounding');
   const [deductionDay, setDeductionDay] = useState('1');
-  // Optional earmarking of ready-to-fund rent plans to this note.
+  // Optional earmarking: either ready-to-fund rent plans OR verified empty
+  // houses (the server keeps the two kinds separate, one kind per note).
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
-  const [attached, setAttached] = useState<{ count: number; amount: number }>({ count: 0, amount: 0 });
+  const [selectedHouseIds, setSelectedHouseIds] = useState<string[]>([]);
+  const [attached, setAttached] = useState<{ count: number; amount: number; kind: 'plans' | 'houses' }>({ count: 0, amount: 0, kind: 'plans' });
+
+  // Opened from a house's "Create & Share": pre-select that house so the agent
+  // does not have to search for it again.
+  useEffect(() => {
+    if (open && initialHouse?.house_id) {
+      setSelectedHouseIds((prev) =>
+        prev.includes(initialHouse.house_id) ? prev : [...prev, initialHouse.house_id],
+      );
+      setSelectedPlanIds([]);
+    }
+  }, [open, initialHouse]);
 
   // Stepper state
   const steps: { key: StepKey; label: string }[] = useMemo(
