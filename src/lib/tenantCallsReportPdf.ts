@@ -71,6 +71,7 @@ export async function generateTenantCallsReportPdf(
   summary: TenantCallReportSummary[],
   rows: TenantCallReportRow[],
   metadata: TenantCallReportMetadata,
+  analysis?: TenantCallReportAnalysis,
 ): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTableMod: any = await import('jspdf-autotable');
