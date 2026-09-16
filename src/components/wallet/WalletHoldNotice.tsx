@@ -47,8 +47,8 @@ export function WalletHoldNotice({ userId, variant = 'card', className = '' }: W
             </p>
             <p className="mt-0.5 text-[10px] leading-snug text-amber-100/70">
               {fullySuppressed
-                ? 'Available balance shows UGX 0 because pending withdrawal requests are awaiting reconciliation. Your money is recorded and has not been lost.'
-                : 'Pending withdrawal requests awaiting reconciliation are held back from your available balance.'}
+                ? 'Your available balance shows UGX 0 while your withdrawal is being processed. Your money is safe and accounted for.'
+                : 'This amount is set aside while your withdrawal request is being processed.'}
             </p>
           </div>
         </div>
@@ -68,8 +68,7 @@ export function WalletHoldNotice({ userId, variant = 'card', className = '' }: W
             Held amount: {formatAmount(pendingHolds)}
           </p>
           <p className="text-xs text-muted-foreground">
-            Reason: pending withdrawal requests awaiting reconciliation. Nothing has been lost — the
-            held amount is released or paid out once finance reconciles those requests.
+            This amount is set aside while your withdrawal is being processed. It will be released or paid out shortly.
           </p>
         </div>
       </div>
