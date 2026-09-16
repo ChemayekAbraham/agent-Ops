@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useMemo } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { TenantOpsDashboard, type TenantOpsClassicView } from '../TenantOpsDashboard';
 import { TenantOpsSidebar } from './TenantOpsSidebar';
