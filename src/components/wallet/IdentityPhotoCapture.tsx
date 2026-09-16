@@ -1109,6 +1109,25 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                   </p>
                 )}
 
+                {/* Answered while the number is still being typed, so nobody
+                    fills in a whole form before being told the ID is taken. */}
+                {ninHint?.limit_reached && (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                    This National ID has reached its limit of 20 accounts. No more accounts can be
+                    added to it.
+                  </p>
+                )}
+                {ninHint && !ninHint.limit_reached && (
+                  <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+                    {ninHint.holder_first_name
+                      ? `This National ID is already on ${ninHint.holder_first_name}'s Welile account. You can be added under ${ninHint.holder_first_name}, but they must agree first.`
+                      : 'This National ID is already recorded on another account. Ask the person who holds it to confirm you.'}
+                    {typeof ninHint.accounts_on_id === 'number'
+                      ? ` ${ninHint.accounts_on_id} of 20 accounts are on it.`
+                      : ''}
+                  </p>
+                )}
+
                 {/* The ID belongs to an account already: ask that account's
                     holder to allow this one instead of simply refusing. */}
                 {duplicateNin && (
