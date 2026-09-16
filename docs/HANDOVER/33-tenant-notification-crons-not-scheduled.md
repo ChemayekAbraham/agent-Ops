@@ -93,6 +93,13 @@ should return 10 new rows plus the 2 pre-existing ones. If they're missing after
 migration needs to be run by hand (Supabase SQL editor or CLI) — see doc 06's verification
 pattern.
 
+**Confirmed 2026-09-16, ~10 minutes after pushing to `origin/lovable`:** `cron.job` still shows
+only the 3 pre-existing `tenant-*` jobs (`tenant-products-services-report-midnight-eat`,
+`tenant-rent-intake-notices-15min`, `tenant-self-repayment-notices-10min`) — none of the 10 from
+this migration. Auto-apply did not pick it up this time either. Run
+`supabase/migrations/20260916120000_schedule_tenant_notification_crons.sql` by hand against
+production to make it live.
+
 ## Also requested, not yet done
 
 The CTO dashboard's Communication tab (`src/components/executive/CTOCommunicationOverview.tsx`)
