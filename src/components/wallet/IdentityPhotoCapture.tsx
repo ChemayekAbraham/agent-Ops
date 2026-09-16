@@ -622,6 +622,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
   /** Set when the ID number is already recorded on another account. */
   const [duplicateNin, setDuplicateNin] = useState<string | null>(null);
+  /* What the ID number typed says about itself, checked as it is typed rather
+     than only when everything else is ready. The duplicate rule used to be
+     applied on send alone, so somebody typing an ID that already belongs to
+     another account saw nothing at all until both photos and the payout code
+     were done — it read as the screen ignoring them. */
+  const [ninHint, setNinHint] = useState<
+    { holder_first_name: string | null; accounts_on_id: number | null; limit_reached: boolean } | null
+  >(null);
 
   /* Is the selfie a face at all? The server-side checker is the only judge —
      there is no local blur / glare grading, exactly as on tenant onboarding. */
