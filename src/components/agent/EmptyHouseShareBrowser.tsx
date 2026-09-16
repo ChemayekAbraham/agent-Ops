@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { formatUGX } from '@/lib/rentCalculations';
 import { UGANDA_DISTRICTS, CITY_TO_DISTRICT } from '@/lib/ugandaDistricts';
 import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
-import { HouseShareActions } from '@/components/agent/ProxySupportOpportunities';
+import { HouseShareActions } from '@/components/agent/HouseShareActions';
 
 const PAGE_SIZE = 20;
 
