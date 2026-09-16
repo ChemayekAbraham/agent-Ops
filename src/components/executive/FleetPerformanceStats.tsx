@@ -1022,8 +1022,11 @@ export function FleetPerformanceStats({
         const bucketStart = Math.max(cursor.getTime(), start.getTime());
         const nextMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
         const bucketEnd = Math.min(nextMonth.getTime(), endMs);
-        const dCount = Math.max(1, Math.round((bucketEnd - bucketStart) / 86_400_000));
-        out.push({ label: format(cursor, 'MMM yy'), collected: collectedBuckets[k] || 0, expected: expectedPerDay * dCount, bucketStart, bucketEnd });
+        let monthExpected = 0;
+        for (const c = new Date(bucketStart); c.getTime() < bucketEnd; c.setDate(c.getDate() + 1)) {
+          monthExpected += expectedForDay(c);
+        }
+        out.push({ label: format(cursor, 'MMM yy'), collected: collectedBuckets[k] || 0, expected: monthExpected, bucketStart, bucketEnd });
         cursor.setMonth(cursor.getMonth() + 1);
       }
     } else {
