@@ -337,22 +337,17 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
       {/* Row A2 — money KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         <KpiTile
+          // Collected means collected against the bill only. Arrears — cash
+          // clearing earlier days — are deliberately NOT shown here: mixing them
+          // in made this tile irreconcilable with Expected and Pending beside it.
+          // collected + pending == expected, always.
           title="Total Collected"
-          value={fmtMoney(k.collections_curr || 0)}
+          value={fmtMoney(windowTotals ? (windowTotals.collected || 0) : (k.collections_curr || 0))}
           delta={pctDelta(k.collections_curr || 0, k.collections_prev || 0)}
           subtitle={
-            // Total Collected is ALL cash in the door. Most of it is tenants
-            // clearing earlier days, so on its own it looks irreconcilable with
-            // Expected and Pending next to it: 51.1M beside a 6.08M bill. Only
-            // the first part belongs to today's bill, and that part plus Pending
-            // equals Expected exactly.
             windowTotals
-              ? `${fmtMoney(windowTotals.collected || 0)} against the bill · ${fmtMoney(
-                  Math.max(0, (windowTotals.totalCash || 0) - (windowTotals.collected || 0)),
-                )} clearing earlier days`
-              : preset === 'today'
-                ? `${fmtMoney(k.collections_today || 0)} today`
-                : `Collected ${phrase}`
+              ? `of ${fmtMoney(windowTotals.expected || 0)} expected ${phrase}`
+              : `Collected ${phrase}`
           }
           icon={Wallet}
           accent="bg-emerald-700"
@@ -373,9 +368,6 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
                 {fmtMoney(windowTotals?.expected || 0)}
               </span>{' '}
               expected {phrase}
-              {(windowTotals?.arrears || 0) > 0 && (
-                <> · plus {fmtMoney(windowTotals?.arrears || 0)} arrears cleared</>
-              )}
             </>
           }
           icon={Hourglass}
