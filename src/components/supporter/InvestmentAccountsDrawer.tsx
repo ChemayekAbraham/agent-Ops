@@ -576,7 +576,7 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
               <div className="p-2 rounded-xl bg-primary/10">
                 <Briefcase className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-base font-black">My Investments</span>
+              <span className="text-base font-black">My Support</span>
             </SheetTitle>
           </SheetHeader>
 
