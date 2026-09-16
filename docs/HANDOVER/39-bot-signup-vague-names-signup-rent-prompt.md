@@ -56,9 +56,21 @@ never disbursed) — no real money or tenancy is affected by removing them.
 **Action:** `supabase/migrations/20260916140000_purge_signup_rent_prompt_bot_burst.sql` soft-deletes
 exactly these 61 (asserts the count is 61 before doing anything, aborts otherwise), using the same
 mechanism doc 23's hunter uses — `deleted_accounts` insert, PII scrub, `is_frozen = true`,
-`audit_logs` row — not a hard `DELETE`. **Not yet applied** — the direct write was refused by the
-auto-mode classifier (`[Unverifiable Deletion Scope]`), same as the cron migration in doc 33. Run
-it by hand via the Supabase SQL editor, same as that one.
+`audit_logs` row — not a hard `DELETE`. The direct write was refused by the auto-mode classifier
+(`[Unverifiable Deletion Scope]`), same as the cron migration in doc 33, so Josh ran it by hand via
+the Supabase SQL editor.
+
+**Resolved 2026-09-16.** Verified directly against production, not just the migration's own
+`raise notice`:
+
+```
+profiles with deletion_reason ilike '%Manual review, 2026-09-16%'  -> 61 (all is_frozen = true)
+deleted_accounts rows with matching reason                          -> 61
+audit_logs rows with metadata->>'session' = 'manual-review-2026-09-16' -> 61
+protected accounts (the 9 real people) accidentally touched         -> 0
+```
+
+All 61 confirmed/likely-bot accounts from the burst are purged; the 9 real people are untouched.
 
 ## Finding 2 — OKIROR ANDREW: a second, larger, currently-undetected ring
 
@@ -106,9 +118,7 @@ was held so both pieces of this ring get resolved together rather than in two se
 
 ## Open items
 
-1. Run `20260916140000_purge_signup_rent_prompt_bot_burst.sql` by hand, verify via
-   `select count(*) from profiles where deleted_at is not null and deletion_reason ilike '%2026-08-18%'`
-   (expect 61 new rows) same as doc 33's cron verification.
+1. ~~Run `20260916140000_purge_signup_rent_prompt_bot_burst.sql`~~ — done, verified 2026-09-16.
 2. Decide + build the OKIROR ANDREW referral-only-freeze mechanism, or fall back to a full account
    freeze / hold-for-manual-review — see "Decided, not yet built" above.
 3. Purge OKIROR ANDREW's 709 junk referred accounts once the referrer question is settled.
