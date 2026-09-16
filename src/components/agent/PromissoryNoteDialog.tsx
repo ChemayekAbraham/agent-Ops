@@ -36,6 +36,8 @@ interface PromissoryNoteDialogProps {
   onOpenChange: (open: boolean) => void;
   /** 'self' = agent hand-picks tenants for the partner; 'auto' = the desk places them. */
   supportMode?: 'self' | 'auto';
+  /** Optional starting promised amount (e.g. the house rent the agent tapped from). */
+  initialAmount?: number;
 }
 
 const phoneDigits = (v: string) => v.replace(/\D/g, '');
