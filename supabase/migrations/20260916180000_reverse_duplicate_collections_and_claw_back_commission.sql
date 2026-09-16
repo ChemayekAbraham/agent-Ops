@@ -9,8 +9,18 @@
 -- commission. See 20260916120000 for the fix.
 --
 -- MEASURED DAMAGE (both days, deduped on agent+tenant+plan+amount per day)
---   1,327 duplicate rows            UGX 105,425,606 of phantom "collections"
---   commission paid on them         UGX  10,542,560.60
+--   1,210 duplicate rows            UGX  92,656,683 of phantom "collections"
+--   commission paid on them         UGX   9,265,668.30
+--
+-- WHAT COUNTS AS A DUPLICATE, AND WHY THE RULE IS NARROW
+-- A repeat of the same agent+tenant+plan+amount within TWO MINUTES - the same
+-- window Josh Wanda's duplicate guard uses. A day-level rule would have caught
+-- 1,327 rows and UGX 105,425,606, but the extra 117 rows (UGX 12,768,923) are
+-- same-day repeats more than two minutes apart, and a tenant paying the same
+-- amount twice in one day is ordinary. Those cannot be proven duplicates, so
+-- they are treated as genuine: no commission is clawed back on them, and the
+-- tenant IS credited for them in 20260916200000. The platform absorbs the
+-- uncertainty rather than either party.
 --
 -- TENANTS WERE NOT CHARGED TWICE. The same guard failure that caused the loop
 -- also kept the duplicates out of `rent_requests.amount_repaid`: zero plans are
@@ -18,8 +28,8 @@
 -- single tenant balance. Only the receipt book and the agents' commission.
 --
 -- RECOVERY, AND THE DECISION BEHIND IT
---   recoverable from wallets   UGX  2,846,236.28   (27%)
---   already withdrawn          UGX  7,696,324.32   (73%)
+--   recoverable from wallets   UGX  2,285,342.18   (25%)
+--   already withdrawn          UGX  6,980,326.12   (75%)
 --
 -- 27 of these agents completed 74 withdrawals totalling UGX 46,268,914 across
 -- the two days, so most of the commission had left before anyone noticed.
@@ -72,18 +82,18 @@ BEGIN
   FOR r IN
     WITH s AS (
       SELECT ac.agent_id, ac.amount,
-             row_number() OVER (PARTITION BY (ac.created_at AT TIME ZONE 'Africa/Kampala')::date,
-                                             ac.agent_id, ac.rent_request_id, ac.amount
-                                ORDER BY ac.created_at) AS seq
+             (lag(ac.created_at) OVER (PARTITION BY ac.agent_id, ac.rent_request_id, ac.amount
+                                       ORDER BY ac.created_at)
+              > ac.created_at - interval '2 minutes') AS is_dup
         FROM public.agent_collections ac
        WHERE (ac.created_at AT TIME ZONE 'Africa/Kampala')::date
              IN (date '2026-09-15', date '2026-09-16')
          AND ac.reversed_at IS NULL
     ), over AS (
       SELECT agent_id,
-             round(coalesce(sum(amount) FILTER (WHERE seq > 1), 0) * 0.10, 2) AS overpaid
+             round(coalesce(sum(amount) FILTER (WHERE is_dup), 0) * 0.10, 2) AS overpaid
         FROM s GROUP BY agent_id
-       HAVING coalesce(sum(amount) FILTER (WHERE seq > 1), 0) > 0
+       HAVING coalesce(sum(amount) FILTER (WHERE is_dup), 0) > 0
     )
     SELECT o.agent_id,
            o.overpaid,
@@ -121,9 +131,9 @@ BEGIN
   -- above are computed from the rows that are still unreversed.
   WITH s AS (
     SELECT ac.id,
-           row_number() OVER (PARTITION BY (ac.created_at AT TIME ZONE 'Africa/Kampala')::date,
-                                           ac.agent_id, ac.rent_request_id, ac.amount
-                              ORDER BY ac.created_at) AS seq
+           (lag(ac.created_at) OVER (PARTITION BY ac.agent_id, ac.rent_request_id, ac.amount
+                                     ORDER BY ac.created_at)
+            > ac.created_at - interval '2 minutes') AS is_dup
       FROM public.agent_collections ac
      WHERE (ac.created_at AT TIME ZONE 'Africa/Kampala')::date
            IN (date '2026-09-15', date '2026-09-16')
@@ -134,15 +144,15 @@ BEGIN
          notes = coalesce(ac.notes, '') ||
                  ' [REVERSED: duplicate submission, 2026-09-15 float-gate defect. No tenant was charged twice.]'
     FROM s
-   WHERE s.id = ac.id AND s.seq > 1;
+   WHERE s.id = ac.id AND s.is_dup;
 
   GET DIAGNOSTICS v_marked = ROW_COUNT;
 
   RAISE NOTICE 'agents=% clawed_back=% written_off=% duplicate_rows_marked=%',
     v_agents, v_clawed, v_written_off, v_marked;
 
-  IF v_marked <> 1327 THEN
-    RAISE WARNING 'expected 1327 duplicate rows, marked % - re-check before trusting the figures', v_marked;
+  IF v_marked <> 1210 THEN
+    RAISE WARNING 'expected 1210 duplicate rows, marked % - re-check before trusting the figures', v_marked;
   END IF;
 END $fix$;
 
