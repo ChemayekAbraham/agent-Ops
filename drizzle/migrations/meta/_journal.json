@@ -960,6 +960,13 @@
       "when": 1789542607343,
       "tag": "0136_national_id_fifo_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1789543612315,
+      "tag": "0137_writeoff_line_reclass_to_a8",
+      "breakpoints": true
     }
   ]
 }
