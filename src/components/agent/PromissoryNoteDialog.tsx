@@ -53,7 +53,7 @@ const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 type StepKey = 'who' | 'contact' | 'promise' | 'tenants' | 'review';
 
-export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' }: PromissoryNoteDialogProps) {
+export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self', initialAmount }: PromissoryNoteDialogProps) {
   const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
