@@ -1022,7 +1022,7 @@ export function PromissoryNotesQueue({
                               aria-label={`Select note for ${note.partner_name}`}
                             />
                           </td>
-                          <td className="py-2 pr-3 max-w-[160px]"><AgentCallMenu note={note} /></td>
+                          <td className="py-2 pr-3 max-w-[160px]"><AgentCallMenu note={note} noteCount={agentNoteCounts.get(note.agent_id) ?? 0} /></td>
                           <td className="py-2 pr-3">
                             <span className="font-medium block truncate max-w-[160px]">{note.partner_name}</span>
                             <span className="text-[10px] text-muted-foreground">{note.whatsapp_number}</span>
