@@ -341,9 +341,18 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
           value={fmtMoney(k.collections_curr || 0)}
           delta={pctDelta(k.collections_curr || 0, k.collections_prev || 0)}
           subtitle={
-            preset === 'today'
-              ? `${fmtMoney(k.collections_today || 0)} today`
-              : `Collected ${phrase}`
+            // Total Collected is ALL cash in the door. Most of it is tenants
+            // clearing earlier days, so on its own it looks irreconcilable with
+            // Expected and Pending next to it: 51.1M beside a 6.08M bill. Only
+            // the first part belongs to today's bill, and that part plus Pending
+            // equals Expected exactly.
+            windowTotals
+              ? `${fmtMoney(windowTotals.collected || 0)} against the bill · ${fmtMoney(
+                  Math.max(0, (windowTotals.totalCash || 0) - (windowTotals.collected || 0)),
+                )} clearing earlier days`
+              : preset === 'today'
+                ? `${fmtMoney(k.collections_today || 0)} today`
+                : `Collected ${phrase}`
           }
           icon={Wallet}
           accent="bg-emerald-700"
