@@ -143,3 +143,38 @@ export function usePWAInstall() {
     canShow: !isInstalled,
   };
 }
+
+const INSTALL_PLATFORM_PREF_KEY = 'welile_install_platform_preference';
+
+/**
+ * Persist the platform a user manually chose in the install prompt so that
+ * future prompts (especially when OS detection fails) show the right steps.
+ */
+export function getInstallPlatformPreference(): 'ios' | 'android' | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(INSTALL_PLATFORM_PREF_KEY);
+    if (raw === 'ios' || raw === 'android') return raw;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function setInstallPlatformPreference(platform: 'ios' | 'android') {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(INSTALL_PLATFORM_PREF_KEY, platform);
+  } catch {
+    /* storage unavailable — prompt simply returns to picker next load */
+  }
+}
+
+export function clearInstallPlatformPreference() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(INSTALL_PLATFORM_PREF_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}

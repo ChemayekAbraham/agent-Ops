@@ -2,7 +2,12 @@ import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Share, HelpCircle, X, Zap, Wifi, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePWAInstall } from '@/hooks/usePWAInstall';
+import {
+  usePWAInstall,
+  getInstallPlatformPreference,
+  setInstallPlatformPreference,
+  clearInstallPlatformPreference,
+} from '@/hooks/usePWAInstall';
 import { trackInstallEvent } from '@/lib/installTracking';
 import { toast } from 'sonner';
 
@@ -46,8 +51,11 @@ function snoozedUntil(): number {
 export default function InstallNagOverlay() {
   const { isInstalled, isIOS, isAndroid, hasPrompt, promptInstall, canShow } = usePWAInstall();
   // Manual override when the OS can't be detected (unusual WebViews, etc.).
-  const [manualPlatform, setManualPlatform] = useState<'ios' | 'android' | null>(null);
+  // A saved preference lets the prompt skip the picker on future visits.
   const osDetected = isIOS || isAndroid;
+  const [manualPlatform, setManualPlatform] = useState<'ios' | 'android' | null>(() =>
+    osDetected ? null : getInstallPlatformPreference(),
+  );
   const effectiveIsIOS = manualPlatform ? manualPlatform === 'ios' : isIOS;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
