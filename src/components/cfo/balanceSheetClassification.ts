@@ -351,24 +351,8 @@ export function expandLandlordFloat(
     const self = Math.round(floatValue * share);
     const company = g.value - self;
 
-    // Every requested component renders even with no ledger balance behind it,
-    // so a zero reads as zero rather than as an omission.
-    const components: PositionLine[] = LANDLORD_FLOAT_COMPONENT_ACCOUNTS.map(({ code, label }) => {
-      const line = componentLines.find(l => accountCodeOf(l) === code);
-      return { label, value: line?.value ?? 0, source: line?.source };
-    });
-
-    // The landlord payable is the only split account, so it heads each block and
-    // makes the block's items foot to the block's own total.
-    const floatSource = floatLines[0]?.source;
-    const companyItems: PositionLine[] = [
-      { label: LANDLORD_RENT_PAYABLE_LABEL, value: floatValue - self, source: floatSource },
-      ...components,
-    ];
-    const selfItems: PositionLine[] = [
-      { label: LANDLORD_RENT_PAYABLE_LABEL, value: self, source: floatSource },
-    ];
-
+    // Presentation: each managed block shows its own amount only — no component
+    // breakdown and no per-block subtotal — followed by the overall total.
     return [
       { label: LANDLORD_FLOAT_LABEL, value: g.value, lines: [], heading: true, depth: 0 },
       {
@@ -376,15 +360,6 @@ export function expandLandlordFloat(
         label: LANDLORD_FLOAT_COMPANY_LABEL,
         value: company,
         lines: [...floatLines, ...componentLines],
-        components: companyItems,
-        heading: true,
-        depth: 1,
-      },
-      {
-        label: LANDLORD_FLOAT_COMPANY_TOTAL_LABEL,
-        value: company,
-        lines: [],
-        subtotal: true,
         depth: 1,
       },
       {
@@ -392,15 +367,6 @@ export function expandLandlordFloat(
         label: LANDLORD_FLOAT_SELF_LABEL,
         value: self,
         lines: [],
-        components: selfItems,
-        heading: true,
-        depth: 1,
-      },
-      {
-        label: LANDLORD_FLOAT_SELF_TOTAL_LABEL,
-        value: self,
-        lines: [],
-        subtotal: true,
         depth: 1,
       },
       { label: LANDLORD_FLOAT_TOTAL_LABEL, value: g.value, lines: [], subtotal: true, depth: 0 },
