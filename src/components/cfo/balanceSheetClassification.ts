@@ -329,49 +329,11 @@ export type MarketplaceRow = BsGroup & {
  */
 export function expandLandlordFloat(
   marketplace: BsGroup[],
-  split: LandlordFloatSplit | null | undefined,
+  _split: LandlordFloatSplit | null | undefined,
 ): MarketplaceRow[] {
-  const componentCodes = new Set(LANDLORD_FLOAT_COMPONENT_ACCOUNTS.map(c => c.code));
-
-  return marketplace.flatMap((g): MarketplaceRow[] => {
-    if (g.label !== LANDLORD_FLOAT_LABEL) return [g];
-
-    const isComponent = (l: PositionLine) => {
-      const code = accountCodeOf(l);
-      return code !== null && componentCodes.has(code);
-    };
-    const componentLines = g.lines.filter(isComponent);
-    const floatLines = g.lines.filter(l => !isComponent(l));
-
-    // Only the landlord payable itself carries a company/self split; the
-    // component accounts sit wholly on the company side.
-    const componentTotal = componentLines.reduce((t, l) => t + l.value, 0);
-    const floatValue = g.value - componentTotal;
-    const share = split && split.total !== 0 ? split.self_managed / split.total : 0;
-    const self = Math.round(floatValue * share);
-    const company = g.value - self;
-
-    // Presentation: each managed block shows its own amount only — no component
-    // breakdown and no per-block subtotal — followed by the overall total.
-    return [
-      { label: LANDLORD_FLOAT_LABEL, value: g.value, lines: [], heading: true, depth: 0 },
-      {
-        ...g,
-        label: LANDLORD_FLOAT_COMPANY_LABEL,
-        value: company,
-        lines: [...floatLines, ...componentLines],
-        depth: 1,
-      },
-      {
-        ...g,
-        label: LANDLORD_FLOAT_SELF_LABEL,
-        value: self,
-        lines: [],
-        depth: 1,
-      },
-      { label: LANDLORD_FLOAT_TOTAL_LABEL, value: g.value, lines: [], subtotal: true, depth: 0 },
-    ];
-  });
+  // The landlord float is reported as a single line with no company/self
+  // breakdown and no separate total row.
+  return marketplace;
 }
 
 
