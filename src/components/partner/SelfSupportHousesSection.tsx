@@ -57,7 +57,7 @@ export function useVerifiedEmptyHouses() {
             p_offset: offset,
             p_district: null,
             p_verified_only: true,
-            p_gps_only: false,
+            p_gps_only: true,
             p_min_rent: null,
             p_max_rent: null,
             p_near_lat: null,
