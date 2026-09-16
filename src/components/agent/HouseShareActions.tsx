@@ -72,6 +72,7 @@ export function HouseShareActions({ house }: { house: SupportableHouse }) {
         onOpenChange={setNoteOpen}
         supportMode="self"
         initialAmount={Number(house.monthly_rent || 0) || undefined}
+        initialHouse={house}
       />
       <Button
         variant="outline"

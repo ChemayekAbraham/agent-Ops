@@ -141,14 +141,22 @@ Deno.serve(async (req) => {
         };
       }
     }
-    if (!route?.department_id) {
-      return json({
-        error: "no_department",
-        message: "You are not assigned to an active department yet. Ask HR to assign you before raising a requisition.",
-      }, 409);
-    }
-
     const primaryRole = (await primaryRoleOf(admin, requester.id)) ?? null;
+
+    if (!route?.department_id) {
+      // Staff with no active department assignment must still be able to raise a
+      // requisition: it goes straight to the COO, who can reassign it if needed.
+      // Nobody reviews their own money, so a COO's own request starts at the CFO.
+      const selfIsCoo = primaryRole === "coo";
+      route = {
+        department_id: null,
+        department_key: null,
+        department_name: "Unassigned",
+        stage: selfIsCoo ? "cfo" : "coo",
+        approver_role: selfIsCoo ? "cfo" : "coo",
+        final_stage: "cfo",
+      };
+    }
 
     const { data: inserted, error: insErr } = await admin
       .from("staff_requisitions")

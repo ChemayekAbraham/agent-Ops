@@ -7,19 +7,22 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
-import { AlertTriangle, Home, Wand2 } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, Home, Wand2 } from 'lucide-react';
+import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
+import { houseAddressLine, houseTitleLine } from '@/components/partner/SelfSupportHousesSection';
 
 /**
  * Optional plan matcher for a promissory note.
  *
- * A partner promising e.g. UGX 10,000,000 can have that money earmarked to
- * specific ready-to-fund tenant rent plans up front. If the queue cannot fill
- * the promised amount, the agent simply leaves plans unselected and the note is
- * created on its own — the fallback is always available.
+ * Lists BOTH ready-to-fund tenant rent plans and verified empty houses. Empty
+ * houses are shown first by default; the agent can flip the ordering to rent
+ * plans first. A note attaches one kind only (the server keeps them in
+ * separate earmark tables), so picking a house clears rent-plan selections
+ * and vice versa.
  *
- * All data comes from one server call (`agent_list_promissory_fundable_plans`):
- * plans already earmarked by another note, or held by a partner, are excluded
- * server-side, so there are no client-side round trips per row.
+ * All data comes from two server calls (`agent_list_promissory_fundable_plans`
+ * and `agent_list_empty_house_opportunities`): plans already earmarked by
+ * another note and houses already reserved are excluded server-side.
  */
 
 export interface FundablePlanRow {
@@ -34,27 +37,40 @@ export interface FundablePlanRow {
   landlord_name: string | null;
 }
 
-interface Payload {
+interface PlansPayload {
   plans: FundablePlanRow[];
   total: number;
   available_pool: number;
+}
+
+interface HousesPayload {
+  houses: HouseOpportunity[];
+  total: number;
 }
 
 export function PromissoryPlanMatcher({
   targetAmount,
   selectedIds,
   onChange,
+  selectedHouseIds,
+  onHousesChange,
+  preselectedHouse,
   disabled,
   onSelectedTotalChange,
 }: {
   targetAmount: number;
   selectedIds: string[];
   onChange: (ids: string[]) => void;
+  selectedHouseIds: string[];
+  onHousesChange: (ids: string[]) => void;
+  /** A house the agent came from (e.g. Create & Share) — pinned and pre-selected. */
+  preselectedHouse?: HouseOpportunity | null;
   disabled?: boolean;
   onSelectedTotalChange?: (total: number) => void;
 }) {
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
+  const [sortMode, setSortMode] = useState<'houses' | 'plans'>('houses');
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 350);
@@ -63,7 +79,7 @@ export function PromissoryPlanMatcher({
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['promissory-fundable-plans', debounced],
-    queryFn: async (): Promise<Payload> => {
+    queryFn: async (): Promise<PlansPayload> => {
       const { data, error } = await supabase.rpc('agent_list_promissory_fundable_plans', {
         p_limit: 60,
         p_offset: 0,
@@ -71,7 +87,7 @@ export function PromissoryPlanMatcher({
         p_max_amount: null,
       });
       if (error) throw error;
-      const payload = (data ?? {}) as unknown as Payload;
+      const payload = (data ?? {}) as unknown as PlansPayload;
       return {
         plans: Array.isArray(payload.plans) ? payload.plans : [],
         total: Number(payload.total || 0),
@@ -80,19 +96,71 @@ export function PromissoryPlanMatcher({
     },
   });
 
+  const { data: housesData, isLoading: housesLoading } = useQuery({
+    queryKey: ['promissory-fundable-houses', debounced],
+    queryFn: async (): Promise<HousesPayload> => {
+      const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
+        p_search: debounced || null,
+        p_limit: 60,
+        p_offset: 0,
+        p_district: null,
+        p_verified_only: true,
+        p_gps_only: true,
+        p_min_rent: null,
+        p_max_rent: null,
+        p_near_lat: null,
+        p_near_lng: null,
+        p_radius_km: null,
+        p_sort: 'newest',
+      });
+      if (error) throw error;
+      const payload = (data ?? {}) as unknown as HousesPayload;
+      return {
+        houses: (Array.isArray(payload.houses) ? payload.houses : []).filter(
+          (h) => h.verified === true && Number(h.monthly_rent) > 0,
+        ),
+        total: Number(payload.total || 0),
+      };
+    },
+  });
+
   const plans = data?.plans ?? [];
   const pool = data?.available_pool ?? 0;
 
+  const houses = useMemo(() => {
+    const list = housesData?.houses ?? [];
+    // Keep the house the agent tapped on visible even when it falls outside
+    // the current page/search — it stays pinned at the top.
+    if (
+      preselectedHouse &&
+      selectedHouseIds.includes(preselectedHouse.house_id) &&
+      !list.some((h) => h.house_id === preselectedHouse.house_id)
+    ) {
+      return [preselectedHouse, ...list];
+    }
+    return list;
+  }, [housesData, preselectedHouse, selectedHouseIds]);
+
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const selectedTotal = useMemo(
+  const selectedHouseSet = useMemo(() => new Set(selectedHouseIds), [selectedHouseIds]);
+
+  const plansTotal = useMemo(
     () =>
       plans
         .filter((p) => selectedSet.has(p.rent_request_id))
         .reduce((s, p) => s + Number(p.funding_amount || 0), 0),
     [plans, selectedSet],
   );
+  const housesTotal = useMemo(
+    () =>
+      houses
+        .filter((h) => selectedHouseSet.has(h.house_id))
+        .reduce((s, h) => s + Number(h.monthly_rent || 0), 0),
+    [houses, selectedHouseSet],
+  );
+  const selectedTotal = plansTotal + housesTotal;
   const remaining = Math.max(0, targetAmount - selectedTotal);
-  const shortfall = targetAmount > 0 && pool < targetAmount;
+  const shortfall = targetAmount > 0 && pool < targetAmount && houses.length === 0;
 
   // Lets the parent mirror the earmarked total into the promised amount while
   // the agent has not typed one manually.
@@ -100,7 +168,8 @@ export function PromissoryPlanMatcher({
     onSelectedTotalChange?.(selectedTotal);
   }, [selectedTotal, onSelectedTotalChange]);
 
-  const toggle = useCallback(
+  /** A note attaches one kind only — selecting across kinds replaces. */
+  const togglePlan = useCallback(
     (plan: FundablePlanRow) => {
       if (disabled) return;
       const id = plan.rent_request_id;
@@ -108,41 +177,165 @@ export function PromissoryPlanMatcher({
         onChange(selectedIds.filter((x) => x !== id));
         return;
       }
-      // Never let the earmarked total exceed the promised amount — the server
-      // enforces the same rule, this only explains it early.
-      if (targetAmount > 0 && selectedTotal + Number(plan.funding_amount || 0) > targetAmount) return;
+      if (targetAmount > 0 && plansTotal + Number(plan.funding_amount || 0) > targetAmount) return;
+      if (selectedHouseIds.length > 0) onHousesChange([]);
       onChange([...selectedIds, id]);
     },
-    [disabled, onChange, selectedIds, selectedSet, selectedTotal, targetAmount],
+    [disabled, onChange, onHousesChange, selectedIds, selectedSet, selectedHouseIds, plansTotal, targetAmount],
   );
 
-  /** Greedy fill: largest plans first, never crossing the promised amount. */
+  const toggleHouse = useCallback(
+    (house: HouseOpportunity) => {
+      if (disabled) return;
+      const id = house.house_id;
+      if (selectedHouseSet.has(id)) {
+        onHousesChange(selectedHouseIds.filter((x) => x !== id));
+        return;
+      }
+      if (targetAmount > 0 && housesTotal + Number(house.monthly_rent || 0) > targetAmount) return;
+      if (selectedIds.length > 0) onChange([]);
+      onHousesChange([...selectedHouseIds, id]);
+    },
+    [disabled, onChange, onHousesChange, selectedHouseIds, selectedHouseSet, selectedIds, housesTotal, targetAmount],
+  );
+
+  /** Greedy fill: largest entries first, never crossing the promised amount.
+   *  Fills from whichever kind (houses or rent plans) gets closest. */
   const autoFill = useCallback(() => {
     if (disabled || targetAmount <= 0) return;
-    let budget = targetAmount;
-    const picked: string[] = [];
-    [...plans]
-      .sort((a, b) => Number(b.funding_amount || 0) - Number(a.funding_amount || 0))
-      .forEach((p) => {
-        const amt = Number(p.funding_amount || 0);
-        if (amt > 0 && amt <= budget) {
-          picked.push(p.rent_request_id);
-          budget -= amt;
-        }
-      });
-    onChange(picked);
-  }, [disabled, onChange, plans, targetAmount]);
+    const greedy = (amounts: { id: string; amt: number }[]) => {
+      let budget = targetAmount;
+      const picked: string[] = [];
+      [...amounts]
+        .sort((a, b) => b.amt - a.amt)
+        .forEach((p) => {
+          if (p.amt > 0 && p.amt <= budget) {
+            picked.push(p.id);
+            budget -= p.amt;
+          }
+        });
+      return { picked, total: targetAmount - budget };
+    };
+    const fromPlans = greedy(plans.map((p) => ({ id: p.rent_request_id, amt: Number(p.funding_amount || 0) })));
+    const fromHouses = greedy(houses.map((h) => ({ id: h.house_id, amt: Number(h.monthly_rent || 0) })));
+    if (fromHouses.total >= fromPlans.total) {
+      onChange([]);
+      onHousesChange(fromHouses.picked);
+    } else {
+      onHousesChange([]);
+      onChange(fromPlans.picked);
+    }
+  }, [disabled, onChange, onHousesChange, plans, houses, targetAmount]);
+
+  const anythingLoading = isLoading || housesLoading;
+  const nothingFound = !anythingLoading && plans.length === 0 && houses.length === 0;
+
+  const renderPlan = (p: FundablePlanRow) => {
+    const checked = selectedSet.has(p.rent_request_id);
+    const amt = Number(p.funding_amount || 0);
+    const blocked = !checked && targetAmount > 0 && selectedTotal + amt > targetAmount;
+    return (
+      <button
+        type="button"
+        key={`plan-${p.rent_request_id}`}
+        onClick={() => togglePlan(p)}
+        disabled={disabled || blocked}
+        aria-pressed={checked}
+        className={`w-full text-left rounded-lg border p-2 transition-colors ${
+          checked ? 'border-primary bg-primary/5' : 'border-border'
+        } ${blocked ? 'opacity-45' : ''}`}
+      >
+        <div className="flex items-start gap-2">
+          <Checkbox checked={checked} className="mt-0.5 pointer-events-none" tabIndex={-1} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold truncate">{p.tenant_full_name || 'Tenant'}</p>
+              <span className="text-xs font-bold text-primary shrink-0">{formatUGX(amt)}</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+              <Home className="h-3 w-3 shrink-0" />
+              {p.tenant_location || p.request_city || 'Location not recorded'}
+            </p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Badge variant="outline" className="text-[9px] px-1 py-0">Rent plan</Badge>
+              {p.house_category && (
+                <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                  {p.house_category}
+                </Badge>
+              )}
+              {p.duration_days ? (
+                <Badge variant="outline" className="text-[9px] px-1 py-0">
+                  {p.duration_days} days
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  };
+
+  const renderHouse = (h: HouseOpportunity) => {
+    const checked = selectedHouseSet.has(h.house_id);
+    const amt = Number(h.monthly_rent || 0);
+    const blocked = !checked && targetAmount > 0 && selectedTotal + amt > targetAmount;
+    return (
+      <button
+        type="button"
+        key={`house-${h.house_id}`}
+        onClick={() => toggleHouse(h)}
+        disabled={disabled || blocked}
+        aria-pressed={checked}
+        className={`w-full text-left rounded-lg border p-2 transition-colors ${
+          checked ? 'border-primary bg-primary/5' : 'border-border'
+        } ${blocked ? 'opacity-45' : ''}`}
+      >
+        <div className="flex items-start gap-2">
+          <Checkbox checked={checked} className="mt-0.5 pointer-events-none" tabIndex={-1} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold truncate">{houseTitleLine(h)}</p>
+              <span className="text-xs font-bold text-primary shrink-0">{formatUGX(amt)}</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+              <Home className="h-3 w-3 shrink-0" />
+              {houseAddressLine(h)}
+            </p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Badge className="text-[9px] px-1 py-0">Empty house</Badge>
+              {h.house_category && (
+                <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                  {h.house_category}
+                </Badge>
+              )}
+              {h.number_of_rooms ? (
+                <Badge variant="outline" className="text-[9px] px-1 py-0">
+                  {h.number_of_rooms} room{h.number_of_rooms === 1 ? '' : 's'}
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  };
+
+  const ordered =
+    sortMode === 'houses'
+      ? [...houses.map(renderHouse), ...plans.map(renderPlan)]
+      : [...plans.map(renderPlan), ...houses.map(renderHouse)];
 
   return (
     <div className="rounded-xl border border-border p-3 space-y-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold">
-            Available rent requests {data ? `(${data.total})` : ''}
+            Empty houses &amp; rent plans{' '}
+            {data || housesData ? `(${(housesData?.houses.length ?? 0) + (data?.total ?? 0)})` : ''}
           </p>
           <p className="text-[10px] text-muted-foreground mt-0.5">
-            Pick the rent plans this partner will fund — the promised amount fills in from your
-            selection. Skip to create the note on its own.
+            Pick what this partner will fund — the promised amount fills in from your selection. A
+            note attaches either houses or rent plans; picking one replaces the other.
           </p>
         </div>
         <Button
@@ -151,7 +344,7 @@ export function PromissoryPlanMatcher({
           variant="outline"
           className="h-7 gap-1 text-[11px] shrink-0"
           onClick={autoFill}
-          disabled={disabled || isLoading || targetAmount <= 0 || plans.length === 0}
+          disabled={disabled || anythingLoading || targetAmount <= 0 || (plans.length === 0 && houses.length === 0)}
         >
           <Wand2 className="h-3 w-3" /> Match amount
         </Button>
@@ -183,76 +376,55 @@ export function PromissoryPlanMatcher({
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-[10px] text-amber-700">
                 Ready-to-fund plans total {formatUGX(pool)} — less than the promised amount. Attach what
-                fits, or create the note without any plans attached.
+                fits, or create the note on its own.
               </p>
             </div>
           )}
 
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tenant, city or landlord"
-            className="h-8 text-xs"
-            disabled={disabled}
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search house, tenant, city or landlord"
+              className="h-8 text-xs flex-1"
+              disabled={disabled}
+            />
+            <div className="flex items-center rounded-lg border border-border overflow-hidden shrink-0">
+              {(
+                [
+                  { key: 'houses', label: 'Houses first' },
+                  { key: 'plans', label: 'Plans first' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setSortMode(opt.key)}
+                  className={`px-2 h-8 text-[10px] font-semibold flex items-center gap-1 transition-colors ${
+                    sortMode === opt.key
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <ArrowUpDown className="h-3 w-3" />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="max-h-56 overflow-y-auto space-y-1.5 pr-0.5">
-            {isLoading ? (
+            {anythingLoading ? (
               <>
                 <Skeleton className="h-12 w-full rounded-lg" />
                 <Skeleton className="h-12 w-full rounded-lg" />
               </>
-            ) : plans.length === 0 ? (
+            ) : nothingFound ? (
               <p className="text-[11px] text-muted-foreground py-2">
-                No ready-to-fund plans available right now. Create the note on its own.
+                No empty houses or ready-to-fund plans available right now. Create the note on its own.
               </p>
             ) : (
-              plans.map((p) => {
-                const checked = selectedSet.has(p.rent_request_id);
-                const amt = Number(p.funding_amount || 0);
-                const blocked =
-                  !checked && targetAmount > 0 && selectedTotal + amt > targetAmount;
-                return (
-                  <button
-                    type="button"
-                    key={p.rent_request_id}
-                    onClick={() => toggle(p)}
-                    disabled={disabled || blocked}
-                    aria-pressed={checked}
-                    className={`w-full text-left rounded-lg border p-2 transition-colors ${
-                      checked ? 'border-primary bg-primary/5' : 'border-border'
-                    } ${blocked ? 'opacity-45' : ''}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <Checkbox checked={checked} className="mt-0.5 pointer-events-none" tabIndex={-1} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold truncate">
-                            {p.tenant_full_name || 'Tenant'}
-                          </p>
-                          <span className="text-xs font-bold text-primary shrink-0">{formatUGX(amt)}</span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-                          <Home className="h-3 w-3 shrink-0" />
-                          {p.tenant_location || p.request_city || 'Location not recorded'}
-                        </p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {p.house_category && (
-                            <Badge variant="secondary" className="text-[9px] px-1 py-0">
-                              {p.house_category}
-                            </Badge>
-                          )}
-                          {p.duration_days ? (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0">
-                              {p.duration_days} days
-                            </Badge>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
+              ordered
             )}
           </div>
         </>
