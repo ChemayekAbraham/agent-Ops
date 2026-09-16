@@ -228,3 +228,6 @@ verify_jwt = false
 
 [functions.tenant-self-onboarding]
 verify_jwt = false
+
+[functions.notify-promissory-fulfilment-due]
+verify_jwt = false

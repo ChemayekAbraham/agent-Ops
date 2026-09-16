@@ -31819,6 +31819,85 @@ export type Database = {
           },
         ]
       }
+      promissory_note_fulfilment_notices: {
+        Row: {
+          agent_name: string | null
+          amount: number | null
+          attempts: number
+          created_at: string
+          due_on: string
+          id: string
+          last_error: string | null
+          note_id: string
+          outstanding: number | null
+          partner_name: string | null
+          phone: string | null
+          recipient_name: string | null
+          recipient_role: string
+          recipient_user_id: string | null
+          sent_at: string | null
+          sms_status: string
+        }
+        Insert: {
+          agent_name?: string | null
+          amount?: number | null
+          attempts?: number
+          created_at?: string
+          due_on: string
+          id?: string
+          last_error?: string | null
+          note_id: string
+          outstanding?: number | null
+          partner_name?: string | null
+          phone?: string | null
+          recipient_name?: string | null
+          recipient_role: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          sms_status?: string
+        }
+        Update: {
+          agent_name?: string | null
+          amount?: number | null
+          attempts?: number
+          created_at?: string
+          due_on?: string
+          id?: string
+          last_error?: string | null
+          note_id?: string
+          outstanding?: number | null
+          partner_name?: string | null
+          phone?: string | null
+          recipient_name?: string | null
+          recipient_role?: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          sms_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promissory_note_fulfilment_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "promissory_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_fulfilment_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_fulfilment_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["note_id"]
+          },
+        ]
+      }
       promissory_note_house_intents: {
         Row: {
           agent_id: string
@@ -59954,6 +60033,10 @@ export type Database = {
         Returns: undefined
       }
       psm_queue_house_release_warnings: { Args: never; Returns: Json }
+      psm_queue_promissory_fulfilment_notices: {
+        Args: { p_run_date?: string }
+        Returns: number
+      }
       psm_queue_promissory_pledge_notice: {
         Args: { p_note_id: string }
         Returns: undefined
