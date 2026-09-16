@@ -305,6 +305,13 @@ Deno.serve(async (req) => {
       // The engine's own pre-check can't see across buckets; the double-entry
       // assertion in postBalancedLedgerGroup is what guards this write.
       skipBalanceCheck: true,
+      // Closes the double-submit race: two concurrent reclass requests for
+      // the same target (e.g. a double-click, or this racing an agent's own
+      // agent-convert-withdrawable-to-float call) could otherwise both read
+      // the same withdrawableBefore and both post. Re-checked under an
+      // advisory lock immediately before writing.
+      lockUserId: targetUserId,
+      minAvailable: amount,
     });
     if (!posted.ok) return json({ error: posted.error }, 500);
     const groupId = posted.groupId;

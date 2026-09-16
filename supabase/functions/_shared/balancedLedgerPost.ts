@@ -142,10 +142,32 @@ export async function postBalancedLedgerGroup(
     referenceId?: string | null;
     skipBalanceCheck?: boolean;
     idempotencyKey?: string | null;
+    /**
+     * When set, posts through create_ledger_transaction_locked instead of
+     * create_ledger_transaction: an advisory lock salted to
+     * "bucket_reclass:<lockUserId>" is held for the duration of the post,
+     * and (when minAvailable is also set) get_user_available_balance() is
+     * re-checked under that lock immediately before writing. This closes
+     * the TOCTOU race that skipBalanceCheck otherwise leaves open — two
+     * concurrent cross-bucket moves for the same user can no longer both
+     * read the same stale balance and both post. Use for any reclass that
+     * debits a user's own withdrawable/float balance (agent self-service,
+     * admin withdrawable<->float, finops wallet moves); omit for legs with
+     * no per-user race exposure (e.g. platform-side legs).
+     */
+    lockUserId?: string | null;
+    minAvailable?: number | null;
   },
 ): Promise<PostResult> {
-  const { entries, source, referenceId = null, skipBalanceCheck = true, idempotencyKey = null } =
-    opts;
+  const {
+    entries,
+    source,
+    referenceId = null,
+    skipBalanceCheck = true,
+    idempotencyKey = null,
+    lockUserId = null,
+    minAvailable = null,
+  } = opts;
 
   if (!Array.isArray(entries) || entries.length < 2) {
     return {
@@ -198,7 +220,15 @@ export async function postBalancedLedgerGroup(
   const payload: Record<string, unknown> = { entries, skip_balance_check: skipBalanceCheck };
   if (idempotencyKey) payload.idempotency_key = idempotencyKey;
 
-  const { data: groupId, error } = await admin.rpc("create_ledger_transaction", payload);
+  let groupId: string | null = null;
+  let error: { message: string } | null = null;
+  if (lockUserId) {
+    payload.lock_user_id = lockUserId;
+    if (minAvailable != null) payload.min_available = minAvailable;
+    ({ data: groupId, error } = await admin.rpc("create_ledger_transaction_locked", payload));
+  } else {
+    ({ data: groupId, error } = await admin.rpc("create_ledger_transaction", payload));
+  }
   if (error) return { ok: false, error: `Ledger error: ${error.message}`, report };
 
   // Post-write confirmation: read the group back and re-price it. A mismatch
