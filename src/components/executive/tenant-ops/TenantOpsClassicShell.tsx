@@ -41,7 +41,9 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
 
   const raw = params.get('view') || 'home';
   const active = (
-    raw === 'action.portfolio-performance' || isTenantOpsViewKey(raw) ? raw : 'home'
+    raw === 'action.portfolio-performance' || raw === 'action.notifications-analytics' || isTenantOpsViewKey(raw)
+      ? raw
+      : 'home'
   ) as TenantOpsViewKey | TenantOpsActionKey;
 
   const badges = useMemo<Partial<Record<string, number>>>(() => ({
