@@ -15,7 +15,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Camera, Check, CircleDollarSign, Home, Loader2, MapPin,
   ShieldCheck, User, Wallet, CalendarDays, Info, Building2, CheckCircle2, AlertTriangle,
