@@ -925,6 +925,62 @@
       "when": 1789535823668,
       "tag": "0131_house_support_share_deeplink",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1789538701067,
+      "tag": "0132_cash_flow_uses_sofp_resolver",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1789539260128,
+      "tag": "0133_cash_flow_statement_timeout",
+      "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1789539378503,
+      "tag": "0134_cash_flow_group_counterparts",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1789539974066,
+      "tag": "0135_report_functions_statement_timeout",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1789542607343,
+      "tag": "0136_national_id_fifo_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1789543612315,
+      "tag": "0137_writeoff_line_reclass_to_a8",
+      "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1789543869061,
+      "tag": "0138_payout_number_change_same_number_and_server_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1789543932646,
+      "tag": "0139_restore_payout_number_change_approval_steps",
+      "breakpoints": true
     }
   ]
 }

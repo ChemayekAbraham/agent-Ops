@@ -16,11 +16,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useDecideNumberChange,
   useNumberChangeQueue,
+  useNumberChangeVetting,
   type NumberChangeRequest,
 } from '@/hooks/usePayoutNumberChange';
 
 function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boolean }) {
   const decide = useDecideNumberChange();
+  const vetting = useNumberChangeVetting(r.id, !readOnly);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<'approved' | 'rejected' | null>(null);
 
@@ -85,6 +87,26 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
         </p>
       </div>
 
+      {!readOnly && vetting.data && (
+        <div
+          className={
+            vetting.data.approvable
+              ? 'rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-2 text-xs'
+              : 'rounded-lg border border-destructive/50 bg-destructive/5 p-2 text-xs font-semibold text-destructive'
+          }
+        >
+          <p>{vetting.data.message}</p>
+          {vetting.data.other_holder_name && (
+            <p className="mt-0.5">Held by: {vetting.data.other_holder_name}</p>
+          )}
+          {vetting.data.kind === 'name_or_provider_update' && (
+            <p className="mt-0.5 font-semibold">
+              Same number — they are correcting the registered name or provider.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2">
         <Button asChild variant="outline" size="sm" className="flex-1">
           <a href={`tel:${r.phone ?? ''}`}>
@@ -118,7 +140,12 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
             placeholder="What did the call establish? (10 characters minimum)"
           />
           <div className="flex gap-2">
-            <Button className="flex-1" size="sm" disabled={!!busy} onClick={() => act('approved')}>
+            <Button
+              className="flex-1"
+              size="sm"
+              disabled={!!busy || vetting.data?.approvable === false}
+              onClick={() => act('approved')}
+            >
               {busy === 'approved' ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (

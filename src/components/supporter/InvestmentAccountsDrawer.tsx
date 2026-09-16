@@ -267,8 +267,8 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
     setDownloadingStatement(true);
     try {
       await downloadPartnerStatement(portfolio.id);
-      toast.success('Statement downloaded', {
-        description: 'A PDF of everything that has happened on this account.',
+      toast.success('Statement ready', {
+        description: 'Choose "Save as PDF" in the print window to keep a copy.',
       });
       setReportChoiceOpen(false);
     } catch (e) {
@@ -641,8 +641,8 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
     setExportingAll(true);
     try {
       await downloadPartnerStatement();
-      toast.success('Statement downloaded', {
-        description: 'Every portfolio in one PDF.',
+      toast.success('Statement ready', {
+        description: 'Every portfolio in one document — choose "Save as PDF" to keep a copy.',
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not create the statement');

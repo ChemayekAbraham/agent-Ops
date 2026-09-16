@@ -20,7 +20,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
-import { useRequestNumberChange } from '@/hooks/usePayoutNumberChange';
+import {
+  useRequestNumberChange,
+  usePayoutNumberAvailability,
+} from '@/hooks/usePayoutNumberChange';
 import { useAuth } from '@/hooks/useAuth';
 
 type Provider = 'mtn' | 'airtel';
@@ -58,6 +61,10 @@ export default function PayoutNumberChangeDialog({
 
   const digits = number.replace(/\D/g, '');
   const nameOk = name.trim().split(/\s+/).filter(Boolean).length >= 2;
+  const check = usePayoutNumberAvailability(number);
+  const checkState = check.data?.state;
+  const takenByOther = checkState === 'taken';
+  const isOwnNumber = checkState === 'mine';
 
   const sendCode = async () => {
     if (digits.length < 9) {
@@ -66,6 +73,10 @@ export default function PayoutNumberChangeDialog({
     }
     if (!nameOk) {
       toast.error('Enter the full name exactly as it shows on that number.');
+      return;
+    }
+    if (takenByOther) {
+      toast.error(check.data?.message || 'That number belongs to another account.');
       return;
     }
     const requesterName =
@@ -155,7 +166,23 @@ export default function PayoutNumberChangeDialog({
               }}
               className="h-11"
             />
+            {digits.length >= 9 && check.data && (
+              <p
+                className={
+                  takenByOther
+                    ? 'text-[11px] font-semibold text-destructive'
+                    : isOwnNumber
+                      ? 'text-[11px] text-amber-600'
+                      : 'text-[11px] text-emerald-600'
+                }
+              >
+                {isOwnNumber
+                  ? 'This is already your withdrawal number. Keep it and correct the registered name below.'
+                  : check.data.message}
+              </p>
+            )}
           </div>
+
 
           <div className="space-y-1.5">
             <Label className="text-xs">Provider</Label>
@@ -188,13 +215,17 @@ export default function PayoutNumberChangeDialog({
           </div>
 
           {!codeSentTo ? (
-            <Button className="w-full h-11" onClick={sendCode} disabled={otp.otpLoading || busy}>
+            <Button
+              className="w-full h-11"
+              onClick={sendCode}
+              disabled={otp.otpLoading || busy || takenByOther}
+            >
               {otp.otpLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Smartphone className="mr-2 h-4 w-4" />
               )}
-              Send code to the new number
+              {isOwnNumber ? 'Send code to that number' : 'Send code to the new number'}
             </Button>
           ) : !codeOk ? (
             <>
@@ -225,11 +256,19 @@ export default function PayoutNumberChangeDialog({
           ) : (
             <>
               <div className="space-y-1.5">
-                <Label className="text-xs">Why must the number change?</Label>
+                <Label className="text-xs">
+                  {isOwnNumber
+                    ? 'What must Financial Ops correct?'
+                    : 'Why must the number change?'}
+                </Label>
                 <Textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. I lost the SIM card for my old number and this is my new line."
+                  placeholder={
+                    isOwnNumber
+                      ? 'e.g. The name registered on this number changed and must be corrected.'
+                      : 'e.g. I lost the SIM card for my old number and this is my new line.'
+                  }
                   rows={3}
                 />
                 <p className="text-[11px] text-muted-foreground">
