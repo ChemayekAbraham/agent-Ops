@@ -52505,6 +52505,10 @@ export type Database = {
         }
         Returns: Json
       }
+      check_payout_number_availability: {
+        Args: { p_number: string }
+        Returns: Json
+      }
       check_phone_exists: {
         Args: { phone_suffix: string }
         Returns: {
@@ -53949,6 +53953,10 @@ export type Database = {
           status: string
           user_id: string
         }[]
+      }
+      finops_payout_number_check: {
+        Args: { p_request_id: string }
+        Returns: Json
       }
       finops_payout_number_ownership_confirmed: {
         Args: { p_destination_id: string }
