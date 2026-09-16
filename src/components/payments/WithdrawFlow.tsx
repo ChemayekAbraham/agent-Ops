@@ -1275,7 +1275,7 @@ export default function WithdrawFlow({
                     {identityBlock.data.headline ?? 'Oops! Your details did not meet the criteria.'}
                   </h4>
                 </div>
-                <ol className="list-decimal space-y-1 pl-5 text-sm text-destructive/90">
+                <ol className="list-decimal space-y-1 pl-5 text-sm text-black">
                   {identityBlock.data.reasons.map((r, i) => (
                     <li key={i}>{r}</li>
                   ))}
