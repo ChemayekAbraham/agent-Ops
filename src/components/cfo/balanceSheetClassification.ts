@@ -254,48 +254,6 @@ export function classifyLiabilities(lines: PositionLine[]) {
   };
 }
 
-/* ── Landlord Float presentation split ─────────────────────────────────── */
-
-export const LANDLORD_FLOAT_LABEL = 'Landlord Float';
-export const LANDLORD_FLOAT_COMPANY_LABEL = 'Landlord Float — Company Managed';
-export const LANDLORD_FLOAT_SELF_LABEL = 'Landlord Float — Self Managed';
-export const LANDLORD_FLOAT_TOTAL_LABEL = 'Total Landlord Float';
-export const LANDLORD_FLOAT_COMPANY_TOTAL_LABEL = 'Total Landlord Float — Company Managed';
-export const LANDLORD_FLOAT_SELF_TOTAL_LABEL = 'Total Landlord Float — Self Managed';
-
-/**
- * The landlord rent payable (L4) is the only account in the group that carries
- * a company/self split, so it appears as a line in both blocks. Naming it
- * explicitly is what lets each block's items foot to its own total — listing
- * only the partner/agent components would leave the company block short by this
- * amount.
- */
-export const LANDLORD_RENT_PAYABLE_LABEL = 'Landlord Rent Payable';
-
-export interface LandlordFloatSplit {
-  total: number;
-  self_managed: number;
-  company_managed: number;
-}
-
-/**
- * The four partner/agent obligation accounts, presented as component lines
- * inside Landlord Float — Company Managed instead of under a section of their
- * own. Presentation only: the ledger accounts, balances, classifications and
- * posting logic are untouched, and each balance is still reported exactly once
- * because a line can only land in one group.
- *
- * Labels are the reporting names for these accounts; the catalog names them
- * "Partner Portfolios — Capital Held" (L2) and "Partner Returns / Rewards
- * Payable" (L3).
- */
-export const LANDLORD_FLOAT_COMPONENT_ACCOUNTS: { code: string; label: string }[] = [
-  { code: 'L2', label: 'Partner Portfolio Capital Held' },
-  { code: 'L6', label: 'Partner Top-Ups Awaiting Application' },
-  { code: 'L3', label: 'Partner Returns Payable' },
-  { code: 'L5', label: 'Agent Commission Payable' },
-];
-
 /** A marketplace row for rendering: a normal group, or a subtotal line. */
 export type MarketplaceRow = BsGroup & {
   subtotal?: boolean;
