@@ -301,7 +301,7 @@ export default function BalanceSheetPanel() {
   const totalLiabilitiesAndEquity = data
     ? data.balance_check.total_liabilities_and_equity
     : 0;
-  const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], null);
+  const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? []);
   /** Each section's groups must still sum to the RPC's own total. */
   const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;
   const equityDrift = data && equityGroups ? Math.round(equityGroups.total - equityTotal) : 0;
