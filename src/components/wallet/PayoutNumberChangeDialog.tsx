@@ -166,7 +166,23 @@ export default function PayoutNumberChangeDialog({
               }}
               className="h-11"
             />
+            {digits.length >= 9 && check.data && (
+              <p
+                className={
+                  takenByOther
+                    ? 'text-[11px] font-semibold text-destructive'
+                    : isOwnNumber
+                      ? 'text-[11px] text-amber-600'
+                      : 'text-[11px] text-emerald-600'
+                }
+              >
+                {isOwnNumber
+                  ? 'This is already your withdrawal number. Keep it and correct the registered name below.'
+                  : check.data.message}
+              </p>
+            )}
           </div>
+
 
           <div className="space-y-1.5">
             <Label className="text-xs">Provider</Label>
