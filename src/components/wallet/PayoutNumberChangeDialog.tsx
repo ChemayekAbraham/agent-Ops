@@ -256,11 +256,19 @@ export default function PayoutNumberChangeDialog({
           ) : (
             <>
               <div className="space-y-1.5">
-                <Label className="text-xs">Why must the number change?</Label>
+                <Label className="text-xs">
+                  {isOwnNumber
+                    ? 'What must Financial Ops correct?'
+                    : 'Why must the number change?'}
+                </Label>
                 <Textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. I lost the SIM card for my old number and this is my new line."
+                  placeholder={
+                    isOwnNumber
+                      ? 'e.g. The name registered on this number changed and must be corrected.'
+                      : 'e.g. I lost the SIM card for my old number and this is my new line.'
+                  }
                   rows={3}
                 />
                 <p className="text-[11px] text-muted-foreground">
