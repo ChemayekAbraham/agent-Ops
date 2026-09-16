@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy, FileText, Loader2, MessageCircle } from 'lucide-react';
+import { Check, Copy, FileText, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -43,20 +43,6 @@ export function HouseShareActions({ house }: { house: SupportableHouse }) {
       setBusy(false);
     }
   };
-
-  const share = () =>
-    withLink(async ({ url, message }) => {
-      const payload: ShareData = { title: houseTitleLine(house), text: message, url };
-      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-        try {
-          await navigator.share(payload);
-          return;
-        } catch (e: any) {
-          if (e?.name === 'AbortError') return;
-        }
-      }
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-    });
 
   const whatsapp = () =>
     withLink(({ message }) => {
