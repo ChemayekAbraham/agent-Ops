@@ -159,6 +159,149 @@ export async function generateTenantCallsReportPdf(
   });
   y += 27;
 
+  // ── Feedback Analysis & Insights (derived from this period's comments only) ──
+  if (analysis) {
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setTextColor(...THEME_PRIMARY_DARK);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Feedback Analysis & Insights', margin, y);
+    y += 2;
+    doc.setDrawColor(...THEME_PRIMARY);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...THEME_MUTED);
+    const intro = analysis.insufficient
+      ? `Not enough officer comments in this period to read reliable patterns (${analysis.commented} comment(s) on ${analysis.totalCalls} call(s)). No conclusions are drawn.`
+      : `Patterns counted from the ${analysis.commented} commented call(s) of ${analysis.totalCalls} in this period. Percentages are of commented calls. Original officer comments appear unchanged in the detailed table.`;
+    const introLines = doc.splitTextToSize(intro, pageWidth - margin * 2);
+    doc.text(introLines, margin, y);
+    y += introLines.length * 4 + 2;
+
+    if (!analysis.insufficient) {
+      // Signal tiles
+      const sig = [
+        ['Comments analysed', String(analysis.commented)],
+        ['Concern signals', String(analysis.sentiment.negative)],
+        ['Positive signals', String(analysis.sentiment.positive)],
+        ['Open attempts', String(analysis.unresolved.openAttempts)],
+        ['Follow-ups pending', String(analysis.unresolved.followUpsPending)],
+        ['Balance disputes', String(analysis.unresolved.disputesOpen)],
+        ['Not reached', String(analysis.unresolved.unreachable)],
+      ];
+      const sw = (pageWidth - margin * 2 - (sig.length - 1) * 2.5) / sig.length;
+      sig.forEach(([label, value], i) => {
+        const x = margin + i * (sw + 2.5);
+        doc.setFillColor(...THEME_STRIPE);
+        doc.setDrawColor(...THEME_BORDER);
+        doc.roundedRect(x, y, sw, 15, 2, 2, 'FD');
+        doc.setTextColor(...THEME_MUTED);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.text(doc.splitTextToSize(label.toUpperCase(), sw - 4).slice(0, 1), x + 2.5, y + 5.5);
+        doc.setTextColor(...THEME_PRIMARY_DARK);
+        doc.setFontSize(11);
+        doc.text(value, x + 2.5, y + 12.5);
+      });
+      y += 20;
+
+      autoTable(doc, {
+        head: [['Recurring theme', 'What it means', 'Calls', '% of commented']],
+        body: analysis.themes.length
+          ? analysis.themes.map((t) => [t.label, t.hint, String(t.count), `${t.pct}%`])
+          : [['No recognisable pattern', 'Comments were recorded but matched no known theme.', '0', '0%']],
+        startY: y,
+        margin: { left: margin, right: margin },
+        tableWidth: pageWidth - margin * 2,
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 1.8,
+          overflow: 'linebreak',
+          valign: 'top',
+          textColor: THEME_INK,
+          lineColor: THEME_BORDER,
+          lineWidth: 0.15,
+        },
+        headStyles: { fillColor: THEME_PRIMARY, textColor: 255, fontSize: 7.5, fontStyle: 'bold', cellPadding: 2.2 },
+        alternateRowStyles: { fillColor: THEME_STRIPE },
+        columnStyles: {
+          0: { cellWidth: 58, fontStyle: 'bold' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 16, halign: 'right' },
+          3: { cellWidth: 28, halign: 'right' },
+        },
+      });
+      y = ((doc as any).lastAutoTable?.finalY ?? y) + 6;
+
+      if (analysis.categories.length) {
+        autoTable(doc, {
+          head: [['Feedback category tagged by officers', 'Calls', '% of tagged']],
+          body: analysis.categories.map((c) => [c.label, String(c.count), `${c.pct}%`]),
+          startY: y,
+          margin: { left: margin, right: margin },
+          tableWidth: (pageWidth - margin * 2) * 0.6,
+          styles: {
+            fontSize: 7.5,
+            cellPadding: 1.8,
+            textColor: THEME_INK,
+            lineColor: THEME_BORDER,
+            lineWidth: 0.15,
+          },
+          headStyles: { fillColor: THEME_PRIMARY_DARK, textColor: 255, fontSize: 7.5, fontStyle: 'bold', cellPadding: 2.2 },
+          alternateRowStyles: { fillColor: THEME_STRIPE },
+          columnStyles: { 1: { halign: 'right', cellWidth: 18 }, 2: { halign: 'right', cellWidth: 24 } },
+        });
+        y = ((doc as any).lastAutoTable?.finalY ?? y) + 6;
+      }
+
+      // Recommended officer actions
+      if (y > pageH - 45) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setTextColor(...THEME_PRIMARY_DARK);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('Recommended Officer Actions / Areas for Attention', margin, y);
+      y += 4;
+      doc.setDrawColor(...THEME_ACCENT);
+      doc.setLineWidth(0.6);
+      doc.line(margin, y - 1.5, pageWidth - margin, y - 1.5);
+      y += 1;
+
+      if (analysis.recommendations.length) {
+        analysis.recommendations.forEach((r, i) => {
+          const detailLines = doc.splitTextToSize(`${i + 1}. ${r.title} — ${r.detail}`, pageWidth - margin * 2 - 4);
+          if (y + detailLines.length * 3.6 > pageH - 16) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(...THEME_INK);
+          doc.text(detailLines, margin + 2, y + 4);
+          y += detailLines.length * 3.8 + 2.5;
+        });
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...THEME_MUTED);
+        doc.text('The comments in this period do not point to any specific action.', margin + 2, y + 4);
+        y += 8;
+      }
+      y += 4;
+    }
+
+    if (y > pageH - 60) {
+      doc.addPage();
+      y = 20;
+    }
+  }
+
   doc.setTextColor(...THEME_PRIMARY_DARK);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
