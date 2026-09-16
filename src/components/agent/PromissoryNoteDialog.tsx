@@ -179,10 +179,10 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
       errs.promise.push('Fulfilment date must be on or after the recording date');
     }
 
-    if (supportMode === 'self' && selectedPlanIds.length === 0) errs.tenants.push('At least one tenant rent plan');
+    if (supportMode === 'self' && selectedPlanIds.length === 0 && selectedHouseIds.length === 0) errs.tenants.push('At least one house or tenant rent plan');
 
     return errs;
-  }, [nameValidation, whatsappNumber, phoneNumber, email, amount, recordedOn, fulfilmentDueOn, supportMode, selectedPlanIds]);
+  }, [nameValidation, whatsappNumber, phoneNumber, email, amount, recordedOn, fulfilmentDueOn, supportMode, selectedPlanIds, selectedHouseIds]);
 
   const currentStepHasErrors = stepErrors[currentStep.key].length > 0;
   const showStepErrors = attemptedStep === stepIndex && currentStepHasErrors;
@@ -232,7 +232,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
     setErrorMsg(null);
 
     setSelectedPlanIds([]);
-    setAttached({ count: 0, amount: 0 });
+    setSelectedHouseIds([]);
+    setAttached({ count: 0, amount: 0, kind: 'plans' });
     setStepIndex(0);
     setAttemptedStep(null);
   };
