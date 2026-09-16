@@ -87,12 +87,18 @@ export default function InstallNagOverlay() {
 
   useEffect(() => {
     if (!open) return;
-    trackInstallEvent('install_card_shown', { isIOS, hasPrompt, surface: 'nag_overlay' });
+    trackInstallEvent('install_card_shown', {
+      isIOS,
+      hasPrompt,
+      surface: 'nag_overlay',
+      effective_platform: effectiveIsIOS ? 'ios' : 'android',
+    });
     trackInstallEvent('platform_steps_shown', {
       surface: 'nag_overlay',
-      platform: isIOS ? 'ios' : 'android',
+      platform: effectiveIsIOS ? 'ios' : 'android',
+      from_preference: !!manualPlatform,
     });
-  }, [open, isIOS, hasPrompt]);
+  }, [open, isIOS, hasPrompt, effectiveIsIOS, manualPlatform]);
 
   const snooze = useCallback(() => {
     try {
@@ -105,8 +111,13 @@ export default function InstallNagOverlay() {
   }, [isIOS]);
 
   const handleInstall = async () => {
-    trackInstallEvent('install_cta_clicked', { isIOS, hasPrompt, surface: 'nag_overlay' });
-    if (isIOS) {
+    trackInstallEvent('install_cta_clicked', {
+      isIOS,
+      hasPrompt,
+      surface: 'nag_overlay',
+      effective_platform: effectiveIsIOS ? 'ios' : 'android',
+    });
+    if (effectiveIsIOS) {
       setShowIOSGuide(true);
       trackInstallEvent('ios_guide_opened', { source: 'nag_overlay' });
       return;
