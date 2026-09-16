@@ -60976,6 +60976,7 @@ export type Database = {
           withdrawable_before: number
         }[]
       }
+      run_signup_rent_prompt_backfill: { Args: never; Returns: undefined }
       sc_assignment_admin: { Args: { _user_id: string }; Returns: boolean }
       sc_duration_to_days: {
         Args: { p_unit: string; p_value: number }
