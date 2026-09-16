@@ -368,9 +368,6 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
                 {fmtMoney(windowTotals?.expected || 0)}
               </span>{' '}
               expected {phrase}
-              {(windowTotals?.arrears || 0) > 0 && (
-                <> · plus {fmtMoney(windowTotals?.arrears || 0)} arrears cleared</>
-              )}
             </>
           }
           icon={Hourglass}
