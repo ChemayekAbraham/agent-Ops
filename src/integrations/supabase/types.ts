@@ -58543,6 +58543,7 @@ export type Database = {
           version_code: string
         }[]
       }
+      national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
       national_id_link_mark_code_verified: {
         Args: { p_request_id: string; p_requester_id: string }
@@ -58561,6 +58562,10 @@ export type Database = {
         Returns: Json
       }
       national_id_link_state: { Args: { p_request_id: string }; Returns: Json }
+      national_id_name_twins: {
+        Args: { p_name: string; p_user_id: string }
+        Returns: Json
+      }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
       normalize_momo_tid: { Args: { p_tid: string }; Returns: string }
@@ -59739,6 +59744,7 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: Json
       }
+      person_name_key: { Args: { p_name: string }; Returns: string }
       pin_agent_expected_day: { Args: { p_day: string }; Returns: number }
       populate_wallet_review_queue: {
         Args: never
