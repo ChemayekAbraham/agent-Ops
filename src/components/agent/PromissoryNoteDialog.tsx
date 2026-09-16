@@ -29,6 +29,7 @@ import { PromissoryPlanMatcher } from '@/components/agent/PromissoryPlanMatcher'
 import { normalizeWa } from '@/lib/whatsapp';
 import { useQueryClient } from '@tanstack/react-query';
 import { reconcilePromissoryPendingCount } from '@/components/executive/partner-ops/promissoryPendingCount';
+import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 
 
 interface PromissoryNoteDialogProps {
@@ -38,6 +39,8 @@ interface PromissoryNoteDialogProps {
   supportMode?: 'self' | 'auto';
   /** Optional starting promised amount (e.g. the house rent the agent tapped from). */
   initialAmount?: number;
+  /** A house the agent came from (Create & Share) — pre-selected in the matcher. */
+  initialHouse?: HouseOpportunity | null;
 }
 
 const phoneDigits = (v: string) => v.replace(/\D/g, '');
