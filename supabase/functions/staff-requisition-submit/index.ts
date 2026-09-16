@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
         department_name: "Unassigned",
         stage: selfIsCoo ? "cfo" : "coo",
         approver_role: selfIsCoo ? "cfo" : "coo",
-        final_stage: selfIsCoo ? "cfo" : "cfo",
+        final_stage: "cfo",
       };
     }
 
