@@ -698,19 +698,22 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const renderTenantsStep = () => (
     <Card className="border-border/60">
       <CardContent className="space-y-3 pt-4">
-        {sectionTitle(<ListChecks className="h-5 w-5" />, 'Link tenant rent plans', 'Pick the plans this partner will fund.')}
+        {sectionTitle(<ListChecks className="h-5 w-5" />, 'Link houses or rent plans', 'Pick what this partner will fund — empty houses are listed first.')}
         <PromissoryPlanMatcher
           targetAmount={parsedAmount}
           selectedIds={selectedPlanIds}
           onChange={setSelectedPlanIds}
+          selectedHouseIds={selectedHouseIds}
+          onHousesChange={setSelectedHouseIds}
+          preselectedHouse={initialHouse}
           disabled={submitting}
           onSelectedTotalChange={(total) => {
             if (amountTouched) return;
             setAmount(total > 0 ? String(total) : '');
           }}
         />
-        {showStepErrors && supportMode === 'self' && selectedPlanIds.length === 0 && (
-          <p className="text-[11px] text-destructive">Select at least one tenant rent plan</p>
+        {showStepErrors && supportMode === 'self' && selectedPlanIds.length === 0 && selectedHouseIds.length === 0 && (
+          <p className="text-[11px] text-destructive">Select at least one house or tenant rent plan</p>
         )}
       </CardContent>
     </Card>
@@ -727,7 +730,11 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
       { label: 'Recorded', value: recordedOn },
       ...(fulfilmentDueOn ? [{ label: 'Fulfil by', value: fulfilmentDueOn }] : []),
       ...(supportMode === 'self'
-        ? [{ label: 'Linked plans', value: `${selectedPlanIds.length}` }]
+        ? [
+            selectedHouseIds.length > 0
+              ? { label: 'Linked houses', value: `${selectedHouseIds.length}` }
+              : { label: 'Linked plans', value: `${selectedPlanIds.length}` },
+          ]
         : []),
     ];
     return (
