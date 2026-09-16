@@ -106,7 +106,10 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     );
   };
 
-  const label = active === 'home' ? '' : tenantOpsLabelFor(active);
+  // These two views carry their own page header, so the shell heading is dropped
+  // to avoid printing the same title twice.
+  const selfTitled = active === 'action.portfolio-performance' || active === 'action.notifications-analytics';
+  const label = active === 'home' || selfTitled ? '' : tenantOpsLabelFor(active);
 
   return (
     <div className="space-y-2">
