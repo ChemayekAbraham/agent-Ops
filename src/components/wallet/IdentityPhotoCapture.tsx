@@ -26,6 +26,8 @@ import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePa
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { Smartphone } from 'lucide-react';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
+import mtnLogo from '@/assets/mtn-logo-uploaded.png.asset.json';
+import airtelLogo from '@/assets/airtel-logo.png.asset.json';
 import {
   useIdentityBinding,
   useCompleteIdentityBinding,
