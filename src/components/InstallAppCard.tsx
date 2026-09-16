@@ -45,7 +45,7 @@ function writeSnooze(value: 'installed' | 'snoozed') {
   try {
     localStorage.setItem(
       SNOOZE_KEY,
-      String(Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000),
+      String(Date.now() + SNOOZE_HOURS * 60 * 60 * 1000),
     );
   } catch {
     /* storage unavailable — card simply reappears next load */
