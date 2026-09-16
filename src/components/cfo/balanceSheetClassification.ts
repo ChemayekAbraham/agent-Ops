@@ -270,27 +270,10 @@ export type MarketplaceRow = BsGroup & {
 };
 
 /**
- * Presentation only: shows the existing Landlord Float as Company Managed vs
- * Self Managed (per the landlord record's own management flag) followed by a
- * Total Landlord Float subtotal.
- *
- * The reported Landlord Float value is never changed — the self-managed share
- * measured on the ledger is applied proportionally to it and the company figure
- * is the residual, so the two lines always foot to the existing total exactly.
- * With no split available the original single line is returned untouched.
- *
- * The partner/agent obligation accounts (see LANDLORD_FLOAT_COMPONENT_ACCOUNTS)
- * are company-managed by definition, so they attach whole to the company line
- * and are excluded from the self-managed proportion — applying a landlord
- * management ratio to partner capital would allocate it to landlords who do not
- * hold it. Company + Self still foot to the group total exactly.
+ * Presentation only: Landlord Float is reported as a single line with no
+ * company/self breakdown and no separate total row.
  */
-export function expandLandlordFloat(
-  marketplace: BsGroup[],
-  _split: LandlordFloatSplit | null | undefined,
-): MarketplaceRow[] {
-  // The landlord float is reported as a single line with no company/self
-  // breakdown and no separate total row.
+export function expandLandlordFloat(marketplace: BsGroup[]): MarketplaceRow[] {
   return marketplace;
 }
 
