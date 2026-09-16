@@ -20,7 +20,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
-import { useRequestNumberChange } from '@/hooks/usePayoutNumberChange';
+import {
+  useRequestNumberChange,
+  usePayoutNumberAvailability,
+} from '@/hooks/usePayoutNumberChange';
 import { useAuth } from '@/hooks/useAuth';
 
 type Provider = 'mtn' | 'airtel';
