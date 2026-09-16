@@ -374,40 +374,55 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
               if (e.target.value) setAnchor(e.target.value);
             }}
             aria-label="Choose anchor date"
-            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground sm:h-9 sm:w-auto"
+            className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground sm:h-9 sm:w-auto"
           />
         </div>
-        {!isToday && <Badge variant="outline">Viewing a closed period</Badge>}
+        {!isToday && (
+          <Badge variant="outline" className="text-[11px] font-semibold">Viewing a closed period</Badge>
+        )}
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5" aria-labelledby="portfolio-period-heading">
+      <section
+        className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4 shadow-sm"
+        aria-labelledby="portfolio-period-heading"
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
+            <div className="rounded-xl bg-primary/15 p-2 text-primary">
               <CalendarRange className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <h2 id="portfolio-period-heading" className="text-sm font-semibold text-foreground">Reporting period</h2>
+              <h3
+                id="portfolio-period-heading"
+                className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Reporting period
+              </h3>
               {isLoading ? (
                 <Skeleton className="mt-2 h-5 w-72 max-w-full" />
               ) : (
-                <p className="mt-1 break-words text-sm text-foreground">
+                <p className="mt-1 break-words text-sm font-bold text-foreground">
                   {periodInWords(granularity, data?.period_start ?? null, data?.period_end ?? null)}
                 </p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <Badge variant={verdict === 'BELOW THRESHOLD' ? 'destructive' : 'secondary'}>{verdict}</Badge>
-            <span className="inline-flex items-center gap-1 text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant={verdict === 'BELOW THRESHOLD' ? 'destructive' : 'secondary'} className="font-semibold">
+              {verdict}
+            </Badge>
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 font-semibold text-muted-foreground">
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {status}
             </span>
           </div>
         </div>
         {isError && (
-          <p className="mt-3 text-sm text-destructive">
-            Could not load this period: {(error as Error)?.message ?? 'unknown error'}
-          </p>
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 break-words">
+              Could not load this period: {(error as Error)?.message ?? 'unknown error'}
+            </span>
+          </div>
         )}
       </section>
 
