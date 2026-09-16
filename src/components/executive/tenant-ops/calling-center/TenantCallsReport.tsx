@@ -184,11 +184,16 @@ export function TenantCallsReport() {
           generatedAt,
           reportPeriod: win.label,
         },
+        analysis,
       );
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const span =
+        periodDays.startDay === periodDays.endDay
+          ? periodDays.startDay
+          : `${periodDays.startDay}_to_${periodDays.endDay}`;
+      a.download = `tenant-calls-report-${span}.pdf`;
       a.href = url;
-      a.download = `tenant-calls-report-${isoDay(new Date())}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
