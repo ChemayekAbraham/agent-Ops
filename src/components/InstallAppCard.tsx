@@ -19,7 +19,8 @@ const GenericInstallGuide = lazy(() => import('@/components/GenericInstallGuide'
  * later removes the app is offered it again.
  */
 const SNOOZE_KEY = 'welile_install_card_snoozed_until';
-const SNOOZE_DAYS = 7;
+// Deliberately short: the offer must come back the same day, not next week.
+const SNOOZE_HOURS = 6;
 
 function readSnoozed(): boolean {
   if (typeof window === 'undefined') return false;
@@ -44,7 +45,7 @@ function writeSnooze(value: 'installed' | 'snoozed') {
   try {
     localStorage.setItem(
       SNOOZE_KEY,
-      String(Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000),
+      String(Date.now() + SNOOZE_HOURS * 60 * 60 * 1000),
     );
   } catch {
     /* storage unavailable — card simply reappears next load */
