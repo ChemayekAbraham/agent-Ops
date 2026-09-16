@@ -193,6 +193,34 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
     staleTime: 60_000,
   });
 
+  // ---- Pinned daily bill for the selected day (`agent_expected_day_plans`).
+  // This is the SAME frozen figure the Collections Command Center and the Agent
+  // Ops "Today, as it stands" panel bill. Expected must never be re-derived from
+  // `rent_requests.daily_repayment` here: that re-derivation reads far above the
+  // bill (it counts plans the bill excludes) and made this page disagree with
+  // Agent Ops. Days before pinning began have no rows — those fall back below.
+  const { data: pinnedExpected } = useQuery({
+    queryKey: ['daily-collection-pinned-expected', format(day, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const PAGE = 1000;
+      const map = new Map<string, number>();
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('agent_expected_day_plans')
+          .select('rent_request_id, expected_ugx')
+          .eq('day', format(day, 'yyyy-MM-dd'))
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        (data || []).forEach((r: any) => {
+          map.set(r.rent_request_id, (map.get(r.rent_request_id) || 0) + (Number(r.expected_ugx) || 0));
+        });
+        if (!data || data.length < PAGE) break;
+      }
+      return map;
+    },
+    staleTime: 60_000,
+  });
+
   // ---- Collections in selected range
   const { data: collections, isLoading: loadingCollections, refetch: refetchCollections } = useQuery({
     queryKey: ['daily-collection-collections', rangeFrom.toISOString(), rangeTo.toISOString()],
