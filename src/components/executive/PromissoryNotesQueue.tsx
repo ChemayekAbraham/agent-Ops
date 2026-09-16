@@ -1138,7 +1138,7 @@ export function PromissoryNotesQueue({
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">Promissory note: {note.partner_name}</p>
                             <p className="text-[11px] text-muted-foreground truncate">
-                              Agent: <AgentCallMenu note={note} className="text-[11px] font-medium" />
+                              Agent: <AgentCallMenu note={note} noteCount={agentNoteCounts.get(note.agent_id) ?? 0} className="text-[11px] font-medium" />
                             </p>
                             {(() => {
                               const ci = cameInIdentity(note);
