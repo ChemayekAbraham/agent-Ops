@@ -427,7 +427,7 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
       };
     });
     return rows;
-  }, [rentReqs, collections, profiles, day]);
+  }, [rentReqs, collections, profiles, day, pinnedExpected]);
 
   // ---- Missed payments lookback window — computed server-side in one RPC call
   const asOfKey = format(day, 'yyyy-MM-dd');
