@@ -933,7 +933,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="h-4 w-4 text-primary" />
-              <span className="flex-1">Verify your identity before you withdraw</span>
+              <span className="flex-1 text-emerald-600">Verify your identity before you withdraw</span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
