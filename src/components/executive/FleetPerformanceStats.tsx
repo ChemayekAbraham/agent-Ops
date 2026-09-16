@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
-import { ACTIVE_RENT_STATUSES } from '@/hooks/useAgentCapacityMap';
+
 import {
   Target, Banknote, Percent, Loader2, ArrowUpDown, ArrowUp, ArrowDown,
   Search, Share2, ChevronDown, ChevronLeft, ChevronRight, X, Download, Receipt,
@@ -359,30 +359,48 @@ function resolvePeriod(key: PeriodKey): { start: Date; end: Date; days: number }
   }
 }
 
-/** Expected daily collection per agent (period-independent) from active rent requests. */
-async function fetchExpectedDailyByAgent(): Promise<Record<string, number>> {
+/**
+ * Expected collection per agent for a range, read from the PINNED daily bill
+ * (`agent_expected_day_plans`) — the same source the Collections Command Center
+ * uses. It must never be re-derived live from `rent_requests.daily_repayment`:
+ * that re-derivation counts plans the bill excludes and read ~238% of the bill,
+ * which is why Fleet Performance and the Command Center disagreed.
+ *
+ * Returns both the per-agent total for the range and a per-day fleet total so
+ * the trend chart bills each day with that day's own frozen figure.
+ */
+function isoDay(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function fetchExpectedByAgent(
+  start: Date,
+  end: Date,
+): Promise<{ byAgent: Record<string, number>; byDay: Record<string, number> }> {
   const byAgent: Record<string, number> = {};
+  const byDay: Record<string, number> = {};
   const PAGE = 1000;
-  let from = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
+  const from_ = isoDay(start);
+  const to_ = isoDay(new Date(end.getTime() - 1));
+  for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
-      .from('rent_requests')
-      .select('agent_id, daily_repayment')
-      .in('status', ACTIVE_RENT_STATUSES)
-      .not('agent_id', 'is', null)
+      .from('agent_expected_day_plans')
+      .select('agent_id, expected_ugx, day')
+      .gte('day', from_)
+      .lte('day', to_)
       .range(from, from + PAGE - 1);
     if (error) { console.error('[FleetPerformanceStats] expected page failed', error); break; }
     const rows = data || [];
     rows.forEach((r: any) => {
-      if (!r.agent_id) return;
-      byAgent[r.agent_id] = (byAgent[r.agent_id] || 0) + (Number(r.daily_repayment) || 0);
+      const amt = Number(r.expected_ugx) || 0;
+      if (r.agent_id) byAgent[r.agent_id] = (byAgent[r.agent_id] || 0) + amt;
+      if (r.day) byDay[r.day] = (byDay[r.day] || 0) + amt;
     });
     if (rows.length < PAGE) break;
-    from += PAGE;
   }
-  return byAgent;
+  return { byAgent, byDay };
 }
+
 
 /**
  * Collected per agent for a period.
@@ -697,13 +715,16 @@ export function FleetPerformanceStats({
   const granularity = granularityFor(days);
 
   const queryClient = useQueryClient();
-  const { data: expectedByAgent = {}, isLoading: expLoading, dataUpdatedAt: expUpdatedAt, isFetching: expFetching } = useQuery({
-    queryKey: ['fleet-perf-expected-by-agent'],
-    queryFn: fetchExpectedDailyByAgent,
+  const { data: expectedData, isLoading: expLoading, dataUpdatedAt: expUpdatedAt, isFetching: expFetching } = useQuery({
+    queryKey: ['fleet-perf-expected-by-agent', rangeKey],
+    queryFn: () => fetchExpectedByAgent(start, end),
     staleTime: 60_000,
     refetchInterval: autoRefreshMs || false,
     refetchIntervalInBackground: false,
   });
+  const expectedByAgent = expectedData?.byAgent ?? {};
+  const expectedByDay = expectedData?.byDay ?? {};
+
 
   const { data: collectedByAgent = {}, isLoading: colLoading, dataUpdatedAt: colUpdatedAt, isFetching: colFetching } = useQuery({
     queryKey: ['fleet-perf-collected-by-agent', rangeKey],
@@ -762,7 +783,8 @@ export function FleetPerformanceStats({
   const rawRows = useMemo(() => {
     return agentIds
       .map((id) => {
-        const expected = (expectedByAgent[id] || 0) * days;
+        // Already the range total from the pinned daily bill — never multiply by days.
+        const expected = expectedByAgent[id] || 0;
         const collected = collectedByAgent[id] || 0;
         const rate = expected > 0 ? Math.round((collected / expected) * 100) : 0;
         return { id, name: names[id] || id.slice(0, 8), expected, collected, rate };
@@ -964,11 +986,19 @@ export function FleetPerformanceStats({
     setPage(0);
   }, [search, sort, rangeKey]);
 
-  // Daily expected target across the whole fleet (constant per day).
-  const expectedPerDay = useMemo(
-    () => Object.values(expectedByAgent).reduce((s, v) => s + (Number(v) || 0), 0),
-    [expectedByAgent],
+  // Fleet expected across the selected range, from the pinned daily bill.
+  const expectedRangeTotal = useMemo(
+    () => Object.values(expectedByDay).reduce((s, v) => s + (Number(v) || 0), 0),
+    [expectedByDay],
   );
+  /** That day's own frozen bill; falls back to the range average for unpinned days. */
+  const expectedForDay = (d: Date) => {
+    const pinned = expectedByDay[isoDay(d)];
+    if (pinned !== undefined) return Number(pinned) || 0;
+    const dayCount = Object.keys(expectedByDay).length;
+    return dayCount > 0 ? expectedRangeTotal / dayCount : 0;
+  };
+
 
   // Trend series of collected vs expected, bucketed by hour / day / month.
   const trendData = useMemo(() => {
@@ -977,7 +1007,7 @@ export function FleetPerformanceStats({
     if (granularity === 'hour') {
       const cursor = new Date(start);
       cursor.setMinutes(0, 0, 0);
-      const expectedPerHour = expectedPerDay / 24;
+      const expectedPerHour = expectedForDay(start) / 24;
       while (cursor.getTime() < endMs) {
         const k = hourKey(cursor);
         const bs = new Date(cursor);
@@ -992,8 +1022,11 @@ export function FleetPerformanceStats({
         const bucketStart = Math.max(cursor.getTime(), start.getTime());
         const nextMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
         const bucketEnd = Math.min(nextMonth.getTime(), endMs);
-        const dCount = Math.max(1, Math.round((bucketEnd - bucketStart) / 86_400_000));
-        out.push({ label: format(cursor, 'MMM yy'), collected: collectedBuckets[k] || 0, expected: expectedPerDay * dCount, bucketStart, bucketEnd });
+        let monthExpected = 0;
+        for (const c = new Date(bucketStart); c.getTime() < bucketEnd; c.setDate(c.getDate() + 1)) {
+          monthExpected += expectedForDay(c);
+        }
+        out.push({ label: format(cursor, 'MMM yy'), collected: collectedBuckets[k] || 0, expected: monthExpected, bucketStart, bucketEnd });
         cursor.setMonth(cursor.getMonth() + 1);
       }
     } else {
@@ -1002,12 +1035,13 @@ export function FleetPerformanceStats({
         const k = dayKey(cursor);
         const bs = new Date(cursor);
         const be = new Date(cursor); be.setDate(be.getDate() + 1);
-        out.push({ label: format(cursor, 'MMM d'), collected: collectedBuckets[k] || 0, expected: expectedPerDay, bucketStart: Math.max(bs.getTime(), start.getTime()), bucketEnd: Math.min(be.getTime(), endMs) });
+        out.push({ label: format(cursor, 'MMM d'), collected: collectedBuckets[k] || 0, expected: expectedForDay(cursor), bucketStart: Math.max(bs.getTime(), start.getTime()), bucketEnd: Math.min(be.getTime(), endMs) });
         cursor.setDate(cursor.getDate() + 1);
       }
     }
     return out;
-  }, [start, end, granularity, collectedBuckets, expectedPerDay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, end, granularity, collectedBuckets, expectedByDay, expectedRangeTotal]);
 
   const trendTitle =
     granularity === 'hour' ? 'Collection trend · hourly flow vs target'
