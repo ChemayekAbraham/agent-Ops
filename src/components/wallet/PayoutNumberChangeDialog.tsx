@@ -215,13 +215,17 @@ export default function PayoutNumberChangeDialog({
           </div>
 
           {!codeSentTo ? (
-            <Button className="w-full h-11" onClick={sendCode} disabled={otp.otpLoading || busy}>
+            <Button
+              className="w-full h-11"
+              onClick={sendCode}
+              disabled={otp.otpLoading || busy || takenByOther}
+            >
               {otp.otpLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Smartphone className="mr-2 h-4 w-4" />
               )}
-              Send code to the new number
+              {isOwnNumber ? 'Send code to that number' : 'Send code to the new number'}
             </Button>
           ) : !codeOk ? (
             <>
