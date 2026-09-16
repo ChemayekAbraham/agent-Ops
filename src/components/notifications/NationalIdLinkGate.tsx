@@ -11,6 +11,10 @@ import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -21,6 +25,7 @@ export default function NationalIdLinkGate() {
   const requests = useNationalIdLinkRequestsForHolder();
   const decide = useNationalIdLinkOwnerDecision();
   const [note, setNote] = useState('');
+  const [confirming, setConfirming] = useState<'approve' | 'reject' | null>(null);
 
   const row = requests.data?.[0];
   if (!row) return null;
@@ -30,6 +35,7 @@ export default function NationalIdLinkGate() {
       await decide.mutateAsync({ id: row.id, approve, note: approve ? undefined : note });
       toast.success(approve ? 'Thank you — you allowed it.' : 'Thank you — you refused it.');
       setNote('');
+      setConfirming(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not send your answer.');
     }
