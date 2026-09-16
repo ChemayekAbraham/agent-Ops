@@ -247,7 +247,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
                 Install App
               </h3>
               <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                {isIOS
+                {effectiveIsIOS
                   ? 'Add Welile to your home screen for faster access and a native app feel.'
                   : 'Faster access, offline-ready, and a native app feel right from your home screen.'}
               </p>
@@ -259,7 +259,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
 
               {/* Platform-specific quick steps, visible without opening a guide. */}
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                {isIOS ? (
+                {effectiveIsIOS ? (
                   <>
                     On iPhone: tap <strong>Share</strong> <Share className="inline h-3 w-3 -mt-0.5" /> in Safari, then <strong>"Add to Home Screen"</strong>, then <strong>"Add"</strong>.
                   </>
@@ -277,7 +277,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
                   size="sm"
                   className="gap-1.5 font-semibold"
                 >
-                  {isIOS ? (
+                  {effectiveIsIOS ? (
                     <Share className="h-4 w-4" />
                   ) : hasPrompt ? (
                     <Download className="h-4 w-4" />
