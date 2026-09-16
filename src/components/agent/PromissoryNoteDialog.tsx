@@ -359,7 +359,16 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
         setErrorMsg(msg);
         toast.error(msg);
       } else if (raw.includes('SELF_SUPPORT_PLANS_REQUIRED')) {
-        const msg = 'Select at least one tenant rent plan for self support.';
+        const msg = 'Select at least one house or tenant rent plan for self support.';
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (raw.includes('HOUSES_UNAVAILABLE')) {
+        setSelectedHouseIds([]);
+        const msg = 'Some selected houses are no longer empty. Selection cleared — refresh and try again.';
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (raw.includes('HOUSES_REQUIRED')) {
+        const msg = 'Select at least one empty house for this partner.';
         setErrorMsg(msg);
         toast.error(msg);
       } else if (/failed to fetch|network|timeout/i.test(raw)) {
