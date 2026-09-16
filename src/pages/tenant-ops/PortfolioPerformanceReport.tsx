@@ -440,9 +440,16 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
 
       <ProjectionA3 granularity={granularity} anchor={anchor} />
 
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2 pt-1">
-        <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
-        <h2 className="text-sm font-bold text-foreground">Management narrative and actions</h2>
+      <div className="flex items-start gap-2 border-b border-border/60 pb-2 pt-1">
+        <span className="rounded-xl bg-primary/10 p-1.5 text-primary">
+          <FileText className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold tracking-tight text-foreground">Management narrative and actions</h3>
+          <p className="text-[11px] text-muted-foreground">
+            Reasons behind the period figures, plus owned actions carried into the next one.
+          </p>
+        </div>
       </div>
       <NarrativeCollections
         granularity={granularity}
