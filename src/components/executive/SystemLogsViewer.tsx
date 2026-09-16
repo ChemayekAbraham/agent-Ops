@@ -192,12 +192,16 @@ export function SystemLogsViewer() {
         if (!log.user_id) return 'System';
         const profileName = nameMap.get(log.user_id);
         if (profileName) return profileName;
-        // Fall back to a name stored in the log's metadata (e.g. staff logins)
-        const meta = (log.metadata && typeof log.metadata === 'object' && !Array.isArray(log.metadata))
-          ? log.metadata as Record<string, unknown>
-          : {};
-        const metaName = meta.username || meta.staff_name || meta.full_name || meta.actor_name || meta.user_name;
-        if (typeof metaName === 'string' && metaName.trim()) return metaName.trim();
+        // Only trust metadata names for login events where we control the source.
+        // Other audit logs may store third-party names (landlords, agents, etc.)
+        // in similarly-named keys; those must not be rendered as the actor.
+        if (log.action_type === 'staff_portal_login') {
+          const meta = (log.metadata && typeof log.metadata === 'object' && !Array.isArray(log.metadata))
+            ? log.metadata as Record<string, unknown>
+            : {};
+          const metaName = meta.username || meta.staff_name || meta.full_name || meta.actor_name || meta.user_name;
+          if (typeof metaName === 'string' && metaName.trim()) return metaName.trim();
+        }
         // Last resort: show a short user id so the row is still identifiable
         return `User ${log.user_id.slice(0, 8)}`;
       };
