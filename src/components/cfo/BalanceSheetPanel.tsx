@@ -263,6 +263,8 @@ export default function BalanceSheetPanel() {
   const [loading, setLoading] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [exporting, setExporting] = useState(false);
+  /** Presentation-only breakdown of the existing Landlord Float. */
+  const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
@@ -273,6 +275,12 @@ export default function BalanceSheetPanel() {
       });
       if (error) throw error;
       setData(res as StatementOfFinancialPosition);
+
+      const { data: split, error: splitError } = await (supabase as any).rpc('get_landlord_float_management_split', {
+        p_as_at: asAtIso,
+      });
+      if (splitError) console.warn('Landlord float split unavailable:', splitError.message);
+      setFloatSplit((split as LandlordFloatSplit) ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to generate the statement of financial position');
     } finally {
