@@ -83,7 +83,14 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     if (active === 'action.portfolio-performance') {
       return (
         <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
-          <PortfolioPerformanceReport />
+          <PortfolioPerformanceReport onBack={() => goTo('home')} />
+        </Suspense>
+      );
+    }
+    if (active === 'action.notifications-analytics') {
+      return (
+        <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <TenantNotificationAnalyticsPage embedded />
         </Suspense>
       );
     }
