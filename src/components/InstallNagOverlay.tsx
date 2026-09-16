@@ -137,7 +137,8 @@ export default function InstallNagOverlay() {
         trackInstallEvent('app_installed', { surface: 'nag_overlay' });
         trackInstallEvent('install_attributed', {
           surface: 'nag_overlay',
-          platform: isIOS ? 'ios' : 'android',
+          platform: effectiveIsIOS ? 'ios' : 'android',
+          from_preference: !!manualPlatform,
         });
         toast.success('App installed successfully!');
         setOpen(false);
