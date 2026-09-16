@@ -2,7 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Share, Zap, RefreshCw, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { usePWAInstall, getInstallPlatformPreference } from '@/hooks/usePWAInstall';
 import { useInstallPreflight } from '@/hooks/useInstallPreflight';
 import { toast } from 'sonner';
 import { trackInstallEvent } from '@/lib/installTracking';
@@ -62,7 +62,11 @@ interface InstallAppCardProps {
 }
 
 export default function InstallAppCard({ className, global = false }: InstallAppCardProps) {
-  const { canShow, isInstalled, isIOS, hasPrompt, canInstructInstead, promptInstall } = usePWAInstall();
+  const { canShow, isInstalled, isIOS, isAndroid, hasPrompt, canInstructInstead, promptInstall } = usePWAInstall();
+  // Honour a manually chosen platform when OS detection fails, so the card
+  // shows the right steps on future visits.
+  const preferredPlatform = getInstallPlatformPreference();
+  const effectiveIsIOS = isIOS ? true : isAndroid ? false : preferredPlatform === 'ios';
   // Preflight is ADVISORY, never a gate: a failed check degrades the copy but
   // the card still renders, because slow mobile networks fail these routinely.
   const preflight = useInstallPreflight(!isInstalled);
