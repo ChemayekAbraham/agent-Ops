@@ -26,6 +26,8 @@ import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePa
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { Smartphone } from 'lucide-react';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
+import mtnLogo from '@/assets/mtn-logo-uploaded.png.asset.json';
+import airtelLogo from '@/assets/airtel-logo.png.asset.json';
 import {
   useIdentityBinding,
   useCompleteIdentityBinding,
@@ -405,11 +407,16 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
                 type="button"
                 size="sm"
                 variant={provider === p ? 'default' : 'outline'}
-                className="flex-1 capitalize"
+                className="flex-1"
                 disabled={saving}
                 onClick={() => setProvider(p)}
+                aria-label={p === 'mtn' ? 'MTN' : 'Airtel'}
               >
-                {p}
+                <img
+                  src={p === 'mtn' ? mtnLogo.url : airtelLogo.url}
+                  alt={p === 'mtn' ? 'MTN' : 'Airtel'}
+                  className="h-4 w-auto object-contain"
+                />
               </Button>
             ))}
           </div>
