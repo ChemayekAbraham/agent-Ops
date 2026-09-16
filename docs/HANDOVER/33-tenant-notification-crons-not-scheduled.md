@@ -1,4 +1,4 @@
-# 33 — Tenant notification catalogue had no cron jobs; scheduled 7, left 1 alone
+# 33 — Tenant notification catalogue had no cron jobs; scheduled 7, left 1 alone — NOW LIVE
 
 **Read this before assuming any tenant SMS/push campaign is actually running, or before touching
 `cron.job` entries named `tenant-*`.**
@@ -76,7 +76,7 @@ two, one per `mode`). Cadence:
 `DASHBOARD_ACTIVATED` was deliberately left unscheduled — it fires from `tenant-dashboard-open` on
 a real dashboard visit, there's nothing to sweep.
 
-## Status — NOT YET LIVE
+## Status — LIVE as of 2026-09-16
 
 The auto-mode classifier refused to run the `cron.schedule(...)` calls directly against
 production (`[Production Deploy]`), consistent with
@@ -93,12 +93,38 @@ should return 10 new rows plus the 2 pre-existing ones. If they're missing after
 migration needs to be run by hand (Supabase SQL editor or CLI) — see doc 06's verification
 pattern.
 
-**Confirmed 2026-09-16, ~10 minutes after pushing to `origin/lovable`:** `cron.job` still shows
+**Confirmed 2026-09-16, ~10 minutes after pushing to `origin/lovable`:** `cron.job` still showed
 only the 3 pre-existing `tenant-*` jobs (`tenant-products-services-report-midnight-eat`,
 `tenant-rent-intake-notices-15min`, `tenant-self-repayment-notices-10min`) — none of the 10 from
-this migration. Auto-apply did not pick it up this time either. Run
-`supabase/migrations/20260916120000_schedule_tenant_notification_crons.sql` by hand against
-production to make it live.
+this migration. Auto-apply did not pick it up.
+
+**Resolved 2026-09-16 (same day):** Josh ran the migration by hand via the Supabase SQL editor.
+Verified against `cron.job` directly (not just the editor's own result panel — running 10
+sequential `select cron.schedule(...)` statements in one editor execution only surfaces the last
+statement's return value, so a single `jobid` in the export doesn't by itself confirm all 10
+landed):
+
+```
+jobid  jobname                                        schedule       active
+39399  tenant-payment-notices-payments-20min          */20 * * * *   true
+39400  tenant-payment-notices-missed-daily            0 4 * * *      true
+39401  tenant-rent-limit-notices-increased-daily      0 6 * * *      true
+39402  tenant-rent-limit-notices-progress-biweekly    30 6 * * 1,4   true
+39403  tenant-merchant-code-notices-daily             0 9 * * *      true
+39404  tenant-relocation-notices-biweekly             0 7 * * 1,4    true
+39405  tenant-push-migration-notices-daily            30 7 * * *     true
+39406  tenant-default-agent-opportunity-daily         0 5 * * *      true
+39407  tenant-dashboard-invites-discovery-biweekly    0 8 * * 2,5    true
+39408  tenant-dashboard-invites-invite-biweekly       15 8 * * 2,5   true
+```
+
+All 10 present and active. The tenant notification catalogue's sender functions are now scheduled
+end to end. Expect the CTO Communication tab's Tenant Notifications numbers (doc built the same
+day) to start climbing from the near-zero baseline recorded above — but not instantly: the
+`*/20 * * * *` payments sweep and the `0 4/5/6/7/9 * * *` daily jobs mean most events won't fire
+until their first scheduled run, and the twice-weekly marketing events (`RENT_LIMIT_PROGRESS`,
+`TENANT_RELOCATION`, `SMARTPHONE_DISCOVERY`, `DASHBOARD_INVITE`) are further capped by the
+governor's global twice-per-rolling-7-days rule regardless of how often the cron fires.
 
 ## Also requested, not yet done
 
