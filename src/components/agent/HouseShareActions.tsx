@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Check, Copy, Loader2, MessageCircle, Share2 } from 'lucide-react';
+import { Check, Copy, FileText, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { PromissoryNoteDialog } from '@/components/agent/PromissoryNoteDialog';
 import { houseTitleLine, houseAddressLine, type SupportableHouse } from '@/components/partner/SelfSupportHousesSection';
 import { createHouseShareLink, houseShareMessage } from '@/lib/houseSupportShare';
 
@@ -15,13 +16,17 @@ const houseSummary = (house: SupportableHouse) => ({
 /**
  * Share actions for one empty house.
  *
- * The link is the opaque, attribution-carrying support deep link created by
+ * The primary action opens the self-support promissory note dialog so the agent
+ * creates the note and shares its activation link from there. The WhatsApp and
+ * copy buttons keep the original house share logic: the opaque,
+ * attribution-carrying support deep link created by
  * `get_or_create_house_share_link` — welileapp.com/s/<code> — so whoever opens
  * it lands on the public support page and this agent stays credited server-side.
  */
 export function HouseShareActions({ house }: { house: SupportableHouse }) {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
 
   const build = async () => {
     const { share_url } = await createHouseShareLink(house.house_id);
@@ -39,20 +44,6 @@ export function HouseShareActions({ house }: { house: SupportableHouse }) {
     }
   };
 
-  const share = () =>
-    withLink(async ({ url, message }) => {
-      const payload: ShareData = { title: houseTitleLine(house), text: message, url };
-      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-        try {
-          await navigator.share(payload);
-          return;
-        } catch (e: any) {
-          if (e?.name === 'AbortError') return;
-        }
-      }
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-    });
-
   const whatsapp = () =>
     withLink(({ message }) => {
       window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
@@ -68,10 +59,20 @@ export function HouseShareActions({ house }: { house: SupportableHouse }) {
 
   return (
     <div className="flex gap-2">
-      <Button className="flex-1 gap-2 rounded-xl font-semibold" disabled={busy} onClick={share}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-        Share to support
+      <Button
+        className="flex-1 gap-2 rounded-xl font-semibold"
+        disabled={busy}
+        onClick={() => setNoteOpen(true)}
+      >
+        <FileText className="h-4 w-4" />
+        Create &amp; Share
       </Button>
+      <PromissoryNoteDialog
+        open={noteOpen}
+        onOpenChange={setNoteOpen}
+        supportMode="self"
+        initialAmount={Number(house.monthly_rent || 0) || undefined}
+      />
       <Button
         variant="outline"
         className="gap-2 rounded-xl"

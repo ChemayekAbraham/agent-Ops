@@ -36,6 +36,8 @@ interface PromissoryNoteDialogProps {
   onOpenChange: (open: boolean) => void;
   /** 'self' = agent hand-picks tenants for the partner; 'auto' = the desk places them. */
   supportMode?: 'self' | 'auto';
+  /** Optional starting promised amount (e.g. the house rent the agent tapped from). */
+  initialAmount?: number;
 }
 
 const phoneDigits = (v: string) => v.replace(/\D/g, '');
@@ -51,7 +53,7 @@ const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 type StepKey = 'who' | 'contact' | 'promise' | 'tenants' | 'review';
 
-export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' }: PromissoryNoteDialogProps) {
+export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self', initialAmount }: PromissoryNoteDialogProps) {
   const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -90,6 +92,14 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [amount, setAmount] = useState('');
+  // Prefill the promised amount when the dialog is opened from a context that
+  // already knows a figure (e.g. a house card's monthly rent).
+  useEffect(() => {
+    if (open && initialAmount && initialAmount > 0) {
+      setAmount(String(Math.round(initialAmount)));
+      setAmountTouched(false);
+    }
+  }, [open, initialAmount]);
   const todayIso = new Date().toISOString().split('T')[0];
   // When the note was written down, and when the partner promises to fulfil it.
   const [recordedOn, setRecordedOn] = useState(todayIso);
