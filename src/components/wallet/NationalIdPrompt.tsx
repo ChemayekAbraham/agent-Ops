@@ -80,7 +80,32 @@ export default function NationalIdPrompt({
       toast.success('National ID saved. Financial Ops will confirm it against your payout number.');
       await refetch();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save your National ID.');
+      const message = e instanceof Error ? e.message : 'Could not save your National ID.';
+      /* A refusal because the ID is already on another account used to be a
+         dead end here. Name the account that holds it, so the person knows who
+         has to agree before they can be added under it. */
+      if (/already recorded on another account/i.test(message)) {
+        const { data } = await (supabase.rpc as unknown as (
+          fn: string, args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: unknown }>)(
+          'national_id_holder_hint', { p_nin: idCheck.value },
+        );
+        const hint = (data ?? {}) as {
+          found?: boolean; holder_first_name?: string | null; limit_reached?: boolean;
+        };
+        if (hint.found && hint.limit_reached) {
+          toast.error('This National ID has reached its limit of 20 accounts.');
+          return;
+        }
+        if (hint.found && hint.holder_first_name) {
+          toast.error(
+            `This National ID is already on ${hint.holder_first_name}'s Welile account.`,
+            { description: `You can be added under ${hint.holder_first_name} from Settings → Withdrawal & Identity, but they must agree first.` },
+          );
+          return;
+        }
+      }
+      toast.error(message);
     }
   };
 
