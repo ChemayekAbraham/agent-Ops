@@ -585,6 +585,7 @@ interface Props {
 
 export default function IdentityPhotoCapture({ compact }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const mine = useMyIdentityPhotos();
   // One account, one National ID, one photo: a verified account is never asked again.
   const alreadyVerified = useIdentityAlreadyVerified();
