@@ -185,6 +185,40 @@ export default function InstallNagOverlay() {
                 </div>
               </div>
 
+              {/* Platform-specific install steps, shown inline so the user
+                  never has to open a guide to know what to tap. */}
+              {isIOS ? (
+                <ol className="mt-4 space-y-2 rounded-2xl bg-muted/50 p-3 text-sm text-foreground">
+                  <li className="flex gap-2.5">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>
+                    <span>Tap the <strong>Share</strong> button <Share className="inline h-3.5 w-3.5 -mt-0.5" /> at the bottom of Safari.</span>
+                  </li>
+                  <li className="flex gap-2.5">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">2</span>
+                    <span>Scroll down and tap <strong>"Add to Home Screen"</strong>.</span>
+                  </li>
+                  <li className="flex gap-2.5">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">3</span>
+                    <span>Tap <strong>"Add"</strong> — Welile appears with your other apps.</span>
+                  </li>
+                </ol>
+              ) : (
+                <ol className="mt-4 space-y-2 rounded-2xl bg-muted/50 p-3 text-sm text-foreground">
+                  <li className="flex gap-2.5">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>
+                    <span>Tap <strong>"Install now"</strong> below — or open the browser menu <strong>(⋮)</strong>.</span>
+                  </li>
+                  <li className="flex gap-2.5">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">2</span>
+                    <span>Choose <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</span>
+                  </li>
+                  <li className="flex gap-2.5">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">3</span>
+                    <span>Confirm — Welile appears with your other apps.</span>
+                  </li>
+                </ol>
+              )}
+
               <ul className="mt-4 grid gap-2 text-sm text-foreground/90">
                 <li className="flex items-center gap-2">
                   <Zap className="h-4 w-4 text-primary" /> Opens instantly from your home screen
