@@ -79,21 +79,19 @@ so the repo reflects it. Verified live by calling the RPC with dummy UUIDs and c
 
 ## What's still open — do not unfreeze until this is decided
 
-1. **A real fix has not been chosen or built yet.** Two candidate directions were surfaced to the
-   platform owner but not selected:
-   - Restore per-collection float consumption (revert to float being debited as cash on each
-     collection, as it was before 2026-09-15) — but that was itself the source of an earlier bug
-     (see `20260505135546_fix-agent-allocate-double-deduction.sql`), so a naive revert may
-     reintroduce that.
-   - Keep float non-consuming but add an explicit cumulative check (e.g. sum of today's
-     `agent_collections.amount` for the agent vs. their float balance) so the gate actually bounds
-     daily exposure instead of just the size of one transaction.
+1. **RESOLVED 2026-09-16 (later the same day)** — see
+   [`34-restore-float-cap-and-unfreeze-collections.md`](./34-restore-float-cap-and-unfreeze-collections.md).
+   Went with the second candidate: float stays non-consuming (the legs that pair with a float debit
+   were themselves the source of a second, independent bug — see doc 34 for why bringing the debit
+   back would unbalance `create_ledger_transaction`); added a cumulative daily
+   collected-vs-float-balance cap plus a same-agent+tenant+rent_request+amount duplicate guard, and
+   wired the already-existing (but never-used) `client_ref` idempotency parameter into both callers.
 2. **This freeze does nothing to reconcile the over-collection that already happened** (the 60M/
    300k and similar cases above, and the unrelated 660-collection backfill from doc 30). Both are
    separate, still-open cleanup work.
 3. **The `anon`/`authenticated` EXECUTE grant with no internal auth check on
    `agent_allocate_tenant_payment_internal`** is a latent issue independent of the float gap —
-   worth its own look before this is all considered closed.
+   worth its own look before this is all considered closed. Not touched by doc 34.
 
 ## What not to do
 

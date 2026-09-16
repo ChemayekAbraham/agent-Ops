@@ -346,12 +346,19 @@ Deno.serve(async (req) => {
     // public wrapper derives wallet ownership from auth.uid(); using the
     // privileged client here would erase that identity and make offline
     // collections behave differently from the online flow.
+    //
+    // p_client_ref = draft_id: the draft already carries a stable, caller-
+    // generated UUID (see offlineCollectionDrafts.ts) reused across every
+    // retry of this same draft. Passing it through gives the RPC its own
+    // idempotency guard as a second layer, independent of the
+    // offline_collection_submissions unique-draft_id reservation above.
     const { data: rpcData, error: rpcErr } = await userClient.rpc("agent_allocate_tenant_payment", {
       p_agent_id: agentId,
       p_tenant_id: body.tenant_id,
       p_rent_request_id: body.rent_request_id,
       p_amount: amount,
       p_notes: combinedNotes,
+      p_client_ref: body.draft_id,
     });
 
     if (rpcErr || !(rpcData as { success?: boolean })?.success) {
