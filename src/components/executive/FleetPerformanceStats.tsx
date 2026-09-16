@@ -359,30 +359,48 @@ function resolvePeriod(key: PeriodKey): { start: Date; end: Date; days: number }
   }
 }
 
-/** Expected daily collection per agent (period-independent) from active rent requests. */
-async function fetchExpectedDailyByAgent(): Promise<Record<string, number>> {
+/**
+ * Expected collection per agent for a range, read from the PINNED daily bill
+ * (`agent_expected_day_plans`) — the same source the Collections Command Center
+ * uses. It must never be re-derived live from `rent_requests.daily_repayment`:
+ * that re-derivation counts plans the bill excludes and read ~238% of the bill,
+ * which is why Fleet Performance and the Command Center disagreed.
+ *
+ * Returns both the per-agent total for the range and a per-day fleet total so
+ * the trend chart bills each day with that day's own frozen figure.
+ */
+function isoDay(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function fetchExpectedByAgent(
+  start: Date,
+  end: Date,
+): Promise<{ byAgent: Record<string, number>; byDay: Record<string, number> }> {
   const byAgent: Record<string, number> = {};
+  const byDay: Record<string, number> = {};
   const PAGE = 1000;
-  let from = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
+  const from_ = isoDay(start);
+  const to_ = isoDay(new Date(end.getTime() - 1));
+  for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
-      .from('rent_requests')
-      .select('agent_id, daily_repayment')
-      .in('status', ACTIVE_RENT_STATUSES)
-      .not('agent_id', 'is', null)
+      .from('agent_expected_day_plans')
+      .select('agent_id, expected_ugx, day')
+      .gte('day', from_)
+      .lte('day', to_)
       .range(from, from + PAGE - 1);
     if (error) { console.error('[FleetPerformanceStats] expected page failed', error); break; }
     const rows = data || [];
     rows.forEach((r: any) => {
-      if (!r.agent_id) return;
-      byAgent[r.agent_id] = (byAgent[r.agent_id] || 0) + (Number(r.daily_repayment) || 0);
+      const amt = Number(r.expected_ugx) || 0;
+      if (r.agent_id) byAgent[r.agent_id] = (byAgent[r.agent_id] || 0) + amt;
+      if (r.day) byDay[r.day] = (byDay[r.day] || 0) + amt;
     });
     if (rows.length < PAGE) break;
-    from += PAGE;
   }
-  return byAgent;
+  return { byAgent, byDay };
 }
+
 
 /**
  * Collected per agent for a period.
