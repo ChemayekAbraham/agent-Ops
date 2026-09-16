@@ -61305,6 +61305,7 @@ export type Database = {
           is_legacy_counterpart: boolean
           ledger_scope: string
           source_table: string
+          transaction_date: string
           transaction_group_id: string
         }[]
       }

@@ -699,8 +699,31 @@ export function FinancialStatementsPanel() {
  * Reconciliation strip — proves the three statements tie back to the ledger.
  * Read-only: every figure comes from the same `general_ledger` rows.
  */
-function ReconciliationCard({ r }: { r: import('@/hooks/useFinancialStatements').ReconciliationCheck }) {
-  const ok = r.balanced && r.cashTied;
+function ReconciliationCard({ r, cf }: { r: import('@/hooks/useFinancialStatements').ReconciliationCheck; cf?: StatementOfCashFlows | null }) {
+  // When the ledger-derived statement of cash flows is available it is the
+  // authoritative cash reconciliation: it resolves every leg through the same
+  // resolver the balance sheet uses, so its closing cash is the balance sheet's
+  // cash. The legacy client-side figures are only used as a fallback.
+  const cash = cf
+    ? {
+        openingCash: cf.opening_cash,
+        closingCash: cf.closing_cash,
+        netMovement: cf.net_change,
+        balanceSheetCash: cf.balance_sheet_cash,
+        cashDifference: cf.closing_cash - cf.balance_sheet_cash,
+        cashTied: cf.ties_to_balance_sheet,
+        unclassifiedNet: cf.unreconciled_residual,
+      }
+    : {
+        openingCash: r.openingCash,
+        closingCash: r.closingCash,
+        netMovement: r.periodNet,
+        balanceSheetCash: r.balanceSheetCash,
+        cashDifference: r.cashDifference,
+        cashTied: r.cashTied,
+        unclassifiedNet: r.unclassifiedNet,
+      };
+  const ok = r.balanced && cash.cashTied;
   return (
     <Card className={cn('border', ok ? 'border-success/40' : 'border-destructive/40')}>
       <CardContent className="py-3 space-y-2">
@@ -720,24 +743,24 @@ function ReconciliationCard({ r }: { r: import('@/hooks/useFinancialStatements')
           </div>
           <div className="rounded-md border border-border/60 p-2">
             <p className="uppercase tracking-wider text-muted-foreground">Closing cash vs balance sheet cash</p>
-            <p className="font-mono text-foreground">{formatUGX(r.closingCash)} vs {formatUGX(r.balanceSheetCash)}</p>
-            <p className={cn('font-mono', r.cashTied ? 'text-muted-foreground' : 'text-destructive')}>
-              Difference {formatUGX(r.cashDifference)}
+            <p className="font-mono text-foreground">{formatUGX(cash.closingCash)} vs {formatUGX(cash.balanceSheetCash)}</p>
+            <p className={cn('font-mono', cash.cashTied ? 'text-muted-foreground' : 'text-destructive')}>
+              Difference {formatUGX(cash.cashDifference)}
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
-          <Figure label="Opening cash" value={r.openingCash} />
-          <Figure label="Cash in" value={r.cashIn} />
-          <Figure label="Cash out" value={r.cashOut} />
-          <Figure label="Closing cash" value={r.closingCash} />
+        <div className="grid grid-cols-3 gap-2 text-[11px]">
+          <Figure label="Opening cash" value={cash.openingCash} />
+          <Figure label="Net cash movement" value={cash.netMovement} />
+          <Figure label="Closing cash" value={cash.closingCash} />
         </div>
-        {Math.abs(r.unclassifiedNet) >= 1 && (
+        {Math.abs(cash.unclassifiedNet) >= 1 && (
           <p className="text-[10px] text-muted-foreground">
-            {formatUGX(Math.abs(r.unclassifiedNet))} of ledger movement is not attributed to a cash-flow
-            section yet — closing cash still ties to the ledger and the balance sheet.
+            {formatUGX(Math.abs(cash.unclassifiedNet))} of single-sided historic ledger movement is shown on
+            its own line — closing cash still ties to the ledger and the balance sheet.
           </p>
         )}
+
       </CardContent>
     </Card>
   );
@@ -1268,7 +1291,7 @@ function FinancialStatementsPanelInner() {
 
       {/* Statement Tabs + Content */}
       {data && (
-        <ReconciliationCard r={data.reconciliation} />
+        <ReconciliationCard r={data.reconciliation} cf={cashFlow} />
       )}
 
       {(data || activeTab === 'budget') && (
