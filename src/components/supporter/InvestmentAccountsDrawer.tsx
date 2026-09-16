@@ -268,7 +268,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
     try {
       await downloadPartnerStatement(portfolio.id);
       toast.success('Statement downloaded', {
-        description: 'Open it in any browser, or print it to save as PDF.',
+        description: 'A PDF of everything that has happened on this account.',
       });
       setReportChoiceOpen(false);
     } catch (e) {
@@ -537,7 +537,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     What has actually happened: top-ups, Returns added, payouts and
-                    changes. Opens in any browser; print it to save as PDF.
+                    changes. PDF.
                   </p>
                 </button>
               </div>
@@ -642,7 +642,7 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
     try {
       await downloadPartnerStatement();
       toast.success('Statement downloaded', {
-        description: 'Every portfolio in one document. Print it to save as PDF.',
+        description: 'Every portfolio in one PDF.',
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not create the statement');

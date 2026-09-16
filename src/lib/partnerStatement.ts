@@ -1,5 +1,5 @@
 /**
- * The partner portfolio statement.
+ * The partner portfolio statement, as a PDF.
  *
  * A record of what actually happened: every portfolio, what was put in, the
  * Returns added to it, money taken out, renewals and office corrections. That
@@ -7,12 +7,10 @@
  * portfolio is *expected* to earn — one looks back, the other forward, and a
  * partner usually wants to be asked which.
  *
- * It is written as a self-contained HTML file rather than drawn with jsPDF.
- * The statement is a multi-page A4 document with a table per category per
- * portfolio; laying that out by hand in PDF primitives would be brittle, and
- * the browser's own print dialogue produces a better PDF from this markup than
- * we would. Nothing is fetched at open time — no script, no web fonts, no
- * network — so it reads the same from an inbox, a phone or a print queue.
+ * Drawn with jsPDF + autoTable like every other statement in the product, so
+ * the text is real vector text a person can select and search, page breaks and
+ * repeating table headers are handled, and the file is a few tens of KB rather
+ * than a screenshot of a web page.
  *
  * Read-only. `my_portfolio_statement` proves ownership from `auth.uid()`, so
  * the browser cannot ask for anyone else's portfolios.
@@ -69,29 +67,28 @@ export async function fetchPartnerStatement(portfolioId?: string): Promise<State
   };
 }
 
-/* ─────────────────────────────── rendering ─────────────────────────────── */
+/* ───────────────────────────── shared helpers ──────────────────────────── */
 
-const DASH = '&mdash;';
+const PURPLE: [number, number, number] = [107, 33, 168];
+const INK: [number, number, number] = [15, 23, 42];
+const MUTED: [number, number, number] = [100, 116, 139];
+const DASH = '—';
+
 const n = (v: unknown) => (typeof v === 'number' ? v : Number(v ?? 0) || 0);
-const ugx = (v: unknown) => `UGX ${Math.round(n(v)).toLocaleString('en-US')}`;
-const esc = (v: unknown) =>
-  String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const ugx = (v: unknown) => Math.round(n(v)).toLocaleString('en-US');
 const day = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : DASH);
 
-const STATUS: Record<string, [string, string]> = {
-  active: ['Active', 'ok'],
-  cancelled: ['Closed', 'muted'],
-  awaiting_partner_details: ['Awaiting your details', 'warn'],
-  locked: ['Locked', 'warn'],
-  pending_ops_approval: ['Being set up', 'warn'],
+const STATUS: Record<string, string> = {
+  active: 'Active',
+  cancelled: 'Closed',
+  awaiting_partner_details: 'Awaiting your details',
+  locked: 'Locked',
+  pending_ops_approval: 'Being set up',
 };
-
-function statusOf(s: string): [string, string] {
-  return STATUS[s] ?? [s.replace(/_/g, ' '), 'muted'];
-}
+const statusOf = (s: string) => STATUS[s] ?? s.replace(/_/g, ' ');
 
 /** Compound, Payout or Self support, in the partner's own words. */
-function typeOf(p: StatementPortfolio): string {
+export function typeOf(p: StatementPortfolio): string {
   const code = p.code ?? '';
   if (code.startsWith('WSP') || code.startsWith('WSH')) return 'Self support';
   return (p.roi_mode ?? '').includes('compound') ? 'Compound' : 'Payout';
@@ -104,80 +101,56 @@ function modeWords(p: StatementPortfolio): string {
     : 'Return paid to you each month';
 }
 
-/** Returns already folded into the balance, so principal is the balance less them. */
+/* Returns are folded into the balance as they are earned, so what the partner
+   actually put in is the balance less those Returns. Showing the two apart is
+   the whole point of the statement. */
 const compoundedOf = (p: StatementPortfolio) =>
   (p.compounds ?? []).reduce((s, c) => s + n(c.amount), 0);
 const principalOf = (p: StatementPortfolio) =>
   Math.max(0, n(p.current_value) - compoundedOf(p));
 
-function rows(body: string, empty: string): string {
-  return body ? body : `<tr><td colspan="9" class="none">${empty}</td></tr>`;
+/* Only the parts of the jsPDF document this file touches. Enough to keep the
+   call sites honest without pulling the library's types into the bundle. */
+interface JsPdfDoc {
+  internal: { pageSize: { getWidth(): number; getHeight(): number } };
+  setFillColor(r: number, g: number, b: number): void;
+  setDrawColor(r: number, g: number, b: number): void;
+  setTextColor(r: number, g: number, b: number): void;
+  setFont(name: string, style?: string): void;
+  setFontSize(size: number): void;
+  text(text: string | string[], x: number, y: number, opts?: { align?: string }): void;
+  rect(x: number, y: number, w: number, h: number, style?: string): void;
+  roundedRect(x: number, y: number, w: number, h: number, rx: number, ry: number, style?: string): void;
+  splitTextToSize(text: string, width: number): string[];
+  addPage(): void;
+  setPage(n: number): void;
+  getNumberOfPages(): number;
+  output(type: string): Blob;
+  lastAutoTable: { finalY: number };
 }
 
-function portfolioCard(p: StatementPortfolio): string {
-  const [label, tone] = statusOf(p.status);
-  const principal = principalOf(p);
-  const compounded = compoundedOf(p);
-  const monthly = Math.round(principal * n(p.rate) / 100);
+/* ─────────────────────────────── the PDF ───────────────────────────────── */
 
-  const payouts = (p.payouts ?? []).map((w) =>
-    `<tr><td>${day(w.date)}</td><td class="mono">${esc(w.reference ?? '')}</td>` +
-    `<td class="r">${ugx(w.amount)}</td></tr>`).join('');
+export async function generateStatementPdf(d: StatementData): Promise<Blob> {
+  /* jspdf is published with both a named and a default export, and the two
+     other PDF builders in this repo each pick a different one. Under the
+     bundler either works; outside it (a test, SSR) only one does. Take
+     whichever is actually there rather than betting on the packaging. */
+  const pdfMod = await import('jspdf') as unknown as Record<string, unknown>;
+  const jsPDF = (pdfMod.jsPDF
+    ?? (pdfMod.default as Record<string, unknown> | undefined)?.jsPDF
+    ?? pdfMod.default) as new (opts: Record<string, unknown>) => JsPdfDoc;
 
-  const compounds = (p.compounds ?? []).map((c) =>
-    `<tr><td>${day(c.date)}</td><td class="mono">${esc(c.reference ?? '')}</td>` +
-    `<td class="r">${ugx(c.amount)}</td></tr>`).join('');
+  const tableMod = await import('jspdf-autotable') as unknown as Record<string, unknown>;
+  const autoTable = (tableMod.default ?? tableMod) as
+    (doc: unknown, opts: Record<string, unknown>) => void;
 
-  const changes = [
-    ...(p.renewals ?? []).map((r) => ({ date: r.date, what: 'Renewed for another term' })),
-    ...(p.changes ?? []),
-  ].sort((a, b) => String(a.date).localeCompare(String(b.date)))
-   .map((c) => `<tr><td>${day(c.date)}</td><td>${esc(c.what)}</td></tr>`).join('');
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const margin = 12;
+  const lastY = () => doc.lastAutoTable.finalY;
 
-  return `
-<section class="pf">
-  <div class="pfh">
-    <h3>${esc(p.code ?? p.id.slice(0, 8))}</h3>
-    <span class="badge ${tone}">${esc(label)}</span>
-    <span class="rate">${n(p.rate)}% &middot; ${esc(modeWords(p))}</span>
-    <span class="grow">Principal <b>${ugx(principal)}</b> &nbsp;&bull;&nbsp; Worth now <b>${ugx(p.current_value)}</b></span>
-  </div>
-
-  <h4>Portfolio details</h4>
-  <table class="t">
-    <tr><td>Contribution date</td><td class="r">${day(p.start_date)}</td></tr>
-    <tr><td>Portfolio name</td><td class="r"><b>${esc(p.name || p.code || DASH)}</b></td></tr>
-    <tr><td>Portfolio ID</td><td class="r mono">${esc(p.id.slice(0, 8))}</td></tr>
-    <tr><td>Return rate</td><td class="r">${n(p.rate)}%</td></tr>
-    <tr><td>Maturity date</td><td class="r">${day(p.maturity_date)}</td></tr>
-    <tr><td>Days left</td><td class="r">${p.days_left ?? DASH}</td></tr>
-    <tr><td>Term</td><td class="r">${p.duration_months ?? DASH} months</td></tr>
-    <tr><td>Principal</td><td class="r"><b>${ugx(principal)}</b></td></tr>
-    <tr><td>Return each month</td><td class="r">${ugx(monthly)}</td></tr>
-  </table>
-
-  <h4>Payouts (money taken out)</h4>
-  <table class="t"><thead><tr><th>Date</th><th>Reference</th><th class="r">Amount</th></tr></thead>
-    <tbody>${rows(payouts, 'No payout is linked to this portfolio.')}</tbody></table>
-
-  <h4>Top-ups</h4>
-  <table class="t"><thead><tr><th>Date</th><th>What happened</th><th class="r">Amount</th></tr></thead>
-    <tbody><tr><td>${day(p.start_date)}</td><td>Portfolio opened</td><td class="r">${ugx(principal)}</td></tr></tbody></table>
-
-  <h4>Compounds (Return added)</h4>
-  <table class="t"><thead><tr><th>Date</th><th>Reference</th><th class="r">Amount</th></tr></thead>
-    <tbody>${rows(compounds, 'No Return has been added to this portfolio yet.')}</tbody>
-    ${compounds ? `<tfoot><tr><td>Total</td><td></td><td class="r">${ugx(compounded)}</td></tr></tfoot>` : ''}
-  </table>
-
-  <h4>Renewals &amp; changes</h4>
-  <table class="t"><thead><tr><th>Date</th><th>What happened</th></tr></thead>
-    <tbody>${rows(changes, 'No renewal or change recorded.')}</tbody></table>
-</section>`;
-}
-
-/** The whole statement as one self-contained HTML document. */
-export function renderStatementHtml(d: StatementData): string {
   const ps = d.portfolios;
   const totalPrincipal = ps.reduce((s, p) => s + principalOf(p), 0);
   const totalCompounded = ps.reduce((s, p) => s + compoundedOf(p), 0);
@@ -185,166 +158,226 @@ export function renderStatementHtml(d: StatementData): string {
   const totalMonthly = ps.reduce((s, p) => s + Math.round(principalOf(p) * n(p.rate) / 100), 0);
   const active = ps.filter((p) => p.status === 'active').length;
   const dateStr = String(d.generated_at).slice(0, 10);
+  const who = d.partner?.name ?? 'Partner';
 
-  const summary = ps.map((p, i) => {
-    const [label, tone] = statusOf(p.status);
+  /* ---- masthead ---- */
+  doc.setFillColor(...PURPLE);
+  doc.rect(0, 0, pw, 28, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('WELILE TECHNOLOGIES LIMITED', margin, 11);
+  doc.setFontSize(15);
+  doc.text('Partner Portfolio Statement', margin, 19);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.text('Everything you have put in, what it has earned, and what it is worth today',
+    margin, 24.5);
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(who, pw - margin, 12, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.text(`Statement date ${dateStr}`, pw - margin, 17, { align: 'right' });
+  doc.text(`${ps.length} portfolios · ${active} still running`, pw - margin, 21.5, { align: 'right' });
+
+  /* ---- who this is ---- */
+  doc.setTextColor(...INK);
+  autoTable(doc, {
+    startY: 34,
+    head: [['Partner', 'Mobile money', 'Phone']],
+    body: [[who, d.partner?.mobile_money ?? DASH, d.partner?.phone ?? DASH]],
+    theme: 'grid',
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: PURPLE, textColor: 255, fontSize: 8 },
+    margin: { left: margin, right: margin },
+  });
+
+  /* ---- the four figures ---- */
+  autoTable(doc, {
+    startY: lastY() + 5,
+    head: [['MONEY YOU PUT IN', 'RETURN ADDED', 'TOTAL CAPITAL', 'RETURN EACH MONTH']],
+    body: [[
+      `UGX ${ugx(totalPrincipal)}`,
+      `UGX ${ugx(totalCompounded)}`,
+      `UGX ${ugx(totalValue)}`,
+      `UGX ${ugx(totalMonthly)}`,
+    ]],
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 3, halign: 'center', fontStyle: 'bold' },
+    headStyles: { fillColor: [248, 250, 252], textColor: MUTED, fontSize: 7, fontStyle: 'bold' },
+    margin: { left: margin, right: margin },
+  });
+
+  /* ---- every portfolio on one page ---- */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text(`All your portfolios (${ps.length})`, margin, lastY() + 9);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...MUTED);
+  doc.text('Return is what one month earns on the principal, at the rate shown.',
+    margin, lastY() + 13);
+  doc.setTextColor(...INK);
+
+  autoTable(doc, {
+    startY: lastY() + 16,
+    head: [['#', 'Portfolio', 'Status', 'Rate', 'Principal', 'Return', 'Current value',
+            'Start', 'Matures', 'Days', 'Type']],
+    body: ps.map((p, i) => {
+      const principal = principalOf(p);
+      return [
+        String(i + 1),
+        p.code ?? p.id.slice(0, 8),
+        statusOf(p.status),
+        `${n(p.rate)}%`,
+        ugx(principal),
+        ugx(Math.round(principal * n(p.rate) / 100)),
+        ugx(p.current_value),
+        day(p.start_date),
+        day(p.maturity_date),
+        p.days_left == null ? DASH : String(p.days_left),
+        typeOf(p),
+      ];
+    }),
+    foot: [['', 'TOTALS', '', '', ugx(totalPrincipal), ugx(totalMonthly), ugx(totalValue),
+            '', '', '', '']],
+    theme: 'grid',
+    styles: { fontSize: 6.8, cellPadding: 1.4, overflow: 'linebreak' },
+    headStyles: { fillColor: PURPLE, textColor: 255, fontSize: 6.5 },
+    footStyles: { fillColor: [248, 250, 252], textColor: INK, fontStyle: 'bold', fontSize: 6.8 },
+    columnStyles: {
+      0: { cellWidth: 6, halign: 'right' },
+      3: { halign: 'right' }, 4: { halign: 'right' },
+      5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' },
+      9: { halign: 'right' },
+    },
+    margin: { left: margin, right: margin },
+  });
+
+  /* ---- the caveat, stated plainly rather than left as an empty table ---- */
+  const noteY = lastY() + 6;
+  doc.setFillColor(250, 245, 255);
+  doc.setDrawColor(233, 213, 255);
+  doc.roundedRect(margin, noteY, pw - margin * 2, 16, 1.5, 1.5, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('About money taken out', margin + 3, noteY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.setTextColor(...MUTED);
+  doc.text(
+    doc.splitTextToSize(
+      `${d.payouts_total.count} payouts totalling UGX ${ugx(d.payouts_total.amount)} are recorded on this ` +
+      'account. A payout only appears against a portfolio below when it records which portfolio it came ' +
+      'from, so "current value" is the portfolio balance rather than the balance after money was taken out.',
+      pw - margin * 2 - 6),
+    margin + 3, noteY + 9);
+  doc.setTextColor(...INK);
+
+  /* ---- one block per portfolio ---- */
+  for (const p of ps) {
+    doc.addPage();
     const principal = principalOf(p);
-    return `<tr><td>${i + 1}</td><td class="mono">${esc(p.code ?? '')}</td>` +
-      `<td><span class="badge ${tone}">${esc(label)}</span></td>` +
-      `<td class="r">${n(p.rate)}%</td><td class="r">${ugx(principal)}</td>` +
-      `<td class="r">${ugx(Math.round(principal * n(p.rate) / 100))}</td>` +
-      `<td class="r b">${ugx(p.current_value)}</td>` +
-      `<td>${day(p.start_date)}</td><td>${day(p.maturity_date)}</td>` +
-      `<td class="r">${p.days_left ?? DASH}</td><td>${typeOf(p)}</td></tr>`;
-  }).join('');
+    const compounded = compoundedOf(p);
 
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Portfolio statement — ${esc(d.partner?.name ?? 'Partner')}</title>
-<style>
-:root{--ink:#0F172A;--mut:#64748B;--line:#E2E8F0;--bg:#E2E8F0;--pri:#7B19D4;
---pri-d:#581C87;--ok:#15803D;--okbg:#F0FDF4;--warn:#B45309;--warnbg:#FFFBEB}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font:11px/1.45 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-.doc{width:100%;max-width:210mm;margin:16px auto;padding:0 8px}
-.page{background:#fff;padding:14mm 12mm;margin:0 auto 16px;box-shadow:0 4px 15px rgba(0,0,0,.08);
-page-break-after:always;break-after:page}
-.page:last-child{page-break-after:auto;break-after:auto}
-.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
-border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:12px;flex-wrap:wrap}
-.co{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--pri)}
-h1{font-size:17px;font-weight:900;letter-spacing:-.4px;margin-top:2px}
-.sub{font-size:9px;color:var(--mut)}
-.meta td{font-size:9px;padding:1.5px 0 1.5px 8px;text-align:right}
-.meta .l{color:var(--mut);font-weight:600;text-transform:uppercase}
-.hero{background:linear-gradient(135deg,#FAF5FF,#F5F3FF);border:1px solid #E9D5FF;border-radius:6px;
-padding:12px 16px;margin-bottom:12px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.hero h2{font-size:16px;font-weight:800;color:var(--pri-d)}
-.hero .c{font-size:9.5px;color:#334155;margin-top:3px}
-.pill{background:#fff;border:1px solid var(--line);padding:8px 12px;border-radius:5px;min-width:130px;text-align:right}
-.pill .l{font-size:7.5px;font-weight:800;text-transform:uppercase;color:var(--mut);letter-spacing:.4px}
-.pill .v{font-size:13.5px;font-weight:800;color:var(--pri)}
-.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
-.kpi div{background:#F8FAFC;border:1px solid var(--line);padding:7px 9px;border-radius:4px;text-align:center}
-.kpi .l{font-size:7.5px;font-weight:800;text-transform:uppercase;color:var(--mut)}
-.kpi .v{font-size:12px;font-weight:800}
-h2.sec{font-size:11px;font-weight:800;border-bottom:1px solid #CBD5E1;padding-bottom:3px;margin:12px 0 6px}
-.scroll{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:8.5px}
-th{background:#F8FAFC;color:var(--mut);font-weight:700;text-transform:uppercase;font-size:7.5px;
-letter-spacing:.4px;padding:4px 6px;border-top:1px solid #CBD5E1;border-bottom:1.5px solid #CBD5E1;text-align:left}
-td{padding:4px 6px;border-bottom:1px solid var(--line)}
-tbody tr:nth-child(even) td{background:#FAFAFA}
-tfoot td{font-weight:800;background:#F8FAFC;border-top:1.5px solid var(--ink)}
-.r{text-align:right}.b{font-weight:800;color:var(--pri)}
-.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:7.5px}
-.none{color:var(--mut);font-style:italic}
-.badge{display:inline-block;padding:1.5px 6px;border-radius:3px;font-size:7.5px;font-weight:800;
-text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
-.badge.ok{background:var(--okbg);color:var(--ok);border:1px solid #BBF7D0}
-.badge.warn{background:var(--warnbg);color:var(--warn);border:1px solid #FDE68A}
-.badge.muted{background:#F1F5F9;color:#475569;border:1px solid #CBD5E1}
-.pf{border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-bottom:10px;
-break-inside:avoid;page-break-inside:avoid}
-.pfh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
-.pfh h3{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;font-weight:800;color:var(--pri-d)}
-.rate,.grow{font-size:8.5px;color:var(--mut)}
-h4{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin:8px 0 3px}
-.note{border:1px solid var(--line);border-left:3px solid var(--warn);background:#FAF5FF;
-padding:8px 12px;font-size:8.5px;margin:10px 0}
-.ft{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);
-padding-top:8px;margin-top:10px;font-size:8.5px;color:var(--mut);flex-wrap:wrap}
-@media(max-width:820px){
-  body{font-size:12px}
-  .doc{margin:8px auto;padding:0 6px}
-  .page{padding:14px 12px;border-radius:8px}
-  .hd,.hero{flex-direction:column}
-  .meta td{text-align:left;padding-left:0}
-  .kpi{grid-template-columns:repeat(2,1fr)}
-  .scroll table{min-width:700px}
-}
-@media print{
-  @page{size:A4 portrait;margin:10mm}
-  body{background:#fff;font-size:8.5pt}
-  .doc{margin:0;padding:0;max-width:none}
-  .page{box-shadow:none;padding:0;margin:0}
-  .scroll{overflow:visible}.scroll table{min-width:0}
-}
-</style></head><body><div class="doc">
+    doc.setFillColor(...PURPLE);
+    doc.rect(0, 0, pw, 16, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(p.code ?? p.id.slice(0, 8), margin, 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.text(`${statusOf(p.status)} · ${n(p.rate)}% · ${modeWords(p)}`, pw - margin, 10,
+      { align: 'right' });
+    doc.setTextColor(...INK);
 
-<div class="page">
-  <div class="hd">
-    <div>
-      <div class="co">WELILE TECHNOLOGIES LIMITED</div>
-      <h1>Partner Portfolio Statement</h1>
-      <div class="sub">Everything you have put in, what it has earned, and what it is worth today</div>
-    </div>
-    <table class="meta">
-      <tr><td class="l">Partner:</td><td><b>${esc(d.partner?.name ?? DASH)}</b></td></tr>
-      <tr><td class="l">Statement date:</td><td><b>${dateStr}</b></td></tr>
-      <tr><td class="l">Portfolios:</td><td><b>${ps.length}</b></td></tr>
-    </table>
-  </div>
+    autoTable(doc, {
+      startY: 22,
+      head: [['Portfolio details', '']],
+      body: [
+        ['Contribution date', day(p.start_date)],
+        ['Portfolio name', p.name || p.code || DASH],
+        ['Portfolio ID', p.id.slice(0, 8)],
+        ['Return rate', `${n(p.rate)}%`],
+        ['Maturity date', day(p.maturity_date)],
+        ['Days left', p.days_left == null ? DASH : String(p.days_left)],
+        ['Term', p.duration_months == null ? DASH : `${p.duration_months} months`],
+        ['Principal', `UGX ${ugx(principal)}`],
+        ['Return each month', `UGX ${ugx(Math.round(principal * n(p.rate) / 100))}`],
+        ['Worth now', `UGX ${ugx(p.current_value)}`],
+      ],
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 1.8 },
+      headStyles: { fillColor: PURPLE, textColor: 255, fontSize: 8 },
+      columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+      margin: { left: margin, right: margin },
+    });
 
-  <div class="hero">
-    <div>
-      <h2>${esc(d.partner?.name ?? 'Partner')}</h2>
-      <div class="c">Mobile money: <b>${esc(d.partner?.mobile_money ?? DASH)}</b>
-        &nbsp;&bull;&nbsp; Phone: <b>${esc(d.partner?.phone ?? DASH)}</b></div>
-      <div class="c">${ps.length} portfolios &bull; ${active} still running</div>
-    </div>
-    <div class="pill"><div class="l">TOTAL CAPITAL</div><div class="v">${ugx(totalValue)}</div></div>
-    <div class="pill"><div class="l">TOTAL PAYOUTS</div><div class="v">${ugx(d.payouts_total.amount)}</div></div>
-  </div>
+    const section = (
+      title: string,
+      head: string[],
+      body: string[][],
+      empty: string,
+      foot?: string[],
+    ) => {
+      autoTable(doc, {
+        startY: lastY() + 5,
+        head: [[{ content: title, colSpan: head.length, styles: { halign: 'left' } }], head],
+        body: body.length ? body : [[{ content: empty, colSpan: head.length,
+                                       styles: { textColor: MUTED, fontStyle: 'italic' } }]],
+        foot: foot ? [foot] : undefined,
+        theme: 'grid',
+        styles: { fontSize: 7.5, cellPadding: 1.6 },
+        headStyles: { fillColor: PURPLE, textColor: 255, fontSize: 7.5 },
+        footStyles: { fillColor: [248, 250, 252], textColor: INK, fontStyle: 'bold', fontSize: 7.5 },
+        columnStyles: { [head.length - 1]: { halign: 'right' } },
+        margin: { left: margin, right: margin },
+      });
+    };
 
-  <div class="kpi">
-    <div><div class="l">Money you put in</div><div class="v">${ugx(totalPrincipal)}</div></div>
-    <div><div class="l">Return added</div><div class="v">${ugx(totalCompounded)}</div></div>
-    <div><div class="l">Total capital</div><div class="v">${ugx(totalValue)}</div></div>
-    <div><div class="l">Return each month</div><div class="v">${ugx(totalMonthly)}</div></div>
-  </div>
+    section('Payouts (money taken out)', ['Date', 'Reference', 'Amount (UGX)'],
+      (p.payouts ?? []).map((w) => [day(w.date), w.reference ?? DASH, ugx(w.amount)]),
+      'No payout is linked to this portfolio.');
 
-  <h2 class="sec">All your portfolios (${ps.length})</h2>
-  <div class="scroll">
-  <table>
-    <thead><tr><th>#</th><th>Portfolio ID</th><th>Status</th><th class="r">Rate</th>
-      <th class="r">Principal</th><th class="r">Return</th><th class="r">Current value</th>
-      <th>Start date</th><th>Matures</th><th class="r">Days left</th><th>Type</th></tr></thead>
-    <tbody>${summary || '<tr><td colspan="11" class="none">No portfolios yet.</td></tr>'}</tbody>
-    <tfoot><tr><td colspan="4" class="r">TOTALS</td><td class="r">${ugx(totalPrincipal)}</td>
-      <td class="r">${ugx(totalMonthly)}</td><td class="r b">${ugx(totalValue)}</td>
-      <td colspan="4"></td></tr></tfoot>
-  </table>
-  </div>
+    section('Top-ups', ['Date', 'What happened', 'Amount (UGX)'],
+      [[day(p.start_date), 'Portfolio opened', ugx(principal)]],
+      'No top-up recorded.');
 
-  <div class="note">
-    <b>About money taken out.</b>
-    ${d.payouts_total.count} payouts totalling <b>${ugx(d.payouts_total.amount)}</b> are recorded on
-    this account. A payout only appears against a portfolio below when it records which portfolio it
-    came from, so &ldquo;worth now&rdquo; is the portfolio balance rather than the balance after
-    money was taken out.
-  </div>
+    section('Compounds (Return added)', ['Date', 'Reference', 'Amount (UGX)'],
+      (p.compounds ?? []).map((c) => [day(c.date), c.reference ?? DASH, ugx(c.amount)]),
+      'No Return has been added to this portfolio yet.',
+      compounded > 0 ? ['Total', '', ugx(compounded)] : undefined);
 
-  <div class="ft"><span>WELILE TECHNOLOGIES LIMITED &bull; PARTNER PORTFOLIO STATEMENT</span>
-    <span>${dateStr} &bull; PAGE 1</span></div>
-</div>
+    const changes = [
+      ...(p.renewals ?? []).map((r) => ({ date: r.date, what: 'Renewed for another term' })),
+      ...(p.changes ?? []),
+    ].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
-<div class="page">
-  <div class="hd"><div><div class="co">WELILE TECHNOLOGIES LIMITED</div>
-    <h1 style="font-size:14px">Each Portfolio in Detail</h1></div>
-    <table class="meta"><tr><td class="l">Partner:</td><td><b>${esc(d.partner?.name ?? DASH)}</b></td></tr>
-      <tr><td class="l">Statement date:</td><td><b>${dateStr}</b></td></tr></table></div>
-  ${ps.map(portfolioCard).join('')}
-  <div class="ft"><span>WELILE TECHNOLOGIES LIMITED &bull; PARTNER PORTFOLIO STATEMENT</span>
-    <span>${dateStr} &bull; PAGE 2</span></div>
-</div>
+    section('Renewals & changes', ['Date', 'What happened'],
+      changes.map((c) => [day(c.date), c.what]),
+      'No renewal or change recorded.');
+  }
 
-</div></body></html>`;
+  /* ---- footer on every page, numbered once the total is known ---- */
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i += 1) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...MUTED);
+    doc.text(`WELILE TECHNOLOGIES LIMITED · PARTNER PORTFOLIO STATEMENT · ${who}`,
+      margin, ph - 7);
+    doc.text(`${dateStr} · Page ${i} of ${pages}`, pw - margin, ph - 7, { align: 'right' });
+  }
+
+  return doc.output('blob');
 }
 
 /**
- * Build and save the statement.
+ * Build and save the statement as a PDF.
  * @param portfolioId omit for every portfolio the partner holds.
  */
 export async function downloadPartnerStatement(portfolioId?: string): Promise<void> {
@@ -352,8 +385,7 @@ export async function downloadPartnerStatement(portfolioId?: string): Promise<vo
   if (data.portfolios.length === 0) {
     throw new Error('There are no portfolios to put in a statement yet.');
   }
-  const html = renderStatementHtml(data);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const blob = await generateStatementPdf(data);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const who = (data.partner?.name ?? 'partner').replace(/[^A-Za-z0-9]+/g, '-').toLowerCase();
@@ -361,10 +393,10 @@ export async function downloadPartnerStatement(portfolioId?: string): Promise<vo
     ? (data.portfolios[0].code ?? portfolioId.slice(0, 8))
     : 'all-portfolios';
   a.href = url;
-  a.download = `welile-statement-${who}-${scope}-${String(data.generated_at).slice(0, 10)}.html`;
+  a.download = `welile-statement-${who}-${scope}-${String(data.generated_at).slice(0, 10)}.pdf`;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Revoked on the next tick so the download has taken the reference.
+  // Revoked on a later tick so the download has taken its reference.
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
