@@ -504,6 +504,16 @@ export function PromissoryNotesQueue({
   const notes = report.notes;
   const kpis = report.kpis;
 
+  const agentNoteCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const agent of report.proxy_agents || []) {
+      if (agent.agent_user_id) {
+        map.set(agent.agent_user_id, agent.notes_count || 0);
+      }
+    }
+    return map;
+  }, [report.proxy_agents]);
+
   const isOverdue = (n: any) => {
     if (!n.fulfilment_due_on) return false;
     const due = new Date(n.fulfilment_due_on);
