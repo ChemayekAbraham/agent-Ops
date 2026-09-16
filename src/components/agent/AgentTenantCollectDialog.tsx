@@ -260,7 +260,7 @@ export function AgentTenantCollectDialog({
         // tap Confirm again.
         const { data: rows } = await supabase
           .from('agent_collections')
-          .select('id, amount, created_at')
+          .select('id, amount, created_at').is('reversed_at', null)
           .eq('agent_id', user.id)
           .eq('tenant_id', tenant.id)
           .eq('amount', amount)

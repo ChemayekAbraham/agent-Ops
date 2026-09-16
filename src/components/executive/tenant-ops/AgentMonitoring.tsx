@@ -441,7 +441,7 @@ export function AgentMonitoring() {
          legacy agent+tenant pairing below. */
       const { data: collections, error: collectionsError } = await supabase
         .from('agent_collections')
-        .select('id, agent_id, tenant_id, amount, created_at, rent_request_id')
+        .select('id, agent_id, tenant_id, amount, created_at, rent_request_id').is('reversed_at', null)
         .gte('created_at', bounds.from)
         .lt('created_at', bounds.to);
       if (collectionsError) throw collectionsError;
@@ -675,7 +675,7 @@ export function AgentMonitoring() {
         const [collected, repaid] = await Promise.all([
           supabase
             .from('agent_collections')
-            .select('id, rent_request_id, tenant_id, agent_id, amount, created_at, payment_method, is_partial, expected_amount, momo_provider, tracking_id')
+            .select('id, rent_request_id, tenant_id, agent_id, amount, created_at, payment_method, is_partial, expected_amount, momo_provider, tracking_id').is('reversed_at', null)
             .in('rent_request_id', slice)
             .order('created_at', { ascending: false }),
           supabase

@@ -38,7 +38,7 @@ async function fetchFleetCollections(opts: {
   while (true) {
     let q = supabase
       .from('agent_collections')
-      .select('id, agent_id, tenant_id, amount, created_at, payment_method, momo_provider, momo_phone, momo_payer_name, momo_transaction_id, tracking_id, location_name, notes, rent_request_id')
+      .select('id, agent_id, tenant_id, amount, created_at, payment_method, momo_provider, momo_phone, momo_payer_name, momo_transaction_id, tracking_id, location_name, notes, rent_request_id').is('reversed_at', null)
       .gte('created_at', start.toISOString())
       .lt('created_at', end.toISOString())
       .gt('amount', 0)

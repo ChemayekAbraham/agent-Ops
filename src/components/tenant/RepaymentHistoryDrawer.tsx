@@ -118,7 +118,7 @@ export function RepaymentHistoryDrawer({ userId }: RepaymentHistoryDrawerProps) 
       // Payments now come from agent_collections (single source of truth).
       supabase
         .from('agent_collections')
-        .select('id, amount, created_at, rent_request_id, payment_method, collection_channel')
+        .select('id, amount, created_at, rent_request_id, payment_method, collection_channel').is('reversed_at', null)
         .eq('tenant_id', userId)
         .order('created_at', { ascending: false }),
     ]);

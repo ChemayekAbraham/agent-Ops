@@ -41,7 +41,7 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
         sb.from('user_roles').select('role, enabled, created_at').eq('user_id', agentId),
         sb.from('agent_float_limits').select('*').eq('agent_id', agentId).maybeSingle(),
         sb.from('agent_float_funding').select('id, amount, status, created_at, bank_name, bank_reference, notes').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(20),
-        sb.from('agent_collections').select('id, amount, payment_method, created_at, momo_payer_name, momo_phone, location_name, notes, tenant_id').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(50),
+        sb.from('agent_collections').select('id, amount, payment_method, created_at, momo_payer_name, momo_phone, location_name, notes, tenant_id').is('reversed_at', null).eq('agent_id', agentId).order('created_at', { ascending: false }).limit(50),
         sb.from('agent_earnings').select('id, amount, earning_type, description, created_at').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(20),
         sb.from('agent_advances').select('id, principal, outstanding_balance, status, monthly_rate, issued_at, expires_at, cycle_days').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(10),
         sb.from('agent_commission_payouts').select('id, amount, status, requested_at, processed_at, mobile_money_number, mobile_money_provider, rejection_reason').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(10),

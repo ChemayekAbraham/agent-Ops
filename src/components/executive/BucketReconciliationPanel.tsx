@@ -257,7 +257,7 @@ async function fetchBucketCollections(opts: { start: Date; end: Date; agentId?: 
   while (true) {
     let q = supabase
       .from('agent_collections')
-      .select('id, amount, created_at, agent_id, tenant_id, payment_method, rent_request_id')
+      .select('id, amount, created_at, agent_id, tenant_id, payment_method, rent_request_id').is('reversed_at', null)
       .gte('created_at', opts.start.toISOString())
       .lt('created_at', opts.end.toISOString())
       .gt('amount', 0)

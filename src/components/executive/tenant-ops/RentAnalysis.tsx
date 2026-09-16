@@ -152,7 +152,7 @@ export function RentAnalysis() {
         const [collected, repaid] = await Promise.all([
           supabase
             .from('agent_collections')
-            .select('rent_request_id, amount, created_at')
+            .select('rent_request_id, amount, created_at').is('reversed_at', null)
             .in('rent_request_id', slice)
             .gte('created_at', bounds.from)
             .lte('created_at', bounds.to),

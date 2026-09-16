@@ -75,7 +75,7 @@ export function DailyRentReport({ mode }: Props) {
       const to = new Date(`${end}T23:59:59.999`).toISOString();
       const { data, error } = await supabase
         .from('agent_collections')
-        .select('id, created_at, amount, payment_method, tracking_id, momo_transaction_id, notes, float_before, float_after, agent_id, tenant_id, rent_request_id')
+        .select('id, created_at, amount, payment_method, tracking_id, momo_transaction_id, notes, float_before, float_after, agent_id, tenant_id, rent_request_id').is('reversed_at', null)
         .gte('created_at', from)
         .lte('created_at', to)
         .order('created_at', { ascending: false });

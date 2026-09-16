@@ -29,7 +29,7 @@ export default function AgentCollectionsOverview() {
     queryKey: ['coo-agent-collections-kpis-v4', period],
     queryFn: async () => {
       const [collectionsRes, landlordPayoutsRes, assignmentsRes, subagentsRes] = await Promise.all([
-        supabase.from('agent_collections').select('agent_id, amount, created_at'),
+        supabase.from('agent_collections').select('agent_id, amount, created_at').is('reversed_at', null),
         supabase.from('agent_landlord_payouts').select('agent_id, amount, created_at, status')
           .in('status', ['completed', 'delivered', 'approved', 'pending']),
         supabase.from('agent_landlord_assignments').select('agent_id').eq('status', 'active'),

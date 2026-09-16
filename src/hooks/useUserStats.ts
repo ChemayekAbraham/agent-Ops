@@ -66,7 +66,7 @@ export function useUserStats(userId: string | undefined) {
         supabase.from('user_roles').select('role').eq('user_id', userId).eq('enabled', true),
         supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('agent_id', userId),
         supabase.from('agent_earnings').select('amount').eq('agent_id', userId),
-        supabase.from('agent_collections').select('amount').eq('agent_id', userId),
+        supabase.from('agent_collections').select('amount').is('reversed_at', null).eq('agent_id', userId),
         supabase.from('house_listings').select('id', { count: 'exact', head: true }).eq('agent_id', userId),
         supabase.from('agent_delivery_confirmations').select('id', { count: 'exact', head: true }).eq('agent_id', userId),
         supabase.from('agent_visits').select('id', { count: 'exact', head: true }).eq('agent_id', userId),

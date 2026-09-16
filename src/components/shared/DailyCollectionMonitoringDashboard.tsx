@@ -202,7 +202,7 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from('agent_collections')
-          .select('id, tenant_id, agent_id, amount, payment_method, notes, created_at')
+          .select('id, tenant_id, agent_id, amount, payment_method, notes, created_at').is('reversed_at', null)
           .gte('created_at', rangeFrom.toISOString())
           .lte('created_at', rangeTo.toISOString())
           .range(from, from + PAGE - 1);
@@ -225,7 +225,7 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from('agent_collections')
-          .select('amount, tenant_id')
+          .select('amount, tenant_id').is('reversed_at', null)
           .gte('created_at', prevFrom.toISOString())
           .lte('created_at', prevTo.toISOString())
           .range(from, from + PAGE - 1);
@@ -247,7 +247,7 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from('agent_collections')
-          .select('amount, created_at')
+          .select('amount, created_at').is('reversed_at', null)
           .gte('created_at', monthFrom.toISOString())
           .lte('created_at', monthTo.toISOString())
           .range(from, from + PAGE - 1);
