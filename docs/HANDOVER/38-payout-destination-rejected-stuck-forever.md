@@ -1,10 +1,10 @@
 # 38 — 2026-09-16: rejected payout destination could never clear, even after Financial Ops approval
 
-**Migration written but not yet deployed** (`20260916160000_fix_payout_destination_rejected_stuck_forever.sql`
-— `CREATE OR REPLACE FUNCTION` writes are blocked from this session's tooling against production;
-run it manually in the SQL editor). Before touching `ensure_payout_destination` or
-`payout_withdrawal_block_reasons`, or before assuming a "your details did not meet the criteria"
-banner reflects the user's *current* destination state.
+**Live as of 2026-09-16** (`20260916160000_fix_payout_destination_rejected_stuck_forever.sql`, run
+manually against production since `CREATE OR REPLACE FUNCTION` writes are blocked from this
+session's tooling — confirmed by re-querying the affected account, see below). Before touching
+`ensure_payout_destination` or `payout_withdrawal_block_reasons`, or before assuming a "your details
+did not meet the criteria" banner reflects the user's *current* destination state.
 
 ## Symptom
 
@@ -48,12 +48,14 @@ Bug 1 alone explains Grace's exact case (she'd moved past the problem entirely; 
 see it). Bug 2 is the more common failure mode for anyone who *doesn't* switch numbers — keeps the
 same rejected momo number and tries to fix the name/photo mismatch in place.
 
+## Confirmed live
+
+Re-ran `select payout_withdrawal_block_reasons('99890a2e-b842-4d44-8516-e2eafe0711ff'::uuid)` against
+production after the migration was applied: `{"blocked": false, "code": "ok", "status": "verified",
+"reasons": []}`. Grace Paul Ochieng can withdraw.
+
 ## Not done
 
-- Migration not yet run against production (blocked: `CREATE OR REPLACE FUNCTION` against prod is
-  refused by this session's auto-mode classifier as a production deploy). Run it manually, then
-  re-check Grace's account: `select payout_withdrawal_block_reasons('99890a2e-b842-4d44-8516-e2eafe0711ff'::uuid)`
-  should return `blocked: false` once applied.
 - Did not clean up Grace's 11 stale/junk rejected destination rows (test numbers, no-`momo_number`
   rows) — cosmetic now that the ordering bug is fixed, not touched.
 - Did not audit other users for the same stuck-rejected pattern platform-wide; this doc only
