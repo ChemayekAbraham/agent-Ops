@@ -1,8 +1,8 @@
 # 44 — 2026-09-16: `payout_withdrawal_block_reasons` needed the locked number, not a timestamp guess
 
-**Migration written, NOT yet deployed** (`20260916190000_block_reasons_use_locked_destination_not_recency.sql`
-— run it manually in the SQL editor). Read this before touching `payout_withdrawal_block_reasons`
-again — it has now been fixed three times in one day (docs 38, 43, 44); this doc supersedes both.
+**Live as of 2026-09-16 — confirmed by re-querying both affected accounts.** Read this before
+touching `payout_withdrawal_block_reasons` again — it has now been fixed three times in one day
+(docs 38, 43, 44); this doc supersedes both.
 
 ## Why doc 43's reapply still wasn't enough
 
@@ -55,12 +55,20 @@ where b.user_id in ('36b19095-...' /* Kirunda */, '99890a2e-...' /* Grace */);
 -- both correctly resolve to their VERIFIED row, ignoring the tied/rejected ones entirely.
 ```
 
+## Confirmed live
+
+Re-ran `payout_withdrawal_block_reasons` against production for both accounts after the migration
+was applied:
+
+```
+kirunda: {"blocked": false, "code": "ok", "status": "verified", "reasons": []}
+grace:   {"blocked": false, "code": "ok", "status": "verified", "reasons": []}
+```
+
+Both can withdraw.
+
 ## Not done
 
-- Migration not yet run against production (blocked: `CREATE OR REPLACE FUNCTION` refused by this
-  session's tooling as a production deploy). Run manually, then re-verify:
-  `select payout_withdrawal_block_reasons('36b19095-b437-4b4f-afa5-18ca6f9ea6d2'::uuid)` should
-  return `blocked: false`.
 - Did not touch `stamp_payout_destination_id_submitted_at()` itself — scoping every historical
   destination row to the newly-submitted National ID name on every edit may be intentional (keeps
   old rows' name-match scores current), but it's the reason recency-based approaches keep failing
