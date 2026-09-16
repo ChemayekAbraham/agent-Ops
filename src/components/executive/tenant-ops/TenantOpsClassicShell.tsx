@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useMemo } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { TenantOpsDashboard, type TenantOpsClassicView } from '../TenantOpsDashboard';
 import { TenantOpsSidebar } from './TenantOpsSidebar';
@@ -10,8 +10,9 @@ import { TenantCallingCenter } from './calling-center/TenantCallingCenter';
 import { TenantPhoneDuplicatePanel } from '@/components/ops/TenantPhoneDuplicatePanel';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 
-/** Portfolio Performance renders inside the shell so the sidebar stays visible. */
+/** These render inside the shell so the sidebar stays visible. */
 const PortfolioPerformanceReport = lazy(() => import('@/pages/tenant-ops/PortfolioPerformanceReport'));
+const TenantNotificationAnalyticsPage = lazy(() => import('@/pages/tenant-ops/TenantNotificationAnalyticsPage'));
 import {
   isTenantOpsAction,
   tenantOpsLabelFor,
@@ -34,13 +35,14 @@ interface Props {
  * overview suppressed.
  */
 export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGenerateWordReport }: Props) {
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { data: counts } = useTenantOpsToolCounts();
 
   const raw = params.get('view') || 'home';
   const active = (
-    raw === 'action.portfolio-performance' || isTenantOpsViewKey(raw) ? raw : 'home'
+    raw === 'action.portfolio-performance' || raw === 'action.notifications-analytics' || isTenantOpsViewKey(raw)
+      ? raw
+      : 'home'
   ) as TenantOpsViewKey | TenantOpsActionKey;
 
   const badges = useMemo<Partial<Record<string, number>>>(() => ({
@@ -52,13 +54,10 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
 
   const goTo = useCallback((key: TenantOpsViewKey | TenantOpsActionKey) => {
     const next = new URLSearchParams(params);
-    if (key === 'action.portfolio-performance') {
+    if (key === 'action.portfolio-performance' || key === 'action.notifications-analytics') {
+      // Kept inside the shell so the sidebar and top bar stay in place.
       next.set('view', key);
     } else if (isTenantOpsAction(key)) {
-      if (key === 'action.notifications-analytics') {
-        navigate('/tenant-ops/notifications');
-        return;
-      }
       if (key === 'action.locations') onOpenLocations();
       if (key === 'action.welile-homes') onOpenWelileHomes();
       if (key === 'action.word-report') onGenerateWordReport();
@@ -83,7 +82,14 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     if (active === 'action.portfolio-performance') {
       return (
         <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
-          <PortfolioPerformanceReport />
+          <PortfolioPerformanceReport onBack={() => goTo('home')} />
+        </Suspense>
+      );
+    }
+    if (active === 'action.notifications-analytics') {
+      return (
+        <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <TenantNotificationAnalyticsPage embedded />
         </Suspense>
       );
     }
@@ -99,7 +105,10 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     );
   };
 
-  const label = active === 'home' ? '' : tenantOpsLabelFor(active);
+  // These two views carry their own page header, so the shell heading is dropped
+  // to avoid printing the same title twice.
+  const selfTitled = active === 'action.portfolio-performance' || active === 'action.notifications-analytics';
+  const label = active === 'home' || selfTitled ? '' : tenantOpsLabelFor(active);
 
   return (
     <div className="space-y-2">
