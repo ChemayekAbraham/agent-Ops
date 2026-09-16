@@ -266,7 +266,7 @@ export default function InstallNagOverlay() {
                     <span>Confirm — Welile appears with your other apps.</span>
                   </li>
                 </ol>
-              )}
+              ))}
 
               <ul className="mt-4 grid gap-2 text-sm text-foreground/90">
                 <li className="flex items-center gap-2">
