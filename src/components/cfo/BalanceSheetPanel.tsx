@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
   expandLandlordFloat,
-  type BsGroup,
+  type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import { format, endOfDay } from 'date-fns';
@@ -263,6 +263,8 @@ export default function BalanceSheetPanel() {
   const [loading, setLoading] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [exporting, setExporting] = useState(false);
+  /** Presentation-only breakdown of the existing Landlord Float. */
+  const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
@@ -273,6 +275,12 @@ export default function BalanceSheetPanel() {
       });
       if (error) throw error;
       setData(res as StatementOfFinancialPosition);
+
+      const { data: split, error: splitError } = await (supabase as any).rpc('get_landlord_float_management_split', {
+        p_as_at: asAtIso,
+      });
+      if (splitError) console.warn('Landlord float split unavailable:', splitError.message);
+      setFloatSplit((split as LandlordFloatSplit) ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to generate the statement of financial position');
     } finally {
@@ -301,7 +309,7 @@ export default function BalanceSheetPanel() {
   const totalLiabilitiesAndEquity = data
     ? data.balance_check.total_liabilities_and_equity
     : 0;
-  const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? []);
+  const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], floatSplit);
   /** Each section's groups must still sum to the RPC's own total. */
   const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;
   const equityDrift = data && equityGroups ? Math.round(equityGroups.total - equityTotal) : 0;

@@ -269,12 +269,42 @@ export type MarketplaceRow = BsGroup & {
   components?: PositionLine[];
 };
 
+export const LANDLORD_FLOAT_LABEL = 'Landlord Float';
+export const LANDLORD_FLOAT_SELF_LABEL = 'Landlord Float — Self Managed';
+export const LANDLORD_FLOAT_COMPANY_LABEL = 'Landlord Float — Company Managed';
+
+/** Measured on the ledger by get_landlord_float_management_split(). */
+export interface LandlordFloatSplit {
+  total: number;
+  self_managed: number;
+  company_managed: number;
+}
+
 /**
- * Presentation only: Landlord Float is reported as a single line with no
- * company/self breakdown and no separate total row.
+ * Presentation only: reports the existing Landlord Float as two lines — Self
+ * Managed and Company Managed — per the landlord record's own management flag.
+ *
+ * The reported group value is never changed: the self-managed amount measured
+ * on the ledger is shown as-is and the company line is the residual, so the two
+ * lines always foot to the existing total exactly. The partner/agent obligation
+ * accounts inside the group are company-managed by definition and therefore sit
+ * in the residual. With no split available the original single line is returned
+ * untouched.
  */
-export function expandLandlordFloat(marketplace: BsGroup[]): MarketplaceRow[] {
-  return marketplace;
+export function expandLandlordFloat(
+  marketplace: BsGroup[],
+  split?: LandlordFloatSplit | null,
+): MarketplaceRow[] {
+  if (!split) return marketplace;
+  return marketplace.flatMap<MarketplaceRow>(g => {
+    if (g.label !== LANDLORD_FLOAT_LABEL) return [g];
+    const self = Math.round(split.self_managed ?? 0);
+    const company = Math.round(g.value) - self;
+    return [
+      { label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [], unsourced: g.unsourced },
+      { label: LANDLORD_FLOAT_COMPANY_LABEL, value: company, lines: g.lines, unsourced: g.unsourced },
+    ];
+  });
 }
 
 
