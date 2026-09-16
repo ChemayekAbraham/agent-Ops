@@ -851,7 +851,7 @@ export default function Settings() {
             )}
 
             {activeSection === 'security' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <Card className="border-border/40 rounded-2xl">
                   <CardHeader className="pb-2">
                     <div className="flex items-center gap-2">
@@ -908,15 +908,15 @@ export default function Settings() {
                 </Card>
                 <LazySection name="PinSecurity"><PinSecuritySection /></LazySection>
                 <LazySection name="BiometricSecurity"><BiometricSecuritySection /></LazySection>
-                <Card className="rounded-2xl">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
+                <Card className="border-border/40 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
                       <Bell className="h-4 w-4 text-primary" />
-                      Push notifications
-                    </CardTitle>
-                    <CardDescription>
-                      Get instant alerts on this device for deposits, withdrawals, payouts and rent updates — even when Welile is closed.
-                    </CardDescription>
+                      <div>
+                        <CardTitle className="text-sm">Push notifications</CardTitle>
+                        <CardDescription className="text-xs">Get instant alerts for deposits, withdrawals, payouts and rent updates — even when Welile is closed.</CardDescription>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <Suspense fallback={<Skeleton className="h-10 w-48 rounded-md" />}>
