@@ -44,17 +44,20 @@ export function useMyNationalId() {
 }
 
 export default function NationalIdPrompt({
-  withdrawableBalance,
+  withdrawableBalance = 0,
   className,
   blocking = false,
   allowResubmit = false,
+  alwaysShow = false,
 }: {
-  withdrawableBalance: number;
+  withdrawableBalance?: number;
   className?: string;
   /** Red, "you cannot continue" styling used inside the withdraw flow. */
   blocking?: boolean;
   /** Keep rendering even when an ID is already on file — used after a rejection. */
   allowResubmit?: boolean;
+  /** Show regardless of withdrawable balance — for a platform-wide "add your ID" nudge, not the wallet-specific one. */
+  alwaysShow?: boolean;
 }) {
   const { data, isLoading, refetch } = useMyNationalId();
   const submit = useSubmitNationalId();
@@ -67,7 +70,7 @@ export default function NationalIdPrompt({
   const canSave = idCheck.valid && nameCheck.valid && !submit.isPending;
 
   const alreadyDone = !!data?.national_id;
-  if (isLoading || (alreadyDone && !allowResubmit) || withdrawableBalance <= 0) return null;
+  if (isLoading || (alreadyDone && !allowResubmit) || (!alwaysShow && withdrawableBalance <= 0)) return null;
 
   const save = async () => {
     if (!idCheck.valid || !nameCheck.valid) {
