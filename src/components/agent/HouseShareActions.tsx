@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Check, Copy, Loader2, MessageCircle, Share2 } from 'lucide-react';
+import { Check, Copy, FileText, Loader2, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { PromissoryNoteDialog } from '@/components/agent/PromissoryNoteDialog';
 import { houseTitleLine, houseAddressLine, type SupportableHouse } from '@/components/partner/SelfSupportHousesSection';
 import { createHouseShareLink, houseShareMessage } from '@/lib/houseSupportShare';
 
