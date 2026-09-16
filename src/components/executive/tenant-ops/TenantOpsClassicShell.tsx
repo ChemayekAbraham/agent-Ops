@@ -55,13 +55,10 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
 
   const goTo = useCallback((key: TenantOpsViewKey | TenantOpsActionKey) => {
     const next = new URLSearchParams(params);
-    if (key === 'action.portfolio-performance') {
+    if (key === 'action.portfolio-performance' || key === 'action.notifications-analytics') {
+      // Kept inside the shell so the sidebar and top bar stay in place.
       next.set('view', key);
     } else if (isTenantOpsAction(key)) {
-      if (key === 'action.notifications-analytics') {
-        navigate('/tenant-ops/notifications');
-        return;
-      }
       if (key === 'action.locations') onOpenLocations();
       if (key === 'action.welile-homes') onOpenWelileHomes();
       if (key === 'action.word-report') onGenerateWordReport();
