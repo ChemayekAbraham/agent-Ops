@@ -391,16 +391,31 @@ const MyRequisitions = () => {
               </p>
             </div>
             <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setResubmitId(null); }}>
-              <DialogTrigger asChild>
-                <Button onClick={startNew}>
-                  <Plus className="mr-2 h-4 w-4" /> New requisition
-                </Button>
-              </DialogTrigger>
+              <div className="flex flex-wrap gap-2">
+                <DialogTrigger asChild>
+                  <Button onClick={() => startNew('requisition')}>
+                    <Plus className="mr-2 h-4 w-4" /> New requisition
+                  </Button>
+                </DialogTrigger>
+                {loanInfo?.eligible && (
+                  <DialogTrigger asChild>
+                    <Button variant="outline" onClick={() => startNew('staff_loan')}>
+                      <Landmark className="mr-2 h-4 w-4" /> Request a loan
+                    </Button>
+                  </DialogTrigger>
+                )}
+              </div>
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>{resubmitId ? 'Update and resubmit' : 'New requisition'}</DialogTitle>
+                  <DialogTitle>
+                    {resubmitId
+                      ? 'Update and resubmit'
+                      : kind === 'staff_loan' ? 'Request a loan' : 'New requisition'}
+                  </DialogTitle>
                   <DialogDescription>
-                    Approvers see your department budget alongside the request.
+                    {kind === 'staff_loan'
+                      ? 'Reviewed by your department head, then the COO, then the CFO — the same as a requisition. Charged 30% a month on what you still owe.'
+                      : 'Approvers see your department budget alongside the request.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-3">
