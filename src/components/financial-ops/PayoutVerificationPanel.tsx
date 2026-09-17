@@ -944,6 +944,7 @@ export default function PayoutVerificationPanel() {
   const photos = useIdentityPhotosFor(row?.user_id);
   const personNumbers = usePersonPayoutDestinations(row?.user_id, personNumbersOpen);
   const idPath = photos.data?.national_id_photo_path ?? null;
+  const idBackPath = photos.data?.national_id_back_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
   const photosReady = !!idPath && !!selfiePath;
   // Verify must stay off until the ID photo has been read and produced a name we
