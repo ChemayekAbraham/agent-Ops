@@ -474,7 +474,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const renderContactStep = () => (
     <Card className="border-border/60">
       <CardContent className="space-y-4 pt-4">
-        {sectionTitle(<Phone className="h-5 w-5" />, 'How do we reach them?', 'WhatsApp is required. Phone and email are optional.')}
+        {sectionTitle(<Phone className="h-5 w-5" />, 'How do we reach them?', 'WhatsApp and email are required. The other phone number is optional.')}
         <Button
           type="button"
           variant="outline"
