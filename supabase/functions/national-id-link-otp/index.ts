@@ -83,7 +83,10 @@ Deno.serve(async (req) => {
           nin_ref: t.nin,
         },
       });
-      if (error) return json({ error: "Could not send the code. Please try again." }, 502);
+      if (error) {
+        const up = await readUpstream(error);
+        return json({ error: up.message ?? "Could not send the code. Please try again." }, up.status);
+      }
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) return json({ error: res.error ?? "Could not send the code." }, 502);
 
