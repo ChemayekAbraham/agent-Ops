@@ -27,6 +27,7 @@ import {
   MessageCircle,
   PhoneCall,
   RefreshCw,
+  ScanLine,
   Search,
   ShieldAlert,
   Smartphone,
