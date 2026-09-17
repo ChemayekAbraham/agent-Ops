@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
     const authorEmails = new Set<string>();
     const coauthorSeen = new Set<string>();
 
-    const { data: engineers } = await admin.from("engrep_engineers").select("code, git_emails");
+    const { data: engineers } = await admin.from("engrep_engineers").select("id, code, git_emails");
 
     // Attribution pass: no network, so exclusions are decided for every commit even if
     // the detail pass later runs out of budget.
