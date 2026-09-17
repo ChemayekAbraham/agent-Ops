@@ -223,7 +223,15 @@ export function ForwardConcernDialog({
                 ))}
               </div>
             )}
+            <p className="px-1 text-[11px] font-semibold">
+              {chosen ? (
+                <span className="text-primary">Going to: {chosen.full_name}</span>
+              ) : (
+                <span className="text-muted-foreground">Tap a name above to choose the person.</span>
+              )}
+            </p>
           </div>
+
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" size="sm" className="h-9 text-xs" onClick={onClose}>
