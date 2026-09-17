@@ -264,12 +264,70 @@ export async function generateIssuesReviewPdf(input: IssuesReviewInput, meta: Co
   });
   cursor = (doc as any).lastAutoTable.finalY + 8;
 
+  if (input.deadlinePerformance?.length) {
+    section('Answer times and how they were kept');
+    autoTable(doc, {
+      startY: cursor,
+      head: [['Measure', 'Result']],
+      body: input.deadlinePerformance.map((d) => [d.label, d.value]),
+      styles: { fontSize: 8, cellPadding: 2, textColor: THEME_INK, lineColor: THEME_BORDER, lineWidth: 0.1 },
+      headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+      alternateRowStyles: { fillColor: [246, 243, 251] },
+      columnStyles: { 0: { cellWidth: 90 } },
+      margin: { left: margin, right: margin },
+    });
+    cursor = (doc as any).lastAutoTable.finalY + 8;
+  }
+
+  if (input.reassignments?.length) {
+    if (cursor > doc.internal.pageSize.getHeight() - 60) {
+      doc.addPage();
+      cursor = 20;
+    }
+    section('Every change of the person handling a concern');
+    autoTable(doc, {
+      startY: cursor,
+      head: [['When', 'Concern', 'From', 'To', 'Changed by', 'Reason given']],
+      body: input.reassignments.map((r) => [r.when, r.concern, r.from, r.to, r.by, r.reason]),
+      styles: { fontSize: 7.5, cellPadding: 2, textColor: THEME_INK, lineColor: THEME_BORDER, lineWidth: 0.1 },
+      headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+      alternateRowStyles: { fillColor: [246, 243, 251] },
+      columnStyles: { 1: { cellWidth: 60 }, 5: { cellWidth: 70 } },
+      margin: { left: margin, right: margin },
+    });
+    cursor = (doc as any).lastAutoTable.finalY + 8;
+  }
+
   if (input.byReceiver.length) {
+    if (cursor > doc.internal.pageSize.getHeight() - 60) {
+      doc.addPage();
+      cursor = 20;
+    }
     section('How each staff member handled what reached them');
     autoTable(doc, {
       startY: cursor,
-      head: [['Staff member', 'Received', 'Completed', 'Past due', 'Average time to complete']],
-      body: input.byReceiver.map((r) => [r.name, String(r.total), String(r.completed), String(r.overdue), r.avgHours]),
+      head: [
+        [
+          'Staff member',
+          'Received',
+          'Completed',
+          'Past due',
+          'Answered in time',
+          'Average time to complete',
+          'Average time past due',
+          'Handed to them later',
+        ],
+      ],
+      body: input.byReceiver.map((r) => [
+        r.name,
+        String(r.total),
+        String(r.completed),
+        String(r.overdue),
+        String(r.onTime ?? '—'),
+        r.avgHours,
+        r.avgLate ?? '—',
+        String(r.reassignedIn ?? 0),
+      ]),
       styles: { fontSize: 8, cellPadding: 2, textColor: THEME_INK, lineColor: THEME_BORDER, lineWidth: 0.1 },
       headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
       alternateRowStyles: { fillColor: [246, 243, 251] },
