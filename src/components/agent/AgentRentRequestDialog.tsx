@@ -611,7 +611,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
    * instead of letting them fill in five steps only to be rejected on submit.
    */
   const postingBlockedToday =
-    !!myCap && !myCap.is_new_agent && !unlimitedPosting && !myCap.can_post_rent_today;
+    !!myCap && !unlimitedPosting && !myCap.can_post_rent_today;
   useEffect(() => {
     if (!open || capLoading || !postingBlockedToday || !myCap) return;
     const threshold = Math.round(DAILY_ELIGIBILITY_THRESHOLD * 100);
@@ -2588,7 +2588,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     // Daily Eligibility Law: only applies once an agent has graduated
     // (reached the tenant threshold). New agents are exempt and gated only
     // by the per-tenant cap. `can_post_rent_today` already encodes this.
-    if (myCap && !myCap.is_new_agent && !myCap.can_post_rent_today) {
+    if (myCap && !myCap.can_post_rent_today) {
       const threshold = Math.round(DAILY_ELIGIBILITY_THRESHOLD * 100);
       const ypct = Math.round(myCap.yesterday_response_pct * 100);
       const msg =
