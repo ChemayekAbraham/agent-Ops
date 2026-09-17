@@ -16,8 +16,13 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertTriangle, ClipboardList, Download, Forward, PhoneOutgoing, Search } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command';
+import { AlertTriangle, Check, ChevronsUpDown, ClipboardList, Download, Forward, PhoneOutgoing, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { KPICard } from '../../KPICard';
 import { ForwardConcernDialog, type ForwardConcernSource } from './ForwardConcernDialog';
@@ -149,20 +154,141 @@ function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: F
   );
 }
 
+/** Searchable single-select used by the call picker (officer / agent). */
+function PickerCombo({
+  value,
+  onChange,
+  options,
+  placeholder,
+  searchPlaceholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder: string;
+  searchPlaceholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          className="h-9 w-full justify-between text-xs font-normal"
+        >
+          <span className={cn('truncate', value === 'all' && 'text-muted-foreground')}>
+            {value === 'all' ? placeholder : value}
+          </span>
+          <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="z-[200] w-[--radix-popover-trigger-width] max-w-none p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} className="text-xs" />
+          <CommandList>
+            <CommandEmpty>Nothing found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value={placeholder}
+                onSelect={() => {
+                  onChange('all');
+                  setOpen(false);
+                }}
+              >
+                <Check className={cn('mr-2 h-3.5 w-3.5', value === 'all' ? 'opacity-100' : 'opacity-0')} />
+                {placeholder}
+              </CommandItem>
+              {options.map((o) => (
+                <CommandItem
+                  key={o}
+                  value={o}
+                  onSelect={() => {
+                    onChange(o);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn('mr-2 h-3.5 w-3.5', value === o ? 'opacity-100' : 'opacity-0')} />
+                  <span className="truncate">{o}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function OutboundForwardPicker({ onPick }: { onPick: (s: ForwardConcernSource) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const { data, isLoading } = useCcCallHistory('tenant', 30);
-  const rows = useMemo(() => {
+  const [windowDays, setWindowDays] = useState(30);
+  const [officer, setOfficer] = useState('all');
+  const [agent, setAgent] = useState('all');
+  const [category, setCategory] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const { data, isLoading } = useCcCallHistory('tenant', windowDays);
+
+  const recorded = useMemo(() => (data ?? []).filter((r) => !!r.outcome), [data]);
+
+  const officers = useMemo(
+    () => [...new Set(recorded.map((r) => r.officer).filter(Boolean) as string[])].sort(),
+    [recorded],
+  );
+  const agents = useMemo(
+    () => [...new Set(recorded.map((r) => r.agentName).filter(Boolean) as string[])].sort(),
+    [recorded],
+  );
+  const categories = useMemo(
+    () => [...new Set(recorded.map((r) => r.categoryLabel).filter(Boolean) as string[])].sort(),
+    [recorded],
+  );
+
+  const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const recorded = (data ?? []).filter((r) => !!r.outcome);
-    const list = q
-      ? recorded.filter((r) =>
-          [r.subjectName, r.comment ?? '', r.categoryLabel ?? '', r.officer ?? ''].join(' ').toLowerCase().includes(q),
-        )
-      : recorded;
-    return list.slice(0, 60);
-  }, [data, search]);
+    const fromMs = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : null;
+    const toMs = toDate ? new Date(`${toDate}T23:59:59`).getTime() : null;
+    return recorded.filter((r) => {
+      if (officer !== 'all' && r.officer !== officer) return false;
+      if (agent !== 'all' && r.agentName !== agent) return false;
+      if (category !== 'all' && r.categoryLabel !== category) return false;
+      if (fromMs || toMs) {
+        const t = new Date(r.recordedAt ?? r.revealedAt).getTime();
+        if (fromMs && t < fromMs) return false;
+        if (toMs && t > toMs) return false;
+      }
+      if (
+        q &&
+        ![r.subjectName, r.subjectPhone ?? '', r.comment ?? '', r.categoryLabel ?? '', r.officer ?? '', r.agentName ?? '']
+          .join(' ')
+          .toLowerCase()
+          .includes(q)
+      )
+        return false;
+      return true;
+    });
+  }, [recorded, search, officer, agent, category, fromDate, toDate]);
+
+  const rows = useMemo(() => filtered.slice(0, 60), [filtered]);
+  const activeFilters =
+    (search.trim() ? 1 : 0) +
+    (officer !== 'all' ? 1 : 0) +
+    (agent !== 'all' ? 1 : 0) +
+    (category !== 'all' ? 1 : 0) +
+    (fromDate ? 1 : 0) +
+    (toDate ? 1 : 0);
+
+  const clearAll = () => {
+    setSearch('');
+    setOfficer('all');
+    setAgent('all');
+    setCategory('all');
+    setFromDate('');
+    setToDate('');
+  };
 
   return (
     <>
@@ -171,30 +297,108 @@ function OutboundForwardPicker({ onPick }: { onPick: (s: ForwardConcernSource) =
         Forward from a call we made
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto rounded-2xl">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold">Pick the call this concern came from</DialogTitle>
           </DialogHeader>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tenant, comment or officer"
-              className="h-9 pl-9 text-xs"
-            />
-          </div>
+
+          <CCBlock className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search tenant, phone, comment, officer or agent"
+                className="h-9 bg-background pl-9 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <PickerCombo
+                value={officer}
+                onChange={setOfficer}
+                options={officers}
+                placeholder="All officers"
+                searchPlaceholder="Search officer…"
+              />
+              <PickerCombo
+                value={agent}
+                onChange={setAgent}
+                options={agents}
+                placeholder="All agents"
+                searchPlaceholder="Search agent…"
+              />
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="All categories" />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  <SelectItem value="all">All categories</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={String(windowDays)} onValueChange={(v) => setWindowDays(Number(v))}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  {DAY_CHOICES.map((d) => (
+                    <SelectItem key={d} value={String(d)}>
+                      Last {d} days
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="h-9 bg-background text-xs"
+                aria-label="From date"
+              />
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="h-9 bg-background text-xs"
+                aria-label="To date"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] text-muted-foreground">
+                {filtered.length} call{filtered.length === 1 ? '' : 's'}
+                {filtered.length > rows.length ? ` · showing first ${rows.length}` : ''}
+              </p>
+              {activeFilters > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-[11px] font-semibold"
+                  onClick={clearAll}
+                >
+                  <X className="mr-1 h-3.5 w-3.5" />
+                  Clear {activeFilters} filter{activeFilters === 1 ? '' : 's'}
+                </Button>
+              )}
+            </div>
+          </CCBlock>
+
           <div className="space-y-1.5">
             {isLoading ? (
               <Skeleton className="h-16 w-full" />
             ) : rows.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center text-xs text-muted-foreground">No recorded calls match.</p>
+              <CCEmpty icon={PhoneOutgoing} title="No recorded calls match" hint="Try a wider date range or clear the filters." />
             ) : (
               rows.map((r) => (
                 <button
                   key={r.id}
                   type="button"
-                  className="w-full rounded-xl border border-border p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
+                  className={CC_ROW_BUTTON}
                   onClick={() => {
                     setOpen(false);
                     onPick({
@@ -214,6 +418,7 @@ function OutboundForwardPicker({ onPick }: { onPick: (s: ForwardConcernSource) =
                   <p className="text-[11px] text-muted-foreground">
                     {stamp(r.recordedAt ?? r.revealedAt)} · {r.categoryLabel ?? 'No category'} ·{' '}
                     {r.officer ?? 'Officer'}
+                    {r.agentName ? ` · Agent: ${r.agentName}` : ''}
                   </p>
                   {r.comment && <p className="mt-1 text-[11px] leading-snug">{r.comment}</p>}
                 </button>
