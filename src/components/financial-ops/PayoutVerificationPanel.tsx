@@ -944,6 +944,7 @@ export default function PayoutVerificationPanel() {
   const photos = useIdentityPhotosFor(row?.user_id);
   const personNumbers = usePersonPayoutDestinations(row?.user_id, personNumbersOpen);
   const idPath = photos.data?.national_id_photo_path ?? null;
+  const idBackPath = photos.data?.national_id_back_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
   const photosReady = !!idPath && !!selfiePath;
   // Verify must stay off until the ID photo has been read and produced a name we
@@ -1436,10 +1437,13 @@ export default function PayoutVerificationPanel() {
             </div>
           )}
 
-          {/* Photos — the hero of the screen */}
-          <div className="grid grid-cols-2 gap-3 p-5">
+          {/* Photos — the hero of the screen. The back of the card is shown
+              beside the front: the card number and the two lines of code are
+              only printed there. */}
+          <div className="grid grid-cols-3 gap-3 p-5">
             <HeroPhoto label="Selfie" path={selfiePath} onOpen={(url, label) => setLightbox({ url, label })} />
-            <HeroPhoto label="National ID" path={idPath} onOpen={(url, label) => setLightbox({ url, label })} />
+            <HeroPhoto label="National ID front" path={idPath} onOpen={(url, label) => setLightbox({ url, label })} />
+            <HeroPhoto label="National ID back" path={idBackPath} onOpen={(url, label) => setLightbox({ url, label })} />
           </div>
 
           <PriorSubmissions
