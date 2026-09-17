@@ -1618,6 +1618,9 @@ export default function PayoutVerificationPanel() {
           {/* What the reader stored off the card, with the matching checks */}
           <StoredIdReadingCard row={row} />
 
+          {/* What was read off the BACK of the card, re-read from the archived photo */}
+          <StoredIdBackReadingCard row={row} backPath={idBackPath} />
+
           {/* Audit trail of name replacements */}
           <NameChangeHistory userId={row.user_id} />
 
