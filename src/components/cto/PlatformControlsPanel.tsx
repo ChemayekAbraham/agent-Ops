@@ -46,6 +46,12 @@ const HALT_CONTROLS: ControlDef[] = [
     description: 'ON: money that reached an agent wallet through an advance (and has not been spent yet) is removed from the spendable balance — agents can only withdraw earned money. Commissions, rent collections and other credits keep flowing.',
     danger: true,
   },
+  {
+    key: 'landlord_float_withdrawals_paused',
+    label: 'Pause landlord float withdrawals',
+    description: 'ON: agents cannot draw down their Agent Landlord Payout Float at all — every attempt to disburse it to a landlord is rejected before it reaches the merchant payout queue. Landlord payouts already sitting in that queue are unaffected; use "Block landlord payouts from queue" below to also hide those.',
+    danger: true,
+  },
 ];
 
 
