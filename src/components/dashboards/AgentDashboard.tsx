@@ -1740,6 +1740,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         </main>
       </div>
 
+      <LazyModal when={nationalIdGroupOpen}>
+      <NationalIdGroupSheet open={nationalIdGroupOpen} onOpenChange={setNationalIdGroupOpen} />
+      </LazyModal>
       <LazyModal when={parentAgentOpen}>
       <ParentAgentDialog
         open={parentAgentOpen}
