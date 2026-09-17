@@ -779,10 +779,6 @@ export default function MerchandiseStore() {
                 </span>
               </div>
 
-              <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
-                <span className="text-muted-foreground">Item price ({qty} × {formatUGX(Number(selected.unit_price))})</span>
-                <span className="font-semibold">{formatUGX(orderTotal)}</span>
-              </div>
               <div className={`rounded-lg px-3 py-2 flex justify-between text-sm ${insufficient ? 'bg-destructive/10 text-destructive' : 'bg-primary/5 text-foreground'}`}>
                 <span className="text-muted-foreground">{payMode === 'full' ? 'Total to debit now' : 'Due now'}</span>
                 <span className="font-bold">{formatUGX(payMode === 'full' ? orderTotal : 0)}</span>
