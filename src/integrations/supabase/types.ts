@@ -9484,7 +9484,14 @@ export type Database = {
           concern_id: string
           created_at: string
           id: string
+          new_due_at: string | null
+          new_user_id: string | null
+          new_user_name: string | null
           note: string | null
+          prev_due_at: string | null
+          prev_user_id: string | null
+          prev_user_name: string | null
+          reason: string | null
           status_after: string | null
         }
         Insert: {
@@ -9494,7 +9501,14 @@ export type Database = {
           concern_id: string
           created_at?: string
           id?: string
+          new_due_at?: string | null
+          new_user_id?: string | null
+          new_user_name?: string | null
           note?: string | null
+          prev_due_at?: string | null
+          prev_user_id?: string | null
+          prev_user_name?: string | null
+          reason?: string | null
           status_after?: string | null
         }
         Update: {
@@ -9504,7 +9518,14 @@ export type Database = {
           concern_id?: string
           created_at?: string
           id?: string
+          new_due_at?: string | null
+          new_user_id?: string | null
+          new_user_name?: string | null
           note?: string | null
+          prev_due_at?: string | null
+          prev_user_id?: string | null
+          prev_user_name?: string | null
+          reason?: string | null
           status_after?: string | null
         }
         Relationships: [
@@ -9527,6 +9548,10 @@ export type Database = {
           created_at: string
           cycle_row_id: string | null
           due_at: string | null
+          due_is_custom: boolean
+          due_set_at: string | null
+          due_set_by: string | null
+          due_set_by_name: string | null
           feedback_id: string | null
           follow_up_needed: boolean
           follow_up_note: string | null
@@ -9536,8 +9561,14 @@ export type Database = {
           forwarded_to_name: string | null
           forwarded_to_staff_id: string | null
           id: string
+          last_reassigned_at: string | null
+          last_reassigned_by: string | null
+          last_reassigned_by_name: string | null
+          original_forwarded_to: string | null
+          original_forwarded_to_name: string | null
           outcome: string | null
           priority: string
+          reassigned_count: number
           received_call_id: string | null
           source_kind: string
           started_at: string | null
@@ -9555,6 +9586,10 @@ export type Database = {
           created_at?: string
           cycle_row_id?: string | null
           due_at?: string | null
+          due_is_custom?: boolean
+          due_set_at?: string | null
+          due_set_by?: string | null
+          due_set_by_name?: string | null
           feedback_id?: string | null
           follow_up_needed?: boolean
           follow_up_note?: string | null
@@ -9564,8 +9599,14 @@ export type Database = {
           forwarded_to_name?: string | null
           forwarded_to_staff_id?: string | null
           id?: string
+          last_reassigned_at?: string | null
+          last_reassigned_by?: string | null
+          last_reassigned_by_name?: string | null
+          original_forwarded_to?: string | null
+          original_forwarded_to_name?: string | null
           outcome?: string | null
           priority?: string
+          reassigned_count?: number
           received_call_id?: string | null
           source_kind: string
           started_at?: string | null
@@ -9583,6 +9624,10 @@ export type Database = {
           created_at?: string
           cycle_row_id?: string | null
           due_at?: string | null
+          due_is_custom?: boolean
+          due_set_at?: string | null
+          due_set_by?: string | null
+          due_set_by_name?: string | null
           feedback_id?: string | null
           follow_up_needed?: boolean
           follow_up_note?: string | null
@@ -9592,8 +9637,14 @@ export type Database = {
           forwarded_to_name?: string | null
           forwarded_to_staff_id?: string | null
           id?: string
+          last_reassigned_at?: string | null
+          last_reassigned_by?: string | null
+          last_reassigned_by_name?: string | null
+          original_forwarded_to?: string | null
+          original_forwarded_to_name?: string | null
           outcome?: string | null
           priority?: string
+          reassigned_count?: number
           received_call_id?: string | null
           source_kind?: string
           started_at?: string | null
@@ -52758,6 +52809,7 @@ export type Database = {
         }
         Returns: Json
       }
+      cc_concern_powers: { Args: never; Returns: Json }
       cc_cycle_outstanding: {
         Args: { p_cycle_id: string }
         Returns: {
@@ -52852,6 +52904,14 @@ export type Database = {
         Args: { p_cycle_row_id: string }
         Returns: string
       }
+      cc_reassign_concern: {
+        Args: {
+          p_concern_id: string
+          p_new_forwarded_to: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       cc_record_callback: {
         Args: { p_attempt_id: string; p_due_at: string }
         Returns: undefined
@@ -52890,6 +52950,10 @@ export type Database = {
         Returns: undefined
       }
       cc_reveal_phone: { Args: { p_attempt_id: string }; Returns: string }
+      cc_set_concern_due: {
+        Args: { p_concern_id: string; p_due_at: string; p_reason: string }
+        Returns: Json
+      }
       cc_state_counts:
         | {
             Args: {
