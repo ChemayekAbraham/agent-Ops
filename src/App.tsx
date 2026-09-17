@@ -78,6 +78,7 @@ const FeatureFlagsProvider = lazyWithRetry(() => import("@/contexts/FeatureFlags
 // Lazy load optional UI components
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
+const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
 import MaintenanceBanner from "@/components/MaintenanceBanner";
 import MaintenanceLockScreen from "@/components/MaintenanceLockScreen";
 
@@ -956,6 +957,7 @@ const App = () => {
                           <SonnerToaster />
                           <ForceResetPasswordGate />
                           <GlobalOnboardingGates />
+                          <NationalIdUnlinkNoticeDialog />
                           <CreditLoadingDebugPanel />
                         </Suspense>
                       </DeferredErrorBoundary>
