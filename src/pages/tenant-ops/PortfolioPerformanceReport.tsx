@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays, addMonths, format, parseISO, subDays, subMonths } from 'date-fns';
-import { BarChart3, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, FileText, ArrowLeft, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, FileText, ArrowLeft, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -285,18 +285,15 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
 
 
   return (
-    <div
-      className="w-full space-y-4 overflow-x-hidden pb-28 pt-1 sm:space-y-5"
-      style={{ fontFamily: "'Courier New', Courier, monospace" }}
-    >
-      <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3 min-w-0">
+    <div className="w-full space-y-4 overflow-x-hidden pb-28 pt-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleClose}
-            className="h-9 gap-1.5 px-3 shrink-0 rounded-lg border-border hover:bg-muted font-medium"
+            className="h-9 shrink-0 gap-1.5 rounded-lg px-3 font-medium"
             title="Close report and return to dashboard"
           >
             <ArrowLeft className="h-4 w-4 text-muted-foreground" />
@@ -305,15 +302,15 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-primary">
               <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <p className="text-[11px] font-semibold uppercase tracking-wider">Portfolio reporting</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider">Tenant Ops · portfolio reporting</p>
             </div>
-            <h1 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">Portfolio Performance</h1>
-            <p className="mt-1 max-w-2xl text-xs text-muted-foreground sm:text-sm">
+            <h2 className="mt-1 text-base font-bold tracking-tight text-foreground lg:text-lg">Portfolio Performance</h2>
+            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
               Collections and rent requests across the selected reporting period.
             </p>
           </div>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-2">
           <div className="w-full sm:w-auto">
             <PeriodToggle value={granularity} onChange={setGranularity} />
           </div>
@@ -322,7 +319,7 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
             variant="ghost"
             size="icon"
             onClick={handleClose}
-            className="h-9 w-9 self-end rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 sm:self-auto"
+            className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
             title="Close report"
           >
             <X className="h-5 w-5" />
@@ -331,7 +328,7 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-card p-2.5 shadow-sm sm:flex-nowrap sm:justify-end">
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <Button
             type="button"
@@ -377,40 +374,55 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
               if (e.target.value) setAnchor(e.target.value);
             }}
             aria-label="Choose anchor date"
-            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground sm:h-9 sm:w-auto"
+            className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground sm:h-9 sm:w-auto"
           />
         </div>
-        {!isToday && <Badge variant="outline">Viewing a closed period</Badge>}
+        {!isToday && (
+          <Badge variant="outline" className="text-[11px] font-semibold">Viewing a closed period</Badge>
+        )}
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5" aria-labelledby="portfolio-period-heading">
+      <section
+        className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4 shadow-sm"
+        aria-labelledby="portfolio-period-heading"
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
+            <div className="rounded-xl bg-primary/15 p-2 text-primary">
               <CalendarRange className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <h2 id="portfolio-period-heading" className="text-sm font-semibold text-foreground">Reporting period</h2>
+              <h3
+                id="portfolio-period-heading"
+                className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Reporting period
+              </h3>
               {isLoading ? (
                 <Skeleton className="mt-2 h-5 w-72 max-w-full" />
               ) : (
-                <p className="mt-1 break-words text-sm text-foreground">
+                <p className="mt-1 break-words text-sm font-bold text-foreground">
                   {periodInWords(granularity, data?.period_start ?? null, data?.period_end ?? null)}
                 </p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <Badge variant={verdict === 'BELOW THRESHOLD' ? 'destructive' : 'secondary'}>{verdict}</Badge>
-            <span className="inline-flex items-center gap-1 text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant={verdict === 'BELOW THRESHOLD' ? 'destructive' : 'secondary'} className="font-semibold">
+              {verdict}
+            </Badge>
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 font-semibold text-muted-foreground">
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {status}
             </span>
           </div>
         </div>
         {isError && (
-          <p className="mt-3 text-sm text-destructive">
-            Could not load this period: {(error as Error)?.message ?? 'unknown error'}
-          </p>
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 break-words">
+              Could not load this period: {(error as Error)?.message ?? 'unknown error'}
+            </span>
+          </div>
         )}
       </section>
 
@@ -428,9 +440,16 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
 
       <ProjectionA3 granularity={granularity} anchor={anchor} />
 
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2 pt-1">
-        <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
-        <h2 className="text-sm font-bold text-foreground">Management narrative and actions</h2>
+      <div className="flex items-start gap-2 border-b border-border/60 pb-2 pt-1">
+        <span className="rounded-xl bg-primary/10 p-1.5 text-primary">
+          <FileText className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold tracking-tight text-foreground">Management narrative and actions</h3>
+          <p className="text-[11px] text-muted-foreground">
+            Reasons behind the period figures, plus owned actions carried into the next one.
+          </p>
+        </div>
       </div>
       <NarrativeCollections
         granularity={granularity}
@@ -478,9 +497,14 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
         }}
       />
 
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2 pt-1">
-        <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
-        <h2 className="text-sm font-bold text-foreground">Past reports</h2>
+      <div className="flex items-start gap-2 border-b border-border/60 pb-2 pt-1">
+        <span className="rounded-xl bg-primary/10 p-1.5 text-primary">
+          <FileText className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold tracking-tight text-foreground">Past reports</h3>
+          <p className="text-[11px] text-muted-foreground">Submitted portfolio reports, newest first.</p>
+        </div>
       </div>
       <ReportArchiveList source="tppo" />
     </div>

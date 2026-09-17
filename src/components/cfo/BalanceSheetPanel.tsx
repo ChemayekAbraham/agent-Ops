@@ -275,6 +275,7 @@ export default function BalanceSheetPanel() {
       });
       if (error) throw error;
       setData(res as StatementOfFinancialPosition);
+
       const { data: split, error: splitError } = await (supabase as any).rpc('get_landlord_float_management_split', {
         p_as_at: asAtIso,
       });
@@ -308,7 +309,6 @@ export default function BalanceSheetPanel() {
   const totalLiabilitiesAndEquity = data
     ? data.balance_check.total_liabilities_and_equity
     : 0;
-  /** Landlord Float shown as Company Managed / Self Managed + subtotal. */
   const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], floatSplit);
   /** Each section's groups must still sum to the RPC's own total. */
   const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;

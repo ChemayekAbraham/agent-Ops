@@ -57,9 +57,10 @@ interface UsageReport {
 
 interface RouteInfo {
   department_id: string | null;
+  department_key: string | null;
   department_name: string | null;
-  first_stage: string;
-  supervisor_role: string | null;
+  stage: string;
+  approver_role: string | null;
   final_stage: string;
 }
 
@@ -192,10 +193,10 @@ const MyRequisitions = () => {
   const routeLine = useMemo(() => {
     if (!route) return null;
     const stages = ['supervisor', 'coo', 'cfo', 'ceo'];
-    const startIdx = Math.max(0, stages.indexOf(route.first_stage));
+    const startIdx = Math.max(0, stages.indexOf(route.stage));
     const endIdx = route.final_stage === 'ceo' ? stages.indexOf('ceo') : stages.indexOf('cfo');
-    const supervisorLabel = route.supervisor_role
-      ? route.supervisor_role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    const supervisorLabel = route.approver_role
+      ? route.approver_role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
       : STAGE_LABEL.supervisor;
     const chain = stages
       .slice(startIdx, endIdx + 1)

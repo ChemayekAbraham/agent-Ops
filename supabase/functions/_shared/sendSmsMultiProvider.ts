@@ -150,7 +150,15 @@ export async function sendSMS(phone: string, message: string, logCtx?: SmsLogCtx
   // BEFORE reserving idempotency or contacting any provider. Blocked sends
   // are logged with a distinctive error so ops can surface them.
   let effectivePhone = phone;
-  if (logCtx?.admin && logCtx.recipient_user_id) {
+  // Only consult (and potentially block on) the recipient's profile phone when
+  // the caller did NOT already hand us a usable Ugandan number to send to. A
+  // caller that resolved its own destination (e.g. issue-wallet-withdrawal-otp
+  // sending to the payout number rather than the account phone) must not be
+  // second-guessed and blocked just because that user's profiles.phone happens
+  // to be a foreign number — found 2026-09-16: this silently and permanently
+  // blocked every withdrawal OTP for a user with a Kenyan account phone but a
+  // valid Ugandan mobile-money payout number.
+  if (logCtx?.admin && logCtx.recipient_user_id && !isUgandanPhone(effectivePhone)) {
     const gate = await resolveProfilePhoneGate(logCtx.admin, logCtx.recipient_user_id);
     if (gate.blocked) {
       const reason = "Blocked: recipient has no phone on profile (PhoneCollectionGate pending)";

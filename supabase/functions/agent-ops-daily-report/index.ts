@@ -351,7 +351,8 @@ async function buildReport(admin: Admin, dateStr: string): Promise<Report> {
     everAdvances,
   ] = await Promise.all([
     fetchAll(admin, "agent_collections", "id, agent_id, amount, created_at",
-      (q) => q.gte("created_at", startISO).lt("created_at", endISO)),
+      // Reversed collections are not money collected.
+      (q) => q.is("reversed_at", null).gte("created_at", startISO).lt("created_at", endISO)),
     fetchAll(admin, "wallet_deposits", "id, agent_id, amount, created_at",
       (q) => q.gte("created_at", startISO).lt("created_at", endISO)),
     fetchAll(admin, "agent_advance_requests", "id, agent_id, principal, status, rejection_reason, reason, cfo_paid_at, created_at"),

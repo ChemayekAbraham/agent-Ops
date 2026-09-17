@@ -26268,6 +26268,30 @@ export type Database = {
         }
         Relationships: []
       }
+      money_path_drift_events: {
+        Row: {
+          check_name: string
+          detail: string | null
+          detected_at: string
+          id: string
+          resolved_at: string | null
+        }
+        Insert: {
+          check_name: string
+          detail?: string | null
+          detected_at?: string
+          id?: string
+          resolved_at?: string | null
+        }
+        Update: {
+          check_name?: string
+          detail?: string | null
+          detected_at?: string
+          id?: string
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
       money_requests: {
         Row: {
           amount: number
@@ -51546,6 +51570,14 @@ export type Database = {
       }
       assert_merchant_capacity_override_admin: { Args: never; Returns: string }
       assert_merchant_float_alloc_access: { Args: never; Returns: boolean }
+      assert_money_path_intact: {
+        Args: never
+        Returns: {
+          check_name: string
+          detail: string
+          ok: boolean
+        }[]
+      }
       assert_no_promissory_self_support: {
         Args: { p_path: string; p_user: string }
         Returns: undefined
@@ -52946,6 +52978,16 @@ export type Database = {
         Args: { entries: Json }
         Returns: Json
       }
+      create_ledger_transaction_locked: {
+        Args: {
+          entries: Json
+          idempotency_key?: string
+          lock_user_id: string
+          min_available?: number
+          skip_balance_check?: boolean
+        }
+        Returns: string
+      }
       create_or_refresh_campaign_attribution: {
         Args: {
           p_click_id?: string
@@ -54083,6 +54125,8 @@ export type Database = {
           first_seen_at: string
           full_name: string
           id: string
+          id_account_count: number
+          id_account_ordinal: number
           id_back_photo_ready: boolean
           momo_number: string
           name_match_score: number
@@ -54090,11 +54134,14 @@ export type Database = {
           name_source: string
           national_id: string
           national_id_name: string
+          payout_number_count: number
           provider: string
           status: string
           total_count: number
           user_id: string
           user_phone: string
+          verified_payout_count: number
+          verified_payout_numbers: Json
           withdrawable_balance: number
         }[]
       }
@@ -56580,6 +56627,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_sms_cost_report: {
+        Args: { p_end?: string; p_provider?: string; p_start?: string }
+        Returns: Json
+      }
       get_sms_traffic_daily: {
         Args: { p_days?: number }
         Returns: {
@@ -58042,6 +58093,7 @@ export type Database = {
         Args: { p_house_id: string; p_reason: string }
         Returns: Json
       }
+      landlord_payouts_blocked_from_queue: { Args: never; Returns: boolean }
       ledger_category_allowlist: { Args: never; Returns: string[] }
       lending_find_user_by_phone: {
         Args: { p_phone: string }
@@ -58632,6 +58684,11 @@ export type Database = {
       }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
+      national_id_link_holder_requests: { Args: never; Returns: Json }
+      national_id_link_mark_code_sent: {
+        Args: { p_request_id: string; p_requester_id: string }
+        Returns: Json
+      }
       national_id_link_mark_code_verified: {
         Args: { p_request_id: string; p_requester_id: string }
         Returns: Json
@@ -59063,6 +59120,7 @@ export type Database = {
           starts_on: string
         }[]
       }
+      ops_repayment_trend_daily: { Args: { p_days?: number }; Returns: Json }
       ops_resolve_agent_segment: {
         Args: {
           _district?: string
@@ -60383,6 +60441,7 @@ export type Database = {
         Args: { p_days?: number }
         Returns: string
       }
+      record_money_path_drift: { Args: never; Returns: number }
       record_payout_acceptance_run: {
         Args: { p_window_days?: number }
         Returns: string
@@ -60976,6 +61035,7 @@ export type Database = {
           withdrawable_before: number
         }[]
       }
+      run_signup_rent_prompt_backfill: { Args: never; Returns: undefined }
       sc_assignment_admin: { Args: { _user_id: string }; Returns: boolean }
       sc_duration_to_days: {
         Args: { p_unit: string; p_value: number }
@@ -61381,6 +61441,8 @@ export type Database = {
       }
       smoke_promissory_commissions_authorized: { Args: never; Returns: boolean }
       smoke_promissory_support_modes: { Args: never; Returns: Json }
+      sms_cost_ugx: { Args: { p_message: string }; Returns: number }
+      sms_segment_count: { Args: { p_message: string }; Returns: number }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }
         Returns: number

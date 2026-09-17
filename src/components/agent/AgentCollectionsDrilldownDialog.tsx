@@ -250,7 +250,7 @@ export function AgentCollectionsDrilldownDialog({
       const sinceISO = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
       const { data: rows, error } = await supabase
         .from('agent_collections')
-        .select('id, tenant_id, amount, created_at, payment_method')
+        .select('id, tenant_id, amount, created_at, payment_method').is('reversed_at', null)
         .eq('agent_id', agentId)
         .gte('created_at', sinceISO)
         .order('created_at', { ascending: false });

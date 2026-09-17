@@ -69,6 +69,14 @@ function humanizeAllocationError(
     parts.push('Top up Agent Float Allocation, then retry.');
     return parts.join(' ');
   }
+
+  if (code === 'DAILY_FLOAT_CAP_EXCEEDED') {
+    return `${message} If you have genuinely collected more cash than your float allows today, ask Finance to top up your float.`;
+  }
+
+  if (code === 'DUPLICATE_SUBMISSION_SUSPECTED') {
+    return `${message} If this tenant genuinely made a second payment, wait a moment and refresh their balance before retrying.`;
+  }
   const m = (message || '').toLowerCase();
   if (m.includes('wallets_balance_check') || m.includes('violates check constraint')) {
     return 'Your wallet float is temporarily out of sync with the ledger. We have flagged this for review — please retry in a moment.';
@@ -222,6 +230,12 @@ export function AgentTenantCollectDialog({
       // resolves, no toast). We cap the wait, then RECONCILE against the
       // server instead of retrying, so a committed allocation is reported as
       // success and never allocated twice.
+      //
+      // client_ref: a fresh id per Confirm click, so if this exact network
+      // call is ever resent (browser/service-worker replay, a double-fired
+      // handler) the server returns the original receipt instead of a second
+      // collection + a second commission payout.
+      const clientRef = crypto.randomUUID();
       const rpcPromise = supabase.rpc('agent_allocate_tenant_payment', {
           p_agent_id: user.id,
           p_tenant_id: tenant.id,
@@ -231,6 +245,7 @@ export function AgentTenantCollectDialog({
           // Tracking only — partials are never blocked.
           p_partial_confirmed: true,
           p_partial_reason: isPartial ? partialReason.trim() || null : null,
+          p_client_ref: clientRef,
 
         });
       const STALL_MS = 45000;
@@ -245,7 +260,7 @@ export function AgentTenantCollectDialog({
         // tap Confirm again.
         const { data: rows } = await supabase
           .from('agent_collections')
-          .select('id, amount, created_at')
+          .select('id, amount, created_at').is('reversed_at', null)
           .eq('agent_id', user.id)
           .eq('tenant_id', tenant.id)
           .eq('amount', amount)

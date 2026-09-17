@@ -1,5 +1,35 @@
 import { describe, expect, it } from 'vitest';
-import { normaliseReading, readingGuidance } from '@/lib/nationalIdOcr';
+import {
+  classifyIdPhotoOrientation,
+  isSidewaysIdRotation,
+  normaliseReading,
+  readingGuidance,
+} from '@/lib/nationalIdOcr';
+
+describe('National ID photo orientation', () => {
+  it('accepts a straight landscape photo, including an upside-down landscape photo', () => {
+    expect(classifyIdPhotoOrientation(1600, 1000)).toBe('landscape');
+    expect(classifyIdPhotoOrientation(1000, 600)).toBe('landscape');
+  });
+
+  it('rejects 90-degree, -90-degree and square photos as sideways', () => {
+    expect(classifyIdPhotoOrientation(1000, 1600)).toBe('sideways');
+    expect(classifyIdPhotoOrientation(600, 1000)).toBe('sideways');
+    expect(classifyIdPhotoOrientation(1000, 1000)).toBe('sideways');
+  });
+
+  it('blocks OCR results that only become readable after a quarter turn', () => {
+    expect(isSidewaysIdRotation(90)).toBe(true);
+    expect(isSidewaysIdRotation(270)).toBe(true);
+    expect(isSidewaysIdRotation(0)).toBe(false);
+    expect(isSidewaysIdRotation(180)).toBe(false);
+  });
+
+  it('rejects invalid dimensions instead of passing an unusable image to OCR', () => {
+    expect(classifyIdPhotoOrientation(0, 1000)).toBe('unreadable');
+    expect(classifyIdPhotoOrientation(Number.NaN, 1000)).toBe('unreadable');
+  });
+});
 
 /**
  * The reader is an edge function deployed by hand, so the browser and the
@@ -56,6 +86,21 @@ describe('normaliseReading', () => {
     const bad = normaliseReading({ status: 'invalid', is_national_id: false });
     expect(bad.status).toBe('invalid');
     expect(readingGuidance(bad)).toContain('not a Ugandan National ID');
+  });
+
+  it('keeps letters in a new-format NIRA card number instead of stripping them', () => {
+    const r = normaliseReading({
+      status: 'valid', is_national_id: true,
+      data: { card_number: 'CA144787388' },
+      fields: {},
+    });
+    expect(r.data.card_number).toBe('CA144787388');
+
+    // Also exercised via the `fields`-only fallback path (older reader shape).
+    const viaFields = normaliseReading({
+      fields: { card_number: { value: 'ca144787388', valid: false } },
+    });
+    expect(viaFields.data.card_number).toBe('CA144787388');
   });
 });
 

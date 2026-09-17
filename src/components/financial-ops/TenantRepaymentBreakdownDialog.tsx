@@ -56,7 +56,7 @@ async function loadTenantBreakdown(tenantId: string) {
       .limit(50),
     supabase
       .from('agent_collections')
-      .select('id, agent_id, amount, payment_method, created_at, notes')
+      .select('id, agent_id, amount, payment_method, created_at, notes').is('reversed_at', null)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(500),

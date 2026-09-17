@@ -154,7 +154,7 @@ export function AgentAllocationReport() {
           let from = 0;
           for (let p = 0; p < 20; p++) {
             const { data, error } = await supabase.from('agent_collections')
-              .select('agent_id, tenant_id, amount, created_at')
+              .select('agent_id, tenant_id, amount, created_at').is('reversed_at', null)
               .in('agent_id', slice)
               .order('created_at', { ascending: false })
               .range(from, from + PAGE - 1);

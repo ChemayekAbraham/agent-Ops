@@ -254,48 +254,6 @@ export function classifyLiabilities(lines: PositionLine[]) {
   };
 }
 
-/* ── Landlord Float presentation split ─────────────────────────────────── */
-
-export const LANDLORD_FLOAT_LABEL = 'Landlord Float';
-export const LANDLORD_FLOAT_COMPANY_LABEL = 'Landlord Float — Company Managed';
-export const LANDLORD_FLOAT_SELF_LABEL = 'Landlord Float — Self Managed';
-export const LANDLORD_FLOAT_TOTAL_LABEL = 'Total Landlord Float';
-export const LANDLORD_FLOAT_COMPANY_TOTAL_LABEL = 'Total Landlord Float — Company Managed';
-export const LANDLORD_FLOAT_SELF_TOTAL_LABEL = 'Total Landlord Float — Self Managed';
-
-/**
- * The landlord rent payable (L4) is the only account in the group that carries
- * a company/self split, so it appears as a line in both blocks. Naming it
- * explicitly is what lets each block's items foot to its own total — listing
- * only the partner/agent components would leave the company block short by this
- * amount.
- */
-export const LANDLORD_RENT_PAYABLE_LABEL = 'Landlord Rent Payable';
-
-export interface LandlordFloatSplit {
-  total: number;
-  self_managed: number;
-  company_managed: number;
-}
-
-/**
- * The four partner/agent obligation accounts, presented as component lines
- * inside Landlord Float — Company Managed instead of under a section of their
- * own. Presentation only: the ledger accounts, balances, classifications and
- * posting logic are untouched, and each balance is still reported exactly once
- * because a line can only land in one group.
- *
- * Labels are the reporting names for these accounts; the catalog names them
- * "Partner Portfolios — Capital Held" (L2) and "Partner Returns / Rewards
- * Payable" (L3).
- */
-export const LANDLORD_FLOAT_COMPONENT_ACCOUNTS: { code: string; label: string }[] = [
-  { code: 'L2', label: 'Partner Portfolio Capital Held' },
-  { code: 'L6', label: 'Partner Top-Ups Awaiting Application' },
-  { code: 'L3', label: 'Partner Returns Payable' },
-  { code: 'L5', label: 'Agent Commission Payable' },
-];
-
 /** A marketplace row for rendering: a normal group, or a subtotal line. */
 export type MarketplaceRow = BsGroup & {
   subtotal?: boolean;
@@ -311,99 +269,40 @@ export type MarketplaceRow = BsGroup & {
   components?: PositionLine[];
 };
 
+export const LANDLORD_FLOAT_LABEL = 'Landlord Float';
+export const LANDLORD_FLOAT_SELF_LABEL = 'Landlord Float — Self Managed';
+export const LANDLORD_FLOAT_COMPANY_LABEL = 'Landlord Float — Company Managed';
+
+/** Measured on the ledger by get_landlord_float_management_split(). */
+export interface LandlordFloatSplit {
+  total: number;
+  self_managed: number;
+  company_managed: number;
+}
+
 /**
- * Presentation only: shows the existing Landlord Float as Company Managed vs
- * Self Managed (per the landlord record's own management flag) followed by a
- * Total Landlord Float subtotal.
+ * Presentation only: reports the existing Landlord Float as two lines — Self
+ * Managed and Company Managed — per the landlord record's own management flag.
  *
- * The reported Landlord Float value is never changed — the self-managed share
- * measured on the ledger is applied proportionally to it and the company figure
- * is the residual, so the two lines always foot to the existing total exactly.
- * With no split available the original single line is returned untouched.
- *
- * The partner/agent obligation accounts (see LANDLORD_FLOAT_COMPONENT_ACCOUNTS)
- * are company-managed by definition, so they attach whole to the company line
- * and are excluded from the self-managed proportion — applying a landlord
- * management ratio to partner capital would allocate it to landlords who do not
- * hold it. Company + Self still foot to the group total exactly.
+ * The reported group value is never changed: the self-managed amount measured
+ * on the ledger is shown as-is and the company line is the residual, so the two
+ * lines always foot to the existing total exactly. The partner/agent obligation
+ * accounts inside the group are company-managed by definition and therefore sit
+ * in the residual. With no split available the original single line is returned
+ * untouched.
  */
 export function expandLandlordFloat(
   marketplace: BsGroup[],
-  split: LandlordFloatSplit | null | undefined,
+  split?: LandlordFloatSplit | null,
 ): MarketplaceRow[] {
-  const componentCodes = new Set(LANDLORD_FLOAT_COMPONENT_ACCOUNTS.map(c => c.code));
-
-  return marketplace.flatMap((g): MarketplaceRow[] => {
+  if (!split) return marketplace;
+  return marketplace.flatMap<MarketplaceRow>(g => {
     if (g.label !== LANDLORD_FLOAT_LABEL) return [g];
-
-    const isComponent = (l: PositionLine) => {
-      const code = accountCodeOf(l);
-      return code !== null && componentCodes.has(code);
-    };
-    const componentLines = g.lines.filter(isComponent);
-    const floatLines = g.lines.filter(l => !isComponent(l));
-
-    // Only the landlord payable itself carries a company/self split; the
-    // component accounts sit wholly on the company side.
-    const componentTotal = componentLines.reduce((t, l) => t + l.value, 0);
-    const floatValue = g.value - componentTotal;
-    const share = split && split.total !== 0 ? split.self_managed / split.total : 0;
-    const self = Math.round(floatValue * share);
-    const company = g.value - self;
-
-    // Every requested component renders even with no ledger balance behind it,
-    // so a zero reads as zero rather than as an omission.
-    const components: PositionLine[] = LANDLORD_FLOAT_COMPONENT_ACCOUNTS.map(({ code, label }) => {
-      const line = componentLines.find(l => accountCodeOf(l) === code);
-      return { label, value: line?.value ?? 0, source: line?.source };
-    });
-
-    // The landlord payable is the only split account, so it heads each block and
-    // makes the block's items foot to the block's own total.
-    const floatSource = floatLines[0]?.source;
-    const companyItems: PositionLine[] = [
-      { label: LANDLORD_RENT_PAYABLE_LABEL, value: floatValue - self, source: floatSource },
-      ...components,
-    ];
-    const selfItems: PositionLine[] = [
-      { label: LANDLORD_RENT_PAYABLE_LABEL, value: self, source: floatSource },
-    ];
-
+    const self = Math.round(split.self_managed ?? 0);
+    const company = Math.round(g.value) - self;
     return [
-      { label: LANDLORD_FLOAT_LABEL, value: g.value, lines: [], heading: true, depth: 0 },
-      {
-        ...g,
-        label: LANDLORD_FLOAT_COMPANY_LABEL,
-        value: company,
-        lines: [...floatLines, ...componentLines],
-        components: companyItems,
-        heading: true,
-        depth: 1,
-      },
-      {
-        label: LANDLORD_FLOAT_COMPANY_TOTAL_LABEL,
-        value: company,
-        lines: [],
-        subtotal: true,
-        depth: 1,
-      },
-      {
-        ...g,
-        label: LANDLORD_FLOAT_SELF_LABEL,
-        value: self,
-        lines: [],
-        components: selfItems,
-        heading: true,
-        depth: 1,
-      },
-      {
-        label: LANDLORD_FLOAT_SELF_TOTAL_LABEL,
-        value: self,
-        lines: [],
-        subtotal: true,
-        depth: 1,
-      },
-      { label: LANDLORD_FLOAT_TOTAL_LABEL, value: g.value, lines: [], subtotal: true, depth: 0 },
+      { label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [], unsourced: g.unsourced },
+      { label: LANDLORD_FLOAT_COMPANY_LABEL, value: company, lines: g.lines, unsourced: g.unsourced },
     ];
   });
 }

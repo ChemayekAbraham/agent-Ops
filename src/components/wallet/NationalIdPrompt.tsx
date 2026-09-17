@@ -44,17 +44,20 @@ export function useMyNationalId() {
 }
 
 export default function NationalIdPrompt({
-  withdrawableBalance,
+  withdrawableBalance = 0,
   className,
   blocking = false,
   allowResubmit = false,
+  alwaysShow = false,
 }: {
-  withdrawableBalance: number;
+  withdrawableBalance?: number;
   className?: string;
   /** Red, "you cannot continue" styling used inside the withdraw flow. */
   blocking?: boolean;
   /** Keep rendering even when an ID is already on file — used after a rejection. */
   allowResubmit?: boolean;
+  /** Show regardless of withdrawable balance — for a platform-wide "add your ID" nudge, not the wallet-specific one. */
+  alwaysShow?: boolean;
 }) {
   const { data, isLoading, refetch } = useMyNationalId();
   const submit = useSubmitNationalId();
@@ -67,7 +70,7 @@ export default function NationalIdPrompt({
   const canSave = idCheck.valid && nameCheck.valid && !submit.isPending;
 
   const alreadyDone = !!data?.national_id;
-  if (isLoading || (alreadyDone && !allowResubmit) || withdrawableBalance <= 0) return null;
+  if (isLoading || (alreadyDone && !allowResubmit) || (!alwaysShow && withdrawableBalance <= 0)) return null;
 
   const save = async () => {
     if (!idCheck.valid || !nameCheck.valid) {
@@ -80,7 +83,32 @@ export default function NationalIdPrompt({
       toast.success('National ID saved. Financial Ops will confirm it against your payout number.');
       await refetch();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save your National ID.');
+      const message = e instanceof Error ? e.message : 'Could not save your National ID.';
+      /* A refusal because the ID is already on another account used to be a
+         dead end here. Name the account that holds it, so the person knows who
+         has to agree before they can be added under it. */
+      if (/already recorded on another account/i.test(message)) {
+        const { data } = await (supabase.rpc as unknown as (
+          fn: string, args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: unknown }>)(
+          'national_id_holder_hint', { p_nin: idCheck.value },
+        );
+        const hint = (data ?? {}) as {
+          found?: boolean; holder_first_name?: string | null; limit_reached?: boolean;
+        };
+        if (hint.found && hint.limit_reached) {
+          toast.error('This National ID has reached its limit of 20 accounts.');
+          return;
+        }
+        if (hint.found && hint.holder_first_name) {
+          toast.error(
+            `This National ID is already on ${hint.holder_first_name}'s Welile account.`,
+            { description: `You can be added under ${hint.holder_first_name} from Settings → Withdrawal & Identity, but they must agree first.` },
+          );
+          return;
+        }
+      }
+      toast.error(message);
     }
   };
 

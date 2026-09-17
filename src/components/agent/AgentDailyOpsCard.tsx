@@ -38,7 +38,7 @@ export function AgentDailyOpsCard() {
     const [floatRes, visitsRes, collectionsRes] = await Promise.all([
       supabase.from('agent_float_limits').select('float_limit, collected_today').eq('agent_id', profile.id).maybeSingle(),
       supabase.from('agent_visits').select('id', { count: 'exact', head: true }).eq('agent_id', profile.id).gte('checked_in_at', todayStart.toISOString()),
-      supabase.from('agent_collections').select('amount').eq('agent_id', profile.id).gte('created_at', todayStart.toISOString()),
+      supabase.from('agent_collections').select('amount').is('reversed_at', null).eq('agent_id', profile.id).gte('created_at', todayStart.toISOString()),
     ]);
 
     if (floatRes.data) {

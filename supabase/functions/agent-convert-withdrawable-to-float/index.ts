@@ -164,6 +164,12 @@ Deno.serve(async (req) => {
       // Cross-bucket move: the engine's single-bucket pre-check cannot judge it;
       // postBalancedLedgerGroup's mapped double-entry assertion guards the write.
       skipBalanceCheck: true,
+      // Closes the double-submit race: the availability check above can go
+      // stale between two concurrent requests (two devices, a client retry).
+      // lockUserId+minAvailable re-check under an advisory lock immediately
+      // before posting, so only one of two simultaneous conversions wins.
+      lockUserId: userId,
+      minAvailable: amount,
     });
     if (!posted.ok) return json({ error: posted.error }, 500);
     const groupId = posted.groupId;

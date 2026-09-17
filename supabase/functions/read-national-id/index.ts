@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
       given_name: (str(rawData.given_name) || fromField("given_name")).toUpperCase(),
       nin: (str(rawData.nin) || fromField("nin")).toUpperCase().replace(/[^A-Z0-9]/g, ""),
       date_of_birth: toIso(str(rawData.date_of_birth) || fromField("date_of_birth")),
-      card_number: (str(rawData.card_number) || fromField("card_number")).replace(/[^0-9]/g, ""),
+      card_number: (str(rawData.card_number) || fromField("card_number")).toUpperCase().replace(/[^A-Z0-9]/g, ""),
       sex: (str(rawData.sex) || fromField("sex")).toUpperCase().replace(/[^MF]/g, "").slice(0, 1),
     };
 

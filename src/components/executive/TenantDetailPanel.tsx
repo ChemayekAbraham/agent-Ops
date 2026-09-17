@@ -111,7 +111,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
         supabase.from('profiles').select('id, full_name, phone, city, created_at, smartphone_status, smartphone_source').eq('id', tenantId).maybeSingle(),
         supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, daily_repayment, repayment_frequency, duration_days, access_fee, request_fee, total_repayment, registration_type, created_at, landlord_id, agent_id, assigned_agent_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
         supabase.from('wallet_transactions').select('id, amount, type, created_at, description').or(`sender_id.eq.${tenantId},recipient_id.eq.${tenantId}`).order('created_at', { ascending: false }).limit(10),
-        supabase.from('agent_collections').select('id, amount, created_at, agent_id, payment_method, rent_request_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(200),
+        supabase.from('agent_collections').select('id, amount, created_at, agent_id, payment_method, rent_request_id').is('reversed_at', null).eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(200),
       ]);
 
       const collectionTotalsByRequest = new Map<string, number>();

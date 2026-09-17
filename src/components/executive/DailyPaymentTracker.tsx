@@ -241,7 +241,7 @@ export function DailyPaymentTracker() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agent_collections')
-        .select('tenant_id, amount')
+        .select('tenant_id, amount').is('reversed_at', null)
         .gte('created_at', dayStartIso)
         .lte('created_at', dayEndIso);
       if (error) throw error;
@@ -261,7 +261,7 @@ export function DailyPaymentTracker() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agent_collections')
-        .select('id, tenant_id, agent_id, amount, created_at, payment_method, location_name')
+        .select('id, tenant_id, agent_id, amount, created_at, payment_method, location_name').is('reversed_at', null)
         .gte('created_at', dayStartIso)
         .lte('created_at', dayEndIso)
         .order('created_at', { ascending: false })

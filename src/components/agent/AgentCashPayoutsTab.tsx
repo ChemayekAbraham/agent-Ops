@@ -51,6 +51,7 @@ import {
   isUrgentLandlordPayout, sortLandlordPriorityFirst, isUrgentLandlordBlocking,
 } from '@/lib/landlordPriorityQueue';
 import { useLandlordPayoutPriority } from '@/hooks/useLandlordPayoutPriority';
+import { useLandlordPayoutsBlocked } from '@/hooks/useLandlordPayoutsBlocked';
 import { invalidateWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { AlertTriangle } from 'lucide-react';
 
@@ -146,6 +147,15 @@ interface QueueFilterOpts {
    * excluded from the queue entirely — a frozen account must never be payable.
    */
   frozenUserIds?: string[] | null;
+  /**
+   * CTO Platform Control "Block landlord payouts from queue". When true,
+   * landlord float payouts are excluded entirely, regardless of the `status`
+   * filter (even the "landlord" tab). Server-side (v_merchant_payout_queue,
+   * claim_withdrawal_verified, get_withdrawal_claim_status) enforces the same
+   * exclusion — this is what makes the client-fetched candidate set agree
+   * with what can actually be claimed.
+   */
+  landlordPayoutsBlocked?: boolean | null;
 }
 
 // Maximum unclaimed queue candidates fetched per query before client-side
@@ -236,6 +246,10 @@ function isQueueRowClientEligible(
 
   // Landlord float payout vs standard payout.
   const isLandlord = typeof row.reason === 'string' && row.reason.startsWith('Landlord float payout');
+  // CTO Platform Control "Block landlord payouts from queue": hides landlord
+  // rows unconditionally, even from someone filtering the "landlord" tab
+  // directly. Takes precedence over the status filter below.
+  if (o.landlordPayoutsBlocked && isLandlord) return false;
   if (o.status === 'landlord' && !isLandlord) return false;
   if (o.status === 'standard' && isLandlord) return false;
 
@@ -676,11 +690,15 @@ export function AgentCashPayoutsTab() {
   // CTO Platform Control: "Show Landlord Payouts first". When OFF landlord float
   // payouts process in the usual order alongside other withdrawals.
   const { enforced: landlordPriorityEnforced } = useLandlordPayoutPriority();
+  // CTO Platform Control: "Block landlord payouts from queue". When ON,
+  // landlord float payouts vanish from this queue entirely (and cannot be
+  // claimed — enforced server-side too, see the 20260916150000 migration).
+  const { blocked: landlordPayoutsBlocked } = useLandlordPayoutsBlocked();
 
   useEffect(() => {
     setPage(0);
     invalidateQueue();
-  }, [proxyPriorityEnforced, landlordPriorityEnforced]);
+  }, [proxyPriorityEnforced, landlordPriorityEnforced, landlordPayoutsBlocked]);
 
   const { data: blockingUrgentProxyRow = null } = useQuery({
     queryKey: ['cashout-blocking-urgent-proxy'],
@@ -727,16 +745,19 @@ export function AgentCashPayoutsTab() {
       if (error) throw error;
       return row && isUrgentLandlordBlocking(row) ? row : null;
     },
-    enabled: !!isCashoutAgent && landlordPriorityEnforced,
+    // If landlord payouts are blocked from the queue entirely, a landlord row
+    // must never hold up every other payout either — that would be a hidden
+    // row silently freezing the whole queue.
+    enabled: !!isCashoutAgent && landlordPriorityEnforced && !landlordPayoutsBlocked,
     staleTime: 10_000,
     refetchInterval: 20_000,
     refetchOnWindowFocus: true,
   });
 
-  const blockingUrgentLandlord = landlordPriorityEnforced ? blockingUrgentLandlordRow : null;
+  const blockingUrgentLandlord = landlordPriorityEnforced && !landlordPayoutsBlocked ? blockingUrgentLandlordRow : null;
 
   const { data: availableTotal = 0 } = useQuery({
-    queryKey: ['cashout-queue-available-total', isCashoutAgent?.id, agentConfig, frozenUserIds],
+    queryKey: ['cashout-queue-available-total', isCashoutAgent?.id, agentConfig, frozenUserIds, landlordPayoutsBlocked],
     queryFn: async () => {
       // Same shared fence as the list and the tab badges, so a row FinOps has
       // hidden from the merchant queue is never counted here but missing there.
@@ -754,7 +775,7 @@ export function AgentCashPayoutsTab() {
       const opts: QueueFilterOpts = {
         status: 'all', merchant: 'all', channel: 'all',
         minAmount: null, maxAmount: null, fromIso: null, toIso: null,
-        searchUserIds: null, searchTerm: '', frozenUserIds,
+        searchUserIds: null, searchTerm: '', frozenUserIds, landlordPayoutsBlocked,
       };
       return (data || []).filter((r: any) => isQueueRowClientEligible(r, opts, agentConfig)).length;
     },
@@ -770,12 +791,13 @@ export function AgentCashPayoutsTab() {
   // separate queries, each stacking multiple `.or()` calls, which silently
   // undercounted for any agent without every category/channel enabled).
   const { data: queueCounts } = useQuery({
-    queryKey: ['cashout-queue-counts', isCashoutAgent?.id, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, agentConfig, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id],
+    queryKey: ['cashout-queue-counts', isCashoutAgent?.id, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, agentConfig, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id, landlordPayoutsBlocked],
     queryFn: async () => {
       const searchUserIds = debouncedSearch.trim() ? await resolveSearchUserIds(debouncedSearch) : null;
       const base: QueueFilterOpts = {
         status: queueStatus, merchant: queueMerchant, channel: 'all',
         minAmount, maxAmount, fromIso, toIso, searchUserIds, searchTerm: debouncedSearch.trim(), frozenUserIds,
+        landlordPayoutsBlocked,
       };
       const landlordOnly = landlordPriorityEnforced && !!blockingUrgentLandlord;
       const proxyOnly = proxyPriorityEnforced && !!blockingUrgentProxy && !landlordOnly;
@@ -802,7 +824,7 @@ export function AgentCashPayoutsTab() {
   // full bounded candidate set (server-safe filters + sort applied), then
   // filters and paginates client-side — see isQueueRowClientEligible.
   const { data: queuePage, isLoading: loadingAll, isFetching: fetchingQueue, isError: queueError, refetch: refetchQueue } = useQuery({
-    queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, agentConfig, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id],
+    queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, agentConfig, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id, landlordPayoutsBlocked],
     queryFn: async () => {
       // A claim becomes available again only when a human (FinOps/CFO) clears
       // it or the server's stale-claim cron releases it (45 minutes, zero
@@ -812,6 +834,7 @@ export function AgentCashPayoutsTab() {
         status: queueStatus, merchant: queueMerchant,
         minAmount, maxAmount, fromIso, toIso, channel: channelTab,
         searchUserIds, searchTerm: debouncedSearch.trim(), frozenUserIds,
+        landlordPayoutsBlocked,
       };
       let q = applyQueueFilters(supabase.from('withdrawal_requests').select('*'), opts);
       if (landlordPriorityEnforced && blockingUrgentLandlord) {

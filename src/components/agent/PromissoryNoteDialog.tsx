@@ -29,6 +29,7 @@ import { PromissoryPlanMatcher } from '@/components/agent/PromissoryPlanMatcher'
 import { normalizeWa } from '@/lib/whatsapp';
 import { useQueryClient } from '@tanstack/react-query';
 import { reconcilePromissoryPendingCount } from '@/components/executive/partner-ops/promissoryPendingCount';
+import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 
 
 interface PromissoryNoteDialogProps {
@@ -38,6 +39,8 @@ interface PromissoryNoteDialogProps {
   supportMode?: 'self' | 'auto';
   /** Optional starting promised amount (e.g. the house rent the agent tapped from). */
   initialAmount?: number;
+  /** A house the agent came from (Create & Share) — pre-selected in the matcher. */
+  initialHouse?: HouseOpportunity | null;
 }
 
 const phoneDigits = (v: string) => v.replace(/\D/g, '');
@@ -53,7 +56,7 @@ const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 type StepKey = 'who' | 'contact' | 'promise' | 'tenants' | 'review';
 
-export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self', initialAmount }: PromissoryNoteDialogProps) {
+export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self', initialAmount, initialHouse }: PromissoryNoteDialogProps) {
   const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -109,9 +112,22 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const [amountTouched, setAmountTouched] = useState(false);
   const [contributionType, setContributionType] = useState<'monthly' | 'compounding'>('compounding');
   const [deductionDay, setDeductionDay] = useState('1');
-  // Optional earmarking of ready-to-fund rent plans to this note.
+  // Optional earmarking: either ready-to-fund rent plans OR verified empty
+  // houses (the server keeps the two kinds separate, one kind per note).
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
-  const [attached, setAttached] = useState<{ count: number; amount: number }>({ count: 0, amount: 0 });
+  const [selectedHouseIds, setSelectedHouseIds] = useState<string[]>([]);
+  const [attached, setAttached] = useState<{ count: number; amount: number; kind: 'plans' | 'houses' }>({ count: 0, amount: 0, kind: 'plans' });
+
+  // Opened from a house's "Create & Share": pre-select that house so the agent
+  // does not have to search for it again.
+  useEffect(() => {
+    if (open && initialHouse?.house_id) {
+      setSelectedHouseIds((prev) =>
+        prev.includes(initialHouse.house_id) ? prev : [...prev, initialHouse.house_id],
+      );
+      setSelectedPlanIds([]);
+    }
+  }, [open, initialHouse]);
 
   // Stepper state
   const steps: { key: StepKey; label: string }[] = useMemo(
@@ -163,10 +179,10 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
       errs.promise.push('Fulfilment date must be on or after the recording date');
     }
 
-    if (supportMode === 'self' && selectedPlanIds.length === 0) errs.tenants.push('At least one tenant rent plan');
+    if (supportMode === 'self' && selectedPlanIds.length === 0 && selectedHouseIds.length === 0) errs.tenants.push('At least one house or tenant rent plan');
 
     return errs;
-  }, [nameValidation, whatsappNumber, phoneNumber, email, amount, recordedOn, fulfilmentDueOn, supportMode, selectedPlanIds]);
+  }, [nameValidation, whatsappNumber, phoneNumber, email, amount, recordedOn, fulfilmentDueOn, supportMode, selectedPlanIds, selectedHouseIds]);
 
   const currentStepHasErrors = stepErrors[currentStep.key].length > 0;
   const showStepErrors = attemptedStep === stepIndex && currentStepHasErrors;
@@ -216,7 +232,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
     setErrorMsg(null);
 
     setSelectedPlanIds([]);
-    setAttached({ count: 0, amount: 0 });
+    setSelectedHouseIds([]);
+    setAttached({ count: 0, amount: 0, kind: 'plans' });
     setStepIndex(0);
     setAttemptedStep(null);
   };
@@ -282,14 +299,28 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
         payload.next_deduction_date = nextDate.toISOString().split('T')[0];
       }
 
-      // One atomic server call: note + optional plan earmarks, validated server-side.
-      const { data, error } = await supabase.rpc('agent_create_promissory_note', {
-        p_payload: payload,
-        p_rent_request_ids: selectedPlanIds,
-      });
+      // One atomic server call: note + optional earmarks, validated server-side.
+      // Houses and rent plans live in different earmark tables — a note carries
+      // one kind, chosen by what the agent selected.
+      const useHouses = selectedHouseIds.length > 0;
+      const { data, error } = useHouses
+        ? await supabase.rpc('agent_create_promissory_note_for_houses', {
+            p_payload: { ...payload, promised_funding_date: fulfilmentDueOn || null },
+            p_house_ids: selectedHouseIds,
+          })
+        : await supabase.rpc('agent_create_promissory_note', {
+            p_payload: payload,
+            p_rent_request_ids: selectedPlanIds,
+          });
       if (error) throw error;
 
-      const result = (data ?? {}) as { note?: Record<string, unknown>; attached_count?: number; attached_amount?: number };
+      const result = (data ?? {}) as {
+        note?: Record<string, unknown>;
+        attached_count?: number;
+        attached_amount?: number;
+        house_count?: number;
+        houses_monthly_rent?: number;
+      };
       if (!result.note) throw new Error('Note was not created');
       setCreatedNote(result.note);
       // Refresh the Partner Ops pending badge right away (realtime also covers it).
@@ -300,10 +331,14 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
       void supabase.functions
         .invoke('notify-promissory-note-pledge', { body: { note_id: noteId } })
         .catch(() => {});
-      setAttached({ count: Number(result.attached_count || 0), amount: Number(result.attached_amount || 0) });
+      const attachedCount = useHouses ? Number(result.house_count || 0) : Number(result.attached_count || 0);
+      const attachedAmount = useHouses ? Number(result.houses_monthly_rent || 0) : Number(result.attached_amount || 0);
+      setAttached({ count: attachedCount, amount: attachedAmount, kind: useHouses ? 'houses' : 'plans' });
       toast.success(
-        Number(result.attached_count || 0) > 0
-          ? `Note created with ${result.attached_count} tenant plan${Number(result.attached_count) === 1 ? '' : 's'} attached`
+        attachedCount > 0
+          ? useHouses
+            ? `Note created with ${attachedCount} house${attachedCount === 1 ? '' : 's'} booked for 7 days`
+            : `Note created with ${attachedCount} tenant plan${attachedCount === 1 ? '' : 's'} attached`
           : 'Promissory note created',
       );
     } catch (err) {
@@ -324,7 +359,16 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
         setErrorMsg(msg);
         toast.error(msg);
       } else if (raw.includes('SELF_SUPPORT_PLANS_REQUIRED')) {
-        const msg = 'Select at least one tenant rent plan for self support.';
+        const msg = 'Select at least one house or tenant rent plan for self support.';
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (raw.includes('HOUSES_UNAVAILABLE')) {
+        setSelectedHouseIds([]);
+        const msg = 'Some selected houses are no longer empty. Selection cleared — refresh and try again.';
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (raw.includes('HOUSES_REQUIRED')) {
+        const msg = 'Select at least one empty house for this partner.';
         setErrorMsg(msg);
         toast.error(msg);
       } else if (/failed to fetch|network|timeout/i.test(raw)) {
@@ -654,19 +698,22 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const renderTenantsStep = () => (
     <Card className="border-border/60">
       <CardContent className="space-y-3 pt-4">
-        {sectionTitle(<ListChecks className="h-5 w-5" />, 'Link tenant rent plans', 'Pick the plans this partner will fund.')}
+        {sectionTitle(<ListChecks className="h-5 w-5" />, 'Link houses or rent plans', 'Pick what this partner will fund — empty houses are listed first.')}
         <PromissoryPlanMatcher
           targetAmount={parsedAmount}
           selectedIds={selectedPlanIds}
           onChange={setSelectedPlanIds}
+          selectedHouseIds={selectedHouseIds}
+          onHousesChange={setSelectedHouseIds}
+          preselectedHouse={initialHouse}
           disabled={submitting}
           onSelectedTotalChange={(total) => {
             if (amountTouched) return;
             setAmount(total > 0 ? String(total) : '');
           }}
         />
-        {showStepErrors && supportMode === 'self' && selectedPlanIds.length === 0 && (
-          <p className="text-[11px] text-destructive">Select at least one tenant rent plan</p>
+        {showStepErrors && supportMode === 'self' && selectedPlanIds.length === 0 && selectedHouseIds.length === 0 && (
+          <p className="text-[11px] text-destructive">Select at least one house or tenant rent plan</p>
         )}
       </CardContent>
     </Card>
@@ -683,7 +730,11 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
       { label: 'Recorded', value: recordedOn },
       ...(fulfilmentDueOn ? [{ label: 'Fulfil by', value: fulfilmentDueOn }] : []),
       ...(supportMode === 'self'
-        ? [{ label: 'Linked plans', value: `${selectedPlanIds.length}` }]
+        ? [
+            selectedHouseIds.length > 0
+              ? { label: 'Linked houses', value: `${selectedHouseIds.length}` }
+              : { label: 'Linked plans', value: `${selectedPlanIds.length}` },
+          ]
         : []),
     ];
     return (
@@ -702,7 +753,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
             <p className="text-xs font-semibold text-primary">{earningsLine}</p>
             {supportMode === 'self' && (
               <p className="text-[11px] text-muted-foreground">
-                {selectedPlanIds.length} tenant plan{selectedPlanIds.length === 1 ? '' : 's'} selected
+                {selectedHouseIds.length > 0
+                  ? `${selectedHouseIds.length} house${selectedHouseIds.length === 1 ? '' : 's'} selected`
+                  : `${selectedPlanIds.length} tenant plan${selectedPlanIds.length === 1 ? '' : 's'} selected`}
               </p>
             )}
           </div>
@@ -773,8 +826,10 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
                 </p>
                 {attached.count > 0 && (
                   <p>
-                    {attached.count} tenant plan{attached.count === 1 ? '' : 's'} earmarked ·{' '}
-                    <span className="font-semibold text-foreground">{formatUGX(attached.amount)}</span>
+                    {attached.kind === 'houses'
+                      ? `${attached.count} house${attached.count === 1 ? '' : 's'} booked for 7 days`
+                      : `${attached.count} tenant plan${attached.count === 1 ? '' : 's'} earmarked`}{' '}
+                    · <span className="font-semibold text-foreground">{formatUGX(attached.amount)}</span>
                   </p>
                 )}
               </div>

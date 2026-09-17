@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace, Wallet, Save } from 'lucide-react';
+import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace, Wallet, Save, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -13,8 +14,12 @@ import {
 } from '@/hooks/useIdentityPhotos';
 import { useIdentityAlreadyVerified } from '@/hooks/useIdentityAlreadyVerified';
 import {
-  readNationalIdPhoto, idNameVerdict, readingGuidance, EMPTY_ID_DATA, ID_FIELD_LABEL,
-  type NationalIdReading, type NationalIdData,
+  readNationalIdPhotoOriented, readNationalIdBackPhoto, orientationMessage,
+  inspectIdPhotoOrientation, rotateImageFile,
+  idNameVerdict, readingGuidance, EMPTY_ID_DATA, ID_FIELD_LABEL,
+  ID_POSITION_TIPS, ID_BACK_TIPS,
+  type NationalIdReading, type NationalIdData, type IdRotation,
+  type NationalIdBackReading,
 } from '@/lib/nationalIdOcr';
 import { runPassportFaceCheck, faceCheckBlocker, type PassportFaceCheck } from '@/lib/passportFaceCheck';
 import { Input } from '@/components/ui/input';
@@ -25,6 +30,8 @@ import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePa
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { Smartphone } from 'lucide-react';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
+import mtnLogo from '@/assets/mtn-logo-uploaded.png.asset.json';
+import airtelLogo from '@/assets/airtel-logo.png.asset.json';
 import {
   useIdentityBinding,
   useCompleteIdentityBinding,
@@ -363,28 +370,6 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
         number is registered in — it is confirmed straight away, with no waiting.
       </p>
 
-      {rows.map((d) => (
-        <div key={d.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 p-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{label(d)}</p>
-            <p className="text-xs text-muted-foreground">
-              {d.status === 'verified'
-                ? 'Confirmed'
-                : d.status === 'rejected'
-                  ? 'Not accepted — confirm it again'
-                  : 'Not confirmed yet'}
-            </p>
-          </div>
-          {d.status === 'verified' ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setTarget(d)}>
-              Send code
-            </Button>
-          )}
-        </div>
-      ))}
-
       <div className="space-y-2 rounded-md border bg-muted/20 p-3">
         <p className="flex items-center gap-2 text-xs font-semibold">
           <Wallet className="h-3.5 w-3.5" />
@@ -426,11 +411,16 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
                 type="button"
                 size="sm"
                 variant={provider === p ? 'default' : 'outline'}
-                className="flex-1 capitalize"
+                className="flex-1 px-5 py-2.5"
                 disabled={saving}
                 onClick={() => setProvider(p)}
+                aria-label={p === 'mtn' ? 'MTN' : 'Airtel'}
               >
-                {p}
+                <img
+                  src={p === 'mtn' ? mtnLogo.url : airtelLogo.url}
+                  alt={p === 'mtn' ? 'MTN' : 'Airtel'}
+                  className="h-5 w-auto object-contain"
+                />
               </Button>
             ))}
           </div>
@@ -584,6 +574,7 @@ interface Props {
 
 export default function IdentityPhotoCapture({ compact }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const mine = useMyIdentityPhotos();
   // One account, one National ID, one photo: a verified account is never asked again.
   const alreadyVerified = useIdentityAlreadyVerified();
@@ -608,6 +599,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
+  /* The back of the card. Required: the two lines of code and the card number
+     live there, and Financial Ops cannot check a card from its front alone. */
+  const [idBackPhoto, setIdBackPhoto] = useState<File | null>(null);
+  const [backReading, setBackReading] = useState<NationalIdBackReading | null>(null);
+  const [backReadError, setBackReadError] = useState<string | null>(null);
+  const [readingBack, setReadingBack] = useState(false);
+  /** Set when the photo had to be turned to be readable — front and back. */
+  const [idRotation, setIdRotation] = useState<IdRotation>(0);
   const [selfieOriginal, setSelfieOriginal] = useState<File | null>(null);
   // The cropped copy — profile picture only.
   const [selfieCropped, setSelfieCropped] = useState<File | null>(null);
@@ -627,6 +626,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [reading, setReading] = useState(false);
   const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
+  /* Nothing is sent until the person has looked at what the reader saw and said
+     it matches their card. Any edit, retake or fresh read clears this. */
+  const [detailsConfirmed, setDetailsConfirmed] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
   /* The six fields, prefilled by the reader and editable by the person. What
      they submit is compared against what the reader saw, and the difference is
@@ -635,24 +637,119 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
   /** Set when the ID number is already recorded on another account. */
   const [duplicateNin, setDuplicateNin] = useState<string | null>(null);
+  /* What the ID number typed says about itself, checked as it is typed rather
+     than only when everything else is ready. The duplicate rule used to be
+     applied on send alone, so somebody typing an ID that already belongs to
+     another account saw nothing at all until both photos and the payout code
+     were done — it read as the screen ignoring them. */
+  const [ninHint, setNinHint] = useState<
+    { holder_first_name: string | null; accounts_on_id: number | null; limit_reached: boolean } | null
+  >(null);
 
   /* Is the selfie a face at all? The server-side checker is the only judge —
      there is no local blur / glare grading, exactly as on tenant onboarding. */
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
 
+  /* As soon as a complete ID number is on screen, ask the server whose it is.
+     Only the holder's first name and how many accounts already sit on the ID
+     come back — never a surname, number or anything else. */
+  useEffect(() => {
+    const nin = String(form.nin ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!/^[A-Z0-9]{12,16}$/.test(nin)) {
+      setNinHint(null);
+      setDuplicateNin(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const { data } = await (supabase.rpc as unknown as (
+        fn: string, args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'national_id_holder_hint', { p_nin: nin },
+      );
+      if (cancelled) return;
+      const hint = (data ?? {}) as {
+        found?: boolean; holder_first_name?: string | null;
+        accounts_on_id?: number | null; limit_reached?: boolean;
+      };
+      if (hint.found) {
+        setNinHint({
+          holder_first_name: hint.holder_first_name ?? null,
+          accounts_on_id: hint.accounts_on_id ?? null,
+          limit_reached: !!hint.limit_reached,
+        });
+        setDuplicateNin(hint.limit_reached ? null : nin);
+      } else {
+        setNinHint(null);
+        setDuplicateNin(null);
+      }
+    }, 500);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [form.nin]);
+
+
+
 
   const readIdPhoto = async (file: File) => {
     setReading(true);
+    setDetailsConfirmed(false);
     setIdReading(null);
     setReadError(null);
     setFieldError(null);
-    const res = await readNationalIdPhoto(file);
-    if ('error' in res && res.error) {
-      setReadError(res.error);
+    setIdRotation(0);
+    const photoOrientation = await inspectIdPhotoOrientation(file);
+    if (photoOrientation === 'unreadable') {
+      setIdPhoto(null);
+      setReadError('We could not open that ID photo. Retake it with the phone sideways so the photo is wide.');
       setReading(false);
       return;
     }
-    const r = res as NationalIdReading;
+    /* A sideways photo (card held at 90°/-90°) is turned upright for the
+       person instead of refused — the goal is a straight landscape card in
+       the preview box, and we can get there ourselves. */
+    if (photoOrientation === 'sideways') {
+      file = await rotateImageFile(file, 90);
+      setIdPhoto(file);
+    }
+    /* A card photographed upside down or sideways used to come back as "not a
+       National ID", so a perfectly good photo was rejected. The reader now
+       retries the same photo turned, keeps whichever way round read best, and
+       the straightened copy is what gets archived. */
+    const res = await readNationalIdPhotoOriented(file);
+    if ('error' in res && res.error) {
+      setReadError(res.error);
+      /* The reader could not be reached at all (network/edge-function
+         failure) — a different case from "read it, but couldn't make out
+         every field" (status: 'incomplete'). Both must leave the person able
+         to type the six fields in by hand: without this fallback, idReading
+         stayed null and the manual-entry form (which only renders when
+         idReading is set) never appeared, so a transient reader outage left
+         no way to proceed at all except retaking the photo forever. */
+      setIdReading({
+        status: 'incomplete',
+        is_national_id: true,
+        confidence: null,
+        sha256: null,
+        full_name: '',
+        data: { ...EMPTY_ID_DATA },
+        fields: {},
+        missing: Object.keys(EMPTY_ID_DATA),
+        consistency: [],
+        message: null,
+        nationality: null,
+        date_of_expiry: null,
+        account_name: '',
+        account_national_id: null,
+        name_match_score: null,
+      });
+      setForm(EMPTY_ID_DATA);
+      setReading(false);
+      return;
+    }
+    const oriented = res as { reading: NationalIdReading; rotation: IdRotation; file: File; corrected: boolean };
+    const r = oriented.reading;
+    setIdRotation(oriented.rotation);
+    if (oriented.corrected) setIdPhoto(oriented.file);
     setIdReading(r);
     // A photo that is not a National ID prefills nothing — there is nothing on
     // it to confirm, and a half-filled form would invite the person to guess.
@@ -671,6 +768,40 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     }
     setReading(false);
   };
+
+  /**
+   * Reads the back of the card. Same orientation correction as the front. The
+   * back is archived either way — an unreadable back is reported, never used to
+   * refuse the submission — but photographing the FRONT twice is caught here.
+   */
+  const readBackPhoto = async (file: File) => {
+    setReadingBack(true);
+    setBackReading(null);
+    setBackReadError(null);
+    const photoOrientation = await inspectIdPhotoOrientation(file);
+    if (photoOrientation === 'unreadable') {
+      setIdBackPhoto(null);
+      setBackReadError('We could not open that ID photo. Retake it with the phone sideways so the photo is wide.');
+      setReadingBack(false);
+      return;
+    }
+    // Same courtesy as the front: turn a sideways photo upright ourselves.
+    if (photoOrientation === 'sideways') {
+      file = await rotateImageFile(file, 90);
+      setIdBackPhoto(file);
+    }
+    const res = await readNationalIdBackPhoto(file);
+    if ('error' in res && res.error) {
+      setBackReadError((res as { error: string }).error);
+      setReadingBack(false);
+      return;
+    }
+    const b = res as NationalIdBackReading;
+    if (b.corrected) setIdBackPhoto(b.file);
+    setBackReading(b);
+    setReadingBack(false);
+  };
+
 
   /** Ask the same checker the rent request uses whether the selfie is a real face. */
   const runFaceCheck = async (file: File) => {
@@ -744,12 +875,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // partial submission (e.g. selfie stored, ID shot missing) only requires the
   // missing half and the stored original selfie stays the verification copy.
   const onFileIdPath = mine.data?.national_id_photo_path ?? null;
+  const onFileIdBackPath = mine.data?.national_id_back_photo_path ?? null;
   const onFileSelfiePath = mine.data?.selfie_photo_path ?? null;
   // While replacing, nothing on file counts — both shots are taken again.
   const storedIdPath = replacing ? null : onFileIdPath;
+  const storedIdBackPath = replacing ? null : onFileIdBackPath;
   const storedSelfiePath = replacing ? null : onFileSelfiePath;
 
-  const alreadyDone = !replacing && !!storedIdPath && !!storedSelfiePath;
+  const alreadyDone = !replacing && !!storedIdPath && !!storedIdBackPath && !!storedSelfiePath;
   // Verified once means verified for good — nothing more to send or explain.
   if (alreadyVerified.data === true) return null;
 
@@ -778,7 +911,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </p>
 
           <div className="grid gap-2 sm:grid-cols-2">
-            <StoredShot path={storedIdPath!} label="National ID photo" note="Sent for verification." />
+            <StoredShot path={storedIdPath!} label="National ID front" note="Sent for verification." />
+            <StoredShot path={storedIdBackPath!} label="National ID back" note="Sent for verification." />
             <StoredShot path={storedSelfiePath!} label="Selfie" note="Sent for verification." />
           </div>
           <Button
@@ -809,6 +943,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   }
 
   const haveId = !!idPhoto || !!storedIdPath;
+  /* The back is demanded, not optional: the card number and the two lines of
+     code at the bottom are only there, and a front-only submission cannot be
+     checked. */
+  const haveIdBack = !!idBackPhoto || !!storedIdBackPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
 
   // Every one of the six must be present before anything is sent — a partly
@@ -820,11 +958,24 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const idRejected = idReading?.status === 'invalid';
   const faceProblem = faceCheckBlocker(faceCheck);
 
-  const ready = haveId && haveSelfie && detailsComplete && !idRejected && !faceProblem;
+  /* A freshly read card must be confirmed line by line by its owner before it
+     is sent. A stored photo already on file was confirmed when it was sent. */
+  const needsConfirm = !!idPhoto && !!idReading && idReading.status !== 'invalid';
+  const confirmDone = !needsConfirm || detailsConfirmed;
+
+  /* The back photographed as the front again: caught here rather than by
+     Financial Ops days later. */
+  const backIsFront = backReading?.looksLikeFront === true;
+
+  const ready =
+    haveId && haveIdBack && haveSelfie && detailsComplete && !idRejected && !faceProblem
+    && confirmDone && !backIsFront;
 
   // Spelled out on screen so nobody stares at a dead button wondering why.
   const blockers = [
-    !haveId ? 'Take a photo of your National ID.' : null,
+    !haveId ? 'Take a photo of the FRONT of your National ID.' : null,
+    !haveIdBack ? 'Turn the card over and take a photo of the BACK of your National ID.' : null,
+    backIsFront ? 'The second photo is the front again. Turn the card over and photograph the back.' : null,
     !storedSelfiePath && !selfieOriginal ? 'Take a selfie.' : null,
     !storedSelfiePath && selfieOriginal && !selfieCropped
       ? 'Finish choosing your profile picture from the selfie you took.'
@@ -835,6 +986,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       ? `Fill in ${missingDetails.map((k) => ID_FIELD_LABEL[k]).join(', ')} from your card.`
       : null,
     !hasVerifiedPayoutNumber ? 'Confirm your payout number with the code.' : null,
+    needsConfirm && !detailsConfirmed && detailsComplete
+      ? 'Confirm the details we read from your ID are exactly as on your card.'
+      : null,
   ].filter(Boolean) as string[];
 
 
@@ -867,6 +1021,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const idPath = idPhoto
         ? await uploadIdentityPhoto(user.id, 'national-id', idPhoto)
         : storedIdPath!;
+      const idBackPath = idBackPhoto
+        ? await uploadIdentityPhoto(user.id, 'national-id-back', idBackPhoto)
+        : storedIdBackPath!;
       const selfiePath = selfieOriginal
         ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
         : storedSelfiePath!;
@@ -878,6 +1035,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       ]);
       const res = await submit.mutateAsync({
         idPhotoPath: idPath,
+        idBackPhotoPath: idBackPath,
         selfiePath,
         selfieHash,
         idHash,
@@ -903,6 +1061,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             : 'Photos received.',
       );
       setIdPhoto(null);
+      setIdBackPhoto(null);
+      setBackReading(null);
+      setBackReadError(null);
       setSelfieOriginal(null);
       setSelfieCropped(null);
       setSendError(null);
@@ -916,6 +1077,36 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   };
 
 
+  /* In the withdraw flow we send people to Settings to complete verification in
+     the dedicated "Withdrawal & Identity" tab, then they return to continue the
+     withdrawal. The full inline form stays available on the Settings page. */
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={() => navigate('/settings?section=account&tab=verification')}
+        className="block w-full text-left"
+        aria-label="Verify your identity before you withdraw. Opens settings."
+      >
+        <Card className="border-2 border-destructive transition-colors hover:bg-accent/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span className="flex-1 text-emerald-600">Verify your identity before you withdraw</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Complete your National ID, selfie and payout number verification in Settings, then
+              return here to withdraw.
+            </p>
+          </CardContent>
+        </Card>
+      </button>
+    );
+  }
+
   return (
     <Card className={compact ? 'border-2 border-destructive' : undefined}>
       <CardHeader className="pb-3">
@@ -926,33 +1117,50 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Take a clear photo of your National ID and a selfie. Your original selfie is kept in your
-          verification history for Financial Ops; the version you crop becomes your profile picture.
+          Take a clear photo of the FRONT and the BACK of your National ID, and a selfie. Your
+          original selfie is kept in your verification history for Financial Ops; the version you
+          crop becomes your profile picture.
         </p>
+
+        {/* How to hold the card. Shown up front, because a card lying the wrong
+            way round is the single commonest reason a good photo fails. */}
+        <div className="rounded-lg border bg-muted/40 p-3 text-xs">
+          <p className="font-semibold">How to hold your card</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+            {ID_POSITION_TIPS.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </div>
 
         {storedIdPath ? (
           <StoredShot
             path={storedIdPath}
-            label="National ID photo"
+            label="National ID front"
             note="This saved photo will be used for this verification."
           />
         ) : (
           <ShotTile
-            label="National ID photo"
-            hint="All four corners visible, no glare."
+            label="National ID — FRONT"
+            hint="Turn your phone sideways. Keep the card wide and straight, with all four corners visible."
             file={idPhoto}
             onPick={(f) => {
-              setIdPhoto(f);
+              setIdPhoto(null);
               setIdReading(null);
               setReadError(null);
+              setIdRotation(0);
+              setDetailsConfirmed(false);
+              setIdPhoto(f);
               void readIdPhoto(f);
             }}
             onClear={() => {
               setIdPhoto(null);
               setIdReading(null);
               setReadError(null);
+              setIdRotation(0);
               setForm(EMPTY_ID_DATA);
               setFieldError(null);
+              setDetailsConfirmed(false);
             }}
             disabled={saving}
           />
@@ -962,7 +1170,40 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         {reading && (
           <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Reading the names on your ID…
+            Reading your ID, and checking which way round it is…
+          </div>
+        )}
+
+        {/* The photo was upside down or sideways: say so, straighten it, and let
+            the person check the lines rather than sending them back for nothing. */}
+        {!reading && idRotation !== 0 && orientationMessage(idRotation) && (
+          <div className="rounded-lg border-2 border-amber-500/60 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+            <p className="flex items-start gap-2 font-bold">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{orientationMessage(idRotation)}</span>
+            </p>
+            <ul className="mt-2 list-disc space-y-0.5 pl-4">
+              {ID_POSITION_TIPS.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Nothing readable in any of the four positions: this is a positioning
+            problem far more often than a wrong document. */}
+        {!reading && idPhoto && idReading?.status === 'invalid' && (
+          <div className="rounded-lg border-2 border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
+            <p className="font-bold">We could not read this card in any position.</p>
+            <p className="mt-1">
+              We tried your photo upright, upside down and sideways. Take it again with the card
+              lying flat and the writing the right way up.
+            </p>
+            <ul className="mt-2 list-disc space-y-0.5 pl-4">
+              {ID_POSITION_TIPS.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -1017,7 +1258,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                           id={`nid-${key}`}
                           className="mt-1 h-9 text-sm"
                           type={key === 'date_of_birth' ? 'date' : 'text'}
-                          inputMode={key === 'card_number' ? 'numeric' : undefined}
                           maxLength={key === 'sex' ? 1 : undefined}
                           placeholder={key === 'sex' ? 'M or F' : undefined}
                           value={form[key]}
@@ -1026,12 +1266,13 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                             const raw = e.target.value;
                             const next =
                               key === 'date_of_birth' ? raw
-                              : key === 'card_number' ? raw.replace(/[^0-9]/g, '')
+                              : key === 'card_number' ? raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
                               : key === 'sex' ? raw.toUpperCase().replace(/[^MF]/g, '')
                               : key === 'nin' ? raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
                               : raw.toUpperCase();
                             setForm((f) => ({ ...f, [key]: next }));
                             setFieldError(null);
+                            setDetailsConfirmed(false);
                           }}
                         />
                       </div>
@@ -1042,6 +1283,25 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                 {fieldError && !duplicateNin && (
                   <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                     {fieldError.message}
+                  </p>
+                )}
+
+                {/* Answered while the number is still being typed, so nobody
+                    fills in a whole form before being told the ID is taken. */}
+                {ninHint?.limit_reached && (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                    This National ID has reached its limit of 20 accounts. No more accounts can be
+                    added to it.
+                  </p>
+                )}
+                {ninHint && !ninHint.limit_reached && (
+                  <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+                    {ninHint.holder_first_name
+                      ? `This National ID is already on ${ninHint.holder_first_name}'s Welile account. You can be added under ${ninHint.holder_first_name}, but they must agree first.`
+                      : 'This National ID is already recorded on another account. Ask the person who holds it to confirm you.'}
+                    {typeof ninHint.accounts_on_id === 'number'
+                      ? ` ${ninHint.accounts_on_id} of 20 accounts are on it.`
+                      : ''}
                   </p>
                 )}
 
@@ -1081,10 +1341,182 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                     at this.
                   </p>
                 )}
+
+                {/* Confirm or retake: the owner of the card decides whether what
+                    we read is exactly what is printed on it, before anything is
+                    sent for verification. */}
+                {needsConfirm && detailsComplete && (
+                  detailsConfirmed ? (
+                    <div className="flex items-start justify-between gap-3 rounded-lg border-2 border-emerald-500/60 bg-emerald-500/10 p-3">
+                      <p className="flex items-start gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                        You confirmed these details match your card. You can send now.
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 shrink-0 text-xs"
+                        disabled={saving || savingDetails}
+                        onClick={() => setDetailsConfirmed(false)}
+                      >
+                        Change
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 rounded-lg border-2 border-primary/50 bg-primary/5 p-3">
+                      <p className="text-sm font-bold">Is this exactly what is on your card?</p>
+                      <ul className="space-y-1">
+                        {(Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[]).map((key) => (
+                          <li key={key} className="flex justify-between gap-3 text-xs">
+                            <span className="text-muted-foreground">{ID_FIELD_LABEL[key]}</span>
+                            <span className="text-right font-bold">{String(form[key] ?? '') || '—'}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-muted-foreground">
+                        Compare every line with your card. If anything is wrong, correct it above or
+                        take the photo again.
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          className="h-11 flex-1"
+                          disabled={saving || savingDetails}
+                          onClick={() => setDetailsConfirmed(true)}
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Yes, these are correct
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-11 flex-1"
+                          disabled={saving || savingDetails}
+                          onClick={() => {
+                            setIdPhoto(null);
+                            setIdReading(null);
+                            setReadError(null);
+                            setForm(EMPTY_ID_DATA);
+                            setFieldError(null);
+                            setDetailsConfirmed(false);
+                          }}
+                        >
+                          No, retake the photo
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                )}
               </>
             )}
           </div>
         )}
+
+        {/* THE BACK OF THE CARD — demanded, not optional. */}
+        {storedIdBackPath ? (
+          <StoredShot
+            path={storedIdBackPath}
+            label="National ID back"
+            note="This saved photo of the back will be used for this verification."
+          />
+        ) : (
+          <ShotTile
+            label="National ID — BACK (required)"
+            hint="Turn your phone sideways. Keep the back wide and straight so the small print can be read."
+            file={idBackPhoto}
+            onPick={(f) => {
+              setIdBackPhoto(f);
+              setBackReading(null);
+              setBackReadError(null);
+              void readBackPhoto(f);
+            }}
+            onClear={() => {
+              setIdBackPhoto(null);
+              setBackReading(null);
+              setBackReadError(null);
+            }}
+            disabled={saving}
+          />
+        )}
+
+        {!storedIdBackPath && !idBackPhoto && (
+          <div className="rounded-lg border bg-muted/40 p-3 text-xs">
+            <p className="font-semibold">Taking the back of the card</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+              {ID_BACK_TIPS.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {readingBack && (
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Reading the back of your ID…
+          </div>
+        )}
+
+        {!readingBack && backReadError && (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
+            {backReadError}
+          </p>
+        )}
+
+        {!readingBack && backReading && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <ScanLine className="h-4 w-4 text-primary" />
+              What we read on the back of your ID
+            </p>
+
+            {backReading.looksLikeFront ? (
+              <p className="rounded-md border-2 border-destructive/50 bg-destructive/10 p-2 text-xs font-bold text-destructive">
+                This is the FRONT of your card again. Turn the card over and photograph the back —
+                the side with the two lines of code at the bottom.
+              </p>
+            ) : backReading.corrected && orientationMessage(backReading.rotation) ? (
+              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+                {orientationMessage(backReading.rotation)}
+              </p>
+            ) : null}
+
+            {backReading.details.length > 0 ? (
+              <ul className="space-y-1">
+                {backReading.details.map((d) => (
+                  <li key={d.label} className="flex justify-between gap-3 text-xs">
+                    <span className="text-muted-foreground">{d.label}</span>
+                    <span className="text-right font-bold">{d.value}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                We could not read the small print on the back. Your photo is still saved and
+                Financial Ops will check it — retake it closer if the print looks blurred.
+              </p>
+            )}
+
+            {/* The card number is printed on both sides, so the two must agree.
+                A mismatch is a reason to look again, never proof of anything. */}
+            {backReading.back?.card_number &&
+              idReading?.data?.card_number &&
+              backReading.back.card_number.replace(/[^A-Za-z0-9]/g, '').toUpperCase() !==
+                idReading.data.card_number.replace(/[^A-Za-z0-9]/g, '').toUpperCase() && (
+                <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+                  The card number on the back does not match the front. Check both photos are of the
+                  same card.
+                </p>
+              )}
+
+            {backReading.back?.mrz?.present === false && backReading.details.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                The two lines of code at the bottom were not readable. Lay the card flat and keep the
+                bottom edge inside the frame if you retake it.
+              </p>
+            )}
+          </div>
+        )}
+
+
 
         {storedSelfiePath ? (
           <StoredShot
@@ -1196,7 +1628,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
         <Button
           className="w-full"
-          disabled={saving || !hasVerifiedPayoutNumber}
+          disabled={saving || !hasVerifiedPayoutNumber || !confirmDone}
           onClick={handleSave}
         >
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

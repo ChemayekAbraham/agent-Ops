@@ -11,7 +11,7 @@ export default function PaymentModeAnalytics() {
   const { data, isLoading } = useQuery({
     queryKey: ['coo-payment-mode-analytics'],
     queryFn: async () => {
-      const { data: collections } = await supabase.from('agent_collections').select('payment_method, amount');
+      const { data: collections } = await supabase.from('agent_collections').select('payment_method, amount').is('reversed_at', null);
 
       const modeMap = new Map<string, number>();
       for (const c of collections || []) {

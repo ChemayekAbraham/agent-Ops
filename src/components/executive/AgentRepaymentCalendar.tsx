@@ -38,7 +38,7 @@ export function AgentRepaymentCalendar({ agentId }: { agentId: string }) {
       for (let page = 0; page < 40; page++) {
         const { data, error } = await supabase
           .from('agent_collections')
-          .select('amount, created_at')
+          .select('amount, created_at').is('reversed_at', null)
           .eq('agent_id', agentId)
           .gt('amount', 0)
           .order('created_at', { ascending: true })

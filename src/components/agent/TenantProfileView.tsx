@@ -277,7 +277,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
     if (!user?.id) return;
     const { data } = await supabase
       .from('agent_collections')
-      .select('id, amount, created_at, notes')
+      .select('id, amount, created_at, notes').is('reversed_at', null)
       .eq('agent_id', user.id)
       .eq('tenant_id', tenantId)
       .ilike('notes', '%float allocation%')
@@ -311,7 +311,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const loadTenantCollections = async () => {
     const { data } = await supabase
       .from('agent_collections')
-      .select('id, amount, created_at, rent_request_id, payment_method, notes')
+      .select('id, amount, created_at, rent_request_id, payment_method, notes').is('reversed_at', null)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(500);

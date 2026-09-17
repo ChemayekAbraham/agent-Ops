@@ -170,7 +170,7 @@ export function TenantOpsDashboard({
       const fieldCollections = await fetchAllPaged<any>(() => {
         let q = supabase
           .from('agent_collections')
-          .select('id, tenant_id, agent_id, amount, created_at')
+          .select('id, tenant_id, agent_id, amount, created_at').is('reversed_at', null)
           .order('created_at', { ascending: false });
         if (fromIso) q = q.gte('created_at', fromIso);
         if (toIso) q = q.lte('created_at', toIso);
@@ -828,7 +828,7 @@ export function TenantOpsDashboard({
       //    payment taken in the field — covers every day in the range).
       const collections = await fetchAllPaged<any>(() => supabase
         .from('agent_collections')
-        .select('id, tenant_id, agent_id, amount, payment_method, collection_channel, created_at')
+        .select('id, tenant_id, agent_id, amount, payment_method, collection_channel, created_at').is('reversed_at', null)
         .gte('created_at', from.toISOString())
         .lte('created_at', to.toISOString())
         .order('created_at', { ascending: false }));

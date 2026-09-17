@@ -45,23 +45,67 @@ export default function NationalIdLinkFlow({
 }) {
   const start = useRequestNationalIdLink();
   const [requestId, setRequestId] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
   const state = useNationalIdLinkState(requestId);
   const { send, verify } = useNationalIdLinkOtp();
   const [code, setCode] = useState('');
+
+  /** Creates the request if it is not there yet, and returns its id. */
+  const ensureRequest = async (): Promise<string> => {
+    if (requestId) return requestId;
+    const res = await start.mutateAsync(nin);
+    const id = res.request_id ?? null;
+    if (!id) throw new Error('Could not start that request. Please try again.');
+    setRequestId(id);
+    setStartError(null);
+    return id;
+  };
 
   // One request per account per ID; asking again picks up the open one.
   useEffect(() => {
     if (requestId || start.isPending || !nin) return;
     start
       .mutateAsync(nin)
-      .then((res) => setRequestId(res.request_id ?? null))
-      .catch((e) => toast.error(e instanceof Error ? e.message : 'Could not start that request.'));
+      .then((res) => {
+        setRequestId(res.request_id ?? null);
+        setStartError(null);
+      })
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : 'Could not start that request.';
+        setStartError(msg);
+        toast.error(msg);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nin]);
 
+
   const s = state.data;
+  const [seen, setSeen] = useState<string | null>(null);
+
+  // The moment the ID holder answers, say so here — the person asking should
+  // never have to guess or refresh.
   useEffect(() => {
-    if (s?.status === 'active') onLinked?.();
+    const now = s?.status;
+    if (!now || now === seen) return;
+    if (seen !== null) {
+      if (now === 'owner_approved') {
+        toast.success('The ID holder allowed it. You can carry on with your details now.');
+      } else if (now === 'rejected_by_owner') {
+        toast.error('The ID holder did not agree, so your account was not linked.');
+      } else if (now === 'active') {
+        toast.success('Welile staff confirmed it. Your account is now on that National ID.');
+      } else if (now === 'rejected_by_staff') {
+        toast.error('Welile staff did not confirm it. Contact Welile Support on 0748747134.');
+      } else if (now === 'expired') {
+        toast.error('Nobody answered within 7 days, so this request closed. You can start again.');
+      }
+    }
+    setSeen(now);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s?.status]);
+
+  useEffect(() => {
+    if (s?.status === 'active' || s?.status === 'owner_approved') onLinked?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s?.status]);
 
@@ -70,15 +114,18 @@ export default function NationalIdLinkFlow({
     status === 'rejected_by_owner' || status === 'rejected_by_staff' || status === 'expired';
 
   const doSend = async () => {
-    if (!requestId) return;
     try {
-      await send.mutateAsync(requestId);
+      const id = await ensureRequest();
+      await send.mutateAsync(id);
       toast.success('Code sent to the number on that National ID.');
       state.refetch();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not send the code.');
+      const msg = e instanceof Error ? e.message : 'Could not send the code.';
+      setStartError(msg);
+      toast.error(msg);
     }
   };
+
 
   const doVerify = async () => {
     if (!requestId) return;
@@ -149,10 +196,21 @@ export default function NationalIdLinkFlow({
 
           {!closed && status !== 'active' && !s?.code_verified && (
             <div className="space-y-2">
-              <Button variant="outline" className="h-11 w-full" onClick={doSend} disabled={send.isPending}>
-                {send.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              <Button
+                variant="outline"
+                className="h-11 w-full"
+                onClick={doSend}
+                disabled={send.isPending || start.isPending}
+              >
+                {(send.isPending || start.isPending) && (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                )}
                 {s?.code_sent ? 'Send the code again' : 'Send code to the ID holder'}
               </Button>
+              {startError && (
+                <p className="text-[11px] text-destructive">{startError}</p>
+              )}
+
               {s?.code_sent && (
                 <div>
                   <Label className="text-xs">6-digit code from the ID holder</Label>

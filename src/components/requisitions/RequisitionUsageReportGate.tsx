@@ -95,10 +95,20 @@ export function RequisitionUsageReportGate() {
     if (error || !reqs?.length) { setPending([]); return; }
 
     const ids = reqs.map((r) => r.id);
-    const { data: reports } = await supabase
+    const { data: reports, error: reportsError } = await supabase
       .from('staff_requisition_usage_reports')
       .select('requisition_id')
       .in('requisition_id', ids);
+
+    if (reportsError) {
+      // Cannot tell which requisitions already have a report — do NOT fall
+      // through and show every approved requisition as pending (that would
+      // re-nag for ones already reported, and the resulting resubmit fails
+      // on staff_requisition_usage_reports_req_uniq). Leave `pending` as-is
+      // and retry on the next poll/realtime tick instead.
+      console.warn('[RequisitionUsageReportGate] could not check existing reports', reportsError);
+      return;
+    }
 
     const reported = new Set((reports || []).map((r) => r.requisition_id));
     setPending((reqs as unknown as PendingReq[]).filter((r) => !reported.has(r.id)));
@@ -164,6 +174,22 @@ export function RequisitionUsageReportGate() {
     setSaving(false);
 
     if (error) {
+      // A report for this requisition already exists (staff_requisition_usage_reports_req_uniq).
+      // This happens when an earlier submit actually succeeded but this popup's
+      // local `pending` list was never refreshed (e.g. no staff_requisitions
+      // change fired the realtime reload) — resync from the DB instead of
+      // leaving a stale, already-done requisition stuck reappearing forever.
+      const alreadyReported = error.code === '23505' || /duplicate key/i.test(error.message || '');
+      if (alreadyReported) {
+        toast.success('This requisition already has a submitted report.');
+        setAmountUsed('');
+        setSummary('');
+        setReceipt(null);
+        setShowForm(false);
+        setOpen(false);
+        await load();
+        return;
+      }
       toast.error('Could not submit your report', { description: error.message });
       return;
     }

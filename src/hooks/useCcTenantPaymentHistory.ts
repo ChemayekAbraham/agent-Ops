@@ -111,6 +111,7 @@ export function useCcTenantPaymentHistory(tenantId: string | null, enabled = tru
             .select(
               'id, rent_request_id, agent_id, amount, created_at, payment_method, is_partial, expected_amount, momo_provider, tracking_id',
             )
+            .is('reversed_at', null)
             .in('rent_request_id', planIds)
             .order('created_at', { ascending: false }),
           client

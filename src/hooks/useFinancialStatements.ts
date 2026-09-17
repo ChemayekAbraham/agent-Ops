@@ -557,7 +557,7 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
         // the disclosure moves with the chosen period instead of being a
         // single as-at snapshot. Read-only; no money is derived from this.
         (() => {
-          let q = supabase.from('agent_collections').select('rent_request_id, amount');
+          let q = supabase.from('agent_collections').select('rent_request_id, amount').is('reversed_at', null);
           if (startDate) q = q.gte('created_at', startDate.toISOString());
           if (endDate) q = q.lte('created_at', endDate.toISOString());
           return q.limit(50000);

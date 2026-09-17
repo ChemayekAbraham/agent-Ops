@@ -137,7 +137,7 @@ export function MissedDaysTracker() {
       if (!tenantIds.length) return new Map<string, number>();
       const batches = await Promise.all(
         chunk(tenantIds).map(ids =>
-          supabase.from('agent_collections').select('tenant_id, amount').in('tenant_id', ids),
+          supabase.from('agent_collections').select('tenant_id, amount').is('reversed_at', null).in('tenant_id', ids),
         ),
       );
       const data = batches.flatMap(b => b.data || []);

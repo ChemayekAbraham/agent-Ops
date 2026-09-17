@@ -11,6 +11,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
+import {
+  readNationalIdBackPhotoFromPath,
+  type NationalIdBackDetails,
+} from '@/lib/nationalIdOcr';
 
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
@@ -44,6 +48,24 @@ export interface PayoutDestinationRow {
   /** True when this account is NOT the first holder of its National ID or phone number. */
   double_submission: boolean;
   double_kind: 'national_id' | 'phone' | 'face' | 'id_photo' | null;
+  /** How many accounts share this National ID (1 = only this account). */
+  id_account_count: number;
+  /** This account's position among the ID's holders, oldest first (1 = first holder). */
+  id_account_ordinal: number;
+  /** How many payout numbers/accounts this person has saved in total. */
+  payout_number_count: number;
+  /** How many OTHER payout numbers are already verified for this person. */
+  verified_payout_count: number;
+  /** The already-verified payout numbers (oldest first), so a reviewer can see what came before. */
+  verified_payout_numbers: {
+    provider: string | null;
+    destination_type: string | null;
+    momo_number: string | null;
+    bank_name: string | null;
+    bank_account_number: string | null;
+    account_name: string | null;
+    decided_at: string | null;
+  }[];
   double_of_user_id: string | null;
   double_of_name: string | null;
   total_count: number;
@@ -222,6 +244,13 @@ export function usePayoutVerificationQueue(opts: {
           total_count: Number(row.total_count ?? 0),
           name_mismatch_tokens: Array.isArray(tokens) ? (tokens as string[]) : [],
           double_submission: row.double_submission === true,
+          id_account_count: Number(row.id_account_count ?? 1),
+          id_account_ordinal: Number(row.id_account_ordinal ?? 1),
+          payout_number_count: Number(row.payout_number_count ?? 1),
+          verified_payout_count: Number(row.verified_payout_count ?? 0),
+          verified_payout_numbers: Array.isArray(row.verified_payout_numbers)
+            ? (row.verified_payout_numbers as PayoutDestinationRow['verified_payout_numbers'])
+            : [],
         } as PayoutDestinationRow;
       });
       return { rows, total: rows[0]?.total_count ?? 0 };
@@ -594,6 +623,79 @@ export function useStoredIdReading(userId: string | null | undefined) {
 }
 
 /**
+ * The back of the stored National ID photo, re-read on demand so reviewers see
+ * the same extracted details (card number, dates, residence, MRZ state) the
+ * submitter was shown. The edge function permits finance staff to read the path
+ * while keeping it blocked for ordinary users who do not own the photo.
+ */
+export interface StoredIdBackReading {
+  details: { label: string; value: string }[];
+  cardNumber: string | null;
+  dateOfIssue: string | null;
+  dateOfExpiry: string | null;
+  mrzPresent: boolean;
+  checksumsOk: boolean | null;
+  readable: boolean;
+  looksLikeFront: boolean;
+  error: string | null;
+}
+
+export function useStoredIdBackReading(storagePath: string | null | undefined) {
+  return useQuery({
+    queryKey: ['stored-id-back-reading', storagePath],
+    enabled: !!storagePath,
+    staleTime: 120_000,
+    queryFn: async (): Promise<StoredIdBackReading | null> => {
+      if (!storagePath) return null;
+      const res = await readNationalIdBackPhotoFromPath(storagePath);
+      if ('error' in res) {
+        return {
+          details: [],
+          cardNumber: null,
+          dateOfIssue: null,
+          dateOfExpiry: null,
+          mrzPresent: false,
+          checksumsOk: null,
+          readable: false,
+          looksLikeFront: false,
+          error: res.error,
+        };
+      }
+      const b = res as NationalIdBackDetails;
+      const details: { label: string; value: string }[] = [];
+      const push = (label: string, value: string | null | undefined) => {
+        const v = String(value ?? '').trim();
+        if (v) details.push({ label, value: v });
+      };
+      push('Card number', b.card_number ?? b.mrz?.document_number);
+      push('NIN', b.mrz?.nin);
+      push('Date of issue', b.date_of_issue);
+      push('Date of expiry', b.date_of_expiry);
+      push('Date of birth', b.mrz?.date_of_birth);
+      push('Sex', b.mrz?.sex);
+      push('Nationality', b.mrz?.nationality);
+      push('Village', b.residence.village);
+      push('Parish', b.residence.parish);
+      push('Subcounty', b.residence.subcounty);
+      push('County', b.residence.county);
+      push('District', b.residence.district);
+      for (const f of b.other_fields) push(f.label, f.value);
+      return {
+        details,
+        cardNumber: b.card_number ?? b.mrz?.document_number ?? null,
+        dateOfIssue: b.date_of_issue,
+        dateOfExpiry: b.date_of_expiry,
+        mrzPresent: b.mrz?.present ?? false,
+        checksumsOk: b.mrz?.checksums_ok ?? null,
+        readable: b.readable,
+        looksLikeFront: b.side === 'front',
+        error: null,
+      };
+    },
+  });
+}
+
+/**
  * Did the payout number itself pass the SMS ownership code? Reviewers cannot
  * read `otp_verifications`, so this asks the server for a plain yes/no.
  */
@@ -630,4 +732,42 @@ export function maskIdNumber(value: string | null | undefined): string | null {
   if (!raw) return null;
   if (raw.length <= 4) return '*'.repeat(raw.length);
   return `${raw.slice(0, 2)}${'*'.repeat(Math.min(6, raw.length - 4))}${raw.slice(-2)}`;
+}
+
+/**
+ * Every payout number one person has submitted, newest first — read-only, for
+ * the Financial Ops drill-down that shows "this person has N requests".
+ * Financial Ops, CFO and super admin can read all rows (RLS); a user reads
+ * only their own.
+ */
+export interface PersonPayoutDestination {
+  id: string;
+  destination_type: string | null;
+  provider: string | null;
+  momo_number: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  status: PayoutVerificationStatus;
+  decided_at: string | null;
+  first_seen_at: string | null;
+  created_at: string | null;
+}
+
+export function usePersonPayoutDestinations(userId?: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['person-payout-destinations', userId],
+    enabled: !!userId && enabled,
+    staleTime: 15_000,
+    queryFn: async (): Promise<PersonPayoutDestination[]> => {
+      const { data, error } = await supabase
+        .from('payout_destination_verifications')
+        .select(
+          'id, destination_type, provider, momo_number, bank_name, bank_account_number, status, decided_at, first_seen_at, created_at',
+        )
+        .eq('user_id', userId as string)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as PersonPayoutDestination[];
+    },
+  });
 }
