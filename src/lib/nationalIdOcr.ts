@@ -319,11 +319,11 @@ export const SIDEWAYS_ID_MESSAGE =
 
 /** How to hold the card, in the order that fixes the most photos. */
 export const ID_POSITION_TIPS: string[] = [
-  'Turn the phone sideways and hold the card landscape (wide, not tall).',
-  'Keep the long top and bottom edges of the card straight across the photo — not at 90° or -90°.',
-  'Keep the writing the right way up. An upside-down landscape photo can be corrected.',
-  'Keep the photo of the face on the LEFT of the frame.',
-  'Fill the frame with the card and keep all four corners inside it.',
+  'Hold the phone upright — no need to turn it sideways.',
+  'Lay the card flat and line it up inside the box on screen; it captures on its own once the edges are found.',
+  'Keep the writing the right way up. An upside-down photo can be corrected.',
+  'Keep the photo of the face on the LEFT of the card.',
+  'Fill the box with the card and keep all four corners inside it.',
   'Keep the phone flat above the card, not tilted, and avoid shine from lights.',
 ];
 
@@ -425,7 +425,7 @@ export function orientationMessage(rotation: IdRotation): string | null {
   if (rotation === 180) {
     return 'Your ID was upside down. We turned it the right way up and read it — check every line below. Next time hold the card with the writing the right way up.';
   }
-  return 'Your ID was sideways. We turned it upright and read it — check every line below. Next time hold the card landscape (wide, not tall).';
+  return 'Your ID was sideways. We turned it upright and read it — check every line below. Next time keep the card level inside the box — wide, not turned on its side.';
 }
 
 /* ------------------------------------------------------------------ *
@@ -434,7 +434,7 @@ export function orientationMessage(rotation: IdRotation): string | null {
 
 export const ID_BACK_TIPS: string[] = [
   'Turn the card over — the back carries the two lines of code at the bottom.',
-  'Hold it landscape and fill the frame, all four corners inside.',
+  'Hold the phone upright and line the card up inside the box, all four corners inside it.',
   'Keep the phone flat above the card so the small print stays sharp.',
 ];
 

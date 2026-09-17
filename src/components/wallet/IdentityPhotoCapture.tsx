@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,7 @@ import PayoutNumberChangeDialog from './PayoutNumberChangeDialog';
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
 import NationalIdLinkFlow from './NationalIdLinkFlow';
+import CardCameraCapture from './CardCameraCapture';
 
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -58,10 +59,22 @@ interface ShotTileProps {
   disabled?: boolean;
   /** Which camera to open. A selfie must not open the rear camera. */
   facing?: 'user' | 'environment';
+  /** When set, "Take photo" opens this instead of the native file/camera picker
+   *  (used for the in-page portrait scanner). The native picker stays wired up
+   *  underneath as a fallback — see `openFilePicker` on the ref. */
+  onCustomCapture?: () => void;
 }
 
-function ShotTile({ label, hint, file, onPick, onClear, disabled, facing }: ShotTileProps) {
+export interface ShotTileHandle {
+  /** Opens the plain native file/camera picker, bypassing any custom capture flow. */
+  openFilePicker: () => void;
+}
+
+const ShotTile = forwardRef<ShotTileHandle, ShotTileProps>(function ShotTile(
+  { label, hint, file, onPick, onClear, disabled, facing, onCustomCapture }, ref,
+) {
   const inputRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => ({ openFilePicker: () => inputRef.current?.click() }));
   const preview = file ? URL.createObjectURL(file) : null;
 
   return (
@@ -104,14 +117,14 @@ function ShotTile({ label, hint, file, onPick, onClear, disabled, facing }: Shot
         variant={file ? 'outline' : 'default'}
         className="w-full"
         disabled={disabled}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => (onCustomCapture ? onCustomCapture() : inputRef.current?.click())}
       >
         <Camera className="mr-2 h-4 w-4" />
         {file ? 'Retake' : 'Take photo'}
       </Button>
     </div>
   );
-}
+});
 
 
 /** Thumbnail of a photo already archived in the verification history. */
@@ -602,6 +615,29 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   /* The back of the card. Required: the two lines of code and the card number
      live there, and Financial Ops cannot check a card from its front alone. */
   const [idBackPhoto, setIdBackPhoto] = useState<File | null>(null);
+  /* Which side the in-page portrait scanner is currently open for, if any. */
+  const [cameraTarget, setCameraTarget] = useState<'front' | 'back' | null>(null);
+  const frontShotRef = useRef<ShotTileHandle>(null);
+  const backShotRef = useRef<ShotTileHandle>(null);
+
+  /* Shared by the "Take photo" button and the in-page camera — same effect
+     either way a fresh front photo arrives. */
+  const handleFrontPick = (f: File) => {
+    setIdPhoto(null);
+    setIdReading(null);
+    setReadError(null);
+    setIdRotation(0);
+    setDetailsConfirmed(false);
+    setIdPhoto(f);
+    void readIdPhoto(f);
+  };
+
+  const handleBackPick = (f: File) => {
+    setIdBackPhoto(f);
+    setBackReading(null);
+    setBackReadError(null);
+    void readBackPhoto(f);
+  };
   const [backReading, setBackReading] = useState<NationalIdBackReading | null>(null);
   const [backReadError, setBackReadError] = useState<string | null>(null);
   const [readingBack, setReadingBack] = useState(false);
@@ -1141,18 +1177,12 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           />
         ) : (
           <ShotTile
+            ref={frontShotRef}
             label="National ID — FRONT"
-            hint="Turn your phone sideways. Keep the card wide and straight, with all four corners visible."
+            hint="Hold your phone upright. Line the card up inside the frame — we'll find the edges for you."
             file={idPhoto}
-            onPick={(f) => {
-              setIdPhoto(null);
-              setIdReading(null);
-              setReadError(null);
-              setIdRotation(0);
-              setDetailsConfirmed(false);
-              setIdPhoto(f);
-              void readIdPhoto(f);
-            }}
+            onCustomCapture={() => setCameraTarget('front')}
+            onPick={handleFrontPick}
             onClear={() => {
               setIdPhoto(null);
               setIdReading(null);
@@ -1419,15 +1449,12 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           />
         ) : (
           <ShotTile
+            ref={backShotRef}
             label="National ID — BACK (required)"
-            hint="Turn your phone sideways. Keep the back wide and straight so the small print can be read."
+            hint="Hold your phone upright. Line the back of the card up inside the frame so the small print can be read."
             file={idBackPhoto}
-            onPick={(f) => {
-              setIdBackPhoto(f);
-              setBackReading(null);
-              setBackReadError(null);
-              void readBackPhoto(f);
-            }}
+            onCustomCapture={() => setCameraTarget('back')}
+            onPick={handleBackPick}
             onClear={() => {
               setIdBackPhoto(null);
               setBackReading(null);
@@ -1665,6 +1692,25 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             setSelfieCropped(previewSelfie);
             setPreviewSelfie(null);
           }}
+        />
+
+        <CardCameraCapture
+          open={cameraTarget === 'front'}
+          onOpenChange={(o) => { if (!o) setCameraTarget(null); }}
+          title="National ID — FRONT"
+          instruction="Line the front of the card up inside the box."
+          fileLabel="national-id-front"
+          onCapture={handleFrontPick}
+          onFallback={() => frontShotRef.current?.openFilePicker()}
+        />
+        <CardCameraCapture
+          open={cameraTarget === 'back'}
+          onOpenChange={(o) => { if (!o) setCameraTarget(null); }}
+          title="National ID — BACK"
+          instruction="Turn the card over and line the back up inside the box."
+          fileLabel="national-id-back"
+          onCapture={handleBackPick}
+          onFallback={() => backShotRef.current?.openFilePicker()}
         />
       </CardContent>
     </Card>
