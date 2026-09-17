@@ -1325,7 +1325,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
     );
   }
 
-  const phoneIntl = profile.phone.replace(/^0/, '256').replace(/[^0-9]/g, '');
+  const phoneIntl = (profile.phone ?? '').replace(/^0/, '256').replace(/[^0-9]/g, '');
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
