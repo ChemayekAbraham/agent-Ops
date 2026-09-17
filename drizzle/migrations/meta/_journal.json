@@ -1065,6 +1065,13 @@
       "when": 1789633686508,
       "tag": "0151_national_id_link_holder_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1789636256730,
+      "tag": "0152_promissory_note_email_required",
+      "breakpoints": true
     }
   ]
 }
