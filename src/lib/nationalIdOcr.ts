@@ -290,7 +290,7 @@ export const ID_POSITION_TIPS: string[] = [
 /** Turns one photo by a quarter, half or three-quarter turn. */
 export async function rotateImageFile(file: File, degrees: IdRotation): Promise<File> {
   if (degrees === 0) return file;
-  const url = URL createObjectUrlSafe(file);
+  const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = new Image();
