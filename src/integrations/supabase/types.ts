@@ -56617,6 +56617,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_sms_cost_report: {
+        Args: { p_end?: string; p_provider?: string; p_start?: string }
+        Returns: Json
+      }
       get_sms_traffic_daily: {
         Args: { p_days?: number }
         Returns: {
@@ -61426,6 +61430,8 @@ export type Database = {
       }
       smoke_promissory_commissions_authorized: { Args: never; Returns: boolean }
       smoke_promissory_support_modes: { Args: never; Returns: Json }
+      sms_cost_ugx: { Args: { p_message: string }; Returns: number }
+      sms_segment_count: { Args: { p_message: string }; Returns: number }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }
         Returns: number
