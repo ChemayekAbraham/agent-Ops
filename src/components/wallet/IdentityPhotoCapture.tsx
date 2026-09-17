@@ -897,16 +897,18 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       );
       if (error) throw new Error(error.message);
       const res = data as
-        | { success?: boolean; message?: string; field?: string; duplicate?: boolean }
+        | { success?: boolean; message?: string; field?: string; duplicate?: boolean; name_taken?: boolean }
         | null;
       if (!res?.success) {
         const message = res?.message || 'Could not save those details.';
         setFieldError({ field: res?.field, message });
+        setNameTaken(!!res?.name_taken);
         // An ID already recorded elsewhere is not a mistake to correct: the
         // holder of that ID can allow this account to join it.
         setDuplicateNin(res?.duplicate ? form.nin : null);
         return { ok: false, message };
       }
+      setNameTaken(false);
       setDuplicateNin(null);
       return { ok: true };
     } catch (e) {
