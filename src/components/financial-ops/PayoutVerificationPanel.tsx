@@ -1859,6 +1859,14 @@ export default function PayoutVerificationPanel() {
               Verify is off — {idNameConfidence.reason} Ask for a clearer ID photo.
             </p>
           )}
+          {photosReady && !idNameUnreadable && !isDouble && !nameCheckPassed && (
+            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-amber-600">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {nameCheck
+                ? 'Verify is off — the name on the number is not clearly the same person as the National ID.'
+                : 'Verify is off — do the name check on the payout number first (Step 1 above).'}
+            </p>
+          )}
           {(() => {
             const reason = blockedReasonFor(row);
             if (!reason) return null;
