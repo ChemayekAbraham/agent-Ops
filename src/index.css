@@ -37,6 +37,14 @@ section[aria-label*="Notifications" i]:empty {
   .bottom-safe {
     bottom: env(safe-area-inset-bottom, 0px);
   }
+  /* Hide scrollbar for snap-scroll carousels */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 
