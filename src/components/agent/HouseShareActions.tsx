@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy, FileText, MessageCircle } from 'lucide-react';
+import { Check, Copy, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -44,10 +44,6 @@ export function HouseShareActions({ house }: { house: SupportableHouse }) {
     }
   };
 
-  const whatsapp = () =>
-    withLink(({ message }) => {
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-    });
 
   const copy = () =>
     withLink(async ({ message }) => {
@@ -74,15 +70,6 @@ export function HouseShareActions({ house }: { house: SupportableHouse }) {
         initialAmount={Number(house.monthly_rent || 0) || undefined}
         initialHouse={house}
       />
-      <Button
-        variant="outline"
-        className="gap-2 rounded-xl"
-        disabled={busy}
-        onClick={whatsapp}
-        aria-label="Share on WhatsApp"
-      >
-        <MessageCircle className="h-4 w-4" />
-      </Button>
       <Button variant="outline" className="rounded-xl" disabled={busy} onClick={copy} aria-label="Copy support link">
         {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
       </Button>
