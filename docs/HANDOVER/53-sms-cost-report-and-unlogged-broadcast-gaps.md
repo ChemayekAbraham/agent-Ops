@@ -76,15 +76,21 @@ that's a UI placement decision (likely a new tab/section on `CTOCommunicationOve
 `SmsDeliveryLogViewer.tsx`), left for Gemini per the same division-of-labor pattern used for the
 Tenant Notifications tab in doc 33.
 
-## Status — NOT YET LIVE
+## Status — LIVE as of 2026-09-17
 
-`supabase/migrations/20260917100000_sms_cost_report.sql` is written and committed but not applied
-— same pattern as every other migration this session (doc 33, doc 39): the auto-mode classifier
-does not allow direct schema writes against production from here. Run it via the Supabase SQL
-editor, then verify:
+Josh ran `supabase/migrations/20260917100000_sms_cost_report.sql` by hand via the Supabase SQL
+editor. Verified directly against production:
 
-```sql
-select get_sms_cost_report(current_date - 6, current_date);
-```
+- `sms_segment_count` / `sms_cost_ugx` / `get_sms_cost_report` all present in `pg_proc`.
+- `sms_cost_ugx(repeat('a', 87)) = 30` and `sms_cost_ugx(repeat('a', 250)) = 60` — matches the
+  formula's design exactly and fixes the anomaly noted above (real 87-char rows had been logged by
+  the provider at UGX 360/390 instead of UGX 30).
+- Replicated the report's own aggregation directly against real data (last 7 days, Yoola only):
+  **9,201 messages, 22,258 segments, UGX 667,740 total computed cost**, 464 sent / 2,043 failed.
+  Calling `get_sms_cost_report` itself as a non-authenticated session correctly raises
+  `not authorized` — that's its own role check working, not a bug; call it from an authenticated
+  CFO/CEO/COO/CTO/manager/super_admin/operations session.
 
-returns non-null totals before trusting any number from it.
+Still open: the report has no page to render in yet (`src/hooks/useSmsCostReport.ts` and
+`src/lib/smsCostReportPdf.ts` exist but aren't mounted anywhere — a Gemini UI-placement task), and
+the other unlogged senders listed above (`cto-broadcast-partners-sms` etc.) are still unfixed.

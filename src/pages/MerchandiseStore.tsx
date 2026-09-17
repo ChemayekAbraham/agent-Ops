@@ -19,6 +19,7 @@ import {
   ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Info, Smartphone, Bike, AlertCircle, Share2,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { MERCHANDISE_TERMS, merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
 import { format } from 'date-fns';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
@@ -79,6 +80,7 @@ export default function MerchandiseStore() {
   const [selected, setSelected] = useState<CatalogItem | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [payMode, setPayMode] = useState<'full' | 'installment'>('full');
+  const [termMonths, setTermMonths] = useState<number>(3);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [confirmStep, setConfirmStep] = useState(false);
   const [ordering, setOrdering] = useState(false);
@@ -168,20 +170,25 @@ export default function MerchandiseStore() {
   const needsSize = availableSizes.length > 0;
   const sizeMissing = needsSize && !selectedSize;
   const orderTotal = selected ? Number(selected.unit_price) * qty : 0;
+  // Chosen repayment period for the instalment plan (1–12 months). The schedule
+  // is reducing balance: 28% monthly charge on the opening principal, so both the
+  // monthly amount and the daily wallet deduction fall month after month.
+  const termSchedule = orderTotal > 0 ? merchandiseInstallmentSchedule(orderTotal, termMonths) : null;
+  const termRows = termSchedule?.rows ?? [];
+  const termTotalRepayable = termSchedule?.totalRepayable ?? 0;
+  const termFirstDaily = termSchedule?.firstDaily ?? 0;
+  const termLastDaily = termSchedule?.lastDaily ?? 0;
+  const termFirstMonthly = termRows[0]?.totalDue ?? 0;
   // Pay in full needs the whole price today. Installments are 25% of the item
   // price each — paid now and at every recovery run until the selling price is
   // cleared (4 installments, no extra charge on top of the price).
-  const installmentAmount = Math.round(orderTotal * 0.25);
-  const firstInstallment = Math.min(installmentAmount, availableWallet);
-  const dueNow = payMode === 'full' ? orderTotal : firstInstallment;
-  const remainingAfter = Math.max(0, orderTotal - dueNow);
+  // Instalment plans take nothing at checkout: the whole price is financed over
+  // the chosen period and collected daily from the wallet.
+  const dueNow = payMode === 'full' ? orderTotal : 0;
   const insufficient = selected && !walletBlocked
     ? (payMode === 'full' ? orderTotal > availableWallet : false)
     : false;
-
-  // Installments work even with an empty wallet: nothing is taken at checkout
-  // and the whole price is recovered later at 25% per recovery run.
-  const zeroDown = payMode === 'installment' && dueNow <= 0;
+  const zeroDown = payMode === 'installment';
 
   const pickImage = (item: CatalogItem | null): string | null => {
     if (!item) return null;
@@ -303,12 +310,19 @@ export default function MerchandiseStore() {
       });
       return;
     }
-    const { error } = await db.rpc('agent_purchase_merchandise', {
-      p_catalog_id: selected.id,
-      p_quantity: qty,
-      p_payment_mode: payMode,
-      p_size: selectedSize,
-    });
+    const { error } = payMode === 'installment'
+      ? await db.rpc('agent_purchase_merchandise_plan', {
+          p_catalog_id: selected.id,
+          p_quantity: qty,
+          p_size: selectedSize,
+          p_term_months: termMonths,
+        })
+      : await db.rpc('agent_purchase_merchandise', {
+          p_catalog_id: selected.id,
+          p_quantity: qty,
+          p_payment_mode: payMode,
+          p_size: selectedSize,
+        });
     setOrdering(false);
 
     if (error) {
@@ -325,21 +339,20 @@ export default function MerchandiseStore() {
     toast.success(
       payMode === 'full'
         ? `${selected.item_name} ordered. ${formatUGX(orderTotal)} debited from your wallet.`
-        : zeroDown
-          ? `${selected.item_name} ordered on installments. Nothing taken now — ${formatUGX(remainingAfter)} will be recovered from your wallet.`
-          : `${selected.item_name} ordered on installments. ${formatUGX(dueNow)} paid now, ${formatUGX(remainingAfter)} to go.`,
+        : `${selected.item_name} ordered over ${termMonths} month${termMonths === 1 ? '' : 's'}. Nothing taken now — about ${formatUGX(termFirstDaily)} a day from your wallet, reducing each month.`,
     );
     setSuccess({
       itemName: selected.item_name,
       quantity: qty,
       mode: payMode,
-      paidNow: payMode === 'full' ? orderTotal : dueNow,
-      remaining: payMode === 'full' ? 0 : remainingAfter,
+      paidNow: payMode === 'full' ? orderTotal : 0,
+      remaining: payMode === 'full' ? 0 : termTotalRepayable,
       total: orderTotal,
     });
     setSelected(null);
     setQuantity('1');
     setPayMode('full');
+    setTermMonths(3);
     setSelectedSize(null);
     setConfirmStep(false);
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', user?.id] });
@@ -351,25 +364,17 @@ export default function MerchandiseStore() {
 
   return (
     <div className="min-h-[100dvh] bg-background pb-24">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => navigate(-1)}
-        aria-label="Back"
-        className="fixed top-2 left-2 z-50"
-      >
-        <ArrowLeft className="h-5 w-5" />
-      </Button>
-      <div className="max-w-lg mx-auto px-4 pt-4">
-        <img
-          src={shoppingBagIllustration.url}
-          alt="Welile merchandise shopping bag"
-          className="w-full max-h-40 object-contain"
-          loading="eager"
-        />
-      </div>
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-lg mx-auto flex items-center gap-3 px-4 py-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            aria-label="Back"
+            className="shrink-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h1 className="text-base font-bold flex items-center gap-2">
               <ShoppingBag className="h-4 w-4 text-primary" /> What do you want to buy?
@@ -377,6 +382,14 @@ export default function MerchandiseStore() {
             <p className="text-[11px] text-muted-foreground">Buy branded gear — paid off from your wallet</p>
           </div>
         </div>
+      </div>
+      <div className="max-w-lg mx-auto px-4 pt-4">
+        <img
+          src={shoppingBagIllustration.url}
+          alt="Welile merchandise shopping bag"
+          className="w-full max-h-40 object-contain"
+          loading="eager"
+        />
       </div>
 
       <div className="max-w-lg mx-auto px-4 pt-4 space-y-5">
@@ -505,7 +518,14 @@ export default function MerchandiseStore() {
                     {item.description && (
                       <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
                     )}
-                    <p className="text-sm font-bold text-primary">{formatUGX(Number(item.unit_price))}</p>
+                    <div>
+                      <p className="text-sm font-bold text-emerald-600">
+                        From {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}/day
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        over up to 12 months · {formatUGX(Number(item.unit_price))} full price
+                      </p>
+                    </div>
                     {Array.isArray(item.sizes) && item.sizes.length > 0 && (
                       <p className="text-[10px] text-muted-foreground">
                         Sizes in stock: {item.sizes.join(', ')}
@@ -695,12 +715,68 @@ export default function MerchandiseStore() {
                     {payMode === 'installment' && <CheckCircle2 className="h-4 w-4 text-primary" />}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    25% of the price ({formatUGX(installmentAmount)}) is taken at every recovery run until the
-                    {' '}{formatUGX(orderTotal)} price is cleared. No extra charge. Works even with a zero wallet balance —
-                    nothing is taken until money lands.
+                    Spread the {formatUGX(orderTotal)} over 1 to 12 months. Nothing is taken now — a small
+                    amount is collected from your wallet each day, and it gets smaller every month.
                   </p>
                 </button>
               </div>
+
+              {payMode === 'installment' && (
+                <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Repayment period</Label>
+                    <span className="text-[10px] text-muted-foreground">Up to 12 months</span>
+                  </div>
+                  <select
+                    value={termMonths}
+                    onChange={(e) => setTermMonths(Number(e.target.value))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    {MERCHANDISE_TERMS.map((m) => (
+                      <option key={m} value={m}>
+                        {m} month{m === 1 ? '' : 's'}
+                      </option>
+                    ))}
+                  </select>
+                  {termSchedule && termRows.length > 0 && (
+                    <>
+                      <div className="text-center space-y-0.5 pt-1">
+                        <p className="text-[11px] text-muted-foreground">Daily from your wallet — first month</p>
+                        <p className="text-2xl font-bold tabular-nums text-primary">
+                          {formatUGX(termFirstDaily)}<span className="text-sm font-medium">/day</span>
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Falls to {formatUGX(termLastDaily)}/day in your last month · {termMonths} month
+                          {termMonths === 1 ? '' : 's'} · {formatUGX(termTotalRepayable)} in total
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-border bg-background/70 overflow-hidden">
+                        <div className="grid grid-cols-4 gap-1 px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                          <span>Month</span>
+                          <span className="text-right">Item</span>
+                          <span className="text-right">Charge</span>
+                          <span className="text-right">Per day</span>
+                        </div>
+                        {termRows.map((r) => (
+                          <div
+                            key={r.monthIndex}
+                            className="grid grid-cols-4 gap-1 border-t border-border px-2 py-1.5 text-[11px] tabular-nums"
+                          >
+                            <span className="text-muted-foreground">Month {r.monthIndex}</span>
+                            <span className="text-right">{formatUGX(r.principalDue)}</span>
+                            <span className="text-right">{formatUGX(r.chargeDue)}</span>
+                            <span className="text-right font-semibold">{formatUGX(r.dailyDeduction)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Each month you pay part of the item price plus a monthly charge worked out on what is
+                        still owing — so the amount keeps dropping as you pay it down.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
               </>
               )}
               <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
@@ -710,29 +786,21 @@ export default function MerchandiseStore() {
                 </span>
               </div>
 
-              <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
-                <span className="text-muted-foreground">Item price ({qty} × {formatUGX(Number(selected.unit_price))})</span>
-                <span className="font-semibold">{formatUGX(orderTotal)}</span>
-              </div>
               <div className={`rounded-lg px-3 py-2 flex justify-between text-sm ${insufficient ? 'bg-destructive/10 text-destructive' : 'bg-primary/5 text-foreground'}`}>
-                <span className="text-muted-foreground">{payMode === 'full' ? 'Total to debit now' : zeroDown ? 'Due now (wallet is empty)' : 'First installment (25% of price) now'}</span>
-                <span className="font-bold">{formatUGX(dueNow)}</span>
+                <span className="text-muted-foreground">{payMode === 'full' ? 'Total to debit now' : 'Due now'}</span>
+                <span className="font-bold">{formatUGX(payMode === 'full' ? orderTotal : 0)}</span>
               </div>
-              {payMode === 'installment' && !insufficient && (
-                <div className="rounded-lg bg-amber-500/10 px-3 py-2 flex justify-between text-sm">
-                  <span className="text-muted-foreground">Balance to recover</span>
-                  <span className="font-semibold">{formatUGX(remainingAfter)}</span>
-                </div>
-              )}
-              {payMode === 'installment' && zeroDown && (
-                <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 flex gap-2 text-[11px] text-muted-foreground">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  <p>
-                    <span className="font-semibold text-foreground">Nothing is taken now.</span> The full
-                    {' '}{formatUGX(orderTotal)} stays as your balance and 25% is recovered from your wallet at every
-                    recovery run once money lands.
-                  </p>
-                </div>
+              {payMode === 'installment' && (
+                <>
+                  <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 flex gap-2 text-[11px] text-muted-foreground">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <p>
+                      <span className="font-semibold text-foreground">Nothing is taken now.</span> Collection starts
+                      from your wallet daily, and the daily amount drops each month as you pay the item down. You can
+                      clear it early at any time.
+                    </p>
+                  </div>
+                </>
               )}
               {walletError ? (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 flex gap-2 text-[11px] text-destructive">
@@ -761,12 +829,11 @@ export default function MerchandiseStore() {
                     full for <span className="font-semibold text-foreground">{qty} × {selected.item_name}</span>. This is
                     debited from your withdrawable wallet immediately and cannot be undone here.</>
                   ) : (
-                    <>You are starting an installment plan for <span className="font-semibold text-foreground">{qty} × {selected.item_name}</span> at
+                    <>You are starting a {termMonths}-month plan for <span className="font-semibold text-foreground">{qty} × {selected.item_name}</span> at
                     {' '}<span className="font-semibold text-foreground">{formatUGX(orderTotal)}</span>.
-                    {' '}{zeroDown
-                      ? <><span className="font-semibold text-foreground">Nothing is taken now</span> because your wallet is empty, and</>
-                      : <><span className="font-semibold text-foreground">{formatUGX(dueNow)}</span> is taken now and</>}
-                    {' '}25% of the price ({formatUGX(installmentAmount)}) keeps being applied until the balance reaches zero.</>
+                    {' '}<span className="font-semibold text-foreground">Nothing is taken now</span>; about
+                    {' '}<span className="font-semibold text-foreground">{formatUGX(termFirstDaily)}</span> a day comes
+                    from your wallet in the first month and reduces after that, {formatUGX(termTotalRepayable)} in total.</>
                   )}
                   {' '}Marketing (CMO) sees this order and your payment plan.
                 </div>
@@ -774,7 +841,7 @@ export default function MerchandiseStore() {
                 <p className="text-[11px] text-muted-foreground">
                   {payMode === 'full'
                     ? 'The full amount is debited from your withdrawable wallet right away.'
-                    : 'Installments are recovered from your withdrawable wallet — 25% of the price per recovery run until fully paid.'}
+                    : 'Payments are collected from your withdrawable wallet daily over the period you choose.'}
                 </p>
               )}
             </div>

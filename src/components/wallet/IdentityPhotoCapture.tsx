@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,7 @@ import PayoutNumberChangeDialog from './PayoutNumberChangeDialog';
 import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
 import NationalIdLinkFlow from './NationalIdLinkFlow';
+import CardCameraCapture from './CardCameraCapture';
 
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -58,10 +59,22 @@ interface ShotTileProps {
   disabled?: boolean;
   /** Which camera to open. A selfie must not open the rear camera. */
   facing?: 'user' | 'environment';
+  /** When set, "Take photo" opens this instead of the native file/camera picker
+   *  (used for the in-page portrait scanner). The native picker stays wired up
+   *  underneath as a fallback — see `openFilePicker` on the ref. */
+  onCustomCapture?: () => void;
 }
 
-function ShotTile({ label, hint, file, onPick, onClear, disabled, facing }: ShotTileProps) {
+export interface ShotTileHandle {
+  /** Opens the plain native file/camera picker, bypassing any custom capture flow. */
+  openFilePicker: () => void;
+}
+
+const ShotTile = forwardRef<ShotTileHandle, ShotTileProps>(function ShotTile(
+  { label, hint, file, onPick, onClear, disabled, facing, onCustomCapture }, ref,
+) {
   const inputRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => ({ openFilePicker: () => inputRef.current?.click() }));
   const preview = file ? URL.createObjectURL(file) : null;
 
   return (
@@ -104,14 +117,14 @@ function ShotTile({ label, hint, file, onPick, onClear, disabled, facing }: Shot
         variant={file ? 'outline' : 'default'}
         className="w-full"
         disabled={disabled}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => (onCustomCapture ? onCustomCapture() : inputRef.current?.click())}
       >
         <Camera className="mr-2 h-4 w-4" />
         {file ? 'Retake' : 'Take photo'}
       </Button>
     </div>
   );
-}
+});
 
 
 /** Thumbnail of a photo already archived in the verification history. */
@@ -602,6 +615,29 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   /* The back of the card. Required: the two lines of code and the card number
      live there, and Financial Ops cannot check a card from its front alone. */
   const [idBackPhoto, setIdBackPhoto] = useState<File | null>(null);
+  /* Which side the in-page portrait scanner is currently open for, if any. */
+  const [cameraTarget, setCameraTarget] = useState<'front' | 'back' | null>(null);
+  const frontShotRef = useRef<ShotTileHandle>(null);
+  const backShotRef = useRef<ShotTileHandle>(null);
+
+  /* Shared by the "Take photo" button and the in-page camera — same effect
+     either way a fresh front photo arrives. */
+  const handleFrontPick = (f: File) => {
+    setIdPhoto(null);
+    setIdReading(null);
+    setReadError(null);
+    setIdRotation(0);
+    setDetailsConfirmed(false);
+    setIdPhoto(f);
+    void readIdPhoto(f);
+  };
+
+  const handleBackPick = (f: File) => {
+    setIdBackPhoto(f);
+    setBackReading(null);
+    setBackReadError(null);
+    void readBackPhoto(f);
+  };
   const [backReading, setBackReading] = useState<NationalIdBackReading | null>(null);
   const [backReadError, setBackReadError] = useState<string | null>(null);
   const [readingBack, setReadingBack] = useState(false);
@@ -822,7 +858,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
    * one-ID-one-account rule, so this call can be refused even when the screen
    * is happy — the refusal names the field at fault.
    */
-  const saveDetails = async (): Promise<boolean> => {
+  /* Returns the failure message directly rather than making the caller re-read
+     `fieldError` afterwards — that state update from setFieldError() below is
+     not visible in this same function's closure until the next render, so a
+     caller reading `fieldError` right after `await saveDetails()` would still
+     see whatever it held BEFORE this call (stale-closure bug: this is exactly
+     what left Ssemanda's retry silent — saveDetails() failed, set fieldError,
+     returned false, and the caller had nothing fresh to show near the button). */
+  const saveDetails = async (): Promise<{ ok: boolean; message?: string }> => {
     setSavingDetails(true);
     setFieldError(null);
     try {
@@ -855,17 +898,19 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         | { success?: boolean; message?: string; field?: string; duplicate?: boolean }
         | null;
       if (!res?.success) {
-        setFieldError({ field: res?.field, message: res?.message || 'Could not save those details.' });
+        const message = res?.message || 'Could not save those details.';
+        setFieldError({ field: res?.field, message });
         // An ID already recorded elsewhere is not a mistake to correct: the
         // holder of that ID can allow this account to join it.
         setDuplicateNin(res?.duplicate ? form.nin : null);
-        return false;
+        return { ok: false, message };
       }
       setDuplicateNin(null);
-      return true;
+      return { ok: true };
     } catch (e) {
-      setFieldError({ message: e instanceof Error ? e.message : 'Could not save those details.' });
-      return false;
+      const message = e instanceof Error ? e.message : 'Could not save those details.';
+      setFieldError({ message });
+      return { ok: false, message };
     } finally {
       setSavingDetails(false);
     }
@@ -1011,8 +1056,15 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       /* The confirmed six go first. `submit_identity_photos` auto-verifies on a
          name match, and it reads the name this call writes — sending the photos
          first would make that check run against a stale or empty name. */
-      const detailsOk = await saveDetails();
-      if (!detailsOk) {
+      const detailsResult = await saveDetails();
+      if (!detailsResult.ok) {
+        /* fieldError (set inside saveDetails) renders far up the page next to
+           the six fields — surface the same message here too, next to the
+           button that was just tapped, or the ring-spins-then-nothing
+           silence reported on Ssemanda's account repeats every retry. */
+        const message = detailsResult.message || 'Could not save your ID details. Please try again.';
+        setSendError(message);
+        toast.error(message);
         setSaving(false);
         return;
       }
@@ -1141,18 +1193,12 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           />
         ) : (
           <ShotTile
+            ref={frontShotRef}
             label="National ID — FRONT"
-            hint="Turn your phone sideways. Keep the card wide and straight, with all four corners visible."
+            hint="Hold your phone upright. Line the card up inside the frame — we'll find the edges for you."
             file={idPhoto}
-            onPick={(f) => {
-              setIdPhoto(null);
-              setIdReading(null);
-              setReadError(null);
-              setIdRotation(0);
-              setDetailsConfirmed(false);
-              setIdPhoto(f);
-              void readIdPhoto(f);
-            }}
+            onCustomCapture={() => setCameraTarget('front')}
+            onPick={handleFrontPick}
             onClear={() => {
               setIdPhoto(null);
               setIdReading(null);
@@ -1419,15 +1465,12 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           />
         ) : (
           <ShotTile
+            ref={backShotRef}
             label="National ID — BACK (required)"
-            hint="Turn your phone sideways. Keep the back wide and straight so the small print can be read."
+            hint="Hold your phone upright. Line the back of the card up inside the frame so the small print can be read."
             file={idBackPhoto}
-            onPick={(f) => {
-              setIdBackPhoto(f);
-              setBackReading(null);
-              setBackReadError(null);
-              void readBackPhoto(f);
-            }}
+            onCustomCapture={() => setCameraTarget('back')}
+            onPick={handleBackPick}
             onClear={() => {
               setIdBackPhoto(null);
               setBackReading(null);
@@ -1591,6 +1634,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
 
 
+        <PayoutNumberVerification userId={user?.id} />
+
+        {/* Repeated right above the button rather than only higher up the page —
+            a disabled "Send" button with its explanation scrolled out of view
+            reads as broken/silent, which is exactly what was reported. */}
         {sendError && (
           <div
             role="alert"
@@ -1616,14 +1664,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               ))}
             </ul>
           </div>
-        )}
-
-        <PayoutNumberVerification userId={user?.id} />
-
-        {!hasVerifiedPayoutNumber && (
-          <p className="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
-            Confirm your payout number above with the code before you can send your photos.
-          </p>
         )}
 
         <Button
@@ -1665,6 +1705,25 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             setSelfieCropped(previewSelfie);
             setPreviewSelfie(null);
           }}
+        />
+
+        <CardCameraCapture
+          open={cameraTarget === 'front'}
+          onOpenChange={(o) => { if (!o) setCameraTarget(null); }}
+          title="National ID — FRONT"
+          instruction="Line the front of the card up inside the box."
+          fileLabel="national-id-front"
+          onCapture={handleFrontPick}
+          onFallback={() => frontShotRef.current?.openFilePicker()}
+        />
+        <CardCameraCapture
+          open={cameraTarget === 'back'}
+          onOpenChange={(o) => { if (!o) setCameraTarget(null); }}
+          title="National ID — BACK"
+          instruction="Turn the card over and line the back up inside the box."
+          fileLabel="national-id-back"
+          onCapture={handleBackPick}
+          onFallback={() => backShotRef.current?.openFilePicker()}
         />
       </CardContent>
     </Card>

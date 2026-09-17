@@ -327,6 +327,57 @@ export function PromissoryNotesQueue({
     },
   });
 
+  // Possible-match suggestions: notes whose partner registered under a slightly
+  // different name/email. Server-side only, never auto-linked — staff confirm.
+  const { data: fuzzySuggestions = [], refetch: refetchFuzzy } = useQuery({
+    queryKey: ['promissory-fuzzy-arrival-suggestions'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('promissory_fuzzy_arrival_suggestions' as any, {});
+      if (error) throw error;
+      return ((data as any)?.suggestions as any[]) || [];
+    },
+  });
+
+  const suggestionsByNote = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const s of fuzzySuggestions) {
+      const list = map.get(s.note_id) || [];
+      list.push(s);
+      map.set(s.note_id, list);
+    }
+    return map;
+  }, [fuzzySuggestions]);
+
+  const [matchReason, setMatchReason] = useState('');
+  const [matchingId, setMatchingId] = useState<string | null>(null);
+
+  const confirmFuzzyMatch = async (noteId: string, candidateUserId: string, candidateName: string) => {
+    const reason = matchReason.trim();
+    if (reason.length < 10) {
+      toast.error('Write a reason of at least 10 characters before linking.');
+      return;
+    }
+    setMatchingId(candidateUserId);
+    try {
+      const { error } = await supabase.rpc('promissory_confirm_arrival_match' as any, {
+        p_note_id: noteId,
+        p_user_id: candidateUserId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+      toast.success(`Note linked to ${candidateName}.`);
+      setMatchReason('');
+      setSelectedNote(null);
+      await refetchFuzzy();
+      queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not link this note.');
+    } finally {
+      setMatchingId(null);
+    }
+  };
+
   const handleReverseBonus = async () => {
     if (!rejectTarget) return;
     const reason = rejectReason.trim();
@@ -1307,18 +1358,76 @@ export function PromissoryNotesQueue({
                     <p className="text-xs font-medium text-muted-foreground uppercase">Partner comparison</p>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-[11px] text-muted-foreground">Promissory note name</p>
                         <p className="font-semibold">{selectedNote.partner_name}</p>
+                        <p className="text-[11px] text-muted-foreground break-all">
+                          {selectedNote.phone_number
+                            ? `Phone: ${selectedNote.phone_number}`
+                            : selectedNote.whatsapp_number
+                              ? `WhatsApp: ${selectedNote.whatsapp_number}`
+                              : 'No phone on the note'}
+                          {selectedNote.email ? ` · Email: ${selectedNote.email}` : ' · No email on the note'}
+                        </p>
                       </div>
+
                     </div>
                     {(() => {
                       const ci = cameInIdentity(selectedNote);
                       if (!ci) {
+                        const suggestions = suggestionsByNote.get(selectedNote.id) || [];
                         return (
-                          <p className="text-[11px] text-muted-foreground">
-                            No registered account matched this note's phone or email yet.
-                          </p>
+                          <div className="space-y-2">
+                            <p className="text-[11px] text-muted-foreground">
+                              No registered account matched this note's phone or email yet.
+                            </p>
+                            {suggestions.length > 0 && (
+                              <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-2">
+                                <p className="text-xs font-semibold text-amber-800">
+                                  Possible match{suggestions.length > 1 ? 'es' : ''} by name — check before linking
+                                </p>
+                                {suggestions.map((s: any) => (
+                                  <div key={s.candidate_user_id} className="rounded border border-amber-200 bg-background/70 p-2 text-xs space-y-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="font-semibold">{s.candidate_name}</p>
+                                      <Badge variant="outline" className="text-[10px] capitalize">
+                                        {s.confidence} confidence
+                                      </Badge>
+                                    </div>
+                                    <p className="text-muted-foreground">
+                                      {s.candidate_phone ? `Phone: ${s.candidate_phone}` : 'No phone on account'}
+                                      {s.candidate_email ? ` · Email: ${s.candidate_email}` : ''}
+                                    </p>
+                                    <p className="text-muted-foreground">
+                                      {s.shared_words} shared name word{s.shared_words === 1 ? '' : 's'} · {Math.round(Number(s.similarity || 0) * 100)}% similar
+                                    </p>
+                                    <p>
+                                      Principal brought in: <span className="font-medium">{formatUGX(Number(s.candidate_principal || 0))}</span>
+                                      {Number(s.candidate_portfolio_count || 0) > 0 ? ` (${s.candidate_portfolio_count} portfolio${Number(s.candidate_portfolio_count) === 1 ? '' : 's'})` : ''}
+                                    </p>
+                                    <p>
+                                      Proxy agent commission if linked: <span className="font-medium">{formatUGX(Number(s.commission_due || 0))}</span>
+                                      {` (${pct(Number(s.commission_rate || 0))})`}
+                                    </p>
+                                    <Button
+                                      size="sm"
+                                      className="h-7 w-full text-xs"
+                                      disabled={matchingId === s.candidate_user_id || matchReason.trim().length < 10}
+                                      onClick={() => confirmFuzzyMatch(selectedNote.id, s.candidate_user_id, s.candidate_name)}
+                                    >
+                                      {matchingId === s.candidate_user_id ? 'Linking…' : 'This is the same person — link'}
+                                    </Button>
+                                  </div>
+                                ))}
+                                <Textarea
+                                  value={matchReason}
+                                  onChange={(e) => setMatchReason(e.target.value)}
+                                  placeholder="Why is this the same person? (at least 10 characters — kept on record)"
+                                  className="min-h-[60px] text-xs"
+                                />
+                              </div>
+                            )}
+                          </div>
                         );
                       }
                       return (

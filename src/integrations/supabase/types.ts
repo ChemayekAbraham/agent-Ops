@@ -26503,6 +26503,7 @@ export type Database = {
           decision_reason: string | null
           expires_at: string
           holder_id: string
+          holder_phone: string | null
           id: string
           nin: string
           nin_fuzzy: string
@@ -26521,6 +26522,7 @@ export type Database = {
           decision_reason?: string | null
           expires_at?: string
           holder_id: string
+          holder_phone?: string | null
           id?: string
           nin: string
           nin_fuzzy: string
@@ -26539,6 +26541,7 @@ export type Database = {
           decision_reason?: string | null
           expires_at?: string
           holder_id?: string
+          holder_phone?: string | null
           id?: string
           nin?: string
           nin_fuzzy?: string
@@ -47789,6 +47792,14 @@ export type Database = {
           },
         ]
       }
+      mv_identity_double_users: {
+        Row: {
+          first_user_id: string | null
+          kind: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       mv_ops_daily_summary: {
         Row: {
           active_24h: number | null
@@ -51168,6 +51179,15 @@ export type Database = {
           p_payment_mode?: string
           p_quantity: number
           p_size?: string
+        }
+        Returns: Json
+      }
+      agent_purchase_merchandise_plan: {
+        Args: {
+          p_catalog_id: string
+          p_quantity: number
+          p_size?: string
+          p_term_months?: number
         }
         Returns: Json
       }
@@ -54589,6 +54609,7 @@ export type Database = {
           commission_earned: number
         }[]
       }
+      get_agent_commission_rate: { Args: { p_agent_id: string }; Returns: Json }
       get_agent_daily_activity_report: {
         Args: { p_date?: string }
         Returns: Json
@@ -55991,6 +56012,7 @@ export type Database = {
           status: string
         }[]
       }
+      get_my_commission_rate: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
@@ -59891,6 +59913,14 @@ export type Database = {
       }
       person_name_key: { Args: { p_name: string }; Returns: string }
       pin_agent_expected_day: { Args: { p_day: string }; Returns: number }
+      pin_agent_expected_day_catchup: {
+        Args: { p_lookback_days?: number }
+        Returns: Json
+      }
+      pin_agent_expected_day_for_plan: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       populate_wallet_review_queue: {
         Args: never
         Returns: {
@@ -59981,6 +60011,14 @@ export type Database = {
       promissory_commission_rate: {
         Args: { p_at?: string; p_kind: string }
         Returns: number
+      }
+      promissory_confirm_arrival_match: {
+        Args: { p_note_id: string; p_reason: string; p_user_id: string }
+        Returns: Json
+      }
+      promissory_fuzzy_arrival_suggestions: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
       }
       promissory_self_support_context: {
         Args: { p_user: string }
@@ -60571,6 +60609,7 @@ export type Database = {
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
       refresh_financial_summaries: { Args: never; Returns: undefined }
       refresh_house_location_rollup: { Args: never; Returns: undefined }
+      refresh_mv_identity_double_users: { Args: never; Returns: undefined }
       refresh_mv_ops_daily_summary: { Args: never; Returns: undefined }
       refresh_tenant_idle_states: { Args: never; Returns: number }
       refresh_ug_geo_alias: { Args: never; Returns: undefined }
@@ -61441,7 +61480,10 @@ export type Database = {
       }
       smoke_promissory_commissions_authorized: { Args: never; Returns: boolean }
       smoke_promissory_support_modes: { Args: never; Returns: Json }
-      sms_cost_ugx: { Args: { p_message: string }; Returns: number }
+      sms_cost_ugx: {
+        Args: { p_message: string; p_provider?: string }
+        Returns: number
+      }
       sms_segment_count: { Args: { p_message: string }; Returns: number }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }

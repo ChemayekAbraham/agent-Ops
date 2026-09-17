@@ -42,9 +42,18 @@ export type NationalIdLinkState = {
 type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{
   data: unknown; error: { message: string } | null;
 }>;
-// Must stay bound: a detached supabase.rpc throws "Cannot read properties of
-// undefined (reading 'rest')" the moment it is called.
 const rpc = supabase.rpc.bind(supabase) as unknown as Rpc;
+
+export type HolderLinkRequest = {
+  id: string;
+  nin: string;
+  status: NationalIdLinkStatus;
+  code_verified_at: string | null;
+  created_at: string;
+  expires_at: string;
+  requester_name: string | null;
+  requester_phone: string | null;
+};
 
 /** Creates (or picks up) this account's open request for that ID number. */
 export function useRequestNationalIdLink() {
@@ -116,18 +125,6 @@ export function useNationalIdLinkOtp() {
 }
 
 /** Requests waiting for THIS account, because it holds the National ID. */
-export type HolderLinkRequest = {
-  id: string;
-  nin: string;
-  status: NationalIdLinkStatus;
-  code_verified_at: string | null;
-  created_at: string;
-  expires_at: string;
-  /** Who is asking — so the holder knows whether they know this person. */
-  requester_name: string | null;
-  requester_phone: string | null;
-};
-
 export function useNationalIdLinkRequestsForHolder() {
   const { user } = useAuth();
   return useQuery({
@@ -137,7 +134,7 @@ export function useNationalIdLinkRequestsForHolder() {
     queryFn: async (): Promise<HolderLinkRequest[]> => {
       const { data, error } = await rpc('national_id_link_holder_requests');
       if (error) throw new Error(error.message);
-      return (data ?? []) as HolderLinkRequest[];
+      return Array.isArray(data) ? data as HolderLinkRequest[] : [];
     },
   });
 }

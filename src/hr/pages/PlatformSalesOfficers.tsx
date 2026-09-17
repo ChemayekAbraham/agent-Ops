@@ -63,6 +63,63 @@ interface NonOfficerFunded {
 
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
+// Numeric value a row is ranked by for a given sort key. 'day-N' keys read the
+// per-weekday buckets; anything else reads the named numeric field.
+function sortValue(row: { weekday: number[] }, key: string): number {
+  if (key.startsWith('day-')) {
+    return row.weekday[Number(key.slice(4))] ?? 0;
+  }
+  const v = (row as unknown as Record<string, unknown>)[key];
+  return typeof v === 'number' ? v : 0;
+}
+
+interface SortableThProps {
+  label: string;
+  sortKey: string;
+  activeKey: string;
+  onSort: (key: string) => void;
+  align?: 'left' | 'right';
+  topHint?: string;
+}
+
+// Column header that sorts the table highest-first when tapped. The active
+// column stays highlighted until another is picked.
+function SortableTh({ label, sortKey, activeKey, onSort, align = 'right', topHint }: SortableThProps) {
+  const active = sortKey === activeKey;
+  return (
+    <th className={cn('px-2 py-2 font-medium', align === 'left' ? 'text-left' : 'text-right')}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+        className={cn(
+          'inline-flex w-full flex-col rounded-md px-1.5 py-0.5 transition-colors',
+          align === 'left' ? 'items-start' : 'items-end',
+          active
+            ? 'bg-primary text-primary-foreground shadow-sm'
+            : 'text-foreground hover:bg-muted',
+        )}
+        aria-pressed={active}
+      >
+        {topHint != null && (
+          <span
+            className={cn(
+              'block text-[10px] font-semibold tabular-nums',
+              active ? 'text-primary-foreground/80' : 'text-muted-foreground',
+            )}
+          >
+            {topHint}
+          </span>
+        )}
+        <span className="inline-flex items-center gap-0.5">
+          {label}
+          {active && <span aria-hidden>▼</span>}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 // The reporting week runs Wednesday → Tuesday, so the day columns start on Wed.
 const WEEKDAY_LABELS = ['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'];
 const WEEKDAY_INITIALS = ['W', 'T', 'F', 'S', 'S', 'M', 'T'];
@@ -215,6 +272,8 @@ export default function PlatformSalesOfficersPage() {
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
   // 0 = the live Wed–Tue week, -1 = the week before it, and so on.
   const [weekOffset, setWeekOffset] = useState(0);
+  // Column the tables are ranked by; 'day-N' sorts by a single weekday column.
+  const [sortKey, setSortKey] = useState<string>('netNotes');
 
   // The Kampala calendar date is state, not a one-off computation, so a screen
   // left open rolls its window over at 00:00 EAT without a reload.
@@ -363,20 +422,68 @@ export default function PlatformSalesOfficersPage() {
       entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes ?? 0;
     }
 
-    return Array.from(byId.values()).sort(
-      (a, b) => b.netNotes - a.netNotes || a.staff_ref.localeCompare(b.staff_ref),
-    );
+    // Commission is a tracking point in its own right: an officer who earned a
+    // 2% conversion or 1% top-up commission in this window is listed even when
+    // no note of theirs falls inside it (or they were enrolled after it).
+    for (const funded of fundedSummaries) {
+      if (byId.has(funded.staff_id)) continue;
+      const hasMoneyActivity =
+        (funded.commission_accrued ?? 0) > 0 ||
+        (funded.commission_base ?? 0) > 0 ||
+        (funded.amount_deployed ?? 0) > 0 ||
+        (funded.notes_funded ?? 0) > 0 ||
+        (funded.topups ?? 0) > 0;
+      if (!hasMoneyActivity) continue;
+      byId.set(funded.staff_id, {
+        staff_id: funded.staff_id,
+        staff_ref: funded.staff_ref,
+        daysElapsed: 0,
+        notesCreated: 0,
+        reversals: 0,
+        netNotes: 0,
+        partnerRegistered: 0,
+        weekday: [0, 0, 0, 0, 0, 0, 0],
+        notesUnapproved: funded.notes_unapproved ?? 0,
+        notesFunded: funded.notes_funded ?? 0,
+        fundersConverted: funded.funders_converted ?? 0,
+        topups: funded.topups ?? 0,
+        amountDeployed: funded.amount_deployed ?? 0,
+        commissionBase: funded.commission_base ?? 0,
+        commissionAccrued: funded.commission_accrued ?? 0,
+        preEnrolmentNotes: funded.pre_enrolment_notes ?? 0,
+        preEnrolmentFunded: funded.pre_enrolment_funded ?? 0,
+        preEnrolmentAmount: funded.pre_enrolment_amount ?? 0,
+      });
+    }
+
+    return Array.from(byId.values());
   }, [rows, fundedSummaries]);
 
-  // Officers on the same total share a rank; the next distinct total takes the
-  // position after the whole tied group. Repeated numbers are correct.
+  // Highest-first on the selected column; ties fall back to net notes then name.
+  const sortedOfficers = useMemo(
+    () =>
+      [...officers].sort(
+        (a, b) =>
+          sortValue(b, sortKey) - sortValue(a, sortKey) ||
+          b.netNotes - a.netNotes ||
+          a.staff_ref.localeCompare(b.staff_ref),
+      ),
+    [officers, sortKey],
+  );
+
+  // Officers on the same sort value share a rank; the next distinct value takes
+  // the position after the whole tied group. Repeated numbers are correct.
   const ranks = useMemo(() => {
     const out: number[] = [];
-    officers.forEach((o, i) => {
-      out.push(i > 0 && officers[i - 1].netNotes === o.netNotes ? out[i - 1] : i + 1);
+    sortedOfficers.forEach((o, i) => {
+      out.push(
+        i > 0 && sortValue(sortedOfficers[i - 1], sortKey) === sortValue(o, sortKey)
+          ? out[i - 1]
+          : i + 1,
+      );
     });
     return out;
-  }, [officers]);
+  }, [sortedOfficers, sortKey]);
 
   const people = useMemo<PersonSummary[]>(() => {
     const fundedById = new Map(nonOfficerFunded.map((s) => [s.person_user_id, s]));
@@ -405,26 +512,60 @@ export default function PlatformSalesOfficersPage() {
       entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes ?? 0;
     }
 
-    return Array.from(byId.values()).sort(
-      (a, b) => b.netNotes - a.netNotes || a.person_name.localeCompare(b.person_name),
-    );
+    // Same rule for other contributors: commission earned in the window puts a
+    // person on the list even with no note of their own inside it.
+    for (const funded of nonOfficerFunded) {
+      if (byId.has(funded.person_user_id)) continue;
+      const hasMoneyActivity =
+        (funded.commission_accrued ?? 0) > 0 ||
+        (funded.commission_base ?? 0) > 0 ||
+        (funded.amount_deployed ?? 0) > 0 ||
+        (funded.notes_funded ?? 0) > 0 ||
+        (funded.topups ?? 0) > 0;
+      if (!hasMoneyActivity) continue;
+      byId.set(funded.person_user_id, {
+        person_user_id: funded.person_user_id,
+        person_name: funded.person_name,
+        netNotes: 0,
+        weekday: [0, 0, 0, 0, 0, 0, 0],
+        notesUnapproved: funded.notes_unapproved ?? 0,
+        notesFunded: funded.notes_funded ?? 0,
+        fundersConverted: funded.funders_converted ?? 0,
+        topups: funded.topups ?? 0,
+        amountDeployed: funded.amount_deployed ?? 0,
+        commissionBase: funded.commission_base ?? 0,
+        commissionAccrued: funded.commission_accrued ?? 0,
+      });
+    }
+
+    return Array.from(byId.values());
   }, [nonOfficerRows, nonOfficerFunded]);
+
+  const sortedPeople = useMemo(
+    () =>
+      [...people].sort(
+        (a, b) =>
+          sortValue(b, sortKey) - sortValue(a, sortKey) ||
+          b.netNotes - a.netNotes ||
+          a.person_name.localeCompare(b.person_name),
+      ),
+    [people, sortKey],
+  );
 
   const peopleRanks = useMemo(() => {
     const out: number[] = [];
-    people.forEach((p, i) => {
-      out.push(i > 0 && people[i - 1].netNotes === p.netNotes ? out[i - 1] : i + 1);
+    sortedPeople.forEach((p, i) => {
+      out.push(
+        i > 0 && sortValue(sortedPeople[i - 1], sortKey) === sortValue(p, sortKey)
+          ? out[i - 1]
+          : i + 1,
+      );
     });
     return out;
-  }, [people]);
+  }, [sortedPeople, sortKey]);
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
-  const officerNetTarget = useMemo(() => {
-    const perOfficer = 40;
-    if (mode === 'WEEKLY') return officers.length * perOfficer * 7;
-    if (mode === 'MONTHLY') return officers.length * perOfficer * 30;
-    return officers.length * perOfficer;
-  }, [mode, officers.length]);
+  const officerNetTarget = useMemo(() => officers.length * 40, [officers]);
   const officerNetPct = useMemo(() => {
     if (officerNetTarget <= 0) return 0;
     return Math.round((netTotal / officerNetTarget) * 100);
@@ -452,60 +593,6 @@ export default function PlatformSalesOfficersPage() {
     for (const p of people) p.weekday.forEach((v, wi) => { weekday[wi] += v; });
     return weekday;
   }, [people]);
-
-  // Combined compilation table — everything below is a straight sum of the two
-  // tables above, so it can never disagree with them.
-  const sumBy = <T,>(rows: T[], pick: (r: T) => number) => rows.reduce((s, r) => s + (pick(r) || 0), 0);
-
-  const officerTotals = useMemo(() => ({
-    netNotes: netTotal,
-    notesUnapproved: sumBy(officers, (o) => o.notesUnapproved),
-    notesFunded: fundedTotal,
-    fundersConverted: sumBy(officers, (o) => o.fundersConverted),
-    topups: sumBy(officers, (o) => o.topups),
-    amountDeployed: moneyTotal,
-    commissionBase: sumBy(officers, (o) => o.commissionBase),
-    commissionAccrued: sumBy(officers, (o) => o.commissionAccrued),
-  }), [officers, netTotal, fundedTotal, moneyTotal]);
-
-  const peopleTotals = useMemo(() => ({
-    netNotes: peopleNetTotal,
-    notesUnapproved: sumBy(people, (p) => p.notesUnapproved),
-    notesFunded: peopleFundedTotal,
-    fundersConverted: sumBy(people, (p) => p.fundersConverted),
-    topups: sumBy(people, (p) => p.topups),
-    amountDeployed: peopleMoneyTotal,
-    commissionBase: sumBy(people, (p) => p.commissionBase),
-    commissionAccrued: sumBy(people, (p) => p.commissionAccrued),
-  }), [people, peopleNetTotal, peopleFundedTotal, peopleMoneyTotal]);
-
-  const combinedTotals = useMemo(() => ({
-    netNotes: officerTotals.netNotes + peopleTotals.netNotes,
-    notesUnapproved: officerTotals.notesUnapproved + peopleTotals.notesUnapproved,
-    notesFunded: officerTotals.notesFunded + peopleTotals.notesFunded,
-    fundersConverted: officerTotals.fundersConverted + peopleTotals.fundersConverted,
-    topups: officerTotals.topups + peopleTotals.topups,
-    amountDeployed: officerTotals.amountDeployed + peopleTotals.amountDeployed,
-    commissionBase: officerTotals.commissionBase + peopleTotals.commissionBase,
-    commissionAccrued: officerTotals.commissionAccrued + peopleTotals.commissionAccrued,
-  }), [officerTotals, peopleTotals]);
-
-  const combinedWeekdayTotals = useMemo(
-    () => officerWeekdayTotals.map((v, wi) => v + peopleWeekdayTotals[wi]),
-    [officerWeekdayTotals, peopleWeekdayTotals],
-  );
-
-  // Net-notes goal for the window shown: 20 notes per person per day, scaled by window.
-  const combinedNetGoal = useMemo(() => {
-    if (mode === 'WEEKLY') return 700;
-    if (mode === 'MONTHLY') return 3000;
-    return 100;
-  }, [mode]);
-  const combinedNetPct = useMemo(
-    () => (combinedNetGoal <= 0 ? 0 : Math.round((combinedTotals.netNotes / combinedNetGoal) * 100)),
-    [combinedTotals.netNotes, combinedNetGoal],
-  );
-
 
 
   const isNotPermitted = error instanceof Error && error.message.includes('not permitted');
@@ -639,7 +726,7 @@ export default function PlatformSalesOfficersPage() {
         ) : (
           <>
             <div className="space-y-2 md:hidden">
-              {officers.map((officer, i) => (
+              {sortedOfficers.map((officer, i) => (
                 <div key={officer.staff_id} className="rounded-xl border bg-card p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -698,33 +785,31 @@ export default function PlatformSalesOfficersPage() {
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">#</th>
                       <th className="px-4 py-2 text-left font-medium">Officer</th>
-                      {dayIndices.map((wi) => {
-                        const d = WEEKDAY_LABELS[wi];
-                        return (
-                          <th key={d} className="px-2 py-2 text-right font-medium">
-                            <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
-                              {officerWeekdayTotals[wi]}
-                            </span>
-                            {d}
-                          </th>
-                        );
-                      })}
+                      {dayIndices.map((wi) => (
+                        <SortableTh
+                          key={wi}
+                          label={WEEKDAY_LABELS[wi]}
+                          sortKey={`day-${wi}`}
+                          activeKey={sortKey}
+                          onSort={setSortKey}
+                          topHint={String(officerWeekdayTotals[wi])}
+                        />
+                      ))}
 
-
-                      <th className="px-4 py-2 text-right font-medium">Total</th>
-                      <th className="px-4 py-2 text-right font-medium">Unapproved</th>
-                      <th className="px-4 py-2 text-right font-medium">Funded</th>
-                      <th className="px-4 py-2 text-right font-medium">Funders</th>
-                      <th className="px-4 py-2 text-right font-medium">Top-ups</th>
-                      <th className="px-4 py-2 text-right font-medium">Money deployed</th>
-                      <th className="px-4 py-2 text-right font-medium">Commission base</th>
-                      <th className="px-4 py-2 text-right font-medium">Commission</th>
-                      <th className="px-4 py-2 text-right font-medium">Pre-enrol</th>
-                      <th className="px-4 py-2 text-right font-medium">Pre-enrol funded</th>
+                      <SortableTh label="Total" sortKey="netNotes" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Unapproved" sortKey="notesUnapproved" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Funded" sortKey="notesFunded" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Funders" sortKey="fundersConverted" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Top-ups" sortKey="topups" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Money deployed" sortKey="amountDeployed" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Commission base" sortKey="commissionBase" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Commission" sortKey="commissionAccrued" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Pre-enrol" sortKey="preEnrolmentNotes" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Pre-enrol funded" sortKey="preEnrolmentFunded" activeKey={sortKey} onSort={setSortKey} />
                     </tr>
                   </thead>
                   <tbody>
-                    {officers.map((officer, i) => (
+                    {sortedOfficers.map((officer, i) => (
                       <tr key={officer.staff_id} className="border-t">
                         <td className="px-4 py-2 text-left tabular-nums">{ranks[i]}</td>
                         <td className="px-4 py-2 font-medium">{officer.staff_ref}</td>
@@ -799,7 +884,7 @@ export default function PlatformSalesOfficersPage() {
             </div>
 
             <div className="space-y-2 md:hidden">
-              {people.map((person, i) => (
+              {sortedPeople.map((person, i) => (
                 <div key={person.person_user_id} className="rounded-xl border bg-card p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -858,33 +943,31 @@ export default function PlatformSalesOfficersPage() {
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">#</th>
                       <th className="px-4 py-2 text-left font-medium">Officer</th>
-                      {dayIndices.map((wi) => {
-                        const d = WEEKDAY_LABELS[wi];
-                        return (
-                          <th key={d} className="px-2 py-2 text-right font-medium">
-                            <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
-                              {peopleWeekdayTotals[wi]}
-                            </span>
-                            {d}
-                          </th>
-                        );
-                      })}
+                      {dayIndices.map((wi) => (
+                        <SortableTh
+                          key={wi}
+                          label={WEEKDAY_LABELS[wi]}
+                          sortKey={`day-${wi}`}
+                          activeKey={sortKey}
+                          onSort={setSortKey}
+                          topHint={String(peopleWeekdayTotals[wi])}
+                        />
+                      ))}
 
-
-                      <th className="px-4 py-2 text-right font-medium">Total</th>
-                      <th className="px-4 py-2 text-right font-medium">Unapproved</th>
-                      <th className="px-4 py-2 text-right font-medium">Funded</th>
-                      <th className="px-4 py-2 text-right font-medium">Funders</th>
-                      <th className="px-4 py-2 text-right font-medium">Top-ups</th>
-                      <th className="px-4 py-2 text-right font-medium">Money deployed</th>
-                      <th className="px-4 py-2 text-right font-medium">Commission base</th>
-                      <th className="px-4 py-2 text-right font-medium">Commission</th>
+                      <SortableTh label="Total" sortKey="netNotes" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Unapproved" sortKey="notesUnapproved" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Funded" sortKey="notesFunded" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Funders" sortKey="fundersConverted" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Top-ups" sortKey="topups" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Money deployed" sortKey="amountDeployed" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Commission base" sortKey="commissionBase" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Commission" sortKey="commissionAccrued" activeKey={sortKey} onSort={setSortKey} />
                       <th className="px-4 py-2 text-right font-medium">Pre-enrol</th>
                       <th className="px-4 py-2 text-right font-medium">Pre-enrol funded</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {people.map((person, i) => (
+                    {sortedPeople.map((person, i) => (
                       <tr key={person.person_user_id} className="border-t">
                         <td className="px-4 py-2 text-left tabular-nums">{peopleRanks[i]}</td>
                         <td className="px-4 py-2 font-medium">{person.person_name}</td>
@@ -920,113 +1003,6 @@ export default function PlatformSalesOfficersPage() {
             </div>
           </div>
         )}
-
-        {!isLoading && (
-          <div className="space-y-2">
-            <div className="flex flex-col gap-0.5 border-t pt-4">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Combined contributions
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                platform sales officers and other contributors added together ·{' '}
-                {mode === 'DAILY'
-                  ? 'goal 100 notes per day'
-                  : mode === 'WEEKLY'
-                    ? 'goal 700 notes per week'
-                    : 'goal 3,000 notes per month'}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-lg border bg-card px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Net notes</div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-base font-bold tabular-nums sm:text-lg">
-                    {combinedTotals.netNotes}/{combinedNetGoal.toLocaleString('en-UG')}
-                  </div>
-                  <div
-                    className={cn(
-                      'text-sm font-bold tabular-nums',
-                      combinedTotals.netNotes >= combinedNetGoal ? 'text-green-600' : 'text-red-600',
-                    )}
-                  >
-                    {combinedNetPct}%
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-lg border bg-card px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funded</div>
-                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedTotals.notesFunded}</div>
-              </div>
-              <div className="rounded-lg border bg-card px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funders</div>
-                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedTotals.fundersConverted}</div>
-              </div>
-              <div className="rounded-lg border bg-card px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Money deployed</div>
-                <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(combinedTotals.amountDeployed)}</div>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto rounded-md border [overscroll-behavior-x:contain]">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-medium">Group</th>
-                    {dayIndices.map((wi) => (
-                      <th key={wi} className="px-2 py-2 text-right font-medium">{WEEKDAY_LABELS[wi]}</th>
-                    ))}
-                    <th className="px-4 py-2 text-right font-medium">Net notes</th>
-                    <th className="px-4 py-2 text-right font-medium">Unapproved</th>
-                    <th className="px-4 py-2 text-right font-medium">Funded</th>
-                    <th className="px-4 py-2 text-right font-medium">Funders</th>
-                    <th className="px-4 py-2 text-right font-medium">Top-ups</th>
-                    <th className="px-4 py-2 text-right font-medium">Money deployed</th>
-                    <th className="px-4 py-2 text-right font-medium">Commission base</th>
-                    <th className="px-4 py-2 text-right font-medium">Commission</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {([
-                    { key: 'officers', name: 'Platform sales officers', weekday: officerWeekdayTotals, t: officerTotals },
-                    { key: 'people', name: 'Other contributors', weekday: peopleWeekdayTotals, t: peopleTotals },
-                    { key: 'combined', name: 'Combined total', weekday: combinedWeekdayTotals, t: combinedTotals },
-                  ] as const).map((group) => (
-                    <tr
-                      key={group.key}
-                      className={cn('border-t', group.key === 'combined' && 'bg-muted/30 font-semibold')}
-                    >
-                      <td className="px-4 py-2 text-left">{group.name}</td>
-                      {dayIndices.map((wi) => (
-                        <td key={wi} className="px-2 py-2 text-right tabular-nums">{group.weekday[wi]}</td>
-                      ))}
-                      <td className="px-4 py-2 text-right tabular-nums">{group.t.netNotes}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {group.t.notesUnapproved === 0 ? '—' : group.t.notesUnapproved}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">{group.t.notesFunded}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{group.t.fundersConverted}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {group.t.topups === 0 ? '—' : group.t.topups}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        UGX {group.t.amountDeployed.toLocaleString('en-UG')}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        UGX {group.t.commissionBase.toLocaleString('en-UG')}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        UGX {group.t.commissionAccrued.toLocaleString('en-UG')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-
 
 
         <p className="text-xs text-muted-foreground">

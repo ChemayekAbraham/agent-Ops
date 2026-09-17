@@ -1055,15 +1055,64 @@
     {
       "idx": 150,
       "version": "7",
-      "when": 1789633167020,
-      "tag": "0150_create_ledger_transaction_locked",
+      "when": 1789638100728,
+      "tag": "0150_merchandise_installment_term_plan",
       "breakpoints": true
     },
     {
       "idx": 151,
       "version": "7",
-      "when": 1789633686508,
-      "tag": "0151_national_id_link_holder_requests",
+      "when": 1789642499421,
+      "tag": "0151_arrears_cap_at_plan_outstanding",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1789643050485,
+      "tag": "0152_arrears_never_bill_before_go_live",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1789645089817,
+      "tag": "0153_block_collection_until_landlord_paid",
+      "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1789648591722,
+      "tag": "0154_promissory_fuzzy_suggestions_include_dangling_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1789649606279,
+      "tag": "0155_one_commission_rate_source_of_truth",
+      "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1789649906871,
+      "tag": "0156_fuzzy_suggestions_include_candidate_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1789650900054,
+      "tag": "0157_grant_merchandise_tables_api_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 158,
+      "version": "7",
+      "when": 1789651320237,
+      "tag": "0158_pso_non_officer_summary_include_commission_only_people",
       "breakpoints": true
     }
   ]
