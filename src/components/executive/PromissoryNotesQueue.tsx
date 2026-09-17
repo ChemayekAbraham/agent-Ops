@@ -1386,8 +1386,8 @@ export function PromissoryNotesQueue({
                                       </Badge>
                                     </div>
                                     <p className="text-muted-foreground">
-                                      Note name: {selectedNote.partner_name}
-                                      {s.candidate_phone ? ` · ${s.candidate_phone}` : ''}
+                                      {s.candidate_phone ? `Phone: ${s.candidate_phone}` : 'No phone on account'}
+                                      {s.candidate_email ? ` · Email: ${s.candidate_email}` : ''}
                                     </p>
                                     <p className="text-muted-foreground">
                                       {s.shared_words} shared name word{s.shared_words === 1 ? '' : 's'} · {Math.round(Number(s.similarity || 0) * 100)}% similar
