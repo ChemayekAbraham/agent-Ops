@@ -1075,6 +1075,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   const handleSave = async () => {
     if (!user?.id) return;
+    // A name already held on another account's National ID can never be sent.
+    if (nameTaken) {
+      const message = 'These names are already taken on another account holding a different '
+        + 'National ID. Enter your own real names exactly as printed on your own card.';
+      setSendError(message);
+      toast.error(message);
+      return;
+    }
     if (!ready) {
       setSendError(
         blockers.length > 0
