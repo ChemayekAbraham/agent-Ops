@@ -949,6 +949,40 @@ export default function PayoutVerificationPanel() {
 
   const position = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + index + 1;
 
+  /* One person can have several payout numbers waiting, so the queue holds one
+     card per number. Navigation therefore has two moves: the next NUMBER for
+     the same person, and the next real PERSON (skipping the rest of their
+     numbers). */
+  const sameUserIdx = useMemo(
+    () => (row ? rows.map((r, i) => (r.user_id === row.user_id ? i : -1)).filter((i) => i >= 0) : []),
+    [rows, row],
+  );
+  const nextSameIdx = useMemo(() => sameUserIdx.find((i) => i > index) ?? -1, [sameUserIdx, index]);
+  const nextPersonIdx = useMemo(
+    () => (row ? rows.findIndex((r, i) => i > index && r.user_id !== row.user_id) : -1),
+    [rows, index, row],
+  );
+  const prevPersonIdx = useMemo(() => {
+    if (!row) return -1;
+    let i = index - 1;
+    while (i >= 0 && rows[i].user_id === row.user_id) i -= 1;
+    if (i < 0) return -1;
+    const otherUser = rows[i].user_id;
+    while (i > 0 && rows[i - 1].user_id === otherUser) i -= 1;
+    return i;
+  }, [rows, index, row]);
+  const personNumbersInQueue = sameUserIdx.length;
+  const personNumberPosition = Math.max(1, sameUserIdx.indexOf(index) + 1);
+
+  const goNextPerson = () => {
+    if (nextPersonIdx >= 0) setIndex(nextPersonIdx);
+    else goTo((page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE);
+  };
+  const goPrevPerson = () => {
+    if (prevPersonIdx >= 0) setIndex(prevPersonIdx);
+    else goTo(position - 2);
+  };
+
   const goTo = (nextGlobal: number) => {
     const maxGlobal = total - 1;
     const clamped = Math.max(0, Math.min(maxGlobal, nextGlobal));
