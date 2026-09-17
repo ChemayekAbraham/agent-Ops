@@ -1,4 +1,4 @@
-- [ ] Calling Center: enforce one concern per call, add reviewers to the same audit trail, clear the duplicated Kato concern, and verify.
+- [x] Calling Center: enforce one concern per call, add reviewers to the same audit trail, clear the duplicated Kato concern, and verify.
 # Roadmap
 
 - [x] Calling Center forwarding: keep staff selection, confirm persistence, refresh received-call and forwarded-concern statistics, and remove circular concern-history access rules.
