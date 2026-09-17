@@ -614,6 +614,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [reading, setReading] = useState(false);
   const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
+  /* Nothing is sent until the person has looked at what the reader saw and said
+     it matches their card. Any edit, retake or fresh read clears this. */
+  const [detailsConfirmed, setDetailsConfirmed] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
   /* The six fields, prefilled by the reader and editable by the person. What
      they submit is compared against what the reader saw, and the difference is
@@ -677,6 +680,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   const readIdPhoto = async (file: File) => {
     setReading(true);
+    setDetailsConfirmed(false);
     setIdReading(null);
     setReadError(null);
     setFieldError(null);
@@ -854,7 +858,13 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const idRejected = idReading?.status === 'invalid';
   const faceProblem = faceCheckBlocker(faceCheck);
 
-  const ready = haveId && haveSelfie && detailsComplete && !idRejected && !faceProblem;
+  /* A freshly read card must be confirmed line by line by its owner before it
+     is sent. A stored photo already on file was confirmed when it was sent. */
+  const needsConfirm = !!idPhoto && !!idReading && idReading.status !== 'invalid';
+  const confirmDone = !needsConfirm || detailsConfirmed;
+
+  const ready =
+    haveId && haveSelfie && detailsComplete && !idRejected && !faceProblem && confirmDone;
 
   // Spelled out on screen so nobody stares at a dead button wondering why.
   const blockers = [
@@ -869,6 +879,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       ? `Fill in ${missingDetails.map((k) => ID_FIELD_LABEL[k]).join(', ')} from your card.`
       : null,
     !hasVerifiedPayoutNumber ? 'Confirm your payout number with the code.' : null,
+    needsConfirm && !detailsConfirmed && detailsComplete
+      ? 'Confirm the details we read from your ID are exactly as on your card.'
+      : null,
   ].filter(Boolean) as string[];
 
 
@@ -1010,6 +1023,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               setIdPhoto(f);
               setIdReading(null);
               setReadError(null);
+              setDetailsConfirmed(false);
               void readIdPhoto(f);
             }}
             onClear={() => {
@@ -1018,6 +1032,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               setReadError(null);
               setForm(EMPTY_ID_DATA);
               setFieldError(null);
+              setDetailsConfirmed(false);
             }}
             disabled={saving}
           />
@@ -1096,6 +1111,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                               : raw.toUpperCase();
                             setForm((f) => ({ ...f, [key]: next }));
                             setFieldError(null);
+                            setDetailsConfirmed(false);
                           }}
                         />
                       </div>
@@ -1163,6 +1179,70 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                     Some details on the card do not agree with each other. Financial Ops will look
                     at this.
                   </p>
+                )}
+
+                {/* Confirm or retake: the owner of the card decides whether what
+                    we read is exactly what is printed on it, before anything is
+                    sent for verification. */}
+                {needsConfirm && detailsComplete && (
+                  detailsConfirmed ? (
+                    <div className="flex items-start justify-between gap-3 rounded-lg border-2 border-emerald-500/60 bg-emerald-500/10 p-3">
+                      <p className="flex items-start gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                        You confirmed these details match your card. You can send now.
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 shrink-0 text-xs"
+                        disabled={saving || savingDetails}
+                        onClick={() => setDetailsConfirmed(false)}
+                      >
+                        Change
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 rounded-lg border-2 border-primary/50 bg-primary/5 p-3">
+                      <p className="text-sm font-bold">Is this exactly what is on your card?</p>
+                      <ul className="space-y-1">
+                        {(Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[]).map((key) => (
+                          <li key={key} className="flex justify-between gap-3 text-xs">
+                            <span className="text-muted-foreground">{ID_FIELD_LABEL[key]}</span>
+                            <span className="text-right font-bold">{String(form[key] ?? '') || '—'}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-muted-foreground">
+                        Compare every line with your card. If anything is wrong, correct it above or
+                        take the photo again.
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          className="h-11 flex-1"
+                          disabled={saving || savingDetails}
+                          onClick={() => setDetailsConfirmed(true)}
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Yes, these are correct
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-11 flex-1"
+                          disabled={saving || savingDetails}
+                          onClick={() => {
+                            setIdPhoto(null);
+                            setIdReading(null);
+                            setReadError(null);
+                            setForm(EMPTY_ID_DATA);
+                            setFieldError(null);
+                            setDetailsConfirmed(false);
+                          }}
+                        >
+                          No, retake the photo
+                        </Button>
+                      </div>
+                    </div>
+                  )
                 )}
               </>
             )}
@@ -1279,7 +1359,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
         <Button
           className="w-full"
-          disabled={saving || !hasVerifiedPayoutNumber}
+          disabled={saving || !hasVerifiedPayoutNumber || !confirmDone}
           onClick={handleSave}
         >
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
