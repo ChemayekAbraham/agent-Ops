@@ -333,9 +333,14 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
           <>
           {visible.map((tenant) => {
             const balance = tenantBalances[tenant.id] || 0;
+            const unfunded = unfundedBalances[tenant.id] || 0;
             const isNotPaying = notPayingIds.has(tenant.id);
+            // Money was released as landlord float to the agent, but the
+            // landlord has not been paid yet — never show this as cleared.
+            const awaitingLandlord = !isNotPaying && balance <= 0 && unfunded > 0;
             const hasDebt = balance > 0 && !isNotPaying;
-            const isCompleted = !isNotPaying && balance <= 0 && completedTenantIds.has(tenant.id);
+            const isCompleted =
+              !isNotPaying && !awaitingLandlord && balance <= 0 && completedTenantIds.has(tenant.id);
             const latest = tenant.latest_status;
             const isPendingReview = latest === 'pending';
             const isApproved = latest === 'approved';
@@ -344,14 +349,16 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
               ? { label: 'Not paying', cls: 'bg-amber-100 text-amber-700' }
               : isPendingReview
                 ? { label: 'Pending review', cls: 'bg-amber-100 text-amber-700' }
-                : isApproved
-                  ? { label: 'Approved', cls: 'bg-emerald-100 text-emerald-700' }
-                  : hasDebt && isLiveRequest
-                    ? { label: 'Repaying', cls: 'bg-rose-100 text-rose-700' }
-                    : isCompleted
-                      ? { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' }
-                      : { label: 'Paid up', cls: 'bg-emerald-100 text-emerald-700' };
-            const toneText = isNotPaying || isPendingReview
+                : awaitingLandlord
+                  ? { label: 'Landlord not paid', cls: 'bg-amber-100 text-amber-700' }
+                  : isApproved
+                    ? { label: 'Approved', cls: 'bg-emerald-100 text-emerald-700' }
+                    : hasDebt && isLiveRequest
+                      ? { label: 'Repaying', cls: 'bg-rose-100 text-rose-700' }
+                      : isCompleted
+                        ? { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' }
+                        : { label: 'Paid up', cls: 'bg-emerald-100 text-emerald-700' };
+            const toneText = isNotPaying || isPendingReview || awaitingLandlord
               ? 'text-amber-600'
               : hasDebt && isLiveRequest
                 ? 'text-rose-600'
