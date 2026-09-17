@@ -818,9 +818,11 @@ Deno.serve(async (req) => {
           `registered in your name (${recipientName || "the account holder"}). If you agree, share this code with them: ${otp}. ` +
           `If you did NOT authorise this, ignore this message.`
         : purpose === "national_id_link"
-        ? `Welile: ${subjectName || "A Welile user"} wants to link their Welile account to your National ID ${ninRef || ""}. ` +
-          `If you agree, share this code with them: ${otp}. You must also confirm it in the Welile app. ` +
-          `If you did NOT authorise this, ignore this message.`
+        /* Kept inside ONE SMS part on purpose: the earlier long wording split into
+           two concatenated parts, which Ugandan networks drop far more often, so
+           the holder was charged for a code that never showed on the handset. */
+        ? `Welile: ${(subjectName || "A Welile user").slice(0, 24)} asks to join your National ID ` +
+          `...${(ninRef || "").slice(-4)}. Code ${otp}. Share only if you agree.`
         : `Your Welile verification code is: ${otp}. It expires in 1 hour. Do not share this code.`;
 
       // Max time we'll block the client on gateway acceptance.
