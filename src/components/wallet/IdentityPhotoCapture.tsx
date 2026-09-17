@@ -729,6 +729,28 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setReading(false);
   };
 
+  /**
+   * Reads the back of the card. Same orientation correction as the front. The
+   * back is archived either way — an unreadable back is reported, never used to
+   * refuse the submission — but photographing the FRONT twice is caught here.
+   */
+  const readBackPhoto = async (file: File) => {
+    setReadingBack(true);
+    setBackReading(null);
+    setBackReadError(null);
+    const res = await readNationalIdBackPhoto(file);
+    if ('error' in res && res.error) {
+      setBackReadError((res as { error: string }).error);
+      setReadingBack(false);
+      return;
+    }
+    const b = res as NationalIdBackReading;
+    if (b.corrected) setIdBackPhoto(b.file);
+    setBackReading(b);
+    setReadingBack(false);
+  };
+
+
   /** Ask the same checker the rent request uses whether the selfie is a real face. */
   const runFaceCheck = async (file: File) => {
     setFaceCheck({ status: 'checking' });
