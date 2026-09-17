@@ -577,7 +577,7 @@ const MyRequisitions = () => {
                   <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Cancel</Button>
                   <Button onClick={() => void submit()} disabled={submitting}>
                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {resubmitId ? 'Resubmit' : 'Submit for review'}
+                    {resubmitId ? 'Resubmit' : kind === 'staff_loan' ? 'Submit loan request' : 'Submit for review'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -602,6 +602,12 @@ const MyRequisitions = () => {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs text-muted-foreground">{row.requisition_code}</span>
                       <StatusPill row={row} />
+                      {row.request_kind === 'staff_loan' && (
+                        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                          <Landmark className="mr-1 h-3 w-3" />
+                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • 30%/month
+                        </Badge>
+                      )}
                     </div>
                     <p className="font-semibold">{row.title}</p>
                     <p className="text-xs text-muted-foreground">Raised {fmtDate(row.created_at)}</p>
