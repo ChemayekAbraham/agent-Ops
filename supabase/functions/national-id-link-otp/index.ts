@@ -14,6 +14,23 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+/**
+ * supabase-js only says "non-2xx status code" — the reason the send failed
+ * (rate limit, provider refusal) is in the response body, so read it out and
+ * pass the real sentence, and the real status, back to the caller.
+ */
+const readUpstream = async (err: unknown): Promise<{ status: number; message: string | null }> => {
+  const ctx = (err as { context?: Response })?.context;
+  if (!ctx || typeof ctx.text !== "function") return { status: 502, message: null };
+  try {
+    const raw = await ctx.text();
+    const parsed = raw ? (JSON.parse(raw) as { error?: string; retry_after?: number }) : {};
+    return { status: ctx.status || 502, message: parsed.error ?? null };
+  } catch {
+    return { status: ctx.status || 502, message: null };
+  }
+};
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
