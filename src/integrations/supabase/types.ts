@@ -8932,6 +8932,53 @@ export type Database = {
         }
         Relationships: []
       }
+      cc_concern_reviewers: {
+        Row: {
+          added_by: string | null
+          added_by_name: string | null
+          concern_id: string
+          created_at: string
+          full_name: string | null
+          id: string
+          note: string | null
+          role: string
+          staff_id: string | null
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          added_by_name?: string | null
+          concern_id: string
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          note?: string | null
+          role?: string
+          staff_id?: string | null
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          added_by_name?: string | null
+          concern_id?: string
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          note?: string | null
+          role?: string
+          staff_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_concern_reviewers_concern_id_fkey"
+            columns: ["concern_id"]
+            isOneToOne: false
+            referencedRelation: "cc_forwarded_concerns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cc_cycle_populations: {
         Row: {
           active: boolean
@@ -52716,6 +52763,10 @@ export type Database = {
         Args: { p_cycle_id: string; p_reason: string }
         Returns: undefined
       }
+      cc_add_concern_reviewer: {
+        Args: { p_concern_id: string; p_note?: string; p_user_id: string }
+        Returns: Json
+      }
       cc_amend_feedback: {
         Args: {
           p_category_id: string
@@ -52815,6 +52866,17 @@ export type Database = {
         Returns: Json
       }
       cc_concern_powers: { Args: never; Returns: Json }
+      cc_concern_reviewer_list: {
+        Args: { p_concern_ids: string[] }
+        Returns: {
+          added_by_name: string
+          concern_id: string
+          created_at: string
+          full_name: string
+          role: string
+          user_id: string
+        }[]
+      }
       cc_cycle_outstanding: {
         Args: { p_cycle_id: string }
         Returns: {
