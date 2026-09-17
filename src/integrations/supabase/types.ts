@@ -52978,6 +52978,16 @@ export type Database = {
         Args: { entries: Json }
         Returns: Json
       }
+      create_ledger_transaction_locked: {
+        Args: {
+          entries: Json
+          idempotency_key?: string
+          lock_user_id: string
+          min_available?: number
+          skip_balance_check?: boolean
+        }
+        Returns: string
+      }
       create_or_refresh_campaign_attribution: {
         Args: {
           p_click_id?: string
