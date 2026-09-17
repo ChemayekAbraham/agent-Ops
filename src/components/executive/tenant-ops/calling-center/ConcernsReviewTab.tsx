@@ -8,7 +8,7 @@
  * complete) belongs to the person it was forwarded to, in their My Space.
  */
 import { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CCBlock, CCEmpty, CCPanel, CC_ROW_BUTTON } from './ccUi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
