@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
     if (startErr) throw new Error(`run_start: ${startErr.message}`);
     runId = (startedId as string) ?? null;
 
-    const vDay = kampalaToday();
+    const vDay = requestedDay ?? kampalaToday();
     const untilISO = `${vDay}T14:00:00Z`;
     const untilMs = Date.parse(untilISO);
     const sinceISO = new Date(untilMs - 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
