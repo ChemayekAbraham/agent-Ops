@@ -614,6 +614,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const [reading, setReading] = useState(false);
   const [idReading, setIdReading] = useState<NationalIdReading | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
+  /* Nothing is sent until the person has looked at what the reader saw and said
+     it matches their card. Any edit, retake or fresh read clears this. */
+  const [detailsConfirmed, setDetailsConfirmed] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
   /* The six fields, prefilled by the reader and editable by the person. What
      they submit is compared against what the reader saw, and the difference is
