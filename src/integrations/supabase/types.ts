@@ -54377,6 +54377,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      engrep_svc_record_file_touches: {
+        Args: {
+          p_engineer_id: string
+          p_evidence_ref: string
+          p_files: Json
+          p_source: string
+          p_touched_at: string
+          p_window_id: string
+        }
+        Returns: number
+      }
       engrep_svc_resolve_lineage: {
         Args: { p_window_id: string }
         Returns: number
