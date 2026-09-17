@@ -252,27 +252,9 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
 
   const dailyBanner = (() => {
     if (!cap || cap.daily_status === 'starter') return null;
-    // New agents (under the tenant threshold) are NOT regulated by daily
-    // performance yet — they post freely up to UGX 2,000,000 per tenant.
-    // Show them an onboarding banner instead of the daily-performance rating.
-    if (cap.is_new_agent) {
-      const remaining = Math.max(NEW_AGENT_TENANT_THRESHOLD - cap.active_tenant_count, 0);
-      return (
-        <div className="rounded-xl border border-sky-500/40 bg-sky-500/10 p-3 text-sky-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-wide">New Agent — Building Your Book</span>
-            <DailyRatingThresholdPopover />
-          </div>
-          <p className="text-[11px] leading-snug opacity-95">
-            You can post rent requests up to <strong className="font-mono">{formatUGX(NEW_AGENT_RENT_CAP_UGX)}</strong> per tenant.
-            You currently have <strong>{cap.active_tenant_count}</strong> active {cap.active_tenant_count === 1 ? 'tenant' : 'tenants'}.
-            {remaining > 0
-              ? ` Once you reach ${NEW_AGENT_TENANT_THRESHOLD} active tenants (${remaining} more to go), your posting limit becomes regulated by your daily collection performance.`
-              : ''}
-          </p>
-        </div>
-      );
-    }
+    // New agents are NOT exempt from the daily collection law — the database
+    // enforces it on everyone. They keep the smaller per-tenant cap only.
+
     const rating = cap.daily_rating;
     const ypct = Math.round(cap.yesterday_response_pct * 100);
     const tpct = Math.round(cap.today_response_pct * 100);
