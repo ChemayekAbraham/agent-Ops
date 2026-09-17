@@ -1,10 +1,12 @@
 /**
  * SMS cost/usage report — for reconciling actual spend against Yoola credit
  * top-ups. Backed by get_sms_cost_report, which computes cost independently
- * from message length (30 UGX per GSM-7/UCS-2 segment) rather than trusting
- * sms_delivery_log.cost, the provider's own self-reported figure — that
- * column is only populated for ~70% of Yoola rows and contains clear errors
- * in the rest (see the migration's comment for specifics).
+ * from message length and provider (30 UGX/segment for Yoola and everything
+ * else, 25 UGX/segment for Africa's Talking — confirmed directly by AT
+ * support) rather than trusting sms_delivery_log.cost, the provider's own
+ * self-reported figure — that column is only populated for ~70% of Yoola
+ * rows and contains clear errors in the rest (see the migration's comment
+ * for specifics).
  *
  * Data-fetching only — this file is Claude's lane (src/hooks/). Any
  * cards/tables/buttons consuming this belong in src/components/ per
