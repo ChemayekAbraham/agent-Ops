@@ -577,6 +577,15 @@ export default function PlatformSalesOfficersPage() {
   const peopleFundedTotal = useMemo(() => people.reduce((s, p) => s + p.notesFunded, 0), [people]);
   const peopleMoneyTotal = useMemo(() => people.reduce((s, p) => s + p.amountDeployed, 0), [people]);
   const combinedNetTotal = netTotal + peopleNetTotal;
+  const combinedNetTarget = useMemo(() => {
+    if (mode === 'DAILY') return 100;
+    if (mode === 'WEEKLY') return 700;
+    return 3000;
+  }, [mode]);
+  const combinedNetPct = useMemo(() => {
+    if (combinedNetTarget <= 0) return 0;
+    return Math.round((combinedNetTotal / combinedNetTarget) * 100);
+  }, [combinedNetTotal, combinedNetTarget]);
   const combinedFundedTotal = fundedTotal + peopleFundedTotal;
   const combinedMoneyTotal = moneyTotal + peopleMoneyTotal;
   const combinedContributors = officers.length + people.length;
@@ -1040,7 +1049,17 @@ export default function PlatformSalesOfficersPage() {
               </div>
               <div className="rounded-lg border bg-card px-3 py-2">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Net notes</div>
-                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedNetTotal}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-base font-bold tabular-nums sm:text-lg">{combinedNetTotal}/{combinedNetTarget}</div>
+                  <div
+                    className={cn(
+                      'text-sm font-bold tabular-nums',
+                      combinedNetTotal >= combinedNetTarget ? 'text-green-600' : 'text-red-600',
+                    )}
+                  >
+                    {combinedNetPct}%
+                  </div>
+                </div>
               </div>
               <div className="rounded-lg border bg-card px-3 py-2">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funded</div>
