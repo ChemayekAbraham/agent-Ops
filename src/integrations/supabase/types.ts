@@ -26503,6 +26503,7 @@ export type Database = {
           decision_reason: string | null
           expires_at: string
           holder_id: string
+          holder_phone: string | null
           id: string
           nin: string
           nin_fuzzy: string
@@ -26521,6 +26522,7 @@ export type Database = {
           decision_reason?: string | null
           expires_at?: string
           holder_id: string
+          holder_phone?: string | null
           id?: string
           nin: string
           nin_fuzzy: string
@@ -26539,6 +26541,7 @@ export type Database = {
           decision_reason?: string | null
           expires_at?: string
           holder_id?: string
+          holder_phone?: string | null
           id?: string
           nin?: string
           nin_fuzzy?: string
@@ -51171,6 +51174,15 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_purchase_merchandise_plan: {
+        Args: {
+          p_catalog_id: string
+          p_quantity: number
+          p_size?: string
+          p_term_months?: number
+        }
+        Returns: Json
+      }
       agent_request_subagent_tenant_transfer: {
         Args: {
           p_reason: string
@@ -52977,6 +52989,16 @@ export type Database = {
       create_ledger_transaction_accrual_only: {
         Args: { entries: Json }
         Returns: Json
+      }
+      create_ledger_transaction_locked: {
+        Args: {
+          entries: Json
+          idempotency_key?: string
+          lock_user_id: string
+          min_available?: number
+          skip_balance_check?: boolean
+        }
+        Returns: string
       }
       create_or_refresh_campaign_attribution: {
         Args: {
@@ -56617,6 +56639,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_sms_cost_report: {
+        Args: { p_end?: string; p_provider?: string; p_start?: string }
+        Returns: Json
+      }
       get_sms_traffic_daily: {
         Args: { p_days?: number }
         Returns: {
@@ -58670,6 +58696,7 @@ export type Database = {
       }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
+      national_id_link_holder_requests: { Args: never; Returns: Json }
       national_id_link_mark_code_sent: {
         Args: { p_request_id: string; p_requester_id: string }
         Returns: Json
@@ -59966,6 +59993,14 @@ export type Database = {
       promissory_commission_rate: {
         Args: { p_at?: string; p_kind: string }
         Returns: number
+      }
+      promissory_confirm_arrival_match: {
+        Args: { p_note_id: string; p_reason: string; p_user_id: string }
+        Returns: Json
+      }
+      promissory_fuzzy_arrival_suggestions: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
       }
       promissory_self_support_context: {
         Args: { p_user: string }
@@ -61426,6 +61461,8 @@ export type Database = {
       }
       smoke_promissory_commissions_authorized: { Args: never; Returns: boolean }
       smoke_promissory_support_modes: { Args: never; Returns: Json }
+      sms_cost_ugx: { Args: { p_message: string }; Returns: number }
+      sms_segment_count: { Args: { p_message: string }; Returns: number }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }
         Returns: number

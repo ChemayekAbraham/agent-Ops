@@ -1051,6 +1051,13 @@
       "when": 1789628207817,
       "tag": "0149_pin_expected_day_topup_and_past_term_fallback",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1789638100728,
+      "tag": "0150_merchandise_installment_term_plan",
+      "breakpoints": true
     }
   ]
 }
