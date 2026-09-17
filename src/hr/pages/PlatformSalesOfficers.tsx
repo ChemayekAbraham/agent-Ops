@@ -930,7 +930,11 @@ export default function PlatformSalesOfficersPage() {
               </span>
               <span className="text-[11px] text-muted-foreground">
                 platform sales officers and other contributors added together ·{' '}
-                {mode === 'DAILY' ? 'goal 100 notes a day' : mode === 'WEEKLY' ? 'goal 700 notes a week' : 'goal 3,000 notes a month'}
+                {mode === 'DAILY'
+                  ? 'goal 20 notes per person per day'
+                  : mode === 'WEEKLY'
+                    ? 'goal 20 notes per person per day × 7'
+                    : 'goal 20 notes per person per day × 30'}
               </span>
             </div>
 
