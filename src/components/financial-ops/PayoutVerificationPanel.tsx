@@ -1290,7 +1290,10 @@ export default function PayoutVerificationPanel() {
         userId: target.user_id,
         decision: 'verified',
         reason:
-          'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.',
+          'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.' +
+          (nameCheck
+            ? ` Name check on the payout number showed "${nameCheck.networkName}" — same person as the National ID.`
+            : ''),
       });
       const idName = (target.national_id_name || '').trim();
       const before = (target.full_name || target.account_name || '').trim();
