@@ -656,3 +656,41 @@ export function maskIdNumber(value: string | null | undefined): string | null {
   if (raw.length <= 4) return '*'.repeat(raw.length);
   return `${raw.slice(0, 2)}${'*'.repeat(Math.min(6, raw.length - 4))}${raw.slice(-2)}`;
 }
+
+/**
+ * Every payout number one person has submitted, newest first — read-only, for
+ * the Financial Ops drill-down that shows "this person has N requests".
+ * Financial Ops, CFO and super admin can read all rows (RLS); a user reads
+ * only their own.
+ */
+export interface PersonPayoutDestination {
+  id: string;
+  destination_type: string | null;
+  provider: string | null;
+  momo_number: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  status: PayoutVerificationStatus;
+  decided_at: string | null;
+  first_seen_at: string | null;
+  created_at: string | null;
+}
+
+export function usePersonPayoutDestinations(userId?: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['person-payout-destinations', userId],
+    enabled: !!userId && enabled,
+    staleTime: 15_000,
+    queryFn: async (): Promise<PersonPayoutDestination[]> => {
+      const { data, error } = await supabase
+        .from('payout_destination_verifications')
+        .select(
+          'id, destination_type, provider, momo_number, bank_name, bank_account_number, status, decided_at, first_seen_at, created_at',
+        )
+        .eq('user_id', userId as string)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as PersonPayoutDestination[];
+    },
+  });
+}

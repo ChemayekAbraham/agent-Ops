@@ -93,6 +93,7 @@ import {
 
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
+  usePersonPayoutDestinations,
   PayoutQueueError,
   type PayoutDestinationRow,
   type PayoutVerificationCounts,
@@ -891,6 +892,7 @@ export default function PayoutVerificationPanel() {
   const [deciding, setDeciding] = useState(false);
   const [confirmingVerify, setConfirmingVerify] = useState<PayoutDestinationRow | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
+  const [personNumbersOpen, setPersonNumbersOpen] = useState(false);
   const focusCardRef = useRef<HTMLDivElement | null>(null);
   const skipInitialScrollRef = useRef(true);
 
@@ -911,6 +913,7 @@ export default function PayoutVerificationPanel() {
   const row: PayoutDestinationRow | null = rows[Math.min(index, rows.length - 1)] ?? null;
 
   const photos = useIdentityPhotosFor(row?.user_id);
+  const personNumbers = usePersonPayoutDestinations(row?.user_id, personNumbersOpen);
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
   const photosReady = !!idPath && !!selfiePath;
@@ -948,6 +951,40 @@ export default function PayoutVerificationPanel() {
   }, [row?.id]);
 
   const position = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + index + 1;
+
+  /* One person can have several payout numbers waiting, so the queue holds one
+     card per number. Navigation therefore has two moves: the next NUMBER for
+     the same person, and the next real PERSON (skipping the rest of their
+     numbers). */
+  const sameUserIdx = useMemo(
+    () => (row ? rows.map((r, i) => (r.user_id === row.user_id ? i : -1)).filter((i) => i >= 0) : []),
+    [rows, row],
+  );
+  const nextSameIdx = useMemo(() => sameUserIdx.find((i) => i > index) ?? -1, [sameUserIdx, index]);
+  const nextPersonIdx = useMemo(
+    () => (row ? rows.findIndex((r, i) => i > index && r.user_id !== row.user_id) : -1),
+    [rows, index, row],
+  );
+  const prevPersonIdx = useMemo(() => {
+    if (!row) return -1;
+    let i = index - 1;
+    while (i >= 0 && rows[i].user_id === row.user_id) i -= 1;
+    if (i < 0) return -1;
+    const otherUser = rows[i].user_id;
+    while (i > 0 && rows[i - 1].user_id === otherUser) i -= 1;
+    return i;
+  }, [rows, index, row]);
+  const personNumbersInQueue = sameUserIdx.length;
+  const personNumberPosition = Math.max(1, sameUserIdx.indexOf(index) + 1);
+
+  const goNextPerson = () => {
+    if (nextPersonIdx >= 0) setIndex(nextPersonIdx);
+    else goTo((page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE);
+  };
+  const goPrevPerson = () => {
+    if (prevPersonIdx >= 0) setIndex(prevPersonIdx);
+    else goTo(position - 2);
+  };
 
   const goTo = (nextGlobal: number) => {
     const maxGlobal = total - 1;
@@ -1277,14 +1314,18 @@ export default function PayoutVerificationPanel() {
               );
             })()}
             {row.payout_number_count > 1 && (
-              <span
-                role="status"
-                aria-label={`This person has ${row.payout_number_count} payout numbers`}
-                className="flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400"
+              <button
+                type="button"
+                onClick={() => setPersonNumbersOpen(true)}
+                aria-label={`This person has made ${row.payout_number_count} payout number requests. Open the full list.`}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border-2 border-amber-500/70 bg-amber-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 transition hover:bg-amber-500/25 dark:text-amber-400"
               >
                 <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
-                {row.payout_number_count} payout numbers
-              </span>
+                <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
+                  {row.payout_number_count}
+                </span>
+                requests · tap to see all
+              </button>
             )}
           </div>
 
@@ -1550,29 +1591,47 @@ export default function PayoutVerificationPanel() {
             </p>
           )}
 
-          {/* Queue navigation */}
-          <div className="flex items-center justify-between gap-2 border-t border-primary/10 px-5 py-3">
-            <Button
-              variant="ghost"
-              className="h-11 gap-1"
-              disabled={position <= 1}
-              onClick={() => goTo(position - 2)}
-              aria-label="Previous person in the queue"
-            >
-              <ChevronLeft className="h-4 w-4" /> Previous
-            </Button>
-            <p className="text-xs font-semibold text-muted-foreground" aria-live="polite">
-              Person {position} of {total}
-            </p>
-            <Button
-              variant="ghost"
-              className="h-11 gap-1"
-              disabled={position >= total}
-              onClick={() => goTo(position)}
-              aria-label="Next person in the queue"
-            >
-              Next <ChevronRight className="h-4 w-4" />
-            </Button>
+          {/* Queue navigation — the next NUMBER for this person, or the next real PERSON. */}
+          <div className="space-y-2 border-t border-primary/10 px-5 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                variant="ghost"
+                className="h-11 gap-1"
+                disabled={position <= 1}
+                onClick={goPrevPerson}
+                aria-label="Previous person in the queue"
+              >
+                <ChevronLeft className="h-4 w-4" /> Previous person
+              </Button>
+              <p className="text-center text-xs font-semibold text-muted-foreground" aria-live="polite">
+                Case {position} of {total}
+                {personNumbersInQueue > 1 && (
+                  <>
+                    <br />
+                    Number {personNumberPosition} of {personNumbersInQueue} waiting for this person
+                  </>
+                )}
+              </p>
+              <Button
+                variant="ghost"
+                className="h-11 gap-1"
+                disabled={position >= total}
+                onClick={goNextPerson}
+                aria-label="Skip the rest of this person's numbers and go to the next person"
+              >
+                Next person <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            {nextSameIdx >= 0 && (
+              <Button
+                variant="outline"
+                className="h-11 w-full gap-1.5 border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                onClick={() => setIndex(nextSameIdx)}
+                aria-label="Next payout number for the same person"
+              >
+                <Smartphone className="h-4 w-4" /> Next number for the same person
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -1670,6 +1729,75 @@ export default function PayoutVerificationPanel() {
               className="max-h-[75vh] w-full rounded-xl object-contain"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Drill-down: every payout number this person has ever submitted. */}
+      <Dialog open={personNumbersOpen} onOpenChange={setPersonNumbersOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-0">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle className="text-base">
+              {row?.full_name || 'This person'} — {personNumbers.data?.length ?? row?.payout_number_count ?? 0} payout
+              number requests
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Every number they have submitted, oldest first. Tap one that is still waiting to review it now.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto px-5 pb-5 pt-2">
+            {personNumbers.isLoading && <Skeleton className="h-16 w-full rounded-xl" />}
+            {!personNumbers.isLoading &&
+              (personNumbers.data ?? []).map((d, i) => {
+                const label =
+                  d.destination_type === 'mobile_money'
+                    ? `${d.provider ?? 'Mobile money'} · ${d.momo_number ?? '—'}`
+                    : `${d.bank_name ?? ''} ${d.bank_account_number ?? ''}`.trim() || '—';
+                const inQueueIdx = rows.findIndex((r) => r.id === d.id);
+                const tone =
+                  d.status === 'verified'
+                    ? 'text-emerald-700 dark:text-emerald-400'
+                    : d.status === 'rejected'
+                      ? 'text-destructive'
+                      : 'text-amber-700 dark:text-amber-400';
+                return (
+                  <div
+                    key={d.id}
+                    className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${
+                      d.id === row?.id ? 'border-primary/60 bg-primary/5' : 'border-border'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">
+                        {i + 1}. {label}
+                      </p>
+                      <p className={`text-xs font-semibold uppercase tracking-wide ${tone}`}>
+                        {d.status === 'waiting' ? 'Waiting' : d.status === 'verified' ? 'Verified' : 'Rejected'}
+                        {d.decided_at ? ` · ${format(new Date(d.decided_at), 'd MMM yyyy')}` : ''}
+                      </p>
+                    </div>
+                    {d.id === row?.id ? (
+                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-primary">
+                        On screen
+                      </span>
+                    ) : inQueueIdx >= 0 ? (
+                      <Button
+                        variant="outline"
+                        className="h-9 shrink-0"
+                        onClick={() => {
+                          setIndex(inQueueIdx);
+                          setPersonNumbersOpen(false);
+                        }}
+                      >
+                        Open
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            {!personNumbers.isLoading && (personNumbers.data ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">No payout numbers recorded.</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
