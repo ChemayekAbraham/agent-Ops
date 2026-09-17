@@ -1589,29 +1589,47 @@ export default function PayoutVerificationPanel() {
             </p>
           )}
 
-          {/* Queue navigation */}
-          <div className="flex items-center justify-between gap-2 border-t border-primary/10 px-5 py-3">
-            <Button
-              variant="ghost"
-              className="h-11 gap-1"
-              disabled={position <= 1}
-              onClick={() => goTo(position - 2)}
-              aria-label="Previous person in the queue"
-            >
-              <ChevronLeft className="h-4 w-4" /> Previous
-            </Button>
-            <p className="text-xs font-semibold text-muted-foreground" aria-live="polite">
-              Person {position} of {total}
-            </p>
-            <Button
-              variant="ghost"
-              className="h-11 gap-1"
-              disabled={position >= total}
-              onClick={() => goTo(position)}
-              aria-label="Next person in the queue"
-            >
-              Next <ChevronRight className="h-4 w-4" />
-            </Button>
+          {/* Queue navigation — the next NUMBER for this person, or the next real PERSON. */}
+          <div className="space-y-2 border-t border-primary/10 px-5 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                variant="ghost"
+                className="h-11 gap-1"
+                disabled={position <= 1}
+                onClick={goPrevPerson}
+                aria-label="Previous person in the queue"
+              >
+                <ChevronLeft className="h-4 w-4" /> Previous person
+              </Button>
+              <p className="text-center text-xs font-semibold text-muted-foreground" aria-live="polite">
+                Case {position} of {total}
+                {personNumbersInQueue > 1 && (
+                  <>
+                    <br />
+                    Number {personNumberPosition} of {personNumbersInQueue} waiting for this person
+                  </>
+                )}
+              </p>
+              <Button
+                variant="ghost"
+                className="h-11 gap-1"
+                disabled={position >= total}
+                onClick={goNextPerson}
+                aria-label="Skip the rest of this person's numbers and go to the next person"
+              >
+                Next person <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            {nextSameIdx >= 0 && (
+              <Button
+                variant="outline"
+                className="h-11 w-full gap-1.5 border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                onClick={() => setIndex(nextSameIdx)}
+                aria-label="Next payout number for the same person"
+              >
+                <Smartphone className="h-4 w-4" /> Next number for the same person
+              </Button>
+            )}
           </div>
         </div>
       )}
