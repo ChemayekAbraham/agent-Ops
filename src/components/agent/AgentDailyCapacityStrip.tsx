@@ -109,7 +109,11 @@ export function AgentDailyCapacityStrip() {
           <>
             <Lock className="h-4 w-4 shrink-0" />
             <span>
-              Collect <strong>{formatUGX(Math.max(0, Math.round(cap.expected_daily * DAILY_ELIGIBILITY_THRESHOLD) - cap.paid_today))}</strong> more today to unlock new rents
+              {cap.expected_daily > 0 ? (
+                <>Collect <strong>{formatUGX(Math.max(0, Math.round(cap.expected_daily * DAILY_ELIGIBILITY_THRESHOLD) - cap.paid_today))}</strong> more today to unlock new rents</>
+              ) : (
+                <>Collect from your tenants with overdue balances to unlock new rents</>
+              )}
             </span>
           </>
         )}
