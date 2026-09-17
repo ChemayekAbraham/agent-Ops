@@ -205,6 +205,19 @@ const MyRequisitions = () => {
 
   useEffect(() => { void fetchRows(); }, [fetchRows]);
 
+  // Who may borrow, and what they already owe.
+  const fetchLoans = useCallback(async () => {
+    const { data: elig } = await supabase.rpc('my_staff_loan_eligibility');
+    setLoanInfo((elig ?? null) as unknown as LoanEligibility | null);
+    const { data: loanRows } = await supabase
+      .from('staff_loans')
+      .select('id, requisition_id, principal, months, monthly_rate, outstanding_principal, accrued_interest, total_repaid, status, started_on, due_on')
+      .order('created_at', { ascending: false });
+    setLoans((loanRows || []) as unknown as StaffLoan[]);
+  }, []);
+
+  useEffect(() => { void fetchLoans(); }, [fetchLoans]);
+
   useEffect(() => {
     const channel = supabase
       .channel('my-staff-requisitions')
@@ -238,8 +251,10 @@ const MyRequisitions = () => {
   }, [route]);
 
 
-  const startNew = () => {
+  const startNew = (nextKind: RequestKind = 'requisition') => {
     setResubmitId(null);
+    setKind(nextKind);
+    setMonths(3);
     setForm(EMPTY_FORM);
     setSelectedFiles([]);
     setOpen(true);
@@ -247,6 +262,8 @@ const MyRequisitions = () => {
 
   const startResubmit = (row: Requisition) => {
     setResubmitId(row.id);
+    setKind(row.request_kind === 'staff_loan' ? 'staff_loan' : 'requisition');
+    setMonths(row.loan_months ?? 3);
     setSelectedFiles([]);
     setForm({
       title: row.title,
