@@ -1054,28 +1054,51 @@ function PayoutNameCheckCard({
         )}
       </div>
 
-      <p className="mt-2 text-xs text-muted-foreground">
-        {isMomo ? (
-          <>
-            Start a send-money to <span className="font-bold text-foreground">{target || '—'}</span> on{' '}
-            {network.label}
-            {network.ussd ? (
-              <>
-                {' '}
-                (<span className="font-semibold text-foreground">{network.ussd}</span>)
-              </>
-            ) : null}{' '}
-            and read the registered name it shows before confirming. Do not send anything.
-          </>
-        ) : (
-          <>
-            Ask the bank to confirm the registered name on{' '}
-            <span className="font-bold text-foreground">{target || '—'}</span> before verifying.
-          </>
-        )}
-      </p>
+      {/* Prominent how-to-check guide */}
+      <div className="mt-3 rounded-xl border-2 border-amber-500/60 bg-amber-500/10 p-3">
+        <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+          <ShieldAlert className="h-4 w-4" aria-hidden="true" />
+          How to check this number before verifying
+        </p>
+        <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs text-foreground">
+          {isMomo ? (
+            <>
+              <li>
+                On <strong>your own phone</strong>, open {network.label} Mobile Money.
+              </li>
+              <li>
+                Start <strong>Send Money</strong>{' '}
+                {network.ussd ? (
+                  <span className="font-semibold">({network.ussd})</span>
+                ) : null}{' '}
+                and enter <strong>{target || '—'}</strong>.
+              </li>
+              <li>
+                <strong>Do not press OK.</strong> Just read the registered name the network shows
+                on the confirmation screen.
+              </li>
+              <li>
+                Compare that name with the National ID name below. They must be the same person.
+              </li>
+              <li>Type the exact name the network showed, then tap Record.</li>
+            </>
+          ) : (
+            <>
+              <li>
+                Call the bank on <strong>{target || '—'}</strong>.
+              </li>
+              <li>Ask them to confirm the account holder name.</li>
+              <li>Compare that name with the National ID name below.</li>
+              <li>Type the exact name they gave you, then tap Record.</li>
+            </>
+          )}
+        </ol>
+        <p className="mt-2 text-[11px] font-bold text-destructive">
+          Do not send any money. This is only a name check.
+        </p>
+      </div>
 
-      <div className="mt-2 rounded-xl border border-border bg-background/70 p-2.5">
+      <div className="mt-3 rounded-xl border border-border bg-background/70 p-2.5">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           Name on the National ID
         </p>
