@@ -365,20 +365,34 @@ export default function PlatformSalesOfficersPage() {
       entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes ?? 0;
     }
 
-    return Array.from(byId.values()).sort(
-      (a, b) => b.netNotes - a.netNotes || a.staff_ref.localeCompare(b.staff_ref),
-    );
+    return Array.from(byId.values());
   }, [rows, fundedSummaries]);
 
-  // Officers on the same total share a rank; the next distinct total takes the
-  // position after the whole tied group. Repeated numbers are correct.
+  // Highest-first on the selected column; ties fall back to net notes then name.
+  const sortedOfficers = useMemo(
+    () =>
+      [...officers].sort(
+        (a, b) =>
+          sortValue(b, sortKey) - sortValue(a, sortKey) ||
+          b.netNotes - a.netNotes ||
+          a.staff_ref.localeCompare(b.staff_ref),
+      ),
+    [officers, sortKey],
+  );
+
+  // Officers on the same sort value share a rank; the next distinct value takes
+  // the position after the whole tied group. Repeated numbers are correct.
   const ranks = useMemo(() => {
     const out: number[] = [];
-    officers.forEach((o, i) => {
-      out.push(i > 0 && officers[i - 1].netNotes === o.netNotes ? out[i - 1] : i + 1);
+    sortedOfficers.forEach((o, i) => {
+      out.push(
+        i > 0 && sortValue(sortedOfficers[i - 1], sortKey) === sortValue(o, sortKey)
+          ? out[i - 1]
+          : i + 1,
+      );
     });
     return out;
-  }, [officers]);
+  }, [sortedOfficers, sortKey]);
 
   const people = useMemo<PersonSummary[]>(() => {
     const fundedById = new Map(nonOfficerFunded.map((s) => [s.person_user_id, s]));
