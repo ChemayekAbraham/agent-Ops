@@ -364,25 +364,17 @@ export default function MerchandiseStore() {
 
   return (
     <div className="min-h-[100dvh] bg-background pb-24">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => navigate(-1)}
-        aria-label="Back"
-        className="fixed top-2 left-2 z-50"
-      >
-        <ArrowLeft className="h-5 w-5" />
-      </Button>
-      <div className="max-w-lg mx-auto px-4 pt-4">
-        <img
-          src={shoppingBagIllustration.url}
-          alt="Welile merchandise shopping bag"
-          className="w-full max-h-40 object-contain"
-          loading="eager"
-        />
-      </div>
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-lg mx-auto flex items-center gap-3 px-4 py-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            aria-label="Back"
+            className="shrink-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h1 className="text-base font-bold flex items-center gap-2">
               <ShoppingBag className="h-4 w-4 text-primary" /> What do you want to buy?
@@ -390,6 +382,14 @@ export default function MerchandiseStore() {
             <p className="text-[11px] text-muted-foreground">Buy branded gear — paid off from your wallet</p>
           </div>
         </div>
+      </div>
+      <div className="max-w-lg mx-auto px-4 pt-4">
+        <img
+          src={shoppingBagIllustration.url}
+          alt="Welile merchandise shopping bag"
+          className="w-full max-h-40 object-contain"
+          loading="eager"
+        />
       </div>
 
       <div className="max-w-lg mx-auto px-4 pt-4 space-y-5">
