@@ -141,9 +141,12 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
                   <button
                     key={m.id}
                     type="button"
-                    className={`flex w-full items-center justify-between rounded-md border px-2.5 py-1.5 text-left text-[11px] ${
-                      linkedUserId === m.id ? 'border-primary bg-primary/10 font-semibold' : 'border-border bg-card'
+                    className={`flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-[11px] transition-colors ${
+                      linkedUserId === m.id
+                        ? 'border-primary bg-primary/10 font-semibold'
+                        : 'border-border bg-card hover:border-primary/40 hover:bg-muted/50'
                     }`}
+
                     onClick={() => {
                       setLinkedUserId(m.id);
                       setCallerName(m.full_name ?? '');
