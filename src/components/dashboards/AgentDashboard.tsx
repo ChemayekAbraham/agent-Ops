@@ -78,6 +78,7 @@ import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
 import NationalIdGroupCard from '@/components/agent/NationalIdGroupCard';
 import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
+import NationalIdGroupSheet from '@/components/national-id/NationalIdGroupSheet';
 import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { WeeklyChampionTeamDialog } from '@/components/agent/WeeklyChampionTeamDialog';
