@@ -171,6 +171,29 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
             <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
               Required: is this number in the names on the National ID?
             </p>
+
+            {/* How-to-check guide */}
+            <div className="rounded-md border border-amber-500/40 bg-background/70 p-2.5">
+              <p className="text-[11px] font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                How to check before approving
+              </p>
+              <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-[11px] text-foreground">
+                <li>
+                  On <strong>your own phone</strong>, open {(r.requested_provider ?? 'the mobile money network').toUpperCase()}.
+                </li>
+                <li>
+                  Start <strong>Send Money</strong> and enter <strong>{r.requested_number}</strong>.
+                </li>
+                <li>
+                  <strong>Do not press OK.</strong> Read the registered name shown before confirming.
+                </li>
+                <li>Compare that name with the National ID name below. It must match.</li>
+              </ol>
+              <p className="mt-1.5 text-[11px] font-bold text-destructive">
+                Do not send any money. This is only a name check.
+              </p>
+            </div>
+
             <div className="grid gap-1 text-xs">
               <p>
                 <span className="text-muted-foreground">Names on the National ID: </span>
