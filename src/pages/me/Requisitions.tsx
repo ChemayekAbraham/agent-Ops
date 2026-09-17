@@ -309,8 +309,10 @@ const MyRequisitions = () => {
         category: form.category.trim() || null,
         needed_by: form.needed_by || null,
         reason: form.reason.trim(),
+        request_kind: kind,
+        ...(kind === 'staff_loan' ? { loan_months: months } : {}),
       },
-      errorTitle: 'Could not submit your requisition',
+      errorTitle: kind === 'staff_loan' ? 'Could not submit your loan request' : 'Could not submit your requisition',
     });
 
     if (!error) {
