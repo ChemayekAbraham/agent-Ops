@@ -330,12 +330,17 @@ const MyRequisitions = () => {
         }
       }
 
-      toast.success(resubmitId ? 'Requisition resubmitted' : 'Requisition submitted for review');
+      toast.success(
+        resubmitId
+          ? 'Request resubmitted'
+          : kind === 'staff_loan' ? 'Loan request submitted for review' : 'Requisition submitted for review',
+      );
       setOpen(false);
       setForm(EMPTY_FORM);
       setSelectedFiles([]);
       setResubmitId(null);
       await fetchRows();
+      await fetchLoans();
     }
     setSubmitting(false);
   };
