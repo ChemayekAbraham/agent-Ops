@@ -115,6 +115,15 @@ export interface ConcernEvent {
   reason: string | null;
 }
 
+export interface ConcernReviewer {
+  concern_id: string;
+  user_id: string;
+  full_name: string | null;
+  role: 'handler' | 'reviewer';
+  added_by_name: string | null;
+  created_at: string;
+}
+
 export interface ConcernPowers {
   can_reassign: boolean;
   can_set_due: boolean;
@@ -270,6 +279,22 @@ export function useConcernEvents(concernId: string | null) {
   });
 }
 
+/** Everyone sharing one concern thread, including its original handler. */
+export function useConcernReviewers(concernIds: string[]) {
+  const key = [...concernIds].sort().join(',');
+  return useQuery({
+    queryKey: ['cc-concern-reviewers', key],
+    enabled: concernIds.length > 0,
+    queryFn: async (): Promise<ConcernReviewer[]> => {
+      const { data, error } = await anyDb.rpc('cc_concern_reviewer_list', {
+        p_concern_ids: concernIds,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as ConcernReviewer[];
+    },
+  });
+}
+
 export interface ForwardConcernInput {
   source_kind: 'outbound_call' | 'received_call';
   title: string;
@@ -313,6 +338,7 @@ export function useForwardConcern() {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['cc-forwarded-concerns'] }),
         qc.invalidateQueries({ queryKey: ['cc-received-calls'] }),
+        qc.invalidateQueries({ queryKey: ['cc-concern-reviewers'] }),
       ]);
     },
   });
@@ -450,4 +476,5 @@ export const CONCERN_ACTION_LABEL: Record<string, string> = {
   completed: 'Completed',
   reassigned: 'Handler changed',
   due_changed: 'Answer time changed',
+  reviewer_added: 'Reviewer added',
 };

@@ -31,6 +31,7 @@ import {
   concernTimeLeft,
   isConcernOverdue,
   useConcernEvents,
+  useConcernReviewers,
   useForwardedConcerns,
   type ConcernStatus,
   type ForwardedConcern,
@@ -75,7 +76,7 @@ function repeatThemes(rows: ForwardedConcern[]) {
     .slice(0, 12);
 }
 
-function ConcernTimelineDialog({ concern, onClose }: { concern: ForwardedConcern | null; onClose: () => void }) {
+function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: ForwardedConcern | null; reviewerNames: string[]; onClose: () => void }) {
   const events = useConcernEvents(concern?.id ?? null);
   return (
     <Dialog open={!!concern} onOpenChange={(v) => !v && onClose()}>
@@ -103,6 +104,11 @@ function ConcernTimelineDialog({ concern, onClose }: { concern: ForwardedConcern
                 {concern.source_kind === 'received_call' ? 'From a call that came in' : 'From a call we made'}
                 {concern.caller_name ? ` · about ${concern.caller_name}` : ''}
               </p>
+              {reviewerNames.length > 0 && (
+                <p className="mt-1">
+                  Reviewers: <span className="font-semibold">{reviewerNames.join(', ')}</span>
+                </p>
+              )}
             </div>
             {concern.context && <p className="text-[11px] leading-snug">{concern.context}</p>}
             <ConcernControlPanel concern={concern} />
@@ -127,6 +133,9 @@ function ConcernTimelineDialog({ concern, onClose }: { concern: ForwardedConcern
                       <p className="mt-1 text-[11px] leading-snug">
                         From {stamp(e.prev_due_at)} to {stamp(e.new_due_at)}
                       </p>
+                    )}
+                    {e.action === 'reviewer_added' && (
+                      <p className="mt-1 text-[11px] leading-snug">Added {e.new_user_name ?? 'staff member'}</p>
                     )}
                     {e.note && <p className="mt-1 text-[11px] leading-snug">{e.note}</p>}
                   </div>
@@ -228,6 +237,16 @@ export function ConcernsReviewTab() {
 
   const { data, isLoading } = useForwardedConcerns({ days });
   const all = useMemo(() => data ?? [], [data]);
+  const reviewers = useConcernReviewers(all.map((c) => c.id));
+  const reviewersByConcern = useMemo(() => {
+    const map = new Map<string, string[]>();
+    (reviewers.data ?? []).forEach((r) => {
+      const list = map.get(r.concern_id) ?? [];
+      if (r.full_name && !list.includes(r.full_name)) list.push(r.full_name);
+      map.set(r.concern_id, list);
+    });
+    return map;
+  }, [reviewers.data]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -415,6 +434,7 @@ export function ConcernsReviewTab() {
               firstTo: c.original_forwarded_to_name ?? c.forwarded_to_name ?? '—',
               to: c.forwarded_to_name ?? '—',
               changes: String(c.reassigned_count ?? 0),
+              reviewers: (reviewersByConcern.get(c.id) ?? [c.forwarded_to_name ?? '—']).join(', '),
               status: CONCERN_STATUS_LABEL[c.status as ConcernStatus] ?? c.status,
               due: `${stamp(c.due_at)}${c.due_is_custom ? ' (adjusted)' : ''}`,
               completed: stamp(c.completed_at),
@@ -600,6 +620,9 @@ export function ConcernsReviewTab() {
                       {c.last_reassigned_by_name ?? '—'}
                     </p>
                   )}
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Reviewers: {(reviewersByConcern.get(c.id) ?? [c.forwarded_to_name ?? 'Staff member']).join(', ')}
+                  </p>
                   {c.outcome && (
                     <p className="mt-1.5 text-[11px] leading-snug text-emerald-700">Resolved: {c.outcome}</p>
                   )}
@@ -611,7 +634,11 @@ export function ConcernsReviewTab() {
       </Card>
 
       <ForwardConcernDialog open={!!forwardSource} source={forwardSource} onClose={() => setForwardSource(null)} />
-      <ConcernTimelineDialog concern={openConcern} onClose={() => setOpenConcern(null)} />
+      <ConcernTimelineDialog
+        concern={openConcern}
+        reviewerNames={openConcern ? reviewersByConcern.get(openConcern.id) ?? [] : []}
+        onClose={() => setOpenConcern(null)}
+      />
     </div>
   );
 }

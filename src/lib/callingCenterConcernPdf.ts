@@ -217,6 +217,7 @@ export interface IssuesReviewInput {
     firstTo?: string;
     to: string;
     changes?: string;
+    reviewers?: string;
     status: string;
     due: string;
     completed: string;
@@ -364,6 +365,7 @@ export async function generateIssuesReviewPdf(input: IssuesReviewInput, meta: Co
         'From',
         'First sent to',
         'Now with',
+        'Reviewers',
         'Changes',
         'Status',
         'Due',
@@ -380,6 +382,7 @@ export async function generateIssuesReviewPdf(input: IssuesReviewInput, meta: Co
       r.from,
       r.firstTo ?? r.to,
       r.to,
+      r.reviewers ?? r.to,
       r.changes ?? '0',
       r.status,
       r.due,
@@ -390,7 +393,7 @@ export async function generateIssuesReviewPdf(input: IssuesReviewInput, meta: Co
     styles: { fontSize: 6.5, cellPadding: 1.6, textColor: THEME_INK, lineColor: THEME_BORDER, lineWidth: 0.1 },
     headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.5 },
     alternateRowStyles: { fillColor: [246, 243, 251] },
-    columnStyles: { 2: { cellWidth: 40 }, 12: { cellWidth: 38 } },
+    columnStyles: { 2: { cellWidth: 35 }, 7: { cellWidth: 34 }, 13: { cellWidth: 34 } },
     margin: { left: margin, right: margin },
   });
   cursor = (doc as any).lastAutoTable.finalY + 8;
