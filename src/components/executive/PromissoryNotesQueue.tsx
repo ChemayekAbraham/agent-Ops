@@ -36,6 +36,7 @@ import { CompactAmount } from '@/components/ui/CompactAmount';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
+import { usePromissoryArrivalSuggestions } from '@/hooks/usePromissoryArrivalSuggestions';
 import { formatUGX } from '@/lib/rentCalculations';
 
 
