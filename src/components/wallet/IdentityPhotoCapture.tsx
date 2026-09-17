@@ -680,6 +680,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   const readIdPhoto = async (file: File) => {
     setReading(true);
+    setDetailsConfirmed(false);
     setIdReading(null);
     setReadError(null);
     setFieldError(null);
@@ -857,7 +858,13 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const idRejected = idReading?.status === 'invalid';
   const faceProblem = faceCheckBlocker(faceCheck);
 
-  const ready = haveId && haveSelfie && detailsComplete && !idRejected && !faceProblem;
+  /* A freshly read card must be confirmed line by line by its owner before it
+     is sent. A stored photo already on file was confirmed when it was sent. */
+  const needsConfirm = !!idPhoto && !!idReading && idReading.status !== 'invalid';
+  const confirmDone = !needsConfirm || detailsConfirmed;
+
+  const ready =
+    haveId && haveSelfie && detailsComplete && !idRejected && !faceProblem && confirmDone;
 
   // Spelled out on screen so nobody stares at a dead button wondering why.
   const blockers = [
@@ -872,6 +879,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       ? `Fill in ${missingDetails.map((k) => ID_FIELD_LABEL[k]).join(', ')} from your card.`
       : null,
     !hasVerifiedPayoutNumber ? 'Confirm your payout number with the code.' : null,
+    needsConfirm && !detailsConfirmed && detailsComplete
+      ? 'Confirm the details we read from your ID are exactly as on your card.'
+      : null,
   ].filter(Boolean) as string[];
 
 
@@ -1013,6 +1023,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               setIdPhoto(f);
               setIdReading(null);
               setReadError(null);
+              setDetailsConfirmed(false);
               void readIdPhoto(f);
             }}
             onClear={() => {
@@ -1021,6 +1032,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               setReadError(null);
               setForm(EMPTY_ID_DATA);
               setFieldError(null);
+              setDetailsConfirmed(false);
             }}
             disabled={saving}
           />
@@ -1099,6 +1111,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                               : raw.toUpperCase();
                             setForm((f) => ({ ...f, [key]: next }));
                             setFieldError(null);
+                            setDetailsConfirmed(false);
                           }}
                         />
                       </div>
@@ -1282,7 +1295,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
         <Button
           className="w-full"
-          disabled={saving || !hasVerifiedPayoutNumber}
+          disabled={saving || !hasVerifiedPayoutNumber || !confirmDone}
           onClick={handleSave}
         >
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
