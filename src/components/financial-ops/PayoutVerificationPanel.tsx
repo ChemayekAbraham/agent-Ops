@@ -552,6 +552,12 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
           note={maskedCard ? 'Printed on the front of the card.' : 'Could not be read off the photo.'}
         />
         <CheckLine
+          label="Sex"
+          value={data.sex ?? 'Not read'}
+          outcome={data.sex ? true : null}
+          note={data.sex ? 'Read from the National ID.' : 'Could not be read off the photo.'}
+        />
+        <CheckLine
           label="Selfie is a real face"
           value={data.faceVerified === true ? 'Face confirmed' : data.faceVerified === false ? 'Not a face' : 'Not checked'}
           outcome={data.faceVerified}
@@ -583,9 +589,8 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
       </div>
 
       <p className="mt-2 text-[11px] text-muted-foreground">
-        {data.sex ? `Sex ${data.sex}` : 'Sex not read'}
-        {data.dateOfBirth ? ` · Born ${data.dateOfBirth}` : ''}
-        {' · Read '}
+        {data.dateOfBirth ? `Born ${data.dateOfBirth} · ` : ''}
+        {'Read '}
         {new Date(data.readAt).toLocaleString('en-GB', {
           day: '2-digit',
           month: 'short',
