@@ -448,6 +448,53 @@ export default function PlatformSalesOfficersPage() {
     return weekday;
   }, [people]);
 
+  // Combined compilation table — everything below is a straight sum of the two
+  // tables above, so it can never disagree with them.
+  const sumBy = <T,>(rows: T[], pick: (r: T) => number) => rows.reduce((s, r) => s + (pick(r) || 0), 0);
+
+  const officerTotals = useMemo(() => ({
+    netNotes: netTotal,
+    notesUnapproved: sumBy(officers, (o) => o.notesUnapproved),
+    notesFunded: fundedTotal,
+    fundersConverted: sumBy(officers, (o) => o.fundersConverted),
+    topups: sumBy(officers, (o) => o.topups),
+    amountDeployed: moneyTotal,
+    commissionBase: sumBy(officers, (o) => o.commissionBase),
+    commissionAccrued: sumBy(officers, (o) => o.commissionAccrued),
+  }), [officers, netTotal, fundedTotal, moneyTotal]);
+
+  const peopleTotals = useMemo(() => ({
+    netNotes: peopleNetTotal,
+    notesUnapproved: sumBy(people, (p) => p.notesUnapproved),
+    notesFunded: peopleFundedTotal,
+    fundersConverted: sumBy(people, (p) => p.fundersConverted),
+    topups: sumBy(people, (p) => p.topups),
+    amountDeployed: peopleMoneyTotal,
+    commissionBase: sumBy(people, (p) => p.commissionBase),
+    commissionAccrued: sumBy(people, (p) => p.commissionAccrued),
+  }), [people, peopleNetTotal, peopleFundedTotal, peopleMoneyTotal]);
+
+  const combinedTotals = useMemo(() => ({
+    netNotes: officerTotals.netNotes + peopleTotals.netNotes,
+    notesUnapproved: officerTotals.notesUnapproved + peopleTotals.notesUnapproved,
+    notesFunded: officerTotals.notesFunded + peopleTotals.notesFunded,
+    fundersConverted: officerTotals.fundersConverted + peopleTotals.fundersConverted,
+    topups: officerTotals.topups + peopleTotals.topups,
+    amountDeployed: officerTotals.amountDeployed + peopleTotals.amountDeployed,
+    commissionBase: officerTotals.commissionBase + peopleTotals.commissionBase,
+    commissionAccrued: officerTotals.commissionAccrued + peopleTotals.commissionAccrued,
+  }), [officerTotals, peopleTotals]);
+
+  const combinedWeekdayTotals = useMemo(
+    () => officerWeekdayTotals.map((v, wi) => v + peopleWeekdayTotals[wi]),
+    [officerWeekdayTotals, peopleWeekdayTotals],
+  );
+
+  // Net-notes goal for the window shown: 100 a day, 700 a week, 3,000 a month.
+  const combinedNetGoal = mode === 'DAILY' ? 100 : mode === 'WEEKLY' ? 700 : 3000;
+  const combinedNetPct = Math.round((combinedTotals.netNotes / combinedNetGoal) * 100);
+
+
 
   const isNotPermitted = error instanceof Error && error.message.includes('not permitted');
 
