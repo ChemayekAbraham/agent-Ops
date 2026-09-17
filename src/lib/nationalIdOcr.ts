@@ -279,9 +279,45 @@ export function readingGuidance(r: NationalIdReading): string | null {
 
 export type IdRotation = 0 | 90 | 180 | 270;
 
+export type IdPhotoOrientation = 'landscape' | 'sideways' | 'unreadable';
+
+/**
+ * A National ID is a landscape card. A portrait image means the phone/card was
+ * turned 90° or -90°, which makes the small fields much less reliable.
+ */
+export function classifyIdPhotoOrientation(width: number, height: number): IdPhotoOrientation {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return 'unreadable';
+  }
+  return width > height ? 'landscape' : 'sideways';
+}
+
+/** Reads the decoded dimensions before any OCR call or upload. */
+export async function inspectIdPhotoOrientation(file: File): Promise<IdPhotoOrientation> {
+  const url = URL.createObjectURL(file);
+  try {
+    const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+      image.onerror = () => reject(new Error('Could not open that photo.'));
+      image.src = url;
+    });
+    return classifyIdPhotoOrientation(dimensions.width, dimensions.height);
+  } catch {
+    return 'unreadable';
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+export const SIDEWAYS_ID_MESSAGE =
+  'This ID photo is sideways. Turn the phone so the photo is wide, keep the card straight, and retake it.';
+
 /** How to hold the card, in the order that fixes the most photos. */
 export const ID_POSITION_TIPS: string[] = [
-  'Hold the card landscape (wide, not tall), with the writing the right way up.',
+  'Turn the phone sideways and hold the card landscape (wide, not tall).',
+  'Keep the long top and bottom edges of the card straight across the photo — not at 90° or -90°.',
+  'Keep the writing the right way up. An upside-down landscape photo can be corrected.',
   'Keep the photo of the face on the LEFT of the frame.',
   'Fill the frame with the card and keep all four corners inside it.',
   'Keep the phone flat above the card, not tilted, and avoid shine from lights.',

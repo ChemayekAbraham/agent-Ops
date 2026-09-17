@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { normaliseReading, readingGuidance } from '@/lib/nationalIdOcr';
+import { classifyIdPhotoOrientation, normaliseReading, readingGuidance } from '@/lib/nationalIdOcr';
+
+describe('National ID photo orientation', () => {
+  it('accepts a straight landscape photo, including an upside-down landscape photo', () => {
+    expect(classifyIdPhotoOrientation(1600, 1000)).toBe('landscape');
+    expect(classifyIdPhotoOrientation(1000, 600)).toBe('landscape');
+  });
+
+  it('rejects 90-degree, -90-degree and square photos as sideways', () => {
+    expect(classifyIdPhotoOrientation(1000, 1600)).toBe('sideways');
+    expect(classifyIdPhotoOrientation(600, 1000)).toBe('sideways');
+    expect(classifyIdPhotoOrientation(1000, 1000)).toBe('sideways');
+  });
+
+  it('rejects invalid dimensions instead of passing an unusable image to OCR', () => {
+    expect(classifyIdPhotoOrientation(0, 1000)).toBe('unreadable');
+    expect(classifyIdPhotoOrientation(Number.NaN, 1000)).toBe('unreadable');
+  });
+});
 
 /**
  * The reader is an edge function deployed by hand, so the browser and the
