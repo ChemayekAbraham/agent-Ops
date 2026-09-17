@@ -913,6 +913,7 @@ export default function PayoutVerificationPanel() {
   const row: PayoutDestinationRow | null = rows[Math.min(index, rows.length - 1)] ?? null;
 
   const photos = useIdentityPhotosFor(row?.user_id);
+  const personNumbers = usePersonPayoutDestinations(row?.user_id, personNumbersOpen);
   const idPath = photos.data?.national_id_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
   const photosReady = !!idPath && !!selfiePath;
