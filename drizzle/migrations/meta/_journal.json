@@ -1072,6 +1072,13 @@
       "when": 1789643050485,
       "tag": "0152_arrears_never_bill_before_go_live",
       "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1789645089817,
+      "tag": "0153_block_collection_until_landlord_paid",
+      "breakpoints": true
     }
   ]
 }
