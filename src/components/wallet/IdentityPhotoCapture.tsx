@@ -1180,6 +1180,70 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                     at this.
                   </p>
                 )}
+
+                {/* Confirm or retake: the owner of the card decides whether what
+                    we read is exactly what is printed on it, before anything is
+                    sent for verification. */}
+                {needsConfirm && detailsComplete && (
+                  detailsConfirmed ? (
+                    <div className="flex items-start justify-between gap-3 rounded-lg border-2 border-emerald-500/60 bg-emerald-500/10 p-3">
+                      <p className="flex items-start gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                        You confirmed these details match your card. You can send now.
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 shrink-0 text-xs"
+                        disabled={saving || savingDetails}
+                        onClick={() => setDetailsConfirmed(false)}
+                      >
+                        Change
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 rounded-lg border-2 border-primary/50 bg-primary/5 p-3">
+                      <p className="text-sm font-bold">Is this exactly what is on your card?</p>
+                      <ul className="space-y-1">
+                        {(Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[]).map((key) => (
+                          <li key={key} className="flex justify-between gap-3 text-xs">
+                            <span className="text-muted-foreground">{ID_FIELD_LABEL[key]}</span>
+                            <span className="text-right font-bold">{String(form[key] ?? '') || '—'}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-muted-foreground">
+                        Compare every line with your card. If anything is wrong, correct it above or
+                        take the photo again.
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          className="h-11 flex-1"
+                          disabled={saving || savingDetails}
+                          onClick={() => setDetailsConfirmed(true)}
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Yes, these are correct
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-11 flex-1"
+                          disabled={saving || savingDetails}
+                          onClick={() => {
+                            setIdPhoto(null);
+                            setIdReading(null);
+                            setReadError(null);
+                            setForm(EMPTY_ID_DATA);
+                            setFieldError(null);
+                            setDetailsConfirmed(false);
+                          }}
+                        >
+                          No, retake the photo
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                )}
               </>
             )}
           </div>
