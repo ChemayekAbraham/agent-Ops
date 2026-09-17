@@ -14,23 +14,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-/**
- * supabase-js only says "non-2xx status code" — the reason the send failed
- * (rate limit, provider refusal) is in the response body, so read it out and
- * pass the real sentence, and the real status, back to the caller.
- */
-const readUpstream = async (err: unknown): Promise<{ status: number; message: string | null }> => {
-  const ctx = (err as { context?: Response })?.context;
-  if (!ctx || typeof ctx.text !== "function") return { status: 502, message: null };
-  try {
-    const raw = await ctx.text();
-    const parsed = raw ? (JSON.parse(raw) as { error?: string; retry_after?: number }) : {};
-    return { status: ctx.status || 502, message: parsed.error ?? null };
-  } catch {
-    return { status: ctx.status || 502, message: null };
-  }
-};
-
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -83,10 +66,7 @@ Deno.serve(async (req) => {
           nin_ref: t.nin,
         },
       });
-      if (error) {
-        const up = await readUpstream(error);
-        return json({ error: up.message ?? "Could not send the code. Please try again." }, up.status);
-      }
+      if (error) return json({ error: "Could not send the code. Please try again." }, 502);
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) return json({ error: res.error ?? "Could not send the code." }, 502);
 
@@ -106,10 +86,7 @@ Deno.serve(async (req) => {
       const { data, error } = await admin.functions.invoke("sms-otp", {
         body: { action: "verify", phone: t.phone, otp: code },
       });
-      if (error) {
-        const up = await readUpstream(error);
-        return json({ error: up.message ?? "Could not check that code. Please try again." }, up.status);
-      }
+      if (error) return json({ error: "Could not check that code. Please try again." }, 502);
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) return json({ error: res.error ?? "That code is not right." }, 400);
 

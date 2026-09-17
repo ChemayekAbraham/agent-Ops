@@ -171,7 +171,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
 
     if (!isValidPhone(whatsappNumber)) errs.contact.push('WhatsApp number');
     if (phoneNumber.trim() && !isValidPhone(phoneNumber)) errs.contact.push('Phone number');
-    if (!email.trim() || !isValidEmail(email)) errs.contact.push('Email');
+    if (email.trim() && !isValidEmail(email)) errs.contact.push('Email');
 
     if (!(Number(amount) > 0)) errs.promise.push('Promised amount');
     if (!recordedOn) errs.promise.push('Date recorded');
@@ -280,7 +280,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
         partner_name: partnerName.trim(),
         whatsapp_number: normalizeWa(whatsappNumber),
         phone_number: phoneNumber.trim() ? normalizeWa(phoneNumber) : null,
-        email: email.trim(),
+        email: email.trim() || null,
         amount: Number(amount),
         recorded_on: recordedOn || todayIso,
         fulfilment_due_on: fulfilmentDueOn || null,
@@ -474,7 +474,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const renderContactStep = () => (
     <Card className="border-border/60">
       <CardContent className="space-y-4 pt-4">
-        {sectionTitle(<Phone className="h-5 w-5" />, 'How do we reach them?', 'WhatsApp and email are required. The other phone number is optional.')}
+        {sectionTitle(<Phone className="h-5 w-5" />, 'How do we reach them?', 'WhatsApp is required. Phone and email are optional.')}
         <Button
           type="button"
           variant="outline"
@@ -541,7 +541,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
 
           <div className="space-y-1">
             <Label htmlFor="promissory-email" className="text-xs">
-              Email <span className="text-destructive">*</span>
+              Email <span className="text-muted-foreground">(optional)</span>
             </Label>
             <Input
               id="promissory-email"
@@ -561,10 +561,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
               className="h-11"
               maxLength={255}
             />
-            {showStepErrors && (!email.trim() || !isValidEmail(email)) && (
-              <p className="text-[11px] text-destructive">
-                {email.trim() ? 'Enter a valid email' : 'An email is required for every note'}
-              </p>
+            {showStepErrors && email.trim() && !isValidEmail(email) && (
+              <p className="text-[11px] text-destructive">Enter a valid email</p>
             )}
           </div>
 

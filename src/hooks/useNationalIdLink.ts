@@ -42,9 +42,7 @@ export type NationalIdLinkState = {
 type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{
   data: unknown; error: { message: string } | null;
 }>;
-// Must stay bound: a detached supabase.rpc throws "Cannot read properties of
-// undefined (reading 'rest')" the moment it is called.
-const rpc = supabase.rpc.bind(supabase) as unknown as Rpc;
+const rpc = supabase.rpc as unknown as Rpc;
 
 /** Creates (or picks up) this account's open request for that ID number. */
 export function useRequestNationalIdLink() {
@@ -82,28 +80,6 @@ export function useNationalIdLinkState(requestId: string | null | undefined) {
   });
 }
 
-/**
- * supabase-js reports only "Edge Function returned a non-2xx status code" and
- * hides the sentence the server actually wrote (for example "too many code
- * requests, try again in 5 minutes"). Read the response body so the person is
- * told what really happened.
- */
-async function readFunctionError(error: unknown, fallback: string): Promise<string> {
-  const ctx = (error as { context?: Response })?.context;
-  if (ctx && typeof ctx.text === 'function') {
-    try {
-      const raw = await ctx.text();
-      const parsed = raw ? (JSON.parse(raw) as { error?: string }) : {};
-      if (parsed.error) return parsed.error;
-    } catch {
-      /* body was not JSON — fall through to the plain message */
-    }
-  }
-  const msg = (error as { message?: string })?.message;
-  if (msg && !/non-2xx status code/i.test(msg)) return msg;
-  return fallback;
-}
-
 /** Sends the code to the holder's number, then checks the code typed back. */
 export function useNationalIdLinkOtp() {
   const send = useMutation({
@@ -111,7 +87,7 @@ export function useNationalIdLinkOtp() {
       const { data, error } = await supabase.functions.invoke('national-id-link-otp', {
         body: { action: 'send', request_id: requestId },
       });
-      if (error) throw new Error(await readFunctionError(error, 'Could not send the code.'));
+      if (error) throw new Error(error.message);
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) throw new Error(res.error ?? 'Could not send the code.');
       return true;
@@ -124,7 +100,7 @@ export function useNationalIdLinkOtp() {
       const { data, error } = await supabase.functions.invoke('national-id-link-otp', {
         body: { action: 'verify', request_id: requestId, code },
       });
-      if (error) throw new Error(await readFunctionError(error, 'Could not check that code.'));
+      if (error) throw new Error(error.message);
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) throw new Error(res.error ?? 'That code is not right.');
       return true;
@@ -138,28 +114,22 @@ export function useNationalIdLinkOtp() {
 }
 
 /** Requests waiting for THIS account, because it holds the National ID. */
-export type HolderLinkRequest = {
-  id: string;
-  nin: string;
-  status: NationalIdLinkStatus;
-  code_verified_at: string | null;
-  created_at: string;
-  expires_at: string;
-  /** Who is asking — so the holder knows whether they know this person. */
-  requester_name: string | null;
-  requester_phone: string | null;
-};
-
 export function useNationalIdLinkRequestsForHolder() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ['national-id-link-holder', user?.id],
     enabled: !!user?.id,
     refetchInterval: LINK_POLL_INTERVAL_MS,
-    queryFn: async (): Promise<HolderLinkRequest[]> => {
-      const { data, error } = await rpc('national_id_link_holder_requests');
-      if (error) throw new Error(error.message);
-      return (data ?? []) as HolderLinkRequest[];
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('national_id_link_requests')
+        .select('id, nin, status, code_verified_at, created_at, expires_at')
+        .eq('holder_id', user!.id)
+        .eq('status', 'awaiting_owner')
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
     },
   });
 }

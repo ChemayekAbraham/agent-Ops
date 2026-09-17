@@ -51174,6 +51174,15 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_purchase_merchandise_plan: {
+        Args: {
+          p_catalog_id: string
+          p_quantity: number
+          p_size?: string
+          p_term_months?: number
+        }
+        Returns: Json
+      }
       agent_request_subagent_tenant_transfer: {
         Args: {
           p_reason: string

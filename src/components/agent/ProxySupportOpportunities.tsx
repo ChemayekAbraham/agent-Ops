@@ -34,45 +34,46 @@ function PlanCard({ plan }: { plan: AgentFundablePlan }) {
   const place = plan.tenant_location || plan.request_city || 'Uganda';
   const category = (plan.house_category || 'Rental home').replace(/[_-]/g, ' ');
   return (
-    <div className="group">
-      {/* Visual hero */}
-      <div className="relative flex aspect-[4/3] w-full flex-col items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-background overflow-hidden">
-        <Users className="h-7 w-7 text-primary/70" />
-        <p className="px-6 text-center text-xs font-semibold text-foreground/80">Support a tenant's Rent Plan</p>
-        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 dark:bg-black/70 px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm shadow-sm">
-          <Sparkles className="h-3 w-3 text-primary" /> Rent Plan
-        </span>
+    <Card className="overflow-hidden border-border/70">
+      <div className="relative flex aspect-[16/9] w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-primary/15 via-primary/5 to-background">
+        <Users className="h-6 w-6 text-primary" />
+        <p className="px-4 text-center text-xs font-bold">Support a tenant's Rent Plan</p>
+        <Badge className="absolute left-2 top-2 gap-1 bg-background/90 text-[10px] font-bold text-foreground backdrop-blur">
+          <Sparkles className="h-3 w-3" /> Rent Plan
+        </Badge>
       </div>
 
-      {/* Content */}
-      <div className="mt-2.5 px-0.5">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-[15px] font-semibold leading-snug capitalize line-clamp-1">{category}</h3>
-          <span className="shrink-0 mt-0.5 text-sm font-semibold tabular-nums">
-            {money(rent)}
-          </span>
+      <CardContent className="space-y-3 p-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black capitalize">{category}</p>
+          <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0" /> {place}
+          </p>
         </div>
-        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <MapPin className="h-3 w-3 shrink-0" /> {place}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Monthly return{' '}
-          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{money(monthlyReturn(rent))}</span>
-        </p>
-        <div className="mt-2.5">
-          <PlanShareButton
-            variant="block"
-            plan={{
-              rent_request_id: plan.rent_request_id,
-              funding_amount: rent,
-              house_category: plan.house_category,
-              request_city: plan.request_city,
-              tenant_location: plan.tenant_location,
-            }}
-          />
+
+        <div className="grid grid-cols-2 gap-2 text-[11px]">
+          <div className="rounded-xl border border-border/60 p-2">
+            <p className="text-muted-foreground">Support amount</p>
+            <p className="font-black tabular-nums">{money(rent)}</p>
+          </div>
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2">
+            <p className="text-emerald-700 dark:text-emerald-400">Monthly return</p>
+            <p className="font-black tabular-nums text-emerald-700 dark:text-emerald-400">{money(monthlyReturn(rent))}</p>
+          </div>
         </div>
-      </div>
-    </div>
+
+        <PlanShareButton
+          variant="block"
+          plan={{
+            rent_request_id: plan.rent_request_id,
+            funding_amount: rent,
+            house_category: plan.house_category,
+            request_city: plan.request_city,
+            tenant_location: plan.tenant_location,
+          }}
+        />
+      </CardContent>
+    </Card>
   );
 }
 

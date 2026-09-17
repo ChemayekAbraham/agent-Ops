@@ -57,15 +57,9 @@ export default function NationalIdLinkGate() {
             Someone wants to use your National ID
           </DialogTitle>
           <DialogDescription>
-            <span className="font-semibold text-foreground">
-              {row.requester_name ?? 'A Welile account'}
-            </span>
-            {row.requester_phone && (
-              <span className="font-mono text-foreground"> ({row.requester_phone})</span>
-            )}{' '}
-            is asking to be linked to National ID{' '}
+            A Welile account is asking to be linked to National ID{' '}
             <span className="font-mono font-semibold text-foreground">{row.nin}</span>. Only allow
-            this if you know this person and you agree.
+            this if you know the person and you agree.
           </DialogDescription>
         </DialogHeader>
 

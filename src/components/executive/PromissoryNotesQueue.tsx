@@ -36,7 +36,6 @@ import { CompactAmount } from '@/components/ui/CompactAmount';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
-import { usePromissoryArrivalSuggestions } from '@/hooks/usePromissoryArrivalSuggestions';
 import { formatUGX } from '@/lib/rentCalculations';
 
 
@@ -244,10 +243,6 @@ export function PromissoryNotesQueue({
     initialStatusFilter ?? localStorage.getItem('promissory-queue-status-filter') ?? 'all'
   );
   const { range, setRange, report, isLoading, refetch, error: reportError } = usePromissoryOpsReport();
-  // Fuzzy "may already be here" suggestions (name-based, confirm-first).
-  const arrivals = usePromissoryArrivalSuggestions();
-  const [matchReason, setMatchReason] = useState('');
-  const suggestionFor = (noteId: string) => arrivals.byNote.get(noteId)?.[0] ?? null;
   useEffect(() => {
     if (initialRange && initialRange !== range) {
       setRange(initialRange as any);
@@ -1091,19 +1086,6 @@ export function PromissoryNotesQueue({
                                   <BadgeCheck className="h-3.5 w-3.5 text-emerald-600" />
                                 </span>
                               )}
-                              {!note.came_in && suggestionFor(note.id) && (() => {
-                                const s = suggestionFor(note.id)!;
-                                return (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[10px] bg-sky-50 text-sky-700 border-sky-200"
-                                    title={`Possible match: ${s.candidate_name}${s.candidate_phone ? ` (${s.candidate_phone})` : ''} — ${s.shared_words} shared name words. Brought in ${formatUGX(Number(s.candidate_principal || 0))} · ${pct(Number(s.commission_rate || 0.02))} commission ${formatUGX(Number(s.commission_due || 0))}. Open the note to confirm.`}
-                                  >
-                                    Possible match
-                                    {Number(s.commission_due || 0) > 0 && ` · ${formatUGX(Number(s.commission_due))}`}
-                                  </Badge>
-                                );
-                              })()}
                               {(() => {
                                 const c = commissionOf(note);
                                 if (c.total <= 0 && !c.pendingCreation) return null;
@@ -1364,94 +1346,6 @@ export function PromissoryNotesQueue({
                               Registered {format(new Date(selectedNote.came_in_at), 'dd MMM yyyy HH:mm')}
                             </p>
                           )}
-                         </div>
-                       );
-                     })()}
-                    {!selectedNote.came_in && suggestionFor(selectedNote.id) && (() => {
-                      const s = suggestionFor(selectedNote.id)!;
-                      return (
-                        <div className="rounded-md border border-sky-200 bg-sky-50 p-2 text-xs space-y-1">
-                          <p className="font-medium text-sky-800">
-                            This partner may already be here — please confirm
-                          </p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="text-[11px] text-muted-foreground">Existing account</p>
-                              <p className="font-medium">{s.candidate_name}</p>
-                              {s.candidate_phone && (
-                                <p className="text-muted-foreground">{s.candidate_phone}</p>
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-[11px] text-muted-foreground">Promissory note name</p>
-                              <p className="font-medium">{selectedNote.partner_name}</p>
-                            </div>
-                          </div>
-                          <p className="text-muted-foreground">
-                            {s.shared_words} shared name words · closeness {Math.round(s.similarity * 100)}%
-                            {s.candidate_count > 1 ? ` · ${s.candidate_count} possible people` : ''}
-                          </p>
-                          <div className="rounded-md border border-violet-200 bg-violet-50 p-2 space-y-0.5">
-                            <p className="font-medium text-violet-800">
-                              What this partner brought in, and what the proxy agent earns
-                            </p>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <p className="text-[11px] text-muted-foreground">Principal brought in</p>
-                                <p className="font-semibold">{formatUGX(Number(s.candidate_principal || 0))}</p>
-                                {Number(s.candidate_portfolio_count || 0) > 0 && (
-                                  <p className="text-[11px] text-muted-foreground">
-                                    {s.candidate_portfolio_count} portfolio{Number(s.candidate_portfolio_count) === 1 ? '' : 's'} · {formatUGX(Number(s.candidate_principal_active || 0))} active
-                                  </p>
-                                )}
-                              </div>
-                              <div>
-                                <p className="text-[11px] text-muted-foreground">
-                                  Commission to {selectedNote.agent_name || 'the proxy agent'} ({pct(Number(s.commission_rate || 0.02))})
-                                </p>
-                                <p className="font-semibold text-violet-800">{formatUGX(Number(s.commission_due || 0))}</p>
-                              </div>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              {Number(s.commission_due || 0) > 0
-                                ? 'This is sent to the proxy agent when you confirm the match and approve the note.'
-                                : 'Nothing is due yet — this account has not created a portfolio.'}
-                            </p>
-                          </div>
-                          <p className="text-muted-foreground">
-                            The number and email on this note are different, so nothing was linked automatically.
-                            Only confirm if you are sure it is the same person. Notes whose number or email
-                            already match are linked on their own and need no confirmation.
-                          </p>
-                          <Textarea
-                            value={matchReason}
-                            onChange={(e) => setMatchReason(e.target.value)}
-                            placeholder="Why is this the same person? (at least 10 characters)"
-                            className="text-xs"
-                            rows={2}
-                          />
-                          <Button
-                            size="sm"
-                            className="h-8"
-                            disabled={matchReason.trim().length < 10 || arrivals.confirm.isPending}
-                            onClick={async () => {
-                              try {
-                                await arrivals.confirm.mutateAsync({
-                                  noteId: selectedNote.id,
-                                  userId: s.candidate_user_id,
-                                  reason: matchReason.trim(),
-                                });
-                                toast.success(`Linked to ${s.candidate_name}`);
-                                setMatchReason('');
-                                setSelectedNote(null);
-                                refetch();
-                              } catch (e: any) {
-                                toast.error(e?.message || 'Could not link this note');
-                              }
-                            }}
-                          >
-                            {arrivals.confirm.isPending ? 'Linking…' : 'Yes, same person — link them'}
-                          </Button>
                         </div>
                       );
                     })()}
