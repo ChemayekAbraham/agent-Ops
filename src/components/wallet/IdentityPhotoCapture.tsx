@@ -1720,7 +1720,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
         <Button
           className="w-full"
-          disabled={saving || !hasVerifiedPayoutNumber || !confirmDone}
+          disabled={saving || !hasVerifiedPayoutNumber || !confirmDone || nameTaken}
           onClick={handleSave}
         >
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
