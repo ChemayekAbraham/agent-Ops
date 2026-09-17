@@ -82,6 +82,28 @@ export function useNationalIdLinkState(requestId: string | null | undefined) {
   });
 }
 
+/**
+ * supabase-js reports only "Edge Function returned a non-2xx status code" and
+ * hides the sentence the server actually wrote (for example "too many code
+ * requests, try again in 5 minutes"). Read the response body so the person is
+ * told what really happened.
+ */
+async function readFunctionError(error: unknown, fallback: string): Promise<string> {
+  const ctx = (error as { context?: Response })?.context;
+  if (ctx && typeof ctx.text === 'function') {
+    try {
+      const raw = await ctx.text();
+      const parsed = raw ? (JSON.parse(raw) as { error?: string }) : {};
+      if (parsed.error) return parsed.error;
+    } catch {
+      /* body was not JSON — fall through to the plain message */
+    }
+  }
+  const msg = (error as { message?: string })?.message;
+  if (msg && !/non-2xx status code/i.test(msg)) return msg;
+  return fallback;
+}
+
 /** Sends the code to the holder's number, then checks the code typed back. */
 export function useNationalIdLinkOtp() {
   const send = useMutation({
@@ -89,7 +111,7 @@ export function useNationalIdLinkOtp() {
       const { data, error } = await supabase.functions.invoke('national-id-link-otp', {
         body: { action: 'send', request_id: requestId },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await readFunctionError(error, 'Could not send the code.'));
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) throw new Error(res.error ?? 'Could not send the code.');
       return true;
@@ -102,7 +124,7 @@ export function useNationalIdLinkOtp() {
       const { data, error } = await supabase.functions.invoke('national-id-link-otp', {
         body: { action: 'verify', request_id: requestId, code },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await readFunctionError(error, 'Could not check that code.'));
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) throw new Error(res.error ?? 'That code is not right.');
       return true;
