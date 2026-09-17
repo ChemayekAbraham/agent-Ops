@@ -671,6 +671,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
      what tells Financial Ops where to look. */
   const [form, setForm] = useState<NationalIdData>(EMPTY_ID_DATA);
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
+  // Set when the names typed already belong to another account's National ID.
+  const [nameTaken, setNameTaken] = useState(false);
   /** Set when the ID number is already recorded on another account. */
   const [duplicateNin, setDuplicateNin] = useState<string | null>(null);
   /* What the ID number typed says about itself, checked as it is typed rather
@@ -895,16 +897,18 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       );
       if (error) throw new Error(error.message);
       const res = data as
-        | { success?: boolean; message?: string; field?: string; duplicate?: boolean }
+        | { success?: boolean; message?: string; field?: string; duplicate?: boolean; name_taken?: boolean }
         | null;
       if (!res?.success) {
         const message = res?.message || 'Could not save those details.';
         setFieldError({ field: res?.field, message });
+        setNameTaken(!!res?.name_taken);
         // An ID already recorded elsewhere is not a mistake to correct: the
         // holder of that ID can allow this account to join it.
         setDuplicateNin(res?.duplicate ? form.nin : null);
         return { ok: false, message };
       }
+      setNameTaken(false);
       setDuplicateNin(null);
       return { ok: true };
     } catch (e) {
@@ -1327,9 +1331,20 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                 </div>
 
                 {fieldError && !duplicateNin && (
-                  <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-                    {fieldError.message}
-                  </p>
+                  nameTaken ? (
+                    <div className="rounded-md border-2 border-destructive bg-destructive/10 p-3 text-destructive">
+                      <p className="text-sm font-bold uppercase">This name is already taken</p>
+                      <p className="mt-1 text-xs">
+                        Someone else's account already carries these exact names with a different
+                        National ID. Enter your own real names, exactly as printed on your own card,
+                        to continue.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                      {fieldError.message}
+                    </p>
+                  )
                 )}
 
                 {/* Answered while the number is still being typed, so nobody
