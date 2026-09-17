@@ -1091,6 +1091,18 @@ export function PromissoryNotesQueue({
                                   <BadgeCheck className="h-3.5 w-3.5 text-emerald-600" />
                                 </span>
                               )}
+                              {!note.came_in && suggestionFor(note.id) && (() => {
+                                const s = suggestionFor(note.id)!;
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] bg-sky-50 text-sky-700 border-sky-200"
+                                    title={`Possible match: ${s.candidate_name}${s.candidate_phone ? ` (${s.candidate_phone})` : ''} — ${s.shared_words} shared name words. Open the note to confirm.`}
+                                  >
+                                    Possible match
+                                  </Badge>
+                                );
+                              })()}
                               {(() => {
                                 const c = commissionOf(note);
                                 if (c.total <= 0 && !c.pendingCreation) return null;
