@@ -1618,6 +1618,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
 
 
+        <PayoutNumberVerification userId={user?.id} />
+
+        {/* Repeated right above the button rather than only higher up the page —
+            a disabled "Send" button with its explanation scrolled out of view
+            reads as broken/silent, which is exactly what was reported. */}
         {sendError && (
           <div
             role="alert"
@@ -1643,14 +1648,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               ))}
             </ul>
           </div>
-        )}
-
-        <PayoutNumberVerification userId={user?.id} />
-
-        {!hasVerifiedPayoutNumber && (
-          <p className="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
-            Confirm your payout number above with the code before you can send your photos.
-          </p>
         )}
 
         <Button
