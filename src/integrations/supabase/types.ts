@@ -54124,11 +54124,14 @@ export type Database = {
           name_source: string
           national_id: string
           national_id_name: string
+          payout_number_count: number
           provider: string
           status: string
           total_count: number
           user_id: string
           user_phone: string
+          verified_payout_count: number
+          verified_payout_numbers: Json
           withdrawable_balance: number
         }[]
       }

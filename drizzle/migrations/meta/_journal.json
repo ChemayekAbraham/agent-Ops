@@ -1037,6 +1037,13 @@
       "when": 1789617228094,
       "tag": "0147_payout_queue_id_account_count_fix_alias",
       "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1789618197750,
+      "tag": "0148_payout_queue_verified_numbers",
+      "breakpoints": true
     }
   ]
 }

@@ -48,6 +48,20 @@ export interface PayoutDestinationRow {
   id_account_count: number;
   /** This account's position among the ID's holders, oldest first (1 = first holder). */
   id_account_ordinal: number;
+  /** How many payout numbers/accounts this person has saved in total. */
+  payout_number_count: number;
+  /** How many OTHER payout numbers are already verified for this person. */
+  verified_payout_count: number;
+  /** The already-verified payout numbers (oldest first), so a reviewer can see what came before. */
+  verified_payout_numbers: {
+    provider: string | null;
+    destination_type: string | null;
+    momo_number: string | null;
+    bank_name: string | null;
+    bank_account_number: string | null;
+    account_name: string | null;
+    decided_at: string | null;
+  }[];
   double_of_user_id: string | null;
   double_of_name: string | null;
   total_count: number;
@@ -228,6 +242,11 @@ export function usePayoutVerificationQueue(opts: {
           double_submission: row.double_submission === true,
           id_account_count: Number(row.id_account_count ?? 1),
           id_account_ordinal: Number(row.id_account_ordinal ?? 1),
+          payout_number_count: Number(row.payout_number_count ?? 1),
+          verified_payout_count: Number(row.verified_payout_count ?? 0),
+          verified_payout_numbers: Array.isArray(row.verified_payout_numbers)
+            ? (row.verified_payout_numbers as PayoutDestinationRow['verified_payout_numbers'])
+            : [],
         } as PayoutDestinationRow;
       });
       return { rows, total: rows[0]?.total_count ?? 0 };

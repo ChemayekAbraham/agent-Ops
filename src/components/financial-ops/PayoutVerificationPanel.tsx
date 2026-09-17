@@ -1276,6 +1276,16 @@ export default function PayoutVerificationPanel() {
                 </span>
               );
             })()}
+            {row.payout_number_count > 1 && (
+              <span
+                role="status"
+                aria-label={`This person has ${row.payout_number_count} payout numbers`}
+                className="flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400"
+              >
+                <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                {row.payout_number_count} payout numbers
+              </span>
+            )}
           </div>
 
           {isDouble && (
@@ -1289,6 +1299,48 @@ export default function PayoutVerificationPanel() {
             />
           )}
 
+
+          {row.verified_payout_count > 0 && (
+            <div
+              role="alert"
+              className="mx-5 mt-2 rounded-2xl border-2 border-amber-500/80 bg-amber-500/10 p-4 shadow-lg shadow-amber-500/10"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+                  <Smartphone className="h-4 w-4 text-amber-700 dark:text-amber-400" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-extrabold leading-tight text-amber-800 dark:text-amber-300">
+                    This person already has {row.verified_payout_count} verified payout{' '}
+                    {row.verified_payout_count === 1 ? 'number' : 'numbers'}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-amber-800/90 dark:text-amber-300/90">
+                    They are now asking to use a different one. Confirm with them why before verifying.
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {row.verified_payout_numbers.map((v, i) => (
+                      <li
+                        key={i}
+                        className="flex flex-wrap items-center gap-x-2 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold text-amber-900 dark:text-amber-200"
+                      >
+                        <BadgeCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        <span>
+                          {ordinalLabel(i + 1)} verified:{' '}
+                          {v.momo_number || v.bank_account_number || '—'}
+                          {v.provider ? ` (${v.provider})` : v.bank_name ? ` (${v.bank_name})` : ''}
+                        </span>
+                        {v.decided_at && (
+                          <span className="text-xs font-semibold opacity-80">
+                            verified {new Date(v.decided_at).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
 
           {row.id_account_count > 1 && (
             <div
