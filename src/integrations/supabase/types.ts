@@ -54609,6 +54609,7 @@ export type Database = {
           commission_earned: number
         }[]
       }
+      get_agent_commission_rate: { Args: { p_agent_id: string }; Returns: Json }
       get_agent_daily_activity_report: {
         Args: { p_date?: string }
         Returns: Json
@@ -56011,6 +56012,7 @@ export type Database = {
           status: string
         }[]
       }
+      get_my_commission_rate: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
