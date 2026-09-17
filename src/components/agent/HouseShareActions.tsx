@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy, FileText, MessageCircle } from 'lucide-react';
+import { Check, Copy, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -17,11 +17,11 @@ const houseSummary = (house: SupportableHouse) => ({
  * Share actions for one empty house.
  *
  * The primary action opens the self-support promissory note dialog so the agent
- * creates the note and shares its activation link from there. The WhatsApp and
- * copy buttons keep the original house share logic: the opaque,
- * attribution-carrying support deep link created by
- * `get_or_create_house_share_link` — welileapp.com/s/<code> — so whoever opens
- * it lands on the public support page and this agent stays credited server-side.
+ * creates the note and shares its activation link from there. The copy button
+ * keeps the original house share logic: the opaque, attribution-carrying support
+ * deep link created by `get_or_create_house_share_link` — welileapp.com/s/<code>
+ * — so whoever opens it lands on the public support page and this agent stays
+ * credited server-side.
  */
 export function HouseShareActions({ house }: { house: SupportableHouse }) {
   const [copied, setCopied] = useState(false);
@@ -43,11 +43,6 @@ export function HouseShareActions({ house }: { house: SupportableHouse }) {
       setBusy(false);
     }
   };
-
-  const whatsapp = () =>
-    withLink(({ message }) => {
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-    });
 
   const copy = () =>
     withLink(async ({ message }) => {
@@ -74,15 +69,6 @@ export function HouseShareActions({ house }: { house: SupportableHouse }) {
         initialAmount={Number(house.monthly_rent || 0) || undefined}
         initialHouse={house}
       />
-      <Button
-        variant="outline"
-        className="gap-2 rounded-xl"
-        disabled={busy}
-        onClick={whatsapp}
-        aria-label="Share on WhatsApp"
-      >
-        <MessageCircle className="h-4 w-4" />
-      </Button>
       <Button variant="outline" className="rounded-xl" disabled={busy} onClick={copy} aria-label="Copy support link">
         {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
       </Button>

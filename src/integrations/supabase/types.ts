@@ -60008,6 +60008,10 @@ export type Database = {
         }
         Returns: Json
       }
+      promissory_catch_up_partner_commission: {
+        Args: { p_partner_id: string }
+        Returns: Json
+      }
       promissory_commission_rate: {
         Args: { p_at?: string; p_kind: string }
         Returns: number
