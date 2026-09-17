@@ -695,13 +695,21 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setIdReading(null);
     setReadError(null);
     setFieldError(null);
-    const res = await readNationalIdPhoto(file);
+    setIdRotation(0);
+    /* A card photographed upside down or sideways used to come back as "not a
+       National ID", so a perfectly good photo was rejected. The reader now
+       retries the same photo turned, keeps whichever way round read best, and
+       the straightened copy is what gets archived. */
+    const res = await readNationalIdPhotoOriented(file);
     if ('error' in res && res.error) {
       setReadError(res.error);
       setReading(false);
       return;
     }
-    const r = res as NationalIdReading;
+    const oriented = res as { reading: NationalIdReading; rotation: IdRotation; file: File; corrected: boolean };
+    const r = oriented.reading;
+    setIdRotation(oriented.rotation);
+    if (oriented.corrected) setIdPhoto(oriented.file);
     setIdReading(r);
     // A photo that is not a National ID prefills nothing — there is nothing on
     // it to confirm, and a half-filled form would invite the person to guess.
