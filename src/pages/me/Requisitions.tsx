@@ -585,6 +585,40 @@ const MyRequisitions = () => {
           </div>
         </Card>
 
+        {loans.length > 0 && (
+          <Card className="rounded-2xl p-4">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <Landmark className="h-4 w-4 text-primary" /> Your loans
+            </p>
+            <div className="mt-3 space-y-2">
+              {loans.map((l) => (
+                <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
+                  <div>
+                    <p className="font-medium">
+                      {formatUGX(Number(l.principal))} over {l.months} {l.months === 1 ? 'month' : 'months'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Started {fmtDate(l.started_on)} • repaid {formatUGX(Number(l.total_repaid))}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    {l.status === 'completed' ? (
+                      <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700">Cleared</Badge>
+                    ) : (
+                      <>
+                        <p className="font-semibold">
+                          {formatUGX(Number(l.outstanding_principal) + Number(l.accrued_interest))}
+                        </p>
+                        <p className="text-xs text-muted-foreground">still owing</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {loading ? (
           <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading your requisitions…
