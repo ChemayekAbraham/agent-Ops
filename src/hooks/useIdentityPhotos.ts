@@ -20,10 +20,12 @@ import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 
 export const IDENTITY_BUCKET = 'identity-verification';
 
-export type IdentityPhotoKind = 'national-id' | 'selfie';
+export type IdentityPhotoKind = 'national-id' | 'national-id-back' | 'selfie';
 
 export interface MyIdentityPhotos {
   national_id_photo_path: string | null;
+  /** The back of the card — required alongside the front. */
+  national_id_back_photo_path: string | null;
   selfie_photo_path: string | null;
   identity_photos_submitted_at: string | null;
 }
@@ -44,7 +46,7 @@ export function useMyIdentityPhotos() {
       if (!uid) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('national_id_photo_path, selfie_photo_path, identity_photos_submitted_at')
+        .select('national_id_photo_path, national_id_back_photo_path, selfie_photo_path, identity_photos_submitted_at')
         .eq('id', uid)
         .maybeSingle();
       if (error) throw error;
@@ -61,7 +63,7 @@ export function useIdentityPhotosFor(userId: string | null | undefined) {
     queryFn: async (): Promise<MyIdentityPhotos | null> => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('national_id_photo_path, selfie_photo_path, identity_photos_submitted_at')
+        .select('national_id_photo_path, national_id_back_photo_path, selfie_photo_path, identity_photos_submitted_at')
         .eq('id', userId!)
         .maybeSingle();
       if (error) throw error;
@@ -219,6 +221,7 @@ export interface VerificationHistoryEntry {
 function kindOf(name: string): VerificationHistoryFile['kind'] {
   if (name.startsWith('profile-crop-')) return 'profile-crop';
   if (name.startsWith('selfie-')) return 'selfie';
+  if (name.startsWith('national-id-back-')) return 'national-id-back';
   if (name.startsWith('national-id-')) return 'national-id';
   return 'other';
 }
