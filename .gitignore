@@ -14,6 +14,7 @@ dist-ssr
 
 # Environment variables
 .env
+.mcp.json
 
 # Editor directories and files
 .vscode/*

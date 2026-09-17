@@ -374,13 +374,24 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                         borderRadius: '8px',
                         fontSize: '12px',
                       }}
-                      formatter={(value: number) => [`${value} new tenants`, 'Registrations']}
+                      formatter={(value: number, name: string) => [`${value} tenants`, name]}
                       labelFormatter={(label, payload) => payload?.[0]?.payload?.fullDate || label}
                     />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
                     <Line
                       type="monotone"
                       dataKey="count"
+                      name="Registrations"
                       stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="approvedCount"
+                      name="Approved"
+                      stroke="hsl(var(--success))"
                       strokeWidth={2}
                       dot={false}
                       activeDot={{ r: 4 }}
