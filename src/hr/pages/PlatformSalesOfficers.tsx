@@ -579,6 +579,23 @@ export default function PlatformSalesOfficersPage() {
   const combinedNetTotal = netTotal + peopleNetTotal;
   const combinedFundedTotal = fundedTotal + peopleFundedTotal;
   const combinedMoneyTotal = moneyTotal + peopleMoneyTotal;
+  const combinedContributors = officers.length + people.length;
+  const combinedUnapproved = useMemo(
+    () => officers.reduce((s, o) => s + o.notesUnapproved, 0) + people.reduce((s, p) => s + p.notesUnapproved, 0),
+    [officers, people],
+  );
+  const combinedFunders = useMemo(
+    () => officers.reduce((s, o) => s + o.fundersConverted, 0) + people.reduce((s, p) => s + p.fundersConverted, 0),
+    [officers, people],
+  );
+  const combinedTopups = useMemo(
+    () => officers.reduce((s, o) => s + o.topups, 0) + people.reduce((s, p) => s + p.topups, 0),
+    [officers, people],
+  );
+  const combinedCommission = useMemo(
+    () => officers.reduce((s, o) => s + o.commissionAccrued, 0) + people.reduce((s, p) => s + p.commissionAccrued, 0),
+    [officers, people],
+  );
 
   // Per-table day-column sums for the window currently shown. Recompute
   // whenever the window or the polled data changes.
