@@ -493,6 +493,60 @@ async function invokeBackReader(
   }
 }
 
+/**
+ * Normalise the edge function's JSON into the typed back-of-card shape.
+ * Shared between the live-file reader and the stored-photo reviewer reader.
+ */
+function normaliseBackDetails(data: Record<string, unknown>): NationalIdBackDetails {
+  const r = data;
+  const res = (r.residence ?? {}) as Record<string, unknown>;
+  const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  return {
+    is_national_id: r.is_national_id !== false,
+    side: r.side === 'front' ? 'front' : 'back',
+    readable: r.readable !== false,
+    card_number: s(r.card_number),
+    card_number_agrees: typeof r.card_number_agrees === 'boolean' ? r.card_number_agrees : null,
+    date_of_issue: s(r.date_of_issue),
+    date_of_expiry: s(r.date_of_expiry),
+    date_of_expiry_agrees:
+      typeof r.date_of_expiry_agrees === 'boolean' ? r.date_of_expiry_agrees : null,
+    residence: {
+      district: s(res.district),
+      county: s(res.county),
+      subcounty: s(res.subcounty),
+      parish: s(res.parish),
+      village: s(res.village),
+    },
+    other_fields: Array.isArray(r.other_fields)
+      ? (r.other_fields as Record<string, unknown>[])
+          .map((f) => ({ label: String(f?.label ?? '').trim(), value: String(f?.value ?? '').trim() }))
+          .filter((f) => f.label && f.value)
+      : [],
+    mrz: (r.mrz ?? { present: false }) as IdMrz,
+  };
+}
+
+/** Read the back of an already-archived identity photo by its storage path.
+ *  Used by reviewers so they see the same extracted details the submitter saw. */
+export async function readNationalIdBackPhotoFromPath(
+  storagePath: string,
+): Promise<NationalIdBackDetails | { error: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('read-national-id-back', {
+      body: { storagePath },
+    });
+    if (error) {
+      return { error: 'Could not read the back of the stored ID photo.' };
+    }
+    const r = (data ?? {}) as Record<string, unknown>;
+    if (typeof r.error === 'string' && r.error) return { error: r.error };
+    return normaliseBackDetails(r);
+  } catch {
+    return { error: 'Could not read the back of the stored ID photo.' };
+  }
+}
+
 /** How much was actually extracted, so two orientations can be compared. */
 function backScore(b: NationalIdBackDetails): number {
   const residence = Object.values(b.residence).filter(Boolean).length;
