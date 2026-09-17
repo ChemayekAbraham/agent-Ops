@@ -1282,6 +1282,13 @@
       "when": 1789678842193,
       "tag": "0182_engrep_work_units_catalogue_only_objects_and_claim_noise",
       "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1789679014261,
+      "tag": "0183_engrep_repetition_tighten_no_op_stability_window",
+      "breakpoints": true
     }
   ]
 }
