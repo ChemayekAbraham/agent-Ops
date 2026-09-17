@@ -519,9 +519,6 @@ export default function MerchandiseStore() {
                       <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
                     )}
                     <p className="text-sm font-bold text-primary">{formatUGX(Number(item.unit_price))}</p>
-                    <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                      Or pay monthly — from {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price), 12).firstDaily)}/day over up to 12 months
-                    </p>
                     {Array.isArray(item.sizes) && item.sizes.length > 0 && (
                       <p className="text-[10px] text-muted-foreground">
                         Sizes in stock: {item.sizes.join(', ')}
