@@ -266,3 +266,184 @@ export function readingGuidance(r: NationalIdReading): string | null {
   }
   return null;
 }
+
+/* ------------------------------------------------------------------ *
+ * Orientation — an upside-down or sideways card
+ *
+ * A card photographed the wrong way up reads as "not a National ID" or as a
+ * card with almost nothing on it, and the person is told to retake a photo that
+ * was in fact perfectly sharp. So every poor reading is retried on a rotated
+ * copy of the same photo, and when a rotation reads better we keep the
+ * straightened copy AND say what was wrong, so the next photo is taken right.
+ * ------------------------------------------------------------------ */
+
+export type IdRotation = 0 | 90 | 180 | 270;
+
+/** How to hold the card, in the order that fixes the most photos. */
+export const ID_POSITION_TIPS: string[] = [
+  'Hold the card landscape (wide, not tall), with the writing the right way up.',
+  'Keep the photo of the face on the LEFT of the frame.',
+  'Fill the frame with the card and keep all four corners inside it.',
+  'Keep the phone flat above the card, not tilted, and avoid shine from lights.',
+];
+
+/** Turns one photo by a quarter, half or three-quarter turn. */
+export async function rotateImageFile(file: File, degrees: IdRotation): Promise<File> {
+  if (degrees === 0) return file;
+  const url = URL createObjectUrlSafe(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Could not open that photo.'));
+      el.src = url;
+    });
+    const swap = degrees === 90 || degrees === 270;
+    const canvas = document.createElement('canvas');
+    canvas.width = swap ? img.naturalHeight : img.naturalWidth;
+    canvas.height = swap ? img.naturalWidth : img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((degrees * Math.PI) / 180);
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92),
+    );
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + `-turned${degrees}.jpg`, {
+      type: 'image/jpeg',
+    });
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** How good a reading is, so two orientations of the same photo can be compared. */
+function readingScore(r: NationalIdReading): number {
+  if (r.status === 'invalid') return -100;
+  const valid = Object.values(r.fields ?? {}).filter((f) => f?.valid === true).length;
+  const seen = (Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[])
+    .filter((k) => !!String(r.data?.[k] ?? '').trim()).length;
+  return (r.status === 'valid' ? 100 : 0) + valid * 10 + seen * 2;
+}
+
+export interface OrientedIdReading {
+  reading: NationalIdReading;
+  /** The turn that read best — 0 when the photo was already the right way up. */
+  rotation: IdRotation;
+  /** The straightened copy to archive and send. Same file when rotation is 0. */
+  file: File;
+  /** True when the photo had to be turned to be readable. */
+  corrected: boolean;
+}
+
+/**
+ * Reads the front of a card, correcting an upside-down or sideways photo.
+ *
+ * The photo as taken is always tried first. Only a poor reading is retried
+ * rotated, so a good photo costs exactly one call as before.
+ */
+export async function readNationalIdPhotoOriented(
+  file: File,
+): Promise<OrientedIdReading | { error: string }> {
+  const first = await readNationalIdPhoto(file);
+  if ('error' in first && first.error) return first as { error: string };
+  let best: OrientedIdReading = {
+    reading: first as NationalIdReading,
+    rotation: 0,
+    file,
+    corrected: false,
+  };
+  if (best.reading.status === 'valid') return best;
+
+  // Half a turn first: an upside-down card is by far the commonest mistake.
+  for (const deg of [180, 270, 90] as IdRotation[]) {
+    let turned: File;
+    try {
+      turned = await rotateImageFile(file, deg);
+    } catch {
+      continue;
+    }
+    if (turned === file) continue;
+    const res = await readNationalIdPhoto(turned);
+    if ('error' in res && res.error) continue;
+    const reading = res as NationalIdReading;
+    if (readingScore(reading) > readingScore(best.reading)) {
+      best = { reading, rotation: deg, file: turned, corrected: true };
+    }
+    if (reading.status === 'valid') break;
+  }
+  return best;
+}
+
+/** What to tell the person about the way the card was lying. */
+export function orientationMessage(rotation: IdRotation): string | null {
+  if (rotation === 0) return null;
+  if (rotation === 180) {
+    return 'Your ID was upside down. We turned it the right way up and read it — check every line below. Next time hold the card with the writing the right way up.';
+  }
+  return 'Your ID was sideways. We turned it upright and read it — check every line below. Next time hold the card landscape (wide, not tall).';
+}
+
+/* ------------------------------------------------------------------ *
+ * The back of the card
+ * ------------------------------------------------------------------ */
+
+export const ID_BACK_TIPS: string[] = [
+  'Turn the card over — the back carries the two lines of code at the bottom.',
+  'Hold it landscape and fill the frame, all four corners inside.',
+  'Keep the phone flat above the card so the small print stays sharp.',
+];
+
+export interface NationalIdBackReading {
+  /** The front was photographed again by mistake. */
+  looksLikeFront: boolean;
+  /** Anything readable on the back, ready to show line by line. */
+  details: { label: string; value: string }[];
+  rotation: IdRotation;
+  /** The straightened copy to archive. */
+  file: File;
+  corrected: boolean;
+  raw: NationalIdReading;
+}
+
+/**
+ * Reads the back of the card. Nothing here refuses a submission: the back is
+ * archived for Financial Ops either way, so an unreadable back is reported,
+ * never used to block the person.
+ */
+export async function readNationalIdBackPhoto(
+  file: File,
+): Promise<NationalIdBackReading | { error: string }> {
+  const oriented = await readNationalIdPhotoOriented(file);
+  if ('error' in oriented && oriented.error) return oriented as { error: string };
+  const o = oriented as OrientedIdReading;
+  const r = o.reading;
+
+  const nameFields = ['surname', 'given_name'] as const;
+  const looksLikeFront = nameFields.every((k) => r.fields?.[k]?.valid === true);
+
+  const details: { label: string; value: string }[] = [];
+  const push = (label: string, value: string | null | undefined) => {
+    const v = String(value ?? '').trim();
+    if (v) details.push({ label, value: v });
+  };
+  push('Card number', r.data?.card_number);
+  push('NIN', r.data?.nin);
+  push('Date of expiry', r.date_of_expiry);
+  push('Nationality', r.nationality);
+  push('Date of birth', r.data?.date_of_birth);
+  push('Sex', r.data?.sex);
+
+  return {
+    looksLikeFront,
+    details,
+    rotation: o.rotation,
+    file: o.file,
+    corrected: o.corrected,
+    raw: r,
+  };
+}
