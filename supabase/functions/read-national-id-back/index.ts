@@ -98,6 +98,25 @@ interface MrzResult {
   checksums_ok: boolean | null;
 }
 
+const FINANCE_ROLES = ["financial_ops", "cfo", "manager", "super_admin", "ceo", "coo"];
+
+/** True when the caller is allowed to read another user's identity photo. */
+async function isFinanceReviewer(
+  admin: ReturnType<typeof createClient>,
+  callerId: string,
+): Promise<boolean> {
+  try {
+    const checks = await Promise.all(
+      FINANCE_ROLES.map((role) =>
+        admin.rpc("has_role", { _user_id: callerId, _role: role }).then(({ data }) => data === true)
+      ),
+    );
+    return checks.some(Boolean);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Parses the machine-readable zone out of whatever text the model transcribed.
  * The MRZ is self-verifying, which is why it — not the model's prose — is the
