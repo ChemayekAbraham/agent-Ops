@@ -124,7 +124,7 @@ export function useNationalIdLinkOtp() {
       const { data, error } = await supabase.functions.invoke('national-id-link-otp', {
         body: { action: 'verify', request_id: requestId, code },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await readFunctionError(error, 'Could not check that code.'));
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) throw new Error(res.error ?? 'That code is not right.');
       return true;
