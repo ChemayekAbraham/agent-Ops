@@ -42,7 +42,18 @@ export type NationalIdLinkState = {
 type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{
   data: unknown; error: { message: string } | null;
 }>;
-const rpc = supabase.rpc as unknown as Rpc;
+const rpc = supabase.rpc.bind(supabase) as unknown as Rpc;
+
+export type HolderLinkRequest = {
+  id: string;
+  nin: string;
+  status: NationalIdLinkStatus;
+  code_verified_at: string | null;
+  created_at: string;
+  expires_at: string;
+  requester_name: string | null;
+  requester_phone: string | null;
+};
 
 /** Creates (or picks up) this account's open request for that ID number. */
 export function useRequestNationalIdLink() {
@@ -120,16 +131,10 @@ export function useNationalIdLinkRequestsForHolder() {
     queryKey: ['national-id-link-holder', user?.id],
     enabled: !!user?.id,
     refetchInterval: LINK_POLL_INTERVAL_MS,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('national_id_link_requests')
-        .select('id, nin, status, code_verified_at, created_at, expires_at')
-        .eq('holder_id', user!.id)
-        .eq('status', 'awaiting_owner')
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      return data ?? [];
+    queryFn: async (): Promise<HolderLinkRequest[]> => {
+      const { data, error } = await rpc('national_id_link_holder_requests');
+      if (error) throw new Error(error.message);
+      return Array.isArray(data) ? data as HolderLinkRequest[] : [];
     },
   });
 }
