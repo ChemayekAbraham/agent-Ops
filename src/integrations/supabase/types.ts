@@ -13318,6 +13318,7 @@ export type Database = {
           captured_for: string
           fingerprint: string
           id: number
+          object_base: string | null
           object_key: string
           object_kind: string
         }
@@ -13326,6 +13327,7 @@ export type Database = {
           captured_for: string
           fingerprint: string
           id?: number
+          object_base?: string | null
           object_key: string
           object_kind: string
         }
@@ -13334,6 +13336,7 @@ export type Database = {
           captured_for?: string
           fingerprint?: string
           id?: number
+          object_base?: string | null
           object_key?: string
           object_kind?: string
         }
