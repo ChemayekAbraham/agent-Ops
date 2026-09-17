@@ -891,6 +891,7 @@ export default function PayoutVerificationPanel() {
   const [deciding, setDeciding] = useState(false);
   const [confirmingVerify, setConfirmingVerify] = useState<PayoutDestinationRow | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
+  const [personNumbersOpen, setPersonNumbersOpen] = useState(false);
   const focusCardRef = useRef<HTMLDivElement | null>(null);
   const skipInitialScrollRef = useRef(true);
 
