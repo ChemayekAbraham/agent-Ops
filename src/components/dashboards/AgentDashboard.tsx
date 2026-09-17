@@ -378,6 +378,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   }, []);
   const [showWallet, setShowWallet] = useState(false);
   const [parentAgentOpen, setParentAgentOpen] = useState(false);
+  const [nationalIdGroupOpen, setNationalIdGroupOpen] = useState(false);
   const { data: parentAgentInfo } = useMyParentAgent(user?.id);
   const [walletScrollTarget, setWalletScrollTarget] = useState<'statement' | null>(null);
   const [earningsRankOpen, setEarningsRankOpen] = useState(false);
@@ -1706,6 +1707,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 ...(parentAgentInfo?.parent_agent_id
                   ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
                   : []),
+                { icon: ShieldCheck, label: 'My National ID', onClick: () => setNationalIdGroupOpen(true) },
                 { icon: Menu, label: 'All Menu', onClick: handleOpenMenu },
               ].map((a) => (
                 <button
