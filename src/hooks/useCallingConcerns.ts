@@ -304,10 +304,16 @@ export function useForwardConcern() {
         p_due_hours: input.due_hours ?? DEFAULT_CONCERN_DUE_HOURS,
       });
       if (error) throw new Error(error.message);
+      if (typeof data !== 'string' || data.length === 0) {
+        throw new Error('The concern was not saved. Please try again.');
+      }
       return data as string;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['cc-forwarded-concerns'] });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['cc-forwarded-concerns'] }),
+        qc.invalidateQueries({ queryKey: ['cc-received-calls'] }),
+      ]);
     },
   });
 }

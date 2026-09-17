@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Calling Center forwarding: keep staff selection, confirm persistence, refresh received-call and forwarded-concern statistics, and remove circular concern-history access rules.
+
 - [x] National ID capture: require straight landscape front/back photos; reject 90°/-90° before OCR or submission.
 - [x] Add a Financial Ops sidebar section for manual requisition links and management.
 - [x] Route public manual requisition submissions through COO review, then CFO final approval.
