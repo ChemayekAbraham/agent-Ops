@@ -1191,7 +1191,16 @@ export default function PayoutVerificationPanel() {
   // account is a double submission and can never be verified.
   const isDouble = row?.double_submission === true;
   const doubleWhat = doubleSubmissionLabel(row?.double_kind);
-  const verifyBlocked = !photosReady || idNameUnreadable || isDouble;
+  // Every payout number must first be name-checked on the network, exactly as
+  // though money were being sent, and the name must be the same person as the
+  // National ID. Until that is recorded and agrees, Verify stays off.
+  const [nameCheck, setNameCheck] = useState<PayoutNameCheck | null>(null);
+  useEffect(() => {
+    setNameCheck(loadNameCheck(row?.id));
+  }, [row?.id]);
+  const nameCheckPassed = nameCheck?.outcome === 'match';
+  const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheckPassed;
+
 
 
   const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
