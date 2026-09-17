@@ -419,7 +419,12 @@ export default function PlatformSalesOfficersPage() {
   }, [people]);
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
-  const officerNetTarget = useMemo(() => officers.length * 40, [officers]);
+  const officerNetTarget = useMemo(() => {
+    const perDay = officers.length * 20;
+    if (mode === 'WEEKLY') return perDay * 7;
+    if (mode === 'MONTHLY') return perDay * 30;
+    return perDay;
+  }, [officers, mode]);
   const officerNetPct = useMemo(() => {
     if (officerNetTarget <= 0) return 0;
     return Math.round((netTotal / officerNetTarget) * 100);
@@ -490,9 +495,17 @@ export default function PlatformSalesOfficersPage() {
     [officerWeekdayTotals, peopleWeekdayTotals],
   );
 
-  // Net-notes goal for the window shown: 100 a day, 700 a week, 3,000 a month.
-  const combinedNetGoal = mode === 'DAILY' ? 100 : mode === 'WEEKLY' ? 700 : 3000;
-  const combinedNetPct = Math.round((combinedTotals.netNotes / combinedNetGoal) * 100);
+  // Net-notes goal for the window shown: 20 notes per person per day, scaled by window.
+  const combinedNetGoal = useMemo(() => {
+    const perDay = (officers.length + people.length) * 20;
+    if (mode === 'WEEKLY') return perDay * 7;
+    if (mode === 'MONTHLY') return perDay * 30;
+    return perDay;
+  }, [officers, people, mode]);
+  const combinedNetPct = useMemo(
+    () => (combinedNetGoal <= 0 ? 0 : Math.round((combinedTotals.netNotes / combinedNetGoal) * 100)),
+    [combinedTotals.netNotes, combinedNetGoal],
+  );
 
 
 
@@ -917,7 +930,11 @@ export default function PlatformSalesOfficersPage() {
               </span>
               <span className="text-[11px] text-muted-foreground">
                 platform sales officers and other contributors added together ·{' '}
-                {mode === 'DAILY' ? 'goal 100 notes a day' : mode === 'WEEKLY' ? 'goal 700 notes a week' : 'goal 3,000 notes a month'}
+                {mode === 'DAILY'
+                  ? 'goal 20 notes per person per day'
+                  : mode === 'WEEKLY'
+                    ? 'goal 20 notes per person per day × 7'
+                    : 'goal 20 notes per person per day × 30'}
               </span>
             </div>
 
