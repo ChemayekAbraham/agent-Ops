@@ -1,6 +1,7 @@
 import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { confirmYoolaDelivery, extractYoolaMessageId } from "../_shared/yoolaDeliveryConfirm.ts";
 
 
 const corsHeaders = {
@@ -576,6 +577,88 @@ async function logSmsAttempts(
   }
 }
 
+/**
+ * Yoola accepting a message is NOT proof the handset received it: its delivery
+ * report can sit on "sent" forever while the code never arrives. After Yoola
+ * accepts we poll its delivery report briefly in the background and, when
+ * delivery is NOT confirmed, resend the SAME code through Africa's Talking and
+ * then LANA. Yoola stays the primary route — this only adds a rescue path.
+ */
+async function ensureHandsetDelivery(
+  admin: any,
+  phone: string,
+  message: string,
+  outcome: SmsOutcome,
+): Promise<void> {
+  try {
+    if (!outcome.accepted || outcome.provider !== "yoola") return;
+    const yoola = [...outcome.attempts].reverse().find((a) => a.provider === "yoola" && a.accepted);
+    if (!yoola) return;
+    const messageId = yoola.messageId ?? extractYoolaMessageId(yoola.response);
+    const { outcome: state, detail } = await confirmYoolaDelivery(messageId, { attempts: 4, delayMs: 2500 });
+    if (state === "delivered") {
+      console.log(`[sms-otp] Yoola confirmed handset delivery to ***${phone.slice(-4)}`);
+      return;
+    }
+    console.warn(
+      `[sms-otp] Yoola delivery unconfirmed (${detail ?? state}) for ***${phone.slice(-4)} — failing over`,
+    );
+
+    const attempts: ProviderAttempt[] = [];
+    /* Yoola is retried FIRST on failover: it is the only route with a funded,
+       WELILE-registered sender. Africa's Talking currently answers with
+       statusCode 405 (InsufficientBalance) and LANA rejects the payload, so
+       they are last-resort only and must never displace Yoola. */
+    const routes: Array<{ provider: string; fn: () => Promise<SmsResult> }> = [
+      { provider: "yoola", fn: () => sendViaYoola(phone, message) },
+      { provider: "africastalking", fn: () => sendViaAfricasTalking(phone, message) },
+      { provider: "lana", fn: () => sendViaLana(phone, message) },
+    ];
+    let finalProvider: string | null = null;
+    for (const route of routes) {
+      const started_at = new Date().toISOString();
+      const r = await route.fn();
+      attempts.push({
+        provider: route.provider,
+        accepted: r.accepted,
+        reason: r.reason ?? `failover_after_yoola_${detail ?? state}`,
+        response: r.response,
+        messageId: r.messageId ?? null,
+        cost: r.cost ?? null,
+        started_at,
+        finished_at: new Date().toISOString(),
+        attempted: !wasSkipped(r.reason),
+      });
+      if (r.accepted) {
+        finalProvider = route.provider;
+        break;
+      }
+    }
+    if (attempts.length) {
+      await logSmsAttempts(
+        admin,
+        { phone, message, source: "sms-otp-failover" },
+        { accepted: Boolean(finalProvider), provider: finalProvider ?? undefined, attempts },
+      );
+    }
+    if (finalProvider) {
+      await admin
+        .from("otp_verifications")
+        .update({
+          send_status: "accepted",
+          send_status_reason: `provider:${finalProvider} (failover after yoola ${detail ?? state})`,
+          send_status_at: new Date().toISOString(),
+        })
+        .eq("phone", phone.slice(-9));
+      console.log(`[sms-otp] failover resend accepted by ${finalProvider} for ***${phone.slice(-4)}`);
+    } else {
+      console.error(`[sms-otp] failover resend failed on all providers for ***${phone.slice(-4)}`);
+    }
+  } catch (err) {
+    console.error("[sms-otp] delivery-confirmation failover error:", err);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -876,6 +959,7 @@ Deno.serve(async (req) => {
                 console.log(
                   `[sms-otp] late acceptance for ***${phoneKey.slice(-4)}: ${r.accepted ? "ok" : r.reason}`,
                 );
+                await ensureHandsetDelivery(adminClient, phone, message, r);
               })
               .catch((err) => console.error("[sms-otp] background SMS error:", err)),
           );
@@ -905,6 +989,14 @@ Deno.serve(async (req) => {
       }
 
       console.log(`[sms-otp] OTP accepted for ***${phoneKey.slice(-4)}`);
+      // Confirm the handset actually got it; resend via a fallback route if not.
+      try {
+        (globalThis as any).EdgeRuntime?.waitUntil?.(
+          ensureHandsetDelivery(adminClient, phone, message, outcome),
+        );
+      } catch (_) {
+        // EdgeRuntime not available — nothing else to do.
+      }
       return new Response(JSON.stringify({ success: true, message: "OTP sent successfully" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
