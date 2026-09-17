@@ -1022,6 +1022,54 @@ export default function PlatformSalesOfficersPage() {
         )}
 
 
+        {!isLoading && (officers.length > 0 || people.length > 0) && (
+          <div className="space-y-2">
+            <div className="flex flex-col gap-0.5 border-t pt-4">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Combined totals
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                officers + other contributors · {label.toLowerCase()}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Contributors</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedContributors}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Net notes</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedNetTotal}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funded</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedFundedTotal}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Money deployed</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(combinedMoneyTotal)}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Unapproved</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedUnapproved}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funders</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedFunders}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Top-ups</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedTopups}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Commission</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(combinedCommission)}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <p className="text-xs text-muted-foreground">
           Money deployed is what the funder put in. Commission base is the amount commission was
           calculated on, capped at the note's promised amount. Pre-enrol counts notes and conversions
