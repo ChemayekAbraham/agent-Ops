@@ -1357,6 +1357,95 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </div>
         )}
 
+        {/* THE BACK OF THE CARD — demanded, not optional. */}
+        {storedIdBackPath ? (
+          <StoredShot
+            path={storedIdBackPath}
+            label="National ID back"
+            note="This saved photo of the back will be used for this verification."
+          />
+        ) : (
+          <ShotTile
+            label="National ID — BACK (required)"
+            hint="Turn the card over. The back carries the card number and the two lines of code."
+            file={idBackPhoto}
+            onPick={(f) => {
+              setIdBackPhoto(f);
+              setBackReading(null);
+              setBackReadError(null);
+              void readBackPhoto(f);
+            }}
+            onClear={() => {
+              setIdBackPhoto(null);
+              setBackReading(null);
+              setBackReadError(null);
+            }}
+            disabled={saving}
+          />
+        )}
+
+        {!storedIdBackPath && !idBackPhoto && (
+          <div className="rounded-lg border bg-muted/40 p-3 text-xs">
+            <p className="font-semibold">Taking the back of the card</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+              {ID_BACK_TIPS.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {readingBack && (
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Reading the back of your ID…
+          </div>
+        )}
+
+        {!readingBack && backReadError && (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
+            {backReadError}
+          </p>
+        )}
+
+        {!readingBack && backReading && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <ScanLine className="h-4 w-4 text-primary" />
+              What we read on the back of your ID
+            </p>
+
+            {backReading.looksLikeFront ? (
+              <p className="rounded-md border-2 border-destructive/50 bg-destructive/10 p-2 text-xs font-bold text-destructive">
+                This is the FRONT of your card again. Turn the card over and photograph the back —
+                the side with the two lines of code at the bottom.
+              </p>
+            ) : backReading.corrected && orientationMessage(backReading.rotation) ? (
+              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+                {orientationMessage(backReading.rotation)}
+              </p>
+            ) : null}
+
+            {backReading.details.length > 0 ? (
+              <ul className="space-y-1">
+                {backReading.details.map((d) => (
+                  <li key={d.label} className="flex justify-between gap-3 text-xs">
+                    <span className="text-muted-foreground">{d.label}</span>
+                    <span className="text-right font-bold">{d.value}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                We could not read the small print on the back. Your photo is still saved and
+                Financial Ops will check it — retake it closer if the print looks blurred.
+              </p>
+            )}
+          </div>
+        )}
+
+
+
         {storedSelfiePath ? (
           <StoredShot
             path={storedSelfiePath}
