@@ -628,6 +628,95 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   );
 }
 
+/**
+ * What was read off the BACK of the National ID, re-read from the archived photo
+ * so reviewers see the same details the submitter confirmed: card number,
+ * dates of issue/expiry, residence, MRZ state, and whether the photo looks like
+ * the front again.
+ */
+function StoredIdBackReadingCard({
+  backPath,
+  frontCardNumber,
+}: {
+  backPath: string | null;
+  frontCardNumber: string | null;
+}) {
+  const { data, isLoading } = useStoredIdBackReading(backPath);
+
+  if (!backPath) return null;
+  if (isLoading) {
+    return (
+      <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="mt-3 h-12 w-full rounded-xl" />
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  const backCard = (data.cardNumber ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const frontCard = (frontCardNumber ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const numbersMismatch =
+    data.cardNumber != null && frontCardNumber != null && backCard !== frontCard && backCard.length > 3;
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <ScanLine className="h-3.5 w-3.5" aria-hidden="true" /> Read from the back of the National ID
+        </p>
+        <p className="text-[10px] font-semibold text-muted-foreground">
+          {data.readable
+            ? data.mrzPresent
+              ? 'MRZ read'
+              : 'Back partly read'
+            : 'Could not read the back'}
+        </p>
+      </div>
+
+      {data.looksLikeFront && (
+        <p className="mt-2 rounded-md border-2 border-destructive/50 bg-destructive/10 p-2 text-xs font-bold text-destructive">
+          The archived back photo looks like the FRONT of the card. Ask the person to retake the
+          back — the side with the two lines of code at the bottom.
+        </p>
+      )}
+
+      {data.details.length > 0 ? (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {data.details.map((d) => (
+            <CheckLine
+              key={d.label}
+              label={d.label}
+              value={d.value}
+              outcome={true}
+              note={d.label === 'Card number' ? 'Printed on the back of the card.' : undefined}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {data.error || 'No details could be read from the back photo.'}
+        </p>
+      )}
+
+      {data.mrzPresent && data.checksumsOk === false && (
+        <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+          The machine-readable lines on the back were read, but their check digits did not all
+          match. Inspect the photo carefully before approving.
+        </p>
+      )}
+
+      {numbersMismatch && (
+        <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+          The card number on the back ({maskIdNumber(data.cardNumber)}) does not match the card
+          number from the front ({maskIdNumber(frontCardNumber)}). Check both photos are of the
+          same card.
+        </p>
+      )}
+    </div>
+  );
+}
+
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */
 function HeroPhoto({
