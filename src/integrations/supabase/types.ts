@@ -58684,6 +58684,7 @@ export type Database = {
       }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
+      national_id_link_holder_requests: { Args: never; Returns: Json }
       national_id_link_mark_code_sent: {
         Args: { p_request_id: string; p_requester_id: string }
         Returns: Json
