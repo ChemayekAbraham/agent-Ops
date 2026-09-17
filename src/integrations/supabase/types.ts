@@ -47792,6 +47792,14 @@ export type Database = {
           },
         ]
       }
+      mv_identity_double_users: {
+        Row: {
+          first_user_id: string | null
+          kind: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       mv_ops_daily_summary: {
         Row: {
           active_24h: number | null
@@ -60599,6 +60607,7 @@ export type Database = {
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
       refresh_financial_summaries: { Args: never; Returns: undefined }
       refresh_house_location_rollup: { Args: never; Returns: undefined }
+      refresh_mv_identity_double_users: { Args: never; Returns: undefined }
       refresh_mv_ops_daily_summary: { Args: never; Returns: undefined }
       refresh_tenant_idle_states: { Args: never; Returns: number }
       refresh_ug_geo_alias: { Args: never; Returns: undefined }
