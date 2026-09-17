@@ -167,6 +167,50 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
         </div>
       ) : (
         <>
+          <div className="space-y-2 rounded-lg border-2 border-amber-500/60 bg-amber-500/10 p-3">
+            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
+              Required: is this number in the names on the National ID?
+            </p>
+            <div className="grid gap-1 text-xs">
+              <p>
+                <span className="text-muted-foreground">Names on the National ID: </span>
+                <span className="font-bold">{idName || 'not on file'}</span>
+                {r.national_id ? <span className="text-muted-foreground"> · {r.national_id}</span> : null}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Names registered on {r.requested_number}: </span>
+                <span className="font-bold">{r.requested_name}</span>
+              </p>
+              <p className={looksSame ? 'font-semibold text-emerald-600' : 'font-semibold text-destructive'}>
+                {looksSame
+                  ? 'The two names share at least one name — still check it yourself on MTN MoMo or Airtel Money.'
+                  : 'These names do not match. Do not approve unless the number is genuinely in the ID names.'}
+              </p>
+            </div>
+            <label className="flex cursor-pointer items-start gap-2 text-xs font-semibold">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-amber-600"
+                checked={nameChecked}
+                onChange={(e) => setNameChecked(e.target.checked)}
+              />
+              <span>
+                I checked {r.requested_number} on {(r.requested_provider ?? 'the network').toUpperCase()} and the
+                number is registered in the names on this National ID.
+              </span>
+            </label>
+            <Textarea
+              value={nameProof}
+              onChange={(e) => setNameProof(e.target.value)}
+              rows={2}
+              placeholder="Proof statement: how you checked and the exact name the network showed (25 characters minimum)"
+            />
+            {!proofReady && (
+              <p className="text-[11px] font-semibold text-destructive">
+                Approve stays locked until this is ticked and the proof statement is written.
+              </p>
+            )}
+          </div>
           <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
@@ -177,7 +221,7 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
             <Button
               className="flex-1"
               size="sm"
-              disabled={!!busy || vetting.data?.approvable === false}
+              disabled={!!busy || vetting.data?.approvable === false || !proofReady}
               onClick={() => act('approved')}
             >
               {busy === 'approved' ? (
