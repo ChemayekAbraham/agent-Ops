@@ -67,6 +67,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { assessIdNameConfidence } from '@/lib/idNameConfidence';
 import { doubleSubmissionLabel } from '@/lib/doubleSubmission';
+import {
+  clearNameCheck,
+  compareNames,
+  loadNameCheck,
+  networkForNumber,
+  saveNameCheck,
+  type PayoutNameCheck,
+} from '@/lib/payoutNameCheck';
 import { supabase } from '@/integrations/supabase/client';
 import { PayoutQueueBlockedList, blockedReasonFor } from './PayoutQueueBlockedList';
 import NationalIdLinkStaffQueue from './NationalIdLinkStaffQueue';
