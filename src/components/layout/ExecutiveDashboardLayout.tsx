@@ -4,7 +4,7 @@ import { useAuth, type AppRole } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { LogOut, Menu, X, ArrowLeft, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
+import { LogOut, Menu, X, ArrowLeft, RotateCcw, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Search } from 'lucide-react';
 import RoleSwitcher from '@/components/RoleSwitcher';
 import { SidebarSkeleton, TopBarSkeleton } from '@/components/skeletons/SectionSkeletons';
@@ -50,6 +50,26 @@ export default function ExecutiveDashboardLayout({
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Desktop sidebar can be tucked away ("moved out") to give the content the
+  // full width, and brought back with the same control. Persisted per browser.
+  const [sidebarHidden, setSidebarHidden] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('exec-sidebar-hidden') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleSidebar = () => {
+    setSidebarHidden((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem('exec-sidebar-hidden', next ? '1' : '0');
+      } catch {
+        /* storage unavailable */
+      }
+      return next;
+    });
+  };
   const [checkingProfile, setCheckingProfile] = useState(true);
   const [navQuery, setNavQuery] = useState('');
   const loggedRef = useRef(false);
@@ -515,6 +535,23 @@ export default function ExecutiveDashboardLayout({
           <Menu className="h-5 w-5" />
         </button>
 
+        {/* Desktop sidebar hide/show — tucks the navigation out of the way and brings it back */}
+        <button
+          type="button"
+          className="hidden lg:flex p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+          onClick={toggleSidebar}
+          title={sidebarHidden ? 'Show the navigation panel' : 'Hide the navigation panel'}
+          aria-label={sidebarHidden ? 'Show the navigation panel' : 'Hide the navigation panel'}
+          aria-pressed={sidebarHidden}
+          style={{ touchAction: 'manipulation' }}
+        >
+          {sidebarHidden ? (
+            <PanelLeftOpen className="h-5 w-5" />
+          ) : (
+            <PanelLeftClose className="h-5 w-5" />
+          )}
+        </button>
+
         {/* Logo / Title — hidden on very small screens because the role switcher already shows the current role */}
         <div className="hidden sm:flex items-center gap-2 min-w-0">
           <span className="font-bold text-sm whitespace-nowrap">{displayRole}</span>
@@ -562,9 +599,15 @@ export default function ExecutiveDashboardLayout({
       </header>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-border bg-card overflow-y-auto">
-          {SidebarContent({})}
+        {/* Desktop Sidebar — slides fully out of view when tucked away */}
+        <aside
+          className={cn(
+            'hidden lg:flex flex-col shrink-0 border-r border-border bg-card overflow-y-auto transition-all duration-200',
+            sidebarHidden ? 'w-0 border-r-0 overflow-hidden' : 'w-64',
+          )}
+          aria-hidden={sidebarHidden}
+        >
+          {!sidebarHidden && SidebarContent({})}
         </aside>
 
         {/* Main Content */}
