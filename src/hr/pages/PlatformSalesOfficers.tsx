@@ -667,7 +667,7 @@ export default function PlatformSalesOfficersPage() {
         ) : (
           <>
             <div className="space-y-2 md:hidden">
-              {officers.map((officer, i) => (
+              {sortedOfficers.map((officer, i) => (
                 <div key={officer.staff_id} className="rounded-xl border bg-card p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -752,7 +752,7 @@ export default function PlatformSalesOfficersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {officers.map((officer, i) => (
+                    {sortedOfficers.map((officer, i) => (
                       <tr key={officer.staff_id} className="border-t">
                         <td className="px-4 py-2 text-left tabular-nums">{ranks[i]}</td>
                         <td className="px-4 py-2 font-medium">{officer.staff_ref}</td>
@@ -827,7 +827,7 @@ export default function PlatformSalesOfficersPage() {
             </div>
 
             <div className="space-y-2 md:hidden">
-              {people.map((person, i) => (
+              {sortedPeople.map((person, i) => (
                 <div key={person.person_user_id} className="rounded-xl border bg-card p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -912,7 +912,7 @@ export default function PlatformSalesOfficersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {people.map((person, i) => (
+                    {sortedPeople.map((person, i) => (
                       <tr key={person.person_user_id} className="border-t">
                         <td className="px-4 py-2 text-left tabular-nums">{peopleRanks[i]}</td>
                         <td className="px-4 py-2 font-medium">{person.person_name}</td>
