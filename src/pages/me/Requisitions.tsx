@@ -449,6 +449,60 @@ const MyRequisitions = () => {
                       />
                     </div>
                   </div>
+                  {kind === 'staff_loan' && (
+                    <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="loan-months">How long do you need to repay</Label>
+                        <Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
+                          <SelectTrigger id="loan-months">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: STAFF_LOAN_MAX_MONTHS }, (_, i) => i + 1).map((m) => (
+                              <SelectItem key={m} value={String(m)}>{MONTH_WORDS[m - 1]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {Number(form.amount) > 0 && (() => {
+                        const s = staffLoanSchedule(Number(form.amount), months);
+                        return (
+                          <div className="space-y-2 text-xs">
+                            <div className="grid grid-cols-2 gap-2">
+                              <p>First month due<br /><span className="text-sm font-semibold text-foreground">{formatUGX(s.firstMonthDue)}</span></p>
+                              <p>Total to repay<br /><span className="text-sm font-semibold text-foreground">{formatUGX(s.totalRepayable)}</span></p>
+                            </div>
+                            <div className="overflow-hidden rounded-lg border bg-background">
+                              <table className="w-full text-[11px]">
+                                <thead className="bg-muted/50 text-muted-foreground">
+                                  <tr>
+                                    <th className="px-2 py-1 text-left">Month</th>
+                                    <th className="px-2 py-1 text-right">Balance</th>
+                                    <th className="px-2 py-1 text-right">30% charge</th>
+                                    <th className="px-2 py-1 text-right">Due</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {s.months.map((m) => (
+                                    <tr key={m.month} className="border-t">
+                                      <td className="px-2 py-1">{m.month}</td>
+                                      <td className="px-2 py-1 text-right">{formatUGX(m.openingBalance)}</td>
+                                      <td className="px-2 py-1 text-right">{formatUGX(m.charge)}</td>
+                                      <td className="px-2 py-1 text-right font-medium">{formatUGX(m.due)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <p className="text-muted-foreground">
+                              The charge is 30% of what you still owe at the start of each month, so it falls as you repay.
+                              Repayments are taken from your wallet as money comes in.
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="req-category">Category (optional)</Label>
                     <Input
