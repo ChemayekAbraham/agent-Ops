@@ -33,6 +33,7 @@ export interface ForwardConcernSource {
 }
 
 const DUE_CHOICES = [4, 8, 12, 24, 48, 72];
+const DEFAULT_DUE = 24;
 
 export function ForwardConcernDialog({
   open,
