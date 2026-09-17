@@ -204,8 +204,9 @@ Deno.serve(async (req) => {
       dataUrl = raw.startsWith("data:") ? raw : `data:image/jpeg;base64,${raw}`;
     } else if (body?.storagePath) {
       const ownerId = body.storagePath.split("/")[0];
-      const canReadCrossUser = ownerId !== user.id && await isFinanceReviewer(adminClient, user.id);
-      if (ownerId !== user.id && !canReadCrossUser) {
+      if (
+        ownerId !== user.id && !(await isFinanceReviewer(adminClient, user.id))
+      ) {
         return json({ error: "That photo does not belong to you." }, 403);
       }
       const { data: file, error: dlErr } = await adminClient.storage
