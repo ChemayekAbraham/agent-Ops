@@ -106,7 +106,10 @@ Deno.serve(async (req) => {
       const { data, error } = await admin.functions.invoke("sms-otp", {
         body: { action: "verify", phone: t.phone, otp: code },
       });
-      if (error) return json({ error: "Could not check that code. Please try again." }, 502);
+      if (error) {
+        const up = await readUpstream(error);
+        return json({ error: up.message ?? "Could not check that code. Please try again." }, up.status);
+      }
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) return json({ error: res.error ?? "That code is not right." }, 400);
 
