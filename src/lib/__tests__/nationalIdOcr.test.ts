@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { classifyIdPhotoOrientation, normaliseReading, readingGuidance } from '@/lib/nationalIdOcr';
+import {
+  classifyIdPhotoOrientation,
+  isSidewaysIdRotation,
+  normaliseReading,
+  readingGuidance,
+} from '@/lib/nationalIdOcr';
 
 describe('National ID photo orientation', () => {
   it('accepts a straight landscape photo, including an upside-down landscape photo', () => {
@@ -11,6 +16,13 @@ describe('National ID photo orientation', () => {
     expect(classifyIdPhotoOrientation(1000, 1600)).toBe('sideways');
     expect(classifyIdPhotoOrientation(600, 1000)).toBe('sideways');
     expect(classifyIdPhotoOrientation(1000, 1000)).toBe('sideways');
+  });
+
+  it('blocks OCR results that only become readable after a quarter turn', () => {
+    expect(isSidewaysIdRotation(90)).toBe(true);
+    expect(isSidewaysIdRotation(270)).toBe(true);
+    expect(isSidewaysIdRotation(0)).toBe(false);
+    expect(isSidewaysIdRotation(180)).toBe(false);
   });
 
   it('rejects invalid dimensions instead of passing an unusable image to OCR', () => {

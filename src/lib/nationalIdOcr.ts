@@ -279,6 +279,10 @@ export function readingGuidance(r: NationalIdReading): string | null {
 
 export type IdRotation = 0 | 90 | 180 | 270;
 
+export function isSidewaysIdRotation(rotation: IdRotation): boolean {
+  return rotation === 90 || rotation === 270;
+}
+
 export type IdPhotoOrientation = 'landscape' | 'sideways' | 'unreadable';
 
 /**
