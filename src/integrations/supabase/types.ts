@@ -9476,6 +9476,142 @@ export type Database = {
           },
         ]
       }
+      cc_forwarded_concern_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          concern_id: string
+          created_at: string
+          id: string
+          note: string | null
+          status_after: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          concern_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          status_after?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          concern_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          status_after?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_forwarded_concern_events_concern_id_fkey"
+            columns: ["concern_id"]
+            isOneToOne: false
+            referencedRelation: "cc_forwarded_concerns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_forwarded_concerns: {
+        Row: {
+          accepted_at: string | null
+          caller_name: string | null
+          caller_user_id: string | null
+          completed_at: string | null
+          context: string | null
+          created_at: string
+          cycle_row_id: string | null
+          due_at: string | null
+          feedback_id: string | null
+          follow_up_needed: boolean
+          follow_up_note: string | null
+          forwarded_by: string
+          forwarded_by_name: string | null
+          forwarded_to: string
+          forwarded_to_name: string | null
+          forwarded_to_staff_id: string | null
+          id: string
+          outcome: string | null
+          priority: string
+          received_call_id: string | null
+          source_kind: string
+          started_at: string | null
+          status: string
+          subject_type: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          caller_name?: string | null
+          caller_user_id?: string | null
+          completed_at?: string | null
+          context?: string | null
+          created_at?: string
+          cycle_row_id?: string | null
+          due_at?: string | null
+          feedback_id?: string | null
+          follow_up_needed?: boolean
+          follow_up_note?: string | null
+          forwarded_by: string
+          forwarded_by_name?: string | null
+          forwarded_to: string
+          forwarded_to_name?: string | null
+          forwarded_to_staff_id?: string | null
+          id?: string
+          outcome?: string | null
+          priority?: string
+          received_call_id?: string | null
+          source_kind: string
+          started_at?: string | null
+          status?: string
+          subject_type?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          caller_name?: string | null
+          caller_user_id?: string | null
+          completed_at?: string | null
+          context?: string | null
+          created_at?: string
+          cycle_row_id?: string | null
+          due_at?: string | null
+          feedback_id?: string | null
+          follow_up_needed?: boolean
+          follow_up_note?: string | null
+          forwarded_by?: string
+          forwarded_by_name?: string | null
+          forwarded_to?: string
+          forwarded_to_name?: string | null
+          forwarded_to_staff_id?: string | null
+          id?: string
+          outcome?: string | null
+          priority?: string
+          received_call_id?: string | null
+          source_kind?: string
+          started_at?: string | null
+          status?: string
+          subject_type?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_forwarded_concerns_received_call_id_fkey"
+            columns: ["received_call_id"]
+            isOneToOne: false
+            referencedRelation: "cc_received_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cc_legacy_outcome_map: {
         Row: {
           id: string
@@ -9503,6 +9639,60 @@ export type Database = {
           target_outcome?:
             | Database["public"]["Enums"]["cc_attempt_outcome"]
             | null
+        }
+        Relationships: []
+      }
+      cc_received_calls: {
+        Row: {
+          called_at: string
+          caller_name: string
+          caller_phone: string | null
+          concern: string
+          created_at: string
+          follow_up_at: string | null
+          follow_up_note: string | null
+          id: string
+          linked_kind: string | null
+          linked_user_id: string | null
+          notes: string | null
+          recorded_by: string
+          recorded_by_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          called_at?: string
+          caller_name: string
+          caller_phone?: string | null
+          concern: string
+          created_at?: string
+          follow_up_at?: string | null
+          follow_up_note?: string | null
+          id?: string
+          linked_kind?: string | null
+          linked_user_id?: string | null
+          notes?: string | null
+          recorded_by: string
+          recorded_by_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          called_at?: string
+          caller_name?: string
+          caller_phone?: string | null
+          concern?: string
+          created_at?: string
+          follow_up_at?: string | null
+          follow_up_note?: string | null
+          id?: string
+          linked_kind?: string | null
+          linked_user_id?: string | null
+          notes?: string | null
+          recorded_by?: string
+          recorded_by_name?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -52558,6 +52748,16 @@ export type Database = {
         Args: { p_followup_id: string; p_note: string }
         Returns: undefined
       }
+      cc_concern_event: {
+        Args: {
+          p_action: string
+          p_concern_id: string
+          p_follow_up_needed?: boolean
+          p_follow_up_note?: string
+          p_note?: string
+        }
+        Returns: Json
+      }
       cc_cycle_outstanding: {
         Args: { p_cycle_id: string }
         Returns: {
@@ -52591,6 +52791,31 @@ export type Database = {
         Returns: {
           row_count: number
           value: string
+        }[]
+      }
+      cc_forward_concern: {
+        Args: {
+          p_caller_name?: string
+          p_caller_user_id?: string
+          p_context?: string
+          p_cycle_row_id?: string
+          p_due_hours?: number
+          p_feedback_id?: string
+          p_forwarded_to: string
+          p_priority?: string
+          p_received_call_id?: string
+          p_source_kind: string
+          p_subject_type?: string
+          p_title: string
+        }
+        Returns: string
+      }
+      cc_forward_staff_options: {
+        Args: never
+        Returns: {
+          full_name: string
+          staff_id: string
+          user_id: string
         }[]
       }
       cc_my_open_attempts: {
@@ -52642,6 +52867,21 @@ export type Database = {
         }
         Returns: string
       }
+      cc_record_received_call: {
+        Args: {
+          p_called_at?: string
+          p_caller_name: string
+          p_caller_phone?: string
+          p_concern: string
+          p_follow_up_at?: string
+          p_follow_up_note?: string
+          p_linked_kind?: string
+          p_linked_user_id?: string
+          p_notes?: string
+          p_status?: string
+        }
+        Returns: string
+      }
       cc_record_unreached: {
         Args: {
           p_attempt_id: string
@@ -52682,6 +52922,16 @@ export type Database = {
       cc_topup_cycle: {
         Args: { p_subject_type: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: number
+      }
+      cc_update_received_call: {
+        Args: {
+          p_follow_up_at?: string
+          p_follow_up_note?: string
+          p_id: string
+          p_notes?: string
+          p_status?: string
+        }
+        Returns: boolean
       }
       cc_void_attempt: {
         Args: { p_attempt_id: string; p_reason: string }
