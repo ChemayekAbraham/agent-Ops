@@ -518,7 +518,14 @@ export default function MerchandiseStore() {
                     {item.description && (
                       <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
                     )}
-                    <p className="text-sm font-bold text-primary">{formatUGX(Number(item.unit_price))}</p>
+                    <div>
+                      <p className="text-sm font-bold text-emerald-600">
+                        From {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}/day
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        over up to 12 months · {formatUGX(Number(item.unit_price))} full price
+                      </p>
+                    </div>
                     {Array.isArray(item.sizes) && item.sizes.length > 0 && (
                       <p className="text-[10px] text-muted-foreground">
                         Sizes in stock: {item.sizes.join(', ')}
