@@ -301,7 +301,7 @@ export function useForwardConcern() {
         p_caller_name: input.caller_name ?? null,
         p_caller_user_id: input.caller_user_id ?? null,
         p_subject_type: input.subject_type ?? null,
-        p_due_hours: input.due_hours ?? 12,
+        p_due_hours: input.due_hours ?? DEFAULT_CONCERN_DUE_HOURS,
       });
       if (error) throw new Error(error.message);
       return data as string;

@@ -94,16 +94,29 @@ function ConcernTimelineDialog({ concern, onClose }: { concern: ForwardedConcern
               </p>
             </div>
             {concern.context && <p className="text-[11px] leading-snug">{concern.context}</p>}
+            <ConcernControlPanel concern={concern} />
             <div className="space-y-2">
               {events.isLoading ? (
                 <Skeleton className="h-16 w-full" />
               ) : (
                 (events.data ?? []).map((e) => (
                   <div key={e.id} className="rounded-lg border border-border/70 p-2.5">
-                    <p className="text-[11px] font-semibold capitalize">
-                      {e.action.replace('_', ' ')} · {e.actor_name ?? 'Staff member'}
+                    <p className="text-[11px] font-semibold">
+                      {CONCERN_ACTION_LABEL[e.action] ?? e.action.replace('_', ' ')} ·{' '}
+                      {e.actor_name ?? 'Staff member'}
                     </p>
                     <p className="text-[10px] text-muted-foreground">{stamp(e.created_at)}</p>
+                    {e.action === 'reassigned' && (
+                      <p className="mt-1 text-[11px] leading-snug">
+                        From <span className="font-semibold">{e.prev_user_name ?? '—'}</span> to{' '}
+                        <span className="font-semibold">{e.new_user_name ?? '—'}</span>
+                      </p>
+                    )}
+                    {e.action === 'due_changed' && (
+                      <p className="mt-1 text-[11px] leading-snug">
+                        From {stamp(e.prev_due_at)} to {stamp(e.new_due_at)}
+                      </p>
+                    )}
                     {e.note && <p className="mt-1 text-[11px] leading-snug">{e.note}</p>}
                   </div>
                 ))
