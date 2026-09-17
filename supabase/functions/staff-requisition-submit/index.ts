@@ -111,6 +111,9 @@ Deno.serve(async (req) => {
         .from("staff_requisitions")
         .update({
           title, amount, reason, category,
+          request_kind: requestKind,
+          loan_months: loanMonths,
+          loan_monthly_rate: loanRate,
           needed_by: neededBy,
           attachment_urls: attachments,
           stage: backTo,
@@ -187,6 +190,9 @@ Deno.serve(async (req) => {
         department_id: route.department_id,
         department_key: route.department_key,
         title, amount, reason, category,
+        request_kind: requestKind,
+        loan_months: loanMonths,
+        loan_monthly_rate: loanRate,
         needed_by: neededBy,
         attachment_urls: attachments,
         stage: route.stage,
