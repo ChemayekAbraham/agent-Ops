@@ -398,52 +398,183 @@ export const ID_BACK_TIPS: string[] = [
   'Keep the phone flat above the card so the small print stays sharp.',
 ];
 
+/** The machine-readable zone: the only self-verifying part of the back. */
+export interface IdMrz {
+  present: boolean;
+  lines?: string[];
+  /** Every check digit agreed with its own field. `null` when none were legible. */
+  checksums_ok?: boolean | null;
+  nin?: string | null;
+  document_number?: string | null;
+  date_of_birth?: string | null;
+  date_of_expiry?: string | null;
+  sex?: string | null;
+  nationality?: string | null;
+  surname?: string | null;
+  given_name?: string | null;
+}
+
+/** What the back-of-card reader returns, straight from the edge function. */
+export interface NationalIdBackDetails {
+  is_national_id: boolean;
+  side: 'back' | 'front';
+  readable: boolean;
+  card_number: string | null;
+  card_number_agrees: boolean | null;
+  date_of_issue: string | null;
+  date_of_expiry: string | null;
+  date_of_expiry_agrees: boolean | null;
+  residence: {
+    district: string | null;
+    county: string | null;
+    subcounty: string | null;
+    parish: string | null;
+    village: string | null;
+  };
+  other_fields: { label: string; value: string }[];
+  mrz: IdMrz;
+}
+
 export interface NationalIdBackReading {
   /** The front was photographed again by mistake. */
   looksLikeFront: boolean;
-  /** Anything readable on the back, ready to show line by line. */
+  /** Everything read off the back, ready to show line by line. */
   details: { label: string; value: string }[];
   rotation: IdRotation;
   /** The straightened copy to archive. */
   file: File;
   corrected: boolean;
-  raw: NationalIdReading;
+  /** The raw extraction, for cross-checking against the front. */
+  back: NationalIdBackDetails;
+}
+
+/** One call to the back-of-card reader. */
+async function invokeBackReader(
+  file: File,
+): Promise<NationalIdBackDetails | { error: string }> {
+  try {
+    const imageBase64 = await fileToBase64(file);
+    const { data, error } = await supabase.functions.invoke('read-national-id-back', {
+      body: { imageBase64 },
+    });
+    if (error) {
+      return { error: 'Could not read the back of your card just now. Your photo is still saved.' };
+    }
+    const r = (data ?? {}) as Record<string, unknown>;
+    if (typeof r.error === 'string' && r.error) return { error: r.error };
+    const res = (r.residence ?? {}) as Record<string, unknown>;
+    const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+    return {
+      is_national_id: r.is_national_id !== false,
+      side: r.side === 'front' ? 'front' : 'back',
+      readable: r.readable !== false,
+      card_number: s(r.card_number),
+      card_number_agrees: typeof r.card_number_agrees === 'boolean' ? r.card_number_agrees : null,
+      date_of_issue: s(r.date_of_issue),
+      date_of_expiry: s(r.date_of_expiry),
+      date_of_expiry_agrees:
+        typeof r.date_of_expiry_agrees === 'boolean' ? r.date_of_expiry_agrees : null,
+      residence: {
+        district: s(res.district),
+        county: s(res.county),
+        subcounty: s(res.subcounty),
+        parish: s(res.parish),
+        village: s(res.village),
+      },
+      other_fields: Array.isArray(r.other_fields)
+        ? (r.other_fields as Record<string, unknown>[])
+            .map((f) => ({ label: String(f?.label ?? '').trim(), value: String(f?.value ?? '').trim() }))
+            .filter((f) => f.label && f.value)
+        : [],
+      mrz: (r.mrz ?? { present: false }) as IdMrz,
+    };
+  } catch {
+    return { error: 'Could not read the back of your card just now. Your photo is still saved.' };
+  }
+}
+
+/** How much was actually extracted, so two orientations can be compared. */
+function backScore(b: NationalIdBackDetails): number {
+  const residence = Object.values(b.residence).filter(Boolean).length;
+  return (
+    (b.mrz?.present ? 60 : 0) +
+    (b.mrz?.checksums_ok === true ? 30 : 0) +
+    (b.card_number ? 15 : 0) +
+    (b.date_of_expiry ? 10 : 0) +
+    (b.date_of_issue ? 5 : 0) +
+    residence * 5 +
+    b.other_fields.length
+  );
 }
 
 /**
- * Reads the back of the card. Nothing here refuses a submission: the back is
- * archived for Financial Ops either way, so an unreadable back is reported,
- * never used to block the person.
+ * Reads the back of the card through the dedicated back-side reader.
+ *
+ * The front reader (PassGate) is a front-side validator and calls a back-side
+ * photo "not a National ID", so the back was never really extracted before.
+ * This reads the machine-readable lines, card number, dates of issue and
+ * expiry, and the place of residence, correcting an upside-down or sideways
+ * photo the same way the front does.
+ *
+ * Nothing here refuses a submission: the back is archived for Financial Ops
+ * either way, so an unreadable back is reported, never used to block the
+ * person. The one exception is photographing the FRONT twice, which is caught
+ * by the caller.
  */
 export async function readNationalIdBackPhoto(
   file: File,
 ): Promise<NationalIdBackReading | { error: string }> {
-  const oriented = await readNationalIdPhotoOriented(file);
-  if ('error' in oriented && oriented.error) return oriented as { error: string };
-  const o = oriented as OrientedIdReading;
-  const r = o.reading;
+  const first = await invokeBackReader(file);
+  if ('error' in first) return first;
 
-  const nameFields = ['surname', 'given_name'] as const;
-  const looksLikeFront = nameFields.every((k) => r.fields?.[k]?.valid === true);
+  let best = { back: first as NationalIdBackDetails, rotation: 0 as IdRotation, file, corrected: false };
 
+  // Only a poor extraction is retried turned, so a good photo costs one call.
+  const poor = () => !best.back.mrz?.present && !best.back.card_number;
+  if (poor() && best.back.side !== 'front') {
+    for (const deg of [180, 270, 90] as IdRotation[]) {
+      let turned: File;
+      try {
+        turned = await rotateImageFile(file, deg);
+      } catch {
+        continue;
+      }
+      if (turned === file) continue;
+      const res = await invokeBackReader(turned);
+      if ('error' in res) continue;
+      if (backScore(res) > backScore(best.back)) {
+        best = { back: res, rotation: deg, file: turned, corrected: true };
+      }
+      if (best.back.mrz?.present) break;
+    }
+  }
+
+  const b = best.back;
   const details: { label: string; value: string }[] = [];
   const push = (label: string, value: string | null | undefined) => {
     const v = String(value ?? '').trim();
     if (v) details.push({ label, value: v });
   };
-  push('Card number', r.data?.card_number);
-  push('NIN', r.data?.nin);
-  push('Date of expiry', r.date_of_expiry);
-  push('Nationality', r.nationality);
-  push('Date of birth', r.data?.date_of_birth);
-  push('Sex', r.data?.sex);
+  push('Card number', b.card_number ?? b.mrz?.document_number);
+  push('NIN', b.mrz?.nin);
+  push('Date of issue', b.date_of_issue);
+  push('Date of expiry', b.date_of_expiry);
+  push('Date of birth', b.mrz?.date_of_birth);
+  push('Sex', b.mrz?.sex);
+  push('Nationality', b.mrz?.nationality);
+  push('Village', b.residence.village);
+  push('Parish', b.residence.parish);
+  push('Subcounty', b.residence.subcounty);
+  push('County', b.residence.county);
+  push('District', b.residence.district);
+  for (const f of b.other_fields) push(f.label, f.value);
 
   return {
-    looksLikeFront,
+    looksLikeFront: b.side === 'front',
     details,
-    rotation: o.rotation,
-    file: o.file,
-    corrected: o.corrected,
-    raw: r,
+    rotation: best.rotation,
+    file: best.file,
+    corrected: best.corrected,
+    back: b,
   };
 }
