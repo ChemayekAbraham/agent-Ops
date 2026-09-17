@@ -858,7 +858,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
    * one-ID-one-account rule, so this call can be refused even when the screen
    * is happy — the refusal names the field at fault.
    */
-  const saveDetails = async (): Promise<boolean> => {
+  /* Returns the failure message directly rather than making the caller re-read
+     `fieldError` afterwards — that state update from setFieldError() below is
+     not visible in this same function's closure until the next render, so a
+     caller reading `fieldError` right after `await saveDetails()` would still
+     see whatever it held BEFORE this call (stale-closure bug: this is exactly
+     what left Ssemanda's retry silent — saveDetails() failed, set fieldError,
+     returned false, and the caller had nothing fresh to show near the button). */
+  const saveDetails = async (): Promise<{ ok: boolean; message?: string }> => {
     setSavingDetails(true);
     setFieldError(null);
     try {
@@ -891,17 +898,19 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         | { success?: boolean; message?: string; field?: string; duplicate?: boolean }
         | null;
       if (!res?.success) {
-        setFieldError({ field: res?.field, message: res?.message || 'Could not save those details.' });
+        const message = res?.message || 'Could not save those details.';
+        setFieldError({ field: res?.field, message });
         // An ID already recorded elsewhere is not a mistake to correct: the
         // holder of that ID can allow this account to join it.
         setDuplicateNin(res?.duplicate ? form.nin : null);
-        return false;
+        return { ok: false, message };
       }
       setDuplicateNin(null);
-      return true;
+      return { ok: true };
     } catch (e) {
-      setFieldError({ message: e instanceof Error ? e.message : 'Could not save those details.' });
-      return false;
+      const message = e instanceof Error ? e.message : 'Could not save those details.';
+      setFieldError({ message });
+      return { ok: false, message };
     } finally {
       setSavingDetails(false);
     }
@@ -1047,8 +1056,15 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       /* The confirmed six go first. `submit_identity_photos` auto-verifies on a
          name match, and it reads the name this call writes — sending the photos
          first would make that check run against a stale or empty name. */
-      const detailsOk = await saveDetails();
-      if (!detailsOk) {
+      const detailsResult = await saveDetails();
+      if (!detailsResult.ok) {
+        /* fieldError (set inside saveDetails) renders far up the page next to
+           the six fields — surface the same message here too, next to the
+           button that was just tapped, or the ring-spins-then-nothing
+           silence reported on Ssemanda's account repeats every retry. */
+        const message = detailsResult.message || 'Could not save your ID details. Please try again.';
+        setSendError(message);
+        toast.error(message);
         setSaving(false);
         return;
       }
