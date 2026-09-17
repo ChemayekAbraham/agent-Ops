@@ -189,6 +189,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const tenantLoc = useRequireContactLocation(tenantId, 'tenant');
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [requests, setRequests] = useState<RentRequestRow[]>([]);
+  const [landlordUnpaidRequestIds, setLandlordUnpaidRequestIds] = useState<Set<string>>(new Set());
   const [repayments, setRepayments] = useState<RepaymentRow[]>([]);
   // Every field/wallet collection recorded for this tenant. Needed because many
   // payments only ever land in `agent_collections` (no `repayments` row), and the
@@ -424,11 +425,25 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         // Allocations run inside the same burst instead of after it.
         user?.id ? loadAllocations() : Promise.resolve(null),
         loadTenantCollections(),
+        // Landlord float allocations for this tenant — a row with money still
+        // remaining means the landlord has NOT been paid yet, so collection
+        // must stay closed even when the request status says repaying.
+        supabase
+          .from('agent_landlord_float_allocations')
+          .select('rent_request_id, remaining_amount')
+          .eq('tenant_id', tenantId),
       ]);
 
-      const [rentRes, repaymentRes, walletRes, portfolioRes, ledgerRes, rolesRes] = settled.map((result, idx) =>
-        responseOrNull(result, ['rent requests', 'repayments', 'wallet', 'portfolio', 'ledger', 'roles', 'allocations'][idx]),
+      const [rentRes, repaymentRes, walletRes, portfolioRes, ledgerRes, rolesRes, , , landlordAllocRes] = settled.map((result, idx) =>
+        responseOrNull(result, ['rent requests', 'repayments', 'wallet', 'portfolio', 'ledger', 'roles', 'allocations', 'collections', 'landlord allocations'][idx]),
       );
+
+      const unpaidLandlordIds = new Set<string>(
+        ((landlordAllocRes?.data || []) as { rent_request_id: string | null; remaining_amount: number | null }[])
+          .filter(a => a.rent_request_id && Number(a.remaining_amount || 0) > 0)
+          .map(a => a.rent_request_id as string),
+      );
+      setLandlordUnpaidRequestIds(unpaidLandlordIds);
 
       setRequests(((rentRes?.data as unknown as RentRequestRow[]) || []).map((req) => {
         const effective = getEffectiveRentRequestAmounts(req);
@@ -746,7 +761,13 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const repaymentNotStarted = daysUntilStart > 0;
   // Landlord float has been released to the agent, but the landlord has not
   // actually been paid yet — collection must stay closed until that happens.
-  const awaitingLandlord = summary.activeRequest?.status === 'approved';
+  // Landlord not paid yet when the request is still at `approved` (float just
+  // released) OR the landlord float allocation for this plan still holds money
+  // (paid_out < allocated). Status alone is not enough — a plan can read
+  // `repaying` while the landlord was never paid.
+  const awaitingLandlord =
+    summary.activeRequest?.status === 'approved' ||
+    (!!summary.activeRequest && landlordUnpaidRequestIds.has(summary.activeRequest.id));
 
   const activePct = summary.activeRequest && summary.activeRequest.total_repayment > 0
     ? Math.min(100, Math.round((summary.activeRequest.amount_repaid / summary.activeRequest.total_repayment) * 100))
