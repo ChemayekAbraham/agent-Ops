@@ -1097,9 +1097,10 @@ export function PromissoryNotesQueue({
                                   <Badge
                                     variant="outline"
                                     className="text-[10px] bg-sky-50 text-sky-700 border-sky-200"
-                                    title={`Possible match: ${s.candidate_name}${s.candidate_phone ? ` (${s.candidate_phone})` : ''} — ${s.shared_words} shared name words. Open the note to confirm.`}
+                                    title={`Possible match: ${s.candidate_name}${s.candidate_phone ? ` (${s.candidate_phone})` : ''} — ${s.shared_words} shared name words. Brought in ${formatUGX(Number(s.candidate_principal || 0))} · ${pct(Number(s.commission_rate || 0.02))} commission ${formatUGX(Number(s.commission_due || 0))}. Open the note to confirm.`}
                                   >
                                     Possible match
+                                    {Number(s.commission_due || 0) > 0 && ` · ${formatUGX(Number(s.commission_due))}`}
                                   </Badge>
                                 );
                               })()}
