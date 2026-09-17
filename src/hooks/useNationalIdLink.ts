@@ -42,7 +42,9 @@ export type NationalIdLinkState = {
 type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{
   data: unknown; error: { message: string } | null;
 }>;
-const rpc = supabase.rpc as unknown as Rpc;
+// Must stay bound: a detached supabase.rpc throws "Cannot read properties of
+// undefined (reading 'rest')" the moment it is called.
+const rpc = supabase.rpc.bind(supabase) as unknown as Rpc;
 
 /** Creates (or picks up) this account's open request for that ID number. */
 export function useRequestNationalIdLink() {
