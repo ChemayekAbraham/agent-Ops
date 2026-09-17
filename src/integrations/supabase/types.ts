@@ -54115,6 +54115,8 @@ export type Database = {
           first_seen_at: string
           full_name: string
           id: string
+          id_account_count: number
+          id_account_ordinal: number
           id_back_photo_ready: boolean
           momo_number: string
           name_match_score: number
@@ -54122,11 +54124,14 @@ export type Database = {
           name_source: string
           national_id: string
           national_id_name: string
+          payout_number_count: number
           provider: string
           status: string
           total_count: number
           user_id: string
           user_phone: string
+          verified_payout_count: number
+          verified_payout_numbers: Json
           withdrawable_balance: number
         }[]
       }
@@ -59100,6 +59105,7 @@ export type Database = {
           starts_on: string
         }[]
       }
+      ops_repayment_trend_daily: { Args: { p_days?: number }; Returns: Json }
       ops_resolve_agent_segment: {
         Args: {
           _district?: string

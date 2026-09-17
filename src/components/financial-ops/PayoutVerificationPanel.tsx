@@ -27,11 +27,13 @@ import {
   MessageCircle,
   PhoneCall,
   RefreshCw,
+  ScanLine,
   Search,
   ShieldAlert,
   Smartphone,
   Undo2,
   UserCheck,
+  Users,
   X,
   XCircle,
 
@@ -65,6 +67,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { assessIdNameConfidence } from '@/lib/idNameConfidence';
 import { doubleSubmissionLabel } from '@/lib/doubleSubmission';
+import {
+  clearNameCheck,
+  compareNames,
+  loadNameCheck,
+  networkForNumber,
+  saveNameCheck,
+  type PayoutNameCheck,
+} from '@/lib/payoutNameCheck';
 import { supabase } from '@/integrations/supabase/client';
 import { PayoutQueueBlockedList, blockedReasonFor } from './PayoutQueueBlockedList';
 import NationalIdLinkStaffQueue from './NationalIdLinkStaffQueue';
@@ -83,6 +93,7 @@ import {
   useAdoptNationalIdName,
   useHolderNameHistory,
   useStoredIdReading,
+  useStoredIdBackReading,
   usePayoutNumberOtpConfirmed,
   sameIdNumber,
   maskIdNumber,
@@ -92,6 +103,7 @@ import {
 
   usePayoutVerificationCounts,
   usePayoutVerificationQueue,
+  usePersonPayoutDestinations,
   PayoutQueueError,
   type PayoutDestinationRow,
   type PayoutVerificationCounts,
@@ -207,6 +219,31 @@ function statusBadge(row: PayoutDestinationRow): {
   if (row.name_match_score !== null && row.name_match_score < 0.5)
     return { label: 'Needs review', Icon: AlertTriangle, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
   return { label: 'Pending', Icon: Clock, classes: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/40' };
+}
+
+/** 1 → "1st", 2 → "2nd", 3 → "3rd", else "Nth" — for the shared-ID banner. */
+function ordinalLabel(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
+}
+
+/** Calculate age in years from an ISO/YYYY-MM-DD date string. */
+function ageFromDob(dob: string | null | undefined): number | null {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  const dayDiff = today.getDate() - birth.getDate();
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) age -= 1;
+  return age >= 0 ? age : null;
 }
 
 /** Photos-ready badge so operators instantly know which cases can be actioned. */
@@ -487,6 +524,7 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   const enteredMask = maskIdNumber(row.national_id);
   const idNameOnFile = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
+  const age = ageFromDob(data.dateOfBirth);
   // An exact spelling match is a match, whatever an older stored score says.
   const namesMatch =
     idNameOnFile && accountName
@@ -538,6 +576,22 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
           note={maskedCard ? 'Printed on the front of the card.' : 'Could not be read off the photo.'}
         />
         <CheckLine
+          label="Sex"
+          value={data.sex ?? 'Not read'}
+          outcome={data.sex ? true : null}
+          note={data.sex ? 'Read from the National ID.' : 'Could not be read off the photo.'}
+        />
+        <CheckLine
+          label="Age"
+          value={age != null ? `${age} years` : 'Not read'}
+          outcome={age != null ? true : null}
+          note={
+            age != null
+              ? `Calculated from date of birth (${data.dateOfBirth}).`
+              : 'Could not be read off the photo.'
+          }
+        />
+        <CheckLine
           label="Selfie is a real face"
           value={data.faceVerified === true ? 'Face confirmed' : data.faceVerified === false ? 'Not a face' : 'Not checked'}
           outcome={data.faceVerified}
@@ -569,9 +623,8 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
       </div>
 
       <p className="mt-2 text-[11px] text-muted-foreground">
-        {data.sex ? `Sex ${data.sex}` : 'Sex not read'}
-        {data.dateOfBirth ? ` · Born ${data.dateOfBirth}` : ''}
-        {' · Read '}
+        {data.dateOfBirth ? `Born ${data.dateOfBirth} · ` : ''}
+        {'Read '}
         {new Date(data.readAt).toLocaleString('en-GB', {
           day: '2-digit',
           month: 'short',
@@ -580,6 +633,97 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
           minute: '2-digit',
         })}
       </p>
+    </div>
+  );
+}
+
+/**
+ * What was read off the BACK of the National ID, re-read from the archived photo
+ * so reviewers see the same details the submitter confirmed: card number,
+ * dates of issue/expiry, residence, MRZ state, and whether the photo looks like
+ * the front again.
+ */
+function StoredIdBackReadingCard({
+  row,
+  backPath,
+}: {
+  row: PayoutDestinationRow;
+  backPath: string | null;
+}) {
+  const { data, isLoading } = useStoredIdBackReading(backPath);
+  const frontReading = useStoredIdReading(row.user_id);
+  const frontCardNumber = frontReading.data?.cardNumber ?? null;
+
+  if (!backPath) return null;
+  if (isLoading) {
+    return (
+      <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="mt-3 h-12 w-full rounded-xl" />
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  const backCard = (data.cardNumber ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const frontCard = (frontCardNumber ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const numbersMismatch =
+    data.cardNumber != null && frontCardNumber != null && backCard !== frontCard && backCard.length > 3;
+
+  return (
+    <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <ScanLine className="h-3.5 w-3.5" aria-hidden="true" /> Read from the back of the National ID
+        </p>
+        <p className="text-[10px] font-semibold text-muted-foreground">
+          {data.readable
+            ? data.mrzPresent
+              ? 'MRZ read'
+              : 'Back partly read'
+            : 'Could not read the back'}
+        </p>
+      </div>
+
+      {data.looksLikeFront && (
+        <p className="mt-2 rounded-md border-2 border-destructive/50 bg-destructive/10 p-2 text-xs font-bold text-destructive">
+          The archived back photo looks like the FRONT of the card. Ask the person to retake the
+          back — the side with the two lines of code at the bottom.
+        </p>
+      )}
+
+      {data.details.length > 0 ? (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {data.details.map((d) => (
+            <CheckLine
+              key={d.label}
+              label={d.label}
+              value={d.value}
+              outcome={true}
+              note={d.label === 'Card number' ? 'Printed on the back of the card.' : undefined}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {data.error || 'No details could be read from the back photo.'}
+        </p>
+      )}
+
+      {data.mrzPresent && data.checksumsOk === false && (
+        <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+          The machine-readable lines on the back were read, but their check digits did not all
+          match. Inspect the photo carefully before approving.
+        </p>
+      )}
+
+      {numbersMismatch && (
+        <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+          The card number on the back ({maskIdNumber(data.cardNumber)}) does not match the card
+          number from the front ({maskIdNumber(frontCardNumber)}). Check both photos are of the
+          same card.
+        </p>
+      )}
     </div>
   );
 }
@@ -841,6 +985,149 @@ function DecisionDialog({
   );
 }
 
+/**
+ * Mandatory step before Verify: the reviewer starts a send-money on their own
+ * phone to this exact number, reads back the registered name the network shows,
+ * types it here, and the two names are compared with the National ID name.
+ */
+function PayoutNameCheckCard({
+  row,
+  check,
+  onChange,
+}: {
+  row: PayoutDestinationRow;
+  check: PayoutNameCheck | null;
+  onChange: (next: PayoutNameCheck | null) => void;
+}) {
+  const [typed, setTyped] = useState('');
+  useEffect(() => setTyped(''), [row.id]);
+
+  const idName = (row.national_id_name || '').trim();
+  const isMomo = row.destination_type === 'mobile_money';
+  const network = networkForNumber(row.provider, row.momo_number);
+  const target = isMomo
+    ? row.momo_number
+    : `${row.bank_name ?? ''} ${row.bank_account_number ?? ''}`.trim();
+
+  const record = () => {
+    const networkName = typed.trim();
+    if (networkName.length < 3) {
+      toast.error('Type the full name exactly as it appeared on your phone.');
+      return;
+    }
+    if (!idName) {
+      toast.error('There is no name from the National ID to compare against yet.');
+      return;
+    }
+    const outcome = compareNames(networkName, idName);
+    const next: PayoutNameCheck = { networkName, outcome, checkedAt: new Date().toISOString() };
+    saveNameCheck(row.id, next);
+    onChange(next);
+    if (outcome === 'match') toast.success('Names are the same. Verify is now open.');
+    else if (outcome === 'partial') toast.warning('Names only partly agree — Verify stays closed.');
+    else toast.error('Different names — do not verify. Reject or call the holder.');
+  };
+
+  const tone =
+    check?.outcome === 'match'
+      ? 'border-emerald-500/50 bg-emerald-500/10'
+      : check?.outcome === 'partial'
+        ? 'border-amber-500/50 bg-amber-500/10'
+        : check?.outcome === 'different'
+          ? 'border-destructive/50 bg-destructive/10'
+          : 'border-primary/40 bg-primary/5';
+
+  return (
+    <div className={`mx-5 mt-3 rounded-2xl border-2 p-4 ${tone}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <Smartphone className="h-3.5 w-3.5" aria-hidden="true" /> Step 1 — name check on the number
+        </p>
+        {check && (
+          <span className="text-[10px] font-bold uppercase tracking-widest">
+            {check.outcome === 'match'
+              ? 'Same person'
+              : check.outcome === 'partial'
+                ? 'Partly agrees'
+                : 'Different name'}
+          </span>
+        )}
+      </div>
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        {isMomo ? (
+          <>
+            Start a send-money to <span className="font-bold text-foreground">{target || '—'}</span> on{' '}
+            {network.label}
+            {network.ussd ? (
+              <>
+                {' '}
+                (<span className="font-semibold text-foreground">{network.ussd}</span>)
+              </>
+            ) : null}{' '}
+            and read the registered name it shows before confirming. Do not send anything.
+          </>
+        ) : (
+          <>
+            Ask the bank to confirm the registered name on{' '}
+            <span className="font-bold text-foreground">{target || '—'}</span> before verifying.
+          </>
+        )}
+      </p>
+
+      <div className="mt-2 rounded-xl border border-border bg-background/70 p-2.5">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Name on the National ID
+        </p>
+        <p className="truncate text-sm font-bold text-foreground">{idName || '—'}</p>
+      </div>
+
+      {check ? (
+        <div className="mt-2 space-y-2">
+          <div className="rounded-xl border border-border bg-background/70 p-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Name the network showed
+            </p>
+            <p className="truncate text-sm font-bold text-foreground">{check.networkName}</p>
+          </div>
+          {check.outcome !== 'match' && (
+            <p role="alert" className="text-xs font-semibold text-destructive">
+              These are not clearly the same person. Verify stays closed — call the holder or reject with a note.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            className="h-10 w-full rounded-xl text-xs font-bold uppercase tracking-widest"
+            onClick={() => {
+              clearNameCheck(row.id);
+              onChange(null);
+              setTyped('');
+            }}
+          >
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Redo the name check
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-2 space-y-2">
+          <Input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="Type the name your phone showed"
+            className="h-11 text-sm"
+            aria-label="Name shown by the mobile money or bank lookup"
+          />
+          <Button
+            className="h-11 w-full rounded-xl text-xs font-bold uppercase tracking-widest"
+            onClick={record}
+          >
+            <UserCheck className="mr-1.5 h-4 w-4" /> Record the name check
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const SORT_STORAGE_KEY = 'finops-payout-verification-sort';
 const SORT_OPTIONS: PayoutQueueSort[] = ['ready_first', 'balance', 'newest', 'oldest'];
 
@@ -878,6 +1165,7 @@ export default function PayoutVerificationPanel() {
   const [deciding, setDeciding] = useState(false);
   const [confirmingVerify, setConfirmingVerify] = useState<PayoutDestinationRow | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
+  const [personNumbersOpen, setPersonNumbersOpen] = useState(false);
   const focusCardRef = useRef<HTMLDivElement | null>(null);
   const skipInitialScrollRef = useRef(true);
 
@@ -898,7 +1186,9 @@ export default function PayoutVerificationPanel() {
   const row: PayoutDestinationRow | null = rows[Math.min(index, rows.length - 1)] ?? null;
 
   const photos = useIdentityPhotosFor(row?.user_id);
+  const personNumbers = usePersonPayoutDestinations(row?.user_id, personNumbersOpen);
   const idPath = photos.data?.national_id_photo_path ?? null;
+  const idBackPath = photos.data?.national_id_back_photo_path ?? null;
   const selfiePath = photos.data?.selfie_photo_path ?? null;
   const photosReady = !!idPath && !!selfiePath;
   // Verify must stay off until the ID photo has been read and produced a name we
@@ -909,7 +1199,16 @@ export default function PayoutVerificationPanel() {
   // account is a double submission and can never be verified.
   const isDouble = row?.double_submission === true;
   const doubleWhat = doubleSubmissionLabel(row?.double_kind);
-  const verifyBlocked = !photosReady || idNameUnreadable || isDouble;
+  // Every payout number must first be name-checked on the network, exactly as
+  // though money were being sent, and the name must be the same person as the
+  // National ID. Until that is recorded and agrees, Verify stays off.
+  const [nameCheck, setNameCheck] = useState<PayoutNameCheck | null>(null);
+  useEffect(() => {
+    setNameCheck(loadNameCheck(row?.id));
+  }, [row?.id]);
+  const nameCheckPassed = nameCheck?.outcome === 'match';
+  const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheckPassed;
+
 
 
   const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
@@ -935,6 +1234,40 @@ export default function PayoutVerificationPanel() {
   }, [row?.id]);
 
   const position = total === 0 ? 0 : page * PAYOUT_VERIFICATION_PAGE_SIZE + index + 1;
+
+  /* One person can have several payout numbers waiting, so the queue holds one
+     card per number. Navigation therefore has two moves: the next NUMBER for
+     the same person, and the next real PERSON (skipping the rest of their
+     numbers). */
+  const sameUserIdx = useMemo(
+    () => (row ? rows.map((r, i) => (r.user_id === row.user_id ? i : -1)).filter((i) => i >= 0) : []),
+    [rows, row],
+  );
+  const nextSameIdx = useMemo(() => sameUserIdx.find((i) => i > index) ?? -1, [sameUserIdx, index]);
+  const nextPersonIdx = useMemo(
+    () => (row ? rows.findIndex((r, i) => i > index && r.user_id !== row.user_id) : -1),
+    [rows, index, row],
+  );
+  const prevPersonIdx = useMemo(() => {
+    if (!row) return -1;
+    let i = index - 1;
+    while (i >= 0 && rows[i].user_id === row.user_id) i -= 1;
+    if (i < 0) return -1;
+    const otherUser = rows[i].user_id;
+    while (i > 0 && rows[i - 1].user_id === otherUser) i -= 1;
+    return i;
+  }, [rows, index, row]);
+  const personNumbersInQueue = sameUserIdx.length;
+  const personNumberPosition = Math.max(1, sameUserIdx.indexOf(index) + 1);
+
+  const goNextPerson = () => {
+    if (nextPersonIdx >= 0) setIndex(nextPersonIdx);
+    else goTo((page + 1) * PAYOUT_VERIFICATION_PAGE_SIZE);
+  };
+  const goPrevPerson = () => {
+    if (prevPersonIdx >= 0) setIndex(prevPersonIdx);
+    else goTo(position - 2);
+  };
 
   const goTo = (nextGlobal: number) => {
     const maxGlobal = total - 1;
@@ -965,7 +1298,10 @@ export default function PayoutVerificationPanel() {
         userId: target.user_id,
         decision: 'verified',
         reason:
-          'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.',
+          'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.' +
+          (nameCheck
+            ? ` Name check on the payout number showed "${nameCheck.networkName}" — same person as the National ID.`
+            : ''),
       });
       const idName = (target.national_id_name || '').trim();
       const before = (target.full_name || target.account_name || '').trim();
@@ -1263,6 +1599,20 @@ export default function PayoutVerificationPanel() {
                 </span>
               );
             })()}
+            {row.payout_number_count > 1 && (
+              <button
+                type="button"
+                onClick={() => setPersonNumbersOpen(true)}
+                aria-label={`This person has made ${row.payout_number_count} payout number requests. Open the full list.`}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border-2 border-amber-500/70 bg-amber-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 transition hover:bg-amber-500/25 dark:text-amber-400"
+              >
+                <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
+                  {row.payout_number_count}
+                </span>
+                requests · tap to see all
+              </button>
+            )}
           </div>
 
           {isDouble && (
@@ -1277,11 +1627,79 @@ export default function PayoutVerificationPanel() {
           )}
 
 
+          {row.verified_payout_count > 0 && (
+            <div
+              role="alert"
+              className="mx-5 mt-2 rounded-2xl border-2 border-amber-500/80 bg-amber-500/10 p-4 shadow-lg shadow-amber-500/10"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+                  <Smartphone className="h-4 w-4 text-amber-700 dark:text-amber-400" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-extrabold leading-tight text-amber-800 dark:text-amber-300">
+                    This person already has {row.verified_payout_count} verified payout{' '}
+                    {row.verified_payout_count === 1 ? 'number' : 'numbers'}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-amber-800/90 dark:text-amber-300/90">
+                    They are now asking to use a different one. Confirm with them why before verifying.
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {row.verified_payout_numbers.map((v, i) => (
+                      <li
+                        key={i}
+                        className="flex flex-wrap items-center gap-x-2 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold text-amber-900 dark:text-amber-200"
+                      >
+                        <BadgeCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        <span>
+                          {ordinalLabel(i + 1)} verified:{' '}
+                          {v.momo_number || v.bank_account_number || '—'}
+                          {v.provider ? ` (${v.provider})` : v.bank_name ? ` (${v.bank_name})` : ''}
+                        </span>
+                        {v.decided_at && (
+                          <span className="text-xs font-semibold opacity-80">
+                            verified {new Date(v.decided_at).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* Photos — the hero of the screen */}
-          <div className="grid grid-cols-2 gap-3 p-5">
+          {row.id_account_count > 1 && (
+            <div
+              role="alert"
+              className="mx-5 mt-2 rounded-2xl border-2 border-destructive/80 bg-destructive/10 p-4 shadow-lg shadow-destructive/10"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-destructive/20">
+                  <ShieldAlert className="h-4 w-4 text-destructive" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-extrabold leading-tight text-destructive">
+                    This National ID is on {row.id_account_count} accounts
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-destructive/90">
+                    This is the {ordinalLabel(row.id_account_ordinal)} account using this ID.
+                    {row.id_account_ordinal > 1
+                      ? ' An earlier account already holds this ID — confirm you are reviewing the right person before verifying.'
+                      : ' This is the first account with this ID; the others appeared later.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Photos — the hero of the screen. The back of the card is shown
+              beside the front: the card number and the two lines of code are
+              only printed there. */}
+          <div className="grid grid-cols-3 gap-3 p-5">
             <HeroPhoto label="Selfie" path={selfiePath} onOpen={(url, label) => setLightbox({ url, label })} />
-            <HeroPhoto label="National ID" path={idPath} onOpen={(url, label) => setLightbox({ url, label })} />
+            <HeroPhoto label="National ID front" path={idPath} onOpen={(url, label) => setLightbox({ url, label })} />
+            <HeroPhoto label="National ID back" path={idBackPath} onOpen={(url, label) => setLightbox({ url, label })} />
           </div>
 
           <PriorSubmissions
@@ -1362,6 +1780,12 @@ export default function PayoutVerificationPanel() {
 
           {/* What the reader stored off the card, with the matching checks */}
           <StoredIdReadingCard row={row} />
+
+          {/* What was read off the BACK of the card, re-read from the archived photo */}
+          <StoredIdBackReadingCard row={row} backPath={idBackPath} />
+
+          {/* Mandatory network name check before Verify can be tapped */}
+          <PayoutNameCheckCard row={row} check={nameCheck} onChange={setNameCheck} />
 
           {/* Audit trail of name replacements */}
           <NameChangeHistory userId={row.user_id} />
@@ -1446,6 +1870,14 @@ export default function PayoutVerificationPanel() {
               Verify is off — {idNameConfidence.reason} Ask for a clearer ID photo.
             </p>
           )}
+          {photosReady && !idNameUnreadable && !isDouble && !nameCheckPassed && (
+            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-amber-600">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {nameCheck
+                ? 'Verify is off — the name on the number is not clearly the same person as the National ID.'
+                : 'Verify is off — do the name check on the payout number first (Step 1 above).'}
+            </p>
+          )}
           {(() => {
             const reason = blockedReasonFor(row);
             if (!reason) return null;
@@ -1462,29 +1894,47 @@ export default function PayoutVerificationPanel() {
             </p>
           )}
 
-          {/* Queue navigation */}
-          <div className="flex items-center justify-between gap-2 border-t border-primary/10 px-5 py-3">
-            <Button
-              variant="ghost"
-              className="h-11 gap-1"
-              disabled={position <= 1}
-              onClick={() => goTo(position - 2)}
-              aria-label="Previous person in the queue"
-            >
-              <ChevronLeft className="h-4 w-4" /> Previous
-            </Button>
-            <p className="text-xs font-semibold text-muted-foreground" aria-live="polite">
-              Person {position} of {total}
-            </p>
-            <Button
-              variant="ghost"
-              className="h-11 gap-1"
-              disabled={position >= total}
-              onClick={() => goTo(position)}
-              aria-label="Next person in the queue"
-            >
-              Next <ChevronRight className="h-4 w-4" />
-            </Button>
+          {/* Queue navigation — the next NUMBER for this person, or the next real PERSON. */}
+          <div className="space-y-2 border-t border-primary/10 px-5 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                variant="ghost"
+                className="h-11 gap-1"
+                disabled={position <= 1}
+                onClick={goPrevPerson}
+                aria-label="Previous person in the queue"
+              >
+                <ChevronLeft className="h-4 w-4" /> Previous person
+              </Button>
+              <p className="text-center text-xs font-semibold text-muted-foreground" aria-live="polite">
+                Case {position} of {total}
+                {personNumbersInQueue > 1 && (
+                  <>
+                    <br />
+                    Number {personNumberPosition} of {personNumbersInQueue} waiting for this person
+                  </>
+                )}
+              </p>
+              <Button
+                variant="ghost"
+                className="h-11 gap-1"
+                disabled={position >= total}
+                onClick={goNextPerson}
+                aria-label="Skip the rest of this person's numbers and go to the next person"
+              >
+                Next person <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            {nextSameIdx >= 0 && (
+              <Button
+                variant="outline"
+                className="h-11 w-full gap-1.5 border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                onClick={() => setIndex(nextSameIdx)}
+                aria-label="Next payout number for the same person"
+              >
+                <Smartphone className="h-4 w-4" /> Next number for the same person
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -1524,6 +1974,10 @@ export default function PayoutVerificationPanel() {
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">ID name</span>
                 <span className="truncate text-right font-semibold">{confirmingVerify.national_id_name || '—'}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Name on the number</span>
+                <span className="truncate text-right font-semibold">{nameCheck?.networkName || '—'}</span>
               </div>
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Amount</span>
@@ -1582,6 +2036,75 @@ export default function PayoutVerificationPanel() {
               className="max-h-[75vh] w-full rounded-xl object-contain"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Drill-down: every payout number this person has ever submitted. */}
+      <Dialog open={personNumbersOpen} onOpenChange={setPersonNumbersOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-0">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle className="text-base">
+              {row?.full_name || 'This person'} — {personNumbers.data?.length ?? row?.payout_number_count ?? 0} payout
+              number requests
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Every number they have submitted, oldest first. Tap one that is still waiting to review it now.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto px-5 pb-5 pt-2">
+            {personNumbers.isLoading && <Skeleton className="h-16 w-full rounded-xl" />}
+            {!personNumbers.isLoading &&
+              (personNumbers.data ?? []).map((d, i) => {
+                const label =
+                  d.destination_type === 'mobile_money'
+                    ? `${d.provider ?? 'Mobile money'} · ${d.momo_number ?? '—'}`
+                    : `${d.bank_name ?? ''} ${d.bank_account_number ?? ''}`.trim() || '—';
+                const inQueueIdx = rows.findIndex((r) => r.id === d.id);
+                const tone =
+                  d.status === 'verified'
+                    ? 'text-emerald-700 dark:text-emerald-400'
+                    : d.status === 'rejected'
+                      ? 'text-destructive'
+                      : 'text-amber-700 dark:text-amber-400';
+                return (
+                  <div
+                    key={d.id}
+                    className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${
+                      d.id === row?.id ? 'border-primary/60 bg-primary/5' : 'border-border'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">
+                        {i + 1}. {label}
+                      </p>
+                      <p className={`text-xs font-semibold uppercase tracking-wide ${tone}`}>
+                        {d.status === 'waiting' ? 'Waiting' : d.status === 'verified' ? 'Verified' : 'Rejected'}
+                        {d.decided_at ? ` · ${format(new Date(d.decided_at), 'd MMM yyyy')}` : ''}
+                      </p>
+                    </div>
+                    {d.id === row?.id ? (
+                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-primary">
+                        On screen
+                      </span>
+                    ) : inQueueIdx >= 0 ? (
+                      <Button
+                        variant="outline"
+                        className="h-9 shrink-0"
+                        onClick={() => {
+                          setIndex(inQueueIdx);
+                          setPersonNumbersOpen(false);
+                        }}
+                      >
+                        Open
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            {!personNumbers.isLoading && (personNumbers.data ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">No payout numbers recorded.</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

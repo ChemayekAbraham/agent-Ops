@@ -2,56 +2,70 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import { formatUGX } from '@/lib/rentCalculations';
-import { format, subDays, startOfDay, eachDayOfInterval } from 'date-fns';
+import { format, subDays, eachDayOfInterval } from 'date-fns';
 import { TrendingUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RepaymentTrendChartProps {
-  dailyExpected: number; // total daily expected across all tenants
+  dailyExpected: number; // fallback only: used if the pinned bill is unavailable
+}
+
+interface TrendDay {
+  day: string;
+  expected: number;
+  collected: number;
+  collected_total: number;
 }
 
 export function RepaymentTrendChart({ dailyExpected }: RepaymentTrendChartProps) {
   const today = new Date();
   const days = eachDayOfInterval({ start: subDays(today, 6), end: today });
 
-  const { data: collections } = useQuery({
-    queryKey: ['repayment-trend-7d'],
-    queryFn: async () => {
-      const startDate = format(subDays(today, 6), 'yyyy-MM-dd') + 'T00:00:00';
-      const { data, error } = await supabase
-        .from('agent_collections')
-        .select('amount, created_at').is('reversed_at', null)
-        .gte('created_at', startDate);
+  // Same reading as the Tenant Ops "collected vs expected" card: expected comes
+  // from the pinned daily bill (`agent_expected_day_plans`) and collected is the
+  // on-schedule cash capped at what each billed plan owed for that day.
+  const { data: trend } = useQuery({
+    queryKey: ['repayment-trend-7d-pinned'],
+    queryFn: async (): Promise<TrendDay[]> => {
+      const { data, error } = await supabase.rpc('ops_repayment_trend_daily' as any, { p_days: 7 });
       if (error) throw error;
-      return data || [];
+      const rows = ((data as any)?.days ?? []) as Record<string, unknown>[];
+      return rows.map((r) => ({
+        day: String(r.day),
+        expected: Number(r.expected ?? 0),
+        collected: Number(r.collected ?? 0),
+        collected_total: Number(r.collected_total ?? 0),
+      }));
     },
     staleTime: 120000,
   });
 
   const chartData = useMemo(() => {
+    const byDay = new Map((trend || []).map((t) => [t.day, t]));
     return days.map(day => {
-      const dayStart = startOfDay(day);
-      const collected = (collections || [])
-        .filter(c => startOfDay(new Date(c.created_at)).getTime() === dayStart.getTime())
-        .reduce((sum, c) => sum + Number(c.amount), 0);
+      const key = format(day, 'yyyy-MM-dd');
+      const row = byDay.get(key);
+      const collected = row?.collected ?? 0;
+      const expected = row?.expected ?? (trend ? 0 : dailyExpected);
 
       return {
         date: format(day, 'EEE'),
         fullDate: format(day, 'MMM d'),
         collected,
-        expected: dailyExpected,
-        gap: Math.max(0, dailyExpected - collected),
+        expected,
+        gap: Math.max(0, expected - collected),
       };
     });
-  }, [days, collections, dailyExpected]);
+  }, [days, trend, dailyExpected]);
+
 
   return (
     <Card className="border shadow-sm">
       <CardHeader className="pb-2 px-3 sm:px-4">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
-          Gross Repayment Trend (7 Days)
+          Collected vs Expected (7 Days)
         </CardTitle>
       </CardHeader>
       <CardContent className="px-2 sm:px-4 pb-3">

@@ -266,3 +266,384 @@ export function readingGuidance(r: NationalIdReading): string | null {
   }
   return null;
 }
+
+/* ------------------------------------------------------------------ *
+ * Orientation — an upside-down or sideways card
+ *
+ * A card photographed the wrong way up reads as "not a National ID" or as a
+ * card with almost nothing on it, and the person is told to retake a photo that
+ * was in fact perfectly sharp. So every poor reading is retried on a rotated
+ * copy of the same photo, and when a rotation reads better we keep the
+ * straightened copy AND say what was wrong, so the next photo is taken right.
+ * ------------------------------------------------------------------ */
+
+export type IdRotation = 0 | 90 | 180 | 270;
+
+export function isSidewaysIdRotation(rotation: IdRotation): boolean {
+  return rotation === 90 || rotation === 270;
+}
+
+export type IdPhotoOrientation = 'landscape' | 'sideways' | 'unreadable';
+
+/**
+ * A National ID is a landscape card. A portrait image means the phone/card was
+ * turned 90° or -90°, which makes the small fields much less reliable.
+ */
+export function classifyIdPhotoOrientation(width: number, height: number): IdPhotoOrientation {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return 'unreadable';
+  }
+  return width > height ? 'landscape' : 'sideways';
+}
+
+/** Reads the decoded dimensions before any OCR call or upload. */
+export async function inspectIdPhotoOrientation(file: File): Promise<IdPhotoOrientation> {
+  const url = URL.createObjectURL(file);
+  try {
+    const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+      image.onerror = () => reject(new Error('Could not open that photo.'));
+      image.src = url;
+    });
+    return classifyIdPhotoOrientation(dimensions.width, dimensions.height);
+  } catch {
+    return 'unreadable';
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+export const SIDEWAYS_ID_MESSAGE =
+  'This ID photo is sideways. Turn the phone so the photo is wide, keep the card straight, and retake it.';
+
+/** How to hold the card, in the order that fixes the most photos. */
+export const ID_POSITION_TIPS: string[] = [
+  'Turn the phone sideways and hold the card landscape (wide, not tall).',
+  'Keep the long top and bottom edges of the card straight across the photo — not at 90° or -90°.',
+  'Keep the writing the right way up. An upside-down landscape photo can be corrected.',
+  'Keep the photo of the face on the LEFT of the frame.',
+  'Fill the frame with the card and keep all four corners inside it.',
+  'Keep the phone flat above the card, not tilted, and avoid shine from lights.',
+];
+
+/** Turns one photo by a quarter, half or three-quarter turn. */
+export async function rotateImageFile(file: File, degrees: IdRotation): Promise<File> {
+  if (degrees === 0) return file;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Could not open that photo.'));
+      el.src = url;
+    });
+    const swap = degrees === 90 || degrees === 270;
+    const canvas = document.createElement('canvas');
+    canvas.width = swap ? img.naturalHeight : img.naturalWidth;
+    canvas.height = swap ? img.naturalWidth : img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((degrees * Math.PI) / 180);
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92),
+    );
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + `-turned${degrees}.jpg`, {
+      type: 'image/jpeg',
+    });
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** How good a reading is, so two orientations of the same photo can be compared. */
+function readingScore(r: NationalIdReading): number {
+  if (r.status === 'invalid') return -100;
+  const valid = Object.values(r.fields ?? {}).filter((f) => f?.valid === true).length;
+  const seen = (Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[])
+    .filter((k) => !!String(r.data?.[k] ?? '').trim()).length;
+  return (r.status === 'valid' ? 100 : 0) + valid * 10 + seen * 2;
+}
+
+export interface OrientedIdReading {
+  reading: NationalIdReading;
+  /** The turn that read best — 0 when the photo was already the right way up. */
+  rotation: IdRotation;
+  /** The straightened copy to archive and send. Same file when rotation is 0. */
+  file: File;
+  /** True when the photo had to be turned to be readable. */
+  corrected: boolean;
+}
+
+/**
+ * Reads the front of a card, correcting an upside-down or sideways photo.
+ *
+ * The photo as taken is always tried first. Only a poor reading is retried
+ * rotated, so a good photo costs exactly one call as before.
+ */
+export async function readNationalIdPhotoOriented(
+  file: File,
+): Promise<OrientedIdReading | { error: string }> {
+  const first = await readNationalIdPhoto(file);
+  if ('error' in first && first.error) return first as { error: string };
+  let best: OrientedIdReading = {
+    reading: first as NationalIdReading,
+    rotation: 0,
+    file,
+    corrected: false,
+  };
+  if (best.reading.status === 'valid') return best;
+
+  // Half a turn first: an upside-down card is by far the commonest mistake.
+  for (const deg of [180, 270, 90] as IdRotation[]) {
+    let turned: File;
+    try {
+      turned = await rotateImageFile(file, deg);
+    } catch {
+      continue;
+    }
+    if (turned === file) continue;
+    const res = await readNationalIdPhoto(turned);
+    if ('error' in res && res.error) continue;
+    const reading = res as NationalIdReading;
+    if (readingScore(reading) > readingScore(best.reading)) {
+      best = { reading, rotation: deg, file: turned, corrected: true };
+    }
+    if (reading.status === 'valid') break;
+  }
+  return best;
+}
+
+/** What to tell the person about the way the card was lying. */
+export function orientationMessage(rotation: IdRotation): string | null {
+  if (rotation === 0) return null;
+  if (rotation === 180) {
+    return 'Your ID was upside down. We turned it the right way up and read it — check every line below. Next time hold the card with the writing the right way up.';
+  }
+  return 'Your ID was sideways. We turned it upright and read it — check every line below. Next time hold the card landscape (wide, not tall).';
+}
+
+/* ------------------------------------------------------------------ *
+ * The back of the card
+ * ------------------------------------------------------------------ */
+
+export const ID_BACK_TIPS: string[] = [
+  'Turn the card over — the back carries the two lines of code at the bottom.',
+  'Hold it landscape and fill the frame, all four corners inside.',
+  'Keep the phone flat above the card so the small print stays sharp.',
+];
+
+/** The machine-readable zone: the only self-verifying part of the back. */
+export interface IdMrz {
+  present: boolean;
+  lines?: string[];
+  /** Every check digit agreed with its own field. `null` when none were legible. */
+  checksums_ok?: boolean | null;
+  nin?: string | null;
+  document_number?: string | null;
+  date_of_birth?: string | null;
+  date_of_expiry?: string | null;
+  sex?: string | null;
+  nationality?: string | null;
+  surname?: string | null;
+  given_name?: string | null;
+}
+
+/** What the back-of-card reader returns, straight from the edge function. */
+export interface NationalIdBackDetails {
+  is_national_id: boolean;
+  side: 'back' | 'front';
+  readable: boolean;
+  card_number: string | null;
+  card_number_agrees: boolean | null;
+  date_of_issue: string | null;
+  date_of_expiry: string | null;
+  date_of_expiry_agrees: boolean | null;
+  residence: {
+    district: string | null;
+    county: string | null;
+    subcounty: string | null;
+    parish: string | null;
+    village: string | null;
+  };
+  other_fields: { label: string; value: string }[];
+  mrz: IdMrz;
+}
+
+export interface NationalIdBackReading {
+  /** The front was photographed again by mistake. */
+  looksLikeFront: boolean;
+  /** Everything read off the back, ready to show line by line. */
+  details: { label: string; value: string }[];
+  rotation: IdRotation;
+  /** The straightened copy to archive. */
+  file: File;
+  corrected: boolean;
+  /** The raw extraction, for cross-checking against the front. */
+  back: NationalIdBackDetails;
+}
+
+/** One call to the back-of-card reader. */
+async function invokeBackReader(
+  file: File,
+): Promise<NationalIdBackDetails | { error: string }> {
+  try {
+    const imageBase64 = await fileToBase64(file);
+    const { data, error } = await supabase.functions.invoke('read-national-id-back', {
+      body: { imageBase64 },
+    });
+    if (error) {
+      return { error: 'Could not read the back of your card just now. Your photo is still saved.' };
+    }
+    const r = (data ?? {}) as Record<string, unknown>;
+    if (typeof r.error === 'string' && r.error) return { error: r.error };
+    return normaliseBackDetails(r);
+  } catch {
+    return { error: 'Could not read the back of your card just now. Your photo is still saved.' };
+  }
+}
+
+/**
+ * Normalise the edge function's JSON into the typed back-of-card shape.
+ * Shared between the live-file reader and the stored-photo reviewer reader.
+ */
+function normaliseBackDetails(data: Record<string, unknown>): NationalIdBackDetails {
+  const r = data;
+  const res = (r.residence ?? {}) as Record<string, unknown>;
+  const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  return {
+    is_national_id: r.is_national_id !== false,
+    side: r.side === 'front' ? 'front' : 'back',
+    readable: r.readable !== false,
+    card_number: s(r.card_number),
+    card_number_agrees: typeof r.card_number_agrees === 'boolean' ? r.card_number_agrees : null,
+    date_of_issue: s(r.date_of_issue),
+    date_of_expiry: s(r.date_of_expiry),
+    date_of_expiry_agrees:
+      typeof r.date_of_expiry_agrees === 'boolean' ? r.date_of_expiry_agrees : null,
+    residence: {
+      district: s(res.district),
+      county: s(res.county),
+      subcounty: s(res.subcounty),
+      parish: s(res.parish),
+      village: s(res.village),
+    },
+    other_fields: Array.isArray(r.other_fields)
+      ? (r.other_fields as Record<string, unknown>[])
+          .map((f) => ({ label: String(f?.label ?? '').trim(), value: String(f?.value ?? '').trim() }))
+          .filter((f) => f.label && f.value)
+      : [],
+    mrz: (r.mrz ?? { present: false }) as IdMrz,
+  };
+}
+
+/** Read the back of an already-archived identity photo by its storage path.
+ *  Used by reviewers so they see the same extracted details the submitter saw. */
+export async function readNationalIdBackPhotoFromPath(
+  storagePath: string,
+): Promise<NationalIdBackDetails | { error: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('read-national-id-back', {
+      body: { storagePath },
+    });
+    if (error) {
+      return { error: 'Could not read the back of the stored ID photo.' };
+    }
+    const r = (data ?? {}) as Record<string, unknown>;
+    if (typeof r.error === 'string' && r.error) return { error: r.error };
+    return normaliseBackDetails(r);
+  } catch {
+    return { error: 'Could not read the back of the stored ID photo.' };
+  }
+}
+
+/** How much was actually extracted, so two orientations can be compared. */
+function backScore(b: NationalIdBackDetails): number {
+  const residence = Object.values(b.residence).filter(Boolean).length;
+  return (
+    (b.mrz?.present ? 60 : 0) +
+    (b.mrz?.checksums_ok === true ? 30 : 0) +
+    (b.card_number ? 15 : 0) +
+    (b.date_of_expiry ? 10 : 0) +
+    (b.date_of_issue ? 5 : 0) +
+    residence * 5 +
+    b.other_fields.length
+  );
+}
+
+/**
+ * Reads the back of the card through the dedicated back-side reader.
+ *
+ * The front reader (PassGate) is a front-side validator and calls a back-side
+ * photo "not a National ID", so the back was never really extracted before.
+ * This reads the machine-readable lines, card number, dates of issue and
+ * expiry, and the place of residence, correcting an upside-down or sideways
+ * photo the same way the front does.
+ *
+ * Nothing here refuses a submission: the back is archived for Financial Ops
+ * either way, so an unreadable back is reported, never used to block the
+ * person. The one exception is photographing the FRONT twice, which is caught
+ * by the caller.
+ */
+export async function readNationalIdBackPhoto(
+  file: File,
+): Promise<NationalIdBackReading | { error: string }> {
+  const first = await invokeBackReader(file);
+  if ('error' in first) return first;
+
+  let best = { back: first as NationalIdBackDetails, rotation: 0 as IdRotation, file, corrected: false };
+
+  // Only a poor extraction is retried turned, so a good photo costs one call.
+  const poor = () => !best.back.mrz?.present && !best.back.card_number;
+  if (poor() && best.back.side !== 'front') {
+    for (const deg of [180, 270, 90] as IdRotation[]) {
+      let turned: File;
+      try {
+        turned = await rotateImageFile(file, deg);
+      } catch {
+        continue;
+      }
+      if (turned === file) continue;
+      const res = await invokeBackReader(turned);
+      if ('error' in res) continue;
+      if (backScore(res) > backScore(best.back)) {
+        best = { back: res, rotation: deg, file: turned, corrected: true };
+      }
+      if (best.back.mrz?.present) break;
+    }
+  }
+
+  const b = best.back;
+  const details: { label: string; value: string }[] = [];
+  const push = (label: string, value: string | null | undefined) => {
+    const v = String(value ?? '').trim();
+    if (v) details.push({ label, value: v });
+  };
+  push('Card number', b.card_number ?? b.mrz?.document_number);
+  push('NIN', b.mrz?.nin);
+  push('Date of issue', b.date_of_issue);
+  push('Date of expiry', b.date_of_expiry);
+  push('Date of birth', b.mrz?.date_of_birth);
+  push('Sex', b.mrz?.sex);
+  push('Nationality', b.mrz?.nationality);
+  push('Village', b.residence.village);
+  push('Parish', b.residence.parish);
+  push('Subcounty', b.residence.subcounty);
+  push('County', b.residence.county);
+  push('District', b.residence.district);
+  for (const f of b.other_fields) push(f.label, f.value);
+
+  return {
+    looksLikeFront: b.side === 'front',
+    details,
+    rotation: best.rotation,
+    file: best.file,
+    corrected: best.corrected,
+    back: b,
+  };
+}

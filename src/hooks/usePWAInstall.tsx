@@ -61,6 +61,7 @@ export function usePWAInstall() {
     typeof window === 'undefined' ? false : detectStandalone(),
   );
   const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
     // Live installed/standalone detection on every mount, so a user who removed
@@ -70,6 +71,7 @@ export function usePWAInstall() {
     // Detect iOS
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(ios);
+    setIsAndroid(/Android/i.test(navigator.userAgent));
 
     // Subscribe to global prompt changes
     const onPromptChange = (v: boolean) => setHasPrompt(v);
@@ -130,6 +132,7 @@ export function usePWAInstall() {
     hasPrompt,
     isInstalled,
     isIOS,
+    isAndroid,
     promptInstall,
     /**
      * No native one-tap prompt available (Firefox, in-app browsers, some
@@ -139,4 +142,39 @@ export function usePWAInstall() {
     canInstructInstead: !hasPrompt && !isIOS,
     canShow: !isInstalled,
   };
+}
+
+const INSTALL_PLATFORM_PREF_KEY = 'welile_install_platform_preference';
+
+/**
+ * Persist the platform a user manually chose in the install prompt so that
+ * future prompts (especially when OS detection fails) show the right steps.
+ */
+export function getInstallPlatformPreference(): 'ios' | 'android' | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(INSTALL_PLATFORM_PREF_KEY);
+    if (raw === 'ios' || raw === 'android') return raw;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function setInstallPlatformPreference(platform: 'ios' | 'android') {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(INSTALL_PLATFORM_PREF_KEY, platform);
+  } catch {
+    /* storage unavailable — prompt simply returns to picker next load */
+  }
+}
+
+export function clearInstallPlatformPreference() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(INSTALL_PLATFORM_PREF_KEY);
+  } catch {
+    /* storage unavailable */
+  }
 }
