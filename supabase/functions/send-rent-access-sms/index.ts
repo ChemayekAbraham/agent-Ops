@@ -126,16 +126,16 @@ async function sendViaLana(phone: string, message: string): Promise<boolean> {
   }
 }
 
-async function sendSMS(phone: string, message: string): Promise<boolean> {
+async function sendSMS(phone: string, message: string): Promise<{ ok: boolean; provider: string | null }> {
   const to = formatPhoneInternational(phone);
-  if (!to) return false;
-  if (await sendViaYoola(phone, message)) return true;
+  if (!to) return { ok: false, provider: null };
+  if (await sendViaYoola(phone, message)) return { ok: true, provider: "yoola" };
   console.warn("[send-rent-access-sms] Yoola not accepted; trying Africa's Talking");
-  if (await sendViaAfricasTalking(phone, message)) return true;
+  if (await sendViaAfricasTalking(phone, message)) return { ok: true, provider: "africastalking" };
   console.warn("[send-rent-access-sms] AT not accepted; trying LANA");
-  if (await sendViaLana(phone, message)) return true;
+  if (await sendViaLana(phone, message)) return { ok: true, provider: "lana" };
   console.error("[send-rent-access-sms] all providers failed");
-  return false;
+  return { ok: false, provider: null };
 }
 
 Deno.serve(async (req) => {
@@ -222,7 +222,27 @@ Deno.serve(async (req) => {
 
     // Honour CTO-managed SMS exceptions for this message type.
     const blocked = await isPhoneBlocked(adminClient, tenant_phone, "rent_access");
-    const ok = blocked ? false : await sendSMS(tenant_phone, message);
+    const result = blocked ? { ok: false, provider: null } : await sendSMS(tenant_phone, message);
+    const ok = result.ok;
+
+    // Every attempt gets a sms_delivery_log row — previously this function
+    // only wrote a best-effort system_events row (skipped entirely when no
+    // tenant_id was passed), leaving Yoola spend reporting blind to every
+    // rent-access-limit SMS sent from here.
+    try {
+      await adminClient.from("sms_delivery_log").insert({
+        recipient_phone: tenant_phone,
+        recipient_user_id: tenant_id ?? null,
+        recipient_name: tenant_name ?? null,
+        message,
+        status: ok ? "sent" : "failed",
+        provider: result.provider ?? (blocked ? "none" : "none"),
+        error: blocked ? "blocked_by_sms_exception" : (ok ? null : "all_providers_failed"),
+        source: `rent_access_sms:${mode || "manual"}`,
+      });
+    } catch (e) {
+      console.warn("[send-rent-access-sms] sms_delivery_log insert failed", e);
+    }
 
     // Best-effort: log the send as a system event for auditability.
     if (tenant_id) {

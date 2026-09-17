@@ -381,6 +381,25 @@ Deno.serve(async (req) => {
             .upsert(rows, { onConflict: 'campaign_key,phone' })
             .then(() => {})
             .catch(() => {});
+          // Also write to sms_delivery_log — the platform-wide send record every
+          // cost/usage report reads from. sms_broadcast_log alone made every
+          // audience broadcast invisible to Yoola spend reporting; this is
+          // additive, not a replacement (campaign resumability still keys off
+          // sms_broadcast_log's campaign_key+phone unique constraint).
+          await admin
+            .from('sms_delivery_log')
+            .insert(batch.map((r, idx) => ({
+              recipient_phone: r.phone,
+              recipient_user_id: r.user_id,
+              message,
+              status: results[idx].accepted ? 'sent' : 'failed',
+              provider: results[idx].provider ?? 'none',
+              error: results[idx].accepted ? null : (results[idx].reason ?? null),
+              reference_id: campaignKey,
+              source: 'broadcast_audience',
+            })))
+            .then(() => {})
+            .catch(() => {});
           await delay(500);
         }
         // Mark the campaign as complete once this pass drains its pending set.
@@ -433,6 +452,22 @@ Deno.serve(async (req) => {
         if (result.accepted) sent++;
         else { failed++; if (result.reason) errors.push(result.reason); }
       }
+      // This path previously left zero database trace of the send — neither
+      // sms_broadcast_log (campaign-only) nor sms_delivery_log. Every attempt,
+      // including test sends, now has a row so Yoola spend reporting is complete.
+      await admin
+        .from('sms_delivery_log')
+        .insert(batch.map((r, idx) => ({
+          recipient_phone: r.phone,
+          recipient_user_id: r.user_id,
+          message,
+          status: results[idx].accepted ? 'sent' : 'failed',
+          provider: results[idx].provider ?? 'none',
+          error: results[idx].accepted ? null : (results[idx].reason ?? null),
+          source: isTest ? 'broadcast_audience_test' : 'broadcast_audience',
+        })))
+        .then(() => {})
+        .catch(() => {});
     }
 
     return new Response(JSON.stringify({
