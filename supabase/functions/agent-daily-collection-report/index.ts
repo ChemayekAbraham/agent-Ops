@@ -115,14 +115,29 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { startISO, endISO, label } = todayBoundsUTC();
 
-    // 1. All active agents
+    // 1. All active agents (enabled agent role only)
     const { data: agentRoles, error: rolesErr } = await admin
       .from("user_roles")
       .select("user_id")
-      .eq("role", "agent");
+      .eq("role", "agent")
+      .eq("enabled", true);
     if (rolesErr) throw rolesErr;
 
-    const agentIds = Array.from(new Set((agentRoles || []).map((r: any) => r.user_id))).filter(Boolean);
+    let agentIds = Array.from(new Set((agentRoles || []).map((r: any) => r.user_id))).filter(Boolean);
+
+    // Partners / supporters must never receive agent daily reports.
+    if (agentIds.length > 0) {
+      const excluded = new Set<string>();
+      for (let i = 0; i < agentIds.length; i += 200) {
+        const { data: rows } = await admin
+          .from("user_roles").select("user_id")
+          .in("role", ["partner", "supporter"])
+          .in("user_id", agentIds.slice(i, i + 200));
+        (rows || []).forEach((r: any) => r.user_id && excluded.add(r.user_id));
+      }
+      if (excluded.size > 0) agentIds = agentIds.filter((id) => !excluded.has(id));
+    }
+
     const stats = { agents: 0, smsSent: 0, notifications: 0, skipped: 0 };
 
     for (const agentId of agentIds) {
