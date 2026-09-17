@@ -422,6 +422,40 @@ export default function PlatformSalesOfficersPage() {
       entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes ?? 0;
     }
 
+    // Commission is a tracking point in its own right: an officer who earned a
+    // 2% conversion or 1% top-up commission in this window is listed even when
+    // no note of theirs falls inside it (or they were enrolled after it).
+    for (const funded of fundedSummaries) {
+      if (byId.has(funded.staff_id)) continue;
+      const hasMoneyActivity =
+        (funded.commission_accrued ?? 0) > 0 ||
+        (funded.commission_base ?? 0) > 0 ||
+        (funded.amount_deployed ?? 0) > 0 ||
+        (funded.notes_funded ?? 0) > 0 ||
+        (funded.topups ?? 0) > 0;
+      if (!hasMoneyActivity) continue;
+      byId.set(funded.staff_id, {
+        staff_id: funded.staff_id,
+        staff_ref: funded.staff_ref,
+        daysElapsed: 0,
+        notesCreated: 0,
+        reversals: 0,
+        netNotes: 0,
+        partnerRegistered: 0,
+        weekday: [0, 0, 0, 0, 0, 0, 0],
+        notesUnapproved: funded.notes_unapproved ?? 0,
+        notesFunded: funded.notes_funded ?? 0,
+        fundersConverted: funded.funders_converted ?? 0,
+        topups: funded.topups ?? 0,
+        amountDeployed: funded.amount_deployed ?? 0,
+        commissionBase: funded.commission_base ?? 0,
+        commissionAccrued: funded.commission_accrued ?? 0,
+        preEnrolmentNotes: funded.pre_enrolment_notes ?? 0,
+        preEnrolmentFunded: funded.pre_enrolment_funded ?? 0,
+        preEnrolmentAmount: funded.pre_enrolment_amount ?? 0,
+      });
+    }
+
     return Array.from(byId.values());
   }, [rows, fundedSummaries]);
 
@@ -476,6 +510,32 @@ export default function PlatformSalesOfficersPage() {
       }
       entry.netNotes += row.net_notes ?? 0;
       entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes ?? 0;
+    }
+
+    // Same rule for other contributors: commission earned in the window puts a
+    // person on the list even with no note of their own inside it.
+    for (const funded of nonOfficerFunded) {
+      if (byId.has(funded.person_user_id)) continue;
+      const hasMoneyActivity =
+        (funded.commission_accrued ?? 0) > 0 ||
+        (funded.commission_base ?? 0) > 0 ||
+        (funded.amount_deployed ?? 0) > 0 ||
+        (funded.notes_funded ?? 0) > 0 ||
+        (funded.topups ?? 0) > 0;
+      if (!hasMoneyActivity) continue;
+      byId.set(funded.person_user_id, {
+        person_user_id: funded.person_user_id,
+        person_name: funded.person_name,
+        netNotes: 0,
+        weekday: [0, 0, 0, 0, 0, 0, 0],
+        notesUnapproved: funded.notes_unapproved ?? 0,
+        notesFunded: funded.notes_funded ?? 0,
+        fundersConverted: funded.funders_converted ?? 0,
+        topups: funded.topups ?? 0,
+        amountDeployed: funded.amount_deployed ?? 0,
+        commissionBase: funded.commission_base ?? 0,
+        commissionAccrued: funded.commission_accrued ?? 0,
+      });
     }
 
     return Array.from(byId.values());
