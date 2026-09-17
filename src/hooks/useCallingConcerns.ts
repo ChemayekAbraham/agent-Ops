@@ -356,3 +356,92 @@ export function useCallerLookup() {
 
 export const isConcernOverdue = (c: ForwardedConcern) =>
   c.status !== 'completed' && !!c.due_at && new Date(c.due_at).getTime() < Date.now();
+
+/** Whether the signed-in person may reassign a concern or change its answer time. */
+export function useConcernPowers() {
+  return useQuery({
+    queryKey: ['cc-concern-powers'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<ConcernPowers> => {
+      const { data, error } = await anyDb.rpc('cc_concern_powers');
+      if (error) throw new Error(error.message);
+      return (data ?? { can_reassign: false, can_set_due: false, is_hr: false, is_ceo: false }) as ConcernPowers;
+    },
+  });
+}
+
+/** HR / CEO change who is handling a concern. The first recipient is kept forever. */
+export function useReassignConcern() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { concern_id: string; new_forwarded_to: string; reason: string }) => {
+      const { data, error } = await anyDb.rpc('cc_reassign_concern', {
+        p_concern_id: input.concern_id,
+        p_new_forwarded_to: input.new_forwarded_to,
+        p_reason: input.reason,
+      });
+      if (error) throw new Error(error.message);
+      return data as { success: boolean; previous_recipient_name: string | null; new_recipient_name: string };
+    },
+    onSuccess: (_d, vars) => {
+      void qc.invalidateQueries({ queryKey: ['cc-forwarded-concerns'] });
+      void qc.invalidateQueries({ queryKey: ['cc-concern-events', vars.concern_id] });
+    },
+  });
+}
+
+/** The person handling it, HR or the CEO set or adjust the answer time. */
+export function useSetConcernDue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { concern_id: string; due_at: string; reason: string }) => {
+      const { data, error } = await anyDb.rpc('cc_set_concern_due', {
+        p_concern_id: input.concern_id,
+        p_due_at: input.due_at,
+        p_reason: input.reason,
+      });
+      if (error) throw new Error(error.message);
+      return data as { success: boolean; due_at: string; previous_due_at: string | null };
+    },
+    onSuccess: (_d, vars) => {
+      void qc.invalidateQueries({ queryKey: ['cc-forwarded-concerns'] });
+      void qc.invalidateQueries({ queryKey: ['cc-concern-events', vars.concern_id] });
+    },
+  });
+}
+
+/** Plain-language time left, or how long something has been past due. */
+export function concernTimeLeft(c: ForwardedConcern): { label: string; overdue: boolean; hours: number | null } {
+  if (!c.due_at) return { label: 'No answer time set', overdue: false, hours: null };
+  const diffMs = new Date(c.due_at).getTime() - Date.now();
+  const hours = diffMs / 3_600_000;
+  if (c.status === 'completed') {
+    return { label: 'Completed', overdue: false, hours };
+  }
+  const abs = Math.abs(diffMs);
+  const d = Math.floor(abs / 86_400_000);
+  const h = Math.floor((abs % 86_400_000) / 3_600_000);
+  const m = Math.floor((abs % 3_600_000) / 60_000);
+  const span = d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+  return diffMs < 0
+    ? { label: `${span} past due`, overdue: true, hours }
+    : { label: `${span} left`, overdue: false, hours };
+}
+
+/** How long a concern ran past its answer time, in hours (0 when it was on time). */
+export function concernOverdueHours(c: ForwardedConcern): number {
+  if (!c.due_at) return 0;
+  const end = c.completed_at ? new Date(c.completed_at).getTime() : Date.now();
+  const over = end - new Date(c.due_at).getTime();
+  return over > 0 ? over / 3_600_000 : 0;
+}
+
+export const CONCERN_ACTION_LABEL: Record<string, string> = {
+  forwarded: 'Forwarded',
+  accepted: 'Confirmed received',
+  started: 'Started working on it',
+  progress_note: 'Progress note',
+  completed: 'Completed',
+  reassigned: 'Handler changed',
+  due_changed: 'Answer time changed',
+};
