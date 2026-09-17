@@ -47978,6 +47978,20 @@ export type Database = {
         }
         Relationships: []
       }
+      engrep_repetition: {
+        Row: {
+          commits: number | null
+          engineers: string[] | null
+          repeat_evidence: string | null
+          repeat_kind: string | null
+          repeat_refs: string[] | null
+          safe_to_zero: boolean | null
+          unit_key: string | null
+          unit_kind: string | null
+          window_id: string | null
+        }
+        Relationships: []
+      }
       engrep_session_rows: {
         Row: {
           change_classes: string[] | null

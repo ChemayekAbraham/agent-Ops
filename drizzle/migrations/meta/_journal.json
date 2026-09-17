@@ -1303,6 +1303,13 @@
       "when": 1789679860232,
       "tag": "0185_engrep_work_units_unit_state_and_shape_noise",
       "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1789679938360,
+      "tag": "0186_restore_engrep_repetition_after_work_units_rebuild",
+      "breakpoints": true
     }
   ]
 }
