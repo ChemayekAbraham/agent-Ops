@@ -720,23 +720,17 @@ export default function MerchandiseStore() {
                     <Label className="text-xs">Repayment period</Label>
                     <span className="text-[10px] text-muted-foreground">Up to 12 months</span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <select
+                    value={termMonths}
+                    onChange={(e) => setTermMonths(Number(e.target.value))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
                     {MERCHANDISE_TERMS.map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setTermMonths(m)}
-                        aria-pressed={termMonths === m}
-                        className={`min-w-[40px] rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
-                          termMonths === m
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border bg-background hover:border-primary/50'
-                        }`}
-                      >
-                        {m}m
-                      </button>
+                      <option key={m} value={m}>
+                        {m} month{m === 1 ? '' : 's'}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                   {termSchedule && termRows.length > 0 && (
                     <>
                       <div className="text-center space-y-0.5 pt-1">
