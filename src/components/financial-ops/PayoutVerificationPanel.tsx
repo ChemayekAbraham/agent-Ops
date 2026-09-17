@@ -1290,7 +1290,29 @@ export default function PayoutVerificationPanel() {
           )}
 
 
-
+          {row.id_account_count > 1 && (
+            <div
+              role="alert"
+              className="mx-5 mt-2 rounded-2xl border-2 border-destructive/80 bg-destructive/10 p-4 shadow-lg shadow-destructive/10"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-destructive/20">
+                  <ShieldAlert className="h-4 w-4 text-destructive" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-extrabold leading-tight text-destructive">
+                    This National ID is on {row.id_account_count} accounts
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-destructive/90">
+                    This is the {ordinalLabel(row.id_account_ordinal)} account using this ID.
+                    {row.id_account_ordinal > 1
+                      ? ' An earlier account already holds this ID — confirm you are reviewing the right person before verifying.'
+                      : ' This is the first account with this ID; the others appeared later.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Photos — the hero of the screen */}
           <div className="grid grid-cols-2 gap-3 p-5">
