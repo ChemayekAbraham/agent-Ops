@@ -1441,6 +1441,25 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                 Financial Ops will check it — retake it closer if the print looks blurred.
               </p>
             )}
+
+            {/* The card number is printed on both sides, so the two must agree.
+                A mismatch is a reason to look again, never proof of anything. */}
+            {backReading.back?.card_number &&
+              idReading?.data?.card_number &&
+              backReading.back.card_number.replace(/[^A-Za-z0-9]/g, '').toUpperCase() !==
+                idReading.data.card_number.replace(/[^A-Za-z0-9]/g, '').toUpperCase() && (
+                <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+                  The card number on the back does not match the front. Check both photos are of the
+                  same card.
+                </p>
+              )}
+
+            {backReading.back?.mrz?.present === false && backReading.details.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                The two lines of code at the bottom were not readable. Lay the card flat and keep the
+                bottom edge inside the frame if you retake it.
+              </p>
+            )}
           </div>
         )}
 
