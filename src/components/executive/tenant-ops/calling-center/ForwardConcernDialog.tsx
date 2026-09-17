@@ -53,6 +53,13 @@ export function ForwardConcernDialog({
   const [to, setTo] = useState('');
   const [staffSearch, setStaffSearch] = useState('');
 
+  // Reset only when the dialog opens for a different call — the parent rebuilds the
+  // `source` object on every render, so depending on the object itself would wipe the
+  // chosen staff member the moment anything else re-rendered.
+  const sourceKey = source
+    ? `${source.source_kind}:${source.received_call_id ?? ''}:${source.cycle_row_id ?? ''}`
+    : '';
+
   useEffect(() => {
     if (!open) return;
     setTitle(source?.suggestedTitle?.slice(0, 120) ?? '');
@@ -61,13 +68,20 @@ export function ForwardConcernDialog({
     setDueHours(DEFAULT_DUE);
     setTo('');
     setStaffSearch('');
-  }, [open, source]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sourceKey]);
 
   const people = useMemo(() => {
     const list = staff.data ?? [];
     const q = staffSearch.trim().toLowerCase();
     return q ? list.filter((p) => p.full_name.toLowerCase().includes(q)) : list;
   }, [staff.data, staffSearch]);
+
+  const chosen = useMemo(
+    () => (staff.data ?? []).find((p) => p.user_id === to) ?? null,
+    [staff.data, to],
+  );
+
 
   const submit = async () => {
     if (!source) return;
