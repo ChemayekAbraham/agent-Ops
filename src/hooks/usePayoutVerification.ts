@@ -44,6 +44,10 @@ export interface PayoutDestinationRow {
   /** True when this account is NOT the first holder of its National ID or phone number. */
   double_submission: boolean;
   double_kind: 'national_id' | 'phone' | 'face' | 'id_photo' | null;
+  /** How many accounts share this National ID (1 = only this account). */
+  id_account_count: number;
+  /** This account's position among the ID's holders, oldest first (1 = first holder). */
+  id_account_ordinal: number;
   double_of_user_id: string | null;
   double_of_name: string | null;
   total_count: number;
@@ -222,6 +226,8 @@ export function usePayoutVerificationQueue(opts: {
           total_count: Number(row.total_count ?? 0),
           name_mismatch_tokens: Array.isArray(tokens) ? (tokens as string[]) : [],
           double_submission: row.double_submission === true,
+          id_account_count: Number(row.id_account_count ?? 1),
+          id_account_ordinal: Number(row.id_account_ordinal ?? 1),
         } as PayoutDestinationRow;
       });
       return { rows, total: rows[0]?.total_count ?? 0 };
