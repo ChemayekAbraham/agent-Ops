@@ -91,6 +91,14 @@ function parseClaimedNames(sql: string): string[] {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // An optional day lets a stranded window be re-harvested. The cron caller sends no
+  // body, so it keeps defaulting to today.
+  const body: any = await req.json().catch(() => ({}));
+  const requestedDay = typeof body?.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.day)
+    ? body.day
+    : null;
+
+
   const repo = Deno.env.get("ENGREP_GITHUB_REPO");
   const token = Deno.env.get("ENGREP_GITHUB_TOKEN");
   if (!repo || !token) {
@@ -121,7 +129,7 @@ Deno.serve(async (req) => {
     if (startErr) throw new Error(`run_start: ${startErr.message}`);
     runId = (startedId as string) ?? null;
 
-    const vDay = kampalaToday();
+    const vDay = requestedDay ?? kampalaToday();
     const untilISO = `${vDay}T14:00:00Z`;
     const untilMs = Date.parse(untilISO);
     const sinceISO = new Date(untilMs - 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
