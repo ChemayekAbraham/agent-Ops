@@ -1363,6 +1363,66 @@ export function PromissoryNotesQueue({
                               Registered {format(new Date(selectedNote.came_in_at), 'dd MMM yyyy HH:mm')}
                             </p>
                           )}
+                         </div>
+                       );
+                     })()}
+                    {!selectedNote.came_in && suggestionFor(selectedNote.id) && (() => {
+                      const s = suggestionFor(selectedNote.id)!;
+                      return (
+                        <div className="rounded-md border border-sky-200 bg-sky-50 p-2 text-xs space-y-1">
+                          <p className="font-medium text-sky-800">
+                            This partner may already be here — please confirm
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-[11px] text-muted-foreground">Existing account</p>
+                              <p className="font-medium">{s.candidate_name}</p>
+                              {s.candidate_phone && (
+                                <p className="text-muted-foreground">{s.candidate_phone}</p>
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-[11px] text-muted-foreground">Promissory note name</p>
+                              <p className="font-medium">{selectedNote.partner_name}</p>
+                            </div>
+                          </div>
+                          <p className="text-muted-foreground">
+                            {s.shared_words} shared name words · closeness {Math.round(s.similarity * 100)}%
+                            {s.candidate_count > 1 ? ` · ${s.candidate_count} possible people` : ''}
+                          </p>
+                          <p className="text-muted-foreground">
+                            The number and email on this note are different, so nothing was linked automatically.
+                            Only confirm if you are sure it is the same person.
+                          </p>
+                          <Textarea
+                            value={matchReason}
+                            onChange={(e) => setMatchReason(e.target.value)}
+                            placeholder="Why is this the same person? (at least 10 characters)"
+                            className="text-xs"
+                            rows={2}
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8"
+                            disabled={matchReason.trim().length < 10 || arrivals.confirm.isPending}
+                            onClick={async () => {
+                              try {
+                                await arrivals.confirm.mutateAsync({
+                                  noteId: selectedNote.id,
+                                  userId: s.candidate_user_id,
+                                  reason: matchReason.trim(),
+                                });
+                                toast.success(`Linked to ${s.candidate_name}`);
+                                setMatchReason('');
+                                setSelectedNote(null);
+                                refetch();
+                              } catch (e: any) {
+                                toast.error(e?.message || 'Could not link this note');
+                              }
+                            }}
+                          >
+                            {arrivals.confirm.isPending ? 'Linking…' : 'Yes, same person — link them'}
+                          </Button>
                         </div>
                       );
                     })()}
