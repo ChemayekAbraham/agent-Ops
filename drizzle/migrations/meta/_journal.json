@@ -1100,6 +1100,13 @@
       "when": 1789649906871,
       "tag": "0156_fuzzy_suggestions_include_candidate_email",
       "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1789650900054,
+      "tag": "0157_grant_merchandise_tables_api_access",
+      "breakpoints": true
     }
   ]
 }
