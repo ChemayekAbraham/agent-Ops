@@ -159,12 +159,54 @@ counterparty's number instead of the account holder's own.**
   reproduce the same failure on the next capture attempt.
 - The other 8 of the original 10 are safely empty (no destination resolves, withdrawal
   blocked) but still need their **own** identity correctly re-captured — nobody has done
-  this for them yet.
+  this for them yet. **Update 2026-09-17: Nyanzi Lydia Eseri is done, manually — see below.
+  7 remain.**
 - Whether any *other* accounts beyond these two share the "many legitimate third-party
   destinations" shape was not surveyed. A reasonable next step: find every
   `user_identity_bindings` row (any `capture_source`, not just the 09-15 backfill) where the
   owning account has more than, say, 3 `payout_destination_verifications` rows, and check
   each for a name-match sanity failure the same way this investigation did.
+
+### 2026-09-17 update — Nyanzi Lydia Eseri manually re-captured
+
+She reported (screenshot, wallet withdrawal screen) "Cannot send code — Submit your National
+ID details and payout phone number first" when trying to withdraw. Her `user_identity_bindings`
+row was still the revoked, empty one from the first fix pass above. But her **profile fields
+were also still wrong**: `profiles.mobile_money_number/mobile_money_name/mobile_money_provider`
+still held "watsala Enock" / `256750223152` / airtel — the same stranger's number the backfill
+bug had locked her to — which is what the withdraw screen prefilled and tried to send a code to.
+That destination's own `payout_destination_verifications` row was never more than `status =
+'waiting'`, so the OTP-send correctly refused.
+
+She does have a genuinely her-own, already-verified destination sitting unused in the same
+table: `256789190055` (mtn), "Nyanzi Lydia Eseri", `status = 'verified'`, decision reason
+"Auto-verified: the destination owner confirmed by SMS code sent to their own phone" (the
+[borrowed-identity SMS-consent flow](./25-borrowed-identity-payout-consent.md), 2026-09-15).
+It was invisible to `complete_identity_binding()`'s own selection query, though — that query
+requires `ownership_code_confirmed_at IS NOT NULL`, which the SMS-consent path never sets (it's
+a separate confirmation mechanism from the identity screen's own OTP flow). So simply re-running
+identity capture for her would have fallen through to her still-wrong `profiles.mobile_money_*`
+fields and re-locked her to "watsala Enock" again — the same failure repeating.
+
+Fixed by hand instead of via `complete_identity_binding()`: updated
+`profiles.mobile_money_number/name/provider` to her own verified destination, then updated
+her existing (revoked) `user_identity_bindings` row directly — `identity_binding_immutable_guard`
+explicitly permits this: `IF OLD.status = 'revoked' THEN ... RETURN NEW` skips every immutability
+check when the row being replaced is already revoked, which is exactly the case this trigger
+branch exists for. Set `locked_payout_number/name/provider` to `256789190055` / "Nyanzi Lydia
+Eseri" / mtn, `status = 'identity_captured'`, `capture_source =
+'ops_manual_recapture_2026_09_17'`, plus an `audit_logs` row recording both the old wrong
+destination and the new correct one. Verified:
+
+```sql
+select * from resolve_withdrawal_destination('e1bb1b7c-14a6-4a25-a82c-dffe345b7170');
+-- now returns 256789190055 / Nyanzi Lydia Eseri / mtn / identity_binding — her own number
+```
+
+**The other 7 of the original 10** still need this same by-hand treatment (or a fixed
+`complete_identity_binding()` — see "not fixed" above) — check each one's `profiles.mobile_money_*`
+fields aren't *also* still pointing at the wrong backfill-era destination before assuming a
+plain re-run of identity capture would be safe for them.
 
 ### Verification queries
 
