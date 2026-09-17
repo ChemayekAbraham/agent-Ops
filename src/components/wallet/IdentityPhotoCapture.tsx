@@ -1009,6 +1009,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             : 'Photos received.',
       );
       setIdPhoto(null);
+      setIdBackPhoto(null);
+      setBackReading(null);
+      setBackReadError(null);
       setSelfieOriginal(null);
       setSelfieCropped(null);
       setSendError(null);
