@@ -203,7 +203,9 @@ Deno.serve(async (req) => {
       if (raw.length > MAX_BASE64) return json({ error: "That photo is too large." }, 400);
       dataUrl = raw.startsWith("data:") ? raw : `data:image/jpeg;base64,${raw}`;
     } else if (body?.storagePath) {
-      if (body.storagePath.split("/")[0] !== user.id) {
+      const ownerId = body.storagePath.split("/")[0];
+      const canReadCrossUser = ownerId !== user.id && await isFinanceReviewer(adminClient, user.id);
+      if (ownerId !== user.id && !canReadCrossUser) {
         return json({ error: "That photo does not belong to you." }, 403);
       }
       const { data: file, error: dlErr } = await adminClient.storage
