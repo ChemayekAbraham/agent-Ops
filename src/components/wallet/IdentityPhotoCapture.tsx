@@ -715,6 +715,31 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     const res = await readNationalIdPhotoOriented(file);
     if ('error' in res && res.error) {
       setReadError(res.error);
+      /* The reader could not be reached at all (network/edge-function
+         failure) — a different case from "read it, but couldn't make out
+         every field" (status: 'incomplete'). Both must leave the person able
+         to type the six fields in by hand: without this fallback, idReading
+         stayed null and the manual-entry form (which only renders when
+         idReading is set) never appeared, so a transient reader outage left
+         no way to proceed at all except retaking the photo forever. */
+      setIdReading({
+        status: 'incomplete',
+        is_national_id: true,
+        confidence: null,
+        sha256: null,
+        full_name: '',
+        data: { ...EMPTY_ID_DATA },
+        fields: {},
+        missing: Object.keys(EMPTY_ID_DATA),
+        consistency: [],
+        message: null,
+        nationality: null,
+        date_of_expiry: null,
+        account_name: '',
+        account_national_id: null,
+        name_match_score: null,
+      });
+      setForm(EMPTY_ID_DATA);
       setReading(false);
       return;
     }
