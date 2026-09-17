@@ -26,7 +26,7 @@ import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { useLc1ForVillage } from '@/hooks/useLc1ForVillage';
 
 import { useAuth } from '@/hooks/useAuth';
-import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD, NEW_AGENT_TENANT_THRESHOLD, NEW_AGENT_RENT_CAP_UGX } from '@/hooks/useAgentCapacityMap';
+import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD } from '@/hooks/useAgentCapacityMap';
 import { useListingDaytimeGuard } from '@/hooks/useListingDaytimeGuard';
 import { DailyRatingThresholdPopover } from '@/components/shared/DailyRatingThresholdPopover';
 import { EntityDetailSheet } from '@/components/executive/EntityDetailSheet';
