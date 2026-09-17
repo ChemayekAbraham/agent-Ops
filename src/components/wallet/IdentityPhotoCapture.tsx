@@ -911,12 +911,19 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const needsConfirm = !!idPhoto && !!idReading && idReading.status !== 'invalid';
   const confirmDone = !needsConfirm || detailsConfirmed;
 
+  /* The back photographed as the front again: caught here rather than by
+     Financial Ops days later. */
+  const backIsFront = backReading?.looksLikeFront === true;
+
   const ready =
-    haveId && haveSelfie && detailsComplete && !idRejected && !faceProblem && confirmDone;
+    haveId && haveIdBack && haveSelfie && detailsComplete && !idRejected && !faceProblem
+    && confirmDone && !backIsFront;
 
   // Spelled out on screen so nobody stares at a dead button wondering why.
   const blockers = [
-    !haveId ? 'Take a photo of your National ID.' : null,
+    !haveId ? 'Take a photo of the FRONT of your National ID.' : null,
+    !haveIdBack ? 'Turn the card over and take a photo of the BACK of your National ID.' : null,
+    backIsFront ? 'The second photo is the front again. Turn the card over and photograph the back.' : null,
     !storedSelfiePath && !selfieOriginal ? 'Take a selfie.' : null,
     !storedSelfiePath && selfieOriginal && !selfieCropped
       ? 'Finish choosing your profile picture from the selfie you took.'
