@@ -420,11 +420,10 @@ export default function PlatformSalesOfficersPage() {
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
   const officerNetTarget = useMemo(() => {
-    const perDay = officers.length * 20;
-    if (mode === 'WEEKLY') return perDay * 7;
-    if (mode === 'MONTHLY') return perDay * 30;
-    return perDay;
-  }, [officers, mode]);
+    if (mode === 'WEEKLY') return 700;
+    if (mode === 'MONTHLY') return 3000;
+    return 100;
+  }, [mode]);
   const officerNetPct = useMemo(() => {
     if (officerNetTarget <= 0) return 0;
     return Math.round((netTotal / officerNetTarget) * 100);
