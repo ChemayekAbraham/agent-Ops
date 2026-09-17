@@ -722,12 +722,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       return;
     }
     const oriented = res as { reading: NationalIdReading; rotation: IdRotation; file: File; corrected: boolean };
-    if (isSidewaysIdRotation(oriented.rotation)) {
-      setIdPhoto(null);
-      setReadError(SIDEWAYS_ID_MESSAGE);
-      setReading(false);
-      return;
-    }
     const r = oriented.reading;
     setIdRotation(oriented.rotation);
     if (oriented.corrected) setIdPhoto(oriented.file);
@@ -778,12 +772,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       return;
     }
     const b = res as NationalIdBackReading;
-    if (isSidewaysIdRotation(b.rotation)) {
-      setIdBackPhoto(null);
-      setBackReadError(SIDEWAYS_ID_MESSAGE);
-      setReadingBack(false);
-      return;
-    }
     if (b.corrected) setIdBackPhoto(b.file);
     setBackReading(b);
     setReadingBack(false);
