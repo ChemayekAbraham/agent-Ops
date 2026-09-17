@@ -561,8 +561,10 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
               className="h-11"
               maxLength={255}
             />
-            {showStepErrors && email.trim() && !isValidEmail(email) && (
-              <p className="text-[11px] text-destructive">Enter a valid email</p>
+            {showStepErrors && (!email.trim() || !isValidEmail(email)) && (
+              <p className="text-[11px] text-destructive">
+                {email.trim() ? 'Enter a valid email' : 'An email is required for every note'}
+              </p>
             )}
           </div>
 
