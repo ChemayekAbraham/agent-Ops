@@ -1254,6 +1254,13 @@
       "when": 1789661871561,
       "tag": "0178_cc_concern_single_thread_reviewers",
       "breakpoints": true
+    },
+    {
+      "idx": 179,
+      "version": "7",
+      "when": 1789664033638,
+      "tag": "0179_tighten_three_internal_access_policies",
+      "breakpoints": true
     }
   ]
 }
