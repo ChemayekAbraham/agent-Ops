@@ -11,6 +11,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
+import {
+  readNationalIdBackPhotoFromPath,
+  type NationalIdBackDetails,
+} from '@/lib/nationalIdOcr';
 
 
 export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
