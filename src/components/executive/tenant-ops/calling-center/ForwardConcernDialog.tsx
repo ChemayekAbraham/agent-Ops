@@ -33,6 +33,7 @@ export interface ForwardConcernSource {
 }
 
 const DUE_CHOICES = [4, 8, 12, 24, 48, 72];
+const DEFAULT_DUE = 24;
 
 export function ForwardConcernDialog({
   open,
@@ -48,7 +49,7 @@ export function ForwardConcernDialog({
   const [title, setTitle] = useState('');
   const [context, setContext] = useState('');
   const [priority, setPriority] = useState('normal');
-  const [dueHours, setDueHours] = useState(12);
+  const [dueHours, setDueHours] = useState(DEFAULT_DUE);
   const [to, setTo] = useState('');
   const [staffSearch, setStaffSearch] = useState('');
 
@@ -57,7 +58,7 @@ export function ForwardConcernDialog({
     setTitle(source?.suggestedTitle?.slice(0, 120) ?? '');
     setContext(source?.suggestedContext ?? '');
     setPriority('normal');
-    setDueHours(12);
+    setDueHours(DEFAULT_DUE);
     setTo('');
     setStaffSearch('');
   }, [open, source]);

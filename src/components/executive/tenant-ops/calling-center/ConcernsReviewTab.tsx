@@ -22,9 +22,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { KPICard } from '../../KPICard';
 import { ForwardConcernDialog, type ForwardConcernSource } from './ForwardConcernDialog';
 import { useCcCallHistory } from '@/hooks/useCcCallHistory';
+import { ConcernControlPanel } from './ConcernControlPanel';
 import {
+  CONCERN_ACTION_LABEL,
   CONCERN_PRIORITY_LABEL,
   CONCERN_STATUS_LABEL,
+  concernOverdueHours,
+  concernTimeLeft,
   isConcernOverdue,
   useConcernEvents,
   useForwardedConcerns,
@@ -84,26 +88,46 @@ function ConcernTimelineDialog({ concern, onClose }: { concern: ForwardedConcern
             <div className="rounded-lg border border-border bg-muted/40 p-2.5 text-[11px]">
               <p>
                 <span className="font-semibold">{concern.forwarded_by_name ?? 'Officer'}</span> forwarded this to{' '}
-                <span className="font-semibold">{concern.forwarded_to_name ?? 'staff member'}</span> on{' '}
-                {stamp(concern.created_at)}
+                <span className="font-semibold">
+                  {concern.original_forwarded_to_name ?? concern.forwarded_to_name ?? 'staff member'}
+                </span>{' '}
+                on {stamp(concern.created_at)}
               </p>
+              {concern.reassigned_count > 0 && (
+                <p className="mt-0.5 font-semibold text-primary">
+                  Now with {concern.forwarded_to_name ?? '—'} after {concern.reassigned_count} change
+                  {concern.reassigned_count === 1 ? '' : 's'}
+                </p>
+              )}
               <p className="mt-0.5 text-muted-foreground">
                 {concern.source_kind === 'received_call' ? 'From a call that came in' : 'From a call we made'}
-                {concern.caller_name ? ` · about ${concern.caller_name}` : ''} · answer expected by{' '}
-                {stamp(concern.due_at)}
+                {concern.caller_name ? ` · about ${concern.caller_name}` : ''}
               </p>
             </div>
             {concern.context && <p className="text-[11px] leading-snug">{concern.context}</p>}
+            <ConcernControlPanel concern={concern} />
             <div className="space-y-2">
               {events.isLoading ? (
                 <Skeleton className="h-16 w-full" />
               ) : (
                 (events.data ?? []).map((e) => (
                   <div key={e.id} className="rounded-lg border border-border/70 p-2.5">
-                    <p className="text-[11px] font-semibold capitalize">
-                      {e.action.replace('_', ' ')} · {e.actor_name ?? 'Staff member'}
+                    <p className="text-[11px] font-semibold">
+                      {CONCERN_ACTION_LABEL[e.action] ?? e.action.replace('_', ' ')} ·{' '}
+                      {e.actor_name ?? 'Staff member'}
                     </p>
                     <p className="text-[10px] text-muted-foreground">{stamp(e.created_at)}</p>
+                    {e.action === 'reassigned' && (
+                      <p className="mt-1 text-[11px] leading-snug">
+                        From <span className="font-semibold">{e.prev_user_name ?? '—'}</span> to{' '}
+                        <span className="font-semibold">{e.new_user_name ?? '—'}</span>
+                      </p>
+                    )}
+                    {e.action === 'due_changed' && (
+                      <p className="mt-1 text-[11px] leading-snug">
+                        From {stamp(e.prev_due_at)} to {stamp(e.new_due_at)}
+                      </p>
+                    )}
                     {e.note && <p className="mt-1 text-[11px] leading-snug">{e.note}</p>}
                   </div>
                 ))
@@ -262,15 +286,77 @@ export function ConcernsReviewTab() {
                 done.length /
                 3_600_000
               : null;
+          const lateHours = list.map(concernOverdueHours).filter((h) => h > 0);
+          const onTime = done.filter((c) => concernOverdueHours(c) === 0).length;
           return {
             name,
             total: list.length,
             completed: done.length,
             overdue: list.filter(isConcernOverdue).length,
             avgHours: avg == null ? '—' : `${avg.toFixed(1)} hours`,
+            reassignedIn: list.filter((c) => c.reassigned_count > 0 && c.forwarded_to_name === name).length,
+            onTime,
+            avgLate: lateHours.length
+              ? `${(lateHours.reduce((a, b) => a + b, 0) / lateHours.length).toFixed(1)} hours`
+              : '—',
           };
         })
         .sort((a, b) => b.total - a.total);
+
+      // Deadline performance across the filtered set.
+      const withDue = rows.filter((c) => !!c.due_at);
+      const late = rows.filter((c) => concernOverdueHours(c) > 0);
+      const lateTotal = late.reduce((a, c) => a + concernOverdueHours(c), 0);
+      const deadlinePerformance = [
+        { label: 'Concerns with an answer time', value: String(withDue.length) },
+        { label: 'Standard 24 hours', value: String(withDue.filter((c) => !c.due_is_custom).length) },
+        { label: 'Answer time adjusted', value: String(withDue.filter((c) => c.due_is_custom).length) },
+        {
+          label: 'Answered within the time',
+          value: String(rows.filter((c) => c.status === 'completed' && concernOverdueHours(c) === 0).length),
+        },
+        { label: 'Ran past the time', value: String(late.length) },
+        {
+          label: 'Average time past due',
+          value: late.length ? `${(lateTotal / late.length).toFixed(1)} hours` : '—',
+        },
+        {
+          label: 'Longest past due',
+          value: late.length ? `${Math.max(...late.map(concernOverdueHours)).toFixed(1)} hours` : '—',
+        },
+      ];
+
+      // Reassignment history, straight from the append-only trail.
+      let reassignments: {
+        when: string;
+        concern: string;
+        from: string;
+        to: string;
+        by: string;
+        reason: string;
+      }[] = [];
+      const reassignedRows = rows.filter((c) => c.reassigned_count > 0);
+      if (reassignedRows.length) {
+        const { data: evts } = await (supabase as any)
+          .from('cc_forwarded_concern_events')
+          .select('concern_id, action, actor_name, prev_user_name, new_user_name, reason, created_at')
+          .in(
+            'concern_id',
+            reassignedRows.slice(0, 300).map((c) => c.id),
+          )
+          .eq('action', 'reassigned')
+          .order('created_at', { ascending: true });
+        const titleById = new Map(rows.map((c) => [c.id, c.title]));
+        reassignments = (evts ?? []).map((e: any) => ({
+          when: stamp(e.created_at),
+          concern: titleById.get(e.concern_id) ?? '—',
+          from: e.prev_user_name ?? '—',
+          to: e.new_user_name ?? '—',
+          by: e.actor_name ?? '—',
+          reason: e.reason ?? '—',
+        }));
+      }
+
 
       const recommendations: { title: string; detail: string }[] = [];
       const overdue = rows.filter(isConcernOverdue).length;
@@ -284,6 +370,12 @@ export function ConcernsReviewTab() {
         recommendations.push({
           title: `${untouched} not yet picked up`,
           detail: 'The person it was sent to has not confirmed they have it. Confirm they saw it in their My Space.',
+        });
+      if (reassignments.length)
+        recommendations.push({
+          title: `${reassignments.length} hand-off${reassignments.length === 1 ? '' : 's'} changed to someone else`,
+          detail:
+            'Check whether the concerns are being sent to the right desk first — repeated changes usually mean the wrong person is being picked.',
         });
       const themes = repeatThemes(rows);
       if (themes.length)
@@ -310,18 +402,26 @@ export function ConcernsReviewTab() {
           byPriority,
           byReceiver,
           repeatThemes: themes,
-          rows: rows.map((c) => ({
-            when: stamp(c.created_at),
-            source: c.source_kind === 'received_call' ? 'Came in' : 'We called',
-            title: c.title,
-            caller: c.caller_name ?? '—',
-            from: c.forwarded_by_name ?? '—',
-            to: c.forwarded_to_name ?? '—',
-            status: CONCERN_STATUS_LABEL[c.status as ConcernStatus] ?? c.status,
-            due: stamp(c.due_at),
-            completed: stamp(c.completed_at),
-            outcome: c.outcome ?? '—',
-          })),
+          deadlinePerformance,
+          reassignments,
+          rows: rows.map((c) => {
+            const late = concernOverdueHours(c);
+            return {
+              when: stamp(c.created_at),
+              source: c.source_kind === 'received_call' ? 'Came in' : 'We called',
+              title: c.title,
+              caller: c.caller_name ?? '—',
+              from: c.forwarded_by_name ?? '—',
+              firstTo: c.original_forwarded_to_name ?? c.forwarded_to_name ?? '—',
+              to: c.forwarded_to_name ?? '—',
+              changes: String(c.reassigned_count ?? 0),
+              status: CONCERN_STATUS_LABEL[c.status as ConcernStatus] ?? c.status,
+              due: `${stamp(c.due_at)}${c.due_is_custom ? ' (adjusted)' : ''}`,
+              completed: stamp(c.completed_at),
+              pastDue: late > 0 ? `${late.toFixed(1)}h` : '—',
+              outcome: c.outcome ?? '—',
+            };
+          }),
           recommendations,
         },
         {
@@ -473,9 +573,20 @@ export function ConcernsReviewTab() {
                       <Badge className={`${statusTone[c.status] ?? ''} text-[10px] hover:opacity-100`}>
                         {CONCERN_STATUS_LABEL[c.status as ConcernStatus] ?? c.status}
                       </Badge>
-                      {isConcernOverdue(c) && (
+                      {isConcernOverdue(c) ? (
                         <Badge variant="outline" className="border-destructive/40 text-[10px] text-destructive">
-                          Past due
+                          {concernTimeLeft(c).label}
+                        </Badge>
+                      ) : (
+                        c.status !== 'completed' && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {concernTimeLeft(c).label}
+                          </Badge>
+                        )
+                      )}
+                      {c.reassigned_count > 0 && (
+                        <Badge variant="outline" className="border-primary/40 text-[10px] text-primary">
+                          Reassigned {c.reassigned_count}×
                         </Badge>
                       )}
                       <Badge variant="outline" className="text-[10px] capitalize">
@@ -483,6 +594,12 @@ export function ConcernsReviewTab() {
                       </Badge>
                     </div>
                   </div>
+                  {c.reassigned_count > 0 && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      First sent to {c.original_forwarded_to_name ?? '—'} · changed by{' '}
+                      {c.last_reassigned_by_name ?? '—'}
+                    </p>
+                  )}
                   {c.outcome && (
                     <p className="mt-1.5 text-[11px] leading-snug text-emerald-700">Resolved: {c.outcome}</p>
                   )}

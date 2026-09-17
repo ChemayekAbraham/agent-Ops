@@ -195,18 +195,32 @@ export interface IssuesReviewInput {
   bySource: { label: string; count: number; pct: number }[];
   byStatus: { label: string; count: number; pct: number }[];
   byPriority: { label: string; count: number }[];
-  byReceiver: { name: string; total: number; completed: number; overdue: number; avgHours: string }[];
+  byReceiver: {
+    name: string;
+    total: number;
+    completed: number;
+    overdue: number;
+    avgHours: string;
+    reassignedIn?: number;
+    onTime?: number;
+    avgLate?: string;
+  }[];
   repeatThemes: { theme: string; count: number }[];
+  deadlinePerformance?: { label: string; value: string }[];
+  reassignments?: { when: string; concern: string; from: string; to: string; by: string; reason: string }[];
   rows: {
     when: string;
     source: string;
     title: string;
     caller: string;
     from: string;
+    firstTo?: string;
     to: string;
+    changes?: string;
     status: string;
     due: string;
     completed: string;
+    pastDue?: string;
     outcome: string;
   }[];
   recommendations: { title: string; detail: string }[];
@@ -250,12 +264,70 @@ export async function generateIssuesReviewPdf(input: IssuesReviewInput, meta: Co
   });
   cursor = (doc as any).lastAutoTable.finalY + 8;
 
+  if (input.deadlinePerformance?.length) {
+    section('Answer times and how they were kept');
+    autoTable(doc, {
+      startY: cursor,
+      head: [['Measure', 'Result']],
+      body: input.deadlinePerformance.map((d) => [d.label, d.value]),
+      styles: { fontSize: 8, cellPadding: 2, textColor: THEME_INK, lineColor: THEME_BORDER, lineWidth: 0.1 },
+      headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+      alternateRowStyles: { fillColor: [246, 243, 251] },
+      columnStyles: { 0: { cellWidth: 90 } },
+      margin: { left: margin, right: margin },
+    });
+    cursor = (doc as any).lastAutoTable.finalY + 8;
+  }
+
+  if (input.reassignments?.length) {
+    if (cursor > doc.internal.pageSize.getHeight() - 60) {
+      doc.addPage();
+      cursor = 20;
+    }
+    section('Every change of the person handling a concern');
+    autoTable(doc, {
+      startY: cursor,
+      head: [['When', 'Concern', 'From', 'To', 'Changed by', 'Reason given']],
+      body: input.reassignments.map((r) => [r.when, r.concern, r.from, r.to, r.by, r.reason]),
+      styles: { fontSize: 7.5, cellPadding: 2, textColor: THEME_INK, lineColor: THEME_BORDER, lineWidth: 0.1 },
+      headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+      alternateRowStyles: { fillColor: [246, 243, 251] },
+      columnStyles: { 1: { cellWidth: 60 }, 5: { cellWidth: 70 } },
+      margin: { left: margin, right: margin },
+    });
+    cursor = (doc as any).lastAutoTable.finalY + 8;
+  }
+
   if (input.byReceiver.length) {
+    if (cursor > doc.internal.pageSize.getHeight() - 60) {
+      doc.addPage();
+      cursor = 20;
+    }
     section('How each staff member handled what reached them');
     autoTable(doc, {
       startY: cursor,
-      head: [['Staff member', 'Received', 'Completed', 'Past due', 'Average time to complete']],
-      body: input.byReceiver.map((r) => [r.name, String(r.total), String(r.completed), String(r.overdue), r.avgHours]),
+      head: [
+        [
+          'Staff member',
+          'Received',
+          'Completed',
+          'Past due',
+          'Answered in time',
+          'Average time to complete',
+          'Average time past due',
+          'Handed to them later',
+        ],
+      ],
+      body: input.byReceiver.map((r) => [
+        r.name,
+        String(r.total),
+        String(r.completed),
+        String(r.overdue),
+        String(r.onTime ?? '—'),
+        r.avgHours,
+        r.avgLate ?? '—',
+        String(r.reassignedIn ?? 0),
+      ]),
       styles: { fontSize: 8, cellPadding: 2, textColor: THEME_INK, lineColor: THEME_BORDER, lineWidth: 0.1 },
       headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
       alternateRowStyles: { fillColor: [246, 243, 251] },
@@ -283,23 +355,42 @@ export async function generateIssuesReviewPdf(input: IssuesReviewInput, meta: Co
   section('Every forwarded concern in this period');
   autoTable(doc, {
     startY: cursor,
-    head: [['Forwarded', 'Source', 'Concern', 'Caller', 'From', 'To', 'Status', 'Due', 'Completed', 'What was done']],
+    head: [
+      [
+        'Forwarded',
+        'Source',
+        'Concern',
+        'Caller',
+        'From',
+        'First sent to',
+        'Now with',
+        'Changes',
+        'Status',
+        'Due',
+        'Completed',
+        'Past due',
+        'What was done',
+      ],
+    ],
     body: input.rows.map((r) => [
       r.when,
       r.source,
       r.title,
       r.caller,
       r.from,
+      r.firstTo ?? r.to,
       r.to,
+      r.changes ?? '0',
       r.status,
       r.due,
       r.completed,
+      r.pastDue ?? '—',
       r.outcome,
     ]),
-    styles: { fontSize: 7, cellPadding: 1.8, textColor: THEME_INK, lineColor: THEME_BORDER, lineWidth: 0.1 },
-    headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+    styles: { fontSize: 6.5, cellPadding: 1.6, textColor: THEME_INK, lineColor: THEME_BORDER, lineWidth: 0.1 },
+    headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.5 },
     alternateRowStyles: { fillColor: [246, 243, 251] },
-    columnStyles: { 2: { cellWidth: 50 }, 9: { cellWidth: 48 } },
+    columnStyles: { 2: { cellWidth: 40 }, 12: { cellWidth: 38 } },
     margin: { left: margin, right: margin },
   });
   cursor = (doc as any).lastAutoTable.finalY + 8;

@@ -15,7 +15,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, ClipboardList, Forward, Inbox, Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConcernControlPanel } from '@/components/executive/tenant-ops/calling-center/ConcernControlPanel';
 import {
+  CONCERN_ACTION_LABEL,
   CONCERN_PRIORITY_LABEL,
   CONCERN_STATUS_LABEL,
   isConcernOverdue,
@@ -87,7 +89,9 @@ function ConcernCard({ concern, mine }: { concern: ForwardedConcern; mine: boole
       </div>
 
       {concern.context && <p className="mt-2 text-[11px] leading-snug">{concern.context}</p>}
-      <p className="mt-1 text-[11px] text-muted-foreground">Answer expected by {stamp(concern.due_at)}</p>
+      <div className="mt-1.5">
+        <ConcernControlPanel concern={concern} isReceiver={mine} compact />
+      </div>
 
       {concern.status !== 'completed' && (
         <div className="mt-2 space-y-2 border-t border-border/60 pt-2">
@@ -161,10 +165,20 @@ function ConcernCard({ concern, mine }: { concern: ForwardedConcern; mine: boole
           ) : (
             (events.data ?? []).map((e) => (
               <div key={e.id} className="rounded-lg border border-border/70 p-2">
-                <p className="text-[11px] font-semibold capitalize">
-                  {e.action.replace('_', ' ')} · {e.actor_name ?? 'Staff member'}
+                <p className="text-[11px] font-semibold">
+                  {CONCERN_ACTION_LABEL[e.action] ?? e.action.replace('_', ' ')} · {e.actor_name ?? 'Staff member'}
                 </p>
                 <p className="text-[10px] text-muted-foreground">{stamp(e.created_at)}</p>
+                {e.action === 'reassigned' && (
+                  <p className="mt-0.5 text-[11px] leading-snug">
+                    From {e.prev_user_name ?? '—'} to {e.new_user_name ?? '—'}
+                  </p>
+                )}
+                {e.action === 'due_changed' && (
+                  <p className="mt-0.5 text-[11px] leading-snug">
+                    From {stamp(e.prev_due_at)} to {stamp(e.new_due_at)}
+                  </p>
+                )}
                 {e.note && <p className="mt-0.5 text-[11px] leading-snug">{e.note}</p>}
               </div>
             ))
