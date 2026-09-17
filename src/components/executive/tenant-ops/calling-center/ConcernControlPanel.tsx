@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertTriangle, CalendarClock, Search, UserCog } from 'lucide-react';
+import { CCBlock, CCDialogHeading } from './ccUi';
 import { toast } from 'sonner';
 import {
   concernTimeLeft,
@@ -194,21 +195,24 @@ function DueDialog({ concern, open, onClose }: { concern: ForwardedConcern; open
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm font-bold">
-            <CalendarClock className="h-4 w-4 text-primary" />
-            Set the answer time
+          <DialogTitle asChild>
+            <CCDialogHeading
+              icon={CalendarClock}
+              title="Set the answer time"
+              hint="The previous time stays on the record — nothing is overwritten."
+            />
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
-          <p className="rounded-lg border border-border bg-muted/40 px-2.5 py-2 text-[11px]">
+          <CCBlock className="px-2.5 py-2 text-[11px]">
             Now due {stamp(concern.due_at)}
             {concern.due_is_custom
               ? ` · set by ${concern.due_set_by_name ?? 'staff'} on ${stamp(concern.due_set_at)}`
               : ' · standard 24 hours'}
-          </p>
+          </CCBlock>
 
           <div className="flex flex-wrap gap-1.5">
             {QUICK_HOURS.map((h) => (
@@ -284,11 +288,13 @@ export function ConcernControlPanel({
   return (
     <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-        <span>Answer expected by {stamp(concern.due_at)}</span>
+        <span className="font-medium">Answer expected by {stamp(concern.due_at)}</span>
         <Badge
           variant="outline"
           className={`text-[10px] ${
-            left.overdue ? 'border-destructive/40 text-destructive' : 'border-border text-muted-foreground'
+            left.overdue
+              ? 'border-destructive/40 bg-destructive/10 text-destructive'
+              : 'border-border bg-muted/40 text-muted-foreground'
           }`}
         >
           {left.label}

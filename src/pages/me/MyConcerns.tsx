@@ -65,7 +65,7 @@ function ConcernCard({ concern, mine, reviewerNames }: { concern: ForwardedConce
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card p-3">
+    <div className={CC_ROW}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-bold">{concern.title}</p>
@@ -139,7 +139,7 @@ function ConcernCard({ concern, mine, reviewerNames }: { concern: ForwardedConce
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 border-emerald-500/40 text-[11px] font-semibold text-emerald-700"
+                className="h-8 border-success/40 text-[11px] font-semibold text-success"
                 onClick={() => run('completed')}
                 disabled={act.isPending || note.trim().length < 10}
                 title="Write what was done (at least 10 characters) before completing"
@@ -152,7 +152,7 @@ function ConcernCard({ concern, mine, reviewerNames }: { concern: ForwardedConce
       )}
 
       {concern.outcome && (
-        <p className="mt-2 rounded-lg bg-emerald-500/10 px-2.5 py-2 text-[11px] leading-snug text-emerald-700">
+        <p className="mt-2 rounded-xl border border-success/25 bg-success/10 px-2.5 py-2 text-[11px] leading-snug text-success">
           Resolved: {concern.outcome}
         </p>
       )}
@@ -171,7 +171,7 @@ function ConcernCard({ concern, mine, reviewerNames }: { concern: ForwardedConce
             <Skeleton className="h-12 w-full" />
           ) : (
             (events.data ?? []).map((e) => (
-              <div key={e.id} className="rounded-lg border border-border/70 p-2">
+              <div key={e.id} className="rounded-xl border border-border/70 bg-muted/20 p-2">
                 <p className="text-[11px] font-semibold">
                   {CONCERN_ACTION_LABEL[e.action] ?? e.action.replace('_', ' ')} · {e.actor_name ?? 'Staff member'}
                 </p>
@@ -226,19 +226,21 @@ const MyConcerns = () => {
   return (
     <PersonalLayout title="Concerns">
       <div className="space-y-4">
-        <Card>
-          <CardHeader className="border-b bg-muted/30 p-3">
-            <CardTitle className="flex items-center gap-2 text-xs font-bold">
-              <ClipboardList className="h-4 w-4 text-primary" />
-              Concerns from the Calling Center
-            </CardTitle>
+        <Card className="rounded-2xl border-border shadow-sm">
+          <CardHeader className="border-b border-border/70 bg-gradient-to-r from-primary/[0.07] via-primary/[0.02] to-transparent p-3">
+            <div className="flex items-center gap-2.5">
+              <div className="shrink-0 rounded-xl bg-primary/10 p-2">
+                <ClipboardList className="h-4 w-4 text-primary" />
+              </div>
+              <CardTitle className="text-sm font-bold leading-tight">Concerns from the Calling Center</CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="p-3 text-[11px] leading-snug text-muted-foreground">
             When someone in the Calling Center passes a caller's concern to you, it lands here. Confirm you have it,
             work on it, then write what you did before marking it completed. Nothing is ever deleted — every step stays
             on the record.
             {openCount > 0 && (
-              <span className="mt-1.5 flex items-center gap-1.5 font-semibold text-amber-700">
+              <span className="mt-1.5 flex items-center gap-1.5 font-semibold text-warning">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 {openCount} waiting for you.
               </span>
@@ -277,7 +279,7 @@ const MyConcerns = () => {
             {everything.isLoading || reviewers.isLoading ? (
               <Skeleton className="h-24 w-full" />
             ) : mine.length === 0 ? (
-              <p className="p-6 text-center text-xs text-muted-foreground">Nothing has been forwarded to you.</p>
+              <CCEmpty icon={ClipboardList} title="Nothing has been forwarded to you" hint="Concerns passed to you from the Calling Center will land here." />
             ) : (
               mine.map((c) => <ConcernCard key={c.id} concern={c} mine reviewerNames={(reviewersByConcern.get(c.id) ?? []).map((r) => r.full_name ?? 'Staff member')} />)
             )}
@@ -287,14 +289,14 @@ const MyConcerns = () => {
             {fromMe.isLoading ? (
               <Skeleton className="h-24 w-full" />
             ) : sent.length === 0 ? (
-              <p className="p-6 text-center text-xs text-muted-foreground">You have not forwarded any concerns.</p>
+              <CCEmpty icon={ClipboardList} title="You have not forwarded any concerns" hint="Anything you pass on to a colleague will be listed here." />
             ) : (
               sent.map((c) => <ConcernCard key={c.id} concern={c} mine={false} reviewerNames={(reviewersByConcern.get(c.id) ?? []).map((r) => r.full_name ?? 'Staff member')} />)
             )}
           </TabsContent>
 
           <TabsContent value="all" className="mt-3 space-y-2">
-            <p className="rounded-lg border border-border bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground">
+            <p className="rounded-xl border border-border/80 bg-muted/30 px-2.5 py-2 text-[11px] text-muted-foreground">
               You can see these because of your role. Only the sender and the person handling it can move a concern
               along.
             </p>
