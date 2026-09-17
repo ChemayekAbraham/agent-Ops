@@ -462,32 +462,7 @@ async function invokeBackReader(
     }
     const r = (data ?? {}) as Record<string, unknown>;
     if (typeof r.error === 'string' && r.error) return { error: r.error };
-    const res = (r.residence ?? {}) as Record<string, unknown>;
-    const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
-    return {
-      is_national_id: r.is_national_id !== false,
-      side: r.side === 'front' ? 'front' : 'back',
-      readable: r.readable !== false,
-      card_number: s(r.card_number),
-      card_number_agrees: typeof r.card_number_agrees === 'boolean' ? r.card_number_agrees : null,
-      date_of_issue: s(r.date_of_issue),
-      date_of_expiry: s(r.date_of_expiry),
-      date_of_expiry_agrees:
-        typeof r.date_of_expiry_agrees === 'boolean' ? r.date_of_expiry_agrees : null,
-      residence: {
-        district: s(res.district),
-        county: s(res.county),
-        subcounty: s(res.subcounty),
-        parish: s(res.parish),
-        village: s(res.village),
-      },
-      other_fields: Array.isArray(r.other_fields)
-        ? (r.other_fields as Record<string, unknown>[])
-            .map((f) => ({ label: String(f?.label ?? '').trim(), value: String(f?.value ?? '').trim() }))
-            .filter((f) => f.label && f.value)
-        : [],
-      mrz: (r.mrz ?? { present: false }) as IdMrz,
-    };
+    return normaliseBackDetails(r);
   } catch {
     return { error: 'Could not read the back of your card just now. Your photo is still saved.' };
   }
