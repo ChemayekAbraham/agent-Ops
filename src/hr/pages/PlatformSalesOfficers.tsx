@@ -496,11 +496,10 @@ export default function PlatformSalesOfficersPage() {
 
   // Net-notes goal for the window shown: 20 notes per person per day, scaled by window.
   const combinedNetGoal = useMemo(() => {
-    const perDay = (officers.length + people.length) * 20;
-    if (mode === 'WEEKLY') return perDay * 7;
-    if (mode === 'MONTHLY') return perDay * 30;
-    return perDay;
-  }, [officers, people, mode]);
+    if (mode === 'WEEKLY') return 700;
+    if (mode === 'MONTHLY') return 3000;
+    return 100;
+  }, [mode]);
   const combinedNetPct = useMemo(
     () => (combinedNetGoal <= 0 ? 0 : Math.round((combinedTotals.netNotes / combinedNetGoal) * 100)),
     [combinedTotals.netNotes, combinedNetGoal],
