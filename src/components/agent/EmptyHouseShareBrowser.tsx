@@ -21,7 +21,7 @@ import { UGANDA_DISTRICTS, CITY_TO_DISTRICT } from '@/lib/ugandaDistricts';
 import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { HouseShareActions } from '@/components/agent/HouseShareActions';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 5;
 
 /** Listings carry free-typed district text; resolve each back to an official district. */
 const officialDistrict = (raw: string | null | undefined): string | null => {
@@ -552,14 +552,77 @@ export function EmptyHouseShareBrowser({
       )}
 
       {pages > 1 && (
-        <div className="flex items-center justify-between text-xs pt-2">
-          <Button variant="outline" size="sm" disabled={page === 0 || isFetching} onClick={() => setPage((p) => Math.max(0, p - 1))}>
-            Previous
-          </Button>
-          <span className="text-muted-foreground">Page {page + 1} of {pages} · {total} empty houses</span>
-          <Button variant="outline" size="sm" disabled={page + 1 >= pages || isFetching} onClick={() => setPage((p) => p + 1)}>
-            Next
-          </Button>
+        <div className="space-y-2 pt-3">
+          <div className="flex items-center justify-center gap-1.5">
+            {/* Previous */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              disabled={page === 0 || isFetching}
+              onClick={() => { setPage((p) => Math.max(0, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              aria-label="Previous page"
+            >
+              <span className="text-xs">‹</span>
+            </Button>
+
+            {/* Page numbers */}
+            {(() => {
+              const maxVisible = 5;
+              let start = Math.max(0, page - Math.floor(maxVisible / 2));
+              let end = Math.min(pages, start + maxVisible);
+              if (end - start < maxVisible) start = Math.max(0, end - maxVisible);
+
+              const buttons: React.ReactNode[] = [];
+
+              if (start > 0) {
+                buttons.push(
+                  <Button key="first" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-xs"
+                    onClick={() => { setPage(0); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>1</Button>,
+                );
+                if (start > 1) buttons.push(<span key="dots-start" className="text-xs text-muted-foreground px-0.5">…</span>);
+              }
+
+              for (let i = start; i < end; i++) {
+                buttons.push(
+                  <Button
+                    key={i}
+                    variant={i === page ? 'default' : 'ghost'}
+                    size="icon"
+                    className={cn('h-8 w-8 rounded-full text-xs font-semibold', i === page && 'pointer-events-none')}
+                    onClick={() => { setPage(i); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  >
+                    {i + 1}
+                  </Button>,
+                );
+              }
+
+              if (end < pages) {
+                if (end < pages - 1) buttons.push(<span key="dots-end" className="text-xs text-muted-foreground px-0.5">…</span>);
+                buttons.push(
+                  <Button key="last" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-xs"
+                    onClick={() => { setPage(pages - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>{pages}</Button>,
+                );
+              }
+
+              return buttons;
+            })()}
+
+            {/* Next */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              disabled={page + 1 >= pages || isFetching}
+              onClick={() => { setPage((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              aria-label="Next page"
+            >
+              <span className="text-xs">›</span>
+            </Button>
+          </div>
+          <p className="text-center text-[11px] text-muted-foreground">
+            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total} empty houses
+          </p>
         </div>
       )}
 
