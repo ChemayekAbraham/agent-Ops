@@ -669,6 +669,12 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
   const handleAutoCollectFromWallet = async () => {
     if (!profile || !summary.activeRequest || !walletData) return;
+    if (awaitingLandlord) {
+      sonnerToast.error("Landlord not paid yet", {
+        description: "The landlord float is with you, but the landlord has not been paid. Collection opens once the landlord is paid.",
+      });
+      return;
+    }
     const collectAmount = Math.min(walletData.balance, summary.currentOutstanding);
     if (collectAmount <= 0) {
       toast({ title: 'No funds available', description: 'Tenant wallet is empty', variant: 'destructive' });
