@@ -1163,6 +1163,13 @@
       "when": 1789656021747,
       "tag": "0165_block_taken_national_id_names",
       "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1789656329139,
+      "tag": "0166_block_taken_name_on_finops_adopt",
+      "breakpoints": true
     }
   ]
 }
