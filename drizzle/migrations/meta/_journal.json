@@ -1268,6 +1268,13 @@
       "when": 1789678128048,
       "tag": "0180_engrep_catalog_base_index_and_seekable_work_units",
       "breakpoints": true
+    },
+    {
+      "idx": 181,
+      "version": "7",
+      "when": 1789678333506,
+      "tag": "0181_tighten_perf_participants_and_proxy_agreement_reads",
+      "breakpoints": true
     }
   ]
 }
