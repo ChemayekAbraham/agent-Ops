@@ -1902,7 +1902,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                 </div>
                 <Button
                   onClick={handleAutoCollectFromWallet}
-                  disabled={autoCollecting}
+                  disabled={autoCollecting || awaitingLandlord}
                   variant="outline"
                   className="w-full gap-2 text-base h-12 rounded-xl border-primary/30 active:scale-[0.97] transition-transform"
                 >
