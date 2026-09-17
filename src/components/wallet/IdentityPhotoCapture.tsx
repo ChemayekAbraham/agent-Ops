@@ -891,6 +891,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   }
 
   const haveId = !!idPhoto || !!storedIdPath;
+  /* The back is demanded, not optional: the card number and the two lines of
+     code at the bottom are only there, and a front-only submission cannot be
+     checked. */
+  const haveIdBack = !!idBackPhoto || !!storedIdBackPath;
   const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
 
   // Every one of the six must be present before anything is sent — a partly
