@@ -884,27 +884,25 @@ export default function PlatformSalesOfficersPage() {
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">#</th>
                       <th className="px-4 py-2 text-left font-medium">Officer</th>
-                      {dayIndices.map((wi) => {
-                        const d = WEEKDAY_LABELS[wi];
-                        return (
-                          <th key={d} className="px-2 py-2 text-right font-medium">
-                            <span className="block text-[10px] font-semibold tabular-nums text-muted-foreground">
-                              {peopleWeekdayTotals[wi]}
-                            </span>
-                            {d}
-                          </th>
-                        );
-                      })}
+                      {dayIndices.map((wi) => (
+                        <SortableTh
+                          key={wi}
+                          label={WEEKDAY_LABELS[wi]}
+                          sortKey={`day-${wi}`}
+                          activeKey={sortKey}
+                          onSort={setSortKey}
+                          topHint={String(peopleWeekdayTotals[wi])}
+                        />
+                      ))}
 
-
-                      <th className="px-4 py-2 text-right font-medium">Total</th>
-                      <th className="px-4 py-2 text-right font-medium">Unapproved</th>
-                      <th className="px-4 py-2 text-right font-medium">Funded</th>
-                      <th className="px-4 py-2 text-right font-medium">Funders</th>
-                      <th className="px-4 py-2 text-right font-medium">Top-ups</th>
-                      <th className="px-4 py-2 text-right font-medium">Money deployed</th>
-                      <th className="px-4 py-2 text-right font-medium">Commission base</th>
-                      <th className="px-4 py-2 text-right font-medium">Commission</th>
+                      <SortableTh label="Total" sortKey="netNotes" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Unapproved" sortKey="notesUnapproved" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Funded" sortKey="notesFunded" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Funders" sortKey="fundersConverted" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Top-ups" sortKey="topups" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Money deployed" sortKey="amountDeployed" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Commission base" sortKey="commissionBase" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Commission" sortKey="commissionAccrued" activeKey={sortKey} onSort={setSortKey} />
                       <th className="px-4 py-2 text-right font-medium">Pre-enrol</th>
                       <th className="px-4 py-2 text-right font-medium">Pre-enrol funded</th>
                     </tr>
