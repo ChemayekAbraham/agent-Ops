@@ -969,6 +969,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const idPath = idPhoto
         ? await uploadIdentityPhoto(user.id, 'national-id', idPhoto)
         : storedIdPath!;
+      const idBackPath = idBackPhoto
+        ? await uploadIdentityPhoto(user.id, 'national-id-back', idBackPhoto)
+        : storedIdBackPath!;
       const selfiePath = selfieOriginal
         ? await uploadIdentityPhoto(user.id, 'selfie', selfieOriginal)
         : storedSelfiePath!;
@@ -980,6 +983,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       ]);
       const res = await submit.mutateAsync({
         idPhotoPath: idPath,
+        idBackPhotoPath: idBackPath,
         selfiePath,
         selfieHash,
         idHash,
