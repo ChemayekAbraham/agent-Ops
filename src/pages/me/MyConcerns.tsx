@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, ClipboardList, Forward, Inbox, Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 import { ConcernControlPanel } from '@/components/executive/tenant-ops/calling-center/ConcernControlPanel';
 import {
   CONCERN_ACTION_LABEL,
@@ -23,6 +24,7 @@ import {
   isConcernOverdue,
   useConcernEvent,
   useConcernEvents,
+  useConcernReviewers,
   useForwardedConcerns,
   type ConcernStatus,
   type ForwardedConcern,
@@ -40,7 +42,7 @@ const statusTone: Record<string, string> = {
   completed: 'bg-emerald-500/10 text-emerald-700',
 };
 
-function ConcernCard({ concern, mine }: { concern: ForwardedConcern; mine: boolean }) {
+function ConcernCard({ concern, mine, reviewerNames }: { concern: ForwardedConcern; mine: boolean; reviewerNames: string[] }) {
   const events = useConcernEvents(concern.id);
   const act = useConcernEvent();
   const [note, setNote] = useState('');
@@ -89,6 +91,11 @@ function ConcernCard({ concern, mine }: { concern: ForwardedConcern; mine: boole
       </div>
 
       {concern.context && <p className="mt-2 text-[11px] leading-snug">{concern.context}</p>}
+      {reviewerNames.length > 0 && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          Reviewers: <span className="font-semibold text-foreground">{reviewerNames.join(', ')}</span>
+        </p>
+      )}
       <div className="mt-1.5">
         <ConcernControlPanel concern={concern} isReceiver={mine} compact />
       </div>
@@ -179,6 +186,9 @@ function ConcernCard({ concern, mine }: { concern: ForwardedConcern; mine: boole
                     From {stamp(e.prev_due_at)} to {stamp(e.new_due_at)}
                   </p>
                 )}
+                {e.action === 'reviewer_added' && (
+                  <p className="mt-0.5 text-[11px] leading-snug">Added {e.new_user_name ?? 'staff member'}</p>
+                )}
                 {e.note && <p className="mt-0.5 text-[11px] leading-snug">{e.note}</p>}
               </div>
             ))
@@ -190,11 +200,21 @@ function ConcernCard({ concern, mine }: { concern: ForwardedConcern; mine: boole
 }
 
 const MyConcerns = () => {
-  const toMe = useForwardedConcerns({ days: 120, scope: 'to_me' });
+  const { user } = useAuth();
   const fromMe = useForwardedConcerns({ days: 120, scope: 'from_me' });
   const everything = useForwardedConcerns({ days: 120, scope: 'all' });
+  const allConcerns = useMemo(() => everything.data ?? [], [everything.data]);
+  const reviewers = useConcernReviewers(allConcerns.map((c) => c.id));
+  const reviewersByConcern = useMemo(() => {
+    const map = new Map<string, typeof reviewers.data>();
+    (reviewers.data ?? []).forEach((r) => map.set(r.concern_id, [...(map.get(r.concern_id) ?? []), r]));
+    return map;
+  }, [reviewers.data]);
 
-  const mine = useMemo(() => toMe.data ?? [], [toMe.data]);
+  const mine = useMemo(
+    () => allConcerns.filter((c) => c.forwarded_to === user?.id || (reviewersByConcern.get(c.id) ?? []).some((r) => r.user_id === user?.id)),
+    [allConcerns, reviewersByConcern, user?.id],
+  );
   const sent = useMemo(() => fromMe.data ?? [], [fromMe.data]);
   const oversight = useMemo(() => {
     const ids = new Set([...mine, ...sent].map((c) => c.id));
@@ -254,12 +274,12 @@ const MyConcerns = () => {
           </TabsList>
 
           <TabsContent value="to_me" className="mt-3 space-y-2">
-            {toMe.isLoading ? (
+            {everything.isLoading || reviewers.isLoading ? (
               <Skeleton className="h-24 w-full" />
             ) : mine.length === 0 ? (
               <p className="p-6 text-center text-xs text-muted-foreground">Nothing has been forwarded to you.</p>
             ) : (
-              mine.map((c) => <ConcernCard key={c.id} concern={c} mine />)
+              mine.map((c) => <ConcernCard key={c.id} concern={c} mine reviewerNames={(reviewersByConcern.get(c.id) ?? []).map((r) => r.full_name ?? 'Staff member')} />)
             )}
           </TabsContent>
 
@@ -269,7 +289,7 @@ const MyConcerns = () => {
             ) : sent.length === 0 ? (
               <p className="p-6 text-center text-xs text-muted-foreground">You have not forwarded any concerns.</p>
             ) : (
-              sent.map((c) => <ConcernCard key={c.id} concern={c} mine={false} />)
+              sent.map((c) => <ConcernCard key={c.id} concern={c} mine={false} reviewerNames={(reviewersByConcern.get(c.id) ?? []).map((r) => r.full_name ?? 'Staff member')} />)
             )}
           </TabsContent>
 
@@ -279,7 +299,7 @@ const MyConcerns = () => {
               along.
             </p>
             {oversight.map((c) => (
-              <ConcernCard key={c.id} concern={c} mine={false} />
+              <ConcernCard key={c.id} concern={c} mine={false} reviewerNames={(reviewersByConcern.get(c.id) ?? []).map((r) => r.full_name ?? 'Staff member')} />
             ))}
           </TabsContent>
         </Tabs>

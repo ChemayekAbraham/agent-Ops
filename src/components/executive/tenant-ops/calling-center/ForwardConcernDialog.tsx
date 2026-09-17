@@ -38,10 +38,12 @@ const DEFAULT_DUE = 24;
 export function ForwardConcernDialog({
   open,
   source,
+  addReviewer = false,
   onClose,
 }: {
   open: boolean;
   source: ForwardConcernSource | null;
+  addReviewer?: boolean;
   onClose: () => void;
 }) {
   const staff = useConcernStaffOptions();
@@ -108,7 +110,7 @@ export function ForwardConcernDialog({
     };
     try {
       await forward.mutateAsync(payload);
-      toast.success('Forwarded. It now shows in their My Space.');
+      toast.success(addReviewer ? 'Reviewer added to this concern.' : 'Forwarded. It now shows in their My Space.');
       onClose();
     } catch (e: any) {
       toast.error(e?.message ?? 'Could not forward this concern.');
@@ -121,7 +123,7 @@ export function ForwardConcernDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm font-bold">
             <Forward className="h-4 w-4 text-primary" />
-            Forward this concern
+            {addReviewer ? 'Add another reviewer' : 'Forward this concern'}
           </DialogTitle>
         </DialogHeader>
 
@@ -189,7 +191,9 @@ export function ForwardConcernDialog({
           </div>
 
           <div className="space-y-1">
-            <Label className="text-[11px] font-semibold">Who should handle it?</Label>
+            <Label className="text-[11px] font-semibold">
+              {addReviewer ? 'Who else should review it?' : 'Who should handle it?'}
+            </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -225,7 +229,7 @@ export function ForwardConcernDialog({
             )}
             <p className="px-1 text-[11px] font-semibold">
               {chosen ? (
-                <span className="text-primary">Going to: {chosen.full_name}</span>
+                <span className="text-primary">Chosen: {chosen.full_name}</span>
               ) : (
                 <span className="text-muted-foreground">Tap a name above to choose the person.</span>
               )}
@@ -238,7 +242,7 @@ export function ForwardConcernDialog({
               Cancel
             </Button>
             <Button size="sm" className="h-9 text-xs font-semibold" onClick={submit} disabled={forward.isPending}>
-              {forward.isPending ? 'Forwarding…' : 'Forward concern'}
+              {forward.isPending ? 'Saving…' : addReviewer ? 'Add reviewer' : 'Forward concern'}
             </Button>
           </div>
         </div>

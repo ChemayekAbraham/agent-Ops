@@ -25,6 +25,7 @@ import {
   RECEIVED_STATUS_LABEL,
   useCallerLookup,
   useForwardedConcerns,
+  useConcernReviewers,
   useReceivedCalls,
   useRecordReceivedCall,
   useUpdateReceivedCall,
@@ -247,16 +248,24 @@ export function ReceivedCallsTab() {
 
   const all = useMemo(() => data ?? [], [data]);
 
-  const forwardedByCall = useMemo(() => {
-    const map = new Map<string, string[]>();
+  const concernIds = useMemo(() => (concerns.data ?? []).map((c) => c.id), [concerns.data]);
+  const reviewers = useConcernReviewers(concernIds);
+  const concernByCall = useMemo(() => {
+    const map = new Map<string, (typeof concerns.data extends (infer T)[] | undefined ? T : never)>();
     (concerns.data ?? []).forEach((c) => {
-      if (!c.received_call_id) return;
-      const list = map.get(c.received_call_id) ?? [];
-      list.push(c.forwarded_to_name ?? 'Staff member');
-      map.set(c.received_call_id, list);
+      if (c.received_call_id && !map.has(c.received_call_id)) map.set(c.received_call_id, c);
     });
     return map;
   }, [concerns.data]);
+  const reviewersByConcern = useMemo(() => {
+    const map = new Map<string, string[]>();
+    (reviewers.data ?? []).forEach((r) => {
+      const list = map.get(r.concern_id) ?? [];
+      if (r.full_name && !list.includes(r.full_name)) list.push(r.full_name);
+      map.set(r.concern_id, list);
+    });
+    return map;
+  }, [reviewers.data]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -275,9 +284,9 @@ export function ReceivedCallsTab() {
       total: all.length,
       open: all.filter((r) => r.status === 'open' || r.status === 'following_up').length,
       resolved: all.filter((r) => r.status === 'resolved' || r.status === 'closed').length,
-      forwarded: all.filter((r) => forwardedByCall.has(r.id)).length,
+      forwarded: all.filter((r) => concernByCall.has(r.id)).length,
     }),
-    [all, forwardedByCall],
+    [all, concernByCall],
   );
 
   const exportPdf = async () => {
@@ -293,7 +302,10 @@ export function ReceivedCallsTab() {
         status: RECEIVED_STATUS_LABEL[r.status as ReceivedCallStatus] ?? r.status,
         followUp: r.follow_up_at ? stamp(r.follow_up_at) : '—',
         officer: r.recorded_by_name ?? '—',
-        forwardedTo: (forwardedByCall.get(r.id) ?? []).join(', ') || '—',
+        forwardedTo: (() => {
+          const concern = concernByCall.get(r.id);
+          return concern ? (reviewersByConcern.get(concern.id) ?? [concern.forwarded_to_name ?? 'Staff member']).join(', ') : '—';
+        })(),
       }));
       const blob = await generateReceivedCallsPdf(
         pdfRows,
@@ -301,7 +313,7 @@ export function ReceivedCallsTab() {
           { label: 'Calls received', value: String(rows.length) },
           { label: 'Still open', value: String(rows.filter((r) => r.status === 'open' || r.status === 'following_up').length) },
           { label: 'Resolved or closed', value: String(rows.filter((r) => r.status === 'resolved' || r.status === 'closed').length) },
-          { label: 'Forwarded to staff', value: String(rows.filter((r) => forwardedByCall.has(r.id)).length) },
+          { label: 'Forwarded to staff', value: String(rows.filter((r) => concernByCall.has(r.id)).length) },
         ],
         {
           generatedBy: auth?.user?.user_metadata?.full_name ?? 'Tenant Operations',
@@ -426,7 +438,10 @@ export function ReceivedCallsTab() {
           ) : (
             <div className="space-y-2">
               {rows.map((r) => {
-                const fwd = forwardedByCall.get(r.id) ?? [];
+                const existingConcern = concernByCall.get(r.id);
+                const reviewerNames = existingConcern
+                  ? reviewersByConcern.get(existingConcern.id) ?? [existingConcern.forwarded_to_name ?? 'Staff member']
+                  : [];
                 return (
                   <div key={r.id} className="rounded-xl border border-border bg-card p-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
@@ -441,9 +456,9 @@ export function ReceivedCallsTab() {
                         <Badge variant="outline" className="text-[10px]">
                           {RECEIVED_STATUS_LABEL[r.status as ReceivedCallStatus] ?? r.status}
                         </Badge>
-                        {fwd.length > 0 && (
+                        {existingConcern && (
                           <Badge className="bg-sky-500/10 text-[10px] text-sky-700 hover:bg-sky-500/10">
-                            Forwarded to {fwd.join(', ')}
+                            Forwarded · {reviewerNames.length} reviewer{reviewerNames.length === 1 ? '' : 's'}
                           </Badge>
                         )}
                       </div>
@@ -473,7 +488,7 @@ export function ReceivedCallsTab() {
                         }
                       >
                         <Forward className="mr-1 h-3.5 w-3.5" />
-                        Forward concern
+                        {existingConcern ? 'Add another reviewer' : 'Forward concern'}
                       </Button>
                       <Select value={r.status} onValueChange={(v) => setStatus(r, v as ReceivedCallStatus)}>
                         <SelectTrigger className="h-8 w-[150px] text-[11px]">
@@ -500,6 +515,7 @@ export function ReceivedCallsTab() {
       <ForwardConcernDialog
         open={!!forwardSource}
         source={forwardSource}
+        addReviewer={!!forwardSource?.received_call_id && concernByCall.has(forwardSource.received_call_id)}
         onClose={() => setForwardSource(null)}
       />
     </div>
