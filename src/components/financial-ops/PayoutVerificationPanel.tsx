@@ -1773,6 +1773,9 @@ export default function PayoutVerificationPanel() {
           {/* What was read off the BACK of the card, re-read from the archived photo */}
           <StoredIdBackReadingCard row={row} backPath={idBackPath} />
 
+          {/* Mandatory network name check before Verify can be tapped */}
+          <PayoutNameCheckCard row={row} check={nameCheck} onChange={setNameCheck} />
+
           {/* Audit trail of name replacements */}
           <NameChangeHistory userId={row.user_id} />
 
