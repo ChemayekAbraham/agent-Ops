@@ -50,8 +50,11 @@ same date range, so a high failure/suppression rate relative to sent is plausibl
 necessarily a bug, but it wasn't checked. Flagging for whoever looks at `RENT_LIMIT_INCREASED`
 send volume next — don't assume it's fixed by this doc.
 
-## Status — NOT YET APPLIED to production
+## Status — LIVE as of 2026-09-17
 
-Same as doc 55: attempted directly via `query_database`, blocked by the auto-mode classifier as a
-shared-resource write. **Needs Josh to run `20260917140000_sms_delivered_means_sent.sql` by hand
-via the Supabase SQL editor.** Until then, Delivered stays at 0 in the live dashboard.
+Same as doc 55: attempting directly via `query_database` was blocked by the auto-mode classifier as
+a shared-resource write; Josh ran `20260917140000_sms_delivered_means_sent.sql` by hand via the
+Supabase SQL editor. Verified directly against production — `get_tenant_notification_performance`'s
+`prosrc` now reads `'delivered', count(*) filter (where status = 'sent')` in both the totals and
+by-event branches, matching the migration exactly. Delivered will read equal to Sent on the next
+load of the Tenant Notifications table.

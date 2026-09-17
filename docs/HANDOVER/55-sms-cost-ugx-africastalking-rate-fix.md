@@ -36,13 +36,15 @@ its 30 UGX/segment rate stays as confirmed in doc 53.
 shape itself — `SmsCostReport` etc. — is unchanged; only the numbers `cost_ugx` returns for AT
 rows differ from before).
 
-## Status — NOT YET APPLIED to production
+## Status — LIVE as of 2026-09-17
 
-Attempted to run the migration directly against prod via `query_database` (as was done by hand for
-doc 53's migration) — blocked by the auto-mode classifier as a shared-resource write. **Josh needs
-to run `20260917130000_sms_cost_ugx_at_rate.sql` by hand via the Supabase SQL editor**, same as
-doc 53's migration. Until then, `get_sms_cost_report`'s `by_provider`/`daily` AT figures are still
-overstated by ~17% in whatever's live.
+Attempting to run the migration directly against prod via `query_database` was blocked by the
+auto-mode classifier as a shared-resource write; Josh ran `20260917130000_sms_cost_ugx_at_rate.sql`
+by hand via the Supabase SQL editor, same as doc 53's migration. Verified directly against
+production: `sms_cost_ugx(repeat('a',87), 'africastalking')` returns 25,
+`sms_cost_ugx(repeat('a',87), 'yoola')` and `sms_cost_ugx(repeat('a',87), null)` both return 30 —
+matches the fix exactly. `get_sms_cost_report`'s `by_provider`/`daily` AT figures are no longer
+overstated.
 
 Also still true from doc 53: `useSmsCostReport`/`smsCostReportPdf` aren't mounted in any page yet —
 UI placement is a Gemini task, not done here.
