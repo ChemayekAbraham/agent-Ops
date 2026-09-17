@@ -13151,6 +13151,64 @@ export type Database = {
           },
         ]
       }
+      engrep_file_touches: {
+        Row: {
+          blob_sha: string
+          created_at: string
+          engineer_id: string | null
+          evidence_ref: string
+          id: string
+          path: string
+          source: string
+          touched_at: string | null
+          window_id: string
+        }
+        Insert: {
+          blob_sha: string
+          created_at?: string
+          engineer_id?: string | null
+          evidence_ref: string
+          id?: string
+          path: string
+          source: string
+          touched_at?: string | null
+          window_id: string
+        }
+        Update: {
+          blob_sha?: string
+          created_at?: string
+          engineer_id?: string | null
+          evidence_ref?: string
+          id?: string
+          path?: string
+          source?: string
+          touched_at?: string | null
+          window_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_file_touches_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_file_touches_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_file_touches_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_harvest_runs: {
         Row: {
           error: string | null
@@ -53715,6 +53773,18 @@ export type Database = {
       }
       engrep_svc_mark_harvested: {
         Args: { p_window_id: string }
+        Returns: undefined
+      }
+      engrep_svc_record_file_touch: {
+        Args: {
+          p_blob_sha: string
+          p_engineer_id: string
+          p_evidence_ref: string
+          p_path: string
+          p_source: string
+          p_touched_at: string
+          p_window_id: string
+        }
         Returns: undefined
       }
       engrep_svc_resolve_lineage: {
