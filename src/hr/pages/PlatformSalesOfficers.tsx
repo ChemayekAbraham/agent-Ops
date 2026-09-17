@@ -215,6 +215,8 @@ export default function PlatformSalesOfficersPage() {
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
   // 0 = the live Wed–Tue week, -1 = the week before it, and so on.
   const [weekOffset, setWeekOffset] = useState(0);
+  // Column the tables are ranked by; 'day-N' sorts by a single weekday column.
+  const [sortKey, setSortKey] = useState<string>('netNotes');
 
   // The Kampala calendar date is state, not a one-off computation, so a screen
   // left open rolls its window over at 00:00 EAT without a reload.
