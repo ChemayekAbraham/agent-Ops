@@ -47909,6 +47909,7 @@ export type Database = {
           repeat_evidence: string | null
           repeat_kind: string | null
           repeat_refs: string[] | null
+          safe_to_zero: boolean | null
           unit_key: string | null
           unit_kind: string | null
           window_id: string | null
