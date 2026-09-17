@@ -189,6 +189,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const tenantLoc = useRequireContactLocation(tenantId, 'tenant');
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [requests, setRequests] = useState<RentRequestRow[]>([]);
+  const [landlordUnpaidRequestIds, setLandlordUnpaidRequestIds] = useState<Set<string>>(new Set());
   const [repayments, setRepayments] = useState<RepaymentRow[]>([]);
   // Every field/wallet collection recorded for this tenant. Needed because many
   // payments only ever land in `agent_collections` (no `repayments` row), and the
