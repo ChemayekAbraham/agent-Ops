@@ -14,8 +14,11 @@ import {
 } from '@/hooks/useIdentityPhotos';
 import { useIdentityAlreadyVerified } from '@/hooks/useIdentityAlreadyVerified';
 import {
-  readNationalIdPhoto, idNameVerdict, readingGuidance, EMPTY_ID_DATA, ID_FIELD_LABEL,
-  type NationalIdReading, type NationalIdData,
+  readNationalIdPhotoOriented, readNationalIdBackPhoto, orientationMessage,
+  idNameVerdict, readingGuidance, EMPTY_ID_DATA, ID_FIELD_LABEL,
+  ID_POSITION_TIPS, ID_BACK_TIPS,
+  type NationalIdReading, type NationalIdData, type IdRotation,
+  type NationalIdBackReading,
 } from '@/lib/nationalIdOcr';
 import { runPassportFaceCheck, faceCheckBlocker, type PassportFaceCheck } from '@/lib/passportFaceCheck';
 import { Input } from '@/components/ui/input';
@@ -595,6 +598,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   // The raw camera shot — this is what gets archived for verification.
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
+  /* The back of the card. Required: the two lines of code and the card number
+     live there, and Financial Ops cannot check a card from its front alone. */
+  const [idBackPhoto, setIdBackPhoto] = useState<File | null>(null);
+  const [backReading, setBackReading] = useState<NationalIdBackReading | null>(null);
+  const [backReadError, setBackReadError] = useState<string | null>(null);
+  const [readingBack, setReadingBack] = useState(false);
+  /** Set when the photo had to be turned to be readable — front and back. */
+  const [idRotation, setIdRotation] = useState<IdRotation>(0);
   const [selfieOriginal, setSelfieOriginal] = useState<File | null>(null);
   // The cropped copy — profile picture only.
   const [selfieCropped, setSelfieCropped] = useState<File | null>(null);
