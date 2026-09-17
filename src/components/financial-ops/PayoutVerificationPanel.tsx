@@ -223,6 +223,19 @@ function ordinalLabel(n: number): string {
   }
 }
 
+/** Calculate age in years from an ISO/YYYY-MM-DD date string. */
+function ageFromDob(dob: string | null | undefined): number | null {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  const dayDiff = today.getDate() - birth.getDate();
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) age -= 1;
+  return age >= 0 ? age : null;
+}
+
 /** Photos-ready badge so operators instantly know which cases can be actioned. */
 function readinessBadge(photosReady: boolean): {
   label: string;
@@ -501,6 +514,7 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   const enteredMask = maskIdNumber(row.national_id);
   const idNameOnFile = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
+  const age = ageFromDob(data.dateOfBirth);
   // An exact spelling match is a match, whatever an older stored score says.
   const namesMatch =
     idNameOnFile && accountName
@@ -556,6 +570,16 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
           value={data.sex ?? 'Not read'}
           outcome={data.sex ? true : null}
           note={data.sex ? 'Read from the National ID.' : 'Could not be read off the photo.'}
+        />
+        <CheckLine
+          label="Age"
+          value={age != null ? `${age} years` : 'Not read'}
+          outcome={age != null ? true : null}
+          note={
+            age != null
+              ? `Calculated from date of birth (${data.dateOfBirth}).`
+              : 'Could not be read off the photo.'
+          }
         />
         <CheckLine
           label="Selfie is a real face"
