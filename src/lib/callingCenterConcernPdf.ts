@@ -195,18 +195,32 @@ export interface IssuesReviewInput {
   bySource: { label: string; count: number; pct: number }[];
   byStatus: { label: string; count: number; pct: number }[];
   byPriority: { label: string; count: number }[];
-  byReceiver: { name: string; total: number; completed: number; overdue: number; avgHours: string }[];
+  byReceiver: {
+    name: string;
+    total: number;
+    completed: number;
+    overdue: number;
+    avgHours: string;
+    reassignedIn?: number;
+    onTime?: number;
+    avgLate?: string;
+  }[];
   repeatThemes: { theme: string; count: number }[];
+  deadlinePerformance?: { label: string; value: string }[];
+  reassignments?: { when: string; concern: string; from: string; to: string; by: string; reason: string }[];
   rows: {
     when: string;
     source: string;
     title: string;
     caller: string;
     from: string;
+    firstTo?: string;
     to: string;
+    changes?: string;
     status: string;
     due: string;
     completed: string;
+    pastDue?: string;
     outcome: string;
   }[];
   recommendations: { title: string; detail: string }[];
