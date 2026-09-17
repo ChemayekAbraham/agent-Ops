@@ -15,6 +15,7 @@ import {
 import { useIdentityAlreadyVerified } from '@/hooks/useIdentityAlreadyVerified';
 import {
   readNationalIdPhotoOriented, readNationalIdBackPhoto, orientationMessage,
+  inspectIdPhotoOrientation, isSidewaysIdRotation, SIDEWAYS_ID_MESSAGE,
   idNameVerdict, readingGuidance, EMPTY_ID_DATA, ID_FIELD_LABEL,
   ID_POSITION_TIPS, ID_BACK_TIPS,
   type NationalIdReading, type NationalIdData, type IdRotation,
@@ -696,6 +697,17 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setReadError(null);
     setFieldError(null);
     setIdRotation(0);
+    const photoOrientation = await inspectIdPhotoOrientation(file);
+    if (photoOrientation !== 'landscape') {
+      setIdPhoto(null);
+      setReadError(
+        photoOrientation === 'sideways'
+          ? SIDEWAYS_ID_MESSAGE
+          : 'We could not open that ID photo. Retake it with the phone sideways so the photo is wide.',
+      );
+      setReading(false);
+      return;
+    }
     /* A card photographed upside down or sideways used to come back as "not a
        National ID", so a perfectly good photo was rejected. The reader now
        retries the same photo turned, keeps whichever way round read best, and
@@ -707,6 +719,12 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       return;
     }
     const oriented = res as { reading: NationalIdReading; rotation: IdRotation; file: File; corrected: boolean };
+    if (isSidewaysIdRotation(oriented.rotation)) {
+      setIdPhoto(null);
+      setReadError(SIDEWAYS_ID_MESSAGE);
+      setReading(false);
+      return;
+    }
     const r = oriented.reading;
     setIdRotation(oriented.rotation);
     if (oriented.corrected) setIdPhoto(oriented.file);
@@ -738,6 +756,17 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setReadingBack(true);
     setBackReading(null);
     setBackReadError(null);
+    const photoOrientation = await inspectIdPhotoOrientation(file);
+    if (photoOrientation !== 'landscape') {
+      setIdBackPhoto(null);
+      setBackReadError(
+        photoOrientation === 'sideways'
+          ? SIDEWAYS_ID_MESSAGE
+          : 'We could not open that ID photo. Retake it with the phone sideways so the photo is wide.',
+      );
+      setReadingBack(false);
+      return;
+    }
     const res = await readNationalIdBackPhoto(file);
     if ('error' in res && res.error) {
       setBackReadError((res as { error: string }).error);
@@ -745,6 +774,12 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       return;
     }
     const b = res as NationalIdBackReading;
+    if (isSidewaysIdRotation(b.rotation)) {
+      setIdBackPhoto(null);
+      setBackReadError(SIDEWAYS_ID_MESSAGE);
+      setReadingBack(false);
+      return;
+    }
     if (b.corrected) setIdBackPhoto(b.file);
     setBackReading(b);
     setReadingBack(false);
@@ -1090,14 +1125,15 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         ) : (
           <ShotTile
             label="National ID — FRONT"
-            hint="The side with your photo and names. All four corners visible, no glare."
+            hint="Turn your phone sideways. Keep the card wide and straight, with all four corners visible."
             file={idPhoto}
             onPick={(f) => {
-              setIdPhoto(f);
+              setIdPhoto(null);
               setIdReading(null);
               setReadError(null);
               setIdRotation(0);
               setDetailsConfirmed(false);
+              setIdPhoto(f);
               void readIdPhoto(f);
             }}
             onClear={() => {
@@ -1367,7 +1403,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         ) : (
           <ShotTile
             label="National ID — BACK (required)"
-            hint="Turn the card over. The back carries the card number and the two lines of code."
+            hint="Turn your phone sideways. Keep the back wide and straight so the small print can be read."
             file={idBackPhoto}
             onPick={(f) => {
               setIdBackPhoto(f);
