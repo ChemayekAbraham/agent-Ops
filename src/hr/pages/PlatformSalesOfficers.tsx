@@ -1049,7 +1049,17 @@ export default function PlatformSalesOfficersPage() {
               </div>
               <div className="rounded-lg border bg-card px-3 py-2">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Net notes</div>
-                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedNetTotal}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-base font-bold tabular-nums sm:text-lg">{combinedNetTotal}/{combinedNetTarget}</div>
+                  <div
+                    className={cn(
+                      'text-sm font-bold tabular-nums',
+                      combinedNetTotal >= combinedNetTarget ? 'text-green-600' : 'text-red-600',
+                    )}
+                  >
+                    {combinedNetPct}%
+                  </div>
+                </div>
               </div>
               <div className="rounded-lg border bg-card px-3 py-2">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funded</div>
