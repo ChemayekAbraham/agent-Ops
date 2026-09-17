@@ -669,6 +669,12 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
   const handleAutoCollectFromWallet = async () => {
     if (!profile || !summary.activeRequest || !walletData) return;
+    if (awaitingLandlord) {
+      sonnerToast.error("Landlord not paid yet", {
+        description: "The landlord float is with you, but the landlord has not been paid. Collection opens once the landlord is paid.",
+      });
+      return;
+    }
     const collectAmount = Math.min(walletData.balance, summary.currentOutstanding);
     if (collectAmount <= 0) {
       toast({ title: 'No funds available', description: 'Tenant wallet is empty', variant: 'destructive' });
@@ -738,6 +744,9 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           (Date.parse(`${repaymentStartsOn}T00:00:00Z`) - Date.parse(`${todayEAT}T00:00:00Z`)) / 86400000))
       : 0;
   const repaymentNotStarted = daysUntilStart > 0;
+  // Landlord float has been released to the agent, but the landlord has not
+  // actually been paid yet — collection must stay closed until that happens.
+  const awaitingLandlord = summary.activeRequest?.status === 'approved';
 
   const activePct = summary.activeRequest && summary.activeRequest.total_repayment > 0
     ? Math.min(100, Math.round((summary.activeRequest.amount_repaid / summary.activeRequest.total_repayment) * 100))
@@ -1793,8 +1802,15 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                     floatLoading,
                     floatError,
                     rejected: summary.activeRequest?.status === 'rejected',
+                    awaitingLandlord,
                     profileId: profile?.id,
                   });
+                  if (awaitingLandlord) {
+                    sonnerToast.error("Landlord not paid yet", {
+                      description: "The landlord float is with you, but the landlord has not been paid. Collection opens once the landlord is paid.",
+                    });
+                    return;
+                  }
                   if (floatLoading) {
                     sonnerToast.info("Loading your float…", {
                       description: "Hold on a moment while we fetch your wallet float balance.",
@@ -1834,18 +1850,25 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                   }
                   setCollectDialogOpen(true);
                 }}
-                disabled={repaymentNotStarted}
+                disabled={repaymentNotStarted || awaitingLandlord}
                 className="w-full gap-2 text-base h-14 font-bold rounded-xl shadow-lg active:scale-[0.97] transition-transform"
-                variant="success"
+                variant={awaitingLandlord ? "warning" : "success"}
                 size="xl"
               >
-                {floatLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Banknote className="h-6 w-6" />}
+                {floatLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : awaitingLandlord ? <AlertTriangle className="h-6 w-6" /> : <Banknote className="h-6 w-6" />}
                 {floatLoading
                   ? 'Loading float...'
-                  : repaymentNotStarted
-                    ? (daysUntilStart === 1 ? 'Starts tomorrow' : `Starts in ${daysUntilStart} days`)
-                    : `Pay ${formatUGX(Math.min(summary.currentOutstanding, agentFloatBalance))}`}
+                  : awaitingLandlord
+                    ? 'Landlord not paid'
+                    : repaymentNotStarted
+                      ? (daysUntilStart === 1 ? 'Starts tomorrow' : `Starts in ${daysUntilStart} days`)
+                      : `Pay ${formatUGX(Math.min(summary.currentOutstanding, agentFloatBalance))}`}
               </Button>
+              {awaitingLandlord && (
+                <p className="text-xs text-warning leading-relaxed">
+                  Landlord float has been sent to you, but the landlord has not been paid yet. Collection opens once the landlord is paid.
+                </p>
+              )}
               {repaymentNotStarted && (
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Rent has been paid to the landlord. This tenant&apos;s first payment is due on{' '}
@@ -1879,7 +1902,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                 </div>
                 <Button
                   onClick={handleAutoCollectFromWallet}
-                  disabled={autoCollecting}
+                  disabled={autoCollecting || awaitingLandlord}
                   variant="outline"
                   className="w-full gap-2 text-base h-12 rounded-xl border-primary/30 active:scale-[0.97] transition-transform"
                 >
