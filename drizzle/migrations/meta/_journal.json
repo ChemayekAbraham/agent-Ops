@@ -1058,6 +1058,20 @@
       "when": 1789638100728,
       "tag": "0150_merchandise_installment_term_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1789642499421,
+      "tag": "0151_arrears_cap_at_plan_outstanding",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1789643050485,
+      "tag": "0152_arrears_never_bill_before_go_live",
+      "breakpoints": true
     }
   ]
 }
