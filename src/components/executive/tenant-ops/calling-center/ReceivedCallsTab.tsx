@@ -162,7 +162,8 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
             <p className="mt-1.5 text-[10px] text-muted-foreground">
               If they are not with us, just type their name and number below.
             </p>
-          </div>
+          </CCBlock>
+
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
