@@ -1310,6 +1310,13 @@
       "when": 1789679938360,
       "tag": "0186_restore_engrep_repetition_after_work_units_rebuild",
       "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1789680190436,
+      "tag": "0187_engrep_repetition_no_op_sibling_and_fp_moved_cte",
+      "breakpoints": true
     }
   ]
 }
