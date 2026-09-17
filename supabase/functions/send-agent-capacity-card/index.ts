@@ -288,25 +288,27 @@ Deno.serve(async (req) => {
       agentIds = [single];
     } else {
       const { data: roles, error: rolesErr } = await admin
-        .from("user_roles").select("user_id").eq("role", "agent");
+        .from("user_roles").select("user_id").eq("role", "agent").eq("enabled", true);
       if (rolesErr) throw rolesErr;
       agentIds = Array.from(new Set((roles || []).map((r: any) => r.user_id))).filter(Boolean);
     }
 
-    // Exclude anyone who ALSO holds the 'partner' role — partners must never
-    // receive the agent daily capacity card, even if they were granted the
-    // agent role for internal ops.
+    // Exclude anyone who ALSO holds the 'partner' or 'supporter' role — partners
+    // and supporters must never receive the agent daily capacity card, even if
+    // they were granted the agent role for internal ops.
     if (agentIds.length > 0) {
       const partnerIds = new Set<string>();
       for (const ids of chunk(agentIds, 200)) {
         const { data: partnerRows } = await admin
-          .from("user_roles").select("user_id").eq("role", "partner").in("user_id", ids);
+          .from("user_roles").select("user_id")
+          .in("role", ["partner", "supporter"]).in("user_id", ids);
         (partnerRows || []).forEach((r: any) => r.user_id && partnerIds.add(r.user_id));
       }
       if (partnerIds.size > 0) {
         agentIds = agentIds.filter((id) => !partnerIds.has(id));
       }
     }
+
 
     if (agentIds.length === 0) {
       return new Response(JSON.stringify({
