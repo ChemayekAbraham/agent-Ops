@@ -114,15 +114,18 @@ export default function NationalIdLinkFlow({
     status === 'rejected_by_owner' || status === 'rejected_by_staff' || status === 'expired';
 
   const doSend = async () => {
-    if (!requestId) return;
     try {
-      await send.mutateAsync(requestId);
+      const id = await ensureRequest();
+      await send.mutateAsync(id);
       toast.success('Code sent to the number on that National ID.');
       state.refetch();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not send the code.');
+      const msg = e instanceof Error ? e.message : 'Could not send the code.';
+      setStartError(msg);
+      toast.error(msg);
     }
   };
+
 
   const doVerify = async () => {
     if (!requestId) return;
