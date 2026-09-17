@@ -17,6 +17,8 @@ import { AlertTriangle, ClipboardList, Forward, Inbox, Send } from 'lucide-react
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { ConcernControlPanel } from '@/components/executive/tenant-ops/calling-center/ConcernControlPanel';
+import { CCEmpty, CC_ROW } from '@/components/executive/tenant-ops/calling-center/ccUi';
+
 import {
   CONCERN_ACTION_LABEL,
   CONCERN_PRIORITY_LABEL,
