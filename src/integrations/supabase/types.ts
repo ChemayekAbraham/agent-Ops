@@ -26721,6 +26721,36 @@ export type Database = {
         }
         Relationships: []
       }
+      national_id_unlink_notices: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          id: string
+          nin_masked: string
+          owner_name: string | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          nin_masked: string
+          owner_name?: string | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          nin_masked?: string
+          owner_name?: string | null
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -58505,6 +58535,7 @@ export type Database = {
         Args: { p_action: string; p_event_key: string; p_tenant_id: string }
         Returns: string
       }
+      mask_national_id: { Args: { p_nin: string }; Returns: string }
       match_email_ledger_credits: {
         Args: { p_refs: string[] }
         Returns: {
@@ -58803,6 +58834,7 @@ export type Database = {
           version_code: string
         }[]
       }
+      national_id_group_view: { Args: never; Returns: Json }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
       national_id_link_holder_requests: { Args: never; Returns: Json }
@@ -58829,6 +58861,11 @@ export type Database = {
       national_id_link_state: { Args: { p_request_id: string }; Returns: Json }
       national_id_name_twins: {
         Args: { p_name: string; p_user_id: string }
+        Returns: Json
+      }
+      national_id_unlink_ack: { Args: { p_id: string }; Returns: boolean }
+      national_id_unlink_member: {
+        Args: { p_member_id: string; p_reason: string }
         Returns: Json
       }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
