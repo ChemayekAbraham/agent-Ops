@@ -20,20 +20,52 @@ import {
   type NumberChangeRequest,
 } from '@/hooks/usePayoutNumberChange';
 
+/** Loose name comparison, only to flag an obvious mismatch for the reviewer. */
+function namesLookAlike(a?: string | null, b?: string | null) {
+  const parts = (v?: string | null) =>
+    (v ?? '')
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2);
+  const x = parts(a);
+  const y = parts(b);
+  if (!x.length || !y.length) return false;
+  return x.some((w) => y.includes(w));
+}
+
 function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boolean }) {
   const decide = useDecideNumberChange();
   const vetting = useNumberChangeVetting(r.id, !readOnly);
   const [reason, setReason] = useState('');
+  const [nameProof, setNameProof] = useState('');
+  const [nameChecked, setNameChecked] = useState(false);
   const [busy, setBusy] = useState<'approved' | 'rejected' | null>(null);
+
+  const idName = r.full_name ?? '';
+  const proofReady = nameChecked && nameProof.trim().length >= 25;
+  const looksSame = namesLookAlike(idName, r.requested_name);
 
   const act = async (decision: 'approved' | 'rejected') => {
     if (reason.trim().length < 10) {
       toast.error('Write at least 10 characters explaining the decision.');
       return;
     }
+    if (decision === 'approved' && !proofReady) {
+      toast.error(
+        'Confirm the number is registered in the names on the National ID, and write the proof statement (25 characters minimum).',
+      );
+      return;
+    }
     setBusy(decision);
     try {
-      await decide.mutateAsync({ id: r.id, decision, reason: reason.trim() });
+      const note =
+        decision === 'approved'
+          ? `NAME CHECK on ${r.requested_number} (${(r.requested_provider ?? '').toUpperCase()}) — registered names match National ID ${
+              r.national_id ?? 'not recorded'
+            } (${idName || 'name not on file'}): ${nameProof.trim()} | Decision: ${reason.trim()}`
+          : reason.trim();
+      await decide.mutateAsync({ id: r.id, decision, reason: note });
       toast.success(
         decision === 'approved'
           ? 'Approved. Their withdrawal number now points to the new line.'
