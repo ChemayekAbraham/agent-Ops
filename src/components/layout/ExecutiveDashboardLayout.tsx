@@ -4,7 +4,7 @@ import { useAuth, type AppRole } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { LogOut, Menu, X, ArrowLeft, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
+import { LogOut, Menu, X, ArrowLeft, RotateCcw, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Search } from 'lucide-react';
 import RoleSwitcher from '@/components/RoleSwitcher';
 import { SidebarSkeleton, TopBarSkeleton } from '@/components/skeletons/SectionSkeletons';
@@ -50,6 +50,26 @@ export default function ExecutiveDashboardLayout({
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Desktop sidebar can be tucked away ("moved out") to give the content the
+  // full width, and brought back with the same control. Persisted per browser.
+  const [sidebarHidden, setSidebarHidden] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('exec-sidebar-hidden') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleSidebar = () => {
+    setSidebarHidden((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem('exec-sidebar-hidden', next ? '1' : '0');
+      } catch {
+        /* storage unavailable */
+      }
+      return next;
+    });
+  };
   const [checkingProfile, setCheckingProfile] = useState(true);
   const [navQuery, setNavQuery] = useState('');
   const loggedRef = useRef(false);
