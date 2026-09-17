@@ -72,6 +72,8 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
           : 'Rejected. Their withdrawal number stays as it was.',
       );
       setReason('');
+      setNameProof('');
+      setNameChecked(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not save the decision.');
     } finally {
