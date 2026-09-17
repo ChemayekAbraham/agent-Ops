@@ -15,7 +15,34 @@ import {
 import { toast } from 'sonner';
 import {
   Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Building2, Wallet, Paperclip, Upload, X, FileText,
+  Landmark,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { staffLoanSchedule, MONTH_WORDS, STAFF_LOAN_MAX_MONTHS } from '@/lib/staffLoanSchedule';
+
+type RequestKind = 'requisition' | 'staff_loan';
+
+interface LoanEligibility {
+  eligible: boolean;
+  monthly_rate?: number;
+  max_months?: number;
+  active_loans?: number;
+  outstanding?: number;
+}
+
+interface StaffLoan {
+  id: string;
+  requisition_id: string;
+  principal: number;
+  months: number;
+  monthly_rate: number;
+  outstanding_principal: number;
+  accrued_interest: number;
+  total_repaid: number;
+  status: string;
+  started_on: string;
+  due_on: string | null;
+}
 
 interface Requisition {
   id: string;
@@ -34,6 +61,8 @@ interface Requisition {
   credited_at: string | null;
   created_at: string;
   attachment_urls: string[] | null;
+  request_kind: RequestKind | null;
+  loan_months: number | null;
 }
 
 interface ReqEvent {
@@ -129,6 +158,10 @@ const MyRequisitions = () => {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [viewingPath, setViewingPath] = useState<string | null>(null);
   const [usageReports, setUsageReports] = useState<Record<string, UsageReport>>({});
+  const [kind, setKind] = useState<RequestKind>('requisition');
+  const [months, setMonths] = useState(3);
+  const [loanInfo, setLoanInfo] = useState<LoanEligibility | null>(null);
+  const [loans, setLoans] = useState<StaffLoan[]>([]);
 
   const fetchRows = useCallback(async () => {
     const { data: userRes } = await supabase.auth.getUser();
@@ -172,6 +205,19 @@ const MyRequisitions = () => {
 
   useEffect(() => { void fetchRows(); }, [fetchRows]);
 
+  // Who may borrow, and what they already owe.
+  const fetchLoans = useCallback(async () => {
+    const { data: elig } = await supabase.rpc('my_staff_loan_eligibility');
+    setLoanInfo((elig ?? null) as unknown as LoanEligibility | null);
+    const { data: loanRows } = await supabase
+      .from('staff_loans')
+      .select('id, requisition_id, principal, months, monthly_rate, outstanding_principal, accrued_interest, total_repaid, status, started_on, due_on')
+      .order('created_at', { ascending: false });
+    setLoans((loanRows || []) as unknown as StaffLoan[]);
+  }, []);
+
+  useEffect(() => { void fetchLoans(); }, [fetchLoans]);
+
   useEffect(() => {
     const channel = supabase
       .channel('my-staff-requisitions')
@@ -205,8 +251,10 @@ const MyRequisitions = () => {
   }, [route]);
 
 
-  const startNew = () => {
+  const startNew = (nextKind: RequestKind = 'requisition') => {
     setResubmitId(null);
+    setKind(nextKind);
+    setMonths(3);
     setForm(EMPTY_FORM);
     setSelectedFiles([]);
     setOpen(true);
@@ -214,6 +262,8 @@ const MyRequisitions = () => {
 
   const startResubmit = (row: Requisition) => {
     setResubmitId(row.id);
+    setKind(row.request_kind === 'staff_loan' ? 'staff_loan' : 'requisition');
+    setMonths(row.loan_months ?? 3);
     setSelectedFiles([]);
     setForm({
       title: row.title,
@@ -259,8 +309,10 @@ const MyRequisitions = () => {
         category: form.category.trim() || null,
         needed_by: form.needed_by || null,
         reason: form.reason.trim(),
+        request_kind: kind,
+        ...(kind === 'staff_loan' ? { loan_months: months } : {}),
       },
-      errorTitle: 'Could not submit your requisition',
+      errorTitle: kind === 'staff_loan' ? 'Could not submit your loan request' : 'Could not submit your requisition',
     });
 
     if (!error) {
@@ -278,12 +330,17 @@ const MyRequisitions = () => {
         }
       }
 
-      toast.success(resubmitId ? 'Requisition resubmitted' : 'Requisition submitted for review');
+      toast.success(
+        resubmitId
+          ? 'Request resubmitted'
+          : kind === 'staff_loan' ? 'Loan request submitted for review' : 'Requisition submitted for review',
+      );
       setOpen(false);
       setForm(EMPTY_FORM);
       setSelectedFiles([]);
       setResubmitId(null);
       await fetchRows();
+      await fetchLoans();
     }
     setSubmitting(false);
   };
@@ -334,16 +391,31 @@ const MyRequisitions = () => {
               </p>
             </div>
             <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setResubmitId(null); }}>
-              <DialogTrigger asChild>
-                <Button onClick={startNew}>
-                  <Plus className="mr-2 h-4 w-4" /> New requisition
-                </Button>
-              </DialogTrigger>
+              <div className="flex flex-wrap gap-2">
+                <DialogTrigger asChild>
+                  <Button onClick={() => startNew('requisition')}>
+                    <Plus className="mr-2 h-4 w-4" /> New requisition
+                  </Button>
+                </DialogTrigger>
+                {loanInfo?.eligible && (
+                  <DialogTrigger asChild>
+                    <Button variant="outline" onClick={() => startNew('staff_loan')}>
+                      <Landmark className="mr-2 h-4 w-4" /> Request a loan
+                    </Button>
+                  </DialogTrigger>
+                )}
+              </div>
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>{resubmitId ? 'Update and resubmit' : 'New requisition'}</DialogTitle>
+                  <DialogTitle>
+                    {resubmitId
+                      ? 'Update and resubmit'
+                      : kind === 'staff_loan' ? 'Request a loan' : 'New requisition'}
+                  </DialogTitle>
                   <DialogDescription>
-                    Approvers see your department budget alongside the request.
+                    {kind === 'staff_loan'
+                      ? 'Reviewed by your department head, then the COO, then the CFO — the same as a requisition. Charged 30% a month on what you still owe.'
+                      : 'Approvers see your department budget alongside the request.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-3">
@@ -377,6 +449,60 @@ const MyRequisitions = () => {
                       />
                     </div>
                   </div>
+                  {kind === 'staff_loan' && (
+                    <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="loan-months">How long do you need to repay</Label>
+                        <Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
+                          <SelectTrigger id="loan-months">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: STAFF_LOAN_MAX_MONTHS }, (_, i) => i + 1).map((m) => (
+                              <SelectItem key={m} value={String(m)}>{MONTH_WORDS[m - 1]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {Number(form.amount) > 0 && (() => {
+                        const s = staffLoanSchedule(Number(form.amount), months);
+                        return (
+                          <div className="space-y-2 text-xs">
+                            <div className="grid grid-cols-2 gap-2">
+                              <p>First month due<br /><span className="text-sm font-semibold text-foreground">{formatUGX(s.firstMonthDue)}</span></p>
+                              <p>Total to repay<br /><span className="text-sm font-semibold text-foreground">{formatUGX(s.totalRepayable)}</span></p>
+                            </div>
+                            <div className="overflow-hidden rounded-lg border bg-background">
+                              <table className="w-full text-[11px]">
+                                <thead className="bg-muted/50 text-muted-foreground">
+                                  <tr>
+                                    <th className="px-2 py-1 text-left">Month</th>
+                                    <th className="px-2 py-1 text-right">Balance</th>
+                                    <th className="px-2 py-1 text-right">30% charge</th>
+                                    <th className="px-2 py-1 text-right">Due</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {s.months.map((m) => (
+                                    <tr key={m.month} className="border-t">
+                                      <td className="px-2 py-1">{m.month}</td>
+                                      <td className="px-2 py-1 text-right">{formatUGX(m.openingBalance)}</td>
+                                      <td className="px-2 py-1 text-right">{formatUGX(m.charge)}</td>
+                                      <td className="px-2 py-1 text-right font-medium">{formatUGX(m.due)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <p className="text-muted-foreground">
+                              The charge is 30% of what you still owe at the start of each month, so it falls as you repay.
+                              Repayments are taken from your wallet as money comes in.
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="req-category">Category (optional)</Label>
                     <Input
@@ -451,13 +577,47 @@ const MyRequisitions = () => {
                   <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Cancel</Button>
                   <Button onClick={() => void submit()} disabled={submitting}>
                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {resubmitId ? 'Resubmit' : 'Submit for review'}
+                    {resubmitId ? 'Resubmit' : kind === 'staff_loan' ? 'Submit loan request' : 'Submit for review'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
         </Card>
+
+        {loans.length > 0 && (
+          <Card className="rounded-2xl p-4">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <Landmark className="h-4 w-4 text-primary" /> Your loans
+            </p>
+            <div className="mt-3 space-y-2">
+              {loans.map((l) => (
+                <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
+                  <div>
+                    <p className="font-medium">
+                      {formatUGX(Number(l.principal))} over {l.months} {l.months === 1 ? 'month' : 'months'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Started {fmtDate(l.started_on)} • repaid {formatUGX(Number(l.total_repaid))}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    {l.status === 'completed' ? (
+                      <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700">Cleared</Badge>
+                    ) : (
+                      <>
+                        <p className="font-semibold">
+                          {formatUGX(Number(l.outstanding_principal) + Number(l.accrued_interest))}
+                        </p>
+                        <p className="text-xs text-muted-foreground">still owing</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {loading ? (
           <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
@@ -476,6 +636,12 @@ const MyRequisitions = () => {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs text-muted-foreground">{row.requisition_code}</span>
                       <StatusPill row={row} />
+                      {row.request_kind === 'staff_loan' && (
+                        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                          <Landmark className="mr-1 h-3 w-3" />
+                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • 30%/month
+                        </Badge>
+                      )}
                     </div>
                     <p className="font-semibold">{row.title}</p>
                     <p className="text-xs text-muted-foreground">Raised {fmtDate(row.created_at)}</p>

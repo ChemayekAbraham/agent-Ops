@@ -38631,6 +38631,118 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_loan_repayments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          interest_component: number
+          loan_id: string
+          note: string | null
+          principal_component: number
+          source: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          interest_component?: number
+          loan_id: string
+          note?: string | null
+          principal_component?: number
+          source?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          interest_component?: number
+          loan_id?: string
+          note?: string | null
+          principal_component?: number
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_loan_repayments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "staff_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_loans: {
+        Row: {
+          accrued_interest: number
+          completed_at: string | null
+          created_at: string
+          due_on: string | null
+          id: string
+          interest_charged_total: number
+          last_accrued_on: string
+          monthly_rate: number
+          months: number
+          outstanding_principal: number
+          principal: number
+          requisition_id: string
+          started_on: string
+          status: string
+          total_repaid: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accrued_interest?: number
+          completed_at?: string | null
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          interest_charged_total?: number
+          last_accrued_on?: string
+          monthly_rate?: number
+          months?: number
+          outstanding_principal?: number
+          principal: number
+          requisition_id: string
+          started_on?: string
+          status?: string
+          total_repaid?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accrued_interest?: number
+          completed_at?: string | null
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          interest_charged_total?: number
+          last_accrued_on?: string
+          monthly_rate?: number
+          months?: number
+          outstanding_principal?: number
+          principal?: number
+          requisition_id?: string
+          started_on?: string
+          status?: string
+          total_repaid?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_loans_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: true
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_permissions: {
         Row: {
           granted_at: string | null
@@ -38870,9 +38982,12 @@ export type Database = {
           department_key: string | null
           final_stage: string
           id: string
+          loan_monthly_rate: number | null
+          loan_months: number | null
           needed_by: string | null
           reason: string
           rejection_reason: string | null
+          request_kind: string
           requester_id: string
           requester_name: string | null
           requester_role: string | null
@@ -38911,9 +39026,12 @@ export type Database = {
           department_key?: string | null
           final_stage?: string
           id?: string
+          loan_monthly_rate?: number | null
+          loan_months?: number | null
           needed_by?: string | null
           reason: string
           rejection_reason?: string | null
+          request_kind?: string
           requester_id: string
           requester_name?: string | null
           requester_role?: string | null
@@ -38952,9 +39070,12 @@ export type Database = {
           department_key?: string | null
           final_stage?: string
           id?: string
+          loan_monthly_rate?: number | null
+          loan_months?: number | null
           needed_by?: string | null
           reason?: string
           rejection_reason?: string | null
+          request_kind?: string
           requester_id?: string
           requester_name?: string | null
           requester_role?: string | null
@@ -58834,6 +58955,7 @@ export type Database = {
           version_code: string
         }[]
       }
+      my_staff_loan_eligibility: { Args: never; Returns: Json }
       national_id_group_view: { Args: never; Returns: Json }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
@@ -61650,6 +61772,21 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      staff_loan_accrue_interest: {
+        Args: never
+        Returns: {
+          interest_charged: number
+          loans_charged: number
+        }[]
+      }
+      staff_loan_recover_from_wallet: {
+        Args: { p_max_amount?: number; p_source?: string; p_user_id: string }
+        Returns: {
+          closed: boolean
+          loan_id: string
+          recovered: number
+        }[]
+      }
       staff_requisition_reduce_amount: {
         Args: {
           p_new_amount: number
@@ -61805,6 +61942,13 @@ export type Database = {
       sweep_merchant_payout_float_debits: {
         Args: { p_days?: number; p_dry_run?: boolean }
         Returns: Json
+      }
+      sweep_staff_loan_recovery: {
+        Args: never
+        Returns: {
+          total_recovered: number
+          users_swept: number
+        }[]
       }
       sweep_withdrawal_settlement_states: {
         Args: { p_days?: number; p_limit?: number }
