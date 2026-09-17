@@ -286,15 +286,77 @@ export function ConcernsReviewTab() {
                 done.length /
                 3_600_000
               : null;
+          const lateHours = list.map(concernOverdueHours).filter((h) => h > 0);
+          const onTime = done.filter((c) => concernOverdueHours(c) === 0).length;
           return {
             name,
             total: list.length,
             completed: done.length,
             overdue: list.filter(isConcernOverdue).length,
             avgHours: avg == null ? '—' : `${avg.toFixed(1)} hours`,
+            reassignedIn: list.filter((c) => c.reassigned_count > 0 && c.forwarded_to_name === name).length,
+            onTime,
+            avgLate: lateHours.length
+              ? `${(lateHours.reduce((a, b) => a + b, 0) / lateHours.length).toFixed(1)} hours`
+              : '—',
           };
         })
         .sort((a, b) => b.total - a.total);
+
+      // Deadline performance across the filtered set.
+      const withDue = rows.filter((c) => !!c.due_at);
+      const late = rows.filter((c) => concernOverdueHours(c) > 0);
+      const lateTotal = late.reduce((a, c) => a + concernOverdueHours(c), 0);
+      const deadlinePerformance = [
+        { label: 'Concerns with an answer time', value: String(withDue.length) },
+        { label: 'Standard 24 hours', value: String(withDue.filter((c) => !c.due_is_custom).length) },
+        { label: 'Answer time adjusted', value: String(withDue.filter((c) => c.due_is_custom).length) },
+        {
+          label: 'Answered within the time',
+          value: String(rows.filter((c) => c.status === 'completed' && concernOverdueHours(c) === 0).length),
+        },
+        { label: 'Ran past the time', value: String(late.length) },
+        {
+          label: 'Average time past due',
+          value: late.length ? `${(lateTotal / late.length).toFixed(1)} hours` : '—',
+        },
+        {
+          label: 'Longest past due',
+          value: late.length ? `${Math.max(...late.map(concernOverdueHours)).toFixed(1)} hours` : '—',
+        },
+      ];
+
+      // Reassignment history, straight from the append-only trail.
+      let reassignments: {
+        when: string;
+        concern: string;
+        from: string;
+        to: string;
+        by: string;
+        reason: string;
+      }[] = [];
+      const reassignedRows = rows.filter((c) => c.reassigned_count > 0);
+      if (reassignedRows.length) {
+        const { data: evts } = await (supabase as any)
+          .from('cc_forwarded_concern_events')
+          .select('concern_id, action, actor_name, prev_user_name, new_user_name, reason, created_at')
+          .in(
+            'concern_id',
+            reassignedRows.slice(0, 300).map((c) => c.id),
+          )
+          .eq('action', 'reassigned')
+          .order('created_at', { ascending: true });
+        const titleById = new Map(rows.map((c) => [c.id, c.title]));
+        reassignments = (evts ?? []).map((e: any) => ({
+          when: stamp(e.created_at),
+          concern: titleById.get(e.concern_id) ?? '—',
+          from: e.prev_user_name ?? '—',
+          to: e.new_user_name ?? '—',
+          by: e.actor_name ?? '—',
+          reason: e.reason ?? '—',
+        }));
+      }
+
 
       const recommendations: { title: string; detail: string }[] = [];
       const overdue = rows.filter(isConcernOverdue).length;
