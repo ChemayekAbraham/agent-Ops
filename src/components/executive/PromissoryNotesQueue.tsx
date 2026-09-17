@@ -243,6 +243,10 @@ export function PromissoryNotesQueue({
     initialStatusFilter ?? localStorage.getItem('promissory-queue-status-filter') ?? 'all'
   );
   const { range, setRange, report, isLoading, refetch, error: reportError } = usePromissoryOpsReport();
+  // Fuzzy "may already be here" suggestions (name-based, confirm-first).
+  const arrivals = usePromissoryArrivalSuggestions();
+  const [matchReason, setMatchReason] = useState('');
+  const suggestionFor = (noteId: string) => arrivals.byNote.get(noteId)?.[0] ?? null;
   useEffect(() => {
     if (initialRange && initialRange !== range) {
       setRange(initialRange as any);
