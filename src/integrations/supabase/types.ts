@@ -48153,6 +48153,7 @@ export type Database = {
           sources: string[] | null
           unit_key: string | null
           unit_kind: string | null
+          unit_state: string | null
           verified_live: boolean | null
           window_id: string | null
         }
