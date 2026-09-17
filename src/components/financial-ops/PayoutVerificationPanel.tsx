@@ -1965,6 +1965,10 @@ export default function PayoutVerificationPanel() {
                 <span className="truncate text-right font-semibold">{confirmingVerify.national_id_name || '—'}</span>
               </div>
               <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Name on the number</span>
+                <span className="truncate text-right font-semibold">{nameCheck?.networkName || '—'}</span>
+              </div>
+              <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Amount</span>
                 <span className="text-right font-semibold">{formatUGX(confirmingVerify.withdrawable_balance)}</span>
               </div>
