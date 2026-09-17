@@ -1020,21 +1020,6 @@ export default function PlatformSalesOfficersPage() {
                       </td>
                     </tr>
                   ))}
-                  <tr className="border-t bg-muted/50">
-                    <td className="px-4 py-2 text-left font-semibold">
-                      Against goal ({combinedNetGoal.toLocaleString('en-UG')} notes)
-                    </td>
-                    <td className="px-2 py-2" colSpan={dayIndices.length} />
-                    <td
-                      className={cn(
-                        'px-4 py-2 text-right font-bold tabular-nums',
-                        combinedTotals.netNotes >= combinedNetGoal ? 'text-green-600' : 'text-red-600',
-                      )}
-                    >
-                      {combinedNetPct}%
-                    </td>
-                    <td className="px-4 py-2" colSpan={7} />
-                  </tr>
                 </tbody>
               </table>
             </div>
