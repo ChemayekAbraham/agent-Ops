@@ -779,20 +779,12 @@ export default function MerchandiseStore() {
                 </span>
               </div>
 
-              <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
-                <span className="text-muted-foreground">Item price ({qty} × {formatUGX(Number(selected.unit_price))})</span>
-                <span className="font-semibold">{formatUGX(orderTotal)}</span>
-              </div>
               <div className={`rounded-lg px-3 py-2 flex justify-between text-sm ${insufficient ? 'bg-destructive/10 text-destructive' : 'bg-primary/5 text-foreground'}`}>
                 <span className="text-muted-foreground">{payMode === 'full' ? 'Total to debit now' : 'Due now'}</span>
                 <span className="font-bold">{formatUGX(payMode === 'full' ? orderTotal : 0)}</span>
               </div>
               {payMode === 'installment' && (
                 <>
-                  <div className="rounded-lg bg-amber-500/10 px-3 py-2 flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total over {termMonths} month{termMonths === 1 ? '' : 's'}</span>
-                    <span className="font-semibold">{formatUGX(termTotalRepayable)}</span>
-                  </div>
                   <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 flex gap-2 text-[11px] text-muted-foreground">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                     <p>
