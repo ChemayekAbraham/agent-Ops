@@ -52791,6 +52791,10 @@ export type Database = {
         Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: boolean
       }
+      cc_can_view_concern: {
+        Args: { p_concern_id: string; p_user_id?: string }
+        Returns: boolean
+      }
       cc_can_write_subject: {
         Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: boolean
