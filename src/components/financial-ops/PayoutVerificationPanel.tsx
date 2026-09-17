@@ -590,7 +590,7 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
 
       <p className="mt-2 text-[11px] text-muted-foreground">
         {data.dateOfBirth ? `Born ${data.dateOfBirth} · ` : ''}
-        {' · Read '}
+        {'Read '}
         {new Date(data.readAt).toLocaleString('en-GB', {
           day: '2-digit',
           month: 'short',
