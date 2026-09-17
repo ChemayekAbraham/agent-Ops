@@ -302,21 +302,20 @@ Deno.serve(async (req) => {
             // evidence a fingerprint move is for a function. Best-effort: a file-touch
             // failure must never abort a harvested commit.
             try {
-              for (const f of files) {
-                const path = String(f.filename ?? "");
-                const blobSha = String(f.sha ?? "");
-                if (!path || !blobSha) continue;
-                const { error: touchErr } = await admin.rpc("engrep_svc_record_file_touch", {
+              const touchPayload = files
+                .map((f) => ({ path: String(f.filename ?? ""), blob_sha: String(f.sha ?? "") }))
+                .filter((t) => t.path && t.blob_sha);
+              if (touchPayload.length > 0) {
+                const { data: n, error: touchErr } = await admin.rpc("engrep_svc_record_file_touches", {
                   p_window_id: windowId,
                   p_evidence_ref: c.sha,
-                  p_path: path,
-                  p_blob_sha: blobSha,
-                  p_engineer_id: (eng as any)?.id ?? null,
                   p_source: source,
+                  p_engineer_id: (eng as any)?.id ?? null,
                   p_touched_at: c?.commit?.author?.date ?? null,
+                  p_files: touchPayload,
                 });
                 if (touchErr) throw new Error(touchErr.message);
-                fileTouchesRecorded++;
+                fileTouchesRecorded += Number(n ?? 0);
               }
             } catch (_touchErr) { /* file-touch evidence is best-effort */ }
           }
