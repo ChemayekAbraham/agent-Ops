@@ -635,8 +635,13 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
  * dates of issue/expiry, residence, MRZ state, and whether the photo looks like
  * the front again.
  */
-function StoredIdBackReadingCard({ row }: { row: PayoutDestinationRow }) {
-  const backPath = useIdentityPhotosFor(row.user_id).data?.national_id_back_photo_path ?? null;
+function StoredIdBackReadingCard({
+  row,
+  backPath,
+}: {
+  row: PayoutDestinationRow;
+  backPath: string | null;
+}) {
   const { data, isLoading } = useStoredIdBackReading(backPath);
   const frontReading = useStoredIdReading(row.user_id);
   const frontCardNumber = frontReading.data?.cardNumber ?? null;
