@@ -98,6 +98,25 @@ interface MrzResult {
   checksums_ok: boolean | null;
 }
 
+const FINANCE_ROLES = ["financial_ops", "cfo", "manager", "super_admin", "ceo", "coo"];
+
+/** True when the caller is allowed to read another user's identity photo. */
+async function isFinanceReviewer(
+  admin: ReturnType<typeof createClient>,
+  callerId: string,
+): Promise<boolean> {
+  try {
+    const checks = await Promise.all(
+      FINANCE_ROLES.map((role) =>
+        admin.rpc("has_role", { _user_id: callerId, _role: role }).then(({ data }) => data === true)
+      ),
+    );
+    return checks.some(Boolean);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Parses the machine-readable zone out of whatever text the model transcribed.
  * The MRZ is self-verifying, which is why it — not the model's prose — is the
@@ -184,7 +203,10 @@ Deno.serve(async (req) => {
       if (raw.length > MAX_BASE64) return json({ error: "That photo is too large." }, 400);
       dataUrl = raw.startsWith("data:") ? raw : `data:image/jpeg;base64,${raw}`;
     } else if (body?.storagePath) {
-      if (body.storagePath.split("/")[0] !== user.id) {
+      const ownerId = body.storagePath.split("/")[0];
+      if (
+        ownerId !== user.id && !(await isFinanceReviewer(adminClient, user.id))
+      ) {
         return json({ error: "That photo does not belong to you." }, 403);
       }
       const { data: file, error: dlErr } = await adminClient.storage
