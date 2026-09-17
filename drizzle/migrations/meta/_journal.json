@@ -1233,6 +1233,13 @@
       "when": 1789661177306,
       "tag": "0175_fix_calling_concern_policy_recursion",
       "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1789661251929,
+      "tag": "0176_restrict_internal_targets_and_hr_metrics_to_staff",
+      "breakpoints": true
     }
   ]
 }
