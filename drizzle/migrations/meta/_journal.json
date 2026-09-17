@@ -1072,6 +1072,13 @@
       "when": 1789636256730,
       "tag": "0152_promissory_note_email_required",
       "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1789636323958,
+      "tag": "0153_promissory_fuzzy_arrival_suggestions",
+      "breakpoints": true
     }
   ]
 }

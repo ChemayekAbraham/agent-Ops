@@ -59982,6 +59982,14 @@ export type Database = {
         Args: { p_at?: string; p_kind: string }
         Returns: number
       }
+      promissory_confirm_arrival_match: {
+        Args: { p_note_id: string; p_reason: string; p_user_id: string }
+        Returns: Json
+      }
+      promissory_fuzzy_arrival_suggestions: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       promissory_self_support_context: {
         Args: { p_user: string }
         Returns: Json
