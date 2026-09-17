@@ -13312,6 +13312,39 @@ export type Database = {
           },
         ]
       }
+      engrep_catalog_movement: {
+        Row: {
+          captured_for: string
+          fingerprint: string
+          moved_from_prev: boolean
+          moved_nearby: boolean
+          object_base: string
+          object_key: string
+          object_kind: string
+          prev_fingerprint: string | null
+        }
+        Insert: {
+          captured_for: string
+          fingerprint: string
+          moved_from_prev?: boolean
+          moved_nearby?: boolean
+          object_base: string
+          object_key: string
+          object_kind: string
+          prev_fingerprint?: string | null
+        }
+        Update: {
+          captured_for?: string
+          fingerprint?: string
+          moved_from_prev?: boolean
+          moved_nearby?: boolean
+          object_base?: string
+          object_key?: string
+          object_kind?: string
+          prev_fingerprint?: string | null
+        }
+        Relationships: []
+      }
       engrep_catalog_snapshot: {
         Row: {
           captured_at: string
@@ -54319,6 +54352,10 @@ export type Database = {
       engrep_path_owner: {
         Args: { p_on: string; p_paths: string[] }
         Returns: string
+      }
+      engrep_refresh_catalog_movement: {
+        Args: { p_since?: string }
+        Returns: number
       }
       engrep_resolve_claim: {
         Args: { p_day: string; p_names: string[] }
