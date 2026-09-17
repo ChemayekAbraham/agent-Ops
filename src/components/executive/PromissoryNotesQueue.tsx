@@ -327,6 +327,57 @@ export function PromissoryNotesQueue({
     },
   });
 
+  // Possible-match suggestions: notes whose partner registered under a slightly
+  // different name/email. Server-side only, never auto-linked — staff confirm.
+  const { data: fuzzySuggestions = [], refetch: refetchFuzzy } = useQuery({
+    queryKey: ['promissory-fuzzy-arrival-suggestions'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('promissory_fuzzy_arrival_suggestions' as any, {});
+      if (error) throw error;
+      return ((data as any)?.suggestions as any[]) || [];
+    },
+  });
+
+  const suggestionsByNote = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const s of fuzzySuggestions) {
+      const list = map.get(s.note_id) || [];
+      list.push(s);
+      map.set(s.note_id, list);
+    }
+    return map;
+  }, [fuzzySuggestions]);
+
+  const [matchReason, setMatchReason] = useState('');
+  const [matchingId, setMatchingId] = useState<string | null>(null);
+
+  const confirmFuzzyMatch = async (noteId: string, candidateUserId: string, candidateName: string) => {
+    const reason = matchReason.trim();
+    if (reason.length < 10) {
+      toast.error('Write a reason of at least 10 characters before linking.');
+      return;
+    }
+    setMatchingId(candidateUserId);
+    try {
+      const { error } = await supabase.rpc('promissory_confirm_arrival_match' as any, {
+        p_note_id: noteId,
+        p_user_id: candidateUserId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+      toast.success(`Note linked to ${candidateName}.`);
+      setMatchReason('');
+      setSelectedNote(null);
+      await refetchFuzzy();
+      queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not link this note.');
+    } finally {
+      setMatchingId(null);
+    }
+  };
+
   const handleReverseBonus = async () => {
     if (!rejectTarget) return;
     const reason = rejectReason.trim();
