@@ -88,13 +88,20 @@ function ConcernTimelineDialog({ concern, onClose }: { concern: ForwardedConcern
             <div className="rounded-lg border border-border bg-muted/40 p-2.5 text-[11px]">
               <p>
                 <span className="font-semibold">{concern.forwarded_by_name ?? 'Officer'}</span> forwarded this to{' '}
-                <span className="font-semibold">{concern.forwarded_to_name ?? 'staff member'}</span> on{' '}
-                {stamp(concern.created_at)}
+                <span className="font-semibold">
+                  {concern.original_forwarded_to_name ?? concern.forwarded_to_name ?? 'staff member'}
+                </span>{' '}
+                on {stamp(concern.created_at)}
               </p>
+              {concern.reassigned_count > 0 && (
+                <p className="mt-0.5 font-semibold text-primary">
+                  Now with {concern.forwarded_to_name ?? '—'} after {concern.reassigned_count} change
+                  {concern.reassigned_count === 1 ? '' : 's'}
+                </p>
+              )}
               <p className="mt-0.5 text-muted-foreground">
                 {concern.source_kind === 'received_call' ? 'From a call that came in' : 'From a call we made'}
-                {concern.caller_name ? ` · about ${concern.caller_name}` : ''} · answer expected by{' '}
-                {stamp(concern.due_at)}
+                {concern.caller_name ? ` · about ${concern.caller_name}` : ''}
               </p>
             </div>
             {concern.context && <p className="text-[11px] leading-snug">{concern.context}</p>}
