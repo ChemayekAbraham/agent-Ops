@@ -573,9 +573,20 @@ export function ConcernsReviewTab() {
                       <Badge className={`${statusTone[c.status] ?? ''} text-[10px] hover:opacity-100`}>
                         {CONCERN_STATUS_LABEL[c.status as ConcernStatus] ?? c.status}
                       </Badge>
-                      {isConcernOverdue(c) && (
+                      {isConcernOverdue(c) ? (
                         <Badge variant="outline" className="border-destructive/40 text-[10px] text-destructive">
-                          Past due
+                          {concernTimeLeft(c).label}
+                        </Badge>
+                      ) : (
+                        c.status !== 'completed' && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {concernTimeLeft(c).label}
+                          </Badge>
+                        )
+                      )}
+                      {c.reassigned_count > 0 && (
+                        <Badge variant="outline" className="border-primary/40 text-[10px] text-primary">
+                          Reassigned {c.reassigned_count}×
                         </Badge>
                       )}
                       <Badge variant="outline" className="text-[10px] capitalize">
@@ -583,6 +594,12 @@ export function ConcernsReviewTab() {
                       </Badge>
                     </div>
                   </div>
+                  {c.reassigned_count > 0 && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      First sent to {c.original_forwarded_to_name ?? '—'} · changed by{' '}
+                      {c.last_reassigned_by_name ?? '—'}
+                    </p>
+                  )}
                   {c.outcome && (
                     <p className="mt-1.5 text-[11px] leading-snug text-emerald-700">Resolved: {c.outcome}</p>
                   )}
