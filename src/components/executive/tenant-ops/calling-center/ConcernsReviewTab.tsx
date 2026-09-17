@@ -371,6 +371,12 @@ export function ConcernsReviewTab() {
           title: `${untouched} not yet picked up`,
           detail: 'The person it was sent to has not confirmed they have it. Confirm they saw it in their My Space.',
         });
+      if (reassignments.length)
+        recommendations.push({
+          title: `${reassignments.length} hand-off${reassignments.length === 1 ? '' : 's'} changed to someone else`,
+          detail:
+            'Check whether the concerns are being sent to the right desk first — repeated changes usually mean the wrong person is being picked.',
+        });
       const themes = repeatThemes(rows);
       if (themes.length)
         recommendations.push({
