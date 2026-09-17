@@ -22,9 +22,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { KPICard } from '../../KPICard';
 import { ForwardConcernDialog, type ForwardConcernSource } from './ForwardConcernDialog';
 import { useCcCallHistory } from '@/hooks/useCcCallHistory';
+import { ConcernControlPanel } from './ConcernControlPanel';
 import {
+  CONCERN_ACTION_LABEL,
   CONCERN_PRIORITY_LABEL,
   CONCERN_STATUS_LABEL,
+  concernOverdueHours,
+  concernTimeLeft,
   isConcernOverdue,
   useConcernEvents,
   useForwardedConcerns,
