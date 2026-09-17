@@ -59903,6 +59903,14 @@ export type Database = {
       }
       person_name_key: { Args: { p_name: string }; Returns: string }
       pin_agent_expected_day: { Args: { p_day: string }; Returns: number }
+      pin_agent_expected_day_catchup: {
+        Args: { p_lookback_days?: number }
+        Returns: Json
+      }
+      pin_agent_expected_day_for_plan: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       populate_wallet_review_queue: {
         Args: never
         Returns: {

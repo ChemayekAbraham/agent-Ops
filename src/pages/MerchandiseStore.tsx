@@ -789,10 +789,6 @@ export default function MerchandiseStore() {
               </div>
               {payMode === 'installment' && (
                 <>
-                  <div className="rounded-lg bg-amber-500/10 px-3 py-2 flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total over {termMonths} month{termMonths === 1 ? '' : 's'}</span>
-                    <span className="font-semibold">{formatUGX(termTotalRepayable)}</span>
-                  </div>
                   <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 flex gap-2 text-[11px] text-muted-foreground">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                     <p>
