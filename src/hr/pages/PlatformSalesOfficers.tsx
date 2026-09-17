@@ -420,11 +420,10 @@ export default function PlatformSalesOfficersPage() {
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
   const officerNetTarget = useMemo(() => {
-    const perDay = officers.length * 20;
-    if (mode === 'WEEKLY') return perDay * 7;
-    if (mode === 'MONTHLY') return perDay * 30;
-    return perDay;
-  }, [officers, mode]);
+    if (mode === 'WEEKLY') return 700;
+    if (mode === 'MONTHLY') return 3000;
+    return 100;
+  }, [mode]);
   const officerNetPct = useMemo(() => {
     if (officerNetTarget <= 0) return 0;
     return Math.round((netTotal / officerNetTarget) * 100);
@@ -497,11 +496,10 @@ export default function PlatformSalesOfficersPage() {
 
   // Net-notes goal for the window shown: 20 notes per person per day, scaled by window.
   const combinedNetGoal = useMemo(() => {
-    const perDay = (officers.length + people.length) * 20;
-    if (mode === 'WEEKLY') return perDay * 7;
-    if (mode === 'MONTHLY') return perDay * 30;
-    return perDay;
-  }, [officers, people, mode]);
+    if (mode === 'WEEKLY') return 700;
+    if (mode === 'MONTHLY') return 3000;
+    return 100;
+  }, [mode]);
   const combinedNetPct = useMemo(
     () => (combinedNetGoal <= 0 ? 0 : Math.round((combinedTotals.netNotes / combinedNetGoal) * 100)),
     [combinedTotals.netNotes, combinedNetGoal],
@@ -931,10 +929,10 @@ export default function PlatformSalesOfficersPage() {
               <span className="text-[11px] text-muted-foreground">
                 platform sales officers and other contributors added together ·{' '}
                 {mode === 'DAILY'
-                  ? 'goal 20 notes per person per day'
+                  ? 'goal 100 notes per day'
                   : mode === 'WEEKLY'
-                    ? 'goal 20 notes per person per day × 7'
-                    : 'goal 20 notes per person per day × 30'}
+                    ? 'goal 700 notes per week'
+                    : 'goal 3,000 notes per month'}
               </span>
             </div>
 
