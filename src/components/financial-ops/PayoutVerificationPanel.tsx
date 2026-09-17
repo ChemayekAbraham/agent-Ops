@@ -573,10 +573,10 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
         />
         <CheckLine
           label="Age"
-          value={ageFromDob(data.dateOfBirth) != null ? `${ageFromDob(data.dateOfBirth)} years` : 'Not read'}
-          outcome={ageFromDob(data.dateOfBirth) != null ? true : null}
+          value={age != null ? `${age} years` : 'Not read'}
+          outcome={age != null ? true : null}
           note={
-            ageFromDob(data.dateOfBirth) != null
+            age != null
               ? `Calculated from date of birth (${data.dateOfBirth}).`
               : 'Could not be read off the photo.'
           }
