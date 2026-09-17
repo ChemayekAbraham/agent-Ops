@@ -80,13 +80,13 @@ function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: F
   const events = useConcernEvents(concern?.id ?? null);
   return (
     <Dialog open={!!concern} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-sm font-bold">{concern?.title}</DialogTitle>
         </DialogHeader>
         {concern && (
           <div className="space-y-3">
-            <div className="rounded-lg border border-border bg-muted/40 p-2.5 text-[11px]">
+            <CCBlock className="text-[11px]">
               <p>
                 <span className="font-semibold">{concern.forwarded_by_name ?? 'Officer'}</span> forwarded this to{' '}
                 <span className="font-semibold">
@@ -109,7 +109,7 @@ function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: F
                   Reviewers: <span className="font-semibold">{reviewerNames.join(', ')}</span>
                 </p>
               )}
-            </div>
+            </CCBlock>
             {concern.context && <p className="text-[11px] leading-snug">{concern.context}</p>}
             <ConcernControlPanel concern={concern} />
             <div className="space-y-2">
@@ -117,7 +117,7 @@ function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: F
                 <Skeleton className="h-16 w-full" />
               ) : (
                 (events.data ?? []).map((e) => (
-                  <div key={e.id} className="rounded-lg border border-border/70 p-2.5">
+                  <div key={e.id} className="rounded-xl border border-border/70 bg-muted/20 p-2.5">
                     <p className="text-[11px] font-semibold">
                       {CONCERN_ACTION_LABEL[e.action] ?? e.action.replace('_', ' ')} ·{' '}
                       {e.actor_name ?? 'Staff member'}
@@ -171,7 +171,7 @@ function OutboundForwardPicker({ onPick }: { onPick: (s: ForwardConcernSource) =
         Forward from a call we made
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold">Pick the call this concern came from</DialogTitle>
           </DialogHeader>
@@ -188,13 +188,13 @@ function OutboundForwardPicker({ onPick }: { onPick: (s: ForwardConcernSource) =
             {isLoading ? (
               <Skeleton className="h-16 w-full" />
             ) : rows.length === 0 ? (
-              <p className="p-4 text-center text-xs text-muted-foreground">No recorded calls match.</p>
+              <p className="rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center text-xs text-muted-foreground">No recorded calls match.</p>
             ) : (
               rows.map((r) => (
                 <button
                   key={r.id}
                   type="button"
-                  className="w-full rounded-lg border border-border p-2.5 text-left hover:border-primary/40 hover:bg-muted/50"
+                  className="w-full rounded-xl border border-border p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
                   onClick={() => {
                     setOpen(false);
                     onPick({
