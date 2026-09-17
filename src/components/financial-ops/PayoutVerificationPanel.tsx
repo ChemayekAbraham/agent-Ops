@@ -514,6 +514,7 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
   const enteredMask = maskIdNumber(row.national_id);
   const idNameOnFile = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
+  const age = ageFromDob(data.dateOfBirth);
   // An exact spelling match is a match, whatever an older stored score says.
   const namesMatch =
     idNameOnFile && accountName
