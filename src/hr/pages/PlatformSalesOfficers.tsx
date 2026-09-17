@@ -419,7 +419,12 @@ export default function PlatformSalesOfficersPage() {
   }, [people]);
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
-  const officerNetTarget = useMemo(() => officers.length * 40, [officers]);
+  const officerNetTarget = useMemo(() => {
+    const perDay = officers.length * 20;
+    if (mode === 'WEEKLY') return perDay * 7;
+    if (mode === 'MONTHLY') return perDay * 30;
+    return perDay;
+  }, [officers, mode]);
   const officerNetPct = useMemo(() => {
     if (officerNetTarget <= 0) return 0;
     return Math.round((netTotal / officerNetTarget) * 100);
