@@ -79,9 +79,11 @@ Deno.serve(async (req) => {
         `You are no longer linked to it. Open the Welile app for details.`;
       try {
         smsSent = await sendSMS(res.member_phone, message, {
+          admin: adminClient,
           source: "national-id-unlink",
-          userId: memberId,
-        } as never);
+          recipient_user_id: memberId,
+          reference_id: `national-id-unlink:${memberId}:${Date.now()}`,
+        });
       } catch (err) {
         console.error("[national-id-unlink] SMS failed", err);
       }
