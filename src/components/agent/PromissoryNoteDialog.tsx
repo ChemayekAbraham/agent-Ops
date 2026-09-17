@@ -171,7 +171,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
 
     if (!isValidPhone(whatsappNumber)) errs.contact.push('WhatsApp number');
     if (phoneNumber.trim() && !isValidPhone(phoneNumber)) errs.contact.push('Phone number');
-    if (email.trim() && !isValidEmail(email)) errs.contact.push('Email');
+    if (!email.trim() || !isValidEmail(email)) errs.contact.push('Email');
 
     if (!(Number(amount) > 0)) errs.promise.push('Promised amount');
     if (!recordedOn) errs.promise.push('Date recorded');
