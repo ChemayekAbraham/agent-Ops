@@ -1729,6 +1729,75 @@ export default function PayoutVerificationPanel() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Drill-down: every payout number this person has ever submitted. */}
+      <Dialog open={personNumbersOpen} onOpenChange={setPersonNumbersOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-0">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle className="text-base">
+              {row?.full_name || 'This person'} — {personNumbers.data?.length ?? row?.payout_number_count ?? 0} payout
+              number requests
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Every number they have submitted, oldest first. Tap one that is still waiting to review it now.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto px-5 pb-5 pt-2">
+            {personNumbers.isLoading && <Skeleton className="h-16 w-full rounded-xl" />}
+            {!personNumbers.isLoading &&
+              (personNumbers.data ?? []).map((d, i) => {
+                const label =
+                  d.destination_type === 'mobile_money'
+                    ? `${d.provider ?? 'Mobile money'} · ${d.momo_number ?? '—'}`
+                    : `${d.bank_name ?? ''} ${d.bank_account_number ?? ''}`.trim() || '—';
+                const inQueueIdx = rows.findIndex((r) => r.id === d.id);
+                const tone =
+                  d.status === 'verified'
+                    ? 'text-emerald-700 dark:text-emerald-400'
+                    : d.status === 'rejected'
+                      ? 'text-destructive'
+                      : 'text-amber-700 dark:text-amber-400';
+                return (
+                  <div
+                    key={d.id}
+                    className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${
+                      d.id === row?.id ? 'border-primary/60 bg-primary/5' : 'border-border'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">
+                        {i + 1}. {label}
+                      </p>
+                      <p className={`text-xs font-semibold uppercase tracking-wide ${tone}`}>
+                        {d.status === 'waiting' ? 'Waiting' : d.status === 'verified' ? 'Verified' : 'Rejected'}
+                        {d.decided_at ? ` · ${format(new Date(d.decided_at), 'd MMM yyyy')}` : ''}
+                      </p>
+                    </div>
+                    {d.id === row?.id ? (
+                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-primary">
+                        On screen
+                      </span>
+                    ) : inQueueIdx >= 0 ? (
+                      <Button
+                        variant="outline"
+                        className="h-9 shrink-0"
+                        onClick={() => {
+                          setIndex(inQueueIdx);
+                          setPersonNumbersOpen(false);
+                        }}
+                      >
+                        Open
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            {!personNumbers.isLoading && (personNumbers.data ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">No payout numbers recorded.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
