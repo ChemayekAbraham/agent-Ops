@@ -402,18 +402,26 @@ export function ConcernsReviewTab() {
           byPriority,
           byReceiver,
           repeatThemes: themes,
-          rows: rows.map((c) => ({
-            when: stamp(c.created_at),
-            source: c.source_kind === 'received_call' ? 'Came in' : 'We called',
-            title: c.title,
-            caller: c.caller_name ?? '—',
-            from: c.forwarded_by_name ?? '—',
-            to: c.forwarded_to_name ?? '—',
-            status: CONCERN_STATUS_LABEL[c.status as ConcernStatus] ?? c.status,
-            due: stamp(c.due_at),
-            completed: stamp(c.completed_at),
-            outcome: c.outcome ?? '—',
-          })),
+          deadlinePerformance,
+          reassignments,
+          rows: rows.map((c) => {
+            const late = concernOverdueHours(c);
+            return {
+              when: stamp(c.created_at),
+              source: c.source_kind === 'received_call' ? 'Came in' : 'We called',
+              title: c.title,
+              caller: c.caller_name ?? '—',
+              from: c.forwarded_by_name ?? '—',
+              firstTo: c.original_forwarded_to_name ?? c.forwarded_to_name ?? '—',
+              to: c.forwarded_to_name ?? '—',
+              changes: String(c.reassigned_count ?? 0),
+              status: CONCERN_STATUS_LABEL[c.status as ConcernStatus] ?? c.status,
+              due: `${stamp(c.due_at)}${c.due_is_custom ? ' (adjusted)' : ''}`,
+              completed: stamp(c.completed_at),
+              pastDue: late > 0 ? `${late.toFixed(1)}h` : '—',
+              outcome: c.outcome ?? '—',
+            };
+          }),
           recommendations,
         },
         {
