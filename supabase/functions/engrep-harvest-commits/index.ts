@@ -104,6 +104,18 @@ Deno.serve(async (req) => {
   let runId: string | null = null;
   let windowId: string | null = null;
 
+  // Wall-clock budget: the invocation must always reach engrep_svc_run_finish, so we
+  // stop taking on new commits well before the platform kills us.
+  const startedAt = Date.now();
+  const BUDGET_MS = 110_000;
+  const DETAIL_BATCH = 8;
+
+  let budgetExhausted = false;
+  let skippedForBudget = 0;
+  let failed = 0;
+  let stats: Record<string, unknown> | null = null;
+  let fatalError: string | null = null;
+
   try {
     const { data: startedId, error: startErr } = await admin.rpc("engrep_svc_run_start", { p_zone: "external_commit" });
     if (startErr) throw new Error(`run_start: ${startErr.message}`);
@@ -146,141 +158,171 @@ Deno.serve(async (req) => {
     let lovableUntagged = 0;
     let claimedNotLive = 0;
     let editIdsCaptured = 0;
-    let failed = 0;
     const failures: Array<{ sha: string; error: string }> = [];
     const authorEmails = new Set<string>();
     const coauthorSeen = new Set<string>();
 
     const { data: engineers } = await admin.from("engrep_engineers").select("code, git_emails");
 
+    // Attribution pass: no network, so exclusions are decided for every commit even if
+    // the detail pass later runs out of budget.
+    type Prepared = { c: any; source: string; attributedEmail: string | null; untagged: boolean; fullMessage: string };
+    const prepared: Prepared[] = [];
     for (const c of commits) {
-      try {
-        const email: string | null = c?.commit?.author?.email ?? null;
-        const login: string | null = c?.author?.login ?? null;
-        const fullMessage = String(c?.commit?.message ?? "");
+      const email: string | null = c?.commit?.author?.email ?? null;
+      const login: string | null = c?.author?.login ?? null;
+      const fullMessage = String(c?.commit?.message ?? "");
 
-        const lovable = isLovable(email, login);
-        if (!lovable && isOtherBot(email, login)) { botsExcluded++; continue; }
+      const lovable = isLovable(email, login);
+      if (!lovable && isOtherBot(email, login)) { botsExcluded++; continue; }
 
-        // A merge commit inherits the merged branch's file list, so it claims schema
-        // effect it did not author and would be zeroed unfairly. Parent count, never
-        // the subject line.
-        if (Array.isArray(c.parents) && c.parents.length > 1) { mergesExcluded++; continue; }
+      // A merge commit inherits the merged branch's file list, so it claims schema
+      // effect it did not author and would be zeroed unfairly. Parent count, never
+      // the subject line.
+      if (Array.isArray(c.parents) && c.parents.length > 1) { mergesExcluded++; continue; }
 
-        let source: string;
-        let attributedEmail: string | null;
-        let untagged = false;
+      let source: string;
+      let attributedEmail: string | null;
+      let untagged = false;
 
-        if (lovable) {
-          source = "lovable_edit";
-          const cands = coAuthorEmails(fullMessage);
-          for (const e of cands) coauthorSeen.add(e);
-          if (cands.length === 1) {
-            attributedEmail = cands[0];
-          } else {
-            // none: member has no connected GitHub account. more than one: ambiguous,
-            // and ambiguity must never resolve to a guess. Either way, §4 scores zero.
-            attributedEmail = null;
-            untagged = true;
-            lovableUntagged++;
-          }
+      if (lovable) {
+        source = "lovable_edit";
+        const cands = coAuthorEmails(fullMessage);
+        for (const e of cands) coauthorSeen.add(e);
+        if (cands.length === 1) {
+          attributedEmail = cands[0];
         } else {
-          source = "external_commit";
-          if (!email) { noAuthorEmail++; continue; }
-          attributedEmail = email;
+          // none: member has no connected GitHub account. more than one: ambiguous,
+          // and ambiguity must never resolve to a guess. Either way, §4 scores zero.
+          attributedEmail = null;
+          untagged = true;
+          lovableUntagged++;
         }
+      } else {
+        source = "external_commit";
+        if (!email) { noAuthorEmail++; continue; }
+        attributedEmail = email;
+      }
 
-        const detail = await gh(`https://api.github.com/repos/${repo}/commits/${c.sha}`);
-        const files: any[] = Array.isArray(detail?.files) ? detail.files : [];
-        const paths: string[] = files.map((f) => String(f.filename ?? ""));
+      prepared.push({ c, source, attributedEmail, untagged, fullMessage });
+    }
 
-        const classes = new Set<string>();
-        let migrationSql = "";
-        for (const f of files) {
-          const path = String(f.filename ?? "");
-          classifyPath(path, classes);
-          if (path.includes("supabase/migrations/")) migrationSql += `\n${String(f.patch ?? "")}`;
+    for (let start = 0; start < prepared.length; start += DETAIL_BATCH) {
+      if (Date.now() - startedAt > BUDGET_MS) {
+        budgetExhausted = true;
+        skippedForBudget = prepared.length - start;
+        break;
+      }
+
+      const slice = prepared.slice(start, start + DETAIL_BATCH);
+      const details = await Promise.all(slice.map(async (p) => {
+        try {
+          return { ok: true as const, detail: await gh(`https://api.github.com/repos/${repo}/commits/${p.c.sha}`) };
+        } catch (e) {
+          return { ok: false as const, error: String((e as Error)?.message ?? e) };
         }
-        if (migrationSql.trim().length > 0) classifySql(migrationSql, classes);
+      }));
 
-        const changeClasses = [...classes].filter((x) => (CLASSES as readonly string[]).includes(x));
-        const migrationBearing = paths.some((p) => p.includes("supabase/migrations/"));
+      for (let i = 0; i < slice.length; i++) {
+        const { c, source, attributedEmail, untagged, fullMessage } = slice[i];
+        try {
+          const got = details[i];
+          if (!got.ok) throw new Error(got.error);
+          const detail = got.detail;
+          const files: any[] = Array.isArray(detail?.files) ? detail.files : [];
+          const paths: string[] = files.map((f) => String(f.filename ?? ""));
 
-        let claimedObjects: string[] = [];
-        if (migrationBearing) {
-          const parsed = parseClaimedNames(migrationSql);
-          if (parsed.length > 0) {
-            const { data: resolved, error: resErr } = await admin.rpc("engrep_resolve_claim", { p_names: parsed, p_day: vDay });
-            if (resErr) throw new Error(`resolve_claim: ${resErr.message}`);
-            claimedObjects = Array.isArray(resolved) ? resolved as string[] : [];
+          const classes = new Set<string>();
+          let migrationSql = "";
+          for (const f of files) {
+            const path = String(f.filename ?? "");
+            classifyPath(path, classes);
+            if (path.includes("supabase/migrations/")) migrationSql += `\n${String(f.patch ?? "")}`;
           }
-        }
-        const claimsSchema = claimedObjects.length > 0;
+          if (migrationSql.trim().length > 0) classifySql(migrationSql, classes);
 
-        let fencePath: string | null = null;
-        const eng = (engineers ?? []).find((e: any) =>
-          attributedEmail && Array.isArray(e.git_emails) && e.git_emails.includes(attributedEmail)
-        );
-        if (eng && paths.length > 0) {
-          const { data: fp, error: fenceErr } = await admin.rpc("engrep_check_fence", { p_engineer_code: (eng as any).code, p_paths: paths, p_on: vDay });
-          if (fenceErr) throw new Error(`check_fence: ${fenceErr.message}`);
-          fencePath = (fp as string | null) ?? null;
-        }
+          const changeClasses = [...classes].filter((x) => (CLASSES as readonly string[]).includes(x));
+          const migrationBearing = paths.some((p) => p.includes("supabase/migrations/"));
 
-        const subject = fullMessage.split("\n")[0];
-        const { data: rowId, error: ingErr } = await admin.rpc("engrep_svc_ingest_row", {
-          p_window_id: windowId,
-          p_source: source,
-          p_evidence_ref: c.sha,
-          p_commit_subject: subject,
-          p_change_classes: changeClasses,
-          p_engineer_code: null,
-          p_author_email: attributedEmail,
-          p_claims_schema: claimsSchema,
-          p_migration_bearing: migrationBearing,
-          p_untagged: untagged,
-          p_fenced_breach: fencePath !== null,
-          p_fence_path: fencePath,
-          p_claimed_objects: claimedObjects,
-          p_paths: paths,
-          p_committed_at: c?.commit?.author?.date ?? null,
-        });
-        if (ingErr) throw new Error(`ingest_row: ${ingErr.message}`);
-        if (rowId) {
-          ingested++;
-          if (source === "lovable_edit") lovableIngested++;
-        }
-        if (rowId && source === "lovable_edit") {
-          // The join key to Lovable's own edit feed. A metadata failure must never
-          // abort a harvested commit: the row and its liveness verdict matter more.
-          try {
-            const editId = lovableEditId(fullMessage);
-            if (editId) {
-              const { error: metaErr } = await admin.rpc("engrep_svc_set_edit_meta", { p_evidence_ref: c.sha, p_edit_id: editId });
-              if (metaErr) throw new Error(metaErr.message);
-              editIdsCaptured++;
+          let claimedObjects: string[] = [];
+          if (migrationBearing) {
+            const parsed = parseClaimedNames(migrationSql);
+            if (parsed.length > 0) {
+              const { data: resolved, error: resErr } = await admin.rpc("engrep_resolve_claim", { p_names: parsed, p_day: vDay });
+              if (resErr) throw new Error(`resolve_claim: ${resErr.message}`);
+              claimedObjects = Array.isArray(resolved) ? resolved as string[] : [];
             }
-          } catch (_metaErr) { /* title key is best-effort */ }
+          }
+          const claimsSchema = claimedObjects.length > 0;
+
+          let fencePath: string | null = null;
+          const eng = (engineers ?? []).find((e: any) =>
+            attributedEmail && Array.isArray(e.git_emails) && e.git_emails.includes(attributedEmail)
+          );
+          if (eng && paths.length > 0) {
+            const { data: fp, error: fenceErr } = await admin.rpc("engrep_check_fence", { p_engineer_code: (eng as any).code, p_paths: paths, p_on: vDay });
+            if (fenceErr) throw new Error(`check_fence: ${fenceErr.message}`);
+            fencePath = (fp as string | null) ?? null;
+          }
+
+          const subject = fullMessage.split("\n")[0];
+          const { data: rowId, error: ingErr } = await admin.rpc("engrep_svc_ingest_row", {
+            p_window_id: windowId,
+            p_source: source,
+            p_evidence_ref: c.sha,
+            p_commit_subject: subject,
+            p_change_classes: changeClasses,
+            p_engineer_code: null,
+            p_author_email: attributedEmail,
+            p_claims_schema: claimsSchema,
+            p_migration_bearing: migrationBearing,
+            p_untagged: untagged,
+            p_fenced_breach: fencePath !== null,
+            p_fence_path: fencePath,
+            p_claimed_objects: claimedObjects,
+            p_paths: paths,
+            p_committed_at: c?.commit?.author?.date ?? null,
+          });
+          if (ingErr) throw new Error(`ingest_row: ${ingErr.message}`);
+          if (rowId) {
+            ingested++;
+            if (source === "lovable_edit") lovableIngested++;
+          }
+          if (rowId && source === "lovable_edit") {
+            // The join key to Lovable's own edit feed. A metadata failure must never
+            // abort a harvested commit: the row and its liveness verdict matter more.
+            try {
+              const editId = lovableEditId(fullMessage);
+              if (editId) {
+                const { error: metaErr } = await admin.rpc("engrep_svc_set_edit_meta", { p_evidence_ref: c.sha, p_edit_id: editId });
+                if (metaErr) throw new Error(metaErr.message);
+                editIdsCaptured++;
+              }
+            } catch (_metaErr) { /* title key is best-effort */ }
+          }
+          if (attributedEmail) authorEmails.add(attributedEmail);
+          if (claimsSchema) {
+            const { data: row } = await admin.from("engrep_rows").select("live_verified").eq("id", rowId).maybeSingle();
+            if (row && (row as any).live_verified === "no") claimedNotLive++;
+          }
+        } catch (inner) {
+          failed++;
+          failures.push({ sha: String(c?.sha ?? "unknown"), error: String((inner as Error)?.message ?? inner) });
+          continue;
         }
-        if (attributedEmail) authorEmails.add(attributedEmail);
-        if (claimsSchema) {
-          const { data: row } = await admin.from("engrep_rows").select("live_verified").eq("id", rowId).maybeSingle();
-          if (row && (row as any).live_verified === "no") claimedNotLive++;
-        }
-      } catch (inner) {
-        failed++;
-        failures.push({ sha: String(c?.sha ?? "unknown"), error: String((inner as Error)?.message ?? inner) });
-        continue;
       }
     }
 
     const { data: unclaimed, error: detErr } = await admin.rpc("engrep_svc_detect_unclaimed", { p_window_id: windowId });
     if (detErr) throw new Error(`detect_unclaimed: ${detErr.message}`);
 
-    const { error: markErr } = await admin.rpc("engrep_svc_mark_harvested", { p_window_id: windowId });
-    if (markErr) throw new Error(`mark_harvested: ${markErr.message}`);
+    // A partial window must never be stamped complete.
+    if (!budgetExhausted) {
+      const { error: markErr } = await admin.rpc("engrep_svc_mark_harvested", { p_window_id: windowId });
+      if (markErr) throw new Error(`mark_harvested: ${markErr.message}`);
+    }
 
-    const stats = {
+    stats = {
       window_id: windowId,
       commits_seen: commits.length,
       commits_ingested: ingested,
@@ -296,34 +338,25 @@ Deno.serve(async (req) => {
       unclaimed_detected: unclaimed ?? 0,
       failed,
       failures,
+      budget_exhausted: budgetExhausted,
+      skipped_for_budget: skippedForBudget,
     };
-
-    if (runId) {
-      try {
-        await admin.rpc("engrep_svc_run_finish", {
-          p_run_id: runId,
-          p_window_id: windowId,
-          p_outcome: failed > 0 ? "partial" : "ok",
-          p_stats: stats,
-          p_error: null,
-        });
-      } catch (_logErr) { /* a logging failure must not mask a successful harvest */ }
-    }
-
-    return json(stats);
   } catch (e) {
-    const msg = String((e as Error)?.message ?? e);
+    fatalError = String((e as Error)?.message ?? e);
+  } finally {
     if (runId) {
       try {
         await admin.rpc("engrep_svc_run_finish", {
           p_run_id: runId,
           p_window_id: windowId,
-          p_outcome: "failed",
-          p_stats: null,
-          p_error: msg,
+          p_outcome: fatalError ? "failed" : (failed > 0 || budgetExhausted ? "partial" : "ok"),
+          p_stats: fatalError ? null : stats,
+          p_error: fatalError,
         });
-      } catch (_logErr) { /* must not mask the original error */ }
+      } catch (_logErr) { /* a logging failure must not mask the harvest result */ }
     }
-    return json({ error: msg }, 500);
   }
+
+  if (fatalError) return json({ error: fatalError }, 500);
+  return json(stats ?? {});
 });
