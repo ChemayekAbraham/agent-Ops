@@ -25,6 +25,16 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
 
     const nowIso = new Date().toISOString();
+    // trg_notify_merchants_new_withdrawal only fires AFTER INSERT and swallows
+    // its own errors (RAISE WARNING, no re-throw) — if round 1 never manages
+    // to flip auto_dispatched to true (no online/floated agent yet, the vault
+    // secret lookup failing, the async net.http_post never landing, etc.) the
+    // request has no dispatch_expires_at to ever go stale, so it was invisible
+    // to this cron forever: real money sat unclaimed with zero retries and no
+    // ops alert. Give round 1 a short grace window to land on its own, then
+    // treat "never dispatched" the same as "dispatch expired" below.
+    const NEVER_DISPATCHED_GRACE_MS = 3 * 60 * 1000;
+    const graceCutoff = new Date(Date.now() - NEVER_DISPATCHED_GRACE_MS).toISOString();
 
     // Expired, still-open, unclaimed, not-yet-escalated dispatches.
     const { data: due } = await admin
@@ -37,7 +47,19 @@ Deno.serve(async (req) => {
       .in("status", OPEN_STATUSES)
       .limit(100);
 
-    const requests = due || [];
+    // Never successfully dispatched at all — same fate, just without a
+    // dispatch_expires_at to trip the query above.
+    const { data: neverDispatched } = await admin
+      .from("withdrawal_requests")
+      .select("id, amount, dispatch_round, status")
+      .eq("auto_dispatched", false)
+      .is("dispatch_claimed_by", null)
+      .is("dispatch_escalated_at", null)
+      .lt("created_at", graceCutoff)
+      .in("status", OPEN_STATUSES)
+      .limit(100);
+
+    const requests = [...(due || []), ...(neverDispatched || [])];
     let rebroadcast = 0;
     let escalated = 0;
 
@@ -49,7 +71,10 @@ Deno.serve(async (req) => {
     const opsIds = Array.from(new Set((roleRows || []).map((r: any) => r.user_id)));
 
     for (const r of requests) {
-      const nextRound = (Number(r.dispatch_round) || 1) + 1;
+      // A never-dispatched row has dispatch_round = 0 and needs round 1, not
+      // round 2 — `|| 1` here used to mask that because every row this cron
+      // saw previously already had dispatch_round >= 1.
+      const nextRound = (Number(r.dispatch_round) || 0) + 1;
 
       if (nextRound <= MAX_DISPATCH_ROUNDS) {
         await dispatchWithdrawal(admin, supabaseUrl, serviceKey, r.id, nextRound);

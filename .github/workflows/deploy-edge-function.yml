@@ -48,6 +48,7 @@ on:
           - agent-daily-performance-report
           - agent-ops-daily-report
           - notify-agent-collection-lapse
+          - redispatch-withdrawals
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
@@ -100,7 +101,7 @@ jobs:
           # entry appearing on a JWT function, or a public function quietly
           # losing the entry that keeps its scheduler able to call it.
           case "${{ inputs.function }}" in
-            agent-daily-performance-report|agent-ops-daily-report)
+            agent-daily-performance-report|agent-ops-daily-report|redispatch-withdrawals)
               EXPECT_PUBLIC=yes ;;   # invoked by pg_cron, no user JWT exists
             *)
               EXPECT_PUBLIC=no ;;    # authenticates via the Authorization header
