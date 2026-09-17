@@ -421,18 +421,31 @@ export default function PlatformSalesOfficersPage() {
       entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes ?? 0;
     }
 
-    return Array.from(byId.values()).sort(
-      (a, b) => b.netNotes - a.netNotes || a.person_name.localeCompare(b.person_name),
-    );
+    return Array.from(byId.values());
   }, [nonOfficerRows, nonOfficerFunded]);
+
+  const sortedPeople = useMemo(
+    () =>
+      [...people].sort(
+        (a, b) =>
+          sortValue(b, sortKey) - sortValue(a, sortKey) ||
+          b.netNotes - a.netNotes ||
+          a.person_name.localeCompare(b.person_name),
+      ),
+    [people, sortKey],
+  );
 
   const peopleRanks = useMemo(() => {
     const out: number[] = [];
-    people.forEach((p, i) => {
-      out.push(i > 0 && people[i - 1].netNotes === p.netNotes ? out[i - 1] : i + 1);
+    sortedPeople.forEach((p, i) => {
+      out.push(
+        i > 0 && sortValue(sortedPeople[i - 1], sortKey) === sortValue(p, sortKey)
+          ? out[i - 1]
+          : i + 1,
+      );
     });
     return out;
-  }, [people]);
+  }, [sortedPeople, sortKey]);
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
   const officerNetTarget = useMemo(() => officers.length * 40, [officers]);
