@@ -289,6 +289,29 @@ Deno.serve(async (req) => {
             ingested++;
             if (source === "lovable_edit") lovableIngested++;
           }
+          if (rowId) {
+            // A blob SHA that moves and stays moved is, for a UI or logic file, the same
+            // evidence a fingerprint move is for a function. Best-effort: a file-touch
+            // failure must never abort a harvested commit.
+            try {
+              for (const f of files) {
+                const path = String(f.filename ?? "");
+                const blobSha = String(f.sha ?? "");
+                if (!path || !blobSha) continue;
+                const { error: touchErr } = await admin.rpc("engrep_svc_record_file_touch", {
+                  p_window_id: windowId,
+                  p_evidence_ref: c.sha,
+                  p_path: path,
+                  p_blob_sha: blobSha,
+                  p_engineer_id: (eng as any)?.id ?? null,
+                  p_source: source,
+                  p_touched_at: c?.commit?.author?.date ?? null,
+                });
+                if (touchErr) throw new Error(touchErr.message);
+                fileTouchesRecorded++;
+              }
+            } catch (_touchErr) { /* file-touch evidence is best-effort */ }
+          }
           if (rowId && source === "lovable_edit") {
             // The join key to Lovable's own edit feed. A metadata failure must never
             // abort a harvested commit: the row and its liveness verdict matter more.
