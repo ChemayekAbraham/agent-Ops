@@ -22,6 +22,14 @@ export interface PromissoryArrivalSuggestion {
   candidate_count: number;
   rank: number;
   confidence: 'high' | 'medium' | 'low';
+  /** Principal this existing account has already brought in as a Supporter. */
+  candidate_principal: number;
+  candidate_principal_active: number;
+  candidate_portfolio_count: number;
+  /** Rate paid to the proxy agent on portfolio creation (server-supplied). */
+  commission_rate: number;
+  /** Commission the proxy agent earns on this principal once the match is confirmed. */
+  commission_due: number;
 }
 
 export function usePromissoryArrivalSuggestions(
