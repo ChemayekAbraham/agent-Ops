@@ -11,8 +11,15 @@ name: Deploy Edge Function (manual, one at a time)
 #
 # So this workflow:
 #   * has NO push / pull_request trigger - workflow_dispatch only
-#   * deploys exactly ONE function, chosen from a fixed two-item list
+#   * deploys exactly ONE function, chosen from a fixed list
 #   * cannot be pointed at an arbitrary function name (choice input, not string)
+#
+# sms-otp added 2026-09-17: production was running a stale build that polls
+# Yoola's delivery-report API and treats "not yet confirmed delivered" as a
+# failure before falling over to Africa's Talking/LANA. Since no provider has
+# ever populated a real delivered status (see docs/HANDOVER/56), that wait
+# never succeeds, and ~95% of OTP sends were failing. The checked-in version
+# only requires gateway acceptance and has no such wait.
 #
 # ORDERING REQUIREMENT (accounting, not convenience)
 # Applies to the two money functions ONLY:
@@ -49,6 +56,7 @@ on:
           - agent-ops-daily-report
           - notify-agent-collection-lapse
           - redispatch-withdrawals
+          - sms-otp
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
@@ -103,6 +111,8 @@ jobs:
           case "${{ inputs.function }}" in
             agent-daily-performance-report|agent-ops-daily-report|redispatch-withdrawals)
               EXPECT_PUBLIC=yes ;;   # invoked by pg_cron, no user JWT exists
+            sms-otp)
+              EXPECT_PUBLIC=yes ;;   # called pre-signup/pre-login, no user session exists yet
             *)
               EXPECT_PUBLIC=no ;;    # authenticates via the Authorization header
           esac
