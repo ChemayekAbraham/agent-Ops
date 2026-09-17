@@ -4,6 +4,18 @@
 `readNationalIdPhotoOriented` in `nationalIdOcr.ts` — or if someone reports being stuck on the
 "Withdrawal & Identity" screen after "Could not read that photo automatically."**
 
+**2026-09-17 update — the fix below was written but sat unpushed on the local `lovable` branch
+for a while (commit `1b33ca67d`). In that window `origin/lovable` moved 13 commits ahead under a
+separate change (Gemini's "Auto-rotated sideways ID photos" rewrite of this same file), which did
+**not** carry the fallback — so Shakirah hit the identical dead end again on a later attempt, and
+her `profiles` row still showed no photos at all (`has_id_front/has_id_back/has_selfie` all false,
+`identity_photos_submitted_at` null). Merged the two histories (clean auto-merge, fix intact and
+compatible with the new rotation logic), ran `guard:all` (all 7 pass), and pushed —
+`aa112eebc..ef7398be3` on `origin/lovable`. Lesson: a local fix commit on this repo is not "done"
+until `git log origin/lovable..HEAD` is empty for it — check that before telling anyone a fix is
+live, this is the second time in this folder a real fix sat undeployed (see doc 47/48's identical
+"fixed in code, not yet deployed" caveats).**
+
 ## What was reported
 
 Josh forwarded WhatsApp screenshots of Shakirah Nakimbugwe (`34ed279b-f6cf-4291-ab0f-1339b8afe28c`,
