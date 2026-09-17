@@ -15,7 +15,7 @@ import {
 import { useIdentityAlreadyVerified } from '@/hooks/useIdentityAlreadyVerified';
 import {
   readNationalIdPhotoOriented, readNationalIdBackPhoto, orientationMessage,
-  inspectIdPhotoOrientation, isSidewaysIdRotation, rotateImageFile, SIDEWAYS_ID_MESSAGE,
+  inspectIdPhotoOrientation, rotateImageFile,
   idNameVerdict, readingGuidance, EMPTY_ID_DATA, ID_FIELD_LABEL,
   ID_POSITION_TIPS, ID_BACK_TIPS,
   type NationalIdReading, type NationalIdData, type IdRotation,
