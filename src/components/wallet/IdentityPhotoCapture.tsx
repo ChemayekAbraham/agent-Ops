@@ -859,7 +859,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </p>
 
           <div className="grid gap-2 sm:grid-cols-2">
-            <StoredShot path={storedIdPath!} label="National ID photo" note="Sent for verification." />
+            <StoredShot path={storedIdPath!} label="National ID front" note="Sent for verification." />
+            <StoredShot path={storedIdBackPath!} label="National ID back" note="Sent for verification." />
             <StoredShot path={storedSelfiePath!} label="Selfie" note="Sent for verification." />
           </div>
           <Button
