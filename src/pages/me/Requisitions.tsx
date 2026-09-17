@@ -158,6 +158,10 @@ const MyRequisitions = () => {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [viewingPath, setViewingPath] = useState<string | null>(null);
   const [usageReports, setUsageReports] = useState<Record<string, UsageReport>>({});
+  const [kind, setKind] = useState<RequestKind>('requisition');
+  const [months, setMonths] = useState(3);
+  const [loanInfo, setLoanInfo] = useState<LoanEligibility | null>(null);
+  const [loans, setLoans] = useState<StaffLoan[]>([]);
 
   const fetchRows = useCallback(async () => {
     const { data: userRes } = await supabase.auth.getUser();
