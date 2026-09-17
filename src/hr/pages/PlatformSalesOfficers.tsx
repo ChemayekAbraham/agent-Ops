@@ -65,11 +65,11 @@ type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
 // Numeric value a row is ranked by for a given sort key. 'day-N' keys read the
 // per-weekday buckets; anything else reads the named numeric field.
-function sortValue(row: { weekday: number[] } & Record<string, number | number[] | string>, key: string): number {
+function sortValue(row: { weekday: number[] }, key: string): number {
   if (key.startsWith('day-')) {
     return row.weekday[Number(key.slice(4))] ?? 0;
   }
-  const v = row[key];
+  const v = (row as unknown as Record<string, unknown>)[key];
   return typeof v === 'number' ? v : 0;
 }
 
