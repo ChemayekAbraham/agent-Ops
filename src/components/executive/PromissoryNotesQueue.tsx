@@ -1358,10 +1358,19 @@ export function PromissoryNotesQueue({
                     <p className="text-xs font-medium text-muted-foreground uppercase">Partner comparison</p>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-[11px] text-muted-foreground">Promissory note name</p>
                         <p className="font-semibold">{selectedNote.partner_name}</p>
+                        <p className="text-[11px] text-muted-foreground break-all">
+                          {selectedNote.phone_number
+                            ? `Phone: ${selectedNote.phone_number}`
+                            : selectedNote.whatsapp_number
+                              ? `WhatsApp: ${selectedNote.whatsapp_number}`
+                              : 'No phone on the note'}
+                          {selectedNote.email ? ` · Email: ${selectedNote.email}` : ' · No email on the note'}
+                        </p>
                       </div>
+
                     </div>
                     {(() => {
                       const ci = cameInIdentity(selectedNote);
