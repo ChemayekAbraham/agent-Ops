@@ -541,7 +541,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
 
           <div className="space-y-1">
             <Label htmlFor="promissory-email" className="text-xs">
-              Email <span className="text-muted-foreground">(optional)</span>
+              Email <span className="text-destructive">*</span>
             </Label>
             <Input
               id="promissory-email"
