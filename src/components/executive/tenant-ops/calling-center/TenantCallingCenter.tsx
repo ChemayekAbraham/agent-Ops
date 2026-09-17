@@ -24,9 +24,11 @@ import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Eye,
   Headphones,
   History,
+  PhoneIncoming,
   LayoutDashboard,
   ListChecks,
   Pause,
@@ -50,6 +52,8 @@ import { OpenAttemptQueue } from '@/components/ops/calling/OpenAttemptQueue';
 import { LiveCallPanel } from './LiveCallPanel';
 import { TenantCallCenterHistory } from './TenantCallCenterHistory';
 import { TenantCallsReport } from './TenantCallsReport';
+import { ReceivedCallsTab } from './ReceivedCallsTab';
+import { ConcernsReviewTab } from './ConcernsReviewTab';
 
 import { TenantCallDetailsDialog } from './TenantCallDetailsDialog';
 import {
@@ -58,7 +62,7 @@ import {
   useTenantCallCenterDialer,
 } from './useTenantCallCenterDialer';
 
-type CenterTab = 'overview' | 'queue' | 'live' | 'history' | 'settings';
+type CenterTab = 'overview' | 'queue' | 'live' | 'received' | 'concerns' | 'history' | 'settings';
 
 const AUTO_LABEL: Record<string, string> = {
   off: 'Idle',
@@ -331,6 +335,8 @@ export function TenantCallingCenter() {
             ['overview', 'Overview', LayoutDashboard],
             ['queue', 'Work Queue', ListChecks],
             ['live', 'Live Call', PhoneCall],
+            ['received', 'Received Calls', PhoneIncoming],
+            ['concerns', 'Issues Review', ClipboardList],
             ['history', 'History', History],
             ['settings', 'Settings', Settings2],
           ] as [CenterTab, string, typeof Phone][]).map(([key, label, Icon]) => (
@@ -633,6 +639,16 @@ export function TenantCallingCenter() {
               <FollowupsDuePanel hub={hub} />
             </div>
           </div>
+        </TabsContent>
+
+        {/* ------------------------------------------------ Received Calls */}
+        <TabsContent value="received" className="mt-4">
+          <ReceivedCallsTab />
+        </TabsContent>
+
+        {/* ------------------------------------------------- Issues Review */}
+        <TabsContent value="concerns" className="mt-4">
+          <ConcernsReviewTab />
         </TabsContent>
 
         {/* ------------------------------------------------------- History */}
