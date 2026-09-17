@@ -158,6 +158,7 @@ Deno.serve(async (req) => {
     let lovableUntagged = 0;
     let claimedNotLive = 0;
     let editIdsCaptured = 0;
+    let fileTouchesRecorded = 0;
     const failures: Array<{ sha: string; error: string }> = [];
     const authorEmails = new Set<string>();
     const coauthorSeen = new Set<string>();
