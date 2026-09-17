@@ -359,6 +359,7 @@ Deno.serve(async (req) => {
       coauthor_emails_seen: [...coauthorSeen],
       claimed_not_live: claimedNotLive,
       edit_ids_captured: editIdsCaptured,
+      file_touches_recorded: fileTouchesRecorded,
       unclaimed_detected: unclaimed ?? 0,
       failed,
       failures,
