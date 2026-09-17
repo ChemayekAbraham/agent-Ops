@@ -725,6 +725,35 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [form.nin]);
 
+  /* The names are checked live too: nobody may carry the names already held on
+     another account's National ID, so we say so before they try to submit. */
+  useEffect(() => {
+    const full = `${String(form.given_name ?? '').trim()} ${String(form.surname ?? '').trim()}`.trim();
+    if (full.split(/\s+/).filter(Boolean).length < 2) {
+      setNameTaken(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const { data } = await (supabase.rpc as unknown as (
+        fn: string, args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'national_id_name_taken', { p_name: full },
+      );
+      if (cancelled) return;
+      const res = (data ?? {}) as { taken?: boolean };
+      setNameTaken(!!res.taken);
+      if (res.taken) {
+        setFieldError({
+          field: 'surname',
+          message: 'These names are already taken on another account holding a different National ID. '
+            + 'Enter your own real names exactly as printed on your own card.',
+        });
+      }
+    }, 500);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [form.given_name, form.surname]);
+
 
 
 
@@ -1046,6 +1075,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   const handleSave = async () => {
     if (!user?.id) return;
+    // A name already held on another account's National ID can never be sent.
+    if (nameTaken) {
+      const message = 'These names are already taken on another account holding a different '
+        + 'National ID. Enter your own real names exactly as printed on your own card.';
+      setSendError(message);
+      toast.error(message);
+      return;
+    }
     if (!ready) {
       setSendError(
         blockers.length > 0
@@ -1683,7 +1720,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
         <Button
           className="w-full"
-          disabled={saving || !hasVerifiedPayoutNumber || !confirmDone}
+          disabled={saving || !hasVerifiedPayoutNumber || !confirmDone || nameTaken}
           onClick={handleSave}
         >
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
