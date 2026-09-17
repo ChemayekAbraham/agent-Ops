@@ -16,6 +16,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type ConcernStatus = 'sent' | 'received' | 'in_progress' | 'completed';
 export type ConcernAction = 'accepted' | 'started' | 'progress_note' | 'completed';
+
+/** Default answer time when nobody picks one. */
+export const DEFAULT_CONCERN_DUE_HOURS = 24;
 export type ReceivedCallStatus = 'open' | 'following_up' | 'resolved' | 'closed';
 
 export const CONCERN_STATUS_LABEL: Record<ConcernStatus, string> = {
@@ -82,6 +85,16 @@ export interface ForwardedConcern {
   follow_up_note: string | null;
   created_at: string;
   updated_at: string;
+  original_forwarded_to: string | null;
+  original_forwarded_to_name: string | null;
+  reassigned_count: number;
+  last_reassigned_at: string | null;
+  last_reassigned_by: string | null;
+  last_reassigned_by_name: string | null;
+  due_is_custom: boolean;
+  due_set_at: string | null;
+  due_set_by: string | null;
+  due_set_by_name: string | null;
 }
 
 export interface ConcernEvent {
@@ -93,6 +106,20 @@ export interface ConcernEvent {
   note: string | null;
   status_after: string | null;
   created_at: string;
+  prev_user_id: string | null;
+  prev_user_name: string | null;
+  new_user_id: string | null;
+  new_user_name: string | null;
+  prev_due_at: string | null;
+  new_due_at: string | null;
+  reason: string | null;
+}
+
+export interface ConcernPowers {
+  can_reassign: boolean;
+  can_set_due: boolean;
+  is_hr: boolean;
+  is_ceo: boolean;
 }
 
 export interface StaffOption {
