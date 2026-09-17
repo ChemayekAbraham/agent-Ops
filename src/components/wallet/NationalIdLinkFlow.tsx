@@ -196,10 +196,21 @@ export default function NationalIdLinkFlow({
 
           {!closed && status !== 'active' && !s?.code_verified && (
             <div className="space-y-2">
-              <Button variant="outline" className="h-11 w-full" onClick={doSend} disabled={send.isPending}>
-                {send.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              <Button
+                variant="outline"
+                className="h-11 w-full"
+                onClick={doSend}
+                disabled={send.isPending || start.isPending}
+              >
+                {(send.isPending || start.isPending) && (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                )}
                 {s?.code_sent ? 'Send the code again' : 'Send code to the ID holder'}
               </Button>
+              {startError && (
+                <p className="text-[11px] text-destructive">{startError}</p>
+              )}
+
               {s?.code_sent && (
                 <div>
                   <Label className="text-xs">6-digit code from the ID holder</Label>
