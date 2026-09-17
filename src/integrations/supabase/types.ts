@@ -47660,6 +47660,22 @@ export type Database = {
         }
         Relationships: []
       }
+      engrep_work_units: {
+        Row: {
+          changed: boolean | null
+          commits: number | null
+          engineers: string[] | null
+          first_touch: string | null
+          last_touch: string | null
+          owner_classes: string[] | null
+          sources: string[] | null
+          unit_key: string | null
+          unit_kind: string | null
+          verified_live: boolean | null
+          window_id: string | null
+        }
+        Relationships: []
+      }
       landlords_directory: {
         Row: {
           caretaker_name: string | null
