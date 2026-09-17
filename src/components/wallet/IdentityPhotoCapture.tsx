@@ -15,7 +15,7 @@ import {
 import { useIdentityAlreadyVerified } from '@/hooks/useIdentityAlreadyVerified';
 import {
   readNationalIdPhotoOriented, readNationalIdBackPhoto, orientationMessage,
-  inspectIdPhotoOrientation, isSidewaysIdRotation, SIDEWAYS_ID_MESSAGE,
+  inspectIdPhotoOrientation, rotateImageFile,
   idNameVerdict, readingGuidance, EMPTY_ID_DATA, ID_FIELD_LABEL,
   ID_POSITION_TIPS, ID_BACK_TIPS,
   type NationalIdReading, type NationalIdData, type IdRotation,
@@ -698,15 +698,18 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setFieldError(null);
     setIdRotation(0);
     const photoOrientation = await inspectIdPhotoOrientation(file);
-    if (photoOrientation !== 'landscape') {
+    if (photoOrientation === 'unreadable') {
       setIdPhoto(null);
-      setReadError(
-        photoOrientation === 'sideways'
-          ? SIDEWAYS_ID_MESSAGE
-          : 'We could not open that ID photo. Retake it with the phone sideways so the photo is wide.',
-      );
+      setReadError('We could not open that ID photo. Retake it with the phone sideways so the photo is wide.');
       setReading(false);
       return;
+    }
+    /* A sideways photo (card held at 90°/-90°) is turned upright for the
+       person instead of refused — the goal is a straight landscape card in
+       the preview box, and we can get there ourselves. */
+    if (photoOrientation === 'sideways') {
+      file = await rotateImageFile(file, 90);
+      setIdPhoto(file);
     }
     /* A card photographed upside down or sideways used to come back as "not a
        National ID", so a perfectly good photo was rejected. The reader now
@@ -744,12 +747,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       return;
     }
     const oriented = res as { reading: NationalIdReading; rotation: IdRotation; file: File; corrected: boolean };
-    if (isSidewaysIdRotation(oriented.rotation)) {
-      setIdPhoto(null);
-      setReadError(SIDEWAYS_ID_MESSAGE);
-      setReading(false);
-      return;
-    }
     const r = oriented.reading;
     setIdRotation(oriented.rotation);
     if (oriented.corrected) setIdPhoto(oriented.file);
@@ -782,15 +779,16 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setBackReading(null);
     setBackReadError(null);
     const photoOrientation = await inspectIdPhotoOrientation(file);
-    if (photoOrientation !== 'landscape') {
+    if (photoOrientation === 'unreadable') {
       setIdBackPhoto(null);
-      setBackReadError(
-        photoOrientation === 'sideways'
-          ? SIDEWAYS_ID_MESSAGE
-          : 'We could not open that ID photo. Retake it with the phone sideways so the photo is wide.',
-      );
+      setBackReadError('We could not open that ID photo. Retake it with the phone sideways so the photo is wide.');
       setReadingBack(false);
       return;
+    }
+    // Same courtesy as the front: turn a sideways photo upright ourselves.
+    if (photoOrientation === 'sideways') {
+      file = await rotateImageFile(file, 90);
+      setIdBackPhoto(file);
     }
     const res = await readNationalIdBackPhoto(file);
     if ('error' in res && res.error) {
@@ -799,12 +797,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       return;
     }
     const b = res as NationalIdBackReading;
-    if (isSidewaysIdRotation(b.rotation)) {
-      setIdBackPhoto(null);
-      setBackReadError(SIDEWAYS_ID_MESSAGE);
-      setReadingBack(false);
-      return;
-    }
     if (b.corrected) setIdBackPhoto(b.file);
     setBackReading(b);
     setReadingBack(false);
