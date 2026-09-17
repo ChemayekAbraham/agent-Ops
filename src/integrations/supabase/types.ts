@@ -26503,6 +26503,7 @@ export type Database = {
           decision_reason: string | null
           expires_at: string
           holder_id: string
+          holder_phone: string | null
           id: string
           nin: string
           nin_fuzzy: string
@@ -26521,6 +26522,7 @@ export type Database = {
           decision_reason?: string | null
           expires_at?: string
           holder_id: string
+          holder_phone?: string | null
           id?: string
           nin: string
           nin_fuzzy: string
@@ -26539,6 +26541,7 @@ export type Database = {
           decision_reason?: string | null
           expires_at?: string
           holder_id?: string
+          holder_phone?: string | null
           id?: string
           nin?: string
           nin_fuzzy?: string
