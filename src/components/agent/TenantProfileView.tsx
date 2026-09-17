@@ -738,6 +738,9 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           (Date.parse(`${repaymentStartsOn}T00:00:00Z`) - Date.parse(`${todayEAT}T00:00:00Z`)) / 86400000))
       : 0;
   const repaymentNotStarted = daysUntilStart > 0;
+  // Landlord float has been released to the agent, but the landlord has not
+  // actually been paid yet — collection must stay closed until that happens.
+  const awaitingLandlord = summary.activeRequest?.status === 'approved';
 
   const activePct = summary.activeRequest && summary.activeRequest.total_repayment > 0
     ? Math.min(100, Math.round((summary.activeRequest.amount_repaid / summary.activeRequest.total_repayment) * 100))
