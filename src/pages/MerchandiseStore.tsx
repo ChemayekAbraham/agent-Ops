@@ -182,17 +182,13 @@ export default function MerchandiseStore() {
   // Pay in full needs the whole price today. Installments are 25% of the item
   // price each — paid now and at every recovery run until the selling price is
   // cleared (4 installments, no extra charge on top of the price).
-  const installmentAmount = Math.round(orderTotal * 0.25);
-  const firstInstallment = Math.min(installmentAmount, availableWallet);
-  const dueNow = payMode === 'full' ? orderTotal : firstInstallment;
-  const remainingAfter = Math.max(0, orderTotal - dueNow);
+  // Instalment plans take nothing at checkout: the whole price is financed over
+  // the chosen period and collected daily from the wallet.
+  const dueNow = payMode === 'full' ? orderTotal : 0;
   const insufficient = selected && !walletBlocked
     ? (payMode === 'full' ? orderTotal > availableWallet : false)
     : false;
-
-  // Installments work even with an empty wallet: nothing is taken at checkout
-  // and the whole price is recovered later at 25% per recovery run.
-  const zeroDown = payMode === 'installment' && dueNow <= 0;
+  const zeroDown = payMode === 'installment';
 
   const pickImage = (item: CatalogItem | null): string | null => {
     if (!item) return null;
