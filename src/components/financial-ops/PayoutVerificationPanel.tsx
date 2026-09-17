@@ -571,6 +571,16 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
           note={data.sex ? 'Read from the National ID.' : 'Could not be read off the photo.'}
         />
         <CheckLine
+          label="Age"
+          value={ageFromDob(data.dateOfBirth) != null ? `${ageFromDob(data.dateOfBirth)} years` : 'Not read'}
+          outcome={ageFromDob(data.dateOfBirth) != null ? true : null}
+          note={
+            ageFromDob(data.dateOfBirth) != null
+              ? `Calculated from date of birth (${data.dateOfBirth}).`
+              : 'Could not be read off the photo.'
+          }
+        />
+        <CheckLine
           label="Selfie is a real face"
           value={data.faceVerified === true ? 'Face confirmed' : data.faceVerified === false ? 'Not a face' : 'Not checked'}
           outcome={data.faceVerified}
