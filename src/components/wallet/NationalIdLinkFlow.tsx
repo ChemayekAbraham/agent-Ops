@@ -45,19 +45,39 @@ export default function NationalIdLinkFlow({
 }) {
   const start = useRequestNationalIdLink();
   const [requestId, setRequestId] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
   const state = useNationalIdLinkState(requestId);
   const { send, verify } = useNationalIdLinkOtp();
   const [code, setCode] = useState('');
+
+  /** Creates the request if it is not there yet, and returns its id. */
+  const ensureRequest = async (): Promise<string> => {
+    if (requestId) return requestId;
+    const res = await start.mutateAsync(nin);
+    const id = res.request_id ?? null;
+    if (!id) throw new Error('Could not start that request. Please try again.');
+    setRequestId(id);
+    setStartError(null);
+    return id;
+  };
 
   // One request per account per ID; asking again picks up the open one.
   useEffect(() => {
     if (requestId || start.isPending || !nin) return;
     start
       .mutateAsync(nin)
-      .then((res) => setRequestId(res.request_id ?? null))
-      .catch((e) => toast.error(e instanceof Error ? e.message : 'Could not start that request.'));
+      .then((res) => {
+        setRequestId(res.request_id ?? null);
+        setStartError(null);
+      })
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : 'Could not start that request.';
+        setStartError(msg);
+        toast.error(msg);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nin]);
+
 
   const s = state.data;
   const [seen, setSeen] = useState<string | null>(null);
