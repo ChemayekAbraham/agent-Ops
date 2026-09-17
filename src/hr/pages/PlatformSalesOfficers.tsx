@@ -419,7 +419,12 @@ export default function PlatformSalesOfficersPage() {
   }, [people]);
 
   const netTotal = useMemo(() => officers.reduce((s, o) => s + o.netNotes, 0), [officers]);
-  const officerNetTarget = useMemo(() => officers.length * 40, [officers]);
+  const officerNetTarget = useMemo(() => {
+    const perOfficer = 40;
+    if (mode === 'WEEKLY') return officers.length * perOfficer * 7;
+    if (mode === 'MONTHLY') return officers.length * perOfficer * 30;
+    return officers.length * perOfficer;
+  }, [mode, officers.length]);
   const officerNetPct = useMemo(() => {
     if (officerNetTarget <= 0) return 0;
     return Math.round((netTotal / officerNetTarget) * 100);
@@ -447,6 +452,60 @@ export default function PlatformSalesOfficersPage() {
     for (const p of people) p.weekday.forEach((v, wi) => { weekday[wi] += v; });
     return weekday;
   }, [people]);
+
+  // Combined compilation table — everything below is a straight sum of the two
+  // tables above, so it can never disagree with them.
+  const sumBy = <T,>(rows: T[], pick: (r: T) => number) => rows.reduce((s, r) => s + (pick(r) || 0), 0);
+
+  const officerTotals = useMemo(() => ({
+    netNotes: netTotal,
+    notesUnapproved: sumBy(officers, (o) => o.notesUnapproved),
+    notesFunded: fundedTotal,
+    fundersConverted: sumBy(officers, (o) => o.fundersConverted),
+    topups: sumBy(officers, (o) => o.topups),
+    amountDeployed: moneyTotal,
+    commissionBase: sumBy(officers, (o) => o.commissionBase),
+    commissionAccrued: sumBy(officers, (o) => o.commissionAccrued),
+  }), [officers, netTotal, fundedTotal, moneyTotal]);
+
+  const peopleTotals = useMemo(() => ({
+    netNotes: peopleNetTotal,
+    notesUnapproved: sumBy(people, (p) => p.notesUnapproved),
+    notesFunded: peopleFundedTotal,
+    fundersConverted: sumBy(people, (p) => p.fundersConverted),
+    topups: sumBy(people, (p) => p.topups),
+    amountDeployed: peopleMoneyTotal,
+    commissionBase: sumBy(people, (p) => p.commissionBase),
+    commissionAccrued: sumBy(people, (p) => p.commissionAccrued),
+  }), [people, peopleNetTotal, peopleFundedTotal, peopleMoneyTotal]);
+
+  const combinedTotals = useMemo(() => ({
+    netNotes: officerTotals.netNotes + peopleTotals.netNotes,
+    notesUnapproved: officerTotals.notesUnapproved + peopleTotals.notesUnapproved,
+    notesFunded: officerTotals.notesFunded + peopleTotals.notesFunded,
+    fundersConverted: officerTotals.fundersConverted + peopleTotals.fundersConverted,
+    topups: officerTotals.topups + peopleTotals.topups,
+    amountDeployed: officerTotals.amountDeployed + peopleTotals.amountDeployed,
+    commissionBase: officerTotals.commissionBase + peopleTotals.commissionBase,
+    commissionAccrued: officerTotals.commissionAccrued + peopleTotals.commissionAccrued,
+  }), [officerTotals, peopleTotals]);
+
+  const combinedWeekdayTotals = useMemo(
+    () => officerWeekdayTotals.map((v, wi) => v + peopleWeekdayTotals[wi]),
+    [officerWeekdayTotals, peopleWeekdayTotals],
+  );
+
+  // Net-notes goal for the window shown: 20 notes per person per day, scaled by window.
+  const combinedNetGoal = useMemo(() => {
+    if (mode === 'WEEKLY') return 700;
+    if (mode === 'MONTHLY') return 3000;
+    return 100;
+  }, [mode]);
+  const combinedNetPct = useMemo(
+    () => (combinedNetGoal <= 0 ? 0 : Math.round((combinedTotals.netNotes / combinedNetGoal) * 100)),
+    [combinedTotals.netNotes, combinedNetGoal],
+  );
+
 
 
   const isNotPermitted = error instanceof Error && error.message.includes('not permitted');
@@ -861,6 +920,113 @@ export default function PlatformSalesOfficersPage() {
             </div>
           </div>
         )}
+
+        {!isLoading && (
+          <div className="space-y-2">
+            <div className="flex flex-col gap-0.5 border-t pt-4">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Combined contributions
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                platform sales officers and other contributors added together ·{' '}
+                {mode === 'DAILY'
+                  ? 'goal 100 notes per day'
+                  : mode === 'WEEKLY'
+                    ? 'goal 700 notes per week'
+                    : 'goal 3,000 notes per month'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Net notes</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-base font-bold tabular-nums sm:text-lg">
+                    {combinedTotals.netNotes}/{combinedNetGoal.toLocaleString('en-UG')}
+                  </div>
+                  <div
+                    className={cn(
+                      'text-sm font-bold tabular-nums',
+                      combinedTotals.netNotes >= combinedNetGoal ? 'text-green-600' : 'text-red-600',
+                    )}
+                  >
+                    {combinedNetPct}%
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funded</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedTotals.notesFunded}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funders</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{combinedTotals.fundersConverted}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Money deployed</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(combinedTotals.amountDeployed)}</div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-md border [overscroll-behavior-x:contain]">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium">Group</th>
+                    {dayIndices.map((wi) => (
+                      <th key={wi} className="px-2 py-2 text-right font-medium">{WEEKDAY_LABELS[wi]}</th>
+                    ))}
+                    <th className="px-4 py-2 text-right font-medium">Net notes</th>
+                    <th className="px-4 py-2 text-right font-medium">Unapproved</th>
+                    <th className="px-4 py-2 text-right font-medium">Funded</th>
+                    <th className="px-4 py-2 text-right font-medium">Funders</th>
+                    <th className="px-4 py-2 text-right font-medium">Top-ups</th>
+                    <th className="px-4 py-2 text-right font-medium">Money deployed</th>
+                    <th className="px-4 py-2 text-right font-medium">Commission base</th>
+                    <th className="px-4 py-2 text-right font-medium">Commission</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {([
+                    { key: 'officers', name: 'Platform sales officers', weekday: officerWeekdayTotals, t: officerTotals },
+                    { key: 'people', name: 'Other contributors', weekday: peopleWeekdayTotals, t: peopleTotals },
+                    { key: 'combined', name: 'Combined total', weekday: combinedWeekdayTotals, t: combinedTotals },
+                  ] as const).map((group) => (
+                    <tr
+                      key={group.key}
+                      className={cn('border-t', group.key === 'combined' && 'bg-muted/30 font-semibold')}
+                    >
+                      <td className="px-4 py-2 text-left">{group.name}</td>
+                      {dayIndices.map((wi) => (
+                        <td key={wi} className="px-2 py-2 text-right tabular-nums">{group.weekday[wi]}</td>
+                      ))}
+                      <td className="px-4 py-2 text-right tabular-nums">{group.t.netNotes}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {group.t.notesUnapproved === 0 ? '—' : group.t.notesUnapproved}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">{group.t.notesFunded}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">{group.t.fundersConverted}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {group.t.topups === 0 ? '—' : group.t.topups}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        UGX {group.t.amountDeployed.toLocaleString('en-UG')}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        UGX {group.t.commissionBase.toLocaleString('en-UG')}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        UGX {group.t.commissionAccrued.toLocaleString('en-UG')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+
 
 
         <p className="text-xs text-muted-foreground">
