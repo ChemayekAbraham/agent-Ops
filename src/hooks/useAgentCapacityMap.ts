@@ -633,11 +633,13 @@ export function useAgentCapacityMap(agentIds: string[]) {
         if (daily_gate_count <= 0) daily_status = 'starter';
         else if (daily_blocked) daily_status = 'blocked';
         else daily_status = 'good';
-        // Daily performance regulation only kicks in once the agent has
-        // graduated (reached the tenant threshold). New agents are governed
-        // solely by the per-tenant cap above.
+        // Daily performance regulation applies to EVERY agent with a daily
+        // gate population, new or not. The database trigger
+        // (enforce_agent_daily_eligibility) has no new-agent exemption, so
+        // exempting them here made the app promise a post the server refused.
+        // New agents remain governed by the smaller per-tenant cap above.
         const can_post_rent_today =
-          unlimited_posting || is_new_agent ? true : !daily_blocked;
+          unlimited_posting ? true : !daily_blocked;
         const daily_rating = classifyDailyRating(daily_gate_count, performance_pct, 1);
         out.set(id, {
           used: exp.used,
