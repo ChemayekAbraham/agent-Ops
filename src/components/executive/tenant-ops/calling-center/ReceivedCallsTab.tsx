@@ -7,7 +7,7 @@
  * they said, and can forward the concern to a member of staff.
  */
 import { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CCBlock, CCDialogHeading, CCEmpty, CCPanel, CC_ROW } from './ccUi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,16 +106,20 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm font-bold">
-            <PhoneIncoming className="h-4 w-4 text-primary" />
-            Record a call that came in
+          <DialogTitle asChild>
+            <CCDialogHeading
+              icon={PhoneIncoming}
+              title="Record a call that came in"
+              hint="Tie the caller to someone we know, or type their details by hand."
+            />
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="rounded-lg border border-border bg-muted/40 p-2.5">
+          <CCBlock>
+
             <Label className="text-[11px] font-semibold">Is the caller already with us?</Label>
             <div className="mt-1.5 flex gap-1.5">
               <div className="relative flex-1">
