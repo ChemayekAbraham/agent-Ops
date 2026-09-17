@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  Eye, ImageIcon, Loader2, MapPin, MessageSquare, Navigation, Phone,
-  Search, ShieldCheck, SlidersHorizontal, Users, X,
+  Check, Eye, ImageIcon, Loader2, MapPin, MessageSquare, Navigation, Phone,
+  Search, ShieldCheck, ShoppingCart, SlidersHorizontal, Users, X,
 } from 'lucide-react';
+import { hapticTap } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -65,14 +67,21 @@ function StatusDot({ active, label }: { active: boolean; label: string }) {
 /**
  * The full empty-house browsing experience (search, filters, landlord contact,
  * GPS, progress badges, details) embedded inline in the agent / proxy agent
- * "Share these to bring in support" section. Cards carry share actions instead
- * of a selection cart — every share creates the opaque /s/<code> support link
- * that keeps this agent credited server-side.
+ * "Share these to bring in support" section. Cards carry share actions and a
+ * cart selection toggle.
  *
  * GPS-only is forced: a shared house without coordinates has no "Visit House"
  * on the public support page, so it must not appear here.
  */
-export function EmptyHouseShareBrowser({ onTotalChange }: { onTotalChange?: (total: number) => void }) {
+export function EmptyHouseShareBrowser({
+  onTotalChange,
+  selectedHouseIds,
+  onToggleHouse,
+}: {
+  onTotalChange?: (total: number) => void;
+  selectedHouseIds?: Set<string>;
+  onToggleHouse?: (house: HouseOpportunity) => void;
+}) {
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
@@ -362,14 +371,23 @@ export function EmptyHouseShareBrowser({ onTotalChange }: { onTotalChange?: (tot
             const progress = progressByHouse[h.house_id];
             const place = placeOf(h);
             const title = h.title || h.house_category?.replace(/[_-]/g, ' ') || 'Empty house';
+            const isSelected = selectedHouseIds?.has(h.house_id) ?? false;
 
             return (
-              <div key={h.house_id} className="group">
+              <div
+                key={h.house_id}
+                className="group cursor-pointer"
+                role="button"
+                tabIndex={0}
+                onClick={() => setDetailHouse(h)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setDetailHouse(h); }}
+              >
                 {/* -------- Image carousel -------- */}
-                <button
-                  type="button"
-                  onClick={() => setDetailHouse(h)}
-                  className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
+                <div
+                  className={cn(
+                    'w-full rounded-2xl transition-all duration-200',
+                    isSelected && 'ring-2 ring-primary/50',
+                  )}
                 >
                   <div className="relative w-full overflow-hidden rounded-2xl bg-muted">
                     {photos.length > 0 ? (
@@ -401,6 +419,22 @@ export function EmptyHouseShareBrowser({ onTotalChange }: { onTotalChange?: (tot
                         {h.distance_km < 1 ? `${Math.round(h.distance_km * 1000)} m` : `${h.distance_km.toFixed(1)} km`}
                       </span>
                     )}
+                    {/* Selection checkmark — top right (only this toggles cart) */}
+                    {onToggleHouse && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); hapticTap(); onToggleHouse(h); }}
+                        className={cn(
+                          'absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-full border-2 transition-all duration-200 z-10',
+                          isSelected
+                            ? 'border-primary bg-primary text-primary-foreground scale-100'
+                            : 'border-white/60 bg-black/20 text-transparent scale-90 hover:border-white/90 hover:bg-black/40',
+                        )}
+                        aria-label={isSelected ? 'Remove from cart' : 'Add to cart'}
+                      >
+                        <Check className="h-4 w-4" strokeWidth={3} />
+                      </button>
+                    )}
                     {/* Dot indicators for multi-photo */}
                     {photos.length > 1 && (
                       <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1">
@@ -410,7 +444,7 @@ export function EmptyHouseShareBrowser({ onTotalChange }: { onTotalChange?: (tot
                       </div>
                     )}
                   </div>
-                </button>
+                </div>
 
                 {/* -------- Card content -------- */}
                 <div className="mt-2.5 px-0.5">
@@ -453,8 +487,8 @@ export function EmptyHouseShareBrowser({ onTotalChange }: { onTotalChange?: (tot
                   </div>
 
                   {/* Landlord — minimal inline */}
-                  {h.landlord_name && (
-                    <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2">
+                   {h.landlord_name && (
+                    <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <div className="min-w-0">
                         <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Landlord</p>
                         <p className="text-sm font-semibold truncate">{h.landlord_name}</p>
@@ -484,23 +518,24 @@ export function EmptyHouseShareBrowser({ onTotalChange }: { onTotalChange?: (tot
                   )}
 
                   {/* Action row */}
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDetailHouse(h)}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Eye className="h-3.5 w-3.5" /> View details
-                    </button>
-                    {hasGps(h) && (
-                      <a
-                        href={mapsUrl(h)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  <div className="mt-2.5 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    {onToggleHouse && (
+                      <button
+                        type="button"
+                        onClick={() => { hapticTap(); onToggleHouse(h); }}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                          isSelected
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                        )}
                       >
-                        <Navigation className="h-3.5 w-3.5" /> GPS
-                      </a>
+                        {isSelected ? (
+                          <><Check className="h-3 w-3" /> Selected</>
+                        ) : (
+                          <><ShoppingCart className="h-3 w-3" /> Add to cart</>
+                        )}
+                      </button>
                     )}
                     <div className="ml-auto">
                       <HouseShareActions house={h} />
