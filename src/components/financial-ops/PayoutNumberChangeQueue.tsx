@@ -20,26 +20,60 @@ import {
   type NumberChangeRequest,
 } from '@/hooks/usePayoutNumberChange';
 
+/** Loose name comparison, only to flag an obvious mismatch for the reviewer. */
+function namesLookAlike(a?: string | null, b?: string | null) {
+  const parts = (v?: string | null) =>
+    (v ?? '')
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2);
+  const x = parts(a);
+  const y = parts(b);
+  if (!x.length || !y.length) return false;
+  return x.some((w) => y.includes(w));
+}
+
 function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boolean }) {
   const decide = useDecideNumberChange();
   const vetting = useNumberChangeVetting(r.id, !readOnly);
   const [reason, setReason] = useState('');
+  const [nameProof, setNameProof] = useState('');
+  const [nameChecked, setNameChecked] = useState(false);
   const [busy, setBusy] = useState<'approved' | 'rejected' | null>(null);
+
+  const idName = r.full_name ?? '';
+  const proofReady = nameChecked && nameProof.trim().length >= 25;
+  const looksSame = namesLookAlike(idName, r.requested_name);
 
   const act = async (decision: 'approved' | 'rejected') => {
     if (reason.trim().length < 10) {
       toast.error('Write at least 10 characters explaining the decision.');
       return;
     }
+    if (decision === 'approved' && !proofReady) {
+      toast.error(
+        'Confirm the number is registered in the names on the National ID, and write the proof statement (25 characters minimum).',
+      );
+      return;
+    }
     setBusy(decision);
     try {
-      await decide.mutateAsync({ id: r.id, decision, reason: reason.trim() });
+      const note =
+        decision === 'approved'
+          ? `NAME CHECK on ${r.requested_number} (${(r.requested_provider ?? '').toUpperCase()}) — registered names match National ID ${
+              r.national_id ?? 'not recorded'
+            } (${idName || 'name not on file'}): ${nameProof.trim()} | Decision: ${reason.trim()}`
+          : reason.trim();
+      await decide.mutateAsync({ id: r.id, decision, reason: note });
       toast.success(
         decision === 'approved'
           ? 'Approved. Their withdrawal number now points to the new line.'
           : 'Rejected. Their withdrawal number stays as it was.',
       );
       setReason('');
+      setNameProof('');
+      setNameChecked(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not save the decision.');
     } finally {
@@ -133,6 +167,50 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
         </div>
       ) : (
         <>
+          <div className="space-y-2 rounded-lg border-2 border-amber-500/60 bg-amber-500/10 p-3">
+            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
+              Required: is this number in the names on the National ID?
+            </p>
+            <div className="grid gap-1 text-xs">
+              <p>
+                <span className="text-muted-foreground">Names on the National ID: </span>
+                <span className="font-bold">{idName || 'not on file'}</span>
+                {r.national_id ? <span className="text-muted-foreground"> · {r.national_id}</span> : null}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Names registered on {r.requested_number}: </span>
+                <span className="font-bold">{r.requested_name}</span>
+              </p>
+              <p className={looksSame ? 'font-semibold text-emerald-600' : 'font-semibold text-destructive'}>
+                {looksSame
+                  ? 'The two names share at least one name — still check it yourself on MTN MoMo or Airtel Money.'
+                  : 'These names do not match. Do not approve unless the number is genuinely in the ID names.'}
+              </p>
+            </div>
+            <label className="flex cursor-pointer items-start gap-2 text-xs font-semibold">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-amber-600"
+                checked={nameChecked}
+                onChange={(e) => setNameChecked(e.target.checked)}
+              />
+              <span>
+                I checked {r.requested_number} on {(r.requested_provider ?? 'the network').toUpperCase()} and the
+                number is registered in the names on this National ID.
+              </span>
+            </label>
+            <Textarea
+              value={nameProof}
+              onChange={(e) => setNameProof(e.target.value)}
+              rows={2}
+              placeholder="Proof statement: how you checked and the exact name the network showed (25 characters minimum)"
+            />
+            {!proofReady && (
+              <p className="text-[11px] font-semibold text-destructive">
+                Approve stays locked until this is ticked and the proof statement is written.
+              </p>
+            )}
+          </div>
           <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
@@ -143,7 +221,7 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
             <Button
               className="flex-1"
               size="sm"
-              disabled={!!busy || vetting.data?.approvable === false}
+              disabled={!!busy || vetting.data?.approvable === false || !proofReady}
               onClick={() => act('approved')}
             >
               {busy === 'approved' ? (

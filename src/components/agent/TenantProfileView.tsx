@@ -189,6 +189,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const tenantLoc = useRequireContactLocation(tenantId, 'tenant');
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [requests, setRequests] = useState<RentRequestRow[]>([]);
+  const [landlordUnpaidRequestIds, setLandlordUnpaidRequestIds] = useState<Set<string>>(new Set());
   const [repayments, setRepayments] = useState<RepaymentRow[]>([]);
   // Every field/wallet collection recorded for this tenant. Needed because many
   // payments only ever land in `agent_collections` (no `repayments` row), and the
@@ -424,11 +425,25 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         // Allocations run inside the same burst instead of after it.
         user?.id ? loadAllocations() : Promise.resolve(null),
         loadTenantCollections(),
+        // Landlord float allocations for this tenant — a row with money still
+        // remaining means the landlord has NOT been paid yet, so collection
+        // must stay closed even when the request status says repaying.
+        supabase
+          .from('agent_landlord_float_allocations')
+          .select('rent_request_id, remaining_amount')
+          .eq('tenant_id', tenantId),
       ]);
 
-      const [rentRes, repaymentRes, walletRes, portfolioRes, ledgerRes, rolesRes] = settled.map((result, idx) =>
-        responseOrNull(result, ['rent requests', 'repayments', 'wallet', 'portfolio', 'ledger', 'roles', 'allocations'][idx]),
+      const [rentRes, repaymentRes, walletRes, portfolioRes, ledgerRes, rolesRes, , , landlordAllocRes] = settled.map((result, idx) =>
+        responseOrNull(result, ['rent requests', 'repayments', 'wallet', 'portfolio', 'ledger', 'roles', 'allocations', 'collections', 'landlord allocations'][idx]),
       );
+
+      const unpaidLandlordIds = new Set<string>(
+        ((landlordAllocRes?.data || []) as { rent_request_id: string | null; remaining_amount: number | null }[])
+          .filter(a => a.rent_request_id && Number(a.remaining_amount || 0) > 0)
+          .map(a => a.rent_request_id as string),
+      );
+      setLandlordUnpaidRequestIds(unpaidLandlordIds);
 
       setRequests(((rentRes?.data as unknown as RentRequestRow[]) || []).map((req) => {
         const effective = getEffectiveRentRequestAmounts(req);
@@ -669,6 +684,12 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
   const handleAutoCollectFromWallet = async () => {
     if (!profile || !summary.activeRequest || !walletData) return;
+    if (awaitingLandlord) {
+      sonnerToast.error("Landlord not paid yet", {
+        description: "The landlord float is with you, but the landlord has not been paid. Collection opens once the landlord is paid.",
+      });
+      return;
+    }
     const collectAmount = Math.min(walletData.balance, summary.currentOutstanding);
     if (collectAmount <= 0) {
       toast({ title: 'No funds available', description: 'Tenant wallet is empty', variant: 'destructive' });
@@ -738,6 +759,15 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           (Date.parse(`${repaymentStartsOn}T00:00:00Z`) - Date.parse(`${todayEAT}T00:00:00Z`)) / 86400000))
       : 0;
   const repaymentNotStarted = daysUntilStart > 0;
+  // Landlord float has been released to the agent, but the landlord has not
+  // actually been paid yet — collection must stay closed until that happens.
+  // Landlord not paid yet when the request is still at `approved` (float just
+  // released) OR the landlord float allocation for this plan still holds money
+  // (paid_out < allocated). Status alone is not enough — a plan can read
+  // `repaying` while the landlord was never paid.
+  const awaitingLandlord =
+    summary.activeRequest?.status === 'approved' ||
+    (!!summary.activeRequest && landlordUnpaidRequestIds.has(summary.activeRequest.id));
 
   const activePct = summary.activeRequest && summary.activeRequest.total_repayment > 0
     ? Math.min(100, Math.round((summary.activeRequest.amount_repaid / summary.activeRequest.total_repayment) * 100))
@@ -1316,7 +1346,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
     );
   }
 
-  const phoneIntl = profile.phone.replace(/^0/, '256').replace(/[^0-9]/g, '');
+  const phoneIntl = (profile.phone ?? '').replace(/^0/, '256').replace(/[^0-9]/g, '');
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
@@ -1793,8 +1823,15 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                     floatLoading,
                     floatError,
                     rejected: summary.activeRequest?.status === 'rejected',
+                    awaitingLandlord,
                     profileId: profile?.id,
                   });
+                  if (awaitingLandlord) {
+                    sonnerToast.error("Landlord not paid yet", {
+                      description: "The landlord float is with you, but the landlord has not been paid. Collection opens once the landlord is paid.",
+                    });
+                    return;
+                  }
                   if (floatLoading) {
                     sonnerToast.info("Loading your float…", {
                       description: "Hold on a moment while we fetch your wallet float balance.",
@@ -1834,18 +1871,25 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                   }
                   setCollectDialogOpen(true);
                 }}
-                disabled={repaymentNotStarted}
+                disabled={repaymentNotStarted || awaitingLandlord}
                 className="w-full gap-2 text-base h-14 font-bold rounded-xl shadow-lg active:scale-[0.97] transition-transform"
-                variant="success"
+                variant={awaitingLandlord ? "warning" : "success"}
                 size="xl"
               >
-                {floatLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Banknote className="h-6 w-6" />}
+                {floatLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : awaitingLandlord ? <AlertTriangle className="h-6 w-6" /> : <Banknote className="h-6 w-6" />}
                 {floatLoading
                   ? 'Loading float...'
-                  : repaymentNotStarted
-                    ? (daysUntilStart === 1 ? 'Starts tomorrow' : `Starts in ${daysUntilStart} days`)
-                    : `Pay ${formatUGX(Math.min(summary.currentOutstanding, agentFloatBalance))}`}
+                  : awaitingLandlord
+                    ? 'Landlord not paid'
+                    : repaymentNotStarted
+                      ? (daysUntilStart === 1 ? 'Starts tomorrow' : `Starts in ${daysUntilStart} days`)
+                      : `Pay ${formatUGX(Math.min(summary.currentOutstanding, agentFloatBalance))}`}
               </Button>
+              {awaitingLandlord && (
+                <p className="text-xs text-warning leading-relaxed">
+                  Landlord float has been sent to you, but the landlord has not been paid yet. Collection opens once the landlord is paid.
+                </p>
+              )}
               {repaymentNotStarted && (
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Rent has been paid to the landlord. This tenant&apos;s first payment is due on{' '}
@@ -1879,15 +1923,33 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                 </div>
                 <Button
                   onClick={handleAutoCollectFromWallet}
-                  disabled={autoCollecting}
+                  disabled={autoCollecting || awaitingLandlord}
                   variant="outline"
-                  className="w-full gap-2 text-base h-12 rounded-xl border-primary/30 active:scale-[0.97] transition-transform"
+                  className={`w-full gap-2 text-base h-12 rounded-xl active:scale-[0.97] transition-transform ${
+                    awaitingLandlord
+                      ? "border-warning/40 text-warning blur-[1.5px] opacity-60 pointer-events-none"
+                      : "border-primary/30"
+                  }`}
                 >
-                  {autoCollecting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Bot className="h-5 w-5 text-primary" />}
-                  Auto-Collect {formatUGX(Math.min(walletData.balance, summary.currentOutstanding))}
+                  {autoCollecting ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : awaitingLandlord ? (
+                    <AlertTriangle className="h-5 w-5" />
+                  ) : (
+                    <Bot className="h-5 w-5 text-primary" />
+                  )}
+                  {awaitingLandlord
+                    ? "Landlord not paid"
+                    : `Auto-Collect ${formatUGX(Math.min(walletData.balance, summary.currentOutstanding))}`}
                 </Button>
+                {awaitingLandlord && (
+                  <p className="text-xs text-warning leading-relaxed">
+                    Collection opens once the landlord has been paid.
+                  </p>
+                )}
               </div>
             )}
+
           </SectionCard>
         )}
 
