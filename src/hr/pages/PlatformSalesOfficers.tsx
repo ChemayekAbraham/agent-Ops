@@ -63,6 +63,64 @@ interface NonOfficerFunded {
 
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
+// Numeric value a row is ranked by for a given sort key. 'day-N' keys read the
+// per-weekday buckets; anything else reads the named numeric field.
+function sortValue(row: Record<string, unknown>, key: string): number {
+  if (key.startsWith('day-')) {
+    const weekday = row.weekday as number[] | undefined;
+    return weekday?.[Number(key.slice(4))] ?? 0;
+  }
+  const v = row[key];
+  return typeof v === 'number' ? v : 0;
+}
+
+interface SortableThProps {
+  label: string;
+  sortKey: string;
+  activeKey: string;
+  onSort: (key: string) => void;
+  align?: 'left' | 'right';
+  topHint?: string;
+}
+
+// Column header that sorts the table highest-first when tapped. The active
+// column stays highlighted until another is picked.
+function SortableTh({ label, sortKey, activeKey, onSort, align = 'right', topHint }: SortableThProps) {
+  const active = sortKey === activeKey;
+  return (
+    <th className={cn('px-2 py-2 font-medium', align === 'left' ? 'text-left' : 'text-right')}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+        className={cn(
+          'inline-flex w-full flex-col rounded-md px-1.5 py-0.5 transition-colors',
+          align === 'left' ? 'items-start' : 'items-end',
+          active
+            ? 'bg-primary text-primary-foreground shadow-sm'
+            : 'text-foreground hover:bg-muted',
+        )}
+        aria-pressed={active}
+      >
+        {topHint != null && (
+          <span
+            className={cn(
+              'block text-[10px] font-semibold tabular-nums',
+              active ? 'text-primary-foreground/80' : 'text-muted-foreground',
+            )}
+          >
+            {topHint}
+          </span>
+        )}
+        <span className="inline-flex items-center gap-0.5">
+          {label}
+          {active && <span aria-hidden>▼</span>}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 // The reporting week runs Wednesday → Tuesday, so the day columns start on Wed.
 const WEEKDAY_LABELS = ['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'];
 const WEEKDAY_INITIALS = ['W', 'T', 'F', 'S', 'S', 'M', 'T'];
