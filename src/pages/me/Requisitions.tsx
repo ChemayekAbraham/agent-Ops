@@ -15,7 +15,34 @@ import {
 import { toast } from 'sonner';
 import {
   Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Building2, Wallet, Paperclip, Upload, X, FileText,
+  Landmark,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { staffLoanSchedule, MONTH_WORDS, STAFF_LOAN_MAX_MONTHS } from '@/lib/staffLoanSchedule';
+
+type RequestKind = 'requisition' | 'staff_loan';
+
+interface LoanEligibility {
+  eligible: boolean;
+  monthly_rate?: number;
+  max_months?: number;
+  active_loans?: number;
+  outstanding?: number;
+}
+
+interface StaffLoan {
+  id: string;
+  requisition_id: string;
+  principal: number;
+  months: number;
+  monthly_rate: number;
+  outstanding_principal: number;
+  accrued_interest: number;
+  total_repaid: number;
+  status: string;
+  started_on: string;
+  due_on: string | null;
+}
 
 interface Requisition {
   id: string;
@@ -34,6 +61,8 @@ interface Requisition {
   credited_at: string | null;
   created_at: string;
   attachment_urls: string[] | null;
+  request_kind: RequestKind | null;
+  loan_months: number | null;
 }
 
 interface ReqEvent {
