@@ -32,6 +32,7 @@ import {
   Smartphone,
   Undo2,
   UserCheck,
+  Users,
   X,
   XCircle,
 
@@ -207,6 +208,18 @@ function statusBadge(row: PayoutDestinationRow): {
   if (row.name_match_score !== null && row.name_match_score < 0.5)
     return { label: 'Needs review', Icon: AlertTriangle, classes: 'bg-amber-500/15 text-amber-700 ring-1 ring-inset ring-amber-500/50' };
   return { label: 'Pending', Icon: Clock, classes: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/40' };
+}
+
+/** 1 → "1st", 2 → "2nd", 3 → "3rd", else "Nth" — for the shared-ID banner. */
+function ordinalLabel(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
 }
 
 /** Photos-ready badge so operators instantly know which cases can be actioned. */
@@ -1274,6 +1287,24 @@ export default function PayoutVerificationPanel() {
               kind={row.double_kind}
               firstName={row.double_of_name}
             />
+          )}
+
+          {row.id_account_count > 1 && (
+            <div
+              role="alert"
+              className="mx-5 mt-3 rounded-2xl border-2 border-amber-500/70 bg-amber-500/15 p-4"
+            >
+              <p className="flex items-center gap-2 text-sm font-extrabold text-amber-700 dark:text-amber-400">
+                <Users className="h-4 w-4 shrink-0" aria-hidden="true" />
+                This National ID is on {row.id_account_count} accounts
+              </p>
+              <p className="mt-1 text-xs font-semibold text-amber-700/90 dark:text-amber-400/90">
+                This is the {ordinalLabel(row.id_account_ordinal)} account using this ID.
+                {row.id_account_ordinal > 1
+                  ? ' An earlier account already holds this ID — confirm you are reviewing the right person before verifying.'
+                  : ' This is the first account with this ID; the others appeared later.'}
+              </p>
+            </div>
           )}
 
 
