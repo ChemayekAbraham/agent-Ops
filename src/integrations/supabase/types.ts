@@ -47874,6 +47874,32 @@ export type Database = {
         }
         Relationships: []
       }
+      engrep_claim_noise: {
+        Row: {
+          commits: number | null
+          engineers: string[] | null
+          first_touch: string | null
+          last_touch: string | null
+          unit_key: string | null
+          window_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_claimed_not_live: {
         Row: {
           author_email: string | null
