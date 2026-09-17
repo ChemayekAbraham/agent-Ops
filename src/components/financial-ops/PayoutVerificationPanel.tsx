@@ -67,6 +67,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { formatUGX } from '@/lib/rentCalculations';
 import { assessIdNameConfidence } from '@/lib/idNameConfidence';
 import { doubleSubmissionLabel } from '@/lib/doubleSubmission';
+import {
+  clearNameCheck,
+  compareNames,
+  loadNameCheck,
+  networkForNumber,
+  saveNameCheck,
+  type PayoutNameCheck,
+} from '@/lib/payoutNameCheck';
 import { supabase } from '@/integrations/supabase/client';
 import { PayoutQueueBlockedList, blockedReasonFor } from './PayoutQueueBlockedList';
 import NationalIdLinkStaffQueue from './NationalIdLinkStaffQueue';
@@ -977,6 +985,149 @@ function DecisionDialog({
   );
 }
 
+/**
+ * Mandatory step before Verify: the reviewer starts a send-money on their own
+ * phone to this exact number, reads back the registered name the network shows,
+ * types it here, and the two names are compared with the National ID name.
+ */
+function PayoutNameCheckCard({
+  row,
+  check,
+  onChange,
+}: {
+  row: PayoutDestinationRow;
+  check: PayoutNameCheck | null;
+  onChange: (next: PayoutNameCheck | null) => void;
+}) {
+  const [typed, setTyped] = useState('');
+  useEffect(() => setTyped(''), [row.id]);
+
+  const idName = (row.national_id_name || '').trim();
+  const isMomo = row.destination_type === 'mobile_money';
+  const network = networkForNumber(row.provider, row.momo_number);
+  const target = isMomo
+    ? row.momo_number
+    : `${row.bank_name ?? ''} ${row.bank_account_number ?? ''}`.trim();
+
+  const record = () => {
+    const networkName = typed.trim();
+    if (networkName.length < 3) {
+      toast.error('Type the full name exactly as it appeared on your phone.');
+      return;
+    }
+    if (!idName) {
+      toast.error('There is no name from the National ID to compare against yet.');
+      return;
+    }
+    const outcome = compareNames(networkName, idName);
+    const next: PayoutNameCheck = { networkName, outcome, checkedAt: new Date().toISOString() };
+    saveNameCheck(row.id, next);
+    onChange(next);
+    if (outcome === 'match') toast.success('Names are the same. Verify is now open.');
+    else if (outcome === 'partial') toast.warning('Names only partly agree — Verify stays closed.');
+    else toast.error('Different names — do not verify. Reject or call the holder.');
+  };
+
+  const tone =
+    check?.outcome === 'match'
+      ? 'border-emerald-500/50 bg-emerald-500/10'
+      : check?.outcome === 'partial'
+        ? 'border-amber-500/50 bg-amber-500/10'
+        : check?.outcome === 'different'
+          ? 'border-destructive/50 bg-destructive/10'
+          : 'border-primary/40 bg-primary/5';
+
+  return (
+    <div className={`mx-5 mt-3 rounded-2xl border-2 p-4 ${tone}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <Smartphone className="h-3.5 w-3.5" aria-hidden="true" /> Step 1 — name check on the number
+        </p>
+        {check && (
+          <span className="text-[10px] font-bold uppercase tracking-widest">
+            {check.outcome === 'match'
+              ? 'Same person'
+              : check.outcome === 'partial'
+                ? 'Partly agrees'
+                : 'Different name'}
+          </span>
+        )}
+      </div>
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        {isMomo ? (
+          <>
+            Start a send-money to <span className="font-bold text-foreground">{target || '—'}</span> on{' '}
+            {network.label}
+            {network.ussd ? (
+              <>
+                {' '}
+                (<span className="font-semibold text-foreground">{network.ussd}</span>)
+              </>
+            ) : null}{' '}
+            and read the registered name it shows before confirming. Do not send anything.
+          </>
+        ) : (
+          <>
+            Ask the bank to confirm the registered name on{' '}
+            <span className="font-bold text-foreground">{target || '—'}</span> before verifying.
+          </>
+        )}
+      </p>
+
+      <div className="mt-2 rounded-xl border border-border bg-background/70 p-2.5">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Name on the National ID
+        </p>
+        <p className="truncate text-sm font-bold text-foreground">{idName || '—'}</p>
+      </div>
+
+      {check ? (
+        <div className="mt-2 space-y-2">
+          <div className="rounded-xl border border-border bg-background/70 p-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Name the network showed
+            </p>
+            <p className="truncate text-sm font-bold text-foreground">{check.networkName}</p>
+          </div>
+          {check.outcome !== 'match' && (
+            <p role="alert" className="text-xs font-semibold text-destructive">
+              These are not clearly the same person. Verify stays closed — call the holder or reject with a note.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            className="h-10 w-full rounded-xl text-xs font-bold uppercase tracking-widest"
+            onClick={() => {
+              clearNameCheck(row.id);
+              onChange(null);
+              setTyped('');
+            }}
+          >
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Redo the name check
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-2 space-y-2">
+          <Input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="Type the name your phone showed"
+            className="h-11 text-sm"
+            aria-label="Name shown by the mobile money or bank lookup"
+          />
+          <Button
+            className="h-11 w-full rounded-xl text-xs font-bold uppercase tracking-widest"
+            onClick={record}
+          >
+            <UserCheck className="mr-1.5 h-4 w-4" /> Record the name check
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const SORT_STORAGE_KEY = 'finops-payout-verification-sort';
 const SORT_OPTIONS: PayoutQueueSort[] = ['ready_first', 'balance', 'newest', 'oldest'];
 
@@ -1048,7 +1199,16 @@ export default function PayoutVerificationPanel() {
   // account is a double submission and can never be verified.
   const isDouble = row?.double_submission === true;
   const doubleWhat = doubleSubmissionLabel(row?.double_kind);
-  const verifyBlocked = !photosReady || idNameUnreadable || isDouble;
+  // Every payout number must first be name-checked on the network, exactly as
+  // though money were being sent, and the name must be the same person as the
+  // National ID. Until that is recorded and agrees, Verify stays off.
+  const [nameCheck, setNameCheck] = useState<PayoutNameCheck | null>(null);
+  useEffect(() => {
+    setNameCheck(loadNameCheck(row?.id));
+  }, [row?.id]);
+  const nameCheckPassed = nameCheck?.outcome === 'match';
+  const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheckPassed;
+
 
 
   const { avatarFor } = useUserAvatars(row ? [row.user_id] : []);
@@ -1138,7 +1298,10 @@ export default function PayoutVerificationPanel() {
         userId: target.user_id,
         decision: 'verified',
         reason:
-          'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.',
+          'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.' +
+          (nameCheck
+            ? ` Name check on the payout number showed "${nameCheck.networkName}" — same person as the National ID.`
+            : ''),
       });
       const idName = (target.national_id_name || '').trim();
       const before = (target.full_name || target.account_name || '').trim();
@@ -1621,6 +1784,9 @@ export default function PayoutVerificationPanel() {
           {/* What was read off the BACK of the card, re-read from the archived photo */}
           <StoredIdBackReadingCard row={row} backPath={idBackPath} />
 
+          {/* Mandatory network name check before Verify can be tapped */}
+          <PayoutNameCheckCard row={row} check={nameCheck} onChange={setNameCheck} />
+
           {/* Audit trail of name replacements */}
           <NameChangeHistory userId={row.user_id} />
 
@@ -1702,6 +1868,14 @@ export default function PayoutVerificationPanel() {
             <p role="alert" className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
               <AlertTriangle className="h-3.5 w-3.5" />
               Verify is off — {idNameConfidence.reason} Ask for a clearer ID photo.
+            </p>
+          )}
+          {photosReady && !idNameUnreadable && !isDouble && !nameCheckPassed && (
+            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-amber-600">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {nameCheck
+                ? 'Verify is off — the name on the number is not clearly the same person as the National ID.'
+                : 'Verify is off — do the name check on the payout number first (Step 1 above).'}
             </p>
           )}
           {(() => {
@@ -1800,6 +1974,10 @@ export default function PayoutVerificationPanel() {
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">ID name</span>
                 <span className="truncate text-right font-semibold">{confirmingVerify.national_id_name || '—'}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Name on the number</span>
+                <span className="truncate text-right font-semibold">{nameCheck?.networkName || '—'}</span>
               </div>
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Amount</span>
