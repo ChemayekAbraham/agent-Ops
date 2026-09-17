@@ -419,10 +419,24 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
                 </div>
                 <div className="text-right shrink-0 flex flex-col items-end min-w-0 max-w-[38%] sm:max-w-[40%]">
                   <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wide ${toneText}`}>
-                    {hasDebt && isLiveRequest ? 'Owing' : isNotPaying ? 'On hold' : isPendingReview ? 'Awaiting' : isApproved ? 'Approved' : 'Cleared'}
+                    {hasDebt && isLiveRequest
+                      ? 'Owing'
+                      : isNotPaying
+                        ? 'On hold'
+                        : awaitingLandlord
+                          ? 'Landlord unpaid'
+                          : isPendingReview
+                            ? 'Awaiting'
+                            : isApproved
+                              ? 'Approved'
+                              : 'Cleared'}
                   </p>
                   <p className={`font-bold font-mono text-[11px] sm:text-sm ${toneText} truncate`}>
-                    {balance > 0 ? formatUGX(balance) : 'UGX 0'}
+                    {balance > 0
+                      ? formatUGX(balance)
+                      : awaitingLandlord
+                        ? formatUGX(unfunded)
+                        : 'UGX 0'}
                   </p>
                 </div>
               </button>
