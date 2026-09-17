@@ -1065,26 +1065,38 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Take a clear photo of your National ID and a selfie. Your original selfie is kept in your
-          verification history for Financial Ops; the version you crop becomes your profile picture.
+          Take a clear photo of the FRONT and the BACK of your National ID, and a selfie. Your
+          original selfie is kept in your verification history for Financial Ops; the version you
+          crop becomes your profile picture.
         </p>
 
+        {/* How to hold the card. Shown up front, because a card lying the wrong
+            way round is the single commonest reason a good photo fails. */}
+        <div className="rounded-lg border bg-muted/40 p-3 text-xs">
+          <p className="font-semibold">How to hold your card</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+            {ID_POSITION_TIPS.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </div>
 
         {storedIdPath ? (
           <StoredShot
             path={storedIdPath}
-            label="National ID photo"
+            label="National ID front"
             note="This saved photo will be used for this verification."
           />
         ) : (
           <ShotTile
-            label="National ID photo"
-            hint="All four corners visible, no glare."
+            label="National ID — FRONT"
+            hint="The side with your photo and names. All four corners visible, no glare."
             file={idPhoto}
             onPick={(f) => {
               setIdPhoto(f);
               setIdReading(null);
               setReadError(null);
+              setIdRotation(0);
               setDetailsConfirmed(false);
               void readIdPhoto(f);
             }}
@@ -1092,6 +1104,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               setIdPhoto(null);
               setIdReading(null);
               setReadError(null);
+              setIdRotation(0);
               setForm(EMPTY_ID_DATA);
               setFieldError(null);
               setDetailsConfirmed(false);
@@ -1104,7 +1117,40 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         {reading && (
           <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Reading the names on your ID…
+            Reading your ID, and checking which way round it is…
+          </div>
+        )}
+
+        {/* The photo was upside down or sideways: say so, straighten it, and let
+            the person check the lines rather than sending them back for nothing. */}
+        {!reading && idRotation !== 0 && orientationMessage(idRotation) && (
+          <div className="rounded-lg border-2 border-amber-500/60 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+            <p className="flex items-start gap-2 font-bold">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{orientationMessage(idRotation)}</span>
+            </p>
+            <ul className="mt-2 list-disc space-y-0.5 pl-4">
+              {ID_POSITION_TIPS.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Nothing readable in any of the four positions: this is a positioning
+            problem far more often than a wrong document. */}
+        {!reading && idPhoto && idReading?.status === 'invalid' && (
+          <div className="rounded-lg border-2 border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
+            <p className="font-bold">We could not read this card in any position.</p>
+            <p className="mt-1">
+              We tried your photo upright, upside down and sideways. Take it again with the card
+              lying flat and the writing the right way up.
+            </p>
+            <ul className="mt-2 list-disc space-y-0.5 pl-4">
+              {ID_POSITION_TIPS.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
           </div>
         )}
 
