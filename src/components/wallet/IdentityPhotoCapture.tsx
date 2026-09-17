@@ -823,12 +823,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   // partial submission (e.g. selfie stored, ID shot missing) only requires the
   // missing half and the stored original selfie stays the verification copy.
   const onFileIdPath = mine.data?.national_id_photo_path ?? null;
+  const onFileIdBackPath = mine.data?.national_id_back_photo_path ?? null;
   const onFileSelfiePath = mine.data?.selfie_photo_path ?? null;
   // While replacing, nothing on file counts — both shots are taken again.
   const storedIdPath = replacing ? null : onFileIdPath;
+  const storedIdBackPath = replacing ? null : onFileIdBackPath;
   const storedSelfiePath = replacing ? null : onFileSelfiePath;
 
-  const alreadyDone = !replacing && !!storedIdPath && !!storedSelfiePath;
+  const alreadyDone = !replacing && !!storedIdPath && !!storedIdBackPath && !!storedSelfiePath;
   // Verified once means verified for good — nothing more to send or explain.
   if (alreadyVerified.data === true) return null;
 
