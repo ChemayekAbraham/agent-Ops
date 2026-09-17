@@ -7,7 +7,7 @@
  * they said, and can forward the concern to a member of staff.
  */
 import { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CCBlock, CCDialogHeading, CCEmpty, CCPanel, CC_ROW } from './ccUi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,16 +106,20 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm font-bold">
-            <PhoneIncoming className="h-4 w-4 text-primary" />
-            Record a call that came in
+          <DialogTitle asChild>
+            <CCDialogHeading
+              icon={PhoneIncoming}
+              title="Record a call that came in"
+              hint="Tie the caller to someone we know, or type their details by hand."
+            />
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="rounded-lg border border-border bg-muted/40 p-2.5">
+          <CCBlock>
+
             <Label className="text-[11px] font-semibold">Is the caller already with us?</Label>
             <div className="mt-1.5 flex gap-1.5">
               <div className="relative flex-1">
@@ -137,9 +141,12 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
                   <button
                     key={m.id}
                     type="button"
-                    className={`flex w-full items-center justify-between rounded-md border px-2.5 py-1.5 text-left text-[11px] ${
-                      linkedUserId === m.id ? 'border-primary bg-primary/10 font-semibold' : 'border-border bg-card'
+                    className={`flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-[11px] transition-colors ${
+                      linkedUserId === m.id
+                        ? 'border-primary bg-primary/10 font-semibold'
+                        : 'border-border bg-card hover:border-primary/40 hover:bg-muted/50'
                     }`}
+
                     onClick={() => {
                       setLinkedUserId(m.id);
                       setCallerName(m.full_name ?? '');
@@ -155,7 +162,8 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
             <p className="mt-1.5 text-[10px] text-muted-foreground">
               If they are not with us, just type their name and number below.
             </p>
-          </div>
+          </CCBlock>
+
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
@@ -352,13 +360,12 @@ export function ReceivedCallsTab() {
         <KPICard title="Forwarded" value={kpis.forwarded} icon={Forward} color="bg-sky-500/10 text-sky-600" />
       </div>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-3">
-          <CardTitle className="flex items-center gap-2 text-xs font-bold">
-            <PhoneIncoming className="h-4 w-4 text-primary" />
-            Received calls
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-1.5">
+      <CCPanel
+        icon={PhoneIncoming}
+        title="Received calls"
+        subtitle="Calls that came in to the Calling Center, and where each concern now stands."
+        actions={
+          <>
             <Button size="sm" className="h-8 text-[11px] font-semibold" onClick={() => setRecordOpen(true)}>
               <Plus className="mr-1 h-3.5 w-3.5" />
               Record a call
@@ -373,9 +380,10 @@ export function ReceivedCallsTab() {
               <Download className="mr-1 h-3.5 w-3.5" />
               {exporting ? 'Building…' : 'Download report'}
             </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3 p-3">
+          </>
+        }
+      >
+
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold text-muted-foreground">Period</Label>
@@ -431,10 +439,11 @@ export function ReceivedCallsTab() {
               <Skeleton className="h-16 w-2/3" />
             </div>
           ) : rows.length === 0 ? (
-            <div className="p-6 text-center">
-              <PhoneIncoming className="mx-auto h-5 w-5 text-muted-foreground" />
-              <p className="mt-2 text-xs text-muted-foreground">No received calls recorded for this period.</p>
-            </div>
+            <CCEmpty
+              icon={PhoneIncoming}
+              title="No received calls recorded for this period"
+              hint="Use “Record a call” the moment someone rings in, so the concern can be traced."
+            />
           ) : (
             <div className="space-y-2">
               {rows.map((r) => {
@@ -443,7 +452,8 @@ export function ReceivedCallsTab() {
                   ? reviewersByConcern.get(existingConcern.id) ?? [existingConcern.forwarded_to_name ?? 'Staff member']
                   : [];
                 return (
-                  <div key={r.id} className="rounded-xl border border-border bg-card p-3">
+                  <div key={r.id} className={CC_ROW}>
+
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-xs font-bold">{r.caller_name}</p>
@@ -508,8 +518,8 @@ export function ReceivedCallsTab() {
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </CCPanel>
+
 
       <RecordReceivedCallDialog open={recordOpen} onClose={() => setRecordOpen(false)} />
       <ForwardConcernDialog

@@ -8,7 +8,7 @@
  * complete) belongs to the person it was forwarded to, in their My Space.
  */
 import { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CCBlock, CCEmpty, CCPanel, CC_ROW_BUTTON } from './ccUi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,13 +80,13 @@ function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: F
   const events = useConcernEvents(concern?.id ?? null);
   return (
     <Dialog open={!!concern} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-sm font-bold">{concern?.title}</DialogTitle>
         </DialogHeader>
         {concern && (
           <div className="space-y-3">
-            <div className="rounded-lg border border-border bg-muted/40 p-2.5 text-[11px]">
+            <CCBlock className="text-[11px]">
               <p>
                 <span className="font-semibold">{concern.forwarded_by_name ?? 'Officer'}</span> forwarded this to{' '}
                 <span className="font-semibold">
@@ -109,7 +109,7 @@ function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: F
                   Reviewers: <span className="font-semibold">{reviewerNames.join(', ')}</span>
                 </p>
               )}
-            </div>
+            </CCBlock>
             {concern.context && <p className="text-[11px] leading-snug">{concern.context}</p>}
             <ConcernControlPanel concern={concern} />
             <div className="space-y-2">
@@ -117,7 +117,7 @@ function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: F
                 <Skeleton className="h-16 w-full" />
               ) : (
                 (events.data ?? []).map((e) => (
-                  <div key={e.id} className="rounded-lg border border-border/70 p-2.5">
+                  <div key={e.id} className="rounded-xl border border-border/70 bg-muted/20 p-2.5">
                     <p className="text-[11px] font-semibold">
                       {CONCERN_ACTION_LABEL[e.action] ?? e.action.replace('_', ' ')} ·{' '}
                       {e.actor_name ?? 'Staff member'}
@@ -171,7 +171,7 @@ function OutboundForwardPicker({ onPick }: { onPick: (s: ForwardConcernSource) =
         Forward from a call we made
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold">Pick the call this concern came from</DialogTitle>
           </DialogHeader>
@@ -188,13 +188,13 @@ function OutboundForwardPicker({ onPick }: { onPick: (s: ForwardConcernSource) =
             {isLoading ? (
               <Skeleton className="h-16 w-full" />
             ) : rows.length === 0 ? (
-              <p className="p-4 text-center text-xs text-muted-foreground">No recorded calls match.</p>
+              <p className="rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center text-xs text-muted-foreground">No recorded calls match.</p>
             ) : (
               rows.map((r) => (
                 <button
                   key={r.id}
                   type="button"
-                  className="w-full rounded-lg border border-border p-2.5 text-left hover:border-primary/40 hover:bg-muted/50"
+                  className="w-full rounded-xl border border-border p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
                   onClick={() => {
                     setOpen(false);
                     onPick({
@@ -473,13 +473,12 @@ export function ConcernsReviewTab() {
         <KPICard title="Past due" value={kpis.overdue} icon={AlertTriangle} color="bg-destructive/10 text-destructive" />
       </div>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-3">
-          <CardTitle className="flex items-center gap-2 text-xs font-bold">
-            <ClipboardList className="h-4 w-4 text-primary" />
-            Forwarded concerns
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-1.5">
+      <CCPanel
+        icon={ClipboardList}
+        title="Forwarded concerns"
+        subtitle="Every concern handed to staff, who is reviewing it, and how the answer times were kept."
+        actions={
+          <>
             <OutboundForwardPicker onPick={setForwardSource} />
             <Button
               size="sm"
@@ -491,9 +490,10 @@ export function ConcernsReviewTab() {
               <Download className="mr-1 h-3.5 w-3.5" />
               {exporting ? 'Building…' : 'Issues review report'}
             </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3 p-3">
+          </>
+        }
+      >
+
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold text-muted-foreground">Period</Label>
@@ -567,10 +567,11 @@ export function ConcernsReviewTab() {
               <Skeleton className="h-16 w-full" />
             </div>
           ) : rows.length === 0 ? (
-            <div className="p-6 text-center">
-              <ClipboardList className="mx-auto h-5 w-5 text-muted-foreground" />
-              <p className="mt-2 text-xs text-muted-foreground">No concerns forwarded in this period.</p>
-            </div>
+            <CCEmpty
+              icon={ClipboardList}
+              title="No concerns forwarded in this period"
+              hint="Forward a caller's concern from a call and it will appear here with its full trail."
+            />
           ) : (
             <div className="space-y-2">
               {rows.map((c) => (
@@ -578,7 +579,8 @@ export function ConcernsReviewTab() {
                   key={c.id}
                   type="button"
                   onClick={() => setOpenConcern(c)}
-                  className="w-full rounded-xl border border-border bg-card p-3 text-left hover:border-primary/40"
+                  className={CC_ROW_BUTTON}
+
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -630,8 +632,8 @@ export function ConcernsReviewTab() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </CCPanel>
+
 
       <ForwardConcernDialog open={!!forwardSource} source={forwardSource} onClose={() => setForwardSource(null)} />
       <ConcernTimelineDialog

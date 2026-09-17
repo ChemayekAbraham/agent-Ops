@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle, Forward, Search } from 'lucide-react';
+import { CCBlock, CCDialogHeading } from './ccUi';
 import { toast } from 'sonner';
 import {
   useConcernStaffOptions,
@@ -119,20 +120,27 @@ export function ForwardConcernDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm font-bold">
-            <Forward className="h-4 w-4 text-primary" />
-            {addReviewer ? 'Add another reviewer' : 'Forward this concern'}
+          <DialogTitle asChild>
+            <CCDialogHeading
+              icon={Forward}
+              title={addReviewer ? 'Add another reviewer' : 'Forward this concern'}
+              hint={
+                addReviewer
+                  ? 'Everyone added shares the same concern and the same history.'
+                  : 'One concern per call. The person you choose sees it in their My Space.'
+              }
+            />
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
           {source?.caller_name && (
-            <p className="rounded-lg border border-border bg-muted/40 px-2.5 py-2 text-[11px]">
+            <CCBlock className="px-2.5 py-2 text-[11px]">
               About <span className="font-semibold">{source.caller_name}</span> ·{' '}
               {source.source_kind === 'received_call' ? 'call they made to us' : 'call we made to them'}
-            </p>
+            </CCBlock>
           )}
 
           <div className="space-y-1">
@@ -206,19 +214,21 @@ export function ForwardConcernDialog({
             {staff.isLoading ? (
               <p className="px-1 text-[11px] text-muted-foreground">Loading staff…</p>
             ) : people.length === 0 ? (
-              <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] font-semibold text-amber-700">
+              <p className="flex items-start gap-1.5 rounded-xl border border-warning/30 bg-warning/10 px-2.5 py-2 text-[11px] font-semibold text-warning">
                 <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
                 No matching staff member with an active employee role.
               </p>
             ) : (
-              <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-border p-1">
+              <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-border bg-muted/20 p-1.5">
                 {people.map((p) => (
                   <button
                     key={p.user_id}
                     type="button"
                     onClick={() => setTo(p.user_id)}
-                    className={`flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-xs ${
-                      to === p.user_id ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-muted'
+                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${
+                      to === p.user_id
+                        ? 'bg-primary font-semibold text-primary-foreground shadow-sm'
+                        : 'hover:bg-background hover:shadow-sm'
                     }`}
                   >
                     <span className="truncate">{p.full_name}</span>
@@ -227,7 +237,7 @@ export function ForwardConcernDialog({
                 ))}
               </div>
             )}
-            <p className="px-1 text-[11px] font-semibold">
+            <p className="px-1 pt-0.5 text-[11px] font-semibold">
               {chosen ? (
                 <span className="text-primary">Chosen: {chosen.full_name}</span>
               ) : (
