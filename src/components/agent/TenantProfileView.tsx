@@ -1904,13 +1904,31 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                   onClick={handleAutoCollectFromWallet}
                   disabled={autoCollecting || awaitingLandlord}
                   variant="outline"
-                  className="w-full gap-2 text-base h-12 rounded-xl border-primary/30 active:scale-[0.97] transition-transform"
+                  className={`w-full gap-2 text-base h-12 rounded-xl active:scale-[0.97] transition-transform ${
+                    awaitingLandlord
+                      ? "border-warning/40 text-warning blur-[1.5px] opacity-60 pointer-events-none"
+                      : "border-primary/30"
+                  }`}
                 >
-                  {autoCollecting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Bot className="h-5 w-5 text-primary" />}
-                  Auto-Collect {formatUGX(Math.min(walletData.balance, summary.currentOutstanding))}
+                  {autoCollecting ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : awaitingLandlord ? (
+                    <AlertTriangle className="h-5 w-5" />
+                  ) : (
+                    <Bot className="h-5 w-5 text-primary" />
+                  )}
+                  {awaitingLandlord
+                    ? "Landlord not paid"
+                    : `Auto-Collect ${formatUGX(Math.min(walletData.balance, summary.currentOutstanding))}`}
                 </Button>
+                {awaitingLandlord && (
+                  <p className="text-xs text-warning leading-relaxed">
+                    Collection opens once the landlord has been paid.
+                  </p>
+                )}
               </div>
             )}
+
           </SectionCard>
         )}
 
