@@ -35,6 +35,9 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
   const [notPayingIds, setNotPayingIds] = useState<Set<string>>(new Set());
   // Owing = repaying-only outstanding (landlord already paid via float disbursement).
   const [tenantBalances, setTenantBalances] = useState<Record<string, number>>({});
+  // Plan is live but the landlord has NOT been paid yet — the float only sits
+  // with the agent. These must never read as "Cleared".
+  const [unfundedBalances, setUnfundedBalances] = useState<Record<string, number>>({});
   const [tenantAvatars, setTenantAvatars] = useState<Record<string, string>>({});
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
   const fetchSeqRef = useRef(0);
