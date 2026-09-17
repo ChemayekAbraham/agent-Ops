@@ -1276,6 +1276,16 @@ export default function PayoutVerificationPanel() {
                 </span>
               );
             })()}
+            {row.payout_number_count > 1 && (
+              <span
+                role="status"
+                aria-label={`This person has ${row.payout_number_count} payout numbers`}
+                className="flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400"
+              >
+                <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                {row.payout_number_count} payout numbers
+              </span>
+            )}
           </div>
 
           {isDouble && (
