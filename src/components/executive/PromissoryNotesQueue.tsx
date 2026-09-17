@@ -1390,9 +1390,37 @@ export function PromissoryNotesQueue({
                             {s.shared_words} shared name words · closeness {Math.round(s.similarity * 100)}%
                             {s.candidate_count > 1 ? ` · ${s.candidate_count} possible people` : ''}
                           </p>
+                          <div className="rounded-md border border-violet-200 bg-violet-50 p-2 space-y-0.5">
+                            <p className="font-medium text-violet-800">
+                              What this partner brought in, and what the proxy agent earns
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <p className="text-[11px] text-muted-foreground">Principal brought in</p>
+                                <p className="font-semibold">{formatUGX(Number(s.candidate_principal || 0))}</p>
+                                {Number(s.candidate_portfolio_count || 0) > 0 && (
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {s.candidate_portfolio_count} portfolio{Number(s.candidate_portfolio_count) === 1 ? '' : 's'} · {formatUGX(Number(s.candidate_principal_active || 0))} active
+                                  </p>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Commission to {selectedNote.agent_name || 'the proxy agent'} ({pct(Number(s.commission_rate || 0.02))})
+                                </p>
+                                <p className="font-semibold text-violet-800">{formatUGX(Number(s.commission_due || 0))}</p>
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              {Number(s.commission_due || 0) > 0
+                                ? 'This is sent to the proxy agent when you confirm the match and approve the note.'
+                                : 'Nothing is due yet — this account has not created a portfolio.'}
+                            </p>
+                          </div>
                           <p className="text-muted-foreground">
                             The number and email on this note are different, so nothing was linked automatically.
-                            Only confirm if you are sure it is the same person.
+                            Only confirm if you are sure it is the same person. Notes whose number or email
+                            already match are linked on their own and need no confirmation.
                           </p>
                           <Textarea
                             value={matchReason}
