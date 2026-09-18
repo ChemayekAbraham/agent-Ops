@@ -116,6 +116,14 @@ export default function WithdrawFlow({
   const withdrawCtx = useWithdrawContext(user?.id);
   // What Financial Ops still needs from this person before money can leave.
   const identityBlock = useWithdrawalBlockReasons(user?.id);
+  // Authoritative "nothing left to ask this person" signal. Covers every
+  // exemption source payout_withdrawal_block_reasons knows about — pure
+  // partner / partner-not-agent AND a CTO-granted id_verification_exceptions
+  // row — not just the ones individually mirrored below. Without this, a
+  // CTO exception unblocked the server but left the dialog's own National
+  // ID / photo checks (which never learned about the exceptions table)
+  // still demanding steps the server no longer requires.
+  const identityFullyClear = identityBlock.data?.blocked === false;
   // No National ID on file means no withdrawal: the first step is a hard stop
   // until a correctly formatted ID and the name printed on it are submitted.
   const myNationalId = useMyNationalId();
@@ -123,6 +131,7 @@ export default function WithdrawFlow({
     !!user?.id &&
     !myNationalId.isLoading &&
     !myNationalId.isFetching &&
+    !identityFullyClear &&
     !myNationalId.data?.national_id;
   // Pure partners (one or more portfolios, no agent activity) are exempt from
   // the payout-destination / identity verification gate SERVER-SIDE
@@ -138,6 +147,7 @@ export default function WithdrawFlow({
     !myIdentityPhotos.isFetching &&
     !purePartnerLoading &&
     !isPurePartner &&
+    !identityFullyClear &&
     !(myIdentityPhotos.data?.national_id_photo_path && myIdentityPhotos.data?.selfie_photo_path);
   /* The panel is shown whenever it has something to say — asking for the photos
      OR reporting that they are already with Financial Ops. It hides itself once
@@ -145,6 +155,7 @@ export default function WithdrawFlow({
      unmet criteria, so it never stays hidden behind slow photo query loading. */
   const showIdentityPanel =
     !!user?.id &&
+    !identityFullyClear &&
     (identityBlock.data?.blocked || (!purePartnerLoading && !isPurePartner));
   /* HARD STOP: no National ID / ID photos on file (or a Financial Ops block)
      means the whole withdraw section is covered by an overlay and the stepper
@@ -241,7 +252,8 @@ export default function WithdrawFlow({
     (payoutMode === 'mobile_money'
       ? momoNumber.replace(/\D/g, '').length >= 9
       : bankAccountNumber.replace(/\D/g, '').length >= 5);
-  const destinationGateExempt = payoutMode === 'cash' || funderExempt.data === true;
+  const destinationGateExempt =
+    payoutMode === 'cash' || funderExempt.data === true || identityFullyClear;
   const destinationStatus: 'exempt' | 'verified' | 'waiting' | 'rejected' | 'unknown' =
     destinationGateExempt
       ? 'exempt'
