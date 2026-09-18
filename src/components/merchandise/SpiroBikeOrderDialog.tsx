@@ -87,10 +87,9 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
     () => availableModels.find((m) => m.model === model) ?? availableModels[0],
     [availableModels, model],
   );
-  const termNum = parseInt(term, 10) || 3;
+  const termNum = Math.min(24, Math.max(1, parseInt(term, 10) || 3));
   const basePrice = selectedModel?.price ?? SPIRO_BIKE_BASE_PRICE;
   const schedule = useMemo(() => spiroLeaseSchedule(termNum, basePrice), [termNum, basePrice]);
-  const grid = useMemo(() => spiroLeaseGrid(basePrice), [basePrice]);
 
   const submit = async () => {
     setSubmitting(true);
