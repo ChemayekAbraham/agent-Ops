@@ -14,7 +14,7 @@ import {
   type ForecastPdfDetailGroup,
 } from '@/lib/partnerReturnsForecastPdf';
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
+  ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import {
   PartnerReturnsDrilldownDialog,
@@ -222,7 +222,7 @@ export function PartnerReturnsForecastPanel({
 
   const chartData = rows.map((r) => ({
     label: r.label,
-    Forecast: Number(r.forecast_returns),
+    'Returns payable forecast': Number(r.forecast_returns),
     'Actually paid': Number(r.actual_returns_paid),
     'Partner receivable': Number(r.partner_receivable),
     'Top-ups': Number(r.topups),
