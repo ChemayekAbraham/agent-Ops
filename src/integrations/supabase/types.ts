@@ -57808,6 +57808,10 @@ export type Database = {
           vacant_units: number
         }[]
       }
+      get_tenant_ops_pipeline_trend: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       get_tenant_ops_preset_by_slug: {
         Args: { p_slug: string }
         Returns: {
