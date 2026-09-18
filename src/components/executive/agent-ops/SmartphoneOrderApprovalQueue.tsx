@@ -921,6 +921,57 @@ export function SmartphoneOrderApprovalQueue({
                           {applicant.meets_tenant_guideline ? 'Meets tenant guideline' : 'Below tenant guideline'}
                         </Badge>
                       </div>
+                      <div className="rounded-md border border-border/60 p-2 space-y-1.5">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Performance — last 30 days
+                        </p>
+                        {performanceLoading ? (
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Loading performance…
+                          </p>
+                        ) : !performance ? (
+                          <p className="text-[11px] text-muted-foreground">No collection activity in the last 30 days.</p>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center">
+                            <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                              <p className="text-[10px] text-muted-foreground">Expected</p>
+                              <p className="text-xs font-semibold">{formatUGX(performance.expected)}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                              <p className="text-[10px] text-muted-foreground">Collected</p>
+                              <p className="text-xs font-semibold">{formatUGX(performance.collected)}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                              <p className="text-[10px] text-muted-foreground">Collection rate</p>
+                              <p
+                                className={`text-xs font-semibold ${
+                                  performance.rate == null
+                                    ? ''
+                                    : performance.rate >= 80
+                                      ? 'text-emerald-600'
+                                      : performance.rate >= 50
+                                        ? 'text-amber-600'
+                                        : 'text-destructive'
+                                }`}
+                              >
+                                {performance.rate == null ? '—' : `${Math.round(performance.rate)}%`}
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                              <p className="text-[10px] text-muted-foreground">Payments made</p>
+                              <p className="text-xs font-semibold">{performance.payments}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                              <p className="text-[10px] text-muted-foreground">Tenants repaying</p>
+                              <p className="text-xs font-semibold">{performance.activeRepaying}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                              <p className="text-[10px] text-muted-foreground">Outstanding</p>
+                              <p className="text-xs font-semibold">{formatUGX(performance.outstanding)}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       <p className="text-[11px] text-muted-foreground">
                         Applications are open to every agent — approve or reject on the standing above.
                       </p>
