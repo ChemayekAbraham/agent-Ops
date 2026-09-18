@@ -3,16 +3,39 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Download, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
+import {
+  generatePartnerReturnsForecastPdf,
+  type ForecastPdfDetailGroup,
+} from '@/lib/partnerReturnsForecastPdf';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import {
   PartnerReturnsDrilldownDialog,
+  METRIC_LABELS,
   type DrilldownMetric,
   type DrilldownTarget,
 } from './PartnerReturnsDrilldownDialog';
+
+/** Metrics exported as supporting records, in report order. */
+const EXPORT_METRICS: { metric: DrilldownMetric; field: keyof Row }[] = [
+  { metric: 'forecast', field: 'forecast_returns' },
+  { metric: 'actual', field: 'actual_returns_paid' },
+  { metric: 'receivable', field: 'partner_receivable' },
+  { metric: 'topups', field: 'topups' },
+  { metric: 'promissory', field: 'promissory_receivable' },
+  { metric: 'compounding', field: 'compounding' },
+];
+
+/** Keeps a single export from firing hundreds of detail queries on a day bucket. */
+const MAX_DETAIL_QUERIES = 60;
+const DETAIL_ROW_LIMIT = 100;
 
 interface Row {
   key: string;
@@ -95,6 +118,99 @@ export function PartnerReturnsForecastPanel({
 
   const deliveryRate = totals.forecastPast > 0 ? (totals.actualPast / totals.forecastPast) * 100 : 0;
 
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!rows.length) return;
+    setExporting(true);
+    try {
+      // Only pull records for figures that actually carry a value, newest periods
+      // first, so a wide day-bucket window can't spawn hundreds of queries.
+      const jobs: { row: Row; metric: DrilldownMetric }[] = [];
+      for (const row of [...rows].reverse()) {
+        for (const { metric, field } of EXPORT_METRICS) {
+          if (Number(row[field]) > 0) jobs.push({ row, metric });
+        }
+      }
+      const capped = jobs.slice(0, MAX_DETAIL_QUERIES);
+
+      const groups: ForecastPdfDetailGroup[] = [];
+      for (const job of capped) {
+        const { data: detail, error } = await (supabase as any).rpc(
+          'get_partner_ops_returns_forecast_detail',
+          {
+            p_period: job.row.key,
+            p_metric: job.metric,
+            p_bucket: bucket,
+            p_limit: DETAIL_ROW_LIMIT,
+          },
+        );
+        if (error) throw error;
+        const detailRows = (detail?.rows ?? []) as any[];
+        if (!detailRows.length) continue;
+        groups.push({
+          periodLabel: job.row.label,
+          metricLabel: METRIC_LABELS[job.metric],
+          total: Number(detail?.total ?? 0),
+          count: Number(detail?.count ?? detailRows.length),
+          truncated: Boolean(detail?.truncated),
+          rows: detailRows.map((r) => ({
+            name: r.name ?? '—',
+            detail: r.detail ?? '—',
+            amount: Number(r.amount ?? 0),
+            occurred_on: r.occurred_on ?? '—',
+            status: r.status ?? '—',
+          })),
+        });
+      }
+      // Report reads oldest period first, matching the on-screen table.
+      groups.reverse();
+
+      const blob = await generatePartnerReturnsForecastPdf(
+        rows.map((r) => ({
+          key: r.key,
+          label: r.label,
+          is_past: r.is_past,
+          forecast_returns: Number(r.forecast_returns),
+          actual_returns_paid: Number(r.actual_returns_paid),
+          variance: Number(r.variance),
+          partner_receivable: Number(r.partner_receivable),
+          topups: Number(r.topups),
+          promissory_receivable: Number(r.promissory_receivable),
+          compounding: Number(r.compounding),
+          net: Number(r.net),
+        })),
+        groups,
+        {
+          rangeText: `${format(start, 'dd MMM yyyy')} – ${format(end, 'dd MMM yyyy')}`,
+          bucketText: bucket === 'day' ? 'Daily' : bucket === 'week' ? 'Weekly' : 'Monthly',
+          portfolioCount: Number(data?.portfolio_count ?? 0),
+          committedCapital: Number(data?.committed_capital ?? 0),
+          promissoryOutstanding: Number(data?.promissory_outstanding ?? 0),
+        },
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `partner-returns-forecast-${format(start, 'yyyyMMdd')}-${format(end, 'yyyyMMdd')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        jobs.length > capped.length
+          ? `Report downloaded — supporting records limited to the ${capped.length} largest figure groups.`
+          : 'Report downloaded.',
+      );
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not build the report.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const chartData = rows.map((r) => ({
     label: r.label,
     Forecast: Number(r.forecast_returns),
@@ -136,9 +252,15 @@ export function PartnerReturnsForecastPanel({
               position is readable at a glance.
             </p>
           </div>
-          <Badge variant="outline" className="text-[10px]">
-            {Number(data?.portfolio_count ?? 0)} portfolios · {formatUGX(Number(data?.committed_capital ?? 0))} committed
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px]">
+              {Number(data?.portfolio_count ?? 0)} portfolios · {formatUGX(Number(data?.committed_capital ?? 0))} committed
+            </Badge>
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting || !rows.length}>
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              <span className="ml-1.5 text-xs">{exporting ? 'Building report…' : 'Export PDF'}</span>
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
