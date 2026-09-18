@@ -23,6 +23,7 @@ import {
   History,
   IdCard,
   Image,
+  Link2,
   Loader2,
   MessageCircle,
   PhoneCall,
@@ -1622,6 +1623,24 @@ export default function PayoutVerificationPanel() {
                 </span>
               );
             })()}
+            {row.national_id && (
+              <span
+                role="status"
+                aria-label={row.is_linked_id ? 'This National ID was already in the system; this person linked to it' : 'This National ID is new to the platform'}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                  row.is_linked_id
+                    ? 'border-2 border-sky-500/70 bg-sky-500/15 text-sky-700 dark:text-sky-400'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {row.is_linked_id ? (
+                  <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <IdCard className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {row.is_linked_id ? 'Linked ID' : 'New ID'}
+              </span>
+            )}
             {row.payout_number_count > 1 && (
               <button
                 type="button"
