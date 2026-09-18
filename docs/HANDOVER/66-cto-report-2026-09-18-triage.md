@@ -1,10 +1,11 @@
-# 66. Triage — 2026-09-18 Daily CTO Report: one real fix live, one migration blocked, the pipeline itself deleted
+# 66. Triage — 2026-09-18 Daily CTO Report: one real fix live, one migration blocked, the pipeline rebuilt with drift protection
 
 **Mixed status: `email_queue_dispatch` fixed and verified live; `refresh_wallet_totals_cache`
 migration written but blocked from direct production application (needs manual apply); the
-sign-in-latency metric fix was superseded when it turned out a prior fix for the same bug had
-silently stopped being live — the whole `daily-cto-report` pipeline was deleted instead of patched
-a fourth time (migration written, also needs manual apply).**
+sign-in-latency metric fix was briefly superseded by a full pipeline deletion when it turned out a
+prior fix for the same bug had silently stopped being live — the deletion was itself never applied
+to production (blocked the same way) and was reversed in favour of rebuilding the pipeline with the
+actual fix plus, this time, drift-detection coverage on all four of its RPCs (§5).**
 
 Prompted by the 2026-09-17 report (delivered 2026-09-18 00:00 EAT) flagging sign-in as "effectively
 broken" (Recommendation 3, ranked above every numbered issue), `refresh-wallet-totals-cache`
@@ -105,43 +106,52 @@ fixed in it. See §5 — the pipeline was removed instead.
   `q_transactional_emails`) are empty right now — no backlog, consistent with doc 18's original
   "cosmetic, not functional" finding.
 
-## 5. The pipeline itself was removed
+## 5. The pipeline was deleted, then rebuilt with drift protection instead
 
 After §3's discovery — a documented, previously-verified fix for this exact metric that turned out
-not to be live, with no record of how it reverted — Josh asked to delete the function that
-generates the report rather than patch it again. This matches a prior precedent exactly: Josh
+not to be live, with no record of how it reverted — the first response was to delete the function
+that generates the report rather than patch it again, mirroring a prior precedent exactly: Josh
 removed this same pipeline once before, 2026-09-08, for the same class of reason (misleading
-metrics), then rebuilt it the same day. This time it was **not** rebuilt in the same pass.
+metrics), then rebuilt it the same day.
 
-Migration `20260918030000_remove_daily_cto_report_pipeline_again.sql` (written, **not yet applied**
-— blocked by the auto-mode classifier as "Irreversible Deletion" / "Logging/Audit Tampering" on the
-individual `DROP FUNCTION`/`cron.unschedule` calls attempted directly against production; needs
-manual apply):
+That deletion (migration `20260918030000_remove_daily_cto_report_pipeline_again.sql`) was itself
+**never applied to production** — the individual `DROP FUNCTION`/`cron.unschedule` calls attempted
+directly against production were blocked by the auto-mode classifier as "Irreversible Deletion" /
+"Logging/Audit Tampering", the same gate that blocks other direct-to-prod DDL throughout this doc.
+Confirmed live: all four RPCs and all three cron jobs (`daily-cto-report-tech`,
+`weekly-cto-report-board`, `capture-daily-cto-snapshot`) were still present. Rather than push that
+deletion through, Josh asked to rebuild instead — `20260918030000` was removed from the repo
+unapplied, and replaced with `20260918040000_rebuild_daily_cto_report_with_drift_protection.sql`:
 
-- Drops all four RPCs: `get_cto_daily_report`, `get_cto_diagnostics`, `get_cto_issue_intelligence`,
-  `get_cto_daily_addendum`. Confirmed via repo-wide grep: nothing in `src/` or any other edge
-  function calls any of the four.
-- Deletes the `daily-cto-report` edge function entirely (already deleted from the working tree in
-  this same change).
-- Unschedules three cron jobs: `daily-cto-report-tech` (10292, the daily technical report),
-  `weekly-cto-report-board` (10463, the board memo trigger), and `capture-daily-cto-snapshot`
-  (39041) — the last one is new since the 2026-09-08 removal (added 2026-09-16 per doc 29) and
-  calls `get_cto_daily_report()` directly; left running, it would fail daily the moment the RPC is
-  dropped.
-- `db_stat_snapshots` (the table, not the capture job) is left in place — data, not logic, in case
-  of a future rebuild.
-- `send-board-memo` is unaffected — confirmed it only relays a human-reviewed PDF/HTML supplied by
-  the caller and never calls these RPCs, same as the 2026-09-08 removal noted.
+- Restores `get_cto_daily_report` with the actual fix from §3: `median_login_ms_today`,
+  `p95_login_ms_today`, `login_attempts_over_60s_today`, `login_users_over_60s_today` alongside the
+  existing (kept) mean. Migration written, **not yet applied** — same "Production Deploy" classifier
+  block as `refresh_wallet_totals_cache` (§2).
+- Adds all four RPCs (`get_cto_daily_report`, `get_cto_diagnostics`, `get_cto_issue_intelligence`,
+  `get_cto_daily_addendum`) to `critical_function_baselines` (docs/HANDOVER/17) — the same
+  drift-detection mechanism already watching `email_queue_dispatch` and the withdrawal-gate
+  functions. This is the part meant to actually address the root cause: every fix this pipeline has
+  ever gotten (2026-09-08, 2026-09-09, 2026-09-16, and whatever silently undid the 2026-09-08
+  median fix before today) was found by someone manually re-verifying a PDF against production,
+  sometimes days or weeks later. From here, a silent revert of any of these four functions surfaces
+  within 15 minutes instead.
+- **The baseline INSERT went through live** (unlike the function fix itself) — but it was captured
+  against `get_cto_daily_report`'s *current, still-unfixed* body, since the `CREATE OR REPLACE` half
+  is what's stuck pending manual apply. Whoever applies `20260918040000` should run it in full
+  (fix, then re-baseline, in that file's order) rather than assume the baseline already reflects the
+  fixed version.
+- `daily-cto-report/index.ts` was restored from git history (the version committed alongside §3,
+  which already has the median-aware display code) rather than rewritten from scratch.
+- `send-system-context/doc.ts` and `mem/features/cto/daily-cto-report.md` references were reverted
+  to list `daily-cto-report` again.
+- `send-board-memo` is unaffected either way — confirmed it only relays a human-reviewed PDF/HTML
+  supplied by the caller and never calls these RPCs.
 
-Also removed as part of this: this handover's own §3 fix
-(`20260918020000_add_signin_latency_median_context.sql`), since it edited a function this migration
-now drops entirely — keeping it would have been dead code.
-
-**If this gets rebuilt again**, don't just re-fix the metrics that are already documented as fixed
-twice (avg/median sign-in latency, slow-query severity capping, rollback-rate lifetime-vs-daily) —
-those keep coming back not because the fixes are wrong but because something applies changes
-directly to production outside migration history and they don't stick. Solve *that* first, or the
-rebuild inherits the same failure mode a third time.
+**If this pipeline needs fixing again**, don't just re-fix the metrics that are already documented
+as fixed twice (avg/median sign-in latency, slow-query severity capping, rollback-rate
+lifetime-vs-daily) — check `critical_function_drift_alerts` first for these four functions. If
+nothing's flagged, the live body should match what's documented; if it doesn't and nothing's
+flagged either, the drift-detection coverage added here has itself regressed.
 
 ## 6. Found, not fixed — needs your call
 
@@ -183,14 +193,18 @@ select status, return_message, start_time from cron.job_run_details jrd
 join cron.job j using (jobid) where j.jobname = 'refresh-wallet-totals-cache'
 and start_time > now() - interval '2 hours' order by start_time desc;
 
--- pipeline removal: once the migration is applied, all four should be gone and all three
--- cron jobs unscheduled
-select proname from pg_proc where proname in
-  ('get_cto_daily_report','get_cto_diagnostics','get_cto_issue_intelligence','get_cto_daily_addendum');
--- expect 0 rows
-select jobname from cron.job where jobname in
-  ('daily-cto-report-tech','weekly-cto-report-board','capture-daily-cto-snapshot');
--- expect 0 rows
+-- pipeline rebuild: once 20260918040000 is applied, confirm the fix landed and the
+-- baselines reflect the FIXED body, not the pre-fix one the live INSERT captured
+select (get_cto_daily_report()->'auth'->>'median_login_ms_today')::numeric,
+       (get_cto_daily_report()->'auth'->>'avg_login_ms_today')::numeric;
+-- expect both non-null, median substantially lower than avg on any day with an outlier cluster
+
+select b.function_signature,
+       b.expected_sha256 = encode(sha256(convert_to(pg_get_functiondef(b.function_signature::regprocedure), 'UTF8')), 'hex') as baseline_matches_live
+from critical_function_baselines b
+where b.function_signature like 'get_cto_%';
+-- expect true for all four -- if get_cto_daily_report(date) is false, the migration's
+-- CREATE OR REPLACE didn't actually apply even though the INSERT did; re-run in full
 ```
 
 ## What not to do
