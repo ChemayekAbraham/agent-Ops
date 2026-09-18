@@ -282,12 +282,13 @@ export function AgentRentCapacityPanel({
         paid_today: number; paid_yesterday: number;
         today_pct: number; yesterday_pct: number; effective_pct: number;
       }>();
+      let eligibilityRpcSucceeded = true;
       {
         const { data: eligRows, error: eligErr } = await supabase.rpc(
           'get_agent_daily_eligibility',
           { p_agent_ids: agentIds },
         );
-        const eligibilityRpcSucceeded = !eligErr;
+        eligibilityRpcSucceeded = !eligErr;
         if (eligErr) console.error('[AgentRentCapacityPanel] eligibility RPC failed', eligErr);
         (eligRows || []).forEach((r: any) => {
           eligByAgent.set(r.agent_id, {
