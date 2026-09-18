@@ -77,6 +77,8 @@ import { OpportunitySummaryForm } from '@/components/manager/OpportunitySummaryF
 import { CFOAgentRequisitions } from '@/components/cfo/CFOAgentRequisitions';
 import { EmployeeRequisitionLinksPanel } from '@/components/financial-ops/EmployeeRequisitionLinksPanel';
 import { EmployeeRequisitionQueuePanel } from '@/components/financial-ops/EmployeeRequisitionQueuePanel';
+import { NationalIdUnlinkQueuePanel } from '@/components/financial-ops/NationalIdUnlinkQueuePanel';
+
 import { RentCollectionsFeed } from '@/components/cfo/RentCollectionsFeed';
 import { PaymentsByLocationPanel } from '@/components/cfo/PaymentsByLocationPanel';
 import { TenantSelfRepaymentsPanel } from '@/components/reporting/TenantSelfRepaymentsPanel';
@@ -505,7 +507,20 @@ export default function CFODashboardPage() {
             <EmployeeRequisitionLinksPanel />
           </div>
         );
+      case 'national-id-unlink-requests':
+        return (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-bold">🆔 National ID Removal Requests</h1>
+              <p className="text-sm text-muted-foreground">
+                Approve or refuse requests from ID holders to take someone off their National ID.
+              </p>
+            </div>
+            <NationalIdUnlinkQueuePanel />
+          </div>
+        );
       case 'employee-requisitions':
+
         return (
           <div className="space-y-4">
             <div>
