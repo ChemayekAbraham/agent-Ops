@@ -1,12 +1,22 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, ChevronDown, ChevronUp, Package, Wallet } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Package, Trash2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +29,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import {
   useMerchandiseRepaymentPortfolio,
+  useDeleteMerchandiseApplication,
   usePayMerchandisePlan,
   type MerchandiseRepaymentPlan,
 } from '@/hooks/useMerchandiseRepaymentPortfolio';
@@ -45,18 +56,31 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
     useMerchandiseRepaymentPortfolio(userId);
   const { withdrawableBalance } = useAgentBalances(userId);
   const pay = usePayMerchandisePlan(userId);
+  const deleteApplication = useDeleteMerchandiseApplication(userId);
 
   const [expanded, setExpanded] = useState<string | null>(null);
   const [payTarget, setPayTarget] = useState<MerchandiseRepaymentPlan | null>(null);
   const [payAmount, setPayAmount] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<MerchandiseRepaymentPlan | null>(null);
 
   const available = Math.max(0, Number(withdrawableBalance || 0));
-  const settled = useMemo(
-    () => plans.filter((p) => p.status !== 'active' || Number(p.outstanding_balance) <= 0),
+  const rejected = useMemo(
+    () => plans.filter((p) => ['rejected', 'cancelled', 'failed'].includes(p.order_status || '')),
     [plans],
   );
+  const rejectedIds = useMemo(() => new Set(rejected.map((p) => p.id)), [rejected]);
+  const completed = useMemo(
+    () =>
+      plans.filter(
+        (p) =>
+          !rejectedIds.has(p.id) &&
+          Number(p.amount_recovered) > 0 &&
+          (p.status === 'completed' || (p.status !== 'active' && Number(p.outstanding_balance) <= 0)),
+      ),
+    [plans, rejectedIds],
+  );
 
-  if (activePlans.length === 0 && settled.length === 0) return null;
+  if (activePlans.length === 0 && completed.length === 0 && rejected.length === 0) return null;
 
   const openPay = (plan: MerchandiseRepaymentPlan) => {
     const suggested = Math.min(
@@ -86,6 +110,17 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
       setPayTarget(null);
     } catch (e: any) {
       toast.error(e?.message || 'Payment could not be completed.');
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteApplication.mutateAsync(deleteTarget);
+      toast.success('Application deleted.');
+      setDeleteTarget(null);
+    } catch (e: any) {
+      toast.error(e?.message || 'Application could not be deleted.');
     }
   };
 
@@ -227,7 +262,45 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
             );
           })}
 
-          {settled.map((plan) => (
+          {rejected.map((plan) => (
+            <div
+              key={plan.id}
+              className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 space-y-2.5"
+            >
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold truncate">{plan.item_name || 'Product'}</p>
+                  <Badge variant="destructive" className="mt-1 text-[10px]">
+                    {plan.order_status === 'rejected' ? 'Application Rejected' : 'Application Cancelled'}
+                  </Badge>
+                </div>
+              </div>
+              <div className="rounded-lg border border-destructive/20 bg-background/70 p-2.5">
+                <p className="text-[10px] font-semibold uppercase text-destructive">Reason</p>
+                <p className="mt-0.5 text-xs text-foreground">
+                  {plan.rejection_reason?.trim() || 'No reason was recorded. Please contact support.'}
+                </p>
+                {safeDate(plan.rejected_at) && (
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {format(safeDate(plan.rejected_at) as Date, 'd MMM yyyy, HH:mm')}
+                  </p>
+                )}
+              </div>
+              {plan.sale_id && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-full border-destructive/30 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setDeleteTarget(plan)}
+                >
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete application
+                </Button>
+              )}
+            </div>
+          ))}
+
+          {completed.map((plan) => (
             <div
               key={plan.id}
               className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 flex items-center gap-2"
@@ -317,6 +390,27 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete rejected application?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes {deleteTarget?.item_name || 'this product application'} from your portfolio. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteApplication.isPending}>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteApplication.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteApplication.isPending ? 'Deleting…' : 'Delete application'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
