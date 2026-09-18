@@ -1513,6 +1513,20 @@
       "when": 1789724250284,
       "tag": "0215_tenant_ops_pipeline_trend_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 216,
+      "version": "7",
+      "when": 1789725179970,
+      "tag": "0216_tenant_ops_repayment_watchlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 217,
+      "version": "7",
+      "when": 1789725288672,
+      "tag": "0217_tenant_ops_repayment_watchlist_schedule_source",
+      "breakpoints": true
     }
   ]
 }
