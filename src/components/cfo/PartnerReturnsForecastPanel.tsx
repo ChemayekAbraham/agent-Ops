@@ -156,13 +156,19 @@ export function PartnerReturnsForecastPanel({
     try {
       // Only pull records for figures that actually carry a value, newest periods
       // first, so a wide day-bucket window can't spawn hundreds of queries.
-      const jobs: { row: Row; metric: DrilldownMetric }[] = [];
+      // The Returns payable forecast (and what was actually paid against it) is
+      // the point of the report, so those jobs are queued first and can never be
+      // dropped by the query cap.
+      const priority: { row: Row; metric: DrilldownMetric }[] = [];
+      const rest: { row: Row; metric: DrilldownMetric }[] = [];
       for (const row of [...rows].reverse()) {
         for (const { metric, field } of EXPORT_METRICS) {
-          if (Number(row[field]) > 0) jobs.push({ row, metric });
+          if (Number(row[field]) <= 0) continue;
+          (metric === 'forecast' || metric === 'actual' ? priority : rest).push({ row, metric });
         }
       }
-      const capped = jobs.slice(0, MAX_DETAIL_QUERIES);
+      const jobs = [...priority, ...rest];
+      const capped = jobs.slice(0, Math.max(MAX_DETAIL_QUERIES, priority.length));
 
       const groups: ForecastPdfDetailGroup[] = [];
       for (const job of capped) {
