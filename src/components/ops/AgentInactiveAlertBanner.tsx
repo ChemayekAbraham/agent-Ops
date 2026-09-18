@@ -356,6 +356,18 @@ function InactivationRow({
           >
             <MessageSquare className="h-4 w-4" /> Comment
           </Button>
+          {canCancelTenant && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-8 gap-1"
+              onClick={() => { setNotes(''); setCancelling(true); }}
+              disabled={busy}
+            >
+              <UserX className="h-4 w-4" /> Cancel tenant &amp; return float
+            </Button>
+          )}
+
           {!isAcknowledged && (
             <Button variant="secondary" size="sm" className="h-8 gap-1" onClick={handleAcknowledge} disabled={busy}>
               {acknowledge.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
