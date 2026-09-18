@@ -233,3 +233,6 @@ verify_jwt = false
 
 [functions.notify-promissory-fulfilment-due]
 verify_jwt = false
+
+[functions.confirm-landlord-payout-receipt]
+verify_jwt = false
