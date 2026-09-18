@@ -5542,6 +5542,11 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       // Split allowed for all partners (incl. managed proxy). For managed proxy,
       // the cash leg routes to the proxy agent wallet; reinvest portion stays in the portfolio.
       const hasProxy = !!managed;
+      // Managed-proxy partners' ROI must land 100% on the agent's wallet, never
+      // any portion on their own (enforce_managed_proxy_roi_routing) — so a
+      // Keep-as-Returns remainder for these partners routes to the agent too,
+      // same as the cash portion, not to the partner's own wallet.
+      const isManagedProxy = !!managed?.isManaged;
       const modeLabel = payMode === 'wallet' ? 'Partner Wallet' : payMode === 'agent_wallet' ? 'Partner Wallet (via Proxy)'
         : payMode === 'different_wallet' ? `${altRecipient?.full_name || 'Recipient'}'s Wallet` : 'Cash';
       const txnGroupId = crypto.randomUUID();
@@ -5590,7 +5595,10 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
             currency: 'UGX',
           },
           {
-            user_id: p.investorId,
+            // Keep-as-Returns for a managed-proxy partner lands on the AGENT's
+            // wallet (same custody rule as the cash portion) — never the
+            // partner's own, which enforce_managed_proxy_roi_routing rejects.
+            user_id: (isKeepReturns && isManagedProxy) ? managed!.agentId : p.investorId,
             // "Keep as Returns" MUST land as real withdrawable wallet balance, not just
             // a platform-scope ledger record — ledger_scope: 'platform' here was the
             // actual root cause of the remainder never becoming withdrawable (it still
@@ -5602,16 +5610,19 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
             amount: reinvestAmount,
             category: isKeepReturns ? 'roi_wallet_credit' : 'roi_reinvestment',
             ...(isKeepReturns ? { recipient_type: 'user', wallet_bucket: 'withdrawable' } : {}),
-            description: `[Split ROI] ${formatUGX(reinvestAmount)} ${reinvestLabel}. Ref: ${refId}`,
+            description: (isKeepReturns && isManagedProxy)
+              ? `[Split ROI → Proxy Agent ${managed!.agentName}'s Wallet] ${formatUGX(reinvestAmount)} ${reinvestLabel} for managed partner ${p.name}. Ref: ${refId}`
+              : `[Split ROI] ${formatUGX(reinvestAmount)} ${reinvestLabel}. Ref: ${refId}`,
             reference_id: refId,
             source_table: 'investor_portfolios',
             source_id: p.portfolioId,
-            // Self-link, not the staff member who clicked confirm: this money stays
-            // with the partner themselves (either compounded or kept as their own
-            // returns), so linked_party must equal user_id for the ledger's
-            // proxy-custody guard to recognize it as a direct, non-custody credit
-            // (block_proxy_custody_writes) instead of flagging it as parking a
-            // supporter's funds in someone else's wallet.
+            // Self-link when the money stays with the partner themselves. When it's
+            // routed to a managed proxy agent instead, linked_party stays the PARTNER
+            // (not the agent) so the credit is still correctly attributed to whose ROI
+            // this is — matching the same pattern approve-wallet-operation already uses
+            // for managed-proxy routing, and satisfying both ledger guards
+            // (block_proxy_custody_writes' approved-managed-proxy check, and
+            // enforce_managed_proxy_roi_routing's NEW.user_id = v_agent allow-path).
             linked_party: p.investorId,
             currency: 'UGX',
           },

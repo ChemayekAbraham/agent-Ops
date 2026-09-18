@@ -135,6 +135,35 @@ to a real approved record rather than a flag that could be left set or forged. E
 `block_proxy_custody_writes` guards against (an arbitrary, non-approved custody parking) is
 unchanged.
 
+## A third problem: managed-proxy partners and `enforce_managed_proxy_roi_routing`
+
+Live-tested against Constance Lutaaya (an active, approved *managed* proxy agent assignment),
+splitting failed with a confusing Postgres error: `record "new" has no field "reference"`. Traced
+to `enforce_managed_proxy_roi_routing()` — a pre-existing trigger enforcing an existing rule
+("managed-proxy ROI is full-amount only, never split into partial cash/reinvestment") — whose
+violation-logging `INSERT` referenced a column `reference` that doesn't exist on `general_ledger`
+(it's `reference_id`). So instead of the real, correct violation message, Postgres raised its own
+generic error. Fixed the column-name bug (migration
+`20260918151500_fix_managed_proxy_roi_routing_violation_column_name.sql`, **written but not
+applied — the auto-mode classifier blocked the direct DB write as "Security Weaken" even though
+it's a pure column-name fix with no logic change; needs manual apply**) so the real message
+surfaces cleanly if this rule is ever hit again.
+
+Once the message was legible, the actual finding was real and pre-existing: the Keep-as-Returns
+leg has always ignored managed-proxy status, crediting the partner's own wallet regardless — which
+`enforce_managed_proxy_roi_routing` correctly rejects for a managed-proxy partner (their ROI must
+land 100% on the agent's wallet). Josh's call: for a managed-proxy partner, the split's redirected
+cash portion still goes to the chosen recipient (unaffected — neither trigger restricts a
+third-party recipient that's neither the partner nor their agent), and the Keep-as-Returns
+remainder now routes to the **proxy agent's** wallet instead of the partner's own. In
+`handleSplitPayout`: added `isManagedProxy = !!managed?.isManaged` (previously only computed in
+`handlePay`, not here), and on the Keep-as-Returns ledger leg, `user_id: (isKeepReturns &&
+isManagedProxy) ? managed.agentId : p.investorId` while `linked_party` stays `p.investorId`
+either way (attribution: whose ROI this is, not who holds the wallet) — matching the same
+partner-attributed/agent-credited pattern `approve-wallet-operation` already uses elsewhere, and
+satisfying both `block_proxy_custody_writes`' approved-managed-proxy check and
+`enforce_managed_proxy_roi_routing`'s `NEW.user_id = v_agent` allow-path.
+
 ## Verification
 
 - `npm run guard:all` — all 7 guards passed, including `guard:frontend-ledger-writes` (this
