@@ -16,6 +16,9 @@ export interface MerchandiseRepaymentPlan {
   status: string;
   last_recovery_at: string | null;
   created_at: string;
+  order_status: string | null;
+  rejection_reason: string | null;
+  rejected_at: string | null;
 }
 
 export interface MerchandiseRepaymentDeduction {
@@ -49,7 +52,41 @@ export function useMerchandiseRepaymentPortfolio(userId?: string) {
         .eq('customer_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []) as MerchandiseRepaymentPlan[];
+      const rows = (data || []) as Omit<
+        MerchandiseRepaymentPlan,
+        'order_status' | 'rejection_reason' | 'rejected_at'
+      >[];
+      const saleIds = rows.flatMap((row) => (row.sale_id ? [row.sale_id] : []));
+      if (saleIds.length === 0) {
+        return rows.map((row) => ({
+          ...row,
+          order_status: null,
+          rejection_reason: null,
+          rejected_at: null,
+        }));
+      }
+
+      const { data: sales, error: salesError } = await db
+        .from('merchandise_sales')
+        .select('id, order_status, rejection_reason, rejected_at')
+        .in('id', saleIds);
+      if (salesError) throw salesError;
+
+      const saleById = new Map<
+        string,
+        { id: string; order_status: string | null; rejection_reason: string | null; rejected_at: string | null }
+      >((sales || []).map((sale: any) => [sale.id, sale]));
+      return rows
+        .filter((row) => !row.sale_id || saleById.has(row.sale_id))
+        .map((row) => {
+          const sale = row.sale_id ? saleById.get(row.sale_id) : null;
+          return {
+            ...row,
+            order_status: sale?.order_status ?? null,
+            rejection_reason: sale?.rejection_reason ?? null,
+            rejected_at: sale?.rejected_at ?? null,
+          };
+        }) as MerchandiseRepaymentPlan[];
     },
   });
 
@@ -85,6 +122,30 @@ export function useMerchandiseRepaymentPortfolio(userId?: string) {
       deductions.refetch();
     },
   };
+}
+
+/** Remove the signed-in agent's own pending, rejected, or failed application. */
+export function useDeleteMerchandiseApplication(userId?: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (plan: MerchandiseRepaymentPlan) => {
+      if (!plan.sale_id) throw new Error('This application cannot be removed.');
+      const { data, error } = await db.rpc('agent_cancel_merchandise_order', {
+        p_sale_id: plan.sale_id,
+        p_reason: 'Rejected merchandise application deleted by the agent',
+      });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['merchandise-repayment-plans', userId] });
+      qc.invalidateQueries({ queryKey: ['merchandise-repayment-deductions', userId] });
+      qc.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] });
+      qc.invalidateQueries({ queryKey: ['merchandise-order-lock', userId] });
+      qc.invalidateQueries({ queryKey: ['my-smartphone-orders', userId] });
+    },
+  });
 }
 
 interface PayArgs {
