@@ -1534,6 +1534,13 @@
       "when": 1789726480843,
       "tag": "0218_tenant_ops_watchlist_landlord_paid_only",
       "breakpoints": true
+    },
+    {
+      "idx": 219,
+      "version": "7",
+      "when": 1789727718375,
+      "tag": "0219_promissory_note_email_optional",
+      "breakpoints": true
     }
   ]
 }
