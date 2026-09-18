@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ReceiptNumberCheckDialog } from "@/components/agent/ReceiptNumberCheckDialog";
+import { isLandlordReceiptConfirmationEffective } from "@/hooks/usePendingLandlordReceipts";
 import { formatUGX } from "@/lib/rentCalculations";
 import { cn } from "@/lib/utils";
 
@@ -102,7 +103,7 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
 
   // Auto-surface the receipt-number dialog once the landlord payout is confirmed paid
   useEffect(() => {
-    if (payout?.status === "completed" && !autoPrompted) {
+    if (isLandlordReceiptConfirmationEffective() && payout?.status === "completed" && !autoPrompted) {
       setAutoPrompted(true);
       setCheckOpen(true);
     }
@@ -225,7 +226,7 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
           </div>
         )}
 
-        {isDone && (
+        {isDone && isLandlordReceiptConfirmationEffective() && (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-left space-y-1">
             <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
               Landlord has been paid — get the receipt from them
@@ -237,16 +238,18 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
           </div>
         )}
 
-        <div className="pt-1">
+        {isLandlordReceiptConfirmationEffective() && <div className="pt-1">
           <Button variant={isDone ? "default" : "outline"} size="sm" onClick={() => setCheckOpen(true)}>
             <Receipt className="h-3.5 w-3.5 mr-1.5" />
             {isDone ? "Enter receipt from landlord" : "Check a receipt number"}
           </Button>
-        </div>
+        </div>}
 
       </div>
 
-      <ReceiptNumberCheckDialog open={checkOpen} onOpenChange={setCheckOpen} />
+      {isLandlordReceiptConfirmationEffective() && (
+        <ReceiptNumberCheckDialog open={checkOpen} onOpenChange={setCheckOpen} />
+      )}
     </div>
   );
 }
