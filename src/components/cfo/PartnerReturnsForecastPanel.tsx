@@ -90,7 +90,7 @@ const COLORS = {
 };
 
 /** Manual legend payload so the confidence band can be named and explained. */
-const CHART_LEGEND_PAYLOAD = [
+const CHART_LEGEND_PAYLOAD: { value: string; type: 'line' | 'square'; id: string; color: string }[] = [
   { value: 'Returns payable forecast', type: 'line', id: 'Returns payable forecast', color: COLORS.forecast },
   { value: 'Actually paid', type: 'line', id: 'Actually paid', color: COLORS.actual },
   { value: 'Net', type: 'line', id: 'Net', color: COLORS.net },
