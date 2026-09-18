@@ -6,7 +6,9 @@ import { formatUGX } from '@/lib/rentCalculations';
 import {
   buildTopupBacktest,
   BACKTEST_MIN_BASIS,
+  DEFAULT_TOPUP_SETTINGS,
   type TopupHistoryPeriod,
+  type TopupModelSettings,
 } from '@/lib/topupBacktest';
 
 /**
@@ -14,8 +16,14 @@ import {
  * replays the model on the periods before it and compares that prediction with
  * the amount actually received.
  */
-export function TopupBacktestPanel({ periods }: { periods: TopupHistoryPeriod[] }) {
-  const backtest = useMemo(() => buildTopupBacktest(periods), [periods]);
+export function TopupBacktestPanel({
+  periods,
+  settings = DEFAULT_TOPUP_SETTINGS,
+}: {
+  periods: TopupHistoryPeriod[];
+  settings?: TopupModelSettings;
+}) {
+  const backtest = useMemo(() => buildTopupBacktest(periods, settings), [periods, settings]);
 
   if (!backtest.rows.length) {
     return (
