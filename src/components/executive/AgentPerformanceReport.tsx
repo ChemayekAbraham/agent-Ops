@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Download, FileBarChart, Search, X, Users, HandCoins, TrendingUp, PiggyBank, Percent, Wallet, Info, Calendar, Filter, Trophy, AlertTriangle, Activity, Building } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { generateAgentPerformancePdf, AgentPerfRow, AgentPerfTotals } from '@/lib/agentPerformanceReportPdf';
@@ -19,31 +19,71 @@ type RangePreset = 'this-week' | 'last-week' | 'this-month' | 'last-7' | 'last-3
 type PaymentSource = 'all' | 'agent_collections' | 'repayments' | 'merchant';
 type StatusFilter = 'all' | 'critical' | 'low' | 'moderate' | 'good' | 'excellent';
 
+const KAMPALA_TZ = 'Africa/Kampala';
+const KAMPALA_PARTS = new Intl.DateTimeFormat('en-CA', {
+  timeZone: KAMPALA_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+const kampalaDateString = (date = new Date()) => {
+  const parts = KAMPALA_PARTS.formatToParts(date);
+  const year = parts.find((p) => p.type === 'year')?.value || '1970';
+  const month = parts.find((p) => p.type === 'month')?.value || '01';
+  const day = parts.find((p) => p.type === 'day')?.value || '01';
+  return `${year}-${month}-${day}`;
+};
+
+const addKampalaDays = (date: string, days: number) => {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + days));
+  return next.toISOString().slice(0, 10);
+};
+
+const kampalaMonthEnd = (date: string) => {
+  const [year, month] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+};
+
+const startOfKampalaWeek = (date: string) => {
+  const noon = new Date(`${date}T12:00:00+03:00`);
+  const mondayOffset = (noon.getUTCDay() + 6) % 7;
+  return addKampalaDays(date, -mondayOffset);
+};
+
+const kampalaInstant = (date: string, endOfDay = false) =>
+  new Date(`${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+03:00`);
+
 const getRange = (preset: RangePreset): { start: Date | null; end: Date } => {
-  const now = new Date();
+  const today = kampalaDateString();
   switch (preset) {
-    case 'this-week': return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
-    case 'last-week': {
-      const lw = subWeeks(now, 1);
-      return { start: startOfWeek(lw, { weekStartsOn: 1 }), end: endOfWeek(lw, { weekStartsOn: 1 }) };
+    case 'this-week': {
+      const start = startOfKampalaWeek(today);
+      return { start: kampalaInstant(start), end: kampalaInstant(addKampalaDays(start, 6), true) };
     }
-    case 'this-month': return { start: startOfMonth(now), end: endOfMonth(now) };
+    case 'last-week': {
+      const thisWeekStart = startOfKampalaWeek(today);
+      const start = addKampalaDays(thisWeekStart, -7);
+      return { start: kampalaInstant(start), end: kampalaInstant(addKampalaDays(start, 6), true) };
+    }
+    case 'this-month': {
+      const start = `${today.slice(0, 8)}01`;
+      return { start: kampalaInstant(start), end: kampalaInstant(kampalaMonthEnd(today), true) };
+    }
     case 'last-30': {
-      const start = new Date(now); start.setDate(start.getDate() - 29); start.setHours(0, 0, 0, 0);
-      const end = new Date(now); end.setHours(23, 59, 59, 999);
-      return { start, end };
+      const start = addKampalaDays(today, -29);
+      return { start: kampalaInstant(start), end: kampalaInstant(today, true) };
     }
     case 'last-90': {
-      const start = new Date(now); start.setDate(start.getDate() - 89); start.setHours(0, 0, 0, 0);
-      const end = new Date(now); end.setHours(23, 59, 59, 999);
-      return { start, end };
+      const start = addKampalaDays(today, -89);
+      return { start: kampalaInstant(start), end: kampalaInstant(today, true) };
     }
-    case 'all': return { start: null, end: now };
+    case 'all': return { start: null, end: kampalaInstant(today, true) };
     case 'last-7':
     default: {
-      const start = new Date(now); start.setDate(start.getDate() - 6); start.setHours(0, 0, 0, 0);
-      const end = new Date(now); end.setHours(23, 59, 59, 999);
-      return { start, end };
+      const start = addKampalaDays(today, -6);
+      return { start: kampalaInstant(start), end: kampalaInstant(today, true) };
     }
   }
 };
@@ -230,311 +270,70 @@ export function AgentPerformanceReport() {
     ? `${format(range.start, 'MMM d')} – ${format(range.end, 'MMM d, yyyy')}`
     : `All time · as of ${format(range.end, 'MMM d, yyyy')}`;
 
+  const rpcStartISO = (range.start || kampalaInstant('2020-01-01')).toISOString();
+
   const { data, isLoading } = useQuery({
-    queryKey: ['agent-perf-report', startISO, endISO, paymentSource],
+    queryKey: ['agent-perf-report-home-basis', rpcStartISO, endISO],
     queryFn: async () => {
-      // Helper: paginated fetch (up to 20k rows)
-      const fetchAll = async <T,>(builder: () => any): Promise<T[]> => {
-        const PAGE = 1000;
-        const out: T[] = [];
-        let from = 0;
-        for (let p = 0; p < 20; p++) {
-          const { data, error } = await builder().range(from, from + PAGE - 1);
-          if (error) {
-            console.error('[AgentPerformanceReport] fetchAll error:', error);
-            toast.error(`Report query failed: ${error.message}`);
-            throw error;
-          }
-          if (!data || data.length === 0) break;
-          out.push(...(data as T[]));
-          if (data.length < PAGE) break;
-          from += PAGE;
-        }
-        return out;
-      };
-
-      // ============ PULL ALL PAYMENT SOURCES ============
-      // 1) agent_collections (cash collected by agents in field)
-      const collections = (paymentSource === 'all' || paymentSource === 'agent_collections')
-        ? await fetchAll<{ agent_id: string; amount: number; tenant_id: string | null; created_at: string }>(() => {
-            let q = supabase.from('agent_collections').select('agent_id, amount, tenant_id, created_at').is('reversed_at', null);
-            if (startISO) q = q.gte('created_at', startISO);
-            return q.lte('created_at', endISO);
-          })
-        : [];
-
-      // 2) repayments (tenant direct payments via merchant — attributed to agent)
-      const repayments = (paymentSource === 'all' || paymentSource === 'repayments')
-        ? await fetchAll<{ rent_request_id: string | null; tenant_id: string | null; amount: number; created_at: string }>(() => {
-            let q = supabase.from('repayments').select('rent_request_id, tenant_id, amount, created_at');
-            if (startISO) q = q.gte('created_at', startISO);
-            return q.lte('created_at', endISO);
-          })
-        : [];
-
-      // 3) tenant_merchant_payments (direct merchant pay-ins by tenant) — attribute via rent_request → agent
-      const merchantRaw = (paymentSource === 'all' || paymentSource === 'merchant')
-        ? await fetchAll<{ tenant_id: string | null; agent_id: string | null; amount: number; created_at: string }>(() => {
-            let q = supabase.from('tenant_merchant_payments').select('tenant_id, agent_id, amount, created_at');
-            if (startISO) q = q.gte('created_at', startISO);
-            return q.lte('created_at', endISO);
-          })
-        : [];
-
-      // Pull earnings in window (for interest)
-      const earnings = await fetchAll<{ agent_id: string; amount: number; earning_type: string; created_at: string }>(() => {
-        let q = supabase.from('agent_earnings').select('agent_id, amount, earning_type, created_at');
-        if (startISO) q = q.gte('created_at', startISO);
-        return q.lte('created_at', endISO);
+      const { data: report, error } = await supabase.rpc('agent_performance_home_basis_range', {
+        p_start: rpcStartISO,
+        p_end: endISO,
       });
 
-      // Pull landlord payouts in window (rent paid out to landlords) — attributed to disbursing agent
-      const landlordPayouts = await fetchAll<{ agent_id: string; amount: number; status: string | null; disbursed_at: string | null; created_at: string }>(() => {
-        let q = supabase.from('landlord_payouts').select('agent_id, amount, status, disbursed_at, created_at');
-        if (startISO) q = q.gte('created_at', startISO);
-        return q.lte('created_at', endISO);
-      });
-
-      // Pull rent_requests for tenant counts AND daily_portfolio.
-      // We need TWO scopes:
-      //  - rentReqsAll: ALL-time, used to attribute merchant payments (rent_request_id → agent_id),
-      //    because a payment in this range may belong to a request created earlier.
-      //  - rentReqsInRange: scoped to the selected date range (by created_at), used for tenants_total
-      //    so the "X/Y" denominator reflects the chosen period, not lifetime assignments.
-      const rentReqsAll = await fetchAll<{ id: string; agent_id: string | null; tenant_id: string | null; created_at: string; daily_repayment: number | null; status: string | null; amount_repaid: number | null; total_repayment: number | null }>(() =>
-        supabase.from('rent_requests').select('id, agent_id, tenant_id, created_at, daily_repayment, status, amount_repaid, total_repayment').not('agent_id', 'is', null)
-      );
-      const rentReqsInRange = startISO
-        ? rentReqsAll.filter(r => r.created_at >= startISO && r.created_at <= endISO)
-        : rentReqsAll;
-
-      // Build tenant_id → agent_id map (most-recent rent_request) for merchant payments missing agent_id
-      const tenantAgentMap: Record<string, { agent_id: string; created_at: string }> = {};
-      rentReqsAll.forEach(r => {
-        if (!r.tenant_id || !r.agent_id) return;
-        const cur = tenantAgentMap[r.tenant_id];
-        if (!cur || r.created_at > cur.created_at) {
-          tenantAgentMap[r.tenant_id] = { agent_id: r.agent_id, created_at: r.created_at };
-        }
-      });
-
-      // Build rent_request_id → agent_id map (used to attribute repayments, which carry no agent_id)
-      const requestAgentMap: Record<string, string> = {};
-      rentReqsAll.forEach(r => {
-        if (r.id && r.agent_id) requestAgentMap[r.id] = r.agent_id;
-      });
-
-      // Resolve repayments → attributed agent (via rent_request_id, fall back to tenant→agent map)
-      type ResolvedRepayment = { agent_id: string; tenant_id: string | null; amount: number };
-      const repaymentsResolved: ResolvedRepayment[] = repayments
-        .map(r => {
-          const aid = (r.rent_request_id ? requestAgentMap[r.rent_request_id] : undefined)
-            || (r.tenant_id ? tenantAgentMap[r.tenant_id]?.agent_id : undefined);
-          return aid ? { agent_id: aid, tenant_id: r.tenant_id, amount: Number(r.amount || 0) } : null;
-        })
-        .filter((x): x is ResolvedRepayment => x !== null);
-
-      // Resolve merchant payments → attributed agent (prefer direct agent_id, fall back to tenant→agent map)
-      type ResolvedPayment = { agent_id: string; tenant_id: string | null; amount: number };
-      const merchantResolved: ResolvedPayment[] = merchantRaw
-        .map(m => {
-          const aid = m.agent_id || (m.tenant_id ? tenantAgentMap[m.tenant_id]?.agent_id : undefined);
-          return aid ? { agent_id: aid, tenant_id: m.tenant_id, amount: Number(m.amount || 0) } : null;
-        })
-        .filter((x): x is ResolvedPayment => x !== null);
-
-      const agentIds = Array.from(new Set([
-        ...collections.map(c => c.agent_id),
-        ...repaymentsResolved.map(r => r.agent_id),
-        ...merchantResolved.map(m => m.agent_id),
-        ...earnings.map(e => e.agent_id),
-        ...rentReqsInRange.map(r => r.agent_id as string),
-      ].filter(Boolean)));
-
-      const profilesMap: Record<string, string> = {};
-      // NOTE: name resolution is performed AFTER the active-portfolio pass below
-      // so it includes agents added via dailyPortfolioByAgent (active rent
-      // requests outside the selected date window). See block after agg build.
-
-      // Aggregate per agent
-      type Agg = {
-        collected: number; payments: number;
-        interest: number; commissionEarnings: number;
-        tenantsPaid: Set<string>; tenantsTotal: Set<string>;
-        bySource: { agent_collections: number; repayments: number; merchant: number };
-      };
-      const agg: Record<string, Agg> = {};
-      const ensure = (id: string): Agg => agg[id] ??= {
-        collected: 0, payments: 0, interest: 0, commissionEarnings: 0,
-        tenantsPaid: new Set(), tenantsTotal: new Set(),
-        bySource: { agent_collections: 0, repayments: 0, merchant: 0 },
-      };
-
-      collections.forEach(c => {
-        const a = ensure(c.agent_id);
-        const amt = Number(c.amount || 0);
-        a.collected += amt;
-        a.bySource.agent_collections += amt;
-        a.payments += 1;
-        if (c.tenant_id) { a.tenantsPaid.add(c.tenant_id); a.tenantsTotal.add(c.tenant_id); }
-      });
-      repaymentsResolved.forEach(r => {
-        const a = ensure(r.agent_id);
-        const amt = r.amount;
-        a.collected += amt;
-        a.bySource.repayments += amt;
-        a.payments += 1;
-        if (r.tenant_id) { a.tenantsPaid.add(r.tenant_id); a.tenantsTotal.add(r.tenant_id); }
-      });
-      merchantResolved.forEach(m => {
-        const a = ensure(m.agent_id);
-        a.collected += m.amount;
-        a.bySource.merchant += m.amount;
-        a.payments += 1;
-        if (m.tenant_id) { a.tenantsPaid.add(m.tenant_id); a.tenantsTotal.add(m.tenant_id); }
-      });
-      earnings.forEach(e => {
-        const a = ensure(e.agent_id);
-        const type = String(e.earning_type || '').toLowerCase();
-        if (type.includes('interest')) a.interest += Number(e.amount || 0);
-        else if (type.includes('commission')) a.commissionEarnings += Number(e.amount || 0);
-      });
-      // Aggregate rent paid out per agent (only successfully disbursed)
-      const rentPaidByAgent: Record<string, number> = {};
-      landlordPayouts.forEach(p => {
-        if (!p.agent_id) return;
-        const status = (p.status || '').toLowerCase();
-        if (!['disbursed', 'completed', 'paid', 'success'].includes(status) && !p.disbursed_at) return;
-        rentPaidByAgent[p.agent_id] = (rentPaidByAgent[p.agent_id] || 0) + Number(p.amount || 0);
-      });
-      rentReqsInRange.forEach(r => {
-        if (!r.agent_id || !r.tenant_id) return;
-        ensure(r.agent_id).tenantsTotal.add(r.tenant_id);
-      });
-
-      // Compute Daily Portfolio per agent = sum(daily_repayment) of ACTIVE rent requests
-      // Active = not fully_repaid / not cancelled / not defaulted, and outstanding > 0.
-      const ACTIVE_STATUSES = new Set(['funded', 'disbursed', 'repaying', 'tenant_ops_approved', 'agent_verified']);
-      const dailyPortfolioByAgent: Record<string, number> = {};
-      const activeTenantsByAgent: Record<string, Set<string>> = {};
-      rentReqsAll.forEach(r => {
-        if (!r.agent_id) return;
-        const status = (r.status || '').toLowerCase();
-        const outstanding = Number(r.total_repayment || 0) - Number(r.amount_repaid || 0);
-        const isActive = ACTIVE_STATUSES.has(status) && outstanding > 0;
-        if (!isActive) return;
-        dailyPortfolioByAgent[r.agent_id] = (dailyPortfolioByAgent[r.agent_id] || 0) + Number(r.daily_repayment || 0);
-        if (r.tenant_id) {
-          (activeTenantsByAgent[r.agent_id] ??= new Set()).add(r.tenant_id);
-        }
-      });
-      // Make sure every agent with a portfolio is in the agg
-      Object.keys(dailyPortfolioByAgent).forEach(id => ensure(id));
-
-      // Resolve display names for EVERY agent that ended up in `agg` — this
-      // includes ids added by the active-portfolio pass above, which were not
-      // in the original `agentIds` set. Without this, those rows render as
-      // "Agent xxxxxx" placeholders.
-      const allAgentIdsForNames = Array.from(new Set([
-        ...agentIds,
-        ...Object.keys(agg),
-      ])).filter(Boolean);
-      if (allAgentIdsForNames.length) {
-        const BATCH = 200;
-        for (let i = 0; i < allAgentIdsForNames.length; i += BATCH) {
-          const slice = allAgentIdsForNames.slice(i, i + BATCH);
-          const { data: profs, error: rpcErr } = await supabase
-            .rpc('get_agent_display_names', { _ids: slice });
-          if (rpcErr) {
-            console.warn('[AgentPerformanceReport] name RPC failed, falling back:', rpcErr);
-            const { data: fallback } = await supabase
-              .from('profiles')
-              .select('id, full_name, phone')
-              .in('id', slice);
-            (fallback || []).forEach((p: any) => {
-              profilesMap[p.id] = p.full_name?.trim() || p.phone || `Agent ${p.id.slice(0, 6)}`;
-            });
-          } else {
-            (profs || []).forEach((p: any) => {
-              profilesMap[p.id] = (p.full_name && p.full_name.trim())
-                || p.phone
-                || `Agent ${p.id.slice(0, 6)}`;
-            });
-          }
-        }
-        // Final safety net for any id still unresolved.
-        allAgentIdsForNames.forEach(id => {
-          if (!profilesMap[id]) profilesMap[id] = `Agent ${id.slice(0, 6)}`;
-        });
+      if (error) {
+        console.error('[AgentPerformanceReport] home-basis RPC failed:', error);
+        toast.error(`Report query failed: ${error.message}`);
+        throw error;
       }
 
-      // Days in selected window (>=1 to avoid div by zero)
-      const windowDays = Math.max(1, Math.ceil(
-        ((range.end.getTime()) - ((range.start || range.end).getTime())) / (1000 * 60 * 60 * 24)
-      ) || 1);
-
-      const rows: AgentPerfRow[] = Object.entries(agg).map(([id, a]) => {
-        // Use ledger commission if present, else 5% of collected as display fallback
-        const commission = a.commissionEarnings > 0 ? a.commissionEarnings : a.collected * 0.10;
-        const wallet_total = commission + a.interest;
-        const activeTenantCount = activeTenantsByAgent[id]?.size || 0;
-        const tenantsTotal = activeTenantCount || a.tenantsTotal.size || a.tenantsPaid.size;
-        const tenantsPaid = a.tenantsPaid.size;
-        const pctPaid = tenantsTotal ? (tenantsPaid / tenantsTotal) * 100 : 0;
-        const rate = a.collected ? (wallet_total / a.collected) * 100 : 0;
-        const dailyPortfolio = dailyPortfolioByAgent[id] || 0;
-        const expectedWeekly = dailyPortfolio * 7;
-        const efficiency = expectedWeekly ? (a.collected / expectedWeekly) * 100 : 0;
-        const gap = expectedWeekly - a.collected;
-        const dailyCollection = a.collected / windowDays;
-        const dailyCommission = commission / windowDays;
-        const rentPaidOut = rentPaidByAgent[id] || 0;
-        const conversionPct = pctPaid; // tenants_paid / tenants_total (window)
+      const payload = (report || {}) as { rows?: unknown[]; totals?: Record<string, unknown>; range?: Record<string, unknown> };
+      const num = (value: unknown) => Number(value || 0);
+      const rows: AgentPerfRow[] = (Array.isArray(payload.rows) ? payload.rows : []).map((row, index) => {
+        const r = row as Record<string, unknown>;
+        const efficiency = num(r.efficiency);
         return {
-          rank: 0,
-          agent_name: profilesMap[id] || `Agent ${id.slice(0, 6)}`,
-          tenants_paid: tenantsPaid,
-          tenants_total: tenantsTotal,
-          pct_paid: pctPaid,
-          collected: a.collected,
-          payments: a.payments,
-          commission,
-          interest: a.interest,
-          wallet_total,
-          rate,
+          rank: index + 1,
+          agent_name: String(r.agent_name || 'Agent'),
+          tenants_paid: num(r.tenants_paid),
+          tenants_total: num(r.tenants_total),
+          pct_paid: num(r.pct_paid),
+          collected: num(r.collected),
+          payments: num(r.payments),
+          commission: num(r.commission),
+          interest: num(r.interest),
+          wallet_total: num(r.wallet_total),
+          rate: num(r.rate),
           status: statusForEfficiency(efficiency),
-          source_breakdown: a.bySource,
-          daily_portfolio: dailyPortfolio,
-          expected_weekly: expectedWeekly,
+          source_breakdown: (r.source_breakdown as AgentPerfRow['source_breakdown']) || { agent_collections: num(r.collected), repayments: 0, merchant: 0 },
+          daily_portfolio: num(r.daily_portfolio),
+          expected_weekly: num(r.expected_period ?? r.expected_weekly),
           efficiency,
-          gap,
-          daily_collection: dailyCollection,
-          daily_commission: dailyCommission,
-          rent_paid_out: rentPaidOut,
-          conversion_pct: conversionPct,
+          gap: num(r.gap),
+          daily_collection: num(r.daily_collection),
+          daily_commission: num(r.daily_commission),
+          rent_paid_out: num(r.rent_paid_out),
+          conversion_pct: num(r.conversion_pct),
         };
-      })
-      .filter(r => r.tenants_total > 0 || (r.daily_portfolio || 0) > 0)
-      .sort((x, y) => (y.daily_portfolio || 0) - (x.daily_portfolio || 0) || y.collected - x.collected)
-      .map((r, i) => ({ ...r, rank: i + 1 }));
+      });
 
-      const totals: AgentPerfTotals = rows.reduce((t, r) => ({
-        collected: t.collected + r.collected,
-        payments: t.payments + r.payments,
-        commission: t.commission + r.commission,
-        interest: t.interest + r.interest,
-        wallet_total: t.wallet_total + r.wallet_total,
-        tenants_paid: t.tenants_paid + r.tenants_paid,
-        tenants_total: t.tenants_total + r.tenants_total,
-        daily_portfolio: (t.daily_portfolio || 0) + (r.daily_portfolio || 0),
-        expected_weekly: (t.expected_weekly || 0) + (r.expected_weekly || 0),
-        gap: (t.gap || 0) + (r.gap || 0),
-        daily_collection: (t.daily_collection || 0) + (r.daily_collection || 0),
-        daily_commission: (t.daily_commission || 0) + (r.daily_commission || 0),
-        rent_paid_out: (t.rent_paid_out || 0) + (r.rent_paid_out || 0),
-      }), { collected: 0, payments: 0, commission: 0, interest: 0, wallet_total: 0, tenants_paid: 0, tenants_total: 0, daily_portfolio: 0, expected_weekly: 0, gap: 0, daily_collection: 0, daily_commission: 0, rent_paid_out: 0 });
+      const t = payload.totals || {};
+      const totals: AgentPerfTotals = {
+        collected: num(t.collected),
+        payments: num(t.payments),
+        commission: num(t.commission),
+        interest: num(t.interest),
+        wallet_total: num(t.wallet_total),
+        tenants_paid: num(t.tenants_paid),
+        tenants_total: num(t.tenants_total),
+        daily_portfolio: num(t.daily_portfolio),
+        expected_weekly: num(t.expected_period ?? t.expected),
+        gap: num(t.gap),
+        daily_collection: num(t.daily_collection),
+        daily_commission: num(t.daily_commission),
+        rent_paid_out: num(t.rent_paid_out),
+      };
 
-      return { rows, totals, windowDays };
+      return { rows, totals, windowDays: num(payload.range?.bill_days) || 1 };
     },
     staleTime: 60_000,
   });
@@ -598,7 +397,6 @@ export function AgentPerformanceReport() {
     Object.values(colFilters.ranges).filter(isRangeActive).length;
 
   const activeFilterCount =
-    (paymentSource !== 'all' ? 1 : 0) +
     (statusFilter !== 'all' ? 1 : 0) +
     (search ? 1 : 0) +
     (minColNum > 0 ? 1 : 0) +
@@ -716,7 +514,7 @@ export function AgentPerformanceReport() {
         {[
           { icon: Users,       label: 'Total Active Tenants', value: String(totals.tenants_total),                      tint: 'bg-blue-600',    text: 'text-blue-700' },
           { icon: HandCoins,   label: 'Total Daily Portfolio', value: `UGX ${fmt(totals.daily_portfolio || 0)}`,        tint: 'bg-emerald-600', text: 'text-emerald-700' },
-          { icon: TrendingUp,  label: 'Expected Weekly (7 Days)', value: `UGX ${fmt(totals.expected_weekly || 0)}`,    tint: 'bg-purple-600',  text: 'text-purple-700' },
+          { icon: TrendingUp,  label: 'Expected Period', value: `UGX ${fmt(totals.expected_weekly || 0)}`,    tint: 'bg-purple-600',  text: 'text-purple-700' },
           { icon: PiggyBank,   label: 'Total Collected',      value: `UGX ${fmt(totals.collected)}`,                    tint: 'bg-sky-600',     text: 'text-sky-700' },
           { icon: Percent,     label: 'Overall Efficiency',   value: fmtPct(overallEfficiency),                         tint: 'bg-orange-500',  text: 'text-orange-600' },
           { icon: Wallet,      label: 'Total Wallet',         value: `UGX ${fmt(totals.wallet_total)}`,                 tint: 'bg-teal-600',    text: 'text-teal-700' },
@@ -810,9 +608,9 @@ export function AgentPerformanceReport() {
                   </span>
                 </th>
                 <th className="bg-blue-600 px-2 py-2 text-right font-semibold">
-                  <span className="inline-flex items-center gap-1.5 justify-end">Expected Weekly<br/>(7 Days) (UGX)
+                  <span className="inline-flex items-center gap-1.5 justify-end">Expected Period<br/>(UGX)
                     <HeaderFilter active={isRangeActive(colFilters.ranges.expected_weekly)} align="end" onClear={() => setRange('expected_weekly', undefined)}>
-                      <NumericRangeFilter label="Expected Weekly (UGX)" value={colFilters.ranges.expected_weekly} onChange={(r) => setRange('expected_weekly', r)} />
+                      <NumericRangeFilter label="Expected Period (UGX)" value={colFilters.ranges.expected_weekly} onChange={(r) => setRange('expected_weekly', r)} />
                     </HeaderFilter>
                   </span>
                 </th>
@@ -996,7 +794,7 @@ export function AgentPerformanceReport() {
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Moderate: 60% – 79%</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-orange-500" /> Low: 40% – 59%</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Critical: &lt; 40%</span>
-          <span className="ml-auto flex items-center gap-1.5 text-muted-foreground"><Info className="h-3.5 w-3.5" /> Expected Weekly = Daily Portfolio × 7 · Efficiency = Collected ÷ Expected Weekly · Gap = Expected − Collected</span>
+          <span className="ml-auto flex items-center gap-1.5 text-muted-foreground"><Info className="h-3.5 w-3.5" /> Expected Period uses the same capped schedule as Home · Efficiency = Collected ÷ Expected · Gap = Expected − Collected</span>
           <span className="flex items-center gap-1.5 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /> {periodLabel}</span>
         </div>
       </div>
