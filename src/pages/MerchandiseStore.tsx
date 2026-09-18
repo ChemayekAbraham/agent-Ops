@@ -71,6 +71,13 @@ interface Deduction {
 
 const PAGE_SIZE = 8;
 
+const BIKE_KEYWORDS = ['spiro', 'bike', 'ekoride', 'ekocycle', 'commando', 'mocoo', 'electric', 'moto', 'ebike', 'scooter', 'boda'];
+function isBikeItem(item: CatalogItem): boolean {
+  const name = (item.item_name || '').toLowerCase();
+  const desc = (item.description || '').toLowerCase();
+  return BIKE_KEYWORDS.some((kw) => name.includes(kw) || desc.includes(kw));
+}
+
 export default function MerchandiseStore() {
   const navigate = useNavigate();
   // Clears the Radix stacked-modal body pointer-events lock that can make the
