@@ -310,7 +310,7 @@ export default function ProxyAgentCommandCenter() {
             setTab(v === 'notes' ? 'notes' : 'partners');
           }}
         >
-          <TabsList className="sticky top-[57px] z-20 grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="share">Share link</TabsTrigger>
             <TabsTrigger value="notes">Promissory ({noteTotal})</TabsTrigger>
             <TabsTrigger value="more">More</TabsTrigger>
