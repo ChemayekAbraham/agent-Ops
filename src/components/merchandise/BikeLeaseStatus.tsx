@@ -242,6 +242,11 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
                 </div>
               </div>
             )}
+
+            {current === 2 && !rejected && (
+              <BikeRepaymentTracker userId={userId} saleId={selected.id} />
+            )}
+
           </div>
         )}
       </CardContent>
