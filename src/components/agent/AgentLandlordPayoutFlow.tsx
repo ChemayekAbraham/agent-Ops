@@ -162,6 +162,10 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
     mutationFn: async () => {
       if (!user || !selectedRequest || !gps) throw new Error('Missing data');
       if (photos.length === 0) throw new Error('Please add at least one receipt photo');
+      const trimmedReceiptNumber = receiptNumber.trim();
+      if (receiptNumberRequired() && trimmedReceiptNumber.length < 3) {
+        throw new Error('Please enter the receipt number from the landlord\'s signed receipt');
+      }
 
       const payoutAmount = selectedRequest.rent_amount;
 
@@ -224,6 +228,8 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
         landlord_name: selectedRequest.landlord?.name || 'Unknown',
         mobile_money_provider: provider,
         transaction_id: transactionId.trim() || null,
+        receipt_number: trimmedReceiptNumber || null,
+        receipt_number_recorded_at: trimmedReceiptNumber ? new Date().toISOString() : null,
         receipt_photo_urls: photoUrls,
         latitude: gps.lat,
         longitude: gps.lng,
