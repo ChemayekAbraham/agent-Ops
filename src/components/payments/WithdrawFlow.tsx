@@ -2370,6 +2370,11 @@ export default function WithdrawFlow({
         steps={STEPS}
         currentStep={currentStep}
         onStepChange={(next) => {
+          // Identity missing: the flow is pinned to the first step.
+          if (identityHardBlock && next > 0) {
+            setCurrentStep(0);
+            return;
+          }
           // When the user navigates back to edit amount/method/details after a
           // failed submission, clear the stale 'failed' banner. The next
           // Confirm attempt will re-set the status honestly.
