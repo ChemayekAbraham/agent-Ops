@@ -57,10 +57,31 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
   const [searching, setSearching] = useState(false);
   const [calledAt, setCalledAt] = useState(localInput(new Date()));
   const [concern, setConcern] = useState('');
-  const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<ReceivedCallStatus>('open');
   const [followUpAt, setFollowUpAt] = useState('');
   const [followUpNote, setFollowUpNote] = useState('');
+
+  /** Live lookup: results appear as the officer types, debounced so we don't hammer the server. */
+  useEffect(() => {
+    const q = lookupTerm.trim();
+    if (q.length < 3) {
+      setMatches([]);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      const found = await lookup(q);
+      if (cancelled) return;
+      setMatches(found);
+      setSearching(false);
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [lookupTerm, lookup]);
 
   const reset = () => {
     setCallerName('');
@@ -70,16 +91,9 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
     setMatches([]);
     setCalledAt(localInput(new Date()));
     setConcern('');
-    setNotes('');
     setStatus('open');
     setFollowUpAt('');
     setFollowUpNote('');
-  };
-
-  const runLookup = async () => {
-    setSearching(true);
-    setMatches(await lookup(lookupTerm));
-    setSearching(false);
   };
 
   const submit = async () => {
@@ -91,7 +105,6 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
         linked_kind: linkedUserId ? 'user' : null,
         called_at: new Date(calledAt).toISOString(),
         concern: concern.trim(),
-        notes: notes.trim() || null,
         status,
         follow_up_at: followUpAt ? new Date(followUpAt).toISOString() : null,
         follow_up_note: followUpNote.trim() || null,
@@ -103,6 +116,7 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
       toast.error(e?.message ?? 'Could not save this call.');
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
