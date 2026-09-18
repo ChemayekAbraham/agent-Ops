@@ -1,1 +1,1 @@
-- Fix agent capacity fallback to trust successful backend zero targets.
+- No open tasks.
