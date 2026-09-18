@@ -176,12 +176,11 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 Daily payment
               </p>
               <p className="text-[11px] text-muted-foreground">
-                Recovered from your wallet earnings daily; it gets smaller every month.
+                Recovered from your wallet earnings daily.
               </p>
             </div>
             <p className="text-base font-bold text-foreground whitespace-nowrap">
               {formatUGX(schedule.firstDaily)}
-              {schedule.months > 1 ? ` → ${formatUGX(schedule.lastDaily)}` : ''}
               <span className="text-[11px] font-medium text-muted-foreground">/day</span>
             </p>
           </div>
