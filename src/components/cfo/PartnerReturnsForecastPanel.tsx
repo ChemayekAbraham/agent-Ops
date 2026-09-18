@@ -23,6 +23,12 @@ import {
   type DrilldownTarget,
 } from './PartnerReturnsDrilldownDialog';
 import { TopupBacktestPanel } from './TopupBacktestPanel';
+import {
+  buildTopupBacktest,
+  topupResidualSigma,
+  topupPredictionBand,
+  type TopupBand,
+} from '@/lib/topupBacktest';
 
 /** Metrics exported as supporting records, in report order. */
 const EXPORT_METRICS: { metric: DrilldownMetric; field: keyof Row }[] = [
