@@ -124,6 +124,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
     setStep('select');
     setSelectedRequest(null);
     setTransactionId('');
+    setReceiptNumber('');
     setProvider('');
     setNotes('');
     setPhotos([]);
