@@ -428,9 +428,19 @@ export function PartnerReturnsForecastPanel({
             {formatUGX(totals.net)}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            Receivables + top-ups + promissory + compounding, less Returns paid in past periods and
-            Returns forecast in future periods.
+            Receivables + top-ups + promissory + compounding, less the Returns payable forecast.
           </p>
+          <div className="mt-2 space-y-0.5 text-[11px] font-mono tabular-nums">
+            <p className="text-muted-foreground">
+              Inflows: {formatUGX(totals.receivable + totals.topups + totals.promissory + totals.compounding)}
+            </p>
+            <p className="text-muted-foreground">
+              Less Returns payable forecast: −{formatUGX(totals.forecastPast + totals.forecastAhead)}
+              <span className="ml-1">
+                ({formatUGX(totals.forecastPast)} past, {formatUGX(totals.forecastAhead)} ahead)
+              </span>
+            </p>
+          </div>
         </div>
 
         <div className="h-96">
