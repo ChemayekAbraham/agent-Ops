@@ -1548,6 +1548,13 @@
       "when": 1789729302057,
       "tag": "0220_landlord_payout_receipt_number",
       "breakpoints": true
+    },
+    {
+      "idx": 221,
+      "version": "7",
+      "when": 1789730441891,
+      "tag": "0221_fix_reject_merchandise_purchase_status_check",
+      "breakpoints": true
     }
   ]
 }
