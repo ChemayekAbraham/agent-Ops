@@ -33,6 +33,28 @@ import { downPaymentCopy } from '@/lib/moBanjaIphone';
 import { SmartphoneRepaymentBreakdown } from './SmartphoneRepaymentBreakdown';
 import { format } from 'date-fns';
 
+const KAMPALA_TZ = 'Africa/Kampala';
+const KAMPALA_DATE_PARTS = new Intl.DateTimeFormat('en-CA', {
+  timeZone: KAMPALA_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+const kampalaDateString = (date = new Date()) => {
+  const parts = KAMPALA_DATE_PARTS.formatToParts(date);
+  const year = parts.find((p) => p.type === 'year')?.value || '1970';
+  const month = parts.find((p) => p.type === 'month')?.value || '01';
+  const day = parts.find((p) => p.type === 'day')?.value || '01';
+  return `${year}-${month}-${day}`;
+};
+
+const addKampalaDays = (date: string, days: number) => {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + days));
+  return next.toISOString().slice(0, 10);
+};
+
 const db = supabase as any;
 
 interface SmartphoneOrderRow {
@@ -242,13 +264,14 @@ export function SmartphoneOrderApprovalQueue({
     queryKey: ['smartphone-applicant-performance', detailsTarget?.customer_id],
     enabled: !!detailsTarget?.customer_id,
     queryFn: async () => {
-      const to = new Date();
-      const from = new Date();
-      from.setDate(from.getDate() - 30);
+      const agentId = detailsTarget?.customer_id;
+      if (!agentId) return null;
+      const to = kampalaDateString();
+      const from = addKampalaDays(to, -29);
       const { data, error } = await db.rpc('agent_ops_report_agent', {
-        p_agent_id: detailsTarget!.customer_id,
-        p_from: from.toISOString().slice(0, 10),
-        p_to: to.toISOString().slice(0, 10),
+        p_agent_id: agentId,
+        p_from: from,
+        p_to: to,
       });
       if (error) throw error;
       const kpis = (data as any)?.kpis || null;
