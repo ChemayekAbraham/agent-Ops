@@ -5,6 +5,7 @@ import { Bike, Loader2 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -27,7 +28,6 @@ import {
   BIKE_RECOVERY_RATE,
   SPIRO_LEASE_PERIODS,
   SPIRO_BIKE_BASE_PRICE,
-  spiroLeaseGrid,
   spiroLeaseSchedule,
 } from '@/lib/spiroBikeLease';
 import { useMotorBikeCatalog } from '@/components/executive/agent-ops/MotorBikeCatalogDialog';
@@ -87,10 +87,9 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
     () => availableModels.find((m) => m.model === model) ?? availableModels[0],
     [availableModels, model],
   );
-  const termNum = parseInt(term, 10) || 3;
+  const termNum = Math.min(24, Math.max(1, parseInt(term, 10) || 3));
   const basePrice = selectedModel?.price ?? SPIRO_BIKE_BASE_PRICE;
   const schedule = useMemo(() => spiroLeaseSchedule(termNum, basePrice), [termNum, basePrice]);
-  const grid = useMemo(() => spiroLeaseGrid(basePrice), [basePrice]);
 
   const submit = async () => {
     setSubmitting(true);
@@ -152,21 +151,26 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">Repayment period</Label>
-            <Select value={term} onValueChange={setTerm}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-64">
-                {grid.map((row) => (
-                  <SelectItem key={row.months} value={String(row.months)} className="text-sm">
-                    {row.months} {row.months === 1 ? 'month' : 'months'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs">Repayment period (months)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={24}
+              value={term}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') {
+                  setTerm(raw);
+                  return;
+                }
+                const n = parseInt(raw, 10);
+                if (Number.isNaN(n)) return;
+                setTerm(String(Math.min(24, Math.max(1, n))));
+              }}
+              className="h-9 text-sm"
+            />
             <p className="text-[11px] text-muted-foreground">
-              Any period from 1 to 24 months.
+              Type any period from 1 to 24 months.
             </p>
           </div>
 
