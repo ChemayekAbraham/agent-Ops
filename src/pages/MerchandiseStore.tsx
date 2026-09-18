@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { SkeletonProductCard } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Info, Smartphone, Bike, AlertCircle, Share2, Trash2,
+  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Smartphone, Bike, AlertCircle, Share2, Trash2,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
