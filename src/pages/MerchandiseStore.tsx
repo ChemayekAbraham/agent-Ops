@@ -516,7 +516,7 @@ export default function MerchandiseStore() {
                 <SkeletonProductCard key={i} />
               ))}
             </div>
-          ) : catalog.length === 0 ? (
+          ) : filteredCatalog.length === 0 ? (
             <p className="text-xs text-muted-foreground py-6 text-center">No merchandise available right now.</p>
           ) : (
             <>
