@@ -493,8 +493,21 @@ export default function MerchandiseStore() {
           <h2 className="text-sm font-bold mb-2 flex items-center gap-2">
             <Package className="h-4 w-4 text-primary" /> Available items
           </h2>
-          {loadingCatalog ? (
-            <p className="text-xs text-muted-foreground py-6 text-center">Loading…</p>
+          {catalogError ? (
+            <div className="rounded-xl border border-border bg-card p-6 text-center space-y-3">
+              <p className="text-sm text-muted-foreground">
+                We couldn't load the catalog. Please check your connection and try again.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => refetchCatalog()}>
+                Retry
+              </Button>
+            </div>
+          ) : loadingCatalog ? (
+            <div className="grid grid-cols-2 gap-3">
+              {[...Array(4)].map((_, i) => (
+                <SkeletonProductCard key={i} />
+              ))}
+            </div>
           ) : catalog.length === 0 ? (
             <p className="text-xs text-muted-foreground py-6 text-center">No merchandise available right now.</p>
           ) : (
