@@ -37,7 +37,7 @@ import { useNavigate } from 'react-router-dom';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
-import { AlertTriangle, ShieldCheck, MessageSquare, Camera } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, MessageSquare, Camera, IdCard } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { maskPayoutNumber } from '@/hooks/useIdentityBinding';
 import { useWithdrawalBlockReasons } from '@/hooks/usePayoutNumberChange';
@@ -146,6 +146,12 @@ export default function WithdrawFlow({
   const showIdentityPanel =
     !!user?.id &&
     (identityBlock.data?.blocked || (!purePartnerLoading && !isPurePartner));
+  /* HARD STOP: no National ID / ID photos on file (or a Financial Ops block)
+     means the whole withdraw section is covered by an overlay and the stepper
+     navigation is removed, so there is no route to a payout at all. */
+  const identityHardBlock =
+    !!user?.id &&
+    (needsNationalId || needsIdentityPhotos || !!identityBlock.data?.blocked);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
@@ -1313,6 +1319,37 @@ export default function WithdrawFlow({
                 </p>
               </div>
             )}
+            <div className="relative">
+            {identityHardBlock && (
+              <div className="absolute inset-0 z-20 -m-2 rounded-xl bg-background/85 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="max-w-sm w-full rounded-xl border-2 border-destructive bg-card p-4 text-center space-y-3 shadow-lg">
+                  <div className="mx-auto w-11 h-11 rounded-full bg-destructive/15 flex items-center justify-center">
+                    <IdCard className="w-6 h-6 text-destructive" />
+                  </div>
+                  <h4 className="font-bold text-destructive leading-tight">
+                    Submit your National ID first
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    You cannot withdraw until your National ID number, the name on it, a photo of
+                    the card and a selfie are submitted and your payout number is confirmed.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-full font-bold"
+                    onClick={() => {
+                      identityPanelRef.current?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                      });
+                    }}
+                  >
+                    Add my National ID
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className={identityHardBlock ? 'pointer-events-none select-none opacity-40' : undefined}>
             <Label>Withdraw From</Label>
             <div className="space-y-3">
               <Card 
@@ -1367,6 +1404,8 @@ export default function WithdrawFlow({
                 </p>
               </div>
             )}
+            </div>
+            </div>
           </div>
         );
 
@@ -2331,6 +2370,11 @@ export default function WithdrawFlow({
         steps={STEPS}
         currentStep={currentStep}
         onStepChange={(next) => {
+          // Identity missing: the flow is pinned to the first step.
+          if (identityHardBlock && next > 0) {
+            setCurrentStep(0);
+            return;
+          }
           // When the user navigates back to edit amount/method/details after a
           // failed submission, clear the stale 'failed' banner. The next
           // Confirm attempt will re-set the status honestly.
@@ -2342,7 +2386,14 @@ export default function WithdrawFlow({
         }}
         canGoNext={canProceed()}
         onNext={handleNext}
-        showNavigation={currentStep < 5 && !isProcessing && !isComplete}
+        showNavigation={
+          currentStep < 5 &&
+          !isProcessing &&
+          !isComplete &&
+          // No Continue button at all while identity is missing — the overlay
+          // is the only thing to act on.
+          !(currentStep === 0 && identityHardBlock)
+        }
         nextLabel={currentStep === 4 ? 'Confirm Withdrawal' : 'Continue'}
         nextBusy={currentStep === 4 && (validating || walletOtp.otpVerifying)}
         nextBusyLabel="Refreshing balance…"
