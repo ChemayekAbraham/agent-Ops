@@ -25,6 +25,7 @@ import {
 import { HubEntryCard } from '@/components/ops/HubEntryCard';
 import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart';
 import { TenantRepaymentForecastPanel } from './TenantRepaymentForecastPanel';
+import { TenantOpsPipelineTrendChart } from './TenantOpsPipelineTrendChart';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
