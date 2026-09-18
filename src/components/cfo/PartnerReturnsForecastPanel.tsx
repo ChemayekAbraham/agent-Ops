@@ -252,9 +252,15 @@ export function PartnerReturnsForecastPanel({
               position is readable at a glance.
             </p>
           </div>
-          <Badge variant="outline" className="text-[10px]">
-            {Number(data?.portfolio_count ?? 0)} portfolios · {formatUGX(Number(data?.committed_capital ?? 0))} committed
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px]">
+              {Number(data?.portfolio_count ?? 0)} portfolios · {formatUGX(Number(data?.committed_capital ?? 0))} committed
+            </Badge>
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting || !rows.length}>
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              <span className="ml-1.5 text-xs">{exporting ? 'Building report…' : 'Export PDF'}</span>
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
