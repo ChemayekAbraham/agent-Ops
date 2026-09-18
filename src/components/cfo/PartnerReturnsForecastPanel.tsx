@@ -479,12 +479,16 @@ export function PartnerReturnsForecastPanel({
                 strokeDasharray="3 3"
                 dot={{ r: 2 }}
               />
+              {/* Shading only — the line below owns the legend and tooltip entry,
+                  so the forecast is never listed twice. */}
               <Area
                 type="monotone"
-                dataKey="Returns payable forecast"
+                dataKey="__forecastShade"
                 stroke="none"
                 fill={COLORS.forecast}
                 fillOpacity={0.12}
+                legendType="none"
+                isAnimationActive={false}
               />
               <Line
                 type="monotone"
