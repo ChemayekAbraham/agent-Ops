@@ -90,6 +90,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Merchant Invites', icon: HandCoins, id: 'merchant-invites' },
         { label: 'Developer Tools', icon: Wrench, id: 'tools' },
         { label: 'System Logs', icon: FileText, id: 'system-logs' },
+        { label: 'Code Commits', icon: GitCommit, id: 'git-commits' },
         { label: 'Browser Compatibility', icon: MonitorSmartphone, id: 'browser-compat' },
         { label: 'Signup Log', icon: ShieldCheck, id: 'signup-log' },
         { label: 'Deposit Bridge', icon: Activity, id: 'bridge-health' },
