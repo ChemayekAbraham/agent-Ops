@@ -1319,6 +1319,37 @@ export default function WithdrawFlow({
                 </p>
               </div>
             )}
+            <div className="relative">
+            {identityHardBlock && (
+              <div className="absolute inset-0 z-20 -m-2 rounded-xl bg-background/85 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="max-w-sm w-full rounded-xl border-2 border-destructive bg-card p-4 text-center space-y-3 shadow-lg">
+                  <div className="mx-auto w-11 h-11 rounded-full bg-destructive/15 flex items-center justify-center">
+                    <IdCard className="w-6 h-6 text-destructive" />
+                  </div>
+                  <h4 className="font-bold text-destructive leading-tight">
+                    Submit your National ID first
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    You cannot withdraw until your National ID number, the name on it, a photo of
+                    the card and a selfie are submitted and your payout number is confirmed.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-full font-bold"
+                    onClick={() => {
+                      identityPanelRef.current?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                      });
+                    }}
+                  >
+                    Add my National ID
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className={identityHardBlock ? 'pointer-events-none select-none opacity-40' : undefined}>
             <Label>Withdraw From</Label>
             <div className="space-y-3">
               <Card 
