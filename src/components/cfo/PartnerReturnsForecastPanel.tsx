@@ -118,6 +118,99 @@ export function PartnerReturnsForecastPanel({
 
   const deliveryRate = totals.forecastPast > 0 ? (totals.actualPast / totals.forecastPast) * 100 : 0;
 
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!rows.length) return;
+    setExporting(true);
+    try {
+      // Only pull records for figures that actually carry a value, newest periods
+      // first, so a wide day-bucket window can't spawn hundreds of queries.
+      const jobs: { row: Row; metric: DrilldownMetric }[] = [];
+      for (const row of [...rows].reverse()) {
+        for (const { metric, field } of EXPORT_METRICS) {
+          if (Number(row[field]) > 0) jobs.push({ row, metric });
+        }
+      }
+      const capped = jobs.slice(0, MAX_DETAIL_QUERIES);
+
+      const groups: ForecastPdfDetailGroup[] = [];
+      for (const job of capped) {
+        const { data: detail, error } = await (supabase as any).rpc(
+          'get_partner_ops_returns_forecast_detail',
+          {
+            p_period: job.row.key,
+            p_metric: job.metric,
+            p_bucket: bucket,
+            p_limit: DETAIL_ROW_LIMIT,
+          },
+        );
+        if (error) throw error;
+        const detailRows = (detail?.rows ?? []) as any[];
+        if (!detailRows.length) continue;
+        groups.push({
+          periodLabel: job.row.label,
+          metricLabel: METRIC_LABELS[job.metric],
+          total: Number(detail?.total ?? 0),
+          count: Number(detail?.count ?? detailRows.length),
+          truncated: Boolean(detail?.truncated),
+          rows: detailRows.map((r) => ({
+            name: r.name ?? '—',
+            detail: r.detail ?? '—',
+            amount: Number(r.amount ?? 0),
+            occurred_on: r.occurred_on ?? '—',
+            status: r.status ?? '—',
+          })),
+        });
+      }
+      // Report reads oldest period first, matching the on-screen table.
+      groups.reverse();
+
+      const blob = await generatePartnerReturnsForecastPdf(
+        rows.map((r) => ({
+          key: r.key,
+          label: r.label,
+          is_past: r.is_past,
+          forecast_returns: Number(r.forecast_returns),
+          actual_returns_paid: Number(r.actual_returns_paid),
+          variance: Number(r.variance),
+          partner_receivable: Number(r.partner_receivable),
+          topups: Number(r.topups),
+          promissory_receivable: Number(r.promissory_receivable),
+          compounding: Number(r.compounding),
+          net: Number(r.net),
+        })),
+        groups,
+        {
+          rangeText: `${format(start, 'dd MMM yyyy')} – ${format(end, 'dd MMM yyyy')}`,
+          bucketText: bucket === 'day' ? 'Daily' : bucket === 'week' ? 'Weekly' : 'Monthly',
+          portfolioCount: Number(data?.portfolio_count ?? 0),
+          committedCapital: Number(data?.committed_capital ?? 0),
+          promissoryOutstanding: Number(data?.promissory_outstanding ?? 0),
+        },
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `partner-returns-forecast-${format(start, 'yyyyMMdd')}-${format(end, 'yyyyMMdd')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        jobs.length > capped.length
+          ? `Report downloaded — supporting records limited to the ${capped.length} largest figure groups.`
+          : 'Report downloaded.',
+      );
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not build the report.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const chartData = rows.map((r) => ({
     label: r.label,
     Forecast: Number(r.forecast_returns),
