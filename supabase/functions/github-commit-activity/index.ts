@@ -144,6 +144,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    commits.sort((a, b) => {
+      const da = a.commit?.author?.date ?? "";
+      const db = b.commit?.author?.date ?? "";
+      return db.localeCompare(da);
+    });
+
     const feed = commits.map((c) => ({
       sha: c.sha,
       short_sha: c.sha.slice(0, 7),
