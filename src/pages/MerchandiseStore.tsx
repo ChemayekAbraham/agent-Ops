@@ -116,8 +116,16 @@ export default function MerchandiseStore() {
   const walletBlocked = walletLoading || !!walletError;
 
 
-  const { data: catalog = [], isLoading: loadingCatalog } = useQuery<CatalogItem[]>({
+  const {
+    data: catalog = [],
+    isLoading: loadingCatalog,
+    error: catalogError,
+    refetch: refetchCatalog,
+  } = useQuery<CatalogItem[]>({
     queryKey: ['merchandise-catalog'],
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_catalog')
