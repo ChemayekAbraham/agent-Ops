@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/table';
 import welileLogo from '@/assets/welile-logo.png';
 import { cn } from '@/lib/utils';
-import { format, startOfDay, endOfDay, subDays, differenceInDays } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { useState } from 'react';
 import { Search } from 'lucide-react';
 
@@ -40,6 +40,38 @@ const toneBg: Record<string, string> = {
 };
 
 const fmtUGX = (n: number) => `UGX ${Math.round(n).toLocaleString()}`;
+
+const KAMPALA_TZ = 'Africa/Kampala';
+const KAMPALA_PARTS = new Intl.DateTimeFormat('en-CA', {
+  timeZone: KAMPALA_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+const kampalaDateString = (date = new Date()) => {
+  const parts = KAMPALA_PARTS.formatToParts(date);
+  const year = parts.find((p) => p.type === 'year')?.value || '1970';
+  const month = parts.find((p) => p.type === 'month')?.value || '01';
+  const day = parts.find((p) => p.type === 'day')?.value || '01';
+  return `${year}-${month}-${day}`;
+};
+
+const addKampalaDays = (date: string, days: number) => {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + days));
+  return next.toISOString().slice(0, 10);
+};
+
+const kampalaInstant = (date: string, endOfDay = false) =>
+  new Date(`${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+03:00`);
+
+const isKampalaDateInRange = (timestamp: string | null | undefined, start: string, end: string) => {
+  if (!timestamp) return false;
+  const day = kampalaDateString(new Date(timestamp));
+  return day >= start && day <= end;
+};
+
 
 const statusGuide = [
   { range: '85 – 100', status: 'Excellent', desc: 'Outstanding performance', color: 'text-emerald-600' },
@@ -144,16 +176,21 @@ function PerformanceGauge({ score }: { score: number }) {
 // ============= DATA HOOK =============
 async function fetchAgentReport(agentId: string) {
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-  const weekStart = startOfDay(subDays(now, 6));
-  const historyStart = startOfDay(subDays(now, 120)); // 120d window: covers aging + last-payment lookup
+  const today = kampalaDateString(now);
+  const weekStartDay = addKampalaDays(today, -6);
+  const historyStartDay = addKampalaDays(today, -120);
+  const weekStart = kampalaInstant(weekStartDay);
+  const historyStart = kampalaInstant(historyStartDay); // 120d window: covers aging + last-payment lookup
 
-  // Agent profile + wallet
-  const [profileRes, walletRes] = await Promise.all([
+  // Agent profile + wallet + authoritative capped collection report
+  const [profileRes, walletRes, todayReportRes, weekReportRes] = await Promise.all([
     supabase.from('profiles').select('id, full_name, phone, created_at, city, country').eq('id', agentId).maybeSingle(),
     supabase.from('wallets').select('withdrawable_balance, float_balance, balance').eq('user_id', agentId).maybeSingle(),
+    supabase.rpc('agent_ops_report_agent', { p_agent_id: agentId, p_from: today, p_to: today }),
+    supabase.rpc('agent_ops_report_agent', { p_agent_id: agentId, p_from: weekStartDay, p_to: today }),
   ]);
+  if (todayReportRes.error) throw todayReportRes.error;
+  if (weekReportRes.error) throw weekReportRes.error;
 
   // All rent_requests assigned to this agent (paginate to be safe)
   const rrAll: any[] = [];
@@ -202,7 +239,7 @@ async function fetchAgentReport(agentId: string) {
   }
 
   // Field activity: agent_visits (last 30 days)
-  const visitsSince = subDays(now, 30).toISOString();
+  const visitsSince = kampalaInstant(addKampalaDays(today, -29)).toISOString();
   const { data: visitsData } = await supabase
     .from('agent_visits')
     .select('id, tenant_id, created_at, location_name')
@@ -235,12 +272,14 @@ async function fetchAgentReport(agentId: string) {
     tenantNameMap,
     tenantPhoneMap,
     repayments,
+    todayReport: todayReportRes.data as any,
+    weekReport: weekReportRes.data as any,
+    today,
+    weekStartDay,
     visits: visitsData || [],
     earnings: earningsData || [],
     agentCollections: agentCollectionsData || [],
     now,
-    todayStart,
-    todayEnd,
     weekStart,
   };
 }
@@ -261,7 +300,7 @@ export default function AgentPerformanceReport() {
 
   const computed = useMemo(() => {
     if (!data) return null;
-    const { profile, wallet, rentRequests, tenantNameMap, tenantPhoneMap, repayments, visits, earnings, agentCollections, now, todayStart, todayEnd, weekStart } = data;
+    const { profile, wallet, rentRequests, tenantNameMap, tenantPhoneMap, repayments, todayReport, weekReport, today, weekStartDay, visits, earnings, agentCollections, now, weekStart } = data;
 
     // Active = anyone still owing on a non-completed plan. Many active plans have NULL tenancy_status,
     // so we no longer require tenancy_status='active' — that filter was hiding most real tenants.
@@ -276,62 +315,47 @@ export default function AgentPerformanceReport() {
     const uniqueActiveTenants = new Set(activeRR.map(r => r.tenant_id));
     const uniqueAllTenants = new Set(rentRequests.map(r => r.tenant_id));
 
-    // Today
-    const todayPayments = repayments.filter(p => {
-      const t = new Date(p.created_at).getTime();
-      return t >= todayStart.getTime() && t <= todayEnd.getTime();
-    });
-    const collectedToday = todayPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
-    const expectedToday = activeRR.reduce((s, r) => s + Number(r.daily_repayment || 0), 0);
-    const tenantsPaidToday = new Set(todayPayments.map(p => p.tenant_id)).size;
-    const tenantsExpectedToday = activeRR.length;
+    // Today — same capped schedule basis as Tenant Ops Home / Agent Ops Reports.
+    const todayKpis = (todayReport?.kpis || {}) as Record<string, unknown>;
+    const todayTenantRows = Array.isArray(todayReport?.tenants) ? todayReport.tenants : [];
+    const collectedToday = Number(todayKpis.collected_window || 0);
+    const expectedToday = Number(todayKpis.expected_window || 0);
+    const tenantsPaidToday = todayTenantRows.filter((t: any) => Number(t.collected || 0) > 0).length;
+    const tenantsExpectedToday = todayTenantRows.length || activeRR.length;
 
-    // Per-tenant today breakdown
-    const todayByRR = new Map<string, number>();
-    todayPayments.forEach(p => {
-      todayByRR.set(p.rent_request_id, (todayByRR.get(p.rent_request_id) || 0) + Number(p.amount || 0));
-    });
-    const dailyTenants = activeRR.slice(0, 50).map(r => {
-      const expected = Number(r.daily_repayment || 0);
-      const paid = todayByRR.get(r.id) || 0;
+    const allDailyTenants = todayTenantRows.map((t: any) => {
+      const expected = Number(t.daily_repayment || 0);
+      const paid = Number(t.collected || 0);
       const balance = Math.max(0, expected - paid);
       const status = paid >= expected && expected > 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Missed';
       return {
-        tenant: tenantNameMap.get(r.tenant_id) || 'Tenant',
-        phone: tenantPhoneMap.get(r.tenant_id) || '',
-        unit: (r.house_category || '—').slice(0, 6),
+        tenant: String(t.tenant_name || 'Tenant'),
+        phone: String(t.tenant_phone || ''),
+        unit: String(t.house_type || '—').slice(0, 6),
         expected,
         paid,
         balance,
         status,
       };
     });
-    const totalExpectedToday = dailyTenants.reduce((s, t) => s + t.expected, 0);
-    const totalPaidToday = dailyTenants.reduce((s, t) => s + t.paid, 0);
-    const totalBalanceToday = dailyTenants.reduce((s, t) => s + t.balance, 0);
-    const missedToday = dailyTenants.filter(t => t.status === 'Missed').length;
-    const partialToday = dailyTenants.filter(t => t.status === 'Partial').length;
+    const dailyTenants = allDailyTenants.slice(0, 50);
+    const totalExpectedToday = expectedToday;
+    const totalPaidToday = collectedToday;
+    const totalBalanceToday = Math.max(0, expectedToday - collectedToday);
+    const missedToday = allDailyTenants.filter(t => t.status === 'Missed').length;
+    const partialToday = allDailyTenants.filter(t => t.status === 'Partial').length;
 
-    // Week (last 7 days)
-    const weeklyExpected = activeRR.reduce((s, r) => s + Number(r.daily_repayment || 0) * 7, 0);
-    const weeklyCollected = repayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    // Week (last 7 days) — capped to each tenant's schedule and zero-filled by the server.
+    const weekKpis = (weekReport?.kpis || {}) as Record<string, unknown>;
+    const weeklyExpected = Number(weekKpis.expected_window || 0);
+    const weeklyCollected = Number(weekKpis.collected_window || 0);
     const weeklyOutstanding = Math.max(0, weeklyExpected - weeklyCollected);
     const weeklyEfficiency = weeklyExpected > 0 ? (weeklyCollected / weeklyExpected) * 100 : 0;
 
-    // Per-day collected trend (honest: we don't reconstruct historical "expected" so we don't show a fake line)
-    const weeklyTrend: { day: string; Collected: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = subDays(now, i);
-      const ds = startOfDay(d).getTime();
-      const de = endOfDay(d).getTime();
-      const collected = repayments
-        .filter(p => {
-          const t = new Date(p.created_at).getTime();
-          return t >= ds && t <= de;
-        })
-        .reduce((s, p) => s + Number(p.amount || 0), 0);
-      weeklyTrend.push({ day: format(d, 'MMM d'), Collected: collected });
-    }
+    const weeklyTrend = (Array.isArray(weekReport?.periods) ? weekReport.periods : []).map((period: any) => ({
+      day: format(kampalaInstant(String(period.period)), 'MMM d'),
+      Collected: Number(period.collected || 0),
+    }));
 
     // True last-payment per rent_request (within the 120d history window)
     const lastPaymentByRR = new Map<string, string>();
@@ -385,13 +409,13 @@ export default function AgentPerformanceReport() {
       }));
 
     // Field activity aggregates
-    const visitsToday = visits.filter(v => new Date(v.created_at).getTime() >= todayStart.getTime()).length;
-    const visitsWeek = visits.filter(v => new Date(v.created_at).getTime() >= weekStart.getTime()).length;
+    const visitsToday = visits.filter(v => isKampalaDateInRange(v.created_at, today, today)).length;
+    const visitsWeek = visits.filter(v => isKampalaDateInRange(v.created_at, weekStartDay, today)).length;
     const earningsToday = earnings
-      .filter(e => new Date(e.created_at).getTime() >= todayStart.getTime())
+      .filter(e => isKampalaDateInRange(e.created_at, today, today))
       .reduce((s, e) => s + Number(e.amount || 0), 0);
     const earnings30d = earnings.reduce((s, e) => s + Number(e.amount || 0), 0);
-    const collectionsToday = agentCollections.filter(c => new Date(c.created_at).getTime() >= todayStart.getTime()).length;
+    const collectionsToday = agentCollections.filter(c => isKampalaDateInRange(c.created_at, today, today)).length;
     const collections30d = agentCollections.length;
 
     // Scoring
@@ -483,7 +507,7 @@ export default function AgentPerformanceReport() {
       ...agentCollections.map(c => ({ when: c.created_at, kind: 'Collection', label: tenantNameMap.get(c.tenant_id) || c.momo_payer_name || 'Tenant', meta: `${fmtUGX(Number(c.amount || 0))} · ${c.payment_method || ''}` })),
     ].sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime()).slice(0, 8);
 
-    const periodLabel = `${format(weekStart, 'MMM d')} – ${format(now, 'MMM d, yyyy')}`;
+    const periodLabel = `${format(weekStart, 'MMM d')} – ${format(kampalaInstant(today), 'MMM d, yyyy')}`;
     const generatedLabel = format(now, 'MMM d, yyyy HH:mm');
 
     return {

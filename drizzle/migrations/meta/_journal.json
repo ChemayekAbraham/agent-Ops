@@ -1576,6 +1576,20 @@
       "when": 1789740189380,
       "tag": "0224_tenant_status_sms_appendix",
       "breakpoints": true
+    },
+    {
+      "idx": 225,
+      "version": "7",
+      "when": 1789741478238,
+      "tag": "0225_agent_performance_home_basis_logic",
+      "breakpoints": true
+    },
+    {
+      "idx": 226,
+      "version": "7",
+      "when": 1789741981052,
+      "tag": "0226_tighten_rls_permissive_policy_findings",
+      "breakpoints": true
     }
   ]
 }
