@@ -1527,6 +1527,13 @@
       "when": 1789725288672,
       "tag": "0217_tenant_ops_repayment_watchlist_schedule_source",
       "breakpoints": true
+    },
+    {
+      "idx": 218,
+      "version": "7",
+      "when": 1789726480843,
+      "tag": "0218_tenant_ops_watchlist_landlord_paid_only",
+      "breakpoints": true
     }
   ]
 }
