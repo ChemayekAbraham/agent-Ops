@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
     const perPage = 20;
     let owner = DEFAULT_OWNER;
     let repo = DEFAULT_REPO;
+    let authorFilter: string | null = null;
     if (req.method === "POST") {
       try {
         const body = await req.json();
@@ -65,6 +66,8 @@ Deno.serve(async (req) => {
           if (Number.isFinite(d) && d >= 0 && d <= 3650) days = Math.floor(d);
           const p = Number((body as Record<string, unknown>).page);
           if (Number.isFinite(p) && p >= 1 && p <= 1000) page = Math.floor(p);
+          const a = (body as Record<string, unknown>).author;
+          if (typeof a === "string" && a.trim() && a.length <= 200) authorFilter = a.trim();
           const o = (body as Record<string, unknown>).owner;
           const r = (body as Record<string, unknown>).repo;
           if (typeof o === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(o)) owner = o;
