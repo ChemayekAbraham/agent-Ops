@@ -8932,6 +8932,53 @@ export type Database = {
         }
         Relationships: []
       }
+      cc_concern_reviewers: {
+        Row: {
+          added_by: string | null
+          added_by_name: string | null
+          concern_id: string
+          created_at: string
+          full_name: string | null
+          id: string
+          note: string | null
+          role: string
+          staff_id: string | null
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          added_by_name?: string | null
+          concern_id: string
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          note?: string | null
+          role?: string
+          staff_id?: string | null
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          added_by_name?: string | null
+          concern_id?: string
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          note?: string | null
+          role?: string
+          staff_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_concern_reviewers_concern_id_fkey"
+            columns: ["concern_id"]
+            isOneToOne: false
+            referencedRelation: "cc_forwarded_concerns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cc_cycle_populations: {
         Row: {
           active: boolean
@@ -9476,6 +9523,193 @@ export type Database = {
           },
         ]
       }
+      cc_forwarded_concern_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          concern_id: string
+          created_at: string
+          id: string
+          new_due_at: string | null
+          new_user_id: string | null
+          new_user_name: string | null
+          note: string | null
+          prev_due_at: string | null
+          prev_user_id: string | null
+          prev_user_name: string | null
+          reason: string | null
+          status_after: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          concern_id: string
+          created_at?: string
+          id?: string
+          new_due_at?: string | null
+          new_user_id?: string | null
+          new_user_name?: string | null
+          note?: string | null
+          prev_due_at?: string | null
+          prev_user_id?: string | null
+          prev_user_name?: string | null
+          reason?: string | null
+          status_after?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          concern_id?: string
+          created_at?: string
+          id?: string
+          new_due_at?: string | null
+          new_user_id?: string | null
+          new_user_name?: string | null
+          note?: string | null
+          prev_due_at?: string | null
+          prev_user_id?: string | null
+          prev_user_name?: string | null
+          reason?: string | null
+          status_after?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_forwarded_concern_events_concern_id_fkey"
+            columns: ["concern_id"]
+            isOneToOne: false
+            referencedRelation: "cc_forwarded_concerns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_forwarded_concerns: {
+        Row: {
+          accepted_at: string | null
+          caller_name: string | null
+          caller_user_id: string | null
+          completed_at: string | null
+          context: string | null
+          created_at: string
+          cycle_row_id: string | null
+          due_at: string | null
+          due_is_custom: boolean
+          due_set_at: string | null
+          due_set_by: string | null
+          due_set_by_name: string | null
+          feedback_id: string | null
+          follow_up_needed: boolean
+          follow_up_note: string | null
+          forwarded_by: string
+          forwarded_by_name: string | null
+          forwarded_to: string
+          forwarded_to_name: string | null
+          forwarded_to_staff_id: string | null
+          id: string
+          last_reassigned_at: string | null
+          last_reassigned_by: string | null
+          last_reassigned_by_name: string | null
+          original_forwarded_to: string | null
+          original_forwarded_to_name: string | null
+          outcome: string | null
+          priority: string
+          reassigned_count: number
+          received_call_id: string | null
+          source_kind: string
+          started_at: string | null
+          status: string
+          subject_type: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          caller_name?: string | null
+          caller_user_id?: string | null
+          completed_at?: string | null
+          context?: string | null
+          created_at?: string
+          cycle_row_id?: string | null
+          due_at?: string | null
+          due_is_custom?: boolean
+          due_set_at?: string | null
+          due_set_by?: string | null
+          due_set_by_name?: string | null
+          feedback_id?: string | null
+          follow_up_needed?: boolean
+          follow_up_note?: string | null
+          forwarded_by: string
+          forwarded_by_name?: string | null
+          forwarded_to: string
+          forwarded_to_name?: string | null
+          forwarded_to_staff_id?: string | null
+          id?: string
+          last_reassigned_at?: string | null
+          last_reassigned_by?: string | null
+          last_reassigned_by_name?: string | null
+          original_forwarded_to?: string | null
+          original_forwarded_to_name?: string | null
+          outcome?: string | null
+          priority?: string
+          reassigned_count?: number
+          received_call_id?: string | null
+          source_kind: string
+          started_at?: string | null
+          status?: string
+          subject_type?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          caller_name?: string | null
+          caller_user_id?: string | null
+          completed_at?: string | null
+          context?: string | null
+          created_at?: string
+          cycle_row_id?: string | null
+          due_at?: string | null
+          due_is_custom?: boolean
+          due_set_at?: string | null
+          due_set_by?: string | null
+          due_set_by_name?: string | null
+          feedback_id?: string | null
+          follow_up_needed?: boolean
+          follow_up_note?: string | null
+          forwarded_by?: string
+          forwarded_by_name?: string | null
+          forwarded_to?: string
+          forwarded_to_name?: string | null
+          forwarded_to_staff_id?: string | null
+          id?: string
+          last_reassigned_at?: string | null
+          last_reassigned_by?: string | null
+          last_reassigned_by_name?: string | null
+          original_forwarded_to?: string | null
+          original_forwarded_to_name?: string | null
+          outcome?: string | null
+          priority?: string
+          reassigned_count?: number
+          received_call_id?: string | null
+          source_kind?: string
+          started_at?: string | null
+          status?: string
+          subject_type?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_forwarded_concerns_received_call_id_fkey"
+            columns: ["received_call_id"]
+            isOneToOne: false
+            referencedRelation: "cc_received_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cc_legacy_outcome_map: {
         Row: {
           id: string
@@ -9503,6 +9737,60 @@ export type Database = {
           target_outcome?:
             | Database["public"]["Enums"]["cc_attempt_outcome"]
             | null
+        }
+        Relationships: []
+      }
+      cc_received_calls: {
+        Row: {
+          called_at: string
+          caller_name: string
+          caller_phone: string | null
+          concern: string
+          created_at: string
+          follow_up_at: string | null
+          follow_up_note: string | null
+          id: string
+          linked_kind: string | null
+          linked_user_id: string | null
+          notes: string | null
+          recorded_by: string
+          recorded_by_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          called_at?: string
+          caller_name: string
+          caller_phone?: string | null
+          concern: string
+          created_at?: string
+          follow_up_at?: string | null
+          follow_up_note?: string | null
+          id?: string
+          linked_kind?: string | null
+          linked_user_id?: string | null
+          notes?: string | null
+          recorded_by: string
+          recorded_by_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          called_at?: string
+          caller_name?: string
+          caller_phone?: string | null
+          concern?: string
+          created_at?: string
+          follow_up_at?: string | null
+          follow_up_note?: string | null
+          id?: string
+          linked_kind?: string | null
+          linked_user_id?: string | null
+          notes?: string | null
+          recorded_by?: string
+          recorded_by_name?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -13024,12 +13312,46 @@ export type Database = {
           },
         ]
       }
+      engrep_catalog_movement: {
+        Row: {
+          captured_for: string
+          fingerprint: string
+          moved_from_prev: boolean
+          moved_nearby: boolean
+          object_base: string
+          object_key: string
+          object_kind: string
+          prev_fingerprint: string | null
+        }
+        Insert: {
+          captured_for: string
+          fingerprint: string
+          moved_from_prev?: boolean
+          moved_nearby?: boolean
+          object_base: string
+          object_key: string
+          object_kind: string
+          prev_fingerprint?: string | null
+        }
+        Update: {
+          captured_for?: string
+          fingerprint?: string
+          moved_from_prev?: boolean
+          moved_nearby?: boolean
+          object_base?: string
+          object_key?: string
+          object_kind?: string
+          prev_fingerprint?: string | null
+        }
+        Relationships: []
+      }
       engrep_catalog_snapshot: {
         Row: {
           captured_at: string
           captured_for: string
           fingerprint: string
           id: number
+          object_base: string | null
           object_key: string
           object_kind: string
         }
@@ -13038,6 +13360,7 @@ export type Database = {
           captured_for: string
           fingerprint: string
           id?: number
+          object_base?: string | null
           object_key: string
           object_kind: string
         }
@@ -13046,6 +13369,7 @@ export type Database = {
           captured_for?: string
           fingerprint?: string
           id?: number
+          object_base?: string | null
           object_key?: string
           object_kind?: string
         }
@@ -13147,6 +13471,64 @@ export type Database = {
             columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      engrep_file_touches: {
+        Row: {
+          blob_sha: string
+          created_at: string
+          engineer_id: string | null
+          evidence_ref: string
+          id: string
+          path: string
+          source: string
+          touched_at: string | null
+          window_id: string
+        }
+        Insert: {
+          blob_sha: string
+          created_at?: string
+          engineer_id?: string | null
+          evidence_ref: string
+          id?: string
+          path: string
+          source: string
+          touched_at?: string | null
+          window_id: string
+        }
+        Update: {
+          blob_sha?: string
+          created_at?: string
+          engineer_id?: string | null
+          evidence_ref?: string
+          id?: string
+          path?: string
+          source?: string
+          touched_at?: string | null
+          window_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_file_touches_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_file_touches_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_file_touches_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
             referencedColumns: ["id"]
           },
         ]
@@ -26663,6 +27045,36 @@ export type Database = {
         }
         Relationships: []
       }
+      national_id_unlink_notices: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          id: string
+          nin_masked: string
+          owner_name: string | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          nin_masked: string
+          owner_name?: string | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          nin_masked?: string
+          owner_name?: string | null
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -38543,6 +38955,118 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_loan_repayments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          interest_component: number
+          loan_id: string
+          note: string | null
+          principal_component: number
+          source: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          interest_component?: number
+          loan_id: string
+          note?: string | null
+          principal_component?: number
+          source?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          interest_component?: number
+          loan_id?: string
+          note?: string | null
+          principal_component?: number
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_loan_repayments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "staff_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_loans: {
+        Row: {
+          accrued_interest: number
+          completed_at: string | null
+          created_at: string
+          due_on: string | null
+          id: string
+          interest_charged_total: number
+          last_accrued_on: string
+          monthly_rate: number
+          months: number
+          outstanding_principal: number
+          principal: number
+          requisition_id: string
+          started_on: string
+          status: string
+          total_repaid: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accrued_interest?: number
+          completed_at?: string | null
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          interest_charged_total?: number
+          last_accrued_on?: string
+          monthly_rate?: number
+          months?: number
+          outstanding_principal?: number
+          principal: number
+          requisition_id: string
+          started_on?: string
+          status?: string
+          total_repaid?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accrued_interest?: number
+          completed_at?: string | null
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          interest_charged_total?: number
+          last_accrued_on?: string
+          monthly_rate?: number
+          months?: number
+          outstanding_principal?: number
+          principal?: number
+          requisition_id?: string
+          started_on?: string
+          status?: string
+          total_repaid?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_loans_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: true
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_permissions: {
         Row: {
           granted_at: string | null
@@ -38782,9 +39306,12 @@ export type Database = {
           department_key: string | null
           final_stage: string
           id: string
+          loan_monthly_rate: number | null
+          loan_months: number | null
           needed_by: string | null
           reason: string
           rejection_reason: string | null
+          request_kind: string
           requester_id: string
           requester_name: string | null
           requester_role: string | null
@@ -38823,9 +39350,12 @@ export type Database = {
           department_key?: string | null
           final_stage?: string
           id?: string
+          loan_monthly_rate?: number | null
+          loan_months?: number | null
           needed_by?: string | null
           reason: string
           rejection_reason?: string | null
+          request_kind?: string
           requester_id: string
           requester_name?: string | null
           requester_role?: string | null
@@ -38864,9 +39394,12 @@ export type Database = {
           department_key?: string | null
           final_stage?: string
           id?: string
+          loan_monthly_rate?: number | null
+          loan_months?: number | null
           needed_by?: string | null
           reason?: string
           rejection_reason?: string | null
+          request_kind?: string
           requester_id?: string
           requester_name?: string | null
           requester_role?: string | null
@@ -47374,6 +47907,32 @@ export type Database = {
         }
         Relationships: []
       }
+      engrep_claim_noise: {
+        Row: {
+          commits: number | null
+          engineers: string[] | null
+          first_touch: string | null
+          last_touch: string | null
+          unit_key: string | null
+          window_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_claimed_not_live: {
         Row: {
           author_email: string | null
@@ -47449,6 +48008,20 @@ export type Database = {
           status: string | null
           zero_reason: string | null
           zeroed: boolean | null
+        }
+        Relationships: []
+      }
+      engrep_repetition: {
+        Row: {
+          commits: number | null
+          engineers: string[] | null
+          repeat_evidence: string | null
+          repeat_kind: string | null
+          repeat_refs: string[] | null
+          safe_to_zero: boolean | null
+          unit_key: string | null
+          unit_kind: string | null
+          window_id: string | null
         }
         Relationships: []
       }
@@ -47599,6 +48172,23 @@ export type Database = {
           untagged: number | null
           window_id: string | null
           zeroed: number | null
+        }
+        Relationships: []
+      }
+      engrep_work_units: {
+        Row: {
+          changed: boolean | null
+          commits: number | null
+          engineers: string[] | null
+          first_touch: string | null
+          last_touch: string | null
+          owner_classes: string[] | null
+          sources: string[] | null
+          unit_key: string | null
+          unit_kind: string | null
+          unit_state: string | null
+          verified_live: boolean | null
+          window_id: string | null
         }
         Relationships: []
       }
@@ -51171,6 +51761,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_pay_merchandise_plan: {
+        Args: { p_amount: number; p_plan_id: string }
+        Returns: Json
+      }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_product_category: { Args: { p_item_name: string }; Returns: string }
       agent_purchase_merchandise: {
@@ -52202,6 +52796,7 @@ export type Database = {
         Args: { _job_id: string }
         Returns: undefined
       }
+      cancel_national_id_link: { Args: { p_request_id: string }; Returns: Json }
       cancel_payout_number_change: {
         Args: { p_request_id: string }
         Returns: Json
@@ -52235,6 +52830,10 @@ export type Database = {
       cc_abandon_cycle: {
         Args: { p_cycle_id: string; p_reason: string }
         Returns: undefined
+      }
+      cc_add_concern_reviewer: {
+        Args: { p_concern_id: string; p_note?: string; p_user_id: string }
+        Returns: Json
       }
       cc_amend_feedback: {
         Args: {
@@ -52311,6 +52910,10 @@ export type Database = {
         Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: boolean
       }
+      cc_can_view_concern: {
+        Args: { p_concern_id: string; p_user_id?: string }
+        Returns: boolean
+      }
       cc_can_write_subject: {
         Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: boolean
@@ -52319,6 +52922,28 @@ export type Database = {
       cc_complete_followup: {
         Args: { p_followup_id: string; p_note: string }
         Returns: undefined
+      }
+      cc_concern_event: {
+        Args: {
+          p_action: string
+          p_concern_id: string
+          p_follow_up_needed?: boolean
+          p_follow_up_note?: string
+          p_note?: string
+        }
+        Returns: Json
+      }
+      cc_concern_powers: { Args: never; Returns: Json }
+      cc_concern_reviewer_list: {
+        Args: { p_concern_ids: string[] }
+        Returns: {
+          added_by_name: string
+          concern_id: string
+          created_at: string
+          full_name: string
+          role: string
+          user_id: string
+        }[]
       }
       cc_cycle_outstanding: {
         Args: { p_cycle_id: string }
@@ -52355,6 +52980,31 @@ export type Database = {
           value: string
         }[]
       }
+      cc_forward_concern: {
+        Args: {
+          p_caller_name?: string
+          p_caller_user_id?: string
+          p_context?: string
+          p_cycle_row_id?: string
+          p_due_hours?: number
+          p_feedback_id?: string
+          p_forwarded_to: string
+          p_priority?: string
+          p_received_call_id?: string
+          p_source_kind: string
+          p_subject_type?: string
+          p_title: string
+        }
+        Returns: string
+      }
+      cc_forward_staff_options: {
+        Args: never
+        Returns: {
+          full_name: string
+          staff_id: string
+          user_id: string
+        }[]
+      }
       cc_my_open_attempts: {
         Args: never
         Returns: {
@@ -52389,6 +53039,14 @@ export type Database = {
         Args: { p_cycle_row_id: string }
         Returns: string
       }
+      cc_reassign_concern: {
+        Args: {
+          p_concern_id: string
+          p_new_forwarded_to: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       cc_record_callback: {
         Args: { p_attempt_id: string; p_due_at: string }
         Returns: undefined
@@ -52404,6 +53062,21 @@ export type Database = {
         }
         Returns: string
       }
+      cc_record_received_call: {
+        Args: {
+          p_called_at?: string
+          p_caller_name: string
+          p_caller_phone?: string
+          p_concern: string
+          p_follow_up_at?: string
+          p_follow_up_note?: string
+          p_linked_kind?: string
+          p_linked_user_id?: string
+          p_notes?: string
+          p_status?: string
+        }
+        Returns: string
+      }
       cc_record_unreached: {
         Args: {
           p_attempt_id: string
@@ -52412,6 +53085,10 @@ export type Database = {
         Returns: undefined
       }
       cc_reveal_phone: { Args: { p_attempt_id: string }; Returns: string }
+      cc_set_concern_due: {
+        Args: { p_concern_id: string; p_due_at: string; p_reason: string }
+        Returns: Json
+      }
       cc_state_counts:
         | {
             Args: {
@@ -52444,6 +53121,16 @@ export type Database = {
       cc_topup_cycle: {
         Args: { p_subject_type: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: number
+      }
+      cc_update_received_call: {
+        Args: {
+          p_follow_up_at?: string
+          p_follow_up_note?: string
+          p_id: string
+          p_notes?: string
+          p_status?: string
+        }
+        Returns: boolean
       }
       cc_void_attempt: {
         Args: { p_attempt_id: string; p_reason: string }
@@ -53671,6 +54358,10 @@ export type Database = {
         Args: { p_on: string; p_paths: string[] }
         Returns: string
       }
+      engrep_refresh_catalog_movement: {
+        Args: { p_since?: string }
+        Returns: number
+      }
       engrep_resolve_claim: {
         Args: { p_day: string; p_names: string[] }
         Returns: string[]
@@ -53716,6 +54407,29 @@ export type Database = {
       engrep_svc_mark_harvested: {
         Args: { p_window_id: string }
         Returns: undefined
+      }
+      engrep_svc_record_file_touch: {
+        Args: {
+          p_blob_sha: string
+          p_engineer_id: string
+          p_evidence_ref: string
+          p_path: string
+          p_source: string
+          p_touched_at: string
+          p_window_id: string
+        }
+        Returns: undefined
+      }
+      engrep_svc_record_file_touches: {
+        Args: {
+          p_engineer_id: string
+          p_evidence_ref: string
+          p_files: Json
+          p_source: string
+          p_touched_at: string
+          p_window_id: string
+        }
+        Returns: number
       }
       engrep_svc_resolve_lineage: {
         Args: { p_window_id: string }
@@ -56198,6 +56912,26 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      get_partner_ops_returns_forecast: {
+        Args: {
+          p_bucket?: string
+          p_end: string
+          p_lookback?: number
+          p_min_history?: number
+          p_start: string
+          p_trend_damping?: number
+        }
+        Returns: Json
+      }
+      get_partner_ops_returns_forecast_detail: {
+        Args: {
+          p_bucket?: string
+          p_limit?: number
+          p_metric: string
+          p_period: string
+        }
+        Returns: Json
+      }
       get_partner_total_trend: { Args: { p_preset?: string }; Returns: Json }
       get_partner_wallet_hub: {
         Args: { p_limit?: number; p_offset?: number; p_user_id: string }
@@ -57986,6 +58720,7 @@ export type Database = {
           witness_signed_on: string
         }[]
       }
+      landlord_float_withdrawals_paused: { Args: never; Returns: boolean }
       landlord_has_current_agreement: {
         Args: { p_landlord_id: string }
         Returns: boolean
@@ -58406,6 +59141,7 @@ export type Database = {
         Args: { p_action: string; p_event_key: string; p_tenant_id: string }
         Returns: string
       }
+      mask_national_id: { Args: { p_nin: string }; Returns: string }
       match_email_ledger_credits: {
         Args: { p_refs: string[] }
         Returns: {
@@ -58704,6 +59440,8 @@ export type Database = {
           version_code: string
         }[]
       }
+      my_staff_loan_eligibility: { Args: never; Returns: Json }
+      national_id_group_view: { Args: never; Returns: Json }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
       national_id_link_holder_requests: { Args: never; Returns: Json }
@@ -58728,8 +59466,17 @@ export type Database = {
         Returns: Json
       }
       national_id_link_state: { Args: { p_request_id: string }; Returns: Json }
+      national_id_name_taken: {
+        Args: { p_name: string; p_user_id?: string }
+        Returns: Json
+      }
       national_id_name_twins: {
         Args: { p_name: string; p_user_id: string }
+        Returns: Json
+      }
+      national_id_unlink_ack: { Args: { p_id: string }; Returns: boolean }
+      national_id_unlink_member: {
+        Args: { p_member_id: string; p_reason: string }
         Returns: Json
       }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
@@ -60006,6 +60753,10 @@ export type Database = {
           p_finops_proof_entered: string
           p_finops_user: string
         }
+        Returns: Json
+      }
+      promissory_catch_up_partner_commission: {
+        Args: { p_partner_id: string }
         Returns: Json
       }
       promissory_commission_rate: {
@@ -61510,6 +62261,21 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      staff_loan_accrue_interest: {
+        Args: never
+        Returns: {
+          interest_charged: number
+          loans_charged: number
+        }[]
+      }
+      staff_loan_recover_from_wallet: {
+        Args: { p_max_amount?: number; p_source?: string; p_user_id: string }
+        Returns: {
+          closed: boolean
+          loan_id: string
+          recovered: number
+        }[]
+      }
       staff_requisition_reduce_amount: {
         Args: {
           p_new_amount: number
@@ -61665,6 +62431,13 @@ export type Database = {
       sweep_merchant_payout_float_debits: {
         Args: { p_days?: number; p_dry_run?: boolean }
         Returns: Json
+      }
+      sweep_staff_loan_recovery: {
+        Args: never
+        Returns: {
+          total_recovered: number
+          users_swept: number
+        }[]
       }
       sweep_withdrawal_settlement_states: {
         Args: { p_days?: number; p_limit?: number }

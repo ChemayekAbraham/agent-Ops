@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const tenantId = user.id;
+    const callerId = user.id;
 
     // Parse and validate input
     const body = await req.json();
@@ -50,6 +50,59 @@ Deno.serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+
+    // Who is paying? The tenant themselves (self-pay from their own wallet), or
+    // an authorised agent collecting FROM the tenant's wallet on their behalf
+    // ("Auto-Collect from Tenant Wallet" in the agent tenant sheet).
+    //
+    // Before this, tenantId was always the caller's own id and `tenant_id` in
+    // the body was silently ignored — so an agent tap read the AGENT's wallet
+    // and the AGENT's own Rent Plan, and returned a non-2xx ("No active rent
+    // request found") instead of collecting anything.
+    const requestedTenantId =
+      typeof (body as any)?.tenant_id === "string" && (body as any).tenant_id
+        ? (body as any).tenant_id as string
+        : callerId;
+    const requestedRentRequestId =
+      typeof (body as any)?.rent_request_id === "string" && (body as any).rent_request_id
+        ? (body as any).rent_request_id as string
+        : null;
+    const onBehalf = requestedTenantId !== callerId;
+    let collectingAgentId: string | null = null;
+
+    if (onBehalf) {
+      // The caller must either be an agent attached to this tenant's Rent Plan
+      // or hold an operations role. Anything else is a 403 — never a silent
+      // fallback to the caller's own wallet.
+      const { data: linkedPlan } = await supabaseAdmin
+        .from("rent_requests")
+        .select("id")
+        .eq("tenant_id", requestedTenantId)
+        .or(`agent_id.eq.${callerId},assigned_agent_id.eq.${callerId}`)
+        .limit(1)
+        .maybeSingle();
+
+      let authorised = !!linkedPlan;
+      if (!authorised) {
+        const { data: roles } = await supabaseAdmin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", callerId);
+        authorised = (roles || []).some((r: any) =>
+          ["agent_ops", "manager", "operations", "super_admin", "tenant_ops"].includes(r.role)
+        );
+      }
+
+      if (!authorised) {
+        return new Response(
+          JSON.stringify({ error: "Not permitted to collect from this tenant's wallet" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      collectingAgentId = callerId;
+    }
+
+    const tenantId = requestedTenantId;
 
     // Get tenant's wallet balance from wallets table (source of truth)
     const { data: walletData, error: walletErr } = await supabaseAdmin
@@ -85,15 +138,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find active rent request
-    const { data: rentRequest, error: rrErr } = await supabaseAdmin
+    // Find the Rent Plan to pay. When the caller names one explicitly it is
+    // still scoped to this tenant, so a bad id can never touch another plan.
+    let planQuery = supabaseAdmin
       .from("rent_requests")
       .select("id, total_repayment, amount_repaid, landlord_id, status")
-      .eq("tenant_id", tenantId)
-      .in("status", ["funded", "disbursed", "approved", "repaying"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("tenant_id", tenantId);
+
+    planQuery = requestedRentRequestId
+      ? planQuery.eq("id", requestedRentRequestId)
+      : planQuery
+          .in("status", ["funded", "disbursed", "approved", "repaying"])
+          .order("created_at", { ascending: false });
+
+    const { data: rentRequest, error: rrErr } = await planQuery.limit(1).maybeSingle();
 
     if (rrErr) {
       return new Response(
@@ -140,8 +198,41 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1. Insert balanced ledger entries via RPC (with idempotency)
-    const idempotencyKey = `tenant-pay-${rentRequest.id}-${payAmount}`;
+    // 1. Insert balanced ledger entries via RPC (with idempotency).
+    //
+    // The key used to be `tenant-pay-<plan>-<amount>`, which collides on every
+    // later collection of the same amount on the same plan — and daily
+    // instalments are identical by design. create_ledger_transaction returns
+    // the EXISTING group silently on a key hit, so the wallet was never debited
+    // while the repayment below was recorded again. The key is now unique per
+    // collection event, and a key hit is reported as a duplicate instead of
+    // being replayed as a fresh repayment.
+    const clientRef =
+      typeof (body as any)?.client_ref === "string" && (body as any).client_ref
+        ? (body as any).client_ref as string
+        : `${callerId}-${new Date().toISOString().slice(0, 16)}`;
+    const idempotencyKey = `tenant-pay-${rentRequest.id}-${payAmount}-${clientRef}`;
+
+    const { data: priorLeg } = await supabaseAdmin
+      .from("general_ledger")
+      .select("transaction_group_id")
+      .eq("idempotency_key", idempotencyKey)
+      .limit(1)
+      .maybeSingle();
+
+    if (priorLeg?.transaction_group_id) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          duplicate: true,
+          amount_paid: 0,
+          message: "This payment was already recorded.",
+          reference: `PAY-${String(priorLeg.transaction_group_id).slice(0, 8).toUpperCase()}`,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { data: txnGroupId, error: ledgerErr } = await supabaseAdmin.rpc('create_ledger_transaction', {
       entries: [
         {
@@ -200,7 +291,12 @@ Deno.serve(async (req) => {
     // The waterfall is idempotent on (rent_request_id, source_table, source_id),
     // so a retried payment cannot double-allocate or double-post.
     //
-    // Do NOT pass transaction_group_id here — the RPC's ledger entry is audit-only (no wallet trigger)
+    // p_transaction_group_id must be passed EXPLICITLY as null: the live
+    // function has no default for it, so omitting the argument made PostgREST
+    // fail to resolve the function at all — the wallet was debited at step 1
+    // and the repayment was never recorded (the non-2xx the agent sheet showed).
+    // null is deliberate: the RPC's own ledger entry is audit-only (no wallet
+    // trigger). p_rent_request_id pins the plan the caller actually opened.
     const { error: rpcErr } = await supabaseAdmin.rpc(
       "record_rent_request_repayment_v2",
       {
@@ -208,6 +304,8 @@ Deno.serve(async (req) => {
         p_amount: payAmount,
         p_source_table: "tenant_pay_rent",
         p_source_id: txnGroupId,
+        p_transaction_group_id: null,
+        p_rent_request_id: rentRequest.id,
       }
     );
 
@@ -232,6 +330,25 @@ Deno.serve(async (req) => {
     if (commissionErr) {
       console.error("Commission error (non-blocking):", commissionErr);
     }
+
+    // 3b. When an agent collected from the tenant's wallet, the collection must
+    // land in agent_collections — "Today's capacity" reads only that table, so
+    // without this row the agent's bar stays at 0 for money they did collect.
+    if (collectingAgentId) {
+      const { error: collErr } = await supabaseAdmin.from("agent_collections").insert({
+        agent_id: collectingAgentId,
+        tenant_id: tenantId,
+        rent_request_id: rentRequest.id,
+        amount: payAmount,
+        payment_method: "in_app_wallet",
+        collection_channel: "tenant_wallet",
+        initiated_by: collectingAgentId,
+        notes: "Auto-collected from tenant wallet",
+      } as any);
+      if (collErr) console.error("agent_collections insert failed (non-blocking):", collErr);
+    }
+
+
 
     // 4. Get updated wallet balance
     const { data: updatedWallet } = await supabaseAdmin

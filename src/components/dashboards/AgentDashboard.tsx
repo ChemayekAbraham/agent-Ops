@@ -56,6 +56,7 @@ import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
 import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
+import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
 import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
@@ -78,6 +79,7 @@ import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
 import NationalIdGroupCard from '@/components/agent/NationalIdGroupCard';
 import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
+import NationalIdGroupSheet from '@/components/national-id/NationalIdGroupSheet';
 import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { WeeklyChampionTeamDialog } from '@/components/agent/WeeklyChampionTeamDialog';
@@ -126,6 +128,7 @@ import { AgentPendingReceiptPanel } from '@/components/agent/AgentPendingReceipt
 import { AgentTenantHealthCard } from '@/components/agent/AgentTenantHealthCard';
 import { AgentVouchHighlightCard } from '@/components/agent/AgentVouchHighlightCard';
 import type { LandlordFloatAllocation } from '@/hooks/useLandlordFloatAllocations';
+import { usePendingLandlordReceipts } from '@/hooks/usePendingLandlordReceipts';
 
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { DeviceSessionIndicator } from '@/components/agent/DeviceSessionIndicator';
@@ -378,6 +381,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   }, []);
   const [showWallet, setShowWallet] = useState(false);
   const [parentAgentOpen, setParentAgentOpen] = useState(false);
+  const [nationalIdGroupOpen, setNationalIdGroupOpen] = useState(false);
   const { data: parentAgentInfo } = useMyParentAgent(user?.id);
   const [walletScrollTarget, setWalletScrollTarget] = useState<'statement' | null>(null);
   const [earningsRankOpen, setEarningsRankOpen] = useState(false);
@@ -504,6 +508,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Standalone landlord-receipt confirmation, reachable any time from the
   // Money tab (not only right after a payout dialog).
   const [receiptCheckOpen, setReceiptCheckOpen] = useState(false);
+  // Landlord payments already paid out but still missing the landlord's receipt
+  // number. We nudge the agent on page load and again every 5 minutes until
+  // every fresh payout has its receipt filed.
+  const { pendingCount: pendingReceiptCount } = usePendingLandlordReceipts();
+  useEffect(() => {
+    if (pendingReceiptCount < 1) return;
+    setReceiptCheckOpen(true);
+    const iv = window.setInterval(() => setReceiptCheckOpen(true), 5 * 60 * 1000);
+    return () => window.clearInterval(iv);
+  }, [pendingReceiptCount]);
   const [floatHistoryOpen, setFloatHistoryOpen] = useState(false);
   const [requisitionOpen, setRequisitionOpen] = useState(false);
   const [angelPoolInvestOpen, setAngelPoolInvestOpen] = useState(false);
@@ -1234,6 +1248,10 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               <>
                 <EarningsSummaryCard />
 
+                {/* Products being repaid — plan + pay button per product */}
+                <MerchandiseRepaymentPortfolio userId={user.id} />
+
+
                 {/* Merchandise store shortcut */}
                 <button
                   type="button"
@@ -1706,6 +1724,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 ...(parentAgentInfo?.parent_agent_id
                   ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
                   : []),
+                { icon: ShieldCheck, label: 'My National ID', onClick: () => setNationalIdGroupOpen(true) },
                 { icon: Menu, label: 'All Menu', onClick: handleOpenMenu },
               ].map((a) => (
                 <button
@@ -1738,6 +1757,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         </main>
       </div>
 
+      <LazyModal when={nationalIdGroupOpen}>
+      <NationalIdGroupSheet open={nationalIdGroupOpen} onOpenChange={setNationalIdGroupOpen} />
+      </LazyModal>
       <LazyModal when={parentAgentOpen}>
       <ParentAgentDialog
         open={parentAgentOpen}

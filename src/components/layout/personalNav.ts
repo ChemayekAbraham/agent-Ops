@@ -13,6 +13,7 @@ import {
   Bell,
   FolderOpen,
   Ticket,
+  PhoneIncoming,
   Wallet,
   TrendingUp,
   type LucideIcon,
@@ -30,6 +31,12 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
   { to: '/your-profile', icon: User, title: 'My profile', description: 'Your personal details' },
   { to: '/me/payslips', icon: FileText, title: 'My payslips', description: 'Your own pay records' },
   { to: '/me/work', icon: Briefcase, title: 'My work', description: 'Tasks assigned to you' },
+  {
+    to: '/me/concerns',
+    icon: PhoneIncoming,
+    title: 'Concerns',
+    description: 'Caller concerns forwarded to you from the Calling Center',
+  },
   { to: '/me/performance', icon: TrendingUp, title: 'My performance', description: 'Your notes, your cohort', requiresPsoOfficer: true },
   { to: '/me/tickets', icon: Ticket, title: 'Tickets', description: 'Raise a fault or pick one up' },
   {

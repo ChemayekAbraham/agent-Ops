@@ -78,6 +78,7 @@ const FeatureFlagsProvider = lazyWithRetry(() => import("@/contexts/FeatureFlags
 // Lazy load optional UI components
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
+const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
 import MaintenanceBanner from "@/components/MaintenanceBanner";
 import MaintenanceLockScreen from "@/components/MaintenanceLockScreen";
 
@@ -236,6 +237,7 @@ const HRMyPerformancePage = lazy(() => import('./hr/pages/MyPerformance'));
 const HRPlatformSalesOfficersPage = lazy(() => import('./hr/pages/PlatformSalesOfficers'));
 const MyContribution = lazy(() => import('./pages/me/MyContribution'));
 const MeTicketsPage = lazy(() => import('./pages/me/TicketsPage'));
+const MeConcernsPage = lazy(() => import('./pages/me/MyConcerns'));
 const EngineeringContribution = lazy(() => import('./pages/hr/EngineeringContribution'));
 const HRExecutiveBriefPage = lazy(() => import('./hr/pages/ExecutiveBrief'));
 const HRStaffScorecardPage = lazy(() => import('./hr/pages/StaffScorecard'));
@@ -685,6 +687,7 @@ function AppRoutes() {
           <Route path="/me/contribution" element={<HRSignedInRoute><MyContribution /></HRSignedInRoute>} />
           <Route path="/hr/engineering/contribution" element={<HRSignedInRoute><EngineeringContribution /></HRSignedInRoute>} />
           <Route path="/me/tickets" element={<HRSignedInRoute><MeTicketsPage /></HRSignedInRoute>} />
+          <Route path="/me/concerns" element={<HRSignedInRoute><MeConcernsPage /></HRSignedInRoute>} />
           <Route path="/approvals" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'ceo', 'cfo']}><ApprovalsPage /></RoleGuard>} />
           <Route path="/hr/dashboard/tasks" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRTasksPage /></RoleGuard>} />
           <Route path="/hr/people" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRPeoplePage /></RoleGuard>} />
@@ -956,6 +959,7 @@ const App = () => {
                           <SonnerToaster />
                           <ForceResetPasswordGate />
                           <GlobalOnboardingGates />
+                          <NationalIdUnlinkNoticeDialog />
                           <CreditLoadingDebugPanel />
                         </Suspense>
                       </DeferredErrorBoundary>

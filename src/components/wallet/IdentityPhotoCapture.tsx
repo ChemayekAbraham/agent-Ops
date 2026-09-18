@@ -683,6 +683,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
      what tells Financial Ops where to look. */
   const [form, setForm] = useState<NationalIdData>(EMPTY_ID_DATA);
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
+  // Set when the names typed already belong to another account's National ID.
+  const [nameTaken, setNameTaken] = useState(false);
   /** Set when the ID number is already recorded on another account. */
   const [duplicateNin, setDuplicateNin] = useState<string | null>(null);
   /* What the ID number typed says about itself, checked as it is typed rather
@@ -734,6 +736,35 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     }, 500);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [form.nin]);
+
+  /* The names are checked live too: nobody may carry the names already held on
+     another account's National ID, so we say so before they try to submit. */
+  useEffect(() => {
+    const full = `${String(form.given_name ?? '').trim()} ${String(form.surname ?? '').trim()}`.trim();
+    if (full.split(/\s+/).filter(Boolean).length < 2) {
+      setNameTaken(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const { data } = await (supabase.rpc as unknown as (
+        fn: string, args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'national_id_name_taken', { p_name: full },
+      );
+      if (cancelled) return;
+      const res = (data ?? {}) as { taken?: boolean };
+      setNameTaken(!!res.taken);
+      if (res.taken) {
+        setFieldError({
+          field: 'surname',
+          message: 'These names are already taken on another account holding a different National ID. '
+            + 'Enter your own real names exactly as printed on your own card.',
+        });
+      }
+    }, 500);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [form.given_name, form.surname]);
 
 
 
@@ -807,12 +838,34 @@ export default function IdentityPhotoCapture({ compact }: Props) {
          case-insensitively everywhere (typed input, duplicate check, link
          requests), so a lowercase read must not reach the form as-is. */
       const d = (r.data ?? {}) as Partial<NationalIdData>;
+      const readNin = (d.nin ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      /* Linking an ID that already belongs to another account: never prefill
+         the names — the person must type the names printed on the card
+         themselves, so a wrong card cannot silently overwrite the existing
+         holder's names. Only a brand-new ID gets the reader's prefill. */
+      let idAlreadyKnown = false;
+      if (/^[A-Z0-9]{12,16}$/.test(readNin)) {
+        const { data: hintRaw } = await (supabase.rpc as unknown as (
+          fn: string, args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+          'national_id_holder_hint', { p_nin: readNin },
+        );
+        idAlreadyKnown = !!(hintRaw as { found?: boolean } | null)?.found;
+      }
       setForm({
         ...EMPTY_ID_DATA,
         ...d,
-        nin: (d.nin ?? '').toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        surname: idAlreadyKnown ? '' : (d.surname ?? ''),
+        given_name: idAlreadyKnown ? '' : (d.given_name ?? ''),
+        nin: readNin,
         card_number: (d.card_number ?? '').toUpperCase(),
       });
+      if (idAlreadyKnown) {
+        setFieldError({
+          field: 'surname',
+          message: 'This National ID is already recorded. Type the names exactly as printed on the card — they were not filled in for you.',
+        });
+      }
     }
     setReading(false);
   };
@@ -907,16 +960,18 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       );
       if (error) throw new Error(error.message);
       const res = data as
-        | { success?: boolean; message?: string; field?: string; duplicate?: boolean }
+        | { success?: boolean; message?: string; field?: string; duplicate?: boolean; name_taken?: boolean }
         | null;
       if (!res?.success) {
         const message = res?.message || 'Could not save those details.';
         setFieldError({ field: res?.field, message });
+        setNameTaken(!!res?.name_taken);
         // An ID already recorded elsewhere is not a mistake to correct: the
         // holder of that ID can allow this account to join it.
         setDuplicateNin(res?.duplicate ? form.nin : null);
         return { ok: false, message };
       }
+      setNameTaken(false);
       setDuplicateNin(null);
       return { ok: true };
     } catch (e) {
@@ -1054,6 +1109,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
   const handleSave = async () => {
     if (!user?.id) return;
+    // A name already held on another account's National ID can never be sent.
+    if (nameTaken) {
+      const message = 'These names are already taken on another account holding a different '
+        + 'National ID. Enter your own real names exactly as printed on your own card.';
+      setSendError(message);
+      toast.error(message);
+      return;
+    }
     if (!ready) {
       setSendError(
         blockers.length > 0
@@ -1339,9 +1402,20 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                 </div>
 
                 {fieldError && !duplicateNin && (
-                  <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-                    {fieldError.message}
-                  </p>
+                  nameTaken ? (
+                    <div className="rounded-md border-2 border-destructive bg-destructive/10 p-3 text-destructive">
+                      <p className="text-sm font-bold uppercase">This name is already taken</p>
+                      <p className="mt-1 text-xs">
+                        Someone else's account already carries these exact names with a different
+                        National ID. Enter your own real names, exactly as printed on your own card,
+                        to continue.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                      {fieldError.message}
+                    </p>
+                  )
                 )}
 
                 {/* Answered while the number is still being typed, so nobody
@@ -1680,7 +1754,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
         <Button
           className="w-full"
-          disabled={saving || !hasVerifiedPayoutNumber || !confirmDone}
+          disabled={saving || !hasVerifiedPayoutNumber || !confirmDone || nameTaken}
           onClick={handleSave}
         >
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

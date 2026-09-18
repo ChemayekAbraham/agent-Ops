@@ -10,7 +10,7 @@ export interface TenantOpsAcquisition {
   applicationsToday: number;
   applicationsApproved: number;
   applicationsRejected: number;
-  trend: { date: string; fullDate: string; count: number }[];
+  trend: { date: string; fullDate: string; count: number; approvedCount: number }[];
   byLocation: { label: string; value: number }[];
   byServiceCentre: {
     label: string;
@@ -120,18 +120,23 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
         new_month?: number;
         prev_month?: number;
         trend?: { date: string; count: number }[];
+        approved_trend?: { date: string; count: number }[];
       };
       const newToday = acq.new_today || 0;
       const newThisWeek = acq.new_week || 0;
       const newThisMonth = acq.new_month || 0;
       const prevMonth = acq.prev_month || 0;
 
-      const trend = (acq.trend || []).map((t) => {
+      // Same 30-day generate_series as `trend`, so both arrays are always the
+      // same length and day-order — safe to zip by index.
+      const approvedTrend = acq.approved_trend || [];
+      const trend = (acq.trend || []).map((t, i) => {
         const day = new Date(t.date);
         return {
           date: format(day, 'd MMM'),
           fullDate: format(day, 'EEE, d MMM yyyy'),
           count: t.count,
+          approvedCount: approvedTrend[i]?.count ?? 0,
         };
       });
 

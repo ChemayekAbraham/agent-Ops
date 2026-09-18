@@ -62,6 +62,22 @@ Deno.serve(async (req) => {
       ? body.attachment_urls.slice(0, 10).map((u: unknown) => String(u))
       : [];
 
+    // A staff loan is the same request, routed and approved identically, but it is
+    // repaid: 28% per month on the amount still owing, over 1-12 months.
+    const loanRate = requestKind === "staff_loan" ? 0.28 : null;
+
+    if (requestKind === "staff_loan") {
+      const { data: empRole } = await admin
+        .from("user_roles")
+        .select("id, enabled")
+        .eq("user_id", requester.id)
+        .eq("role", "employee")
+        .maybeSingle();
+      if (!empRole || empRole.enabled === false) {
+        return json({ error: "Only staff with an active employee role can request a staff loan" }, 403);
+      }
+    }
+
     if (title.length < 3) return json({ error: "Title is required (min 3 characters)" }, 400);
     if (!Number.isFinite(amount) || amount <= 0) return json({ error: "A valid amount is required" }, 400);
     if (reason.length < 10) return json({ error: "Please provide a reason (min 10 characters)" }, 400);
@@ -91,6 +107,9 @@ Deno.serve(async (req) => {
         .from("staff_requisitions")
         .update({
           title, amount, reason, category,
+          request_kind: requestKind,
+          loan_months: loanMonths,
+          loan_monthly_rate: loanRate,
           needed_by: neededBy,
           attachment_urls: attachments,
           stage: backTo,
@@ -167,6 +186,9 @@ Deno.serve(async (req) => {
         department_id: route.department_id,
         department_key: route.department_key,
         title, amount, reason, category,
+        request_kind: requestKind,
+        loan_months: loanMonths,
+        loan_monthly_rate: loanRate,
         needed_by: neededBy,
         attachment_urls: attachments,
         stage: route.stage,

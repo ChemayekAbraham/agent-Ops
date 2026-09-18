@@ -144,6 +144,8 @@ project_id = "wirntoujqoyjobfhyelc"
     verify_jwt = false
   [functions.generate-daily-merchant-commission]
     verify_jwt = false
+  [functions.github-commit-activity]
+    verify_jwt = false
   [functions.validate-deposit-reference]
     verify_jwt = false
   [functions.send-rent-access-sms]
@@ -230,4 +232,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.notify-promissory-fulfilment-due]
+verify_jwt = false
+
+[functions.confirm-landlord-payout-receipt]
 verify_jwt = false

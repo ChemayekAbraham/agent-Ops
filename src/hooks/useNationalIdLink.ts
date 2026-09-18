@@ -23,7 +23,8 @@ export type NationalIdLinkStatus =
   | 'active'
   | 'rejected_by_owner'
   | 'rejected_by_staff'
-  | 'expired';
+  | 'expired'
+  | 'cancelled_by_requester';
 
 export type NationalIdLinkState = {
   found: boolean;
@@ -70,6 +71,25 @@ export function useRequestNationalIdLink() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['national-id-link-mine'] });
+    },
+  });
+}
+
+/** The requester closes their own open request so they can start again. */
+export function useCancelNationalIdLink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const { data, error } = await rpc('cancel_national_id_link', { p_request_id: requestId });
+      if (error) throw new Error(error.message);
+      const res = (data ?? {}) as { success?: boolean; message?: string };
+      if (!res.success) throw new Error(res.message ?? 'Could not cancel that request.');
+      return res;
+    },
+    onSuccess: (_d, requestId) => {
+      qc.invalidateQueries({ queryKey: ['national-id-link-state', requestId] });
+      qc.invalidateQueries({ queryKey: ['national-id-link-mine'] });
+      qc.invalidateQueries({ queryKey: ['national-id-link-holder'] });
     },
   });
 }

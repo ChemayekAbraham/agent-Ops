@@ -54,9 +54,10 @@ interface Props {
 
 /**
  * Agent-facing Spiro electric bike lease order: dynamic catalog base price,
- * an access fee that depends on the repayment period (3m 33%, 6m 36%, 9m 39%,
- * 12m 42%) and a dynamic monthly repayment schedule. Submitting sends the
- * application to Agent Ops for eligibility review.
+ * any term from 1 to 24 months, and a 28% monthly reducing-balance charge —
+ * principal split equally across the months, the charge taken only on the
+ * principal still outstanding, so monthly and daily amounts fall each month.
+ * Submitting sends the application to Agent Ops for eligibility review.
  */
 export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Props) {
   const queryClient = useQueryClient();
@@ -98,7 +99,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
       p_valuation: schedule.total,
       p_lease_term_months: schedule.months,
       p_daily_rate: BIKE_RECOVERY_RATE,
-      p_note: `Spiro bike lease — base ${formatUGX(schedule.base)}, access fee ${schedule.feePct}% (${formatUGX(schedule.accessFee)}), total ${formatUGX(schedule.total)} over ${schedule.months} months at ${formatUGX(schedule.monthly)} per month`,
+      p_note: `Spiro bike lease — base ${formatUGX(schedule.base)}, ${schedule.monthlyRatePct}% monthly on the reducing balance, fees ${formatUGX(schedule.accessFee)}, total ${formatUGX(schedule.total)} over ${schedule.months} months; month 1 ${formatUGX(schedule.firstMonthly)} down to ${formatUGX(schedule.lastMonthly)}`,
     });
     setSubmitting(false);
     if (error) {
@@ -156,33 +157,31 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-64">
                 {grid.map((row) => (
                   <SelectItem key={row.months} value={String(row.months)} className="text-sm">
-                    {row.months} months
+                    {row.months} {row.months === 1 ? 'month' : 'months'}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Any period from 1 to 24 months.
+            </p>
           </div>
 
-          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-              Your repayment summary
-            </p>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Total repayable</span>
-              <span className="font-bold">{formatUGX(schedule.total)}</span>
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                Daily payment
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Recovered from your wallet earnings daily.
+              </p>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">
-                Daily payment ({schedule.days} days)
-              </span>
-              <span className="font-bold">{formatUGX(schedule.daily)}</span>
-            </div>
-            <p className="text-[11px] text-muted-foreground pt-1">
-              Repayments are recovered from your wallet earnings daily. Ownership transfers once
-              the balance reaches zero.
+            <p className="text-base font-bold text-foreground whitespace-nowrap">
+              {formatUGX(schedule.firstDaily)}
+              <span className="text-[11px] font-medium text-muted-foreground">/day</span>
             </p>
           </div>
         </div>

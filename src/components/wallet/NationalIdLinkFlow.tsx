@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  useNationalIdLinkOtp, useNationalIdLinkState, useRequestNationalIdLink,
+  useCancelNationalIdLink, useNationalIdLinkOtp, useNationalIdLinkState, useRequestNationalIdLink,
 } from '@/hooks/useNationalIdLink';
 
 function Step({
@@ -47,6 +47,7 @@ export default function NationalIdLinkFlow({
   const [requestId, setRequestId] = useState<string | null>(null);
   const state = useNationalIdLinkState(requestId);
   const { send, verify } = useNationalIdLinkOtp();
+  const cancel = useCancelNationalIdLink();
   const [code, setCode] = useState('');
 
   // One request per account per ID; asking again picks up the open one.
@@ -78,6 +79,8 @@ export default function NationalIdLinkFlow({
         toast.error('Welile staff did not confirm it. Contact Welile Support on 0748747134.');
       } else if (now === 'expired') {
         toast.error('Nobody answered within 7 days, so this request closed. You can start again.');
+      } else if (now === 'cancelled_by_requester') {
+        toast.success('Request cancelled. You can start again whenever you are ready.');
       }
     }
     setSeen(now);
@@ -91,7 +94,28 @@ export default function NationalIdLinkFlow({
 
   const status = s?.status;
   const closed =
-    status === 'rejected_by_owner' || status === 'rejected_by_staff' || status === 'expired';
+    status === 'rejected_by_owner' || status === 'rejected_by_staff' || status === 'expired' ||
+    status === 'cancelled_by_requester';
+
+  const doCancel = async () => {
+    if (!requestId) return;
+    try {
+      await cancel.mutateAsync(requestId);
+      setCode('');
+      toast.success('Request cancelled. You can start again whenever you are ready.');
+      state.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not cancel that request.');
+    }
+  };
+
+  // After a cancellation, "Start again" clears the cancelled request so the
+  // setup effect can open a fresh one.
+  const doStartAgain = () => {
+    setRequestId(null);
+    setCode('');
+    setSeen(null);
+  };
 
   const doSend = async () => {
     if (!requestId) return;
@@ -198,7 +222,28 @@ export default function NationalIdLinkFlow({
                   </div>
                 </div>
               )}
+              <Button
+                variant="ghost"
+                className="h-9 w-full text-xs text-muted-foreground"
+                onClick={doCancel}
+                disabled={cancel.isPending}
+              >
+                {cancel.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                Cancel this request and start again
+              </Button>
             </div>
+          )}
+
+          {!closed && status !== 'active' && s?.code_verified && (
+            <Button
+              variant="ghost"
+              className="h-9 w-full text-xs text-muted-foreground"
+              onClick={doCancel}
+              disabled={cancel.isPending}
+            >
+              {cancel.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              Cancel this request and start again
+            </Button>
           )}
 
           {s?.expires_at && !closed && status !== 'active' && (
@@ -209,11 +254,20 @@ export default function NationalIdLinkFlow({
             </p>
           )}
           {closed && (
-            <p className="text-[11px] text-destructive">
-              {status === 'expired'
-                ? 'Nobody answered within 7 days, so this request closed. You can start again.'
-                : 'This request was closed.'}
-            </p>
+            <div className="space-y-2">
+              <p className="text-[11px] text-destructive">
+                {status === 'expired'
+                  ? 'Nobody answered within 7 days, so this request closed. You can start again.'
+                  : status === 'cancelled_by_requester'
+                    ? 'You cancelled this request.'
+                    : 'This request was closed.'}
+              </p>
+              {(status === 'cancelled_by_requester' || status === 'expired') && (
+                <Button variant="outline" className="h-10 w-full" onClick={doStartAgain}>
+                  Start again
+                </Button>
+              )}
+            </div>
           )}
         </>
       )}
