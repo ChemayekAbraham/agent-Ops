@@ -82,6 +82,33 @@ ref `SPL-MU6RMYEL-J9KM`) was rejected directly in production per Josh's instruct
 reached CFO approval, so no ledger entry or wallet credit was ever created; the reject is pure
 cleanup of a `pending_coo_approval` row.
 
+## The real bug: "Keep as Returns" never actually credited the wallet
+
+Josh reported the balance was still reinvesting even after fix #1 above forced `keep_returns`.
+The mode-forcing fix was correct but insufficient — "Keep as Returns" itself was already broken,
+**pre-existing, not something this feature introduced**. In `handleSplitPayout`'s reinvest ledger
+RPC call, the recipient-side leg (`category: isKeepReturns ? 'roi_wallet_credit' : 'roi_reinvestment'`)
+had `ledger_scope: 'platform'` hardcoded unconditionally on *both* branches.
+
+Verified directly against the live `create_ledger_transaction` and `wallet_route_for_category`
+function bodies (`pg_get_functiondef`, not the repo migrations, per the standing
+migrations-diverge-from-production gotcha): a `general_ledger` row only counts toward a user's
+withdrawable balance when `ledger_scope = 'wallet'` — `'platform'`-scope rows are invisible to
+both the balance-availability check inside `create_ledger_transaction` and (by the same
+`wallet_route_for_category` routing) whatever computes the live balance. So even when
+`category: 'roi_wallet_credit'` correctly matched what `process-supporter-roi`/
+`approve-wallet-operation` use elsewhere, the explicit `ledger_scope: 'platform'` silently kept
+the money out of the wallet every time "Keep as Returns" was ever used — this predates the
+`different_wallet` feature entirely, just never got noticed because nothing forced that mode
+before.
+
+Fixed: `ledger_scope: isKeepReturns ? 'wallet' : 'platform'`, plus `recipient_type: 'user'` and
+`wallet_bucket: 'withdrawable'` on that leg when `isKeepReturns`, matching the exact field set
+`process-supporter-roi/index.ts` and `approve-wallet-operation/index.ts` already use for a
+genuine `roi_wallet_credit`. The true-reinvest branch (`category: 'roi_reinvestment'`) is
+untouched — that leg correctly stays platform-scope, since no wallet money should move when ROI
+compounds into portfolio principal instead.
+
 ## Verification
 
 - `npm run guard:all` — all 7 guards passed, including `guard:frontend-ledger-writes` (this

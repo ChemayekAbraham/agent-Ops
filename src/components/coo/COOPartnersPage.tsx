@@ -5591,10 +5591,17 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
           },
           {
             user_id: p.investorId,
-            ledger_scope: 'platform',
+            // "Keep as Returns" MUST land as real withdrawable wallet balance, not just
+            // a platform-scope ledger record — ledger_scope: 'platform' here was the
+            // actual root cause of the remainder never becoming withdrawable (it still
+            // posted a balanced ledger pair, but never fired sync_wallet_from_ledger).
+            // 'roi_reinvestment' (true compounding into principal) correctly stays
+            // platform-scope: no wallet money should move for that leg.
+            ledger_scope: isKeepReturns ? 'wallet' : 'platform',
             direction: 'cash_in',
             amount: reinvestAmount,
             category: isKeepReturns ? 'roi_wallet_credit' : 'roi_reinvestment',
+            ...(isKeepReturns ? { recipient_type: 'user', wallet_bucket: 'withdrawable' } : {}),
             description: `[Split ROI] ${formatUGX(reinvestAmount)} ${reinvestLabel}. Ref: ${refId}`,
             reference_id: refId,
             source_table: 'investor_portfolios',
