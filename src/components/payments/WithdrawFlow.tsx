@@ -1404,6 +1404,8 @@ export default function WithdrawFlow({
                 </p>
               </div>
             )}
+            </div>
+            </div>
           </div>
         );
 
