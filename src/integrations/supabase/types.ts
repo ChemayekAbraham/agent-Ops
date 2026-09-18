@@ -52926,6 +52926,10 @@ export type Database = {
         Args: { p_cycle_id: string; p_reason: string }
         Returns: undefined
       }
+      cc_acknowledge_concern: {
+        Args: { p_concern_id?: string }
+        Returns: number
+      }
       cc_add_concern_reviewer: {
         Args: { p_concern_id: string; p_note?: string; p_user_id: string }
         Returns: Json
@@ -53126,6 +53130,26 @@ export type Database = {
           revealed_at: string
           stale: boolean
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }[]
+      }
+      cc_my_pending_concerns: {
+        Args: never
+        Returns: {
+          added_by_name: string
+          added_reason: string
+          assigned_at: string
+          caller_name: string
+          concern_id: string
+          context: string
+          due_at: string
+          forwarded_by_name: string
+          notified_at: string
+          participant_count: number
+          priority: string
+          reviewer_role: string
+          status: string
+          subject_type: string
+          title: string
         }[]
       }
       cc_open_cycle: {

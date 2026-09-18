@@ -1562,6 +1562,13 @@
       "when": 1789731558534,
       "tag": "0222_cascade_delete_merchandise_recovery_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 223,
+      "version": "7",
+      "when": 1789734149892,
+      "tag": "0223_cc_concern_assignment_notice",
+      "breakpoints": true
     }
   ]
 }
