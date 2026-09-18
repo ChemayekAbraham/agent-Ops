@@ -685,10 +685,6 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
               <span className="text-muted-foreground">Partner earns 15% per month</span>
               <span className="font-medium">{formatUGX(parsedAmount * 0.15)}</span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Your validation fee</span>
-              <span className="font-bold text-primary">{earningsLine}</span>
-            </div>
           </div>
         )}
       </CardContent>
