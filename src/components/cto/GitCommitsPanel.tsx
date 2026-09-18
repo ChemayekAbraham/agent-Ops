@@ -220,6 +220,31 @@ export default function GitCommitsPanel() {
               <p className="p-4 text-sm text-muted-foreground">No commits in this period.</p>
             )}
           </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Page {data.page} of {data.total_pages} · {data.total_commits.toLocaleString()} commits ·{' '}
+              {data.per_page} per page
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={isFetching || data.page <= 1}
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={isFetching || data.page >= data.total_pages}
+              >
+                Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
         </>
       )}
     </div>
