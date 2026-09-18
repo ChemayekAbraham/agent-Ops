@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getVisitorId,
@@ -14,6 +14,8 @@ type CampaignRedirectState =
 export default function CampaignRedirect() {
   const { slug = "", code = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isJoinAlias = location.pathname.startsWith("/join/");
   const [state, setState] = useState<CampaignRedirectState>({
     status: "loading",
   });
@@ -77,7 +79,7 @@ export default function CampaignRedirect() {
       }
 
       // Canonical slug redirect if user hand-edited the location in the URL
-      if (meta.location_slug && meta.location_slug !== slug) {
+      if (!isJoinAlias && meta.location_slug && meta.location_slug !== slug) {
         window.history.replaceState(
           {},
           "",
@@ -99,7 +101,7 @@ export default function CampaignRedirect() {
     return () => {
       cancelled = true;
     };
-  }, [code, slug, navigate]);
+  }, [code, isJoinAlias, slug, navigate]);
 
   if (state.status === "invalid") {
     return (
