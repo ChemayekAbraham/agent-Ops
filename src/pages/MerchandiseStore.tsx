@@ -258,7 +258,8 @@ export default function MerchandiseStore() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(catalog.length / PAGE_SIZE));
+  const filteredCatalog = catalog.filter((item) => !isBikeItem(item));
+  const totalPages = Math.max(1, Math.ceil(filteredCatalog.length / PAGE_SIZE));
 
   // Allocate the short code as soon as the share sheet opens so every channel
   // button carries the branded link.
@@ -267,7 +268,7 @@ export default function MerchandiseStore() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareItem]);
   const safePage = Math.min(catalogPage, totalPages);
-  const catalogSlice = catalog.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const catalogSlice = filteredCatalog.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Deep-link: /merchandise?item=<id> auto-opens the checkout for that product.
   useEffect(() => {
