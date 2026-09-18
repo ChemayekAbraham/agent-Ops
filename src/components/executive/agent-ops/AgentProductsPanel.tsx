@@ -468,7 +468,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const canDecide = isSmartphone || isBoutique;
+  const canDecide = isSmartphone || usesMerchandiseReview;
 
   const renderPendingRow = (p: PendingApp) => {
     const busy =
