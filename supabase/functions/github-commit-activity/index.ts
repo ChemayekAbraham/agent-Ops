@@ -1,0 +1,165 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const DEFAULT_OWNER = "weliletenants-sys";
+const DEFAULT_REPO = "welilereceipts-com-98bba33b";
+const ALLOWED_ROLES = ["cto", "ceo", "super_admin", "manager"];
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+interface GhCommit {
+  sha: string;
+  html_url: string;
+  commit: {
+    message: string;
+    author: { name?: string; email?: string; date?: string } | null;
+  };
+  author: { login?: string; avatar_url?: string; html_url?: string } | null;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminClient = createClient(supabaseUrl, serviceKey);
+
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
+    if (authError || !user) return json({ error: "Unauthorized" }, 401);
+
+    const { data: roles, error: roleError } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .in("role", ALLOWED_ROLES);
+    if (roleError) return json({ error: roleError.message }, 500);
+    if (!roles?.length) return json({ error: "Insufficient permissions" }, 403);
+
+    let days = 30;
+    let owner = DEFAULT_OWNER;
+    let repo = DEFAULT_REPO;
+    if (req.method === "POST") {
+      try {
+        const body = await req.json();
+        if (body && typeof body === "object") {
+          const d = Number((body as Record<string, unknown>).days);
+          if (Number.isFinite(d) && d >= 0 && d <= 3650) days = Math.floor(d);
+          const o = (body as Record<string, unknown>).owner;
+          const r = (body as Record<string, unknown>).repo;
+          if (typeof o === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(o)) owner = o;
+          if (typeof r === "string" && /^[A-Za-z0-9._-]{1,120}$/.test(r)) repo = r;
+        }
+      } catch {
+        /* no body — use defaults */
+      }
+    }
+
+    const ghToken = Deno.env.get("GITHUB_TOKEN");
+    if (!ghToken) {
+      return json({
+        error: "github_not_configured",
+        message: "No GitHub access is saved yet, so commits cannot be read for this private repository.",
+      }, 424);
+    }
+
+    const params = new URLSearchParams({ per_page: "100" });
+    if (days > 0) {
+      params.set("since", new Date(Date.now() - days * 86_400_000).toISOString());
+    }
+
+    // Up to 3 pages (300 commits) per window — enough for the CTO feed.
+    const commits: GhCommit[] = [];
+    for (let page = 1; page <= 3; page++) {
+      params.set("page", String(page));
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/commits?${params.toString()}`,
+        {
+          headers: {
+            Accept: "application/vnd.github+json",
+            Authorization: `Bearer ${ghToken}`,
+            "User-Agent": "welile-cto-dashboard",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        },
+      );
+      if (!res.ok) {
+        const details = await res.text();
+        console.error(`GitHub commits request failed [${res.status}]: ${details}`);
+        return json({ error: "github_request_failed", status: res.status, details }, res.status);
+      }
+      const batch = (await res.json()) as GhCommit[];
+      commits.push(...batch);
+      if (batch.length < 100) break;
+    }
+
+    const feed = commits.map((c) => ({
+      sha: c.sha,
+      short_sha: c.sha.slice(0, 7),
+      message: (c.commit?.message || "").split("\n")[0].slice(0, 200),
+      author_login: c.author?.login ?? null,
+      author_name: c.commit?.author?.name ?? c.author?.login ?? "Unknown",
+      avatar_url: c.author?.avatar_url ?? null,
+      profile_url: c.author?.html_url ?? null,
+      date: c.commit?.author?.date ?? null,
+      html_url: c.html_url,
+    }));
+
+    const byAuthor = new Map<string, {
+      key: string;
+      name: string;
+      login: string | null;
+      avatar_url: string | null;
+      profile_url: string | null;
+      commits: number;
+      last_commit_at: string | null;
+    }>();
+    for (const c of feed) {
+      const key = c.author_login || c.author_name;
+      const hit = byAuthor.get(key);
+      if (hit) {
+        hit.commits += 1;
+        if (c.date && (!hit.last_commit_at || c.date > hit.last_commit_at)) hit.last_commit_at = c.date;
+      } else {
+        byAuthor.set(key, {
+          key,
+          name: c.author_name,
+          login: c.author_login,
+          avatar_url: c.avatar_url,
+          profile_url: c.profile_url,
+          commits: 1,
+          last_commit_at: c.date,
+        });
+      }
+    }
+
+    return json({
+      repo: `${owner}/${repo}`,
+      repo_url: `https://github.com/${owner}/${repo}`,
+      days,
+      total_commits: feed.length,
+      truncated: feed.length >= 300,
+      contributors: [...byAuthor.values()].sort((a, b) => b.commits - a.commits),
+      commits: feed,
+    });
+  } catch (e) {
+    console.error("github-commit-activity failed:", e);
+    return json({ error: (e as Error).message }, 500);
+  }
+});

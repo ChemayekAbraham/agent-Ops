@@ -36,6 +36,7 @@ import { SignupSourceLogPanel } from './SignupSourceLogPanel';
 import { DepositBridgeHealthPanel } from '@/components/bridge/DepositBridgeHealthPanel';
 import { DeletedAccountsPanel } from '@/components/cto/DeletedAccountsPanel';
 import { FakeAccountRadarPanel } from '@/components/cto/FakeAccountRadarPanel';
+import GitCommitsPanel from '@/components/cto/GitCommitsPanel';
 
 
 
@@ -85,6 +86,9 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
   }
   if (activeTab === 'deleted-accounts') {
     return <DeletedAccountsPanel />;
+  }
+  if (activeTab === 'git-commits') {
+    return <GitCommitsPanel />;
   }
 
 
