@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { SkeletonProductCard } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Info, Smartphone, Bike, AlertCircle, Share2,
+  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Info, Smartphone, Bike, AlertCircle, Share2, Trash2,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
@@ -25,6 +25,7 @@ import { format } from 'date-fns';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
+import { useDeleteMerchandiseApplication } from '@/hooks/useMerchandiseRepaymentPortfolio';
 import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
 import BikeLeaseStatus from '@/components/merchandise/BikeLeaseStatus';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
@@ -52,6 +53,7 @@ interface CatalogItem {
 
 interface RecoveryPlan {
   id: string;
+  sale_id: string | null;
   item_name: string;
   original_amount: number;
   outstanding_balance: number;
@@ -59,6 +61,9 @@ interface RecoveryPlan {
   status: 'active' | 'completed' | 'cancelled';
   last_recovery_at: string | null;
   created_at: string;
+  order_status: string | null;
+  rejection_reason: string | null;
+  rejected_at: string | null;
 }
 
 interface Deduction {
@@ -70,6 +75,13 @@ interface Deduction {
 }
 
 const PAGE_SIZE = 8;
+
+const BIKE_KEYWORDS = ['spiro', 'bike', 'ekoride', 'ekocycle', 'commando', 'mocoo', 'electric', 'moto', 'ebike', 'scooter', 'boda'];
+function isBikeItem(item: CatalogItem): boolean {
+  const name = (item.item_name || '').toLowerCase();
+  const desc = (item.description || '').toLowerCase();
+  return BIKE_KEYWORDS.some((kw) => name.includes(kw) || desc.includes(kw));
+}
 
 export default function MerchandiseStore() {
   const navigate = useNavigate();
@@ -88,6 +100,7 @@ export default function MerchandiseStore() {
   const [ordering, setOrdering] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
   const { repaying: smartphoneRepaying } = useMerchandiseOrderLock(user?.id);
+  const deleteApplication = useDeleteMerchandiseApplication(user?.id);
 
 
   const [bikeOpen, setBikeOpen] = useState(false);
@@ -147,7 +160,37 @@ export default function MerchandiseStore() {
         .eq('customer_id', user!.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      const rows = (data || []) as Omit<RecoveryPlan, 'order_status' | 'rejection_reason' | 'rejected_at'>[];
+      const saleIds = rows.flatMap((row) => (row.sale_id ? [row.sale_id] : []));
+      if (saleIds.length === 0) {
+        return rows.map((row) => ({ ...row, order_status: null, rejection_reason: null, rejected_at: null }));
+      }
+      const { data: sales, error: salesError } = await db
+        .from('merchandise_sales')
+        .select('id, order_status, rejection_reason, rejected_at')
+        .in('id', saleIds);
+      if (salesError) throw salesError;
+      const saleById = new Map<string, { order_status: string | null; rejection_reason: string | null; rejected_at: string | null }>(
+        (sales || []).map((sale: any) => [sale.id, sale]),
+      );
+      return rows
+        .filter((row) => !row.sale_id || saleById.has(row.sale_id))
+        // Rejection cancels the recovery plan, but the agent must still see the
+        // rejected application (with the reviewer's reason) — only hide plans
+        // cancelled for any other reason (e.g. deleted applications).
+        .filter((row) => {
+          if (row.status !== 'cancelled') return true;
+          return saleById.get(row.sale_id!)?.order_status === 'rejected';
+        })
+        .map((row) => {
+          const sale = row.sale_id ? saleById.get(row.sale_id) : null;
+          return {
+            ...row,
+            order_status: sale?.order_status ?? null,
+            rejection_reason: sale?.rejection_reason ?? null,
+            rejected_at: sale?.rejected_at ?? null,
+          };
+        }) as RecoveryPlan[];
     },
   });
 
@@ -251,7 +294,8 @@ export default function MerchandiseStore() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(catalog.length / PAGE_SIZE));
+  const filteredCatalog = catalog.filter((item) => !isBikeItem(item));
+  const totalPages = Math.max(1, Math.ceil(filteredCatalog.length / PAGE_SIZE));
 
   // Allocate the short code as soon as the share sheet opens so every channel
   // button carries the branded link.
@@ -260,13 +304,15 @@ export default function MerchandiseStore() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareItem]);
   const safePage = Math.min(catalogPage, totalPages);
-  const catalogSlice = catalog.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const catalogSlice = filteredCatalog.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Deep-link: /merchandise?item=<id> auto-opens the checkout for that product.
+  // Bikes and motorbikes are excluded from the general grid and can only be
+  // ordered through the dedicated electric-bike section.
   useEffect(() => {
     const itemId = searchParams.get('item');
-    if (!itemId || catalog.length === 0 || selected) return;
-    const match = catalog.find((c) => c.id === itemId);
+    if (!itemId || filteredCatalog.length === 0 || selected) return;
+    const match = filteredCatalog.find((c) => c.id === itemId);
     if (match) {
       setSelected(match);
       setQuantity('1');
@@ -279,7 +325,7 @@ export default function MerchandiseStore() {
     next.delete('item');
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog, searchParams]);
+  }, [filteredCatalog, searchParams]);
 
   const placeOrder = async () => {
     if (!selected) return;
@@ -462,17 +508,17 @@ export default function MerchandiseStore() {
         {/* Smartphone order status */}
         <SmartphoneOrderStatus userId={user?.id} onRequestNewOrder={() => setPhoneOpen(true)} />
 
-        {/* Order a Welile Spiro Bike */}
+        {/* Apply for an electric bike (Spiro, Mocoo, etc.) */}
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="p-4 flex items-center gap-3">
             <img
               src={spiroBikeAsset.url}
-              alt="Welile Spiro electric bike"
+              alt="Welile electric bike"
               loading="lazy"
               className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold leading-tight">Apply for a Spiro electric bike</p>
+              <p className="text-sm font-bold leading-tight">Apply for an electric bike</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 Pick a model and lease term. Marketing confirms the price, then the bike is released and your lease is activated.
               </p>
@@ -506,7 +552,7 @@ export default function MerchandiseStore() {
                 <SkeletonProductCard key={i} />
               ))}
             </div>
-          ) : catalog.length === 0 ? (
+          ) : filteredCatalog.length === 0 ? (
             <p className="text-xs text-muted-foreground py-6 text-center">No merchandise available right now.</p>
           ) : (
             <>
@@ -622,21 +668,59 @@ export default function MerchandiseStore() {
             <h2 className="text-sm font-bold mb-2">My merchandise orders</h2>
             <Card>
               <CardContent className="p-0 divide-y divide-border/60">
-                {plans.map((p) => (
-                  <div key={p.id} className="px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium">{p.item_name}</p>
-                      <Badge variant={p.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">
-                        {p.status === 'completed' ? 'Paid off' : 'Repaying'}
-                      </Badge>
+                {plans.map((p) => {
+                  const isRejected = p.order_status === 'rejected';
+                  return (
+                    <div key={p.id} className="px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium">{p.item_name}</p>
+                        {isRejected ? (
+                          <Badge variant="destructive" className="text-[10px]">Application Rejected</Badge>
+                        ) : (
+                          <Badge variant={p.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">
+                            {p.status === 'completed' ? 'Paid off' : 'Repaying'}
+                          </Badge>
+                        )}
+                      </div>
+                      {isRejected ? (
+                        <div className="mt-1.5 space-y-1.5">
+                          <p className="text-[11px] text-destructive">
+                            {p.rejection_reason || 'No reason was recorded. Please contact support.'}
+                          </p>
+                          {p.rejected_at && (
+                            <p className="text-[10px] text-muted-foreground">
+                              Rejected {format(new Date(p.rejected_at), 'dd MMM yyyy')}
+                            </p>
+                          )}
+                          {/* Only rejected applications can be dismissed — approved
+                              orders (active/completed plans) are never deletable. */}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[11px] text-destructive border-destructive/40 hover:bg-destructive/10"
+                            disabled={deleteApplication.isPending}
+                            onClick={() =>
+                              deleteApplication.mutate(p as any, {
+                                onSuccess: () => toast.success('Application removed.'),
+                                onError: (e) => toast.error(e.message || 'Could not remove the application.'),
+                              })
+                            }
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete application
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+                          <span>Cost {formatUGX(Number(p.original_amount))}</span>
+                          <span className="text-emerald-600">Repaid {formatUGX(Number(p.amount_recovered))}</span>
+                          <span className="text-amber-600">Left {formatUGX(Number(p.outstanding_balance))}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
-                      <span>Cost {formatUGX(Number(p.original_amount))}</span>
-                      <span className="text-emerald-600">Repaid {formatUGX(Number(p.amount_recovered))}</span>
-                      <span className="text-amber-600">Left {formatUGX(Number(p.outstanding_balance))}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           </div>
