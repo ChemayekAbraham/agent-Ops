@@ -27,6 +27,9 @@ interface AgentLandlordPayoutFlowProps {
 type Step = 'select' | 'pay' | 'receipt' | 'done';
 
 const GPS_MATCH_THRESHOLD_METERS = 500; // auto-approve within 500m
+// Receipt number capture becomes mandatory for payouts made from Monday 21 Sept 2026.
+const RECEIPT_NUMBER_REQUIRED_FROM = new Date('2026-09-21T00:00:00+03:00');
+const receiptNumberRequired = () => new Date() >= RECEIPT_NUMBER_REQUIRED_FROM;
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -42,6 +45,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
   const [step, setStep] = useState<Step>('select');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [transactionId, setTransactionId] = useState('');
+  const [receiptNumber, setReceiptNumber] = useState('');
   const [provider, setProvider] = useState('');
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
@@ -120,6 +124,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
     setStep('select');
     setSelectedRequest(null);
     setTransactionId('');
+    setReceiptNumber('');
     setProvider('');
     setNotes('');
     setPhotos([]);
@@ -158,6 +163,10 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
     mutationFn: async () => {
       if (!user || !selectedRequest || !gps) throw new Error('Missing data');
       if (photos.length === 0) throw new Error('Please add at least one receipt photo');
+      const trimmedReceiptNumber = receiptNumber.trim();
+      if (receiptNumberRequired() && trimmedReceiptNumber.length < 3) {
+        throw new Error('Please enter the receipt number from the landlord\'s signed receipt');
+      }
 
       const payoutAmount = selectedRequest.rent_amount;
 
@@ -220,6 +229,8 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
         landlord_name: selectedRequest.landlord?.name || 'Unknown',
         mobile_money_provider: provider,
         transaction_id: transactionId.trim() || null,
+        receipt_number: trimmedReceiptNumber || null,
+        receipt_number_recorded_at: trimmedReceiptNumber ? new Date().toISOString() : null,
         receipt_photo_urls: photoUrls,
         latitude: gps.lat,
         longitude: gps.lng,
@@ -459,6 +470,26 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
                 )}
               </div>
 
+              {/* Receipt number — hidden until mandatory from 21 Sept 2026 */}
+              {receiptNumberRequired() && (
+                <div>
+                  <Label htmlFor="receipt-number" className="text-xs font-semibold">
+                    Receipt Number *
+                  </Label>
+                  <Input
+                    id="receipt-number"
+                    placeholder="e.g. WLR-100292 — from the landlord's signed receipt"
+                    value={receiptNumber}
+                    onChange={e => setReceiptNumber(e.target.value)}
+                    className="mt-1 text-sm"
+                    maxLength={50}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Required: enter the number written on the receipt the landlord signed.
+                  </p>
+                </div>
+              )}
+
               <Textarea
                 placeholder="Notes (optional)"
                 value={notes}
@@ -468,7 +499,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
 
               <Button
                 onClick={() => submitPayout.mutate()}
-                disabled={submitPayout.isPending || !gps || photos.length === 0}
+                disabled={submitPayout.isPending || !gps || photos.length === 0 || (receiptNumberRequired() && receiptNumber.trim().length < 3)}
                 className="w-full"
               >
                 {submitPayout.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}

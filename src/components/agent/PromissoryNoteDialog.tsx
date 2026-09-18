@@ -574,7 +574,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const renderPromiseStep = () => (
     <Card className="border-border/60">
       <CardContent className="space-y-4 pt-4">
-        {sectionTitle(<Banknote className="h-5 w-5" />, 'What are they promising?', 'Amount and dates.')}
+        {sectionTitle(<Banknote className="h-5 w-5" />, 'How much are they promising?', 'Amount and dates.')}
 
         <div className="space-y-1">
           <Label htmlFor="promissory-amount" className="text-xs">
@@ -603,7 +603,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
           <Label className="text-xs">Payment type</Label>
           <div className="grid grid-cols-2 gap-2 rounded-xl border border-border p-1 bg-muted/40">
             {[
-              { key: 'compounding', label: 'Once-off' },
+              { key: 'compounding', label: 'compounding' },
               { key: 'monthly', label: 'Monthly' },
             ].map((opt) => (
               <button
@@ -613,7 +613,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
                 className={cn(
                   'rounded-lg py-2 text-xs font-semibold transition-colors',
                   contributionType === opt.key
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-success text-success-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -682,12 +682,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
               Earnings preview
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Partner earns 15% per month</span>
+              <span className="text-muted-foreground">Your Partner earns 15% per month</span>
               <span className="font-medium">{formatUGX(parsedAmount * 0.15)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Your validation fee</span>
-              <span className="font-bold text-primary">{earningsLine}</span>
             </div>
           </div>
         )}
