@@ -3,16 +3,39 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Download, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
+import {
+  generatePartnerReturnsForecastPdf,
+  type ForecastPdfDetailGroup,
+} from '@/lib/partnerReturnsForecastPdf';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import {
   PartnerReturnsDrilldownDialog,
+  METRIC_LABELS,
   type DrilldownMetric,
   type DrilldownTarget,
 } from './PartnerReturnsDrilldownDialog';
+
+/** Metrics exported as supporting records, in report order. */
+const EXPORT_METRICS: { metric: DrilldownMetric; field: keyof Row }[] = [
+  { metric: 'forecast', field: 'forecast_returns' },
+  { metric: 'actual', field: 'actual_returns_paid' },
+  { metric: 'receivable', field: 'partner_receivable' },
+  { metric: 'topups', field: 'topups' },
+  { metric: 'promissory', field: 'promissory_receivable' },
+  { metric: 'compounding', field: 'compounding' },
+];
+
+/** Keeps a single export from firing hundreds of detail queries on a day bucket. */
+const MAX_DETAIL_QUERIES = 60;
+const DETAIL_ROW_LIMIT = 100;
 
 interface Row {
   key: string;
