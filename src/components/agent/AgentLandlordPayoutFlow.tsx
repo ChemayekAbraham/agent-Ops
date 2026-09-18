@@ -498,7 +498,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
 
               <Button
                 onClick={() => submitPayout.mutate()}
-                disabled={submitPayout.isPending || !gps || photos.length === 0}
+                disabled={submitPayout.isPending || !gps || photos.length === 0 || (receiptNumberRequired() && receiptNumber.trim().length < 3)}
                 className="w-full"
               >
                 {submitPayout.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
