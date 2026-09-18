@@ -304,6 +304,14 @@ export function PartnerReturnsForecastPanel({
               <Bar dataKey="Partner receivable" fill={COLORS.receivable} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Promissory receivable" fill={COLORS.promissory} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Compounding" fill={COLORS.compounding} radius={[3, 3, 0, 0]} />
+              <Line
+                type="monotone"
+                dataKey="Predicted top-ups"
+                stroke={COLORS.topups}
+                strokeWidth={2}
+                strokeDasharray="3 3"
+                dot={{ r: 2 }}
+              />
               <Line type="monotone" dataKey="Forecast" stroke={COLORS.forecast} strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Actually paid" stroke={COLORS.actual} strokeWidth={2} dot={{ r: 2 }} />
               <Line type="monotone" dataKey="Net" stroke={COLORS.net} strokeWidth={2} strokeDasharray="5 4" dot={false} />
