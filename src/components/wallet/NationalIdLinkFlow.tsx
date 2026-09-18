@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  useNationalIdLinkOtp, useNationalIdLinkState, useRequestNationalIdLink,
+  useCancelNationalIdLink, useNationalIdLinkOtp, useNationalIdLinkState, useRequestNationalIdLink,
 } from '@/hooks/useNationalIdLink';
 
 function Step({
@@ -47,6 +47,7 @@ export default function NationalIdLinkFlow({
   const [requestId, setRequestId] = useState<string | null>(null);
   const state = useNationalIdLinkState(requestId);
   const { send, verify } = useNationalIdLinkOtp();
+  const cancel = useCancelNationalIdLink();
   const [code, setCode] = useState('');
 
   // One request per account per ID; asking again picks up the open one.
