@@ -258,7 +258,12 @@ Deno.serve(async (req) => {
     // The waterfall is idempotent on (rent_request_id, source_table, source_id),
     // so a retried payment cannot double-allocate or double-post.
     //
-    // Do NOT pass transaction_group_id here — the RPC's ledger entry is audit-only (no wallet trigger)
+    // p_transaction_group_id must be passed EXPLICITLY as null: the live
+    // function has no default for it, so omitting the argument made PostgREST
+    // fail to resolve the function at all — the wallet was debited at step 1
+    // and the repayment was never recorded (the non-2xx the agent sheet showed).
+    // null is deliberate: the RPC's own ledger entry is audit-only (no wallet
+    // trigger). p_rent_request_id pins the plan the caller actually opened.
     const { error: rpcErr } = await supabaseAdmin.rpc(
       "record_rent_request_repayment_v2",
       {
@@ -266,6 +271,8 @@ Deno.serve(async (req) => {
         p_amount: payAmount,
         p_source_table: "tenant_pay_rent",
         p_source_id: txnGroupId,
+        p_transaction_group_id: null,
+        p_rent_request_id: rentRequest.id,
       }
     );
 
