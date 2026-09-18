@@ -68,6 +68,10 @@ export interface PayoutDestinationRow {
   }[];
   double_of_user_id: string | null;
   double_of_name: string | null;
+  /** True when this submission's National ID is one the person linked to from
+   *  another account (the ID was already in the system; the holder approved).
+   *  False means the ID is fresh — first time seen on the platform. */
+  is_linked_id: boolean;
   total_count: number;
 }
 
@@ -244,6 +248,7 @@ export function usePayoutVerificationQueue(opts: {
           total_count: Number(row.total_count ?? 0),
           name_mismatch_tokens: Array.isArray(tokens) ? (tokens as string[]) : [],
           double_submission: row.double_submission === true,
+          is_linked_id: row.is_linked_id === true,
           id_account_count: Number(row.id_account_count ?? 1),
           id_account_ordinal: Number(row.id_account_ordinal ?? 1),
           payout_number_count: Number(row.payout_number_count ?? 1),
