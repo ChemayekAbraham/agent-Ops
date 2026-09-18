@@ -48,6 +48,8 @@ interface Row {
   variance: number;
   partner_receivable: number;
   topups: number;
+  /** Predicted top-ups for future periods, from recent top-up behaviour. */
+  topups_forecast: number;
   promissory_receivable: number;
   compounding: number;
   net: number;
@@ -57,6 +59,11 @@ interface Payload {
   bucket: string;
   today: string;
   rows: Row[];
+  topup_model?: {
+    basis_buckets: number;
+    baseline_per_bucket: number;
+    trend_per_bucket: number;
+  };
   portfolio_count: number;
   committed_capital: number;
   promissory_outstanding: number;
