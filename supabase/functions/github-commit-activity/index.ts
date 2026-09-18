@@ -221,6 +221,7 @@ Deno.serve(async (req) => {
             profile_url: person.html_url ?? null,
             commits: 0,
             last_commit_at: null,
+            first_commit_at: null,
           });
         }
       } else {
@@ -230,9 +231,39 @@ Deno.serve(async (req) => {
       console.error("GitHub contributors lookup failed:", e);
     }
 
-    const totalPages = Math.max(1, Math.ceil(feed.length / perPage));
+    // "Committing since" for people whose first commit predates the scanned window:
+    // walk to the last page of their own commit list and read the oldest date.
+    const needSince = [...byAuthor.values()].filter((p) => p.login && !p.first_commit_at).slice(0, 12);
+    for (const person of needSince) {
+      try {
+        const probe = await gh(`commits?author=${encodeURIComponent(person.login!)}&per_page=1`);
+        if (!probe.ok) continue;
+        const link = probe.headers.get("link") || "";
+        const lastPage = Number(link.match(/[?&]page=(\d+)>; rel="last"/)?.[1] ?? 1);
+        const firstBatch = (await probe.json()) as GhCommit[];
+        if (lastPage > 1) {
+          const tail = await gh(`commits?author=${encodeURIComponent(person.login!)}&per_page=1&page=${lastPage}`);
+          if (tail.ok) {
+            const rows = (await tail.json()) as GhCommit[];
+            person.first_commit_at = rows[0]?.commit?.author?.date ?? null;
+            if (!person.last_commit_at) person.last_commit_at = firstBatch[0]?.commit?.author?.date ?? null;
+            continue;
+          }
+        }
+        person.first_commit_at = firstBatch[0]?.commit?.author?.date ?? null;
+        if (!person.last_commit_at) person.last_commit_at = person.first_commit_at;
+      } catch (e) {
+        console.error("GitHub first-commit lookup failed:", e);
+      }
+    }
+
+    const filteredFeed = authorFilter
+      ? feed.filter((c) => (c.author_login || c.author_name) === authorFilter)
+      : feed;
+
+    const totalPages = Math.max(1, Math.ceil(filteredFeed.length / perPage));
     const safePage = Math.min(page, totalPages);
-    const pagedCommits = feed.slice((safePage - 1) * perPage, safePage * perPage);
+    const pagedCommits = filteredFeed.slice((safePage - 1) * perPage, safePage * perPage);
 
     return json({
       repo: `${owner}/${repo}`,
@@ -240,6 +271,8 @@ Deno.serve(async (req) => {
       days,
       branches_scanned: branchNames.length,
       total_commits: feed.length,
+      author: authorFilter,
+      filtered_commits: filteredFeed.length,
       truncated,
       page: safePage,
       per_page: perPage,
