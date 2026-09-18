@@ -1711,6 +1711,55 @@ export default function PayoutVerificationPanel() {
             </div>
           )}
 
+          {row.national_id && (
+            <div
+              role="status"
+              className={`mx-5 mt-2 rounded-2xl border p-4 ${
+                row.is_linked_id
+                  ? 'border-sky-500/60 bg-sky-500/10'
+                  : 'border-border bg-muted/40'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                    row.is_linked_id ? 'bg-sky-500/20' : 'bg-muted'
+                  }`}
+                >
+                  {row.is_linked_id ? (
+                    <Link2 className="h-4 w-4 text-sky-700 dark:text-sky-400" aria-hidden="true" />
+                  ) : (
+                    <IdCard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  {row.is_linked_id ? (
+                    <>
+                      <p className="text-base font-extrabold leading-tight text-sky-800 dark:text-sky-300">
+                        Linked to an existing National ID
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-sky-800/90 dark:text-sky-300/90">
+                        This ID was already in the system
+                        {row.duplicate_id_name ? ` under ${row.duplicate_id_name}` : ''} — this person
+                        joined it through the ID-link process, which the ID holder approved. The names
+                        on this submission were typed by the person, not read fresh from a new card.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-extrabold leading-tight text-foreground">
+                        New National ID — first time seen on the platform
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                        No other account is linked to this ID. Treat the card photos as the only evidence of who holds it.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {row.id_account_count > 1 && (
             <div
               role="alert"
