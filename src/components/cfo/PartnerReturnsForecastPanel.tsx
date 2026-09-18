@@ -221,29 +221,61 @@ export function PartnerReturnsForecastPanel({
     }
   };
 
-  const chartData = rows.map((r) => ({
-    label: r.label,
-    'Returns payable forecast': Number(r.forecast_returns),
-    'Actually paid': Number(r.actual_returns_paid),
-    'Partner receivable': Number(r.partner_receivable),
-    'Top-ups': Number(r.topups),
-    'Predicted top-ups': Number(r.topups_forecast ?? 0),
-    'Promissory receivable': Number(r.promissory_receivable),
-    Compounding: Number(r.compounding),
-    Net: Number(r.net),
-  }));
+  // Confidence band for the predicted top-ups: built from how far the same model
+  // has actually missed on completed periods, widening the further ahead we look.
+  const bands = useMemo(() => {
+    const backtest = buildTopupBacktest(
+      rows.map((r) => ({ key: r.key, label: r.label, is_past: r.is_past, topups: Number(r.topups) })),
+    );
+    const sigma = topupResidualSigma(backtest);
+    const map = new Map<string, TopupBand>();
+    let step = 0;
+    for (const r of rows) {
+      if (r.is_past) continue;
+      step += 1;
+      const band = topupPredictionBand(Number(r.topups_forecast ?? 0), sigma, step);
+      if (band) map.set(r.key, band);
+    }
+    return { sigma, map };
+  }, [rows]);
+
+  const chartData = rows.map((r) => {
+    const band = bands.map.get(r.key);
+    return {
+      label: r.label,
+      'Returns payable forecast': Number(r.forecast_returns),
+      'Actually paid': Number(r.actual_returns_paid),
+      'Partner receivable': Number(r.partner_receivable),
+      'Top-ups': Number(r.topups),
+      'Predicted top-ups': Number(r.topups_forecast ?? 0),
+      'Promissory receivable': Number(r.promissory_receivable),
+      Compounding: Number(r.compounding),
+      Net: Number(r.net),
+      __bandLow: band ? band.low : null,
+      __bandSpan: band ? band.high - band.low : null,
+      __bandHigh: band ? band.high : null,
+    };
+  });
 
   const ChartTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
+    const row = payload[0]?.payload ?? {};
+    const visible = payload.filter((p: any) => !String(p.dataKey ?? '').startsWith('__'));
     return (
       <div className="rounded-lg border border-border bg-background p-2.5 text-xs shadow-lg space-y-0.5">
         <p className="font-bold">{label}</p>
-        {payload.map((p: any) => (
+        {visible.map((p: any) => (
           <p key={p.name} className="flex items-center justify-between gap-3 font-mono tabular-nums">
             <span style={{ color: p.color }}>{p.name}</span>
             <span>{formatUGX(Number(p.value))}</span>
           </p>
         ))}
+        {row.__bandLow !== null && row.__bandLow !== undefined ? (
+          <p className="flex items-center justify-between gap-3 font-mono tabular-nums text-muted-foreground">
+            <span>Likely range</span>
+            <span>{`${formatUGX(Number(row.__bandLow))} – ${formatUGX(Number(row.__bandHigh))}`}</span>
+          </p>
+        ) : null}
       </div>
     );
   };
