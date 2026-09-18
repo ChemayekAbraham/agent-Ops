@@ -109,6 +109,32 @@ genuine `roi_wallet_credit`. The true-reinvest branch (`category: 'roi_reinvestm
 untouched — that leg correctly stays platform-scope, since no wallet money should move when ROI
 compounds into portfolio principal instead.
 
+## A second, deeper problem the fix above exposed: `block_proxy_custody_writes`
+
+Making the Keep-as-Returns leg `ledger_scope: 'wallet'` for the first time made it visible to
+`block_proxy_custody_writes()` (live since 2026-05-12, cutoff in `system_config.proxy_custody_cutoff_at`)
+— a deliberate anti-fraud trigger: a `general_ledger` cash-in row whose `linked_party` resolves to
+a genuine `is_supporter()` user, and whose `user_id` (actual wallet credited) isn't that same
+partner or their *approved managed* proxy agent, is rejected outright
+(`PROXY_CUSTODY_BLOCKED`). It fired immediately, for a reason unrelated to the alt-wallet feature:
+`handleSplitPayout`'s reinvest-leg `linked_party` was hardcoded to `user.id` — **the staff member
+clicking Confirm**, not the partner — so `v_lp_uuid` resolved to whoever was logged in testing
+(a supporter-role test account) instead of self-linking to the partner. Fixed:
+`linked_party: p.investorId` (self-link) instead of `user.id`, on the cash-in leg only.
+
+This ALSO means the actual cash portion — credited to the alt-wallet recipient at CFO-approval
+time via `approve-wallet-operation` — hits the exact same trigger, and self-linking doesn't apply
+there (the recipient genuinely isn't the partner or their proxy agent). Rather than weaken the
+guard generally or bypass it with a session flag, added one narrow, DB-verified exception in
+`supabase/migrations/20260918111829_allow_approved_roi_split_alt_wallet_custody.sql`: a
+`category = 'roi_wallet_credit'` write is allowed when a matching `pending_wallet_operations` row
+exists with `operation_type = 'roi_split_alt_wallet'`, `target_wallet_user_id = NEW.user_id`,
+status not rejected/cancelled, and `metadata->>'coo_approved_by'` already recorded — i.e. a write
+that already passed the same COO→CFO two-person chain every other ROI payout goes through, keyed
+to a real approved record rather than a flag that could be left set or forged. Everything else
+`block_proxy_custody_writes` guards against (an arbitrary, non-approved custody parking) is
+unchanged.
+
 ## Verification
 
 - `npm run guard:all` — all 7 guards passed, including `guard:frontend-ledger-writes` (this

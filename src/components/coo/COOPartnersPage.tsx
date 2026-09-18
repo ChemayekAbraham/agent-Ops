@@ -5606,7 +5606,13 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
             reference_id: refId,
             source_table: 'investor_portfolios',
             source_id: p.portfolioId,
-            linked_party: user.id,
+            // Self-link, not the staff member who clicked confirm: this money stays
+            // with the partner themselves (either compounded or kept as their own
+            // returns), so linked_party must equal user_id for the ledger's
+            // proxy-custody guard to recognize it as a direct, non-custody credit
+            // (block_proxy_custody_writes) instead of flagging it as parking a
+            // supporter's funds in someone else's wallet.
+            linked_party: p.investorId,
             currency: 'UGX',
           },
         ],
