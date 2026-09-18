@@ -384,6 +384,32 @@ export function PartnerReturnsForecastPanel({
               <Bar dataKey="Partner receivable" fill={COLORS.receivable} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Promissory receivable" fill={COLORS.promissory} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Compounding" fill={COLORS.compounding} radius={[3, 3, 0, 0]} />
+              {/* Confidence band: an invisible floor at the low end, with the
+                  spread up to the high end stacked on top of it. */}
+              <Area
+                type="monotone"
+                dataKey="__bandLow"
+                stackId="topupBand"
+                stroke="none"
+                fill="none"
+                fillOpacity={0}
+                legendType="none"
+                isAnimationActive={false}
+                connectNulls={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="__bandSpan"
+                stackId="topupBand"
+                stroke={COLORS.topups}
+                strokeDasharray="2 3"
+                strokeOpacity={0.5}
+                fill={COLORS.topups}
+                fillOpacity={0.14}
+                legendType="none"
+                isAnimationActive={false}
+                connectNulls={false}
+              />
               <Line
                 type="monotone"
                 dataKey="Predicted top-ups"
