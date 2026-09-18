@@ -52,6 +52,7 @@ interface CatalogItem {
 
 interface RecoveryPlan {
   id: string;
+  sale_id: string | null;
   item_name: string;
   original_amount: number;
   outstanding_balance: number;
@@ -59,6 +60,9 @@ interface RecoveryPlan {
   status: 'active' | 'completed' | 'cancelled';
   last_recovery_at: string | null;
   created_at: string;
+  order_status: string | null;
+  rejection_reason: string | null;
+  rejected_at: string | null;
 }
 
 interface Deduction {
@@ -147,7 +151,37 @@ export default function MerchandiseStore() {
         .eq('customer_id', user!.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      const rows = (data || []) as Omit<RecoveryPlan, 'order_status' | 'rejection_reason' | 'rejected_at'>[];
+      const saleIds = rows.flatMap((row) => (row.sale_id ? [row.sale_id] : []));
+      if (saleIds.length === 0) {
+        return rows.map((row) => ({ ...row, order_status: null, rejection_reason: null, rejected_at: null }));
+      }
+      const { data: sales, error: salesError } = await db
+        .from('merchandise_sales')
+        .select('id, order_status, rejection_reason, rejected_at')
+        .in('id', saleIds);
+      if (salesError) throw salesError;
+      const saleById = new Map<string, { order_status: string | null; rejection_reason: string | null; rejected_at: string | null }>(
+        (sales || []).map((sale: any) => [sale.id, sale]),
+      );
+      return rows
+        .filter((row) => !row.sale_id || saleById.has(row.sale_id))
+        // Rejection cancels the recovery plan, but the agent must still see the
+        // rejected application (with the reviewer's reason) — only hide plans
+        // cancelled for any other reason (e.g. deleted applications).
+        .filter((row) => {
+          if (row.status !== 'cancelled') return true;
+          return saleById.get(row.sale_id!)?.order_status === 'rejected';
+        })
+        .map((row) => {
+          const sale = row.sale_id ? saleById.get(row.sale_id) : null;
+          return {
+            ...row,
+            order_status: sale?.order_status ?? null,
+            rejection_reason: sale?.rejection_reason ?? null,
+            rejected_at: sale?.rejected_at ?? null,
+          };
+        }) as RecoveryPlan[];
     },
   });
 
