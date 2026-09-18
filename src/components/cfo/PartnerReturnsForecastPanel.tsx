@@ -345,7 +345,20 @@ export function PartnerReturnsForecastPanel({
                 strokeDasharray="3 3"
                 dot={{ r: 2 }}
               />
-              <Line type="monotone" dataKey="Forecast" stroke={COLORS.forecast} strokeWidth={2} dot={false} />
+              <Area
+                type="monotone"
+                dataKey="Returns payable forecast"
+                stroke="none"
+                fill={COLORS.forecast}
+                fillOpacity={0.12}
+              />
+              <Line
+                type="monotone"
+                dataKey="Returns payable forecast"
+                stroke={COLORS.forecast}
+                strokeWidth={3}
+                dot={{ r: 3 }}
+              />
               <Line type="monotone" dataKey="Actually paid" stroke={COLORS.actual} strokeWidth={2} dot={{ r: 2 }} />
               <Line type="monotone" dataKey="Net" stroke={COLORS.net} strokeWidth={2} strokeDasharray="5 4" dot={false} />
             </ComposedChart>
