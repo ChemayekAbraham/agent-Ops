@@ -128,7 +128,7 @@ import { AgentPendingReceiptPanel } from '@/components/agent/AgentPendingReceipt
 import { AgentTenantHealthCard } from '@/components/agent/AgentTenantHealthCard';
 import { AgentVouchHighlightCard } from '@/components/agent/AgentVouchHighlightCard';
 import type { LandlordFloatAllocation } from '@/hooks/useLandlordFloatAllocations';
-import { usePendingLandlordReceipts } from '@/hooks/usePendingLandlordReceipts';
+import { isLandlordReceiptConfirmationEffective, usePendingLandlordReceipts } from '@/hooks/usePendingLandlordReceipts';
 
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { DeviceSessionIndicator } from '@/components/agent/DeviceSessionIndicator';
@@ -1101,7 +1101,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             {!isMerchant && (repayingTenantLoading || hasRepayingTenant) && <AgentCollectionLeagueCard />}
 
             {/* Free Service Center qualification — permanent milestone tracker */}
-            {!isMerchant && (
+            {!isMerchant && isLandlordReceiptConfirmationEffective() && (
               <>
               <LastWeekWinnerOverlay />
               <WeeklyChampionTeamDialog />
@@ -2045,7 +2045,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       <LazyModal when={otpAuditOpen}>
       <LandlordPayoutOtpAuditSheet open={otpAuditOpen} onOpenChange={setOtpAuditOpen} />
       </LazyModal>
-      <LazyModal when={receiptCheckOpen}>
+      <LazyModal when={receiptCheckOpen && isLandlordReceiptConfirmationEffective()}>
       <ReceiptNumberCheckDialog open={receiptCheckOpen} onOpenChange={setReceiptCheckOpen} />
       </LazyModal>
       <LazyModal when={floatHistoryOpen}>
