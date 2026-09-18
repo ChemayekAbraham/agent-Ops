@@ -74,6 +74,10 @@ export function PartnerReturnsForecastPanel({
   });
 
   const rows = data?.rows ?? [];
+  const [drilldown, setDrilldown] = useState<DrilldownTarget | null>(null);
+
+  const openDrilldown = (row: Row, metric: DrilldownMetric) =>
+    setDrilldown({ period: row.key, periodLabel: row.label, metric, bucket });
 
   const totals = useMemo(() => {
     const past = rows.filter((r) => r.is_past);
@@ -207,10 +211,11 @@ export function PartnerReturnsForecastPanel({
                     {r.label}
                     {!r.is_past && <span className="ml-1 text-[10px] text-muted-foreground">(ahead)</span>}
                   </td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">{formatUGX(Number(r.forecast_returns))}</td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">
-                    {r.is_past ? formatUGX(Number(r.actual_returns_paid)) : '—'}
-                  </td>
+                  <DrillCell value={Number(r.forecast_returns)} onClick={() => openDrilldown(r, 'forecast')} />
+                  <DrillCell
+                    value={r.is_past ? Number(r.actual_returns_paid) : null}
+                    onClick={() => openDrilldown(r, 'actual')}
+                  />
                   <td
                     className={`py-2 pr-3 text-right font-mono tabular-nums ${
                       Number(r.variance) >= 0 ? 'text-emerald-600' : 'text-rose-600'
@@ -218,10 +223,10 @@ export function PartnerReturnsForecastPanel({
                   >
                     {r.is_past ? formatUGX(Number(r.variance)) : '—'}
                   </td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">{formatUGX(Number(r.partner_receivable))}</td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">{formatUGX(Number(r.topups))}</td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">{formatUGX(Number(r.promissory_receivable))}</td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">{formatUGX(Number(r.compounding))}</td>
+                  <DrillCell value={Number(r.partner_receivable)} onClick={() => openDrilldown(r, 'receivable')} />
+                  <DrillCell value={Number(r.topups)} onClick={() => openDrilldown(r, 'topups')} />
+                  <DrillCell value={Number(r.promissory_receivable)} onClick={() => openDrilldown(r, 'promissory')} />
+                  <DrillCell value={Number(r.compounding)} onClick={() => openDrilldown(r, 'compounding')} />
                   <td
                     className={`py-2 text-right font-mono tabular-nums font-semibold ${
                       Number(r.net) >= 0 ? 'text-emerald-600' : 'text-rose-600'
