@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly } from '@/lib/portfolioDates';
 
 /**
  * Fetch ALL agent IDs, paginating past the 1000-row default limit.
@@ -363,6 +364,166 @@ export async function fetchAllNearingPayoutPortfolios(): Promise<{
   // downstream consumer uses it only to resolve the display name, so any owner
   // counts. Naming kept for backward compatibility with the call site.
   return { portfolios: filteredPortfolios, profileMap, supporterIds: ownerIds };
+}
+
+export interface NearingPayoutPortfolioData {
+  portfolioId: string;
+  investorId: string;
+  name: string;
+  portfolioName: string;
+  phone: string;
+  email: string;
+  investmentAmount: number;
+  roiPercentage: number;
+  payoutDay: number;
+  roiMode: string;
+  createdAt: string;
+  daysUntil: number;
+  nextPayoutDate: string;
+  dueToday: boolean;
+  durationMonths: number;
+  nextRoiDate: string | null;
+  /** True once this portfolio's ROI for the current cycle is credited OR sitting in the approval queue. */
+  alreadyProcessedThisCycle?: boolean;
+  /** How it was already handled this cycle — drives the badge label. */
+  processedState?: 'credited' | 'pending' | null;
+  status?: string | null;
+  paymentMethod?: 'mobile_money' | 'bank_transfer' | 'cash' | null;
+  mobileNetwork?: string | null;
+  mobileMoneyNumber?: string | null;
+  bankName?: string | null;
+  bankAccountName?: string | null;
+  accountNumber?: string | null;
+}
+
+function getEffectiveNextPayoutDate(nextRoiDate: string | null, createdAt: string, payoutDay: number): string {
+  const createdDateOnly = extractDateOnly(createdAt);
+  const createdDate = createdDateOnly ? dateOnlyToLocalDate(createdDateOnly) : new Date(createdAt);
+  const day = Math.min(payoutDay || createdDate.getDate(), 28);
+  if (nextRoiDate) return extractDateOnly(nextRoiDate) || formatLocalDateOnly(new Date());
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let d = new Date(createdDate.getFullYear(), createdDate.getMonth() + 1, day);
+  while (d.getTime() < today.getTime()) d = new Date(d.getFullYear(), d.getMonth() + 1, day);
+  return formatLocalDateOnly(d);
+}
+
+/**
+ * Shared source of truth for "which portfolios are nearing/due a Returns payout,
+ * and has this cycle already been paid or queued." Both the COO Partners page
+ * and the Partner Ops "Nearing Payouts" panel call this — the already-paid/
+ * already-queued dedupe here is the primary defence against a double ROI
+ * credit, so it must not be reimplemented separately in each screen.
+ */
+export async function fetchNearingPayoutPortfoliosWithDedupe(): Promise<NearingPayoutPortfolioData[]> {
+  const { portfolios, profileMap, supporterIds } = await fetchAllNearingPayoutPortfolios();
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const todayStr = formatLocalDateOnly(new Date());
+  const nearingList: NearingPayoutPortfolioData[] = [];
+
+  portfolios.forEach((p) => {
+    if (p.status !== 'active') return;
+    const ownerId = p.investor_id && supporterIds.has(p.investor_id) ? p.investor_id
+      : p.agent_id && supporterIds.has(p.agent_id) ? p.agent_id : null;
+    if (!ownerId) return;
+
+    const effectiveNextDate = getEffectiveNextPayoutDate(p.next_roi_date, p.created_at, p.payout_day ?? 15);
+    const roiDate = dateOnlyToLocalDate(effectiveNextDate);
+    const diffMs = roiDate.getTime() - now.getTime();
+    const du = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const dueToday = effectiveNextDate === todayStr;
+    const prof = profileMap.get(ownerId);
+    const effectivePayoutDay = p.payout_day || roiDate.getDate();
+    nearingList.push({
+      portfolioId: p.id,
+      investorId: ownerId,
+      name: prof?.full_name || ownerId.slice(0, 8),
+      portfolioName: p.account_name || p.portfolio_code || p.id.slice(0, 8),
+      phone: prof?.phone || '',
+      email: prof?.email || '',
+      investmentAmount: p.investment_amount || 0,
+      roiPercentage: p.roi_percentage ?? 15,
+      payoutDay: effectivePayoutDay,
+      roiMode: p.roi_mode ?? 'monthly_payout',
+      createdAt: p.created_at,
+      daysUntil: du,
+      nextPayoutDate: effectiveNextDate,
+      dueToday,
+      durationMonths: Number((p as any).duration_months || 12),
+      nextRoiDate: p.next_roi_date,
+      status: (p as any).status ?? null,
+      paymentMethod: (p as any).payment_method ?? null,
+      mobileNetwork: (p as any).mobile_network ?? null,
+      mobileMoneyNumber: (p as any).mobile_money_number ?? null,
+      bankName: (p as any).bank_name ?? null,
+      bankAccountName: (p as any).bank_account_name ?? null,
+      accountNumber: (p as any).account_number ?? null,
+    });
+  });
+  nearingList.sort((a, b) => a.daysUntil - b.daysUntil);
+
+  // ── Mark portfolios already handled THIS cycle so they drop off the list ──
+  // A portfolio is "processed" if a ledger credit exists for its cycle key
+  // (roi-cycle-<portfolioId>-<cycleAnchor>) OR an ROI payout is still open in
+  // the approval queue. Either way it must NOT be payable again — this is the
+  // primary defence against duplicate / double ROI credits.
+  try {
+    const cycleKeyToPortfolio = new Map<string, string>();
+    for (const n of nearingList) {
+      const anchor = n.nextRoiDate || new Date().toISOString().slice(0, 10);
+      cycleKeyToPortfolio.set(`roi-cycle-${n.portfolioId}-${anchor}`, n.portfolioId);
+    }
+    const portfolioIds = nearingList.map((n) => n.portfolioId);
+    const cycleKeys = Array.from(cycleKeyToPortfolio.keys());
+    const creditedPortfolioIds = new Set<string>();
+    const pendingPortfolioIds = new Set<string>();
+
+    const chunk = <T,>(arr: T[], size: number) => {
+      const out: T[][] = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    };
+
+    await Promise.all([
+      ...chunk(cycleKeys, 200).map(async (batch) => {
+        const { data } = await supabase
+          .from('general_ledger')
+          .select('idempotency_key')
+          .in('idempotency_key', batch);
+        for (const r of (data as any[]) || []) {
+          const pid = cycleKeyToPortfolio.get(r.idempotency_key);
+          if (pid) creditedPortfolioIds.add(pid);
+        }
+      }),
+      ...chunk(portfolioIds, 200).map(async (batch) => {
+        const { data } = await supabase
+          .from('pending_wallet_operations')
+          .select('source_id')
+          .eq('source_table', 'investor_portfolios')
+          .eq('category', 'roi_payout')
+          .in('source_id', batch)
+          .in('status', ['pending', 'pending_coo_approval', 'coo_approved', 'awaiting_verification']);
+        for (const r of (data as any[]) || []) {
+          if (r.source_id) pendingPortfolioIds.add(r.source_id);
+        }
+      }),
+    ]);
+
+    for (const n of nearingList) {
+      if (creditedPortfolioIds.has(n.portfolioId)) {
+        n.alreadyProcessedThisCycle = true;
+        n.processedState = 'credited';
+      } else if (pendingPortfolioIds.has(n.portfolioId)) {
+        n.alreadyProcessedThisCycle = true;
+        n.processedState = 'pending';
+      }
+    }
+  } catch (e) {
+    console.error('[fetchNearingPayoutPortfoliosWithDedupe] cycle-processed lookup failed:', e);
+  }
+
+  return nearingList;
 }
 
 /**

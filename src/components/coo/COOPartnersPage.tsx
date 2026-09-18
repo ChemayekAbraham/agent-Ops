@@ -29,7 +29,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { downloadPortfolioPdf, sharePortfolioViaWhatsApp, type PortfolioPdfData } from '@/lib/portfolioPdf';
 import { generateNearingPayoutsPdf, downloadBlob as downloadNearingBlob } from '@/lib/nearingPayoutsPdf';
 import { sharePayoutCardViaWhatsApp, type PayoutCardData } from '@/lib/payoutShareCard';
-import { fetchAllUserIdsByRole, batchedQuery, fetchPaginatedSupporterIds, fetchVerifiedFundedProspectIds, fetchSupporterSummary, fetchAllNearingPayoutPortfolios } from '@/lib/supabaseBatchUtils';
+import { fetchAllUserIdsByRole, batchedQuery, fetchPaginatedSupporterIds, fetchVerifiedFundedProspectIds, fetchSupporterSummary, fetchNearingPayoutPortfoliosWithDedupe, type NearingPayoutPortfolioData } from '@/lib/supabaseBatchUtils';
+import { UserSearchPicker, type UserResult } from '@/components/cfo/UserSearchPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -118,35 +119,8 @@ interface PartnerRow {
   isProspect?: boolean;
 }
 
-interface NearingPayoutPortfolio {
-  portfolioId: string;
-  investorId: string;
-  name: string;
-  portfolioName: string;
-  phone: string;
-  email: string;
-  investmentAmount: number;
-  roiPercentage: number;
-  payoutDay: number;
-  roiMode: string;
-  createdAt: string;
-  daysUntil: number;
-  nextPayoutDate: string;
-  dueToday: boolean;
-  durationMonths: number;
-  nextRoiDate: string | null;
-  /** True once this portfolio's ROI for the current cycle is credited OR sitting in the approval queue. */
-  alreadyProcessedThisCycle?: boolean;
-  /** How it was already handled this cycle — drives the badge label. */
-  processedState?: 'credited' | 'pending' | null;
-  status?: string | null;
-  paymentMethod?: 'mobile_money' | 'bank_transfer' | 'cash' | null;
-  mobileNetwork?: string | null;
-  mobileMoneyNumber?: string | null;
-  bankName?: string | null;
-  bankAccountName?: string | null;
-  accountNumber?: string | null;
-}
+/** Re-exported for existing call sites in this file — canonical shape now lives in supabaseBatchUtils.ts. */
+export type NearingPayoutPortfolio = NearingPayoutPortfolioData;
 
 interface PortfolioRow {
   id: string;
@@ -953,120 +927,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const fetchNearingPayoutsAsync = useCallback(async () => {
     setNearingPayoutsLoading(true);
     try {
-      const { portfolios, profileMap, supporterIds } = await fetchAllNearingPayoutPortfolios();
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const nearingList: NearingPayoutPortfolio[] = [];
-      const todayStr = formatLocalDateOnly(new Date());
-      portfolios.forEach(p => {
-        if (p.status !== 'active') return;
-        const ownerId = p.investor_id && supporterIds.has(p.investor_id) ? p.investor_id
-          : p.agent_id && supporterIds.has(p.agent_id) ? p.agent_id : null;
-        if (!ownerId) return;
-
-        // Single source of truth for the Next Payout Date — handles null next_roi_date
-        // by deriving from created_at + payout_day, and is timezone-safe.
-        const effectiveNextDate = getNextPayoutDate(p.next_roi_date, p.created_at, p.payout_day ?? 15);
-        const roiDate = dateOnlyToLocalDate(effectiveNextDate);
-        const diffMs = roiDate.getTime() - now.getTime();
-        const du = Math.round(diffMs / (1000 * 60 * 60 * 24));
-        const dueToday = effectiveNextDate === todayStr;
-        const prof = profileMap.get(ownerId);
-        const effectivePayoutDay = p.payout_day || roiDate.getDate();
-        nearingList.push({
-          portfolioId: p.id,
-          investorId: ownerId,
-          name: prof?.full_name || ownerId.slice(0, 8),
-          portfolioName: p.account_name || p.portfolio_code || p.id.slice(0, 8),
-          phone: prof?.phone || '',
-          email: prof?.email || '',
-          investmentAmount: p.investment_amount || 0,
-          roiPercentage: p.roi_percentage ?? 15,
-          payoutDay: effectivePayoutDay,
-          roiMode: p.roi_mode ?? 'monthly_payout',
-          createdAt: p.created_at,
-          daysUntil: du,
-          nextPayoutDate: effectiveNextDate,
-          dueToday,
-          durationMonths: Number((p as any).duration_months || 12),
-          nextRoiDate: p.next_roi_date,
-          status: (p as any).status ?? null,
-          paymentMethod: (p as any).payment_method ?? null,
-          mobileNetwork: (p as any).mobile_network ?? null,
-          mobileMoneyNumber: (p as any).mobile_money_number ?? null,
-          bankName: (p as any).bank_name ?? null,
-          bankAccountName: (p as any).bank_account_name ?? null,
-          accountNumber: (p as any).account_number ?? null,
-        });
-      });
-      nearingList.sort((a, b) => a.daysUntil - b.daysUntil);
-
-      // ── Mark portfolios already handled THIS cycle so they drop off the list ──
-      // A portfolio is "processed" if a ledger credit exists for its cycle key
-      // (roi-cycle-<portfolioId>-<cycleAnchor>) OR an ROI payout is still open in
-      // the approval queue. Either way it must NOT be payable again — this is the
-      // primary defence against duplicate / double ROI credits.
-      try {
-        const cycleKeyToPortfolio = new Map<string, string>();
-        for (const n of nearingList) {
-          const anchor = n.nextRoiDate || new Date().toISOString().slice(0, 10);
-          cycleKeyToPortfolio.set(`roi-cycle-${n.portfolioId}-${anchor}`, n.portfolioId);
-        }
-        const portfolioIds = nearingList.map(n => n.portfolioId);
-        const cycleKeys = Array.from(cycleKeyToPortfolio.keys());
-        const creditedPortfolioIds = new Set<string>();
-        const pendingPortfolioIds = new Set<string>();
-
-        const chunk = <T,>(arr: T[], size: number) => {
-          const out: T[][] = [];
-          for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-          return out;
-        };
-
-        await Promise.all([
-          ...chunk(cycleKeys, 200).map(async (batch) => {
-            const { data } = await supabase
-              .from('general_ledger')
-              .select('idempotency_key')
-              .in('idempotency_key', batch);
-            for (const r of (data as any[]) || []) {
-              const pid = cycleKeyToPortfolio.get(r.idempotency_key);
-              if (pid) creditedPortfolioIds.add(pid);
-            }
-          }),
-          ...chunk(portfolioIds, 200).map(async (batch) => {
-            const { data } = await supabase
-              .from('pending_wallet_operations')
-              .select('source_id')
-              .eq('source_table', 'investor_portfolios')
-              .eq('category', 'roi_payout')
-              .in('source_id', batch)
-              .in('status', ['pending', 'pending_coo_approval', 'coo_approved', 'awaiting_verification']);
-            for (const r of (data as any[]) || []) {
-              if (r.source_id) pendingPortfolioIds.add(r.source_id);
-            }
-          }),
-        ]);
-
-        for (const n of nearingList) {
-          if (creditedPortfolioIds.has(n.portfolioId)) {
-            n.alreadyProcessedThisCycle = true;
-            n.processedState = 'credited';
-          } else if (pendingPortfolioIds.has(n.portfolioId)) {
-            n.alreadyProcessedThisCycle = true;
-            n.processedState = 'pending';
-          }
-        }
-      } catch (e) {
-        console.error('[NearingPayout] cycle-processed lookup failed:', e);
-      }
-
+      const nearingList = await fetchNearingPayoutPortfoliosWithDedupe();
       if (import.meta.env.DEV) {
         const dueCount = nearingList.filter(n => n.dueToday).length;
         // eslint-disable-next-line no-console
-        console.debug('[NearingPayout] today=%s dueToday=%d totalActive=%d', todayStr, dueCount, nearingList.length);
-        const drift = nearingList.find(n => n.dueToday && n.daysUntil !== 0);
-        if (drift) console.warn('[NearingPayout] dueToday/daysUntil drift on', drift.portfolioId, drift);
+        console.debug('[NearingPayout] dueToday=%d totalActive=%d', dueCount, nearingList.length);
       }
       setAllPortfoliosForPayout(nearingList);
     } catch (e) {
@@ -4897,7 +4762,7 @@ function NearingPayoutsCard({ portfolios, onClick }: { portfolios: NearingPayout
   );
 }
 
-function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete }: {
+export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete }: {
   open: boolean; onOpenChange: (v: boolean) => void; portfolios: NearingPayoutPortfolio[];
   onActionComplete?: () => void;
 }) {
@@ -4922,8 +4787,11 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
 
   // Split payout state
   const [splitCashAmount, setSplitCashAmount] = useState(0);
-  const [splitPayMode, setSplitPayMode] = useState<'wallet' | 'agent_wallet' | 'already_paid'>('wallet');
+  const [splitPayMode, setSplitPayMode] = useState<'wallet' | 'agent_wallet' | 'already_paid' | 'different_wallet'>('wallet');
   const [splitReinvestMode, setSplitReinvestMode] = useState<'reinvest' | 'keep_returns'>('reinvest');
+  // Alternate recipient for the cash portion — e.g. 5M of a 10M ROI goes straight
+  // into Benjamin Muhanguzi's own platform wallet instead of the partner's.
+  const [splitAltRecipient, setSplitAltRecipient] = useState<UserResult | null>(null);
 
   // Compound confirmation state — shown after a compound action completes
   type CompoundEmailStatus = 'queued' | 'previously_sent' | 'suppressed' | 'skipped_no_email' | 'failed';
@@ -5620,16 +5488,18 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
     setSplitCashAmount(Math.round(roiAmount / 2)); // Default 50/50
     setSplitPayMode('wallet');
     setSplitReinvestMode('reinvest');
+    setSplitAltRecipient(null);
     setPaymentStep('split-config');
   };
 
   // Handle Split Payout — cash portion to pending_wallet_operations, reinvest portion to portfolio
-  const handleSplitPayout = async (p: NearingPayoutPortfolio, cashAmount: number, reason: string, payMode: 'wallet' | 'agent_wallet' | 'already_paid', reinvestMode: 'reinvest' | 'keep_returns' = 'reinvest') => {
+  const handleSplitPayout = async (p: NearingPayoutPortfolio, cashAmount: number, reason: string, payMode: 'wallet' | 'agent_wallet' | 'already_paid' | 'different_wallet', reinvestMode: 'reinvest' | 'keep_returns' = 'reinvest', altRecipient: UserResult | null = null) => {
     setProcessing(prev => ({ ...prev, [p.portfolioId]: 'split' }));
     try {
       const roiAmount = Math.round(p.investmentAmount * p.roiPercentage / 100);
       const reinvestAmount = roiAmount - cashAmount;
       if (cashAmount < 1 || reinvestAmount < 1) throw new Error('Both cash and reinvest amounts must be at least 1');
+      if (payMode === 'different_wallet' && !altRecipient) throw new Error('Pick who the cash portion goes to');
 
       const refId = generateRef('SPL');
       const { data: { user } } = await supabase.auth.getUser();
@@ -5668,7 +5538,8 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
       // Split allowed for all partners (incl. managed proxy). For managed proxy,
       // the cash leg routes to the proxy agent wallet; reinvest portion stays in the portfolio.
       const hasProxy = !!managed;
-      const modeLabel = payMode === 'wallet' ? 'Partner Wallet' : payMode === 'agent_wallet' ? 'Partner Wallet (via Proxy)' : 'Cash';
+      const modeLabel = payMode === 'wallet' ? 'Partner Wallet' : payMode === 'agent_wallet' ? 'Partner Wallet (via Proxy)'
+        : payMode === 'different_wallet' ? `${altRecipient?.full_name || 'Recipient'}'s Wallet` : 'Cash';
       const txnGroupId = crypto.randomUUID();
 
       // Date stays unchanged — only advances when CFO approves the payout
@@ -5732,7 +5603,8 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
       if (ledgerErr) throw ledgerErr;
 
       // ── Cash portion: submit to pending_wallet_operations for CFO approval ──
-      const operationType = payMode === 'agent_wallet' || payMode === 'wallet' ? 'roi_split_cash' : 'roi_split_already_paid';
+      const operationType = payMode === 'agent_wallet' || payMode === 'wallet' ? 'roi_split_cash'
+        : payMode === 'different_wallet' ? 'roi_split_alt_wallet' : 'roi_split_already_paid';
       const { error: pendErr } = await supabase.from('pending_wallet_operations').insert({
         user_id: p.investorId,
         amount: cashAmount,
@@ -5743,8 +5615,14 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
         reference_id: refId,
         operation_type: operationType,
         transaction_group_id: txnGroupId,
-        target_wallet_user_id: null,
-        description: hasProxy
+        // Routes the cash leg's ledger credit straight into a DIFFERENT platform
+        // user's wallet on CFO approval (see approve-wallet-operation's
+        // ledgerUserId derivation). null preserves today's behavior — the
+        // partner's own wallet, or their live managed-proxy agent's wallet.
+        target_wallet_user_id: payMode === 'different_wallet' ? altRecipient!.id : null,
+        description: payMode === 'different_wallet'
+          ? `[Split ROI → ${altRecipient!.full_name}'s Wallet] Cash portion ${formatUGX(cashAmount)} redirected from ${p.name}'s ROI to ${altRecipient!.full_name} (${altRecipient!.phone}). Reinvested: ${formatUGX(reinvestAmount)}. Total ROI: ${formatUGX(roiAmount)}. Reason: ${reason}`
+          : hasProxy
           ? `[Split ROI → Partner Wallet via Proxy ${managed.agentName}] Cash portion ${formatUGX(cashAmount)} to ${p.name}'s partner wallet. Reinvested: ${formatUGX(reinvestAmount)}. Total ROI: ${formatUGX(roiAmount)}. Reason: ${reason}`
           : `[Split ROI → ${modeLabel}] Cash portion ${formatUGX(cashAmount)} to ${p.name}'s wallet. Reinvested: ${formatUGX(reinvestAmount)}. Total ROI: ${formatUGX(roiAmount)}. Reason: ${reason}`,
         linked_party: user.id,
@@ -5767,6 +5645,7 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
           total_roi: roiAmount,
           new_principal: newPrincipal,
           ...(hasProxy ? { proxy_agent_name: managed.agentName, proxy_agent_id: managed.agentId, custody_route: 'partner_wallet_v2' } : {}),
+          ...(payMode === 'different_wallet' ? { alt_recipient_id: altRecipient!.id, alt_recipient_name: altRecipient!.full_name, alt_recipient_phone: altRecipient!.phone } : {}),
         },
       });
       if (pendErr) throw pendErr;
@@ -5782,6 +5661,7 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
           new_principal: newPrincipal, reference: refId, partner_id: p.investorId, partner_name: p.name,
           reason, pay_mode: payMode, reinvest_mode: reinvestMode,
           ...(hasProxy ? { proxy_agent_id: managed.agentId, proxy_agent_name: managed.agentName, custody_route: 'partner_wallet_v2' } : {}),
+          ...(payMode === 'different_wallet' ? { alt_recipient_id: altRecipient!.id, alt_recipient_name: altRecipient!.full_name } : {}),
         },
       });
 
@@ -5843,10 +5723,13 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
       const reinvestMsg = isKeepReturns
         ? `${formatUGX(reinvestAmount)} kept as earned returns (principal unchanged: ${formatUGX(p.investmentAmount)})`
         : `${formatUGX(reinvestAmount)} reinvested into your portfolio. New principal: ${formatUGX(newPrincipal)}`;
+      const cashPortionMsg = payMode === 'already_paid' ? 'paid via cash'
+        : payMode === 'different_wallet' ? `sent to ${altRecipient!.full_name}'s wallet (pending approval)`
+        : 'sent to your wallet (pending approval)';
       await supabase.from('notifications').insert({
         user_id: p.investorId,
         title: '✂️ Split ROI Processed',
-        message: `Your ROI of ${formatUGX(roiAmount)} has been split: ${formatUGX(cashAmount)} ${payMode === 'already_paid' ? 'paid via cash' : 'sent to your wallet (pending approval)'}, and ${reinvestMsg}. Ref: ${refId}`,
+        message: `Your ROI of ${formatUGX(roiAmount)} has been split: ${formatUGX(cashAmount)} ${cashPortionMsg}, and ${reinvestMsg}. Ref: ${refId}`,
         type: 'payout_initiated',
         metadata: { portfolio_id: p.portfolioId, roi_amount: roiAmount, cash_amount: cashAmount, reinvest_amount: reinvestAmount, reinvest_mode: reinvestMode, reference: refId },
       });
@@ -6405,9 +6288,23 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
                           ? `Partner Wallet (proxy: ${selectedManaged?.agentName})`
                           : 'Pay to Partner Wallet'}
                       </SelectItem>
+                      <SelectItem value="different_wallet">Pay to a different person's wallet</SelectItem>
                       <SelectItem value="already_paid">Cash (already/to be paid externally)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {splitPayMode === 'different_wallet' && (
+                    <div className="rounded-lg border border-border/40 bg-background p-2.5">
+                      <UserSearchPicker
+                        label="Send cash portion to"
+                        placeholder="Search by name or phone…"
+                        selectedUser={splitAltRecipient}
+                        onSelect={setSplitAltRecipient}
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1.5">
+                        Credited straight to this person's own Welile wallet once CFO approves — not {selectedPayout?.name}'s.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -6420,8 +6317,8 @@ function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionComplete
               {/* Confirm */}
               <Button
                 className="w-full gap-2"
-                disabled={!!selectedProcessing || splitCashAmount < 1 || splitCashAmount >= selectedRoiAmount}
-                onClick={() => handleSplitPayout(selectedPayout, splitCashAmount, selectedReason, splitPayMode, splitReinvestMode)}
+                disabled={!!selectedProcessing || splitCashAmount < 1 || splitCashAmount >= selectedRoiAmount || (splitPayMode === 'different_wallet' && !splitAltRecipient)}
+                onClick={() => handleSplitPayout(selectedPayout, splitCashAmount, selectedReason, splitPayMode, splitReinvestMode, splitAltRecipient)}
               >
                 {selectedProcessing === 'split' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
                 Confirm Split Payout

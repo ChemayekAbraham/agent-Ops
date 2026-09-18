@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { fetchAllNearingPayoutPortfolios } from '@/lib/supabaseBatchUtils';
-import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly, formatDateOnlyForDisplay } from '@/lib/portfolioDates';
+import { fetchNearingPayoutPortfoliosWithDedupe, type NearingPayoutPortfolioData } from '@/lib/supabaseBatchUtils';
+import { formatDateOnlyForDisplay } from '@/lib/portfolioDates';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,21 +13,9 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
-  ArrowDown, ArrowUp, CalendarClock, CheckCircle2, Clock, Layers, RefreshCw, Repeat, Search, Users,
+  ArrowDown, ArrowUp, CalendarClock, CheckCircle2, Clock, Layers, Loader2, RefreshCw, Repeat, Scissors, Search, Users,
 } from 'lucide-react';
-
-/** Roll-forward-safe next payout date (mirrors COO Partners page logic). */
-function nextPayoutDate(nextRoiDate: string | null, createdAt: string, payoutDay: number): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const createdDateOnly = extractDateOnly(createdAt);
-  const createdDate = createdDateOnly ? dateOnlyToLocalDate(createdDateOnly) : new Date(createdAt);
-  const day = Math.min(payoutDay || createdDate.getDate(), 28);
-  if (nextRoiDate) return extractDateOnly(nextRoiDate) || formatLocalDateOnly(today);
-  let d = new Date(createdDate.getFullYear(), createdDate.getMonth() + 1, day);
-  while (d.getTime() < today.getTime()) d = new Date(d.getFullYear(), d.getMonth() + 1, day);
-  return formatLocalDateOnly(d);
-}
+import { NearingPayoutsDialog } from '@/components/coo/COOPartnersPage';
 
 const isCompounding = (mode: string) => /compound/i.test(mode || '');
 
@@ -48,74 +35,31 @@ interface Row {
 
 type SortKey = 'name' | 'portfolioName' | 'principal' | 'expected' | 'daysUntil' | 'state';
 
-const chunk = <T,>(arr: T[], size: number) => {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-};
-
-async function loadNearingRows(): Promise<Row[]> {
-  const { portfolios, profileMap } = await fetchAllNearingPayoutPortfolios();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const rows: Row[] = portfolios
-    .filter((p) => p.status === 'active')
-    .map((p) => {
-      const ownerId = p.investor_id || p.agent_id;
-      const due = nextPayoutDate(p.next_roi_date, p.created_at, p.payout_day ?? 15);
-      const daysUntil = Math.round((dateOnlyToLocalDate(due).getTime() - today.getTime()) / 86400000);
-      const principal = p.investment_amount || 0;
-      const rate = p.roi_percentage ?? 15;
-      return {
-        portfolioId: p.id,
-        name: profileMap.get(ownerId)?.full_name || ownerId?.slice(0, 8) || '—',
-        portfolioName: p.account_name || p.portfolio_code || p.id.slice(0, 8),
-        principal,
-        roiPercentage: rate,
-        expected: Math.round((principal * rate) / 100),
-        roiMode: p.roi_mode || 'monthly_payout',
-        compounding: isCompounding(p.roi_mode || ''),
-        dueDate: due,
-        daysUntil,
-        state: 'awaiting' as const,
-      };
-    });
-
-  // Which cycles are already credited (paid out) or sitting in the approval queue (pending)?
-  const cycleKeyToPortfolio = new Map<string, string>();
-  rows.forEach((r) => cycleKeyToPortfolio.set(`roi-cycle-${r.portfolioId}-${r.dueDate}`, r.portfolioId));
-  const credited = new Set<string>();
-  const pending = new Set<string>();
-  try {
-    await Promise.all([
-      ...chunk(Array.from(cycleKeyToPortfolio.keys()), 200).map(async (batch) => {
-        const { data } = await supabase.from('general_ledger').select('idempotency_key').in('idempotency_key', batch);
-        for (const r of (data as any[]) || []) {
-          const pid = cycleKeyToPortfolio.get(r.idempotency_key);
-          if (pid) credited.add(pid);
-        }
-      }),
-      ...chunk(rows.map((r) => r.portfolioId), 200).map(async (batch) => {
-        const { data } = await supabase
-          .from('pending_wallet_operations')
-          .select('source_id')
-          .eq('source_table', 'investor_portfolios')
-          .eq('category', 'roi_payout')
-          .in('source_id', batch)
-          .in('status', ['pending', 'pending_coo_approval', 'coo_approved', 'awaiting_verification']);
-        for (const r of (data as any[]) || []) if (r.source_id) pending.add(r.source_id);
-      }),
-    ]);
-  } catch (e) {
-    console.error('[NearingPayoutsPanel] cycle lookup failed', e);
-  }
-
-  rows.forEach((r) => {
-    r.state = credited.has(r.portfolioId) ? 'paid' : pending.has(r.portfolioId) ? 'pending' : 'awaiting';
+/**
+ * Both the display rows and the dialog's payout data come from the same
+ * dedupe-aware fetch (fetchNearingPayoutPortfoliosWithDedupe) — one query,
+ * one "already paid this cycle" answer, so the list and the Pay/Split dialog
+ * can never disagree about which portfolios are still payable.
+ */
+async function loadNearingRows(): Promise<{ rows: Row[]; portfolios: NearingPayoutPortfolioData[] }> {
+  const portfolios = await fetchNearingPayoutPortfoliosWithDedupe();
+  const rows: Row[] = portfolios.map((p) => {
+    const rate = p.roiPercentage;
+    return {
+      portfolioId: p.portfolioId,
+      name: p.name,
+      portfolioName: p.portfolioName,
+      principal: p.investmentAmount,
+      roiPercentage: rate,
+      expected: Math.round((p.investmentAmount * rate) / 100),
+      roiMode: p.roiMode,
+      compounding: isCompounding(p.roiMode),
+      dueDate: p.nextPayoutDate,
+      daysUntil: p.daysUntil,
+      state: p.processedState === 'credited' ? 'paid' : p.processedState === 'pending' ? 'pending' : 'awaiting',
+    };
   });
-
-  return rows.sort((a, b) => a.daysUntil - b.daysUntil);
+  return { rows, portfolios };
 }
 
 const RANGES: { key: string; label: string; test: (d: number) => boolean }[] = [
@@ -127,11 +71,15 @@ const RANGES: { key: string; label: string; test: (d: number) => boolean }[] = [
 ];
 
 export function NearingPayoutsPanel() {
-  const { data: rows, isLoading, refetch, isFetching } = useQuery({
+  const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['partner-ops-nearing-payouts-list'],
     queryFn: loadNearingRows,
     staleTime: 60000,
   });
+  const rows = data?.rows;
+  const dialogPortfolios = data?.portfolios ?? [];
+
+  const [payoutsDialogOpen, setPayoutsDialogOpen] = useState(false);
 
   const [range, setRange] = useState('7');
   const [mode, setMode] = useState('all');
@@ -213,9 +161,21 @@ export function NearingPayoutsPanel() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => setPayoutsDialogOpen(true)}
+            disabled={isLoading || dialogPortfolios.length === 0}
+          >
+            {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scissors className="h-3.5 w-3.5" />}
+            Pay / Split Payouts
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} /> Refresh
+          </Button>
+        </div>
       </div>
 
       {/* ── KPIs ── */}
@@ -337,6 +297,13 @@ export function NearingPayoutsPanel() {
           )}
         </CardContent>
       </Card>
+
+      <NearingPayoutsDialog
+        open={payoutsDialogOpen}
+        onOpenChange={setPayoutsDialogOpen}
+        portfolios={dialogPortfolios}
+        onActionComplete={() => refetch()}
+      />
     </div>
   );
 }

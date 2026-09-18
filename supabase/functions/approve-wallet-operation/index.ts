@@ -187,8 +187,15 @@ Deno.serve(async (req) => {
         // must not receive any of that ROI; FinOps later debits the same agent
         // wallet/partner earmark when approving the withdrawal.
         const managedProxy = isRoiWalletPayout ? await resolveManagedProxy(adminClient, op.user_id) : null;
-        const ledgerUserId = managedProxy?.agentId || op.user_id;
-        const isManaged = !!managedProxy;
+        // Split-ROI "pay to a different person's wallet" (COOPartnersPage.tsx
+        // NearingPayoutsDialog, operation_type 'roi_split_alt_wallet'): the
+        // operator explicitly named a recipient at request time, stamped onto
+        // target_wallet_user_id. That explicit choice wins over the live
+        // managed-proxy lookup — this is a one-off redirect, not a standing
+        // custody relationship, so it must not be mislabeled as a proxy payout.
+        const explicitTargetUserId = op.operation_type === 'roi_split_alt_wallet' ? (op.target_wallet_user_id || null) : null;
+        const ledgerUserId = explicitTargetUserId || managedProxy?.agentId || op.user_id;
+        const isManaged = !!managedProxy && !explicitTargetUserId;
         const walletLinkedParty = isRoiWalletPayout ? op.user_id : op.linked_party;
         const displayDescription = isRoiWalletPayout && op.description
           ? String(op.description)
