@@ -1336,7 +1336,18 @@ export default function WithdrawFlow({
                   <Button
                     type="button"
                     variant="destructive"
-                    className="w-full font-bold"
+                    className="w-full font-bold h-11"
+                    onClick={() => {
+                      handleClose();
+                      navigate('/settings?section=account&tab=withdrawal');
+                    }}
+                  >
+                    Submit my details now
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
                     onClick={() => {
                       identityPanelRef.current?.scrollIntoView({
                         behavior: 'smooth',
@@ -1344,7 +1355,7 @@ export default function WithdrawFlow({
                       });
                     }}
                   >
-                    Add my National ID
+                    Or fill it in here
                   </Button>
                 </div>
               </div>
