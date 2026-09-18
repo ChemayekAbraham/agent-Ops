@@ -224,6 +224,10 @@ Deno.serve(async (req) => {
       console.error("GitHub contributors lookup failed:", e);
     }
 
+    const totalPages = Math.max(1, Math.ceil(feed.length / perPage));
+    const safePage = Math.min(page, totalPages);
+    const pagedCommits = feed.slice((safePage - 1) * perPage, safePage * perPage);
+
     return json({
       repo: `${owner}/${repo}`,
       repo_url: `https://github.com/${owner}/${repo}`,
@@ -231,8 +235,11 @@ Deno.serve(async (req) => {
       branches_scanned: branchNames.length,
       total_commits: feed.length,
       truncated,
+      page: safePage,
+      per_page: perPage,
+      total_pages: totalPages,
       contributors: [...byAuthor.values()].sort((a, b) => b.commits - a.commits),
-      commits: feed,
+      commits: pagedCommits,
     });
   } catch (e) {
     console.error("github-commit-activity failed:", e);
