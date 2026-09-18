@@ -198,8 +198,41 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1. Insert balanced ledger entries via RPC (with idempotency)
-    const idempotencyKey = `tenant-pay-${rentRequest.id}-${payAmount}`;
+    // 1. Insert balanced ledger entries via RPC (with idempotency).
+    //
+    // The key used to be `tenant-pay-<plan>-<amount>`, which collides on every
+    // later collection of the same amount on the same plan — and daily
+    // instalments are identical by design. create_ledger_transaction returns
+    // the EXISTING group silently on a key hit, so the wallet was never debited
+    // while the repayment below was recorded again. The key is now unique per
+    // collection event, and a key hit is reported as a duplicate instead of
+    // being replayed as a fresh repayment.
+    const clientRef =
+      typeof (body as any)?.client_ref === "string" && (body as any).client_ref
+        ? (body as any).client_ref as string
+        : `${callerId}-${new Date().toISOString().slice(0, 16)}`;
+    const idempotencyKey = `tenant-pay-${rentRequest.id}-${payAmount}-${clientRef}`;
+
+    const { data: priorLeg } = await supabaseAdmin
+      .from("general_ledger")
+      .select("transaction_group_id")
+      .eq("idempotency_key", idempotencyKey)
+      .limit(1)
+      .maybeSingle();
+
+    if (priorLeg?.transaction_group_id) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          duplicate: true,
+          amount_paid: 0,
+          message: "This payment was already recorded.",
+          reference: `PAY-${String(priorLeg.transaction_group_id).slice(0, 8).toUpperCase()}`,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { data: txnGroupId, error: ledgerErr } = await supabaseAdmin.rpc('create_ledger_transaction', {
       entries: [
         {
