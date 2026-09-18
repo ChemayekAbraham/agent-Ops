@@ -271,10 +271,12 @@ export default function MerchandiseStore() {
   const catalogSlice = filteredCatalog.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Deep-link: /merchandise?item=<id> auto-opens the checkout for that product.
+  // Bikes and motorbikes are excluded from the general grid and can only be
+  // ordered through the dedicated electric-bike section.
   useEffect(() => {
     const itemId = searchParams.get('item');
-    if (!itemId || catalog.length === 0 || selected) return;
-    const match = catalog.find((c) => c.id === itemId);
+    if (!itemId || filteredCatalog.length === 0 || selected) return;
+    const match = filteredCatalog.find((c) => c.id === itemId);
     if (match) {
       setSelected(match);
       setQuantity('1');
@@ -287,7 +289,7 @@ export default function MerchandiseStore() {
     next.delete('item');
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog, searchParams]);
+  }, [filteredCatalog, searchParams]);
 
   const placeOrder = async () => {
     if (!selected) return;
