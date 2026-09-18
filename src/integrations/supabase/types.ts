@@ -4190,6 +4190,8 @@ export type Database = {
           notes: string | null
           property_latitude: number | null
           property_longitude: number | null
+          receipt_number: string | null
+          receipt_number_recorded_at: string | null
           receipt_photo_urls: string[] | null
           rejection_reason: string | null
           rent_request_id: string
@@ -4221,6 +4223,8 @@ export type Database = {
           notes?: string | null
           property_latitude?: number | null
           property_longitude?: number | null
+          receipt_number?: string | null
+          receipt_number_recorded_at?: string | null
           receipt_photo_urls?: string[] | null
           rejection_reason?: string | null
           rent_request_id: string
@@ -4252,6 +4256,8 @@ export type Database = {
           notes?: string | null
           property_latitude?: number | null
           property_longitude?: number | null
+          receipt_number?: string | null
+          receipt_number_recorded_at?: string | null
           receipt_photo_urls?: string[] | null
           rejection_reason?: string | null
           rent_request_id?: string
@@ -51864,6 +51870,10 @@ export type Database = {
           p_size?: string
           p_term_months?: number
         }
+        Returns: Json
+      }
+      agent_record_landlord_payout_receipt: {
+        Args: { p_payout_id: string; p_receipt_number: string }
         Returns: Json
       }
       agent_request_subagent_tenant_transfer: {
