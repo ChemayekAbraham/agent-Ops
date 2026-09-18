@@ -186,12 +186,36 @@ function InactivationRow({
     }
   };
 
-  const formOpen = resolving || rejecting || commenting;
+  const handleCancelTenant = async () => {
+    if (notes.trim().length < 10) {
+      toast({ title: 'Add a reason', description: 'At least 10 characters required.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const res = await cancelTenant.mutateAsync({ rentRequestId: row.rent_request_id, reason: notes });
+      const returned = Number(res?.float_returned ?? 0);
+      const spent = Number(res?.float_already_paid_out ?? 0);
+      toast({
+        title: 'Tenant cancelled',
+        description:
+          `${formatUGX(returned)} landlord float returned to the platform.` +
+          (spent > 0 ? ` ${formatUGX(spent)} was already paid out and is logged for CFO recovery.` : ''),
+      });
+      closeForms();
+    } catch (e: any) {
+      toast({ title: 'Could not cancel the tenant', description: e?.message, variant: 'destructive' });
+    }
+  };
+
+  const formOpen = resolving || rejecting || commenting || cancelling;
   const formLabel = rejecting
     ? 'Why is this flag being rejected? The agent will see this. (required, min 10 characters)'
     : commenting
       ? 'Add a review comment for this tenant (required, min 10 characters)'
-      : 'What was done to resolve this? (required, min 10 characters)';
+      : cancelling
+        ? 'Why is this tenant being cancelled? The landlord float will be returned. (required, min 10 characters)'
+        : 'What was done to resolve this? (required, min 10 characters)';
+
 
   return (
     <li className="p-3.5 flex flex-col gap-2 bg-card/40">
