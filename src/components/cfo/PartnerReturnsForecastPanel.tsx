@@ -48,6 +48,8 @@ interface Row {
   variance: number;
   partner_receivable: number;
   topups: number;
+  /** Predicted top-ups for future periods, from recent top-up behaviour. */
+  topups_forecast: number;
   promissory_receivable: number;
   compounding: number;
   net: number;
@@ -57,6 +59,11 @@ interface Payload {
   bucket: string;
   today: string;
   rows: Row[];
+  topup_model?: {
+    basis_buckets: number;
+    baseline_per_bucket: number;
+    trend_per_bucket: number;
+  };
   portfolio_count: number;
   committed_capital: number;
   promissory_outstanding: number;
@@ -109,6 +116,7 @@ export function PartnerReturnsForecastPanel({
       actualPast: past.reduce((s, r) => s + Number(r.actual_returns_paid), 0),
       forecastAhead: rows.filter((r) => !r.is_past).reduce((s, r) => s + Number(r.forecast_returns), 0),
       topups: rows.reduce((s, r) => s + Number(r.topups), 0),
+      topupsPredicted: rows.reduce((s, r) => s + Number(r.topups_forecast ?? 0), 0),
       promissory: rows.reduce((s, r) => s + Number(r.promissory_receivable), 0),
       compounding: rows.reduce((s, r) => s + Number(r.compounding), 0),
       receivable: rows.reduce((s, r) => s + Number(r.partner_receivable), 0),
@@ -177,6 +185,7 @@ export function PartnerReturnsForecastPanel({
           partner_receivable: Number(r.partner_receivable),
           topups: Number(r.topups),
           promissory_receivable: Number(r.promissory_receivable),
+          topups_forecast: Number(r.topups_forecast ?? 0),
           compounding: Number(r.compounding),
           net: Number(r.net),
         })),
@@ -217,6 +226,7 @@ export function PartnerReturnsForecastPanel({
     'Actually paid': Number(r.actual_returns_paid),
     'Partner receivable': Number(r.partner_receivable),
     'Top-ups': Number(r.topups),
+    'Predicted top-ups': Number(r.topups_forecast ?? 0),
     'Promissory receivable': Number(r.promissory_receivable),
     Compounding: Number(r.compounding),
     Net: Number(r.net),
@@ -274,9 +284,32 @@ export function PartnerReturnsForecastPanel({
           <Stat label="Forecast ahead" value={totals.forecastAhead} />
           <Stat label="Receivable from partners" value={totals.receivable} tone="emerald" />
           <Stat label="Top-ups received" value={totals.topups} tone="emerald" />
+          <Stat
+            label="Predicted top-ups ahead"
+            value={totals.topupsPredicted}
+            tone="emerald"
+            sub={
+              data?.topup_model?.basis_buckets
+                ? `from ${data.topup_model.basis_buckets} recent period${data.topup_model.basis_buckets === 1 ? '' : 's'}`
+                : 'not enough history yet'
+            }
+          />
           <Stat label="Promissory notes receivable" value={totals.promissory} tone="amber" />
           <Stat label="Compounding (reinvested)" value={totals.compounding} tone="violet" />
         </div>
+
+        {data?.topup_model?.basis_buckets ? (
+          <p className="text-[11px] text-muted-foreground">
+            Predicted top-ups use the last {data.topup_model.basis_buckets} completed period
+            {data.topup_model.basis_buckets === 1 ? '' : 's'} of real top-ups — averaging{' '}
+            {formatUGX(Number(data.topup_model.baseline_per_bucket))} per period and{' '}
+            {Number(data.topup_model.trend_per_bucket) >= 0 ? 'rising' : 'falling'} by{' '}
+            {formatUGX(Math.abs(Number(data.topup_model.trend_per_bucket)))} each period. Future
+            periods carry that prediction into the net position; past periods always show what was
+            really received.
+          </p>
+        ) : null}
+
 
         <div className="rounded-xl border border-border p-3">
           <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">
@@ -304,6 +337,14 @@ export function PartnerReturnsForecastPanel({
               <Bar dataKey="Partner receivable" fill={COLORS.receivable} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Promissory receivable" fill={COLORS.promissory} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Compounding" fill={COLORS.compounding} radius={[3, 3, 0, 0]} />
+              <Line
+                type="monotone"
+                dataKey="Predicted top-ups"
+                stroke={COLORS.topups}
+                strokeWidth={2}
+                strokeDasharray="3 3"
+                dot={{ r: 2 }}
+              />
               <Line type="monotone" dataKey="Forecast" stroke={COLORS.forecast} strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Actually paid" stroke={COLORS.actual} strokeWidth={2} dot={{ r: 2 }} />
               <Line type="monotone" dataKey="Net" stroke={COLORS.net} strokeWidth={2} strokeDasharray="5 4" dot={false} />
@@ -325,6 +366,7 @@ export function PartnerReturnsForecastPanel({
                 <th className="py-2 pr-3 font-semibold text-right">Difference</th>
                 <th className="py-2 pr-3 font-semibold text-right">Receivable</th>
                 <th className="py-2 pr-3 font-semibold text-right">Top-ups</th>
+                <th className="py-2 pr-3 font-semibold text-right">Predicted top-ups</th>
                 <th className="py-2 pr-3 font-semibold text-right">Promissory</th>
                 <th className="py-2 pr-3 font-semibold text-right">Compounding</th>
                 <th className="py-2 font-semibold text-right">Net</th>
@@ -351,6 +393,9 @@ export function PartnerReturnsForecastPanel({
                   </td>
                   <DrillCell value={Number(r.partner_receivable)} onClick={() => openDrilldown(r, 'receivable')} />
                   <DrillCell value={Number(r.topups)} onClick={() => openDrilldown(r, 'topups')} />
+                  <td className="py-2 pr-3 text-right font-mono tabular-nums text-muted-foreground">
+                    {r.is_past ? '—' : formatUGX(Number(r.topups_forecast ?? 0))}
+                  </td>
                   <DrillCell value={Number(r.promissory_receivable)} onClick={() => openDrilldown(r, 'promissory')} />
                   <DrillCell value={Number(r.compounding)} onClick={() => openDrilldown(r, 'compounding')} />
                   <td

@@ -16,6 +16,7 @@ export interface ForecastPdfPeriod {
   variance: number;
   partner_receivable: number;
   topups: number;
+  topups_forecast: number;
   promissory_receivable: number;
   compounding: number;
   net: number;
@@ -128,6 +129,7 @@ export async function generatePartnerReturnsForecastPdf(
     ['Forecast ahead', fmtUGX(forecastAhead)],
     ['Receivable from partners', fmtUGX(sum('partner_receivable'))],
     ['Top-ups received', fmtUGX(sum('topups'))],
+    ['Predicted top-ups ahead', fmtUGX(sum('topups_forecast'))],
     ['Promissory notes receivable', fmtUGX(sum('promissory_receivable'))],
     ['Compounding (reinvested)', fmtUGX(sum('compounding'))],
     ['Net position', fmtUGX(sum('net'))],
@@ -163,6 +165,7 @@ export async function generatePartnerReturnsForecastPdf(
         'Difference',
         'Receivable',
         'Top-ups',
+        'Predicted top-ups',
         'Promissory',
         'Compounding',
         'Net',
@@ -175,6 +178,7 @@ export async function generatePartnerReturnsForecastPdf(
       p.is_past ? fmtUGX(p.variance) : '—',
       fmtUGX(p.partner_receivable),
       fmtUGX(p.topups),
+      p.is_past ? '—' : fmtUGX(p.topups_forecast),
       fmtUGX(p.promissory_receivable),
       fmtUGX(p.compounding),
       fmtUGX(p.net),
@@ -192,7 +196,8 @@ export async function generatePartnerReturnsForecastPdf(
       5: { halign: 'right' },
       6: { halign: 'right' },
       7: { halign: 'right' },
-      8: { halign: 'right', fontStyle: 'bold' },
+      8: { halign: 'right' },
+      9: { halign: 'right', fontStyle: 'bold' },
     },
     didParseCell: (data: any) => {
       if (data.section !== 'body') return;
@@ -201,7 +206,7 @@ export async function generatePartnerReturnsForecastPdf(
       if (data.column.index === 3 && p.is_past) {
         data.cell.styles.textColor = Number(p.variance) >= 0 ? POSITIVE : NEGATIVE;
       }
-      if (data.column.index === 8) {
+      if (data.column.index === 9) {
         data.cell.styles.textColor = Number(p.net) >= 0 ? POSITIVE : NEGATIVE;
       }
     },
