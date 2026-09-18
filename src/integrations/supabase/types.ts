@@ -57833,6 +57833,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_tenant_ops_repayment_watchlist: { Args: never; Returns: Json }
       get_tenant_ops_service_centre_metrics: {
         Args: never
         Returns: {
