@@ -107,20 +107,30 @@ function InactivationRow({
   onOpenBehavior?: (tenantId: string) => void;
 }) {
   const { toast } = useToast();
-  const { acknowledge, resolve, reject } = useInactivationReview();
+  const { roles } = useAuth();
+  const { acknowledge, resolve, reject, cancelTenant } = useInactivationReview();
   const [resolving, setResolving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [commenting, setCommenting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [notes, setNotes] = useState('');
   const isAcknowledged = row.review_status === 'acknowledged';
-  const busy = acknowledge.isPending || resolve.isPending || reject.isPending;
+  const busy =
+    acknowledge.isPending || resolve.isPending || reject.isPending || cancelTenant.isPending;
+
+  /** Cancelling a tenant recalls money, so it is CFO / Finance Ops / COO / Operations only. */
+  const canCancelTenant = (roles ?? []).some((r) =>
+    ['cfo', 'financial_ops', 'coo', 'operations', 'manager', 'super_admin'].includes(r),
+  );
 
   const closeForms = () => {
     setResolving(false);
     setRejecting(false);
     setCommenting(false);
+    setCancelling(false);
     setNotes('');
   };
+
 
   const handleAcknowledge = async () => {
     try {
