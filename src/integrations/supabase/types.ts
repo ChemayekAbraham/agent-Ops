@@ -56908,7 +56908,14 @@ export type Database = {
         Returns: Json
       }
       get_partner_ops_returns_forecast: {
-        Args: { p_bucket?: string; p_end: string; p_start: string }
+        Args: {
+          p_bucket?: string
+          p_end: string
+          p_lookback?: number
+          p_min_history?: number
+          p_start: string
+          p_trend_damping?: number
+        }
         Returns: Json
       }
       get_partner_ops_returns_forecast_detail: {
