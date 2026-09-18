@@ -1,8 +1,8 @@
 # 72 — CTO-granted ID-verification exception missing from `payout_withdrawal_block_reasons`
 
-**Written 2026-09-18, migration NOT yet applied to production (blocked by the auto-mode
-classifier — needs Josh to run it by hand, same as docs 63/66/71). Read this before touching
-`payout_withdrawal_block_reasons` again, or if a CTO-exempted user still can't withdraw.**
+**Fixed live, verified 2026-09-18** — applied by hand via Lovable Cloud SQL editor (blocked by the
+auto-mode classifier for direct apply, same as docs 63/66/71). Read this before touching
+`payout_withdrawal_block_reasons` again, or if a CTO-exempted user still can't withdraw.
 
 ## What was reported
 
@@ -56,17 +56,19 @@ Placed before the rejected-destination and identity-binding checks — same prec
 pure-partner short-circuit and the choke-point comment on `withdrawal_user_id_verified` itself: an
 exception means skip ID verification entirely, not skip one leg of it.
 
-**Not yet applied** — `mcp__lovable__query_database` refused the `CREATE OR REPLACE FUNCTION` with
-`Permission denied by auto mode classifier: [Production Deploy]`. Needs manual apply via Lovable
-Cloud → SQL editor (paste the `CREATE OR REPLACE FUNCTION ... COMMENT ON FUNCTION` body from the
-migration file and run it), same path used for docs 63/66/71.
+`mcp__lovable__query_database` refused the `CREATE OR REPLACE FUNCTION` with `Permission denied by
+auto mode classifier: [Production Deploy]`. Applied by hand via Lovable Cloud → SQL editor instead
+(Josh pasted and ran the `CREATE OR REPLACE FUNCTION ... COMMENT ON FUNCTION` body), same path used
+for docs 63/66/71.
 
-## Verify after applying
+## Verified live
 
 ```sql
 select public.payout_withdrawal_block_reasons('fe1e9f51-a2c3-49fc-bd40-b2c143afe628'::uuid);
--- expect: {"blocked": false, "code": "ok", "status": "verified", "reasons": []}
+-- returns: {"blocked": false, "code": "ok", "status": "verified", "reasons": []}
 ```
+
+Confirmed 2026-09-18 immediately after Josh ran the SQL. Mark's Withdraw button is unblocked.
 
 ## What not to do
 
