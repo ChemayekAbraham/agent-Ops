@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { SkeletonProductCard } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Info, Smartphone, Bike, AlertCircle, Share2, Trash2,
+  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Smartphone, Bike, AlertCircle, Share2, Trash2,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
@@ -469,10 +469,6 @@ export default function MerchandiseStore() {
           </div>
         )}
 
-        <div className="rounded-xl bg-primary/5 border border-primary/15 px-3 py-2 flex gap-2 text-[11px] text-muted-foreground">
-          <Info className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-          <p>Anything you order is repaid automatically — 15% of your withdrawable wallet is deducted up to 4 times a day until it's cleared. You'll get a notification each time.</p>
-        </div>
 
         {/* Order a Welile Smartphone */}
         <Card className="border-primary/30 bg-primary/5">
