@@ -138,15 +138,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find active rent request
-    const { data: rentRequest, error: rrErr } = await supabaseAdmin
+    // Find the Rent Plan to pay. When the caller names one explicitly it is
+    // still scoped to this tenant, so a bad id can never touch another plan.
+    let planQuery = supabaseAdmin
       .from("rent_requests")
       .select("id, total_repayment, amount_repaid, landlord_id, status")
-      .eq("tenant_id", tenantId)
-      .in("status", ["funded", "disbursed", "approved", "repaying"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("tenant_id", tenantId);
+
+    planQuery = requestedRentRequestId
+      ? planQuery.eq("id", requestedRentRequestId)
+      : planQuery
+          .in("status", ["funded", "disbursed", "approved", "repaying"])
+          .order("created_at", { ascending: false });
+
+    const { data: rentRequest, error: rrErr } = await planQuery.limit(1).maybeSingle();
 
     if (rrErr) {
       return new Response(
