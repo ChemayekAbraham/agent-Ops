@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace, Wallet, Save, ChevronRight } from 'lucide-react';
+import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace, Wallet, Save, ChevronRight, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -76,8 +76,20 @@ const ShotTile = forwardRef<ShotTileHandle, ShotTileProps>(function ShotTile(
   { label, hint, file, onPick, onClear, disabled, facing, onCustomCapture }, ref,
 ) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   useImperativeHandle(ref, () => ({ openFilePicker: () => inputRef.current?.click() }));
   const preview = file ? URL.createObjectURL(file) : null;
+
+  const acceptPicked = (f: File | undefined, fromUpload: boolean) => {
+    if (!f) { if (!fromUpload) disarmAuthCriticalSection(); return; }
+    if (f.size > MAX_BYTES) {
+      if (!fromUpload) disarmAuthCriticalSection();
+      toast.error('That photo is too large. Please choose a smaller one.');
+      return;
+    }
+    if (!fromUpload) disarmAuthCriticalSection();
+    onPick(f);
+  };
 
   return (
     <div className="rounded-lg border p-3 space-y-2">
@@ -115,26 +127,47 @@ const ShotTile = forwardRef<ShotTileHandle, ShotTileProps>(function ShotTile(
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = '';
-          if (!f) { disarmAuthCriticalSection(); return; }
-          if (f.size > MAX_BYTES) {
-            disarmAuthCriticalSection();
-            toast.error('That photo is too large. Please take a smaller one.');
-            return;
-          }
-          disarmAuthCriticalSection();
-          onPick(f);
+          acceptPicked(f, false);
         }}
       />
 
-      <Button
-        variant={file ? 'outline' : 'default'}
-        className="w-full"
-        disabled={disabled}
-        onClick={() => (onCustomCapture ? onCustomCapture() : inputRef.current?.click())}
-      >
-        <Camera className="mr-2 h-4 w-4" />
-        {file ? 'Retake' : 'Take photo'}
-      </Button>
+      {/* A plain file picker, no `capture` hint — lets someone choose an
+          existing photo (gallery/Files/Downloads) instead of shooting a new
+          one, e.g. a scan already on their phone. Same size check and the
+          same onPick as every other capture path. */}
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          acceptPicked(f, true);
+        }}
+      />
+
+      <div className="flex gap-2">
+        <Button
+          variant={file ? 'outline' : 'default'}
+          className="flex-1"
+          disabled={disabled}
+          onClick={() => (onCustomCapture ? onCustomCapture() : inputRef.current?.click())}
+        >
+          <Camera className="mr-2 h-4 w-4" />
+          {file ? 'Retake' : 'Take photo'}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1"
+          disabled={disabled}
+          onClick={() => uploadInputRef.current?.click()}
+        >
+          <Upload className="mr-2 h-4 w-4" />
+          Upload
+        </Button>
+      </div>
     </div>
   );
 });
