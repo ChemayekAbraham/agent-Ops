@@ -127,6 +127,7 @@ import { AgentPendingReceiptPanel } from '@/components/agent/AgentPendingReceipt
 import { AgentTenantHealthCard } from '@/components/agent/AgentTenantHealthCard';
 import { AgentVouchHighlightCard } from '@/components/agent/AgentVouchHighlightCard';
 import type { LandlordFloatAllocation } from '@/hooks/useLandlordFloatAllocations';
+import { usePendingLandlordReceipts } from '@/hooks/usePendingLandlordReceipts';
 
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { DeviceSessionIndicator } from '@/components/agent/DeviceSessionIndicator';
