@@ -224,6 +224,7 @@ export function PartnerReturnsForecastPanel({
     'Actually paid': Number(r.actual_returns_paid),
     'Partner receivable': Number(r.partner_receivable),
     'Top-ups': Number(r.topups),
+    'Predicted top-ups': Number(r.topups_forecast ?? 0),
     'Promissory receivable': Number(r.promissory_receivable),
     Compounding: Number(r.compounding),
     Net: Number(r.net),
