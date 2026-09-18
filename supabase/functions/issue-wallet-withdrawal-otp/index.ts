@@ -144,6 +144,21 @@ Deno.serve(async (req) => {
     const destRow = Array.isArray(destData) ? destData[0] : destData;
     const destStatus = destRow?.status ?? "waiting";
 
+    // A CTO-granted id_verification_exceptions row means this person does not
+    // go through ID verification at all — same precedence as the identical
+    // check already wired into submit_withdrawal_request and
+    // enforce_withdrawal_destination_verified (this OTP gate is a separate,
+    // independent code path that was missing it; found when an exempted
+    // account still hit "Cannot send code" here despite being clear
+    // everywhere else).
+    const { data: exceptionRows } = await admin
+      .from("id_verification_exceptions")
+      .select("id")
+      .eq("user_id", userId)
+      .is("revoked_at", null)
+      .limit(1);
+    const idExempt = (exceptionRows?.length ?? 0) > 0;
+
     // A destination that Ops has not looked at yet is NOT a blocker when the
     // user has already submitted their National ID + photos and this number is
     // the one locked to that identity. This mirrors
@@ -171,7 +186,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (destStatus !== "verified" && !identityPendingOk) {
+    if (destStatus !== "verified" && !identityPendingOk && !idExempt) {
       // No SMS sent, no challenge created — the withdrawal cannot succeed
       // yet regardless of the code, so don't spend either on it.
       return json({
