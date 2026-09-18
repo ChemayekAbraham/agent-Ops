@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
   Line,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -16,22 +17,28 @@ import { TrendingUp } from 'lucide-react';
 import { useTenantOpsPipelineTrend, type PipelineTrendPoint } from '@/hooks/useTenantOpsPipelineTrend';
 
 type MetricKey = keyof Omit<PipelineTrendPoint, 'date' | 'fullDate'>;
+type MetricKind = 'line' | 'bar';
 
 interface MetricDef {
   key: MetricKey;
   label: string;
   color: string;
+  kind: MetricKind;
   hint: string;
 }
 
-/** Definitions mirror the server-side stamps exactly — nothing is re-derived here. */
+/**
+ * Definitions mirror the server-side stamps exactly — nothing is re-derived here.
+ * Colours are deliberately far apart on the wheel so no two metrics read alike:
+ * indigo line, sky line, amber bar, emerald bar, violet line, neutral grey line.
+ */
 const METRICS: MetricDef[] = [
-  { key: 'registrations', label: 'Registrations', color: 'hsl(var(--chart-1))', hint: 'New tenants registered that day' },
-  { key: 'applications', label: 'Applications', color: 'hsl(var(--chart-3))', hint: 'Rent Plan applications raised' },
-  { key: 'cooApproved', label: 'COO approved', color: 'hsl(var(--chart-4))', hint: 'Applications approved by the COO' },
-  { key: 'cfoFunded', label: 'CFO funded', color: 'hsl(var(--chart-2))', hint: 'Applications funded by Finance' },
-  { key: 'landlordFunded', label: 'Landlord funded', color: 'hsl(var(--success))', hint: 'Landlord payouts disbursed' },
-  { key: 'rejected', label: 'Rejected', color: 'hsl(var(--muted-foreground))', hint: 'Applications rejected' },
+  { key: 'registrations', label: 'Registrations', color: '#4f46e5', kind: 'line', hint: 'New tenants registered that day' },
+  { key: 'applications', label: 'Applications', color: '#0284c7', kind: 'line', hint: 'Rent Plan applications raised' },
+  { key: 'cooApproved', label: 'COO approved', color: '#7c3aed', kind: 'line', hint: 'Applications approved by the COO' },
+  { key: 'cfoFunded', label: 'CFO funded', color: '#d97706', kind: 'bar', hint: 'Applications funded by Finance' },
+  { key: 'landlordFunded', label: 'Landlord funded', color: '#059669', kind: 'bar', hint: 'Landlord payouts disbursed' },
+  { key: 'rejected', label: 'Rejected', color: '#94a3b8', kind: 'line', hint: 'Applications rejected' },
 ];
 
 const RANGES = [
@@ -65,8 +72,12 @@ export function TenantOpsPipelineTrendChart({ className }: { className?: string 
         : [...prev, key],
     );
 
+  const active = METRICS.filter((m) => visible.includes(m.key));
+
   // Keep the axis readable on small screens by thinning tick labels.
   const tickInterval = days <= 7 ? 0 : days <= 30 ? 3 : 9;
+  // Bars stay narrow so the trend lines remain the visual focus.
+  const barSize = days <= 7 ? 14 : days <= 30 ? 8 : 4;
 
   return (
     <Card className={cn('overflow-hidden', className)}>
@@ -92,7 +103,7 @@ export function TenantOpsPipelineTrendChart({ className }: { className?: string 
         </div>
 
         {/* Legend doubles as the show/hide control */}
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
           {METRICS.map((m) => {
             const on = visible.includes(m.key);
             return (
@@ -103,16 +114,23 @@ export function TenantOpsPipelineTrendChart({ className }: { className?: string 
                 title={m.hint}
                 aria-pressed={on}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors',
+                  'flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] transition-colors sm:px-2.5 sm:text-xs',
                   on
                     ? 'border-border bg-card text-foreground shadow-sm'
                     : 'border-dashed border-border bg-muted/40 text-muted-foreground',
                 )}
               >
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: on ? m.color : 'hsl(var(--muted-foreground))' }}
-                />
+                {m.kind === 'bar' ? (
+                  <span
+                    className="h-2.5 w-2 shrink-0 rounded-[2px]"
+                    style={{ backgroundColor: on ? m.color : 'hsl(var(--muted-foreground))' }}
+                  />
+                ) : (
+                  <span
+                    className="h-0.5 w-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: on ? m.color : 'hsl(var(--muted-foreground))' }}
+                  />
+                )}
                 <span className="whitespace-nowrap">{m.label}</span>
                 <span className="font-semibold tabular-nums">{totals[m.key] ?? 0}</span>
               </button>
@@ -129,10 +147,10 @@ export function TenantOpsPipelineTrendChart({ className }: { className?: string 
             No activity in this period yet
           </div>
         ) : (
-          <div className="h-[240px] w-full sm:h-[300px]">
+          <div className="h-[260px] w-full sm:h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={rows} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -18, bottom: 0 }} barCategoryGap="28%">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
@@ -150,37 +168,57 @@ export function TenantOpsPipelineTrendChart({ className }: { className?: string 
                   width={44}
                 />
                 <Tooltip
+                  cursor={{ fill: 'hsl(var(--muted))', fillOpacity: 0.35 }}
                   contentStyle={{
                     background: 'hsl(var(--card))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: 12,
                     fontSize: 12,
                     color: 'hsl(var(--foreground))',
+                    boxShadow: '0 8px 24px -12px hsl(var(--foreground) / 0.25)',
                   }}
+                  labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                  itemStyle={{ paddingTop: 1, paddingBottom: 1 }}
                   labelFormatter={(_label, payload) =>
                     (payload?.[0]?.payload as PipelineTrendPoint | undefined)?.fullDate ?? ''
                   }
                 />
-                {METRICS.filter((m) => visible.includes(m.key)).map((m) => (
-                  <Line
-                    key={m.key}
-                    type="monotone"
-                    dataKey={m.key}
-                    name={m.label}
-                    stroke={m.color}
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                ))}
-              </LineChart>
+                {active
+                  .filter((m) => m.kind === 'bar')
+                  .map((m) => (
+                    <Bar
+                      key={m.key}
+                      dataKey={m.key}
+                      name={m.label}
+                      fill={m.color}
+                      fillOpacity={0.75}
+                      radius={[3, 3, 0, 0]}
+                      barSize={barSize}
+                      maxBarSize={16}
+                    />
+                  ))}
+                {active
+                  .filter((m) => m.kind === 'line')
+                  .map((m) => (
+                    <Line
+                      key={m.key}
+                      type="monotone"
+                      dataKey={m.key}
+                      name={m.label}
+                      stroke={m.color}
+                      strokeWidth={2.25}
+                      dot={false}
+                      activeDot={{ r: 4, strokeWidth: 0 }}
+                    />
+                  ))}
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         )}
         <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-          Tap a label to show or hide a line. Counts use each stage's own recorded date —
-          registration date, application date, COO approval, Finance funding and landlord payout —
-          in Kampala time, including days with no activity.
+          Tap a label to show or hide a metric. Lines track volume stages (registrations,
+          applications, approvals); bars track money stages (Finance funding, landlord payout).
+          Counts use each stage's own recorded date in Kampala time, including days with no activity.
         </p>
       </CardContent>
     </Card>
