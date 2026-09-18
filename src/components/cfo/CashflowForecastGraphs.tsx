@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { LineChart as LineChartIcon, CalendarRange, RefreshCw, TrendingUp } from 'lucide-react';
+import { PartnerReturnsForecastPanel } from './PartnerReturnsForecastPanel';
 
 type Bucket = 'day' | 'week' | 'month';
 type RangePreset = '7d' | '30d' | '90d' | '12m' | 'custom';
