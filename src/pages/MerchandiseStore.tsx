@@ -93,6 +93,7 @@ export default function MerchandiseStore() {
   const [ordering, setOrdering] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
   const { repaying: smartphoneRepaying } = useMerchandiseOrderLock(user?.id);
+  const deleteApplication = useDeleteMerchandiseApplication(user?.id);
 
 
   const [bikeOpen, setBikeOpen] = useState(false);
