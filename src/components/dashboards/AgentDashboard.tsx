@@ -1101,7 +1101,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             {!isMerchant && (repayingTenantLoading || hasRepayingTenant) && <AgentCollectionLeagueCard />}
 
             {/* Free Service Center qualification — permanent milestone tracker */}
-            {!isMerchant && isLandlordReceiptConfirmationEffective() && (
+            {!isMerchant && (
               <>
               <LastWeekWinnerOverlay />
               <WeeklyChampionTeamDialog />
@@ -1509,7 +1509,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               onOpenOtpAudit={() => { hapticTap(); setOtpAuditOpen(true); }}
             />
             )}
-            {!isMerchant && (
+            {!isMerchant && isLandlordReceiptConfirmationEffective() && (
               <button
                 onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}
                 className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 ring-1 ring-[#9234EA]/30 active:scale-[0.98] transition-all touch-manipulation"
