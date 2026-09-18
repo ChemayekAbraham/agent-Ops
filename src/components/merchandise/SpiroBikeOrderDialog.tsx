@@ -5,6 +5,7 @@ import { Bike, Loader2 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -27,7 +28,6 @@ import {
   BIKE_RECOVERY_RATE,
   SPIRO_LEASE_PERIODS,
   SPIRO_BIKE_BASE_PRICE,
-  spiroLeaseGrid,
   spiroLeaseSchedule,
 } from '@/lib/spiroBikeLease';
 import { useMotorBikeCatalog } from '@/components/executive/agent-ops/MotorBikeCatalogDialog';
