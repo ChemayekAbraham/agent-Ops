@@ -1,9 +1,15 @@
 # 63 — CTO Platform Controls: "Pause landlord float withdrawals" toggle (2026-09-17)
 
-**Status: written, migration NOT yet applied to production** (blocked by the auto-mode
-classifier as a "modify shared resources" action when attempted directly against the live DB —
-must go through the normal migration deploy path). Verify with the block below before trusting
-this is live.
+**Status: live as of 2026-09-18, verified against production.** Josh reported the toggle "does
+not turn on" in the UI — root cause was exactly the gap this doc's own "What not to do" section
+warned about: the migration was committed (`57cd5b0851`) but never applied to production, so the
+`treasury_controls` row for `landlord_float_withdrawals_paused` didn't exist (the panel's UPDATE
+matched 0 rows, no error, and the truth-refetch kept showing OFF) and `enforce_landlord_payout_eligibility()`
+was still the pre-migration version with no pause check at all. First attempt to apply it via the
+DB tool was blocked again by the auto-mode classifier as a "modify shared resources" write; Josh
+ran the same SQL by hand. Re-verified live with the block below — row exists (`enabled = false`),
+trigger source now contains the `landlord_float_withdrawals_paused()` check. The toggle should now
+flip correctly in the UI.
 
 ## What was requested
 
