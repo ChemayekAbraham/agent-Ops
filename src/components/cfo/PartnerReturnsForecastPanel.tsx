@@ -477,7 +477,18 @@ export function PartnerReturnsForecastPanel({
           </p>
           <div className="mt-2 space-y-0.5 text-[11px] font-mono tabular-nums">
             <p className="text-muted-foreground">
-              Inflows: {formatUGX(totals.receivable + totals.topups + totals.promissory + totals.compounding)}
+              Inflows:{' '}
+              {formatUGX(
+                totals.receivable +
+                  totals.topupsPast +
+                  totals.topupsPredictedAhead +
+                  totals.promissory +
+                  totals.compounding,
+              )}
+            </p>
+            <p className="text-muted-foreground">
+              Of which top-ups: {formatUGX(totals.topupsPast)} received +{' '}
+              {formatUGX(totals.topupsPredictedAhead)} predicted
             </p>
             <p className="text-muted-foreground">
               Less Returns paid (past): −{formatUGX(totals.actualPast)}
