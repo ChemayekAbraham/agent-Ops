@@ -287,7 +287,7 @@ export default function ProxyAgentCommandCenter() {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
+      <header className="relative bg-background border-b border-border">
         <div className="flex items-center gap-2 px-3 py-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back">
             <ArrowLeft className="h-5 w-5" />
@@ -310,7 +310,7 @@ export default function ProxyAgentCommandCenter() {
             setTab(v === 'notes' ? 'notes' : 'partners');
           }}
         >
-          <TabsList className="sticky top-[57px] z-20 grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="share">Share link</TabsTrigger>
             <TabsTrigger value="notes">Promissory ({noteTotal})</TabsTrigger>
             <TabsTrigger value="more">More</TabsTrigger>
