@@ -52,29 +52,51 @@ function mean(values: number[]): number {
   return values.reduce((s, v) => s + v, 0) / values.length;
 }
 
+/** Tunable settings for the top-up prediction model. */
+export interface TopupModelSettings {
+  /** Completed periods averaged for the baseline. */
+  lookback: number;
+  /** Share of the recent-vs-older drift carried forward (0 = ignore trend). */
+  trendDamping: number;
+  /** Periods required before any trend is applied. */
+  minHistory: number;
+}
+
+export const DEFAULT_TOPUP_SETTINGS: TopupModelSettings = {
+  lookback: BACKTEST_BASIS,
+  trendDamping: 0.5,
+  minHistory: 4,
+};
+
 /** Predicts one period ahead from a series of prior actuals (oldest first). */
-export function predictNextTopup(priorActuals: number[]): number | null {
-  const window = priorActuals.slice(-BACKTEST_BASIS);
+export function predictNextTopup(
+  priorActuals: number[],
+  settings: TopupModelSettings = DEFAULT_TOPUP_SETTINGS,
+): number | null {
+  const window = priorActuals.slice(-Math.max(2, settings.lookback));
   if (window.length < BACKTEST_MIN_BASIS) return null;
 
   const base = mean(window);
   let trend = 0;
-  if (window.length >= 4) {
+  if (window.length >= settings.minHistory && settings.trendDamping > 0) {
     const half = Math.floor(window.length / 2);
     const older = window.slice(0, window.length - half);
     const recent = window.slice(window.length - half);
-    trend = 0.5 * (mean(recent) - mean(older));
+    trend = settings.trendDamping * (mean(recent) - mean(older));
   }
   return Math.max(0, Math.round(base + trend));
 }
 
-export function buildTopupBacktest(periods: TopupHistoryPeriod[]): TopupBacktestSummary {
+export function buildTopupBacktest(
+  periods: TopupHistoryPeriod[],
+  settings: TopupModelSettings = DEFAULT_TOPUP_SETTINGS,
+): TopupBacktestSummary {
   const completed = periods.filter((p) => p.is_past);
   const rows: TopupBacktestRow[] = [];
 
   for (let i = 0; i < completed.length; i += 1) {
     const priorActuals = completed.slice(0, i).map((p) => Number(p.topups) || 0);
-    const predicted = predictNextTopup(priorActuals);
+    const predicted = predictNextTopup(priorActuals, settings);
     if (predicted === null) continue;
 
     const actual = Number(completed[i].topups) || 0;
@@ -82,7 +104,7 @@ export function buildTopupBacktest(periods: TopupHistoryPeriod[]): TopupBacktest
     rows.push({
       key: completed[i].key,
       label: completed[i].label,
-      basis: Math.min(priorActuals.length, BACKTEST_BASIS),
+      basis: Math.min(priorActuals.length, Math.max(2, settings.lookback)),
       predicted,
       actual,
       variance,
