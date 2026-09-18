@@ -522,6 +522,16 @@ export function PartnerReturnsForecastPanel({
         </div>
 
         <p className="text-[11px] text-muted-foreground">
+          {bands.map.size > 0
+            ? 'The shaded band around the predicted top-ups is the likely range, based on how far past predictions landed from what was really received. It widens the further ahead the period is.'
+            : bands.reason === 'no_history'
+              ? 'No likely range yet for predicted top-ups: at least two completed periods of top-up history are needed before a range can be worked out.'
+              : bands.reason === 'no_variation'
+                ? 'No likely range shown: past predictions have matched what was received exactly, so there is no spread to draw.'
+                : 'No likely range shown for predicted top-ups in this view.'}
+        </p>
+
+        <p className="text-[11px] text-muted-foreground">
           Tap any figure in the table to see the records behind it.
         </p>
 
