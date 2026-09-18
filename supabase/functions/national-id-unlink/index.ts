@@ -1,8 +1,10 @@
-// The holder of a National ID removes someone else attached to it.
-// The removal itself happens inside the SECURITY DEFINER RPC (owner-only,
-// written reason required); this function only proves who is calling and
-// then tells the removed person by SMS. The in-app dialog is driven by the
-// notice row the RPC writes.
+// Finance Operations decides on a request from an ID holder to remove someone
+// attached to their National ID.
+//
+// The decision itself happens inside the SECURITY DEFINER RPC
+// `decide_national_id_unlink` (approver-only; approval performs the removal and
+// writes the in-app notice). This function only proves who is calling and then
+// tells the removed person by SMS.
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
@@ -35,44 +37,45 @@ Deno.serve(async (req) => {
     const caller = userData?.user;
     if (userErr || !caller) return json({ error: "Unauthorized" }, 401);
 
-    let body: { member_id?: string; reason?: string };
+    let body: { request_id?: string; approve?: boolean; note?: string };
     try {
       body = await req.json();
     } catch {
       return json({ error: "Invalid request" }, 400);
     }
 
-    const memberId = String(body.member_id ?? "").trim();
-    const reason = String(body.reason ?? "").trim();
-    if (!/^[0-9a-f-]{36}$/i.test(memberId)) return json({ error: "Choose someone on the ID." }, 400);
-    if (reason.length < 10) {
-      return json({ error: "Please write a short reason (at least 10 characters)." }, 400);
-    }
+    const requestId = String(body.request_id ?? "").trim();
+    const approve = body.approve === true;
+    const note = String(body.note ?? "").trim();
+    if (!/^[0-9a-f-]{36}$/i.test(requestId)) return json({ error: "Choose a removal request." }, 400);
 
-    // Run the removal as the caller so the RPC's owner check applies to them.
+    // Run the decision as the caller so the RPC's approver check applies to them.
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } },
     );
 
-    const { data, error } = await userClient.rpc("national_id_unlink_member", {
-      p_member_id: memberId,
-      p_reason: reason,
+    const { data, error } = await userClient.rpc("decide_national_id_unlink", {
+      p_request_id: requestId,
+      p_approve: approve,
+      p_note: note || null,
     });
     if (error) return json({ error: error.message }, 400);
 
     const res = (data ?? {}) as {
       success?: boolean;
       message?: string;
+      status?: string;
+      member_id?: string | null;
       member_phone?: string | null;
       masked_nin?: string | null;
       owner_name?: string | null;
     };
-    if (!res.success) return json({ error: res.message ?? "Could not remove that person." }, 400);
+    if (!res.success) return json({ error: res.message ?? "Could not record that decision." }, 400);
 
     let smsSent = false;
-    if (res.member_phone) {
+    if (res.status === "approved" && res.member_phone) {
       const owner = res.owner_name || "the ID holder";
       const message =
         `Welile: ${owner} has removed your account from National ID ${res.masked_nin ?? ""}. ` +
@@ -81,15 +84,15 @@ Deno.serve(async (req) => {
         smsSent = await sendSMS(res.member_phone, message, {
           admin: adminClient,
           source: "national-id-unlink",
-          recipient_user_id: memberId,
-          reference_id: `national-id-unlink:${memberId}:${Date.now()}`,
+          recipient_user_id: res.member_id ?? undefined,
+          reference_id: `national-id-unlink:${requestId}`,
         });
       } catch (err) {
         console.error("[national-id-unlink] SMS failed", err);
       }
     }
 
-    return json({ success: true, sms_sent: smsSent });
+    return json({ success: true, status: res.status ?? (approve ? "approved" : "rejected"), sms_sent: smsSent });
   } catch (err) {
     console.error("[national-id-unlink] error", err);
     return json({ error: (err as Error)?.message ?? "Unexpected error" }, 500);

@@ -8934,37 +8934,58 @@ export type Database = {
       }
       cc_concern_reviewers: {
         Row: {
+          acknowledged_at: string | null
           added_by: string | null
           added_by_name: string | null
+          added_reason: string | null
           concern_id: string
           created_at: string
           full_name: string | null
           id: string
           note: string | null
+          notified_at: string | null
+          remove_reason: string | null
+          removed_at: string | null
+          removed_by: string | null
+          removed_by_name: string | null
           role: string
           staff_id: string | null
           user_id: string
         }
         Insert: {
+          acknowledged_at?: string | null
           added_by?: string | null
           added_by_name?: string | null
+          added_reason?: string | null
           concern_id: string
           created_at?: string
           full_name?: string | null
           id?: string
           note?: string | null
+          notified_at?: string | null
+          remove_reason?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          removed_by_name?: string | null
           role?: string
           staff_id?: string | null
           user_id: string
         }
         Update: {
+          acknowledged_at?: string | null
           added_by?: string | null
           added_by_name?: string | null
+          added_reason?: string | null
           concern_id?: string
           created_at?: string
           full_name?: string | null
           id?: string
           note?: string | null
+          notified_at?: string | null
+          remove_reason?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          removed_by_name?: string | null
           role?: string
           staff_id?: string | null
           user_id?: string
@@ -9532,10 +9553,12 @@ export type Database = {
           created_at: string
           id: string
           new_due_at: string | null
+          new_recipients: string | null
           new_user_id: string | null
           new_user_name: string | null
           note: string | null
           prev_due_at: string | null
+          prev_recipients: string | null
           prev_user_id: string | null
           prev_user_name: string | null
           reason: string | null
@@ -9549,10 +9572,12 @@ export type Database = {
           created_at?: string
           id?: string
           new_due_at?: string | null
+          new_recipients?: string | null
           new_user_id?: string | null
           new_user_name?: string | null
           note?: string | null
           prev_due_at?: string | null
+          prev_recipients?: string | null
           prev_user_id?: string | null
           prev_user_name?: string | null
           reason?: string | null
@@ -9566,10 +9591,12 @@ export type Database = {
           created_at?: string
           id?: string
           new_due_at?: string | null
+          new_recipients?: string | null
           new_user_id?: string | null
           new_user_name?: string | null
           note?: string | null
           prev_due_at?: string | null
+          prev_recipients?: string | null
           prev_user_id?: string | null
           prev_user_name?: string | null
           reason?: string | null
@@ -27072,6 +27099,60 @@ export type Database = {
           owner_name?: string | null
           reason?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      national_id_unlink_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_by_name: string | null
+          decision_note: string | null
+          id: string
+          member_id: string
+          member_name: string | null
+          member_phone: string | null
+          nin_masked: string | null
+          owner_id: string
+          owner_name: string | null
+          reason: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_by_name?: string | null
+          decision_note?: string | null
+          id?: string
+          member_id: string
+          member_name?: string | null
+          member_phone?: string | null
+          nin_masked?: string | null
+          owner_id: string
+          owner_name?: string | null
+          reason: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_by_name?: string | null
+          decision_note?: string | null
+          id?: string
+          member_id?: string
+          member_name?: string | null
+          member_phone?: string | null
+          nin_masked?: string | null
+          owner_id?: string
+          owner_name?: string | null
+          reason?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -52801,6 +52882,10 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: Json
       }
+      cancel_tenant_and_return_landlord_float: {
+        Args: { p_reason: string; p_rent_request_id: string }
+        Returns: Json
+      }
       cancel_tenant_repayment_pause: {
         Args: { p_reason: string; p_rent_request_id: string }
         Returns: Json
@@ -52906,6 +52991,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      cc_can_manage_concern_participants: {
+        Args: { p_concern_id: string; p_user_id?: string }
+        Returns: boolean
+      }
       cc_can_read_subject: {
         Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: boolean
@@ -52933,14 +53022,26 @@ export type Database = {
         }
         Returns: Json
       }
+      cc_concern_participants_text: {
+        Args: { p_concern_id: string }
+        Returns: string
+      }
       cc_concern_powers: { Args: never; Returns: Json }
       cc_concern_reviewer_list: {
         Args: { p_concern_ids: string[] }
         Returns: {
+          acknowledged_at: string
+          active: boolean
           added_by_name: string
+          added_reason: string
           concern_id: string
           created_at: string
           full_name: string
+          note: string
+          notified_at: string
+          remove_reason: string
+          removed_at: string
+          removed_by_name: string
           role: string
           user_id: string
         }[]
@@ -53072,7 +53173,6 @@ export type Database = {
           p_follow_up_note?: string
           p_linked_kind?: string
           p_linked_user_id?: string
-          p_notes?: string
           p_status?: string
         }
         Returns: string
@@ -53083,6 +53183,10 @@ export type Database = {
           p_outcome: Database["public"]["Enums"]["cc_attempt_outcome"]
         }
         Returns: undefined
+      }
+      cc_remove_concern_reviewer: {
+        Args: { p_concern_id: string; p_reason: string; p_user_id: string }
+        Returns: Json
       }
       cc_reveal_phone: { Args: { p_attempt_id: string }; Returns: string }
       cc_set_concern_due: {
@@ -54106,6 +54210,10 @@ export type Database = {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
       }
+      decide_national_id_unlink: {
+        Args: { p_approve: boolean; p_note?: string; p_request_id: string }
+        Returns: Json
+      }
       decrement_rent_requested: {
         Args: { p_amount: number; p_summary_id: string }
         Returns: undefined
@@ -54862,6 +54970,9 @@ export type Database = {
           id_account_count: number
           id_account_ordinal: number
           id_back_photo_ready: boolean
+          is_linked_id: boolean
+          linked_id_holder: string
+          linked_id_is_this_one: boolean
           momo_number: string
           name_match_score: number
           name_mismatch_tokens: Json
@@ -57697,6 +57808,10 @@ export type Database = {
           vacant_units: number
         }[]
       }
+      get_tenant_ops_pipeline_trend: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       get_tenant_ops_preset_by_slug: {
         Args: { p_slug: string }
         Returns: {
@@ -57718,6 +57833,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_tenant_ops_repayment_watchlist: { Args: never; Returns: Json }
       get_tenant_ops_service_centre_metrics: {
         Args: never
         Returns: {
@@ -59475,9 +59591,65 @@ export type Database = {
         Returns: Json
       }
       national_id_unlink_ack: { Args: { p_id: string }; Returns: boolean }
+      national_id_unlink_is_approver: {
+        Args: { p_uid: string }
+        Returns: boolean
+      }
       national_id_unlink_member: {
         Args: { p_member_id: string; p_reason: string }
         Returns: Json
+      }
+      national_id_unlink_my_requests: {
+        Args: never
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_by_name: string | null
+          decision_note: string | null
+          id: string
+          member_id: string
+          member_name: string | null
+          member_phone: string | null
+          nin_masked: string | null
+          owner_id: string
+          owner_name: string | null
+          reason: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "national_id_unlink_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      national_id_unlink_queue: {
+        Args: { p_status?: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_by_name: string | null
+          decision_note: string | null
+          id: string
+          member_id: string
+          member_name: string | null
+          member_phone: string | null
+          nin_masked: string | null
+          owner_id: string
+          owner_name: string | null
+          reason: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "national_id_unlink_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
@@ -61612,6 +61784,10 @@ export type Database = {
         Returns: Json
       }
       request_national_id_link: { Args: { p_nin: string }; Returns: Json }
+      request_national_id_unlink: {
+        Args: { p_member_id: string; p_reason: string }
+        Returns: Json
+      }
       request_payout_number_change: {
         Args: {
           p_name: string

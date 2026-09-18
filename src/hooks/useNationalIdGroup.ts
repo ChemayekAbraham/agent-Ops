@@ -56,24 +56,99 @@ export function useNationalIdGroup(enabled = true) {
   });
 }
 
-/** The ID holder removes someone from their ID; that person is told by SMS. */
-export function useUnlinkFromMyNationalId() {
+export type UnlinkRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export type UnlinkRequest = {
+  id: string;
+  owner_id: string;
+  member_id: string;
+  owner_name: string | null;
+  member_name: string | null;
+  member_phone: string | null;
+  nin_masked: string | null;
+  reason: string;
+  status: UnlinkRequestStatus;
+  decided_by_name: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  created_at: string;
+};
+
+/**
+ * The ID holder asks Finance Operations to remove someone from their ID.
+ * The removal only happens once Finance Operations approves it.
+ */
+export function useRequestNationalIdUnlink() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ memberId, reason }: { memberId: string; reason: string }) => {
-      const { data, error } = await supabase.functions.invoke('national-id-unlink', {
-        body: { member_id: memberId, reason },
+      const { data, error } = await rpc('request_national_id_unlink', {
+        p_member_id: memberId,
+        p_reason: reason,
       });
       if (error) throw new Error(error.message);
-      const res = (data ?? {}) as { success?: boolean; error?: string; sms_sent?: boolean };
-      if (!res.success) throw new Error(res.error ?? 'Could not remove that person.');
+      const res = (data ?? {}) as { success?: boolean; message?: string };
+      if (!res.success) throw new Error(res.message ?? 'Could not send that request.');
       return res;
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['national-id-unlink-requests-mine'] });
       qc.invalidateQueries({ queryKey: ['national-id-group'] });
     },
   });
 }
+
+/** My own removal requests, so each person's card can show where it stands. */
+export function useMyNationalIdUnlinkRequests(enabled = true) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['national-id-unlink-requests-mine', user?.id],
+    enabled: !!user?.id && enabled,
+    staleTime: 15_000,
+    queryFn: async (): Promise<UnlinkRequest[]> => {
+      const { data, error } = await rpc('national_id_unlink_my_requests');
+      if (error) throw new Error(error.message);
+      return (data ?? []) as UnlinkRequest[];
+    },
+  });
+}
+
+/** Finance Operations queue of ID-removal requests. */
+export function useNationalIdUnlinkQueue(status: 'pending' | 'all' = 'pending') {
+  return useQuery({
+    queryKey: ['national-id-unlink-queue', status],
+    staleTime: 15_000,
+    queryFn: async (): Promise<UnlinkRequest[]> => {
+      const { data, error } = await rpc('national_id_unlink_queue', { p_status: status });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as UnlinkRequest[];
+    },
+  });
+}
+
+/** Finance Operations approves or refuses; approval performs the removal and the SMS. */
+export function useDecideNationalIdUnlink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      requestId,
+      approve,
+      note,
+    }: { requestId: string; approve: boolean; note?: string }) => {
+      const { data, error } = await supabase.functions.invoke('national-id-unlink', {
+        body: { request_id: requestId, approve, note: note ?? null },
+      });
+      if (error) throw new Error(error.message);
+      const res = (data ?? {}) as { success?: boolean; error?: string; sms_sent?: boolean; status?: string };
+      if (!res.success) throw new Error(res.error ?? 'Could not record that decision.');
+      return res;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['national-id-unlink-queue'] });
+    },
+  });
+}
+
 
 export type UnlinkNotice = {
   id: string;

@@ -23,6 +23,7 @@ import {
   History,
   IdCard,
   Image,
+  Link2,
   Loader2,
   MessageCircle,
   PhoneCall,
@@ -1622,6 +1623,24 @@ export default function PayoutVerificationPanel() {
                 </span>
               );
             })()}
+            {row.national_id && (
+              <span
+                role="status"
+                aria-label={row.is_linked_id ? 'This National ID was already in the system; this person linked to it' : 'This National ID is new to the platform'}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                  row.is_linked_id
+                    ? 'border-2 border-sky-500/70 bg-sky-500/15 text-sky-700 dark:text-sky-400'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {row.is_linked_id ? (
+                  <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <IdCard className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {row.is_linked_id ? 'Linked ID' : 'New ID'}
+              </span>
+            )}
             {row.payout_number_count > 1 && (
               <button
                 type="button"
@@ -1687,6 +1706,69 @@ export default function PayoutVerificationPanel() {
                       </li>
                     ))}
                   </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {row.national_id && (row.is_linked_id || row.id_account_count <= 1) && (
+            <div
+              role="status"
+              className={`mx-5 mt-2 rounded-2xl border p-4 ${
+                row.is_linked_id
+                  ? 'border-sky-500/60 bg-sky-500/10'
+                  : 'border-border bg-muted/40'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                    row.is_linked_id ? 'bg-sky-500/20' : 'bg-muted'
+                  }`}
+                >
+                  {row.is_linked_id ? (
+                    <Link2 className="h-4 w-4 text-sky-700 dark:text-sky-400" aria-hidden="true" />
+                  ) : (
+                    <IdCard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  {row.is_linked_id ? (
+                    <>
+                      <p className="text-base font-extrabold leading-tight text-sky-800 dark:text-sky-300">
+                        {row.linked_id_is_this_one
+                          ? 'This National ID is already in the system — linked account'
+                          : 'This account is linked to another National ID'}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-sky-800/90 dark:text-sky-300/90">
+                        {row.linked_id_is_this_one ? (
+                          <>
+                            This person joined an existing ID
+                            {row.linked_id_holder ? ` held by ${row.linked_id_holder}` : ''} through the
+                            ID-link process, which the ID holder approved. The names here were typed by
+                            the person, not read fresh from a new card.
+                          </>
+                        ) : (
+                          <>
+                            The ID submitted here
+                            {row.id_account_count > 1 ? '' : ' is new, but '} this account is also linked
+                            to a different National ID
+                            {row.linked_id_holder ? ` held by ${row.linked_id_holder}` : ''}. Check both
+                            before verifying.
+                          </>
+                        )}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-extrabold leading-tight text-foreground">
+                        New National ID — first time seen on the platform
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                        No other account is linked to this ID. Treat the card photos as the only evidence of who holds it.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

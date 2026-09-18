@@ -17,6 +17,7 @@ import { AlertTriangle, ClipboardList, Forward, Inbox, Send } from 'lucide-react
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { ConcernControlPanel } from '@/components/executive/tenant-ops/calling-center/ConcernControlPanel';
+import { ConcernParticipantsPanel } from '@/components/executive/tenant-ops/calling-center/ConcernParticipantsPanel';
 import { CCEmpty, CC_ROW } from '@/components/executive/tenant-ops/calling-center/ccUi';
 
 import {
@@ -27,6 +28,7 @@ import {
   useConcernEvent,
   useConcernEvents,
   useConcernReviewers,
+  type ConcernReviewer,
   useForwardedConcerns,
   type ConcernStatus,
   type ForwardedConcern,
@@ -44,7 +46,15 @@ const statusTone: Record<string, string> = {
   completed: 'bg-emerald-500/10 text-emerald-700',
 };
 
-function ConcernCard({ concern, mine, reviewerNames }: { concern: ForwardedConcern; mine: boolean; reviewerNames: string[] }) {
+function ConcernCard({
+  concern,
+  mine,
+  reviewerRows,
+}: {
+  concern: ForwardedConcern;
+  mine: boolean;
+  reviewerRows: ConcernReviewer[];
+}) {
   const events = useConcernEvents(concern.id);
   const act = useConcernEvent();
   const [note, setNote] = useState('');
@@ -93,10 +103,10 @@ function ConcernCard({ concern, mine, reviewerNames }: { concern: ForwardedConce
       </div>
 
       {concern.context && <p className="mt-2 text-[11px] leading-snug">{concern.context}</p>}
-      {reviewerNames.length > 0 && (
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Reviewers: <span className="font-semibold text-foreground">{reviewerNames.join(', ')}</span>
-        </p>
+      {reviewerRows.length > 0 && (
+        <div className="mt-1.5">
+          <ConcernParticipantsPanel concern={concern} reviewers={reviewerRows} />
+        </div>
       )}
       <div className="mt-1.5">
         <ConcernControlPanel concern={concern} isReceiver={mine} compact />
@@ -188,8 +198,18 @@ function ConcernCard({ concern, mine, reviewerNames }: { concern: ForwardedConce
                     From {stamp(e.prev_due_at)} to {stamp(e.new_due_at)}
                   </p>
                 )}
-                {e.action === 'reviewer_added' && (
-                  <p className="mt-0.5 text-[11px] leading-snug">Added {e.new_user_name ?? 'staff member'}</p>
+                {(e.action === 'reviewer_added' || e.action === 'reviewer_removed') && (
+                  <div className="mt-0.5 space-y-0.5 text-[11px] leading-snug">
+                    <p>
+                      {e.action === 'reviewer_added' ? 'Added' : 'Took off'}{' '}
+                      <span className="font-semibold">{e.new_user_name ?? e.prev_user_name ?? 'staff member'}</span>
+                    </p>
+                    {(e.prev_recipients || e.new_recipients) && (
+                      <p className="text-muted-foreground">
+                        Before: {e.prev_recipients || '—'} · After: {e.new_recipients || '—'}
+                      </p>
+                    )}
+                  </div>
                 )}
                 {e.note && <p className="mt-0.5 text-[11px] leading-snug">{e.note}</p>}
               </div>
@@ -213,8 +233,15 @@ const MyConcerns = () => {
     return map;
   }, [reviewers.data]);
 
+  // Only people currently on a concern see it under "Sent to me" — someone taken off
+  // keeps their place in the history but no longer carries the work.
   const mine = useMemo(
-    () => allConcerns.filter((c) => c.forwarded_to === user?.id || (reviewersByConcern.get(c.id) ?? []).some((r) => r.user_id === user?.id)),
+    () =>
+      allConcerns.filter(
+        (c) =>
+          c.forwarded_to === user?.id ||
+          (reviewersByConcern.get(c.id) ?? []).some((r) => r.user_id === user?.id && r.active),
+      ),
     [allConcerns, reviewersByConcern, user?.id],
   );
   const sent = useMemo(() => fromMe.data ?? [], [fromMe.data]);
@@ -283,7 +310,7 @@ const MyConcerns = () => {
             ) : mine.length === 0 ? (
               <CCEmpty icon={ClipboardList} title="Nothing has been forwarded to you" hint="Concerns passed to you from the Calling Center will land here." />
             ) : (
-              mine.map((c) => <ConcernCard key={c.id} concern={c} mine reviewerNames={(reviewersByConcern.get(c.id) ?? []).map((r) => r.full_name ?? 'Staff member')} />)
+              mine.map((c) => <ConcernCard key={c.id} concern={c} mine reviewerRows={reviewersByConcern.get(c.id) ?? []} />)
             )}
           </TabsContent>
 
@@ -293,7 +320,7 @@ const MyConcerns = () => {
             ) : sent.length === 0 ? (
               <CCEmpty icon={ClipboardList} title="You have not forwarded any concerns" hint="Anything you pass on to a colleague will be listed here." />
             ) : (
-              sent.map((c) => <ConcernCard key={c.id} concern={c} mine={false} reviewerNames={(reviewersByConcern.get(c.id) ?? []).map((r) => r.full_name ?? 'Staff member')} />)
+              sent.map((c) => <ConcernCard key={c.id} concern={c} mine={false} reviewerRows={reviewersByConcern.get(c.id) ?? []} />)
             )}
           </TabsContent>
 
@@ -303,7 +330,7 @@ const MyConcerns = () => {
               along.
             </p>
             {oversight.map((c) => (
-              <ConcernCard key={c.id} concern={c} mine={false} reviewerNames={(reviewersByConcern.get(c.id) ?? []).map((r) => r.full_name ?? 'Staff member')} />
+              <ConcernCard key={c.id} concern={c} mine={false} reviewerRows={reviewersByConcern.get(c.id) ?? []} />
             ))}
           </TabsContent>
         </Tabs>

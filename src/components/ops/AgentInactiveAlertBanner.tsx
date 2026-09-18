@@ -5,6 +5,8 @@ import {
   type AgentInactivationRow,
 } from '@/hooks/useAgentInactivations';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -107,20 +109,30 @@ function InactivationRow({
   onOpenBehavior?: (tenantId: string) => void;
 }) {
   const { toast } = useToast();
-  const { acknowledge, resolve, reject } = useInactivationReview();
+  const { roles } = useAuth();
+  const { acknowledge, resolve, reject, cancelTenant } = useInactivationReview();
   const [resolving, setResolving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [commenting, setCommenting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [notes, setNotes] = useState('');
   const isAcknowledged = row.review_status === 'acknowledged';
-  const busy = acknowledge.isPending || resolve.isPending || reject.isPending;
+  const busy =
+    acknowledge.isPending || resolve.isPending || reject.isPending || cancelTenant.isPending;
+
+  /** Cancelling a tenant recalls money, so it is CFO / Finance Ops / COO / Operations only. */
+  const canCancelTenant = (roles ?? []).some((r) =>
+    ['cfo', 'financial_ops', 'coo', 'operations', 'manager', 'super_admin'].includes(r),
+  );
 
   const closeForms = () => {
     setResolving(false);
     setRejecting(false);
     setCommenting(false);
+    setCancelling(false);
     setNotes('');
   };
+
 
   const handleAcknowledge = async () => {
     try {
@@ -176,12 +188,36 @@ function InactivationRow({
     }
   };
 
-  const formOpen = resolving || rejecting || commenting;
+  const handleCancelTenant = async () => {
+    if (notes.trim().length < 10) {
+      toast({ title: 'Add a reason', description: 'At least 10 characters required.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const res = await cancelTenant.mutateAsync({ rentRequestId: row.rent_request_id, reason: notes });
+      const returned = Number(res?.float_returned ?? 0);
+      const spent = Number(res?.float_already_paid_out ?? 0);
+      toast({
+        title: 'Tenant cancelled',
+        description:
+          `${formatUGX(returned)} landlord float returned to the platform.` +
+          (spent > 0 ? ` ${formatUGX(spent)} was already paid out and is logged for CFO recovery.` : ''),
+      });
+      closeForms();
+    } catch (e: any) {
+      toast({ title: 'Could not cancel the tenant', description: e?.message, variant: 'destructive' });
+    }
+  };
+
+  const formOpen = resolving || rejecting || commenting || cancelling;
   const formLabel = rejecting
     ? 'Why is this flag being rejected? The agent will see this. (required, min 10 characters)'
     : commenting
       ? 'Add a review comment for this tenant (required, min 10 characters)'
-      : 'What was done to resolve this? (required, min 10 characters)';
+      : cancelling
+        ? 'Why is this tenant being cancelled? The landlord float will be returned. (required, min 10 characters)'
+        : 'What was done to resolve this? (required, min 10 characters)';
+
 
   return (
     <li className="p-3.5 flex flex-col gap-2 bg-card/40">
@@ -282,6 +318,11 @@ function InactivationRow({
                 {acknowledge.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
                 Save comment
               </Button>
+            ) : cancelling ? (
+              <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={handleCancelTenant} disabled={busy}>
+                {cancelTenant.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserX className="h-4 w-4" />}
+                Cancel tenant &amp; return float
+              </Button>
             ) : (
               <Button size="sm" className="h-8 gap-1" onClick={handleResolve} disabled={busy}>
                 {resolve.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -295,8 +336,11 @@ function InactivationRow({
           <p className="text-[10px] text-muted-foreground">
             {rejecting
               ? 'Rejecting puts the tenant back as “paying” on the agent’s book and creates a high-priority follow-up task on their dashboard.'
-              : 'Notes are saved to the audit trail.'}
+              : cancelling
+                ? 'The rent plan is cancelled, the house returns to Priority 1, and the landlord float still held by the agent goes back to the platform. Anything already paid out to the landlord is logged for CFO recovery.'
+                : 'Notes are saved to the audit trail.'}
           </p>
+
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -314,6 +358,18 @@ function InactivationRow({
           >
             <MessageSquare className="h-4 w-4" /> Comment
           </Button>
+          {canCancelTenant && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-8 gap-1"
+              onClick={() => { setNotes(''); setCancelling(true); }}
+              disabled={busy}
+            >
+              <UserX className="h-4 w-4" /> Cancel tenant &amp; return float
+            </Button>
+          )}
+
           {!isAcknowledged && (
             <Button variant="secondary" size="sm" className="h-8 gap-1" onClick={handleAcknowledge} disabled={busy}>
               {acknowledge.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
