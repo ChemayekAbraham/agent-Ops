@@ -54919,6 +54919,7 @@ export type Database = {
           id_account_count: number
           id_account_ordinal: number
           id_back_photo_ready: boolean
+          is_linked_id: boolean
           momo_number: string
           name_match_score: number
           name_mismatch_tokens: Json
