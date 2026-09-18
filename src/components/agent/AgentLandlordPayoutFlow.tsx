@@ -470,25 +470,25 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
                 )}
               </div>
 
-              {/* Receipt number — mandatory from 21 Sept 2026 */}
-              <div>
-                <Label htmlFor="receipt-number" className="text-xs font-semibold">
-                  Receipt Number {receiptNumberRequired() ? '*' : '(optional this week)'}
-                </Label>
-                <Input
-                  id="receipt-number"
-                  placeholder="e.g. WLR-100292 — from the landlord's signed receipt"
-                  value={receiptNumber}
-                  onChange={e => setReceiptNumber(e.target.value)}
-                  className="mt-1 text-sm"
-                  maxLength={50}
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  {receiptNumberRequired()
-                    ? 'Required: enter the number written on the receipt the landlord signed.'
-                    : 'From Monday 21 Sept this will be required for every landlord payout.'}
-                </p>
-              </div>
+              {/* Receipt number — hidden until mandatory from 21 Sept 2026 */}
+              {receiptNumberRequired() && (
+                <div>
+                  <Label htmlFor="receipt-number" className="text-xs font-semibold">
+                    Receipt Number *
+                  </Label>
+                  <Input
+                    id="receipt-number"
+                    placeholder="e.g. WLR-100292 — from the landlord's signed receipt"
+                    value={receiptNumber}
+                    onChange={e => setReceiptNumber(e.target.value)}
+                    className="mt-1 text-sm"
+                    maxLength={50}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Required: enter the number written on the receipt the landlord signed.
+                  </p>
+                </div>
+              )}
 
               <Textarea
                 placeholder="Notes (optional)"
