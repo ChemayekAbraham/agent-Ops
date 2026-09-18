@@ -160,6 +160,15 @@ export function CTOKycLevelPanel() {
     },
   });
 
+  // Whether THIS selected user already has an active exception row —
+  // the actual condition that should hide the Grant form. `idVerified`
+  // (withdrawal_user_id_verified) also returns true for unrelated reasons
+  // (e.g. user_is_funder_with_portfolio, or a genuinely completed National
+  // ID + selfie + verified destination), so gating the Grant control on it
+  // silently hid the button for anyone who happened to pass that check for
+  // an unrelated reason, even with zero real exceptions on file.
+  const hasActiveException = (exceptionHistory ?? []).some((h) => !h.revoked_at);
+
   const activeUserIds = (activeExceptions || []).map((e) => e.user_id);
   const { data: activeProfiles } = useQuery({
     queryKey: ['cto-id-exceptions-active-profiles', activeUserIds.join(',')],
@@ -403,7 +412,7 @@ export function CTOKycLevelPanel() {
               </div>
             </div>
 
-            {!idVerified && (
+            {!hasActiveException && (
               <>
                 <textarea
                   value={exceptionReason}
