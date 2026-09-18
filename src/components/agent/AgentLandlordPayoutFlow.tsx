@@ -27,6 +27,9 @@ interface AgentLandlordPayoutFlowProps {
 type Step = 'select' | 'pay' | 'receipt' | 'done';
 
 const GPS_MATCH_THRESHOLD_METERS = 500; // auto-approve within 500m
+// Receipt number capture becomes mandatory for payouts made from Monday 21 Sept 2026.
+const RECEIPT_NUMBER_REQUIRED_FROM = new Date('2026-09-21T00:00:00+03:00');
+const receiptNumberRequired = () => new Date() >= RECEIPT_NUMBER_REQUIRED_FROM;
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -42,6 +45,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
   const [step, setStep] = useState<Step>('select');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [transactionId, setTransactionId] = useState('');
+  const [receiptNumber, setReceiptNumber] = useState('');
   const [provider, setProvider] = useState('');
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
