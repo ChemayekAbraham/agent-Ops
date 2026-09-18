@@ -27881,6 +27881,33 @@ export type Database = {
         }
         Relationships: []
       }
+      otp_usage_events: {
+        Row: {
+          category: string
+          created_at: string
+          event_type: string
+          id: string
+          phone: string | null
+          source_function: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          event_type: string
+          id?: string
+          phone?: string | null
+          source_function?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          phone?: string | null
+          source_function?: string | null
+        }
+        Relationships: []
+      }
       otp_verifications: {
         Row: {
           attempts: number
