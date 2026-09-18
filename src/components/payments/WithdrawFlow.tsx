@@ -37,7 +37,7 @@ import { useNavigate } from 'react-router-dom';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
-import { AlertTriangle, ShieldCheck, MessageSquare, Camera } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, MessageSquare, Camera, IdCard } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { maskPayoutNumber } from '@/hooks/useIdentityBinding';
 import { useWithdrawalBlockReasons } from '@/hooks/usePayoutNumberChange';
