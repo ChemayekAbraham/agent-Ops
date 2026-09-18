@@ -235,6 +235,42 @@ export function SmartphoneOrderApprovalQueue({
     },
   });
 
+  // Agent performance over the last 30 days — expected vs collected, collection
+  // rate and payment count, from the same server-side report the Agent Ops
+  // Reports tab uses (agent_ops_report_agent), so the figures always tally.
+  const { data: performance, isLoading: performanceLoading } = useQuery({
+    queryKey: ['smartphone-applicant-performance', detailsTarget?.customer_id],
+    enabled: !!detailsTarget?.customer_id,
+    queryFn: async () => {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 30);
+      const { data, error } = await db.rpc('agent_ops_report_agent', {
+        p_agent_id: detailsTarget!.customer_id,
+        p_from: from.toISOString().slice(0, 10),
+        p_to: to.toISOString().slice(0, 10),
+      });
+      if (error) throw error;
+      const kpis = (data as any)?.kpis || null;
+      if (!kpis) return null;
+      return {
+        expected: Number(kpis.expected_window || 0),
+        collected: Number(kpis.collected_window || 0),
+        payments: Number(kpis.payments_window || 0),
+        rate: kpis.window_rate == null ? null : Number(kpis.window_rate),
+        activeRepaying: Number(kpis.active_repaying || 0),
+        outstanding: Number(kpis.outstanding || 0),
+      } as {
+        expected: number;
+        collected: number;
+        payments: number;
+        rate: number | null;
+        activeRepaying: number;
+        outstanding: number;
+      };
+    },
+  });
+
   // Fetch the agent's actual NIN from their profile so ops can see the number directly.
   // Checks both profiles.national_id and proxy_agent_identity.nin and uses whichever is set.
   const { data: agentProfile } = useQuery({
