@@ -603,7 +603,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
           <Label className="text-xs">Payment type</Label>
           <div className="grid grid-cols-2 gap-2 rounded-xl border border-border p-1 bg-muted/40">
             {[
-              { key: 'compounding', label: 'Once-off' },
+              { key: 'compounding', label: 'compounding' },
               { key: 'monthly', label: 'Monthly' },
             ].map((opt) => (
               <button
