@@ -1485,6 +1485,13 @@
       "when": 1789721232456,
       "tag": "0211_finops_queue_linked_id_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 212,
+      "version": "7",
+      "when": 1789721441156,
+      "tag": "0212_finops_queue_linked_id_detail",
+      "breakpoints": true
     }
   ]
 }
