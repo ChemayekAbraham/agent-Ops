@@ -24,6 +24,7 @@ type BucketTotalKey =
   | 'withdrawable_total'
   | 'float_total'
   | 'landlord_float_total'
+  | 'landlord_float_due_today_total'
   | 'merchant_float_total';
 
 interface BucketTotals extends Record<BucketTotalKey, number> {
@@ -59,9 +60,9 @@ const BUCKETS = [
     number: 3,
     id: 'funded_tenants' as WalletBucketTool,
     title: 'Landlord Float',
-    desc: 'Money reserved for landlord payouts and funded tenants.',
+    desc: 'Rent funded today, still owed to landlords.',
     icon: Home,
-    totalKey: 'landlord_float_total' as BucketTotalKey,
+    totalKey: 'landlord_float_due_today_total' as BucketTotalKey,
     holder: 'landlord_float' as HolderBucket,
     tone: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
   },
@@ -92,6 +93,7 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
         withdrawable_total: Number(d.withdrawable_total ?? 0),
         float_total: Number(d.float_total ?? 0),
         landlord_float_total: Number(d.landlord_float_total ?? 0),
+        landlord_float_due_today_total: Number(d.landlord_float_due_today_total ?? 0),
         merchant_float_total: Number(d.merchant_float_total ?? 0),
         computed_at: d.computed_at ?? new Date().toISOString(),
       };
