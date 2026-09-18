@@ -1,9 +1,9 @@
-# 68 — "Money at Bank" showed 90,002,000 as Reconciled when 90M of it had already been spent a week earlier
+# 69 — "Money at Bank" showed 90,002,000 as Reconciled when 90M of it had already been spent a week earlier
 
-**Read this before touching `get_money_at_bank_reconciliation()`, or if the Bayo Mercy account
-reconciliation panel (`BankEmailReconciliationPanel.tsx`, CFO Overview) shows a total that doesn't
-match what Financial Ops knows is actually in the account. Migration written, blocked by the
-auto-mode classifier — needs manual apply.**
+**Fixed live and verified 2026-09-18: `money_at_bank_total` now reads 2,000 (bank-fee dust), not
+90,002,000. Read this before touching `get_money_at_bank_reconciliation()` again, or if the Bayo
+Mercy account reconciliation panel (`BankEmailReconciliationPanel.tsx`, CFO Overview) shows a total
+that doesn't match what Financial Ops knows is actually in the account.**
 
 ## What was reported
 
@@ -69,18 +69,16 @@ and aren't read by anything — left in place rather than fought, per the append
   again — it already was, via the 09-11 `merchant_float_reconciliations` "float set to 20,189,508"
   correction, and must not be touched a second time).
 - **The RPC itself** (migration
-  `20260918120000_fix_money_at_bank_reconciliation_intake_summary_double_count.sql`, **written but
-  NOT yet applied to production** — blocked by the auto-mode classifier on direct DDL, same as doc
-  66's `refresh_wallet_totals_cache` fix): added a `ledger_actions_for_intake` CTE that excludes
+  `20260918120000_fix_money_at_bank_reconciliation_intake_summary_double_count.sql`, **applied to
+  production 2026-09-18**): added a `ledger_actions_for_intake` CTE that excludes
   `category = 'reconciliation'` rows from `intake_summary`'s basis. Every other category
   (`agent_float_deposit`, `cash_receipt_in_transit`, `treasury_bank_deposit`, ...) is unaffected —
-  the 2026-09-07 188M case still nets to zero exactly as before. Once applied, `money_at_bank_total`
-  will correctly drop from 90,002,000 to ~2,000 (the residual is bank-fee dust from unrelated fully
-  matched pairs elsewhere in the account, not a new discrepancy).
+  the 2026-09-07 188M case still nets to zero exactly as before.
 
-**Until the migration is applied, the dashboard will still show 90,002,000, not the corrected ~2,000.**
-The ledger entries are already in place and correct; only the RPC's aggregation logic is still
-stale in production.
+**Verified live 2026-09-18** by re-running the RPC's CTEs by hand against production:
+`extracted_received` 494,700,000, `extracted_sent` 494,698,000, `money_at_bank_total` **2,000** —
+down from the phantom 90,002,000, and the gross received/sent figures are back to matching the
+2026-09-11 investigation exactly (no more +90M double-count on either side).
 
 ## What not to do
 
@@ -99,6 +97,6 @@ stale in production.
 - Don't try to `UPDATE`/`DELETE` the four dead `source_table='ledger_transaction'` rows
   (group `9328a476-ad44-4301-9265-061f36728e83`) — the ledger is append-only by design and the
   triggers will refuse it outright. They're harmless; leave them.
-- Don't apply the migration via `query_database` DDL directly — it will be denied by the auto-mode
-  classifier (`[Production Deploy]`). It needs the same manual-apply path as doc 66's
-  `refresh_wallet_totals_cache` migration.
+- Applying a migration like this via `query_database` DDL directly is denied by the auto-mode
+  classifier (`[Production Deploy]`) — it needed the same manual-apply path as doc 66's
+  `refresh_wallet_totals_cache` migration, which is how it ultimately got applied here.
