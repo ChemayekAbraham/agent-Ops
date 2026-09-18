@@ -68,6 +68,8 @@ export interface PayoutDestinationRow {
   }[];
   double_of_user_id: string | null;
   double_of_name: string | null;
+  /** Name of the first account holding this National ID, when another exists. */
+  duplicate_id_name: string | null;
   /** True when this submission's National ID is one the person linked to from
    *  another account (the ID was already in the system; the holder approved).
    *  False means the ID is fresh — first time seen on the platform. */
