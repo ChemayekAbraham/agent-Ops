@@ -98,7 +98,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
       p_valuation: schedule.total,
       p_lease_term_months: schedule.months,
       p_daily_rate: BIKE_RECOVERY_RATE,
-      p_note: `Spiro bike lease — base ${formatUGX(schedule.base)}, access fee ${schedule.feePct}% (${formatUGX(schedule.accessFee)}), total ${formatUGX(schedule.total)} over ${schedule.months} months at ${formatUGX(schedule.monthly)} per month`,
+      p_note: `Spiro bike lease — base ${formatUGX(schedule.base)}, ${schedule.monthlyRatePct}% monthly on the reducing balance, fees ${formatUGX(schedule.accessFee)}, total ${formatUGX(schedule.total)} over ${schedule.months} months; month 1 ${formatUGX(schedule.firstMonthly)} down to ${formatUGX(schedule.lastMonthly)}`,
     });
     setSubmitting(false);
     if (error) {
