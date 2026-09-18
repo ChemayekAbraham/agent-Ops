@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, Forward, Search } from 'lucide-react';
+import { AlertTriangle, Check, Forward, Search, X } from 'lucide-react';
 import { CCBlock, CCDialogHeading } from './ccUi';
 import { toast } from 'sonner';
 import {
@@ -53,7 +53,7 @@ export function ForwardConcernDialog({
   const [context, setContext] = useState('');
   const [priority, setPriority] = useState('normal');
   const [dueHours, setDueHours] = useState(DEFAULT_DUE);
-  const [to, setTo] = useState('');
+  const [to, setTo] = useState<string[]>([]);
   const [staffSearch, setStaffSearch] = useState('');
 
   // Reset only when the dialog opens for a different call — the parent rebuilds the
@@ -69,7 +69,7 @@ export function ForwardConcernDialog({
     setContext(source?.suggestedContext ?? '');
     setPriority('normal');
     setDueHours(DEFAULT_DUE);
-    setTo('');
+    setTo([]);
     setStaffSearch('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sourceKey]);
@@ -81,10 +81,12 @@ export function ForwardConcernDialog({
   }, [staff.data, staffSearch]);
 
   const chosen = useMemo(
-    () => (staff.data ?? []).find((p) => p.user_id === to) ?? null,
+    () => (staff.data ?? []).filter((p) => to.includes(p.user_id)),
     [staff.data, to],
   );
 
+  const toggle = (userId: string) =>
+    setTo((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
 
   const submit = async () => {
     if (!source) return;
@@ -92,8 +94,8 @@ export function ForwardConcernDialog({
       toast.error('Give the concern a short title (at least 5 characters).');
       return;
     }
-    if (!to) {
-      toast.error('Choose who should handle this.');
+    if (to.length === 0) {
+      toast.error(addReviewer ? 'Choose at least one person to add.' : 'Choose at least one person to handle this.');
       return;
     }
     const payload: ForwardConcernInput = {
@@ -111,7 +113,16 @@ export function ForwardConcernDialog({
     };
     try {
       await forward.mutateAsync(payload);
-      toast.success(addReviewer ? 'Reviewer added to this concern.' : 'Forwarded. It now shows in their My Space.');
+      const many = to.length > 1;
+      toast.success(
+        addReviewer
+          ? many
+            ? `${to.length} people added to this concern.`
+            : 'Person added to this concern.'
+          : many
+            ? `Forwarded to ${to.length} people. It now shows in each of their My Space.`
+            : 'Forwarded. It now shows in their My Space.',
+      );
       onClose();
     } catch (e: any) {
       toast.error(e?.message ?? 'Could not forward this concern.');
@@ -202,6 +213,9 @@ export function ForwardConcernDialog({
             <Label className="text-[11px] font-semibold">
               {addReviewer ? 'Who else should review it?' : 'Who should handle it?'}
             </Label>
+            <p className="px-1 text-[11px] text-muted-foreground">
+              Tap as many names as you need — everyone chosen shares the same concern and the same history.
+            </p>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -220,30 +234,49 @@ export function ForwardConcernDialog({
               </p>
             ) : (
               <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-border bg-muted/20 p-1.5">
-                {people.map((p) => (
+                {people.map((p) => {
+                  const picked = to.includes(p.user_id);
+                  return (
+                    <button
+                      key={p.user_id}
+                      type="button"
+                      aria-pressed={picked}
+                      onClick={() => toggle(p.user_id)}
+                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${
+                        picked
+                          ? 'bg-primary font-semibold text-primary-foreground shadow-sm'
+                          : 'hover:bg-background hover:shadow-sm'
+                      }`}
+                    >
+                      <span className="truncate">{p.full_name}</span>
+                      {picked && (
+                        <Check className="ml-2 h-3.5 w-3.5 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {chosen.length > 0 ? (
+              <div className="flex flex-wrap gap-1 px-1 pt-1">
+                {chosen.map((p) => (
                   <button
                     key={p.user_id}
                     type="button"
-                    onClick={() => setTo(p.user_id)}
-                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${
-                      to === p.user_id
-                        ? 'bg-primary font-semibold text-primary-foreground shadow-sm'
-                        : 'hover:bg-background hover:shadow-sm'
-                    }`}
+                    onClick={() => toggle(p.user_id)}
+                    className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                    title="Tap to remove"
                   >
-                    <span className="truncate">{p.full_name}</span>
-                    {to === p.user_id && <span className="text-[10px]">Selected</span>}
+                    {p.full_name}
+                    <X className="h-3 w-3" />
                   </button>
                 ))}
               </div>
+            ) : (
+              <p className="px-1 pt-0.5 text-[11px] font-semibold text-muted-foreground">
+                Tap one or more names above.
+              </p>
             )}
-            <p className="px-1 pt-0.5 text-[11px] font-semibold">
-              {chosen ? (
-                <span className="text-primary">Chosen: {chosen.full_name}</span>
-              ) : (
-                <span className="text-muted-foreground">Tap a name above to choose the person.</span>
-              )}
-            </p>
           </div>
 
 
@@ -252,7 +285,15 @@ export function ForwardConcernDialog({
               Cancel
             </Button>
             <Button size="sm" className="h-9 text-xs font-semibold" onClick={submit} disabled={forward.isPending}>
-              {forward.isPending ? 'Saving…' : addReviewer ? 'Add reviewer' : 'Forward concern'}
+              {forward.isPending
+                ? 'Saving…'
+                : addReviewer
+                  ? to.length > 1
+                    ? `Add ${to.length} people`
+                    : 'Add reviewer'
+                  : to.length > 1
+                    ? `Forward to ${to.length} people`
+                    : 'Forward concern'}
             </Button>
           </div>
         </div>

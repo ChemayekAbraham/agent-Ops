@@ -8934,37 +8934,58 @@ export type Database = {
       }
       cc_concern_reviewers: {
         Row: {
+          acknowledged_at: string | null
           added_by: string | null
           added_by_name: string | null
+          added_reason: string | null
           concern_id: string
           created_at: string
           full_name: string | null
           id: string
           note: string | null
+          notified_at: string | null
+          remove_reason: string | null
+          removed_at: string | null
+          removed_by: string | null
+          removed_by_name: string | null
           role: string
           staff_id: string | null
           user_id: string
         }
         Insert: {
+          acknowledged_at?: string | null
           added_by?: string | null
           added_by_name?: string | null
+          added_reason?: string | null
           concern_id: string
           created_at?: string
           full_name?: string | null
           id?: string
           note?: string | null
+          notified_at?: string | null
+          remove_reason?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          removed_by_name?: string | null
           role?: string
           staff_id?: string | null
           user_id: string
         }
         Update: {
+          acknowledged_at?: string | null
           added_by?: string | null
           added_by_name?: string | null
+          added_reason?: string | null
           concern_id?: string
           created_at?: string
           full_name?: string | null
           id?: string
           note?: string | null
+          notified_at?: string | null
+          remove_reason?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          removed_by_name?: string | null
           role?: string
           staff_id?: string | null
           user_id?: string
@@ -9532,10 +9553,12 @@ export type Database = {
           created_at: string
           id: string
           new_due_at: string | null
+          new_recipients: string | null
           new_user_id: string | null
           new_user_name: string | null
           note: string | null
           prev_due_at: string | null
+          prev_recipients: string | null
           prev_user_id: string | null
           prev_user_name: string | null
           reason: string | null
@@ -9549,10 +9572,12 @@ export type Database = {
           created_at?: string
           id?: string
           new_due_at?: string | null
+          new_recipients?: string | null
           new_user_id?: string | null
           new_user_name?: string | null
           note?: string | null
           prev_due_at?: string | null
+          prev_recipients?: string | null
           prev_user_id?: string | null
           prev_user_name?: string | null
           reason?: string | null
@@ -9566,10 +9591,12 @@ export type Database = {
           created_at?: string
           id?: string
           new_due_at?: string | null
+          new_recipients?: string | null
           new_user_id?: string | null
           new_user_name?: string | null
           note?: string | null
           prev_due_at?: string | null
+          prev_recipients?: string | null
           prev_user_id?: string | null
           prev_user_name?: string | null
           reason?: string | null
@@ -52960,6 +52987,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      cc_can_manage_concern_participants: {
+        Args: { p_concern_id: string; p_user_id?: string }
+        Returns: boolean
+      }
       cc_can_read_subject: {
         Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: boolean
@@ -52987,14 +53018,26 @@ export type Database = {
         }
         Returns: Json
       }
+      cc_concern_participants_text: {
+        Args: { p_concern_id: string }
+        Returns: string
+      }
       cc_concern_powers: { Args: never; Returns: Json }
       cc_concern_reviewer_list: {
         Args: { p_concern_ids: string[] }
         Returns: {
+          acknowledged_at: string
+          active: boolean
           added_by_name: string
+          added_reason: string
           concern_id: string
           created_at: string
           full_name: string
+          note: string
+          notified_at: string
+          remove_reason: string
+          removed_at: string
+          removed_by_name: string
           role: string
           user_id: string
         }[]
@@ -53136,6 +53179,10 @@ export type Database = {
           p_outcome: Database["public"]["Enums"]["cc_attempt_outcome"]
         }
         Returns: undefined
+      }
+      cc_remove_concern_reviewer: {
+        Args: { p_concern_id: string; p_reason: string; p_user_id: string }
+        Returns: Json
       }
       cc_reveal_phone: { Args: { p_attempt_id: string }; Returns: string }
       cc_set_concern_due: {
