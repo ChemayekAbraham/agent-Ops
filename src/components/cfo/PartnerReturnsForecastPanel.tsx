@@ -116,6 +116,7 @@ export function PartnerReturnsForecastPanel({
       actualPast: past.reduce((s, r) => s + Number(r.actual_returns_paid), 0),
       forecastAhead: rows.filter((r) => !r.is_past).reduce((s, r) => s + Number(r.forecast_returns), 0),
       topups: rows.reduce((s, r) => s + Number(r.topups), 0),
+      topupsPredicted: rows.reduce((s, r) => s + Number(r.topups_forecast ?? 0), 0),
       promissory: rows.reduce((s, r) => s + Number(r.promissory_receivable), 0),
       compounding: rows.reduce((s, r) => s + Number(r.compounding), 0),
       receivable: rows.reduce((s, r) => s + Number(r.partner_receivable), 0),
