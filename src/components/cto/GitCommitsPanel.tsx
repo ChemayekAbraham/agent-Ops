@@ -39,6 +39,8 @@ interface ActivityResponse {
   page: number;
   per_page: number;
   total_pages: number;
+  author?: string | null;
+  filtered_commits?: number;
   contributors: Contributor[];
   commits: CommitRow[];
 }
