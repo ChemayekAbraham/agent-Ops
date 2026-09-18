@@ -221,7 +221,16 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         }
       }
 
-      return rows.map((r) => {
+      // Belt-and-braces against a double payment: a row whose remaining amount
+      // has been fully paid out is not payable work, whatever its status text
+      // says. Only applied to the payable ("onlyOpen") view so history/report
+      // callers still see closed allocations.
+      const payableRows =
+        opts?.onlyOpen === false
+          ? rows
+          : rows.filter((r) => (Number(r.remaining_amount) || 0) > 0);
+
+      return payableRows.map((r) => {
         const live = r.landlord_id ? landlordById.get(r.landlord_id) : null;
         const payout =
           (r.rent_request_id ? payoutByRentRequest.get(r.rent_request_id) : null) ??
@@ -256,7 +265,11 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
       }) as LandlordFloatAllocation[];
     },
     enabled: !!user,
-    staleTime: 15_000,
+    // Money screen: never serve a cached allocation list. A row that was paid
+    // out elsewhere (wizard on another device, merchant approval, ops action)
+    // must not stay tappable here — that is how a landlord gets paid twice.
+    staleTime: 0,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
 }
