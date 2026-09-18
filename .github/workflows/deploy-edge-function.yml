@@ -58,6 +58,7 @@ on:
           - redispatch-withdrawals
           - sms-otp
           - daily-cto-report
+          - notify-landlord-payout-rejected
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true

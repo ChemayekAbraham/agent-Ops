@@ -214,6 +214,15 @@ export function LandlordPayoutsQueue() {
         });
       } catch { /* non-blocking */ }
 
+      // SMS the agent too — the in-app notification alone is easy to miss
+      // when they're mid-round on the road, and the whole point of the float
+      // refund is that they can withdraw again right away.
+      try {
+        await supabase.functions.invoke('notify-landlord-payout-rejected', {
+          body: { payout_id: reject.id, reason: reason.trim() },
+        });
+      } catch { /* non-blocking — SMS failure never reverses the rejection/refund */ }
+
       toast.success('Rejected and refunded');
       qc.invalidateQueries({ queryKey: ['finops-landlord-payouts-queue'] });
       closeAll();
