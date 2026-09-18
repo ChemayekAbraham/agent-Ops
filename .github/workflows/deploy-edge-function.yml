@@ -59,6 +59,7 @@ on:
           - sms-otp
           - daily-cto-report
           - notify-landlord-payout-rejected
+          - send-landlord-payout-resubmit-sms
           - national-id-link-otp
           - password-reset-sms
           - issue-wallet-withdrawal-otp
