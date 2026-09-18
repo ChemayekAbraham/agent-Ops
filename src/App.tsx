@@ -473,6 +473,7 @@ function AppRoutes() {
           <Route path="/s/:code" element={<TrackedRedirect />} />
           <Route path="/support-house" element={<SupportHouse />} />
           <Route path="/t/:token" element={<TenantDashboardLandingPage />} />
+          <Route path="/join/:code" element={<CampaignRedirect />} />
           <Route path="/c/:slug/:code" element={<CampaignRedirect />} />
           <Route path="/c/:code" element={<CampaignRedirect />} />
           <Route path="/agent/campaigns" element={<AgentCampaignsPage />} />

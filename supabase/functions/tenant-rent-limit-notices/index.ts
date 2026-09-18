@@ -24,6 +24,7 @@ import {
   firstName,
   formatUGX,
   loadEvent,
+  loadTenantStatusAppendices,
   renderTemplate,
 } from "../_shared/tenantTemplates.ts";
 
@@ -92,6 +93,7 @@ Deno.serve(async (req) => {
     // Per-tenant dashboard links do not exist yet (Stage 4C). Until they do,
     // dashboardSuffix() returns "" and the templates simply end earlier.
     const origin = Deno.env.get("PUBLIC_SITE_ORIGIN") || "https://welileapp.com";
+    const domainName = origin.replace(/^https?:\/\//, "").replace(/\/+$/, "");
     const linkForEvent = event.link_path ? `${origin}${event.link_path}` : null;
     const suffix = dashboardSuffix(linkForEvent);
 
@@ -109,6 +111,11 @@ Deno.serve(async (req) => {
 
       const rows = (data ?? []) as IncreaseRow[];
       candidateCount = rows.length;
+      const statusAppendices = await loadTenantStatusAppendices(
+        admin,
+        rows.map((row) => row.tenant_id),
+        domainName,
+      );
 
       for (const row of rows) {
         const phone = String(row.tenant_phone ?? "").trim();
@@ -118,6 +125,7 @@ Deno.serve(async (req) => {
           name: firstName(row.tenant_name),
           new_limit: formatUGX(row.new_total_limit),
           dashboard_suffix: suffix,
+          status_appendix: statusAppendices.get(row.tenant_id) ?? "",
         };
 
         if (dryRun) {
@@ -198,6 +206,11 @@ Deno.serve(async (req) => {
 
       const eligible = cleared.filter((r) => !increasedIds.has(r.tenant_id));
       candidateCount = eligible.length;
+      const statusAppendices = await loadTenantStatusAppendices(
+        admin,
+        eligible.map((row) => row.tenant_id),
+        domainName,
+      );
 
       // Phone and name are not in the day-state RPC; fetch for this slice only.
       const ids = eligible.map((r) => r.tenant_id);
@@ -221,6 +234,7 @@ Deno.serve(async (req) => {
         const vars = {
           name: firstName(profile?.full_name),
           dashboard_suffix: suffix,
+          status_appendix: statusAppendices.get(row.tenant_id) ?? "",
         };
 
         if (dryRun) {

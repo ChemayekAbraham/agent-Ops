@@ -42498,6 +42498,33 @@ export type Database = {
           },
         ]
       }
+      tenant_status_appendices: {
+        Row: {
+          active: boolean
+          body_template: string
+          created_at: string
+          label: string
+          status_code: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          body_template: string
+          created_at?: string
+          label: string
+          status_code: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          body_template?: string
+          created_at?: string
+          label?: string
+          status_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenant_transfers: {
         Row: {
           actor_accuracy: number | null
@@ -58024,6 +58051,21 @@ export type Database = {
       get_tenant_smartphone_overview: {
         Args: { p_agent_id?: string; p_district?: string }
         Returns: Json
+      }
+      get_tenant_status_appendices: {
+        Args: { p_domain_name?: string; p_tenant_ids: string[] }
+        Returns: {
+          status_appendix: string
+          status_code: string
+          tenant_id: string
+        }[]
+      }
+      get_tenant_status_appendix: {
+        Args: { p_domain_name?: string; p_tenant_id: string }
+        Returns: {
+          status_appendix: string
+          status_code: string
+        }[]
       }
       get_tenant_transfer_history: {
         Args: { p_tenant_id: string }

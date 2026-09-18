@@ -132,6 +132,34 @@ export function dashboardSuffix(link: string | null | undefined): string {
   return link ? ` View: ${link}` : "";
 }
 
+/** Whole status-based paragraph appended to tenant SMS copy. */
+export function statusAppendix(text: string | null | undefined): string {
+  const cleaned = String(text ?? "").trim();
+  return cleaned ? ` ${cleaned}` : "";
+}
+
+export async function loadTenantStatusAppendices(
+  admin: any,
+  tenantIds: Array<string | null | undefined>,
+  domainName = "welileapp.com",
+): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(tenantIds.filter((id): id is string => Boolean(id))));
+  if (ids.length === 0) return new Map();
+
+  const { data, error } = await admin.rpc("get_tenant_status_appendices", {
+    p_tenant_ids: ids,
+    p_domain_name: domainName,
+  });
+
+  if (error) {
+    console.error("[tenantTemplates] status appendix load failed:", error.message);
+    return new Map();
+  }
+
+  const rows = (data ?? []) as Array<{ tenant_id: string; status_appendix: string | null }>;
+  return new Map(rows.map((row) => [row.tenant_id, statusAppendix(row.status_appendix)]));
+}
+
 /** Call to action for the agent-opportunity message. */
 export function agentCta(link: string | null | undefined): string {
   return link ? ` Start here: ${link}` : "";
