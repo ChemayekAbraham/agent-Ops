@@ -481,6 +481,11 @@ export function PartnerReturnsForecastPanel({
                   <DrillCell value={Number(r.topups)} onClick={() => openDrilldown(r, 'topups')} />
                   <td className="py-2 pr-3 text-right font-mono tabular-nums text-muted-foreground">
                     {r.is_past ? '—' : formatUGX(Number(r.topups_forecast ?? 0))}
+                    {!r.is_past && bands.map.get(r.key) ? (
+                      <span className="block text-[10px]">
+                        {`${formatUGX(bands.map.get(r.key)!.low)} – ${formatUGX(bands.map.get(r.key)!.high)}`}
+                      </span>
+                    ) : null}
                   </td>
                   <DrillCell value={Number(r.promissory_receivable)} onClick={() => openDrilldown(r, 'promissory')} />
                   <DrillCell value={Number(r.compounding)} onClick={() => openDrilldown(r, 'compounding')} />
