@@ -1443,6 +1443,13 @@
       "when": 1789717916367,
       "tag": "0205_rls_restrict_public_readable_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1789718564682,
+      "tag": "0206_drop_linked_national_id_name_match_guard",
+      "breakpoints": true
     }
   ]
 }
