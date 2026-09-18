@@ -47,3 +47,5 @@
 - [x] Stop sending email to placeholder phone-only addresses (central guard + queue skip).
 
 - [ ] Cash & Bank (A1) correction: show exact journal entries + before/after balances for approval, then implement float reclass (A8/X6), verified banked-cash posting, and split Cash at Bank / Agent Float / Cash in Custody presentation.
+- [ ] Tenant SMS append: add status-based paragraphs from the approved report to existing tenant messages only.
+- [ ] Agent Performance: align collection/date logic with Tenant Ops Home without changing records.

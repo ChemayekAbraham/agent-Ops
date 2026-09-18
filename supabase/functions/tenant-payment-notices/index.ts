@@ -33,6 +33,7 @@ import {
   formatUGX,
   loadEvent,
   loadPaymentChannels,
+  loadTenantStatusAppendices,
   payDirectSentence,
   renderTemplate,
   type NotificationEvent,
@@ -128,6 +129,8 @@ Deno.serve(async (req) => {
     // Per-tenant dashboard links do not exist yet (Stage 4C); until they do
     // dashboardSuffix() returns "" and these messages end after the balance.
     const suffix = dashboardSuffix(null);
+    const origin = Deno.env.get("PUBLIC_SITE_ORIGIN") || "https://welileapp.com";
+    const domainName = origin.replace(/^https?:\/\//, "").replace(/\/+$/, "");
 
     const results = { sent: 0, skipped: 0, failed: 0 };
     const skipReasons: Record<string, number> = {};
@@ -199,6 +202,11 @@ Deno.serve(async (req) => {
 
       const rows = (data ?? []) as PaymentCandidate[];
       candidateCount = rows.length;
+      const statusAppendices = await loadTenantStatusAppendices(
+        admin,
+        rows.map((row) => row.tenant_id),
+        domainName,
+      );
 
       for (const row of rows) {
         const phone = String(row.tenant_phone ?? "").trim();
@@ -214,6 +222,7 @@ Deno.serve(async (req) => {
           remaining_balance: formatUGX(row.remaining_today),
           balance: formatUGX(row.outstanding),
           dashboard_suffix: suffix,
+          status_appendix: statusAppendices.get(row.tenant_id) ?? "",
         };
 
         // Episode is the obligation day, so a tenant who pays repeatedly gets
@@ -253,6 +262,11 @@ Deno.serve(async (req) => {
 
       const rows = (data ?? []) as MissedCandidate[];
       candidateCount = rows.length;
+      const statusAppendices = await loadTenantStatusAppendices(
+        admin,
+        rows.map((row) => row.tenant_id),
+        domainName,
+      );
 
       for (const row of rows) {
         const phone = String(row.tenant_phone ?? "").trim();
@@ -264,6 +278,7 @@ Deno.serve(async (req) => {
           balance: formatUGX(row.outstanding),
           pay_direct: payDirectSentence(channels),
           dashboard_suffix: suffix,
+          status_appendix: statusAppendices.get(row.tenant_id) ?? "",
         };
 
         await dispatch(
