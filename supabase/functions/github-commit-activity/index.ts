@@ -177,6 +177,7 @@ Deno.serve(async (req) => {
       profile_url: string | null;
       commits: number;
       last_commit_at: string | null;
+      first_commit_at: string | null;
     }>();
     for (const c of feed) {
       const key = c.author_login || c.author_name;
@@ -184,6 +185,7 @@ Deno.serve(async (req) => {
       if (hit) {
         hit.commits += 1;
         if (c.date && (!hit.last_commit_at || c.date > hit.last_commit_at)) hit.last_commit_at = c.date;
+        if (c.date && (!hit.first_commit_at || c.date < hit.first_commit_at)) hit.first_commit_at = c.date;
       } else {
         byAuthor.set(key, {
           key,
@@ -193,6 +195,7 @@ Deno.serve(async (req) => {
           profile_url: c.profile_url,
           commits: 1,
           last_commit_at: c.date,
+          first_commit_at: c.date,
         });
       }
     }
