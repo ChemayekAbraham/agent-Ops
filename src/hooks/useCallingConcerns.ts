@@ -113,6 +113,8 @@ export interface ConcernEvent {
   prev_due_at: string | null;
   new_due_at: string | null;
   reason: string | null;
+  prev_recipients: string | null;
+  new_recipients: string | null;
 }
 
 export interface ConcernReviewer {
@@ -122,6 +124,14 @@ export interface ConcernReviewer {
   role: 'handler' | 'reviewer';
   added_by_name: string | null;
   created_at: string;
+  added_reason: string | null;
+  note: string | null;
+  notified_at: string | null;
+  acknowledged_at: string | null;
+  removed_at: string | null;
+  removed_by_name: string | null;
+  remove_reason: string | null;
+  active: boolean;
 }
 
 export interface ConcernPowers {
@@ -129,6 +139,7 @@ export interface ConcernPowers {
   can_set_due: boolean;
   is_hr: boolean;
   is_ceo: boolean;
+  is_super_admin: boolean;
 }
 
 export interface StaffOption {
@@ -294,10 +305,16 @@ export function useConcernReviewers(concernIds: string[]) {
   });
 }
 
+/** Only the people currently on the concern. */
+export const activeReviewers = (list: ConcernReviewer[]) => list.filter((r) => r.active);
+/** People who were on it before and have since been taken off. */
+export const pastReviewers = (list: ConcernReviewer[]) => list.filter((r) => !r.active);
+
 export interface ForwardConcernInput {
   source_kind: 'outbound_call' | 'received_call';
   title: string;
-  forwarded_to: string;
+  /** One or more staff members. The first opens the concern, the rest join it. */
+  forwarded_to: string | string[];
   context?: string | null;
   priority?: string;
   feedback_id?: string | null;
@@ -313,10 +330,15 @@ export function useForwardConcern() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: ForwardConcernInput): Promise<string> => {
+      const recipients = (Array.isArray(input.forwarded_to) ? input.forwarded_to : [input.forwarded_to]).filter(
+        (id, i, arr) => !!id && arr.indexOf(id) === i,
+      );
+      if (recipients.length === 0) throw new Error('Choose at least one person.');
+
       const { data, error } = await anyDb.rpc('cc_forward_concern', {
         p_source_kind: input.source_kind,
         p_title: input.title,
-        p_forwarded_to: input.forwarded_to,
+        p_forwarded_to: recipients[0],
         p_context: input.context ?? null,
         p_priority: input.priority ?? 'normal',
         p_feedback_id: input.feedback_id ?? null,
@@ -331,7 +353,18 @@ export function useForwardConcern() {
       if (typeof data !== 'string' || data.length === 0) {
         throw new Error('The concern was not saved. Please try again.');
       }
-      return data as string;
+      const concernId = data as string;
+
+      // Everyone else joins the same concern — one thread, never a duplicate.
+      for (const userId of recipients.slice(1)) {
+        const { error: addError } = await anyDb.rpc('cc_add_concern_reviewer', {
+          p_concern_id: concernId,
+          p_user_id: userId,
+          p_note: input.context?.trim() || null,
+        });
+        if (addError) throw new Error(addError.message);
+      }
+      return concernId;
     },
     onSuccess: async () => {
       await Promise.all([
@@ -342,6 +375,60 @@ export function useForwardConcern() {
     },
   });
 }
+
+/** Add someone to a concern at any stage — sender, current people, HR or the CEO. */
+export function useAddConcernReviewer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { concern_id: string; user_id: string; reason?: string | null }) => {
+      const { data, error } = await anyDb.rpc('cc_add_concern_reviewer', {
+        p_concern_id: input.concern_id,
+        p_user_id: input.user_id,
+        p_note: input.reason?.trim() || null,
+      });
+      if (error) throw new Error(error.message);
+      return data as {
+        success: boolean;
+        already_present: boolean;
+        reviewer_name: string;
+        previous_recipients?: string | null;
+        new_recipients?: string | null;
+      };
+    },
+    onSuccess: (_d, vars) => {
+      void qc.invalidateQueries({ queryKey: ['cc-concern-reviewers'] });
+      void qc.invalidateQueries({ queryKey: ['cc-concern-events', vars.concern_id] });
+      void qc.invalidateQueries({ queryKey: ['cc-forwarded-concerns'] });
+    },
+  });
+}
+
+/** Take someone off a concern. The record of their time on it is kept. */
+export function useRemoveConcernReviewer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { concern_id: string; user_id: string; reason: string }) => {
+      const { data, error } = await anyDb.rpc('cc_remove_concern_reviewer', {
+        p_concern_id: input.concern_id,
+        p_user_id: input.user_id,
+        p_reason: input.reason,
+      });
+      if (error) throw new Error(error.message);
+      return data as {
+        success: boolean;
+        removed_name: string;
+        previous_recipients?: string | null;
+        new_recipients?: string | null;
+      };
+    },
+    onSuccess: (_d, vars) => {
+      void qc.invalidateQueries({ queryKey: ['cc-concern-reviewers'] });
+      void qc.invalidateQueries({ queryKey: ['cc-concern-events', vars.concern_id] });
+      void qc.invalidateQueries({ queryKey: ['cc-forwarded-concerns'] });
+    },
+  });
+}
+
 
 export function useConcernEvent() {
   const qc = useQueryClient();
@@ -396,7 +483,13 @@ export function useConcernPowers() {
     queryFn: async (): Promise<ConcernPowers> => {
       const { data, error } = await anyDb.rpc('cc_concern_powers');
       if (error) throw new Error(error.message);
-      return (data ?? { can_reassign: false, can_set_due: false, is_hr: false, is_ceo: false }) as ConcernPowers;
+      return (data ?? {
+        can_reassign: false,
+        can_set_due: false,
+        is_hr: false,
+        is_ceo: false,
+        is_super_admin: false,
+      }) as ConcernPowers;
     },
   });
 }
@@ -475,5 +568,6 @@ export const CONCERN_ACTION_LABEL: Record<string, string> = {
   completed: 'Completed',
   reassigned: 'Handler changed',
   due_changed: 'Answer time changed',
-  reviewer_added: 'Reviewer added',
+  reviewer_added: 'Person added',
+  reviewer_removed: 'Person taken off',
 };

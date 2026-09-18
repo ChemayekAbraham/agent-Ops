@@ -28,6 +28,7 @@ import { KPICard } from '../../KPICard';
 import { ForwardConcernDialog, type ForwardConcernSource } from './ForwardConcernDialog';
 import { useCcCallHistory } from '@/hooks/useCcCallHistory';
 import { ConcernControlPanel } from './ConcernControlPanel';
+import { ConcernParticipantsPanel } from './ConcernParticipantsPanel';
 import {
   CONCERN_ACTION_LABEL,
   CONCERN_PRIORITY_LABEL,
@@ -37,6 +38,7 @@ import {
   isConcernOverdue,
   useConcernEvents,
   useConcernReviewers,
+  type ConcernReviewer,
   useForwardedConcerns,
   type ConcernStatus,
   type ForwardedConcern,
@@ -81,7 +83,15 @@ function repeatThemes(rows: ForwardedConcern[]) {
     .slice(0, 12);
 }
 
-function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: ForwardedConcern | null; reviewerNames: string[]; onClose: () => void }) {
+function ConcernTimelineDialog({
+  concern,
+  reviewerRows,
+  onClose,
+}: {
+  concern: ForwardedConcern | null;
+  reviewerRows: ConcernReviewer[];
+  onClose: () => void;
+}) {
   const events = useConcernEvents(concern?.id ?? null);
   return (
     <Dialog open={!!concern} onOpenChange={(v) => !v && onClose()}>
@@ -109,13 +119,9 @@ function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: F
                 {concern.source_kind === 'received_call' ? 'From a call that came in' : 'From a call we made'}
                 {concern.caller_name ? ` · about ${concern.caller_name}` : ''}
               </p>
-              {reviewerNames.length > 0 && (
-                <p className="mt-1">
-                  Reviewers: <span className="font-semibold">{reviewerNames.join(', ')}</span>
-                </p>
-              )}
             </CCBlock>
             {concern.context && <p className="text-[11px] leading-snug">{concern.context}</p>}
+            <ConcernParticipantsPanel concern={concern} reviewers={reviewerRows} />
             <ConcernControlPanel concern={concern} />
             <div className="space-y-2">
               {events.isLoading ? (
@@ -139,8 +145,18 @@ function ConcernTimelineDialog({ concern, reviewerNames, onClose }: { concern: F
                         From {stamp(e.prev_due_at)} to {stamp(e.new_due_at)}
                       </p>
                     )}
-                    {e.action === 'reviewer_added' && (
-                      <p className="mt-1 text-[11px] leading-snug">Added {e.new_user_name ?? 'staff member'}</p>
+                    {(e.action === 'reviewer_added' || e.action === 'reviewer_removed') && (
+                      <div className="mt-1 space-y-0.5 text-[11px] leading-snug">
+                        <p>
+                          {e.action === 'reviewer_added' ? 'Added' : 'Took off'}{' '}
+                          <span className="font-semibold">{e.new_user_name ?? e.prev_user_name ?? 'staff member'}</span>
+                        </p>
+                        {(e.prev_recipients || e.new_recipients) && (
+                          <p className="text-muted-foreground">
+                            Before: {e.prev_recipients || '—'} · After: {e.new_recipients || '—'}
+                          </p>
+                        )}
+                      </div>
                     )}
                     {e.note && <p className="mt-1 text-[11px] leading-snug">{e.note}</p>}
                   </div>
@@ -443,9 +459,19 @@ export function ConcernsReviewTab() {
   const { data, isLoading } = useForwardedConcerns({ days });
   const all = useMemo(() => data ?? [], [data]);
   const reviewers = useConcernReviewers(all.map((c) => c.id));
+  /** Full rows per concern, so the timeline can show who is on it now and who was before. */
+  const reviewerRowsByConcern = useMemo(() => {
+    const map = new Map<string, ConcernReviewer[]>();
+    (reviewers.data ?? []).forEach((r) => {
+      map.set(r.concern_id, [...(map.get(r.concern_id) ?? []), r]);
+    });
+    return map;
+  }, [reviewers.data]);
+  /** Names of the people currently on each concern (for tables and the PDF). */
   const reviewersByConcern = useMemo(() => {
     const map = new Map<string, string[]>();
     (reviewers.data ?? []).forEach((r) => {
+      if (!r.active) return;
       const list = map.get(r.concern_id) ?? [];
       if (r.full_name && !list.includes(r.full_name)) list.push(r.full_name);
       map.set(r.concern_id, list);
@@ -843,7 +869,7 @@ export function ConcernsReviewTab() {
       <ForwardConcernDialog open={!!forwardSource} source={forwardSource} onClose={() => setForwardSource(null)} />
       <ConcernTimelineDialog
         concern={openConcern}
-        reviewerNames={openConcern ? reviewersByConcern.get(openConcern.id) ?? [] : []}
+        reviewerRows={openConcern ? reviewerRowsByConcern.get(openConcern.id) ?? [] : []}
         onClose={() => setOpenConcern(null)}
       />
     </div>
