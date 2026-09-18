@@ -146,12 +146,20 @@ export function PartnerReturnsForecastPanel({
 
   const totals = useMemo(() => {
     const past = rows.filter((r) => r.is_past);
+    const ahead = rows.filter((r) => !r.is_past);
+    // Each row's net counts real top-ups in past periods and predicted top-ups
+    // in future ones, so the breakdown below must do exactly the same or it
+    // will not add up to the net it explains.
+    const topupsPast = past.reduce((s, r) => s + Number(r.topups), 0);
+    const topupsPredictedAhead = ahead.reduce((s, r) => s + Number(r.topups_forecast ?? 0), 0);
     return {
       forecastPast: past.reduce((s, r) => s + Number(r.forecast_returns), 0),
       actualPast: past.reduce((s, r) => s + Number(r.actual_returns_paid), 0),
-      forecastAhead: rows.filter((r) => !r.is_past).reduce((s, r) => s + Number(r.forecast_returns), 0),
+      forecastAhead: ahead.reduce((s, r) => s + Number(r.forecast_returns), 0),
       topups: rows.reduce((s, r) => s + Number(r.topups), 0),
+      topupsPast,
       topupsPredicted: rows.reduce((s, r) => s + Number(r.topups_forecast ?? 0), 0),
+      topupsPredictedAhead,
       promissory: rows.reduce((s, r) => s + Number(r.promissory_receivable), 0),
       compounding: rows.reduce((s, r) => s + Number(r.compounding), 0),
       receivable: rows.reduce((s, r) => s + Number(r.partner_receivable), 0),
