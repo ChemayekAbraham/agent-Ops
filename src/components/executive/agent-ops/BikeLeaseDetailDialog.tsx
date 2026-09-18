@@ -280,7 +280,80 @@ export function BikeLeaseDetailDialog({
             </div>
           </div>
 
-          {/* SECTION 2: AUDIT & TIMELINE */}
+          {/* SECTION 2: REPAYMENT BREAKDOWN */}
+          <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-2.5 shadow-xs overflow-hidden">
+            <div className="flex items-center justify-between gap-2 pb-0.5 border-b border-border/40">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-6 w-6 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <CreditCard className="h-3.5 w-3.5" />
+                </div>
+                <h3 className="text-xs font-bold text-foreground truncate">
+                  Repayment Breakdown
+                </h3>
+              </div>
+              <span className="text-[11px] text-muted-foreground shrink-0">
+                {schedule.days} days · {schedule.monthlyRatePct}% on balance left
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[11px] font-medium text-muted-foreground truncate">Total charge</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                  {formatUGX(schedule.accessFee)}
+                </p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[11px] font-medium text-muted-foreground truncate">Total repayable</p>
+                <p className="text-xs sm:text-sm font-bold text-primary truncate">
+                  {formatUGX(schedule.total)}
+                </p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[11px] font-medium text-muted-foreground truncate">First → last month</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                  {formatUGX(schedule.firstMonthly)} → {formatUGX(schedule.lastMonthly)}
+                </p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[11px] font-medium text-muted-foreground truncate">First → last daily</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                  {formatUGX(schedule.firstDaily)} → {formatUGX(schedule.lastDaily)}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border overflow-hidden">
+              <div className="max-h-64 overflow-y-auto">
+                <table className="w-full text-[11px]">
+                  <thead className="sticky top-0 bg-muted/60">
+                    <tr className="text-muted-foreground">
+                      <th className="text-left font-medium px-2 py-1.5">Month</th>
+                      <th className="text-right font-medium px-2 py-1.5">Balance</th>
+                      <th className="text-right font-medium px-2 py-1.5">Charge</th>
+                      <th className="text-right font-medium px-2 py-1.5">Month pays</th>
+                      <th className="text-right font-medium px-2 py-1.5">Per day</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {schedule.rows.map((row) => (
+                      <tr key={row.month} className="border-t border-border/60">
+                        <td className="px-2 py-1.5 font-medium">{row.month}</td>
+                        <td className="px-2 py-1.5 text-right">{formatUGX(row.openingPrincipal)}</td>
+                        <td className="px-2 py-1.5 text-right">{formatUGX(row.feeDue)}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold">
+                          {formatUGX(row.totalDue)}
+                        </td>
+                        <td className="px-2 py-1.5 text-right">{formatUGX(row.daily)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3: AUDIT & TIMELINE */}
           <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-2.5 shadow-xs">
             <div className="flex items-center gap-2 pb-0.5 border-b border-border/40">
               <div className="h-6 w-6 rounded-md bg-muted text-muted-foreground flex items-center justify-center shrink-0">
