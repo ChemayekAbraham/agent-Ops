@@ -22,6 +22,7 @@ import {
   type DrilldownMetric,
   type DrilldownTarget,
 } from './PartnerReturnsDrilldownDialog';
+import { TopupBacktestPanel } from './TopupBacktestPanel';
 
 /** Metrics exported as supporting records, in report order. */
 const EXPORT_METRICS: { metric: DrilldownMetric; field: keyof Row }[] = [
@@ -310,6 +311,14 @@ export function PartnerReturnsForecastPanel({
           </p>
         ) : null}
 
+        <TopupBacktestPanel
+          periods={rows.map((r) => ({
+            key: r.key,
+            label: r.label,
+            is_past: r.is_past,
+            topups: Number(r.topups),
+          }))}
+        />
 
         <div className="rounded-xl border border-border p-3">
           <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">
