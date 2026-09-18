@@ -26,6 +26,7 @@ interface Contributor {
   profile_url: string | null;
   commits: number;
   last_commit_at: string | null;
+  first_commit_at: string | null;
 }
 
 interface ActivityResponse {
