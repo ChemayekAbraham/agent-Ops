@@ -20,7 +20,7 @@ import {
   ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Info, Smartphone, Bike, AlertCircle, Share2,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
-import { MERCHANDISE_TERMS, merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
+import { merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
 import { format } from 'date-fns';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
@@ -184,11 +184,9 @@ export default function MerchandiseStore() {
   // is reducing balance: 28% monthly charge on the opening principal, so both the
   // monthly amount and the daily wallet deduction fall month after month.
   const termSchedule = orderTotal > 0 ? merchandiseInstallmentSchedule(orderTotal, termMonths) : null;
-  const termRows = termSchedule?.rows ?? [];
   const termTotalRepayable = termSchedule?.totalRepayable ?? 0;
   const termFirstDaily = termSchedule?.firstDaily ?? 0;
   const termLastDaily = termSchedule?.lastDaily ?? 0;
-  const termFirstMonthly = termRows[0]?.totalDue ?? 0;
   // Pay in full needs the whole price today. Installments are 25% of the item
   // price each — paid now and at every recovery run until the selling price is
   // cleared (4 installments, no extra charge on top of the price).
