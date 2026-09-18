@@ -162,31 +162,51 @@ export default function GitCommitsPanel() {
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-3 sm:p-4">
-            <h3 className="text-sm font-semibold mb-3">Commits per person</h3>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-sm font-semibold">Commits per person</h3>
+              {author && (
+                <Button variant="ghost" size="sm" onClick={() => { setAuthor(null); setPage(1); }}>
+                  <X className="h-3.5 w-3.5 mr-1" /> Show everyone
+                </Button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
-              {data.contributors.map((c) => (
-                <a
-                  key={c.key}
-                  href={c.profile_url ?? data.repo_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 hover:bg-muted transition-colors"
-                >
-                  {c.avatar_url ? (
-                    <img src={c.avatar_url} alt={c.name} className="h-7 w-7 rounded-full object-cover" loading="lazy" />
-                  ) : (
-                    <span className="h-7 w-7 rounded-full bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center">
-                      {initials(c.name)}
+              {data.contributors.map((c) => {
+                const active = author === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => { setAuthor(active ? null : c.key); setPage(1); }}
+                    className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition-colors ${
+                      active
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-muted/40 hover:bg-muted'
+                    }`}
+                  >
+                    {c.avatar_url ? (
+                      <img src={c.avatar_url} alt={c.name} className="h-7 w-7 rounded-full object-cover" loading="lazy" />
+                    ) : (
+                      <span className="h-7 w-7 rounded-full bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center">
+                        {initials(c.name)}
+                      </span>
+                    )}
+                    <span className="text-xs leading-tight">
+                      <span className="block">
+                        <span className="font-medium text-foreground">{c.login ?? c.name}</span>
+                        <span className="text-muted-foreground">
+                          {' '}· {c.commits === 0 ? 'none in this period' : c.commits}
+                        </span>
+                      </span>
+                      <span className="block text-[10px] text-muted-foreground">
+                        {c.first_commit_at
+                          ? `since ${format(new Date(c.first_commit_at), 'dd MMM yyyy')}`
+                          : 'start date unknown'}
+                      </span>
                     </span>
-                  )}
-                  <span className="text-xs">
-                    <span className="font-medium text-foreground">{c.login ?? c.name}</span>
-                    <span className="text-muted-foreground">
-                      {' '}· {c.commits === 0 ? 'none in this period' : c.commits}
-                    </span>
-                  </span>
-                </a>
-              ))}
+                  </button>
+                );
+              })}
               {data.contributors.length === 0 && (
                 <p className="text-xs text-muted-foreground">No commits in this period.</p>
               )}
