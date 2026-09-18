@@ -1247,6 +1247,10 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               <>
                 <EarningsSummaryCard />
 
+                {/* Products being repaid — plan + pay button per product */}
+                <MerchandiseRepaymentPortfolio userId={user.id} />
+
+
                 {/* Merchandise store shortcut */}
                 <button
                   type="button"
