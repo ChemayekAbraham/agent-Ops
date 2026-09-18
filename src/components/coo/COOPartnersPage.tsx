@@ -5500,6 +5500,10 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const reinvestAmount = roiAmount - cashAmount;
       if (cashAmount < 1 || reinvestAmount < 1) throw new Error('Both cash and reinvest amounts must be at least 1');
       if (payMode === 'different_wallet' && !altRecipient) throw new Error('Pick who the cash portion goes to');
+      // Hard invariant, not just a UI default: redirecting part of a payout to someone
+      // else's wallet always means the rest stays withdrawable for the original
+      // partner — never silently compounded into principal.
+      if (payMode === 'different_wallet') reinvestMode = 'keep_returns';
 
       const refId = generateRef('SPL');
       const { data: { user } } = await supabase.auth.getUser();
@@ -6254,11 +6258,21 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                     <p className="text-[10px] text-muted-foreground">Cash Payout</p>
                     <p className="text-sm font-bold tabular-nums text-primary">{formatUGX(splitCashAmount)}</p>
                   </div>
-                  <div className={cn("rounded-xl border-2 p-3 text-center cursor-pointer transition-all", splitReinvestMode === 'reinvest' ? "border-green-500/50 bg-green-500/10" : "border-border/40 bg-muted/30 hover:border-green-500/30")} onClick={() => setSplitReinvestMode('reinvest')}>
+                  <div
+                    className={cn(
+                      "rounded-xl border-2 p-3 text-center transition-all",
+                      splitPayMode === 'different_wallet'
+                        ? "cursor-not-allowed opacity-40 border-border/40 bg-muted/20"
+                        : cn("cursor-pointer", splitReinvestMode === 'reinvest' ? "border-green-500/50 bg-green-500/10" : "border-border/40 bg-muted/30 hover:border-green-500/30"),
+                    )}
+                    onClick={() => splitPayMode !== 'different_wallet' && setSplitReinvestMode('reinvest')}
+                  >
                     <TrendingUp className="h-4 w-4 mx-auto mb-1 text-green-600" />
                     <p className="text-[10px] text-muted-foreground">Reinvest</p>
                     <p className="text-sm font-bold tabular-nums text-green-600">{formatUGX(selectedRoiAmount - splitCashAmount)}</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">Adds to principal</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">
+                      {splitPayMode === 'different_wallet' ? "Unavailable — remainder must stay withdrawable" : "Adds to principal"}
+                    </p>
                   </div>
                   <div className={cn("rounded-xl border-2 p-3 text-center cursor-pointer transition-all", splitReinvestMode === 'keep_returns' ? "border-amber-500/50 bg-amber-500/10" : "border-border/40 bg-muted/30 hover:border-amber-500/30")} onClick={() => setSplitReinvestMode('keep_returns')}>
                     <PiggyBank className="h-4 w-4 mx-auto mb-1 text-amber-600" />
@@ -6278,7 +6292,16 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
               ) : (
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Cash portion payment method</Label>
-                  <Select value={splitPayMode} onValueChange={(v: any) => setSplitPayMode(v)}>
+                  <Select
+                    value={splitPayMode}
+                    onValueChange={(v: any) => {
+                      setSplitPayMode(v);
+                      // The whole point of redirecting part of a payout to someone else's
+                      // wallet is that the REST is withdrawable by the original partner —
+                      // never silently reinvested into principal. Force it, don't just default it.
+                      if (v === 'different_wallet') setSplitReinvestMode('keep_returns');
+                    }}
+                  >
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>

@@ -258,7 +258,8 @@ export function COOROIApprovals() {
         ) : (
           operations.map(op => {
             const meta = op.metadata as Record<string, any> | null;
-            const isProxy = !!op.target_wallet_user_id;
+            const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
+            const isProxy = !!op.target_wallet_user_id && !isAltWallet;
             const isRejecting = rejecting === op.id;
 
             return (
@@ -286,6 +287,14 @@ export function COOROIApprovals() {
                           <Wallet className="h-4 w-4 text-primary" />
                           <span className="font-semibold text-primary">{meta?.target_agent_name || getName(op.target_wallet_user_id)}</span>
                           <Badge variant="outline" className="text-xs">Proxy Agent</Badge>
+                        </>
+                      )}
+                      {isAltWallet && (
+                        <>
+                          <span className="text-muted-foreground">→</span>
+                          <Wallet className="h-4 w-4 text-primary" />
+                          <span className="font-semibold text-primary">{meta?.alt_recipient_name || getName(op.target_wallet_user_id)}</span>
+                          <Badge variant="outline" className="text-xs">Different Wallet</Badge>
                         </>
                       )}
                     </div>

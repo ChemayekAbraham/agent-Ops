@@ -23,6 +23,7 @@ interface PendingOp {
   status: string;
   created_at: string;
   reference_id: string | null;
+  operation_type: string | null;
   target_wallet_user_id: string | null;
   metadata: Record<string, any> | null;
 }
@@ -169,7 +170,8 @@ export function ROIPayoutQueue() {
           <TableBody>
             {operations.map(op => {
               const meta = op.metadata as Record<string, any> | null;
-              const isProxy = !!op.target_wallet_user_id;
+              const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
+              const isProxy = !!op.target_wallet_user_id && !isAltWallet;
               const rejReason = rejectionReasons[op.id] || '';
               const editedRaw = editedAmounts[op.id];
               const hasEdit = editedRaw !== undefined && editedRaw !== '';
@@ -190,6 +192,14 @@ export function ROIPayoutQueue() {
                             <Wallet className="h-4 w-4 text-primary" />
                             <span className="font-semibold text-primary">{meta?.target_agent_name || getName(op.target_wallet_user_id)}</span>
                             <Badge variant="outline" className="text-xs">Proxy Agent</Badge>
+                          </>
+                        )}
+                        {isAltWallet && (
+                          <>
+                            <span className="text-muted-foreground">→</span>
+                            <Wallet className="h-4 w-4 text-primary" />
+                            <span className="font-semibold text-primary">{meta?.alt_recipient_name || getName(op.target_wallet_user_id)}</span>
+                            <Badge variant="outline" className="text-xs">Different Wallet</Badge>
                           </>
                         )}
                       </div>

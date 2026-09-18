@@ -52,13 +52,35 @@ changes were needed there.
   "Pay / Split Payouts" button, fed by the same shared dedupe fetch as its own table — the table
   and the dialog can no longer disagree about which portfolios are still payable.
 
-## Known follow-up, not fixed here
+## Follow-up fixes, same day, after a live test
 
-`COOROIApprovals.tsx` / `CFOROIRequests.tsx` / `ROIPayoutQueue.tsx` badge anything with
-`target_wallet_user_id` set as "proxy" for display. A `roi_split_alt_wallet` op will show that
-badge even though it isn't a standing proxy relationship — cosmetic only (the operation's own
-`description` and `metadata.pay_mode` are unambiguous), left alone to keep this change scoped to
-the actual money-routing fix.
+Josh tested it live (Piuslubega Ssenkali → Joshua Wanda, UGX 1,000 of a 2,000 total) and caught
+two real problems immediately:
+
+1. **The untouched UGX 1,000 got reinvested into Piuslubega's portfolio principal**, not left
+   withdrawable. Split Payout's pre-existing "Reinvest vs Keep as Returns" toggle defaults to
+   Reinvest, and a fresh `different_wallet` split doesn't change that default on its own. Josh's
+   call: the whole point of redirecting part of a payout to someone else is that the REST is
+   always withdrawable by the original partner — never silently compounded. Fixed as a hard
+   invariant, not just a default: picking "Pay to a different person's wallet" now force-sets
+   `splitReinvestMode` to `'keep_returns'` (both in the `onValueChange` handler and again inside
+   `handleSplitPayout` itself as a defensive floor), and the "Reinvest" tile is visually disabled
+   while that payment method is selected so it can't be re-toggled by mistake.
+2. **The approval card badged Joshua Wanda as "Proxy Agent."** Traced this fully before touching
+   anything — confirmed it is cosmetic-only, not a real relationship: `get_agent_proxy_roi_payouts()`
+   (the RPC that actually populates an agent's own "Proxy Partners" queue,
+   `src/components/agent/ProxyPartnerFunds.tsx`) INNER JOINs to an active, approved
+   `proxy_agent_assignments` row for that exact agent+partner pair — nothing in this feature
+   creates or touches that table, so a `roi_split_alt_wallet` op can never actually surface there.
+   The bug was purely display: `COOROIApprovals.tsx`, `CFOROIRequests.tsx`, and
+   `ROIPayoutQueue.tsx` all badge *any* op with `target_wallet_user_id` set as "Proxy Agent" with
+   no check on `operation_type`. Fixed in all three — a `roi_split_alt_wallet` op now shows
+   "Different Wallet" (reading `metadata.alt_recipient_name`) instead.
+
+The UGX 1,000 test row (`pending_wallet_operations.id = 9494b992-9a36-4d70-b8b3-62601b35c708`,
+ref `SPL-MU6RMYEL-J9KM`) was rejected directly in production per Josh's instruction — it never
+reached CFO approval, so no ledger entry or wallet credit was ever created; the reject is pure
+cleanup of a `pending_coo_approval` row.
 
 ## Verification
 

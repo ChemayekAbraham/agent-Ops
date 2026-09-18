@@ -199,7 +199,8 @@ export function CFOROIRequests() {
         <div className="space-y-3">
           {filtered.map(op => {
             const meta = op.metadata as Record<string, any> | null;
-            const isProxy = !!op.target_wallet_user_id;
+            const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
+            const isProxy = !!op.target_wallet_user_id && !isAltWallet;
             const rejReason = rejectionReasons[op.id] || '';
 
             // Normalize legacy descriptions that still say "Agent Wallet" — money now lands in Partner Wallet.
@@ -228,6 +229,17 @@ export function CFOROIRequests() {
                             </Badge>
                             <span className="text-xs text-muted-foreground">
                               via proxy: {meta?.target_agent_name || getName(op.target_wallet_user_id)}
+                            </span>
+                          </>
+                        )}
+                        {isAltWallet && (
+                          <>
+                            <Badge variant="outline" className="text-xs">
+                              <Wallet className="h-3 w-3 mr-1" />
+                              Different Wallet
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              to: {meta?.alt_recipient_name || getName(op.target_wallet_user_id)}
                             </span>
                           </>
                         )}
