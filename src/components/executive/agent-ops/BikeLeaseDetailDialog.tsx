@@ -112,6 +112,9 @@ export function BikeLeaseDetailDialog({
   const dailyPay = days > 0 ? Math.ceil(valuationNum / days) : 0;
   const profit = Math.max(0, valuationNum - costPrice);
 
+  // Full reducing-balance schedule, derived from the cost price and term.
+  const schedule = spiroLeaseSchedule(termNum, costPrice);
+
   const isPending = order.order_status === 'submitted' || order.order_status === 'pending_approval';
   const isAwaitingCoo = order.order_status === 'ops_approved';
   const isAwaitingCfo = order.order_status === 'coo_approved';
