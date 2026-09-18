@@ -27075,6 +27075,60 @@ export type Database = {
         }
         Relationships: []
       }
+      national_id_unlink_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_by_name: string | null
+          decision_note: string | null
+          id: string
+          member_id: string
+          member_name: string | null
+          member_phone: string | null
+          nin_masked: string | null
+          owner_id: string
+          owner_name: string | null
+          reason: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_by_name?: string | null
+          decision_note?: string | null
+          id?: string
+          member_id: string
+          member_name?: string | null
+          member_phone?: string | null
+          nin_masked?: string | null
+          owner_id: string
+          owner_name?: string | null
+          reason: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_by_name?: string | null
+          decision_note?: string | null
+          id?: string
+          member_id?: string
+          member_name?: string | null
+          member_phone?: string | null
+          nin_masked?: string | null
+          owner_id?: string
+          owner_name?: string | null
+          reason?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -54105,6 +54159,10 @@ export type Database = {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
       }
+      decide_national_id_unlink: {
+        Args: { p_approve: boolean; p_note?: string; p_request_id: string }
+        Returns: Json
+      }
       decrement_rent_requested: {
         Args: { p_amount: number; p_summary_id: string }
         Returns: undefined
@@ -59474,9 +59532,65 @@ export type Database = {
         Returns: Json
       }
       national_id_unlink_ack: { Args: { p_id: string }; Returns: boolean }
+      national_id_unlink_is_approver: {
+        Args: { p_uid: string }
+        Returns: boolean
+      }
       national_id_unlink_member: {
         Args: { p_member_id: string; p_reason: string }
         Returns: Json
+      }
+      national_id_unlink_my_requests: {
+        Args: never
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_by_name: string | null
+          decision_note: string | null
+          id: string
+          member_id: string
+          member_name: string | null
+          member_phone: string | null
+          nin_masked: string | null
+          owner_id: string
+          owner_name: string | null
+          reason: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "national_id_unlink_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      national_id_unlink_queue: {
+        Args: { p_status?: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_by_name: string | null
+          decision_note: string | null
+          id: string
+          member_id: string
+          member_name: string | null
+          member_phone: string | null
+          nin_masked: string | null
+          owner_id: string
+          owner_name: string | null
+          reason: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "national_id_unlink_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
@@ -61611,6 +61725,10 @@ export type Database = {
         Returns: Json
       }
       request_national_id_link: { Args: { p_nin: string }; Returns: Json }
+      request_national_id_unlink: {
+        Args: { p_member_id: string; p_reason: string }
+        Returns: Json
+      }
       request_payout_number_change: {
         Args: {
           p_name: string

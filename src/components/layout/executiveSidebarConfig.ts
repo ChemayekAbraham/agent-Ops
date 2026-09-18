@@ -160,7 +160,9 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Agent Requests', icon: FileText, id: 'agent-requisitions' },
         { label: 'Manual Requisition Links', icon: FileText, id: 'employee-requisition-links' },
         { label: 'Manual Requisition Review', icon: ClipboardList, id: 'employee-requisitions' },
+        { label: 'ID Removal Requests', icon: ShieldCheck, id: 'national-id-unlink-requests' },
         { label: 'Wallet Removals', icon: MinusCircle, id: 'retractions' },
+
         { label: 'Mark-Not-Funded Approvals', icon: ShieldCheck, id: 'unfunding-approvals' },
       ],
     },
