@@ -247,7 +247,9 @@ export default function GitCommitsPanel() {
 
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
-              Page {data.page} of {data.total_pages} · {data.total_commits.toLocaleString()} commits ·{' '}
+              Page {data.page} of {data.total_pages} ·{' '}
+              {(data.filtered_commits ?? data.total_commits).toLocaleString()} commits
+              {author ? ` by ${author}` : ''} ·{' '}
               {data.per_page} per page
             </p>
             <div className="flex items-center gap-2">
