@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { GitCommit, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import { GitCommit, ExternalLink, RefreshCw, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface CommitRow {
@@ -35,6 +35,9 @@ interface ActivityResponse {
   branches_scanned?: number;
   total_commits: number;
   truncated: boolean;
+  page: number;
+  per_page: number;
+  total_pages: number;
   contributors: Contributor[];
   commits: CommitRow[];
 }
@@ -52,13 +55,15 @@ function initials(name: string) {
 
 export default function GitCommitsPanel() {
   const [days, setDays] = useState(30);
+  const [page, setPage] = useState(1);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<ActivityResponse>({
-    queryKey: ['cto-git-commits', days],
+    queryKey: ['cto-git-commits', days, page],
     staleTime: 120_000,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: res, error: err } = await supabase.functions.invoke('github-commit-activity', {
-        body: { days },
+        body: { days, page },
       });
       if (err) {
         let detail = err.message;
@@ -95,7 +100,7 @@ export default function GitCommitsPanel() {
             {WINDOWS.map((w) => (
               <button
                 key={w.days}
-                onClick={() => setDays(w.days)}
+                onClick={() => { setDays(w.days); setPage(1); }}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                   days === w.days ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted'
                 }`}
