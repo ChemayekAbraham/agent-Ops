@@ -220,6 +220,15 @@ export default function NationalIdLinkFlow({
                   </div>
                 </div>
               )}
+              <Button
+                variant="ghost"
+                className="h-9 w-full text-xs text-muted-foreground"
+                onClick={doCancel}
+                disabled={cancel.isPending}
+              >
+                {cancel.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                Cancel this request and start again
+              </Button>
             </div>
           )}
 
