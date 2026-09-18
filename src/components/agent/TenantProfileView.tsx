@@ -697,15 +697,35 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
     }
     setAutoCollecting(true);
     try {
-      const { error } = await supabase.functions.invoke('tenant-pay-rent', {
+      const { data, error } = await supabase.functions.invoke('tenant-pay-rent', {
         body: {
           tenant_id: tenantId,
           rent_request_id: summary.activeRequest.id,
           amount: collectAmount,
+          // Guards a double tap: the same attempt reuses one idempotency key,
+          // while a later genuine collection of the same amount gets a new one.
+          client_ref: `${tenantId}-${summary.activeRequest.id}-${collectAmount}-${Date.now()}`,
         },
       });
-      if (error) throw error;
-      toast({ title: `✅ Auto-collected ${formatUGX(collectAmount)}`, description: 'From tenant wallet' });
+      // A non-2xx from the function surfaces as a generic "non-2xx status code"
+      // message, which hides the real reason (landlord not paid, insufficient
+      // balance, not permitted). Read the function's own error text instead.
+      if (error) {
+        let detail = error.message;
+        const res = (error as any)?.context;
+        if (res && typeof res.json === 'function') {
+          try {
+            const parsed = await res.json();
+            if (parsed?.error) detail = parsed.error;
+          } catch { /* keep the generic message */ }
+        }
+        throw new Error(detail);
+      }
+      if ((data as any)?.duplicate) {
+        toast({ title: 'Already collected', description: 'This payment was already recorded.' });
+      } else {
+        toast({ title: `✅ Auto-collected ${formatUGX(collectAmount)}`, description: 'From tenant wallet' });
+      }
       loadFullProfile();
     } catch (err: any) {
       toast({ title: 'Auto-collect failed', description: err.message, variant: 'destructive' });
