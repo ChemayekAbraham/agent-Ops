@@ -247,6 +247,36 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     onError: (e: any) => toast.error(e?.message || 'Could not reject application'),
   });
 
+  // Extra agent context shown in the reject dialog so the reviewer can decide
+  // without opening the full Agent 360 modal.
+  const { data: rejectAgentContext } = useQuery({
+    queryKey: ['agent-products-reject-context', rejectTarget?.agent_id],
+    enabled: !!rejectTarget?.agent_id,
+    queryFn: async () => {
+      const agentId = rejectTarget!.agent_id!;
+      const [profileRes, proxyRes, tenantsRes] = await Promise.all([
+        supabase.from('profiles').select('national_id, full_name, phone').eq('id', agentId).maybeSingle(),
+        supabase.from('proxy_agent_identity').select('nin').eq('agent_user_id', agentId).maybeSingle(),
+        supabase
+          .from('rent_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('agent_id', agentId)
+          .in('status', ['funded', 'repaying'])
+          .eq('tenancy_status', 'active'),
+      ]);
+      const national_id =
+        (profileRes.data?.national_id && profileRes.data.national_id.trim()) ||
+        (proxyRes.data?.nin && proxyRes.data.nin.trim()) ||
+        null;
+      return {
+        national_id,
+        full_name: profileRes.data?.full_name ?? rejectTarget!.full_name,
+        phone: profileRes.data?.phone ?? rejectTarget!.phone,
+        active_tenant_count: tenantsRes.count ?? 0,
+      };
+    },
+    staleTime: 60_000,
+  });
 
 
   const { data: bikeOrders = [], isLoading: isBikeOrdersLoading } = useQuery<any[]>({
