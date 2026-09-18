@@ -47,6 +47,7 @@ import SelfieCropDialog from './SelfieCropDialog';
 import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
 import NationalIdLinkFlow from './NationalIdLinkFlow';
 import CardCameraCapture from './CardCameraCapture';
+import SelfieCameraCapture from './SelfieCameraCapture';
 
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -627,10 +628,11 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   /* The back of the card. Required: the two lines of code and the card number
      live there, and Financial Ops cannot check a card from its front alone. */
   const [idBackPhoto, setIdBackPhoto] = useState<File | null>(null);
-  /* Which side the in-page portrait scanner is currently open for, if any. */
-  const [cameraTarget, setCameraTarget] = useState<'front' | 'back' | null>(null);
+  /* Which shot the in-page camera is currently open for, if any. */
+  const [cameraTarget, setCameraTarget] = useState<'front' | 'back' | 'selfie' | null>(null);
   const frontShotRef = useRef<ShotTileHandle>(null);
   const backShotRef = useRef<ShotTileHandle>(null);
+  const selfieShotRef = useRef<ShotTileHandle>(null);
 
   /* Shared by the "Take photo" button and the in-page camera — same effect
      either way a fresh front photo arrives. */
@@ -649,6 +651,18 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setBackReading(null);
     setBackReadError(null);
     void readBackPhoto(f);
+  };
+
+  /* Shared by the "Take photo" button and the in-page camera — same effect
+     either way a fresh selfie arrives. */
+  const handleSelfiePick = (f: File) => {
+    setSelfieOriginal(f);
+    setSelfieCropped(null);
+    setFaceCheck(null);
+    // Same as the tenant passport photo: the checker on the server is the
+    // only judge of the photo.
+    void runFaceCheck(f);
+    setPendingSelfie(f);
   };
   const [backReading, setBackReading] = useState<NationalIdBackReading | null>(null);
   const [backReadError, setBackReadError] = useState<string | null>(null);
@@ -1655,19 +1669,13 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           />
         ) : (
           <ShotTile
+            ref={selfieShotRef}
             label="Selfie"
             hint="Face the camera in good light."
             facing="user"
             file={selfieOriginal}
-            onPick={(f) => {
-              setSelfieOriginal(f);
-              setSelfieCropped(null);
-              setFaceCheck(null);
-              /* Same as the tenant passport photo: the checker on the server is
-                 the only judge of the photo. */
-              void runFaceCheck(f);
-              setPendingSelfie(f);
-            }}
+            onCustomCapture={() => setCameraTarget('selfie')}
+            onPick={handleSelfiePick}
             onClear={() => {
               setSelfieOriginal(null); setSelfieCropped(null);
               setFaceCheck(null);
@@ -1810,6 +1818,12 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           fileLabel="national-id-back"
           onCapture={handleBackPick}
           onFallback={() => backShotRef.current?.openFilePicker()}
+        />
+        <SelfieCameraCapture
+          open={cameraTarget === 'selfie'}
+          onOpenChange={(o) => { if (!o) setCameraTarget(null); }}
+          onCapture={handleSelfiePick}
+          onFallback={() => selfieShotRef.current?.openFilePicker()}
         />
       </CardContent>
     </Card>
