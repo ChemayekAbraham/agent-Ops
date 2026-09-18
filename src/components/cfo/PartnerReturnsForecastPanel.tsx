@@ -23,6 +23,12 @@ import {
   type DrilldownTarget,
 } from './PartnerReturnsDrilldownDialog';
 import { TopupBacktestPanel } from './TopupBacktestPanel';
+import {
+  buildTopupBacktest,
+  topupResidualSigma,
+  topupPredictionBand,
+  type TopupBand,
+} from '@/lib/topupBacktest';
 
 /** Metrics exported as supporting records, in report order. */
 const EXPORT_METRICS: { metric: DrilldownMetric; field: keyof Row }[] = [
@@ -221,29 +227,61 @@ export function PartnerReturnsForecastPanel({
     }
   };
 
-  const chartData = rows.map((r) => ({
-    label: r.label,
-    'Returns payable forecast': Number(r.forecast_returns),
-    'Actually paid': Number(r.actual_returns_paid),
-    'Partner receivable': Number(r.partner_receivable),
-    'Top-ups': Number(r.topups),
-    'Predicted top-ups': Number(r.topups_forecast ?? 0),
-    'Promissory receivable': Number(r.promissory_receivable),
-    Compounding: Number(r.compounding),
-    Net: Number(r.net),
-  }));
+  // Confidence band for the predicted top-ups: built from how far the same model
+  // has actually missed on completed periods, widening the further ahead we look.
+  const bands = useMemo(() => {
+    const backtest = buildTopupBacktest(
+      rows.map((r) => ({ key: r.key, label: r.label, is_past: r.is_past, topups: Number(r.topups) })),
+    );
+    const sigma = topupResidualSigma(backtest);
+    const map = new Map<string, TopupBand>();
+    let step = 0;
+    for (const r of rows) {
+      if (r.is_past) continue;
+      step += 1;
+      const band = topupPredictionBand(Number(r.topups_forecast ?? 0), sigma, step);
+      if (band) map.set(r.key, band);
+    }
+    return { sigma, map };
+  }, [rows]);
+
+  const chartData = rows.map((r) => {
+    const band = bands.map.get(r.key);
+    return {
+      label: r.label,
+      'Returns payable forecast': Number(r.forecast_returns),
+      'Actually paid': Number(r.actual_returns_paid),
+      'Partner receivable': Number(r.partner_receivable),
+      'Top-ups': Number(r.topups),
+      'Predicted top-ups': Number(r.topups_forecast ?? 0),
+      'Promissory receivable': Number(r.promissory_receivable),
+      Compounding: Number(r.compounding),
+      Net: Number(r.net),
+      __bandLow: band ? band.low : null,
+      __bandSpan: band ? band.high - band.low : null,
+      __bandHigh: band ? band.high : null,
+    };
+  });
 
   const ChartTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
+    const row = payload[0]?.payload ?? {};
+    const visible = payload.filter((p: any) => !String(p.dataKey ?? '').startsWith('__'));
     return (
       <div className="rounded-lg border border-border bg-background p-2.5 text-xs shadow-lg space-y-0.5">
         <p className="font-bold">{label}</p>
-        {payload.map((p: any) => (
+        {visible.map((p: any) => (
           <p key={p.name} className="flex items-center justify-between gap-3 font-mono tabular-nums">
             <span style={{ color: p.color }}>{p.name}</span>
             <span>{formatUGX(Number(p.value))}</span>
           </p>
         ))}
+        {row.__bandLow !== null && row.__bandLow !== undefined ? (
+          <p className="flex items-center justify-between gap-3 font-mono tabular-nums text-muted-foreground">
+            <span>Likely range</span>
+            <span>{`${formatUGX(Number(row.__bandLow))} – ${formatUGX(Number(row.__bandHigh))}`}</span>
+          </p>
+        ) : null}
       </div>
     );
   };
@@ -346,6 +384,32 @@ export function PartnerReturnsForecastPanel({
               <Bar dataKey="Partner receivable" fill={COLORS.receivable} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Promissory receivable" fill={COLORS.promissory} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Compounding" fill={COLORS.compounding} radius={[3, 3, 0, 0]} />
+              {/* Confidence band: an invisible floor at the low end, with the
+                  spread up to the high end stacked on top of it. */}
+              <Area
+                type="monotone"
+                dataKey="__bandLow"
+                stackId="topupBand"
+                stroke="none"
+                fill="none"
+                fillOpacity={0}
+                legendType="none"
+                isAnimationActive={false}
+                connectNulls={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="__bandSpan"
+                stackId="topupBand"
+                stroke={COLORS.topups}
+                strokeDasharray="2 3"
+                strokeOpacity={0.5}
+                fill={COLORS.topups}
+                fillOpacity={0.14}
+                legendType="none"
+                isAnimationActive={false}
+                connectNulls={false}
+              />
               <Line
                 type="monotone"
                 dataKey="Predicted top-ups"
@@ -417,6 +481,11 @@ export function PartnerReturnsForecastPanel({
                   <DrillCell value={Number(r.topups)} onClick={() => openDrilldown(r, 'topups')} />
                   <td className="py-2 pr-3 text-right font-mono tabular-nums text-muted-foreground">
                     {r.is_past ? '—' : formatUGX(Number(r.topups_forecast ?? 0))}
+                    {!r.is_past && bands.map.get(r.key) ? (
+                      <span className="block text-[10px]">
+                        {`${formatUGX(bands.map.get(r.key)!.low)} – ${formatUGX(bands.map.get(r.key)!.high)}`}
+                      </span>
+                    ) : null}
                   </td>
                   <DrillCell value={Number(r.promissory_receivable)} onClick={() => openDrilldown(r, 'promissory')} />
                   <DrillCell value={Number(r.compounding)} onClick={() => openDrilldown(r, 'compounding')} />
