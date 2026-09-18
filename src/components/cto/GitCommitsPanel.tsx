@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { GitCommit, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import { GitCommit, ExternalLink, RefreshCw, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface CommitRow {
@@ -35,6 +35,9 @@ interface ActivityResponse {
   branches_scanned?: number;
   total_commits: number;
   truncated: boolean;
+  page: number;
+  per_page: number;
+  total_pages: number;
   contributors: Contributor[];
   commits: CommitRow[];
 }
@@ -52,13 +55,15 @@ function initials(name: string) {
 
 export default function GitCommitsPanel() {
   const [days, setDays] = useState(30);
+  const [page, setPage] = useState(1);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<ActivityResponse>({
-    queryKey: ['cto-git-commits', days],
+    queryKey: ['cto-git-commits', days, page],
     staleTime: 120_000,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: res, error: err } = await supabase.functions.invoke('github-commit-activity', {
-        body: { days },
+        body: { days, page },
       });
       if (err) {
         let detail = err.message;
@@ -95,7 +100,7 @@ export default function GitCommitsPanel() {
             {WINDOWS.map((w) => (
               <button
                 key={w.days}
-                onClick={() => setDays(w.days)}
+                onClick={() => { setDays(w.days); setPage(1); }}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                   days === w.days ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted'
                 }`}
@@ -214,6 +219,31 @@ export default function GitCommitsPanel() {
             {data.commits.length === 0 && (
               <p className="p-4 text-sm text-muted-foreground">No commits in this period.</p>
             )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Page {data.page} of {data.total_pages} · {data.total_commits.toLocaleString()} commits ·{' '}
+              {data.per_page} per page
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={isFetching || data.page <= 1}
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={isFetching || data.page >= data.total_pages}
+              >
+                Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
           </div>
         </>
       )}
