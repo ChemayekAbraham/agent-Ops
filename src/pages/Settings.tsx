@@ -574,9 +574,9 @@ export default function Settings() {
                                   otpError={otp.otpError}
                                   sendStatus={otp.sendStatus}
                                   cooldownSeconds={otp.cooldownSeconds}
-                                  onSendOtp={() => otp.sendOtp(phone.trim())}
-                                  onVerifyOtp={(code) => otp.verifyOtp(phone.trim(), code)}
-                                  onResendOtp={() => otp.sendOtp(phone.trim())}
+                                  onSendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
+                                  onVerifyOtp={(code) => otp.verifyOtp(phone.trim(), code, { category: 'phone_update' })}
+                                  onResendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
                                 />
                                 <p className="text-[11px] text-muted-foreground mt-2">We'll send a 6-digit code to confirm this number before it replaces your current login phone.</p>
                               </div>

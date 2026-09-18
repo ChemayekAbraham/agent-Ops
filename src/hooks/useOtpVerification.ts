@@ -188,12 +188,12 @@ export function useOtpVerification() {
     }
   }, [pollSendStatus, startCooldown, cooldownSeconds, otpLoading]);
 
-  const verifyOtp = useCallback(async (phone: string, otp: string) => {
+  const verifyOtp = useCallback(async (phone: string, otp: string, extra?: Record<string, unknown>) => {
     setOtpLoading(true);
     setOtpError(null);
     try {
       const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'verify', phone: cleanPhoneNumber(phone), otp },
+        body: { action: 'verify', phone: cleanPhoneNumber(phone), otp, ...(extra ?? {}) },
       });
       if (error) {
         const errMsg = error?.context ?

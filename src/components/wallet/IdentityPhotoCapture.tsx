@@ -299,7 +299,7 @@ function PayoutNumberVerification({ userId }: { userId: string | null | undefine
     }
     setSaving(true);
     try {
-      const ok = await otp.verifyOtp(codeSentTo, code.replace(/\D/g, ''));
+      const ok = await otp.verifyOtp(codeSentTo, code.replace(/\D/g, ''), { category: 'payout_number' });
       if (!ok) {
         toast.error(otp.otpError || 'That code is not correct. Check the SMS and try again.');
         return;

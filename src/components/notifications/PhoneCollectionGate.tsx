@@ -342,7 +342,7 @@ export default function PhoneCollectionGate() {
     } finally {
       setCheckingAvailability(false);
     }
-    const ok = await sendOtp(normalized);
+    const ok = await sendOtp(normalized, { category: 'phone_collection' });
     if (ok) {
       recordSend(normalized);
       toast.success(`Code sent to ${normalized}`);
@@ -356,7 +356,7 @@ export default function PhoneCollectionGate() {
       toast.error("Enter the 6-digit code");
       return;
     }
-    const ok = await verifyOtp(normalized, otpCode);
+    const ok = await verifyOtp(normalized, otpCode, { category: 'phone_collection' });
     if (ok) {
       toast.success("Phone verified ✓");
       setOtpCode("");

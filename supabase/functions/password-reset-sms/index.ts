@@ -1,6 +1,7 @@
 import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logOtpUsage } from "../_shared/otpUsageLog.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -664,6 +665,7 @@ Deno.serve(async (req) => {
           .from("otp_verifications")
           .update({ attempts: otpRecord.attempts + 1 })
           .eq("phone", resetKey);
+        await logOtpUsage(adminClient, "password_reset", "verify_failed", phoneKey, "password-reset-sms");
         const remaining = 4 - otpRecord.attempts;
         return new Response(JSON.stringify({ error: `Invalid code. ${remaining} attempts remaining.` }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -747,6 +749,7 @@ Deno.serve(async (req) => {
         .from("otp_verifications")
         .update({ verified: true, verified_at: new Date().toISOString() })
         .eq("phone", resetKey);
+      await logOtpUsage(adminClient, "password_reset", "verify_success", phoneKey, "password-reset-sms");
 
       console.log(`[password-reset-sms] Password reset successful for ***${phoneKey.slice(-4)} across ${userIds.size} account(s)`);
       return new Response(JSON.stringify({ success: true, message: "Password reset successfully", accounts_updated: userIds.size }), {

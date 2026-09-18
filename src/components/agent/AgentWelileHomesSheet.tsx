@@ -870,7 +870,7 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
     setSending(true); setOtpError(null);
     try {
       const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'send', phone },
+        body: { action: 'send', phone, category: 'welile_homes_tenant_verify' },
       });
       if (error) throw new Error(error.message || 'Could not send the code');
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -888,7 +888,7 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
     setVerifying(true); setOtpError(null);
     try {
       const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'verify', phone, otp: code },
+        body: { action: 'verify', phone, otp: code, category: 'welile_homes_tenant_verify' },
       });
       if (error) throw new Error('Invalid or expired code');
       if ((data as any)?.error) throw new Error((data as any).error);

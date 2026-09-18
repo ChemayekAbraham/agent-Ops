@@ -160,7 +160,7 @@ export default function BusinessAdvanceTrack() {
     setOtpBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'send', phone },
+        body: { action: 'send', phone, category: 'business_claim' },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -179,7 +179,7 @@ export default function BusinessAdvanceTrack() {
     setOtpBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'verify', phone, otp },
+        body: { action: 'verify', phone, otp, category: 'business_claim' },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Verification failed');

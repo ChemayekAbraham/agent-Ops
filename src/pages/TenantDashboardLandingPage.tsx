@@ -108,7 +108,7 @@ export default function TenantDashboardLandingPage() {
 
     setLoginLoading(true);
     try {
-      const success = await loginOtp.sendOtp(fullNum);
+      const success = await loginOtp.sendOtp(fullNum, { category: 'login' });
       if (success) {
         setStep('code');
         setResendCooldown(60);

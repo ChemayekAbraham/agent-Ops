@@ -100,7 +100,7 @@ export default function MerchantRegister() {
         setSubmitting(false);
         return;
       }
-      const ok = await sendOtp(cleanedPhone);
+      const ok = await sendOtp(cleanedPhone, { category: 'signup' });
       if (ok) setStep('otp');
     } finally {
       setSubmitting(false);
@@ -114,7 +114,7 @@ export default function MerchantRegister() {
     }
     setSubmitting(true);
     try {
-      const verified = await verifyOtp(cleanedPhone, otpCode);
+      const verified = await verifyOtp(cleanedPhone, otpCode, { category: 'signup' });
       if (!verified) {
         toast.error(otpError || 'Invalid or expired code.');
         return;
@@ -310,7 +310,7 @@ export default function MerchantRegister() {
               variant="ghost"
               className="w-full h-10 rounded-xl text-xs"
               disabled={cooldownSeconds > 0 || otpLoading}
-              onClick={() => sendOtp(cleanedPhone)}
+              onClick={() => sendOtp(cleanedPhone, { category: 'signup' })}
             >
               {cooldownSeconds > 0
                 ? `Resend code in ${cooldownSeconds}s`

@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       if (code.length !== 6) return json({ error: "Enter the 6-digit code." }, 400);
 
       const { data, error } = await admin.functions.invoke("sms-otp", {
-        body: { action: "verify", phone: t.phone, otp: code },
+        body: { action: "verify", phone: t.phone, otp: code, category: "national_id_link" },
       });
       if (error) return json({ error: "Could not check that code. Please try again." }, 502);
       const res = (data ?? {}) as { success?: boolean; error?: string };

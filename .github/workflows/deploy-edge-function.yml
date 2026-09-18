@@ -59,6 +59,8 @@ on:
           - sms-otp
           - daily-cto-report
           - notify-landlord-payout-rejected
+          - national-id-link-otp
+          - password-reset-sms
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
@@ -113,7 +115,7 @@ jobs:
           case "${{ inputs.function }}" in
             agent-daily-performance-report|agent-ops-daily-report|redispatch-withdrawals|daily-cto-report)
               EXPECT_PUBLIC=yes ;;   # invoked by pg_cron, no user JWT exists
-            sms-otp)
+            sms-otp|password-reset-sms)
               EXPECT_PUBLIC=yes ;;   # called pre-signup/pre-login, no user session exists yet
             *)
               EXPECT_PUBLIC=no ;;    # authenticates via the Authorization header

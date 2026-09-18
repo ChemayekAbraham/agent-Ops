@@ -267,7 +267,7 @@ export default function Auth() {
     // Safety net: never let the button spin forever if the request hangs.
     const safety = setTimeout(() => setOtpLoginLoading(false), 20000);
     try {
-      const success = await loginOtp.sendOtp(fullNum);
+      const success = await loginOtp.sendOtp(fullNum, { category: 'login' });
       if (success) {
         setOtpLoginStep('code');
         setOtpResendCooldown(60);
@@ -1320,17 +1320,17 @@ export default function Auth() {
                         onSendOtp={() => {
                           const d = phone.replace(/\D/g, '');
                           const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                          sendOtp(full);
+                          sendOtp(full, { category: 'signup' });
                         }}
                         onVerifyOtp={(code) => {
                           const d = phone.replace(/\D/g, '');
                           const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                          verifyOtp(full, code);
+                          verifyOtp(full, code, { category: 'signup' });
                         }}
                         onResendOtp={() => {
                           const d = phone.replace(/\D/g, '');
                           const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                          sendOtp(full);
+                          sendOtp(full, { category: 'signup' });
                         }}
                       />
                     </div>

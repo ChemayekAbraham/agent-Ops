@@ -239,6 +239,20 @@ Deno.serve(async (req) => {
     const adAuthErrors: any[] = Array.isArray(addendum.auth_errors) ? addendum.auth_errors : [];
     const adOtpErrors: any[] = Array.isArray(addendum.otp_errors) ? addendum.otp_errors : [];
 
+    // OTP usage by category -- login, withdraw, landlord payout, signup, and
+    // every other flow that gates on an SMS code (best-effort: the report
+    // still ships if this RPC fails).
+    let otpUsage: any = {};
+    try {
+      const { data: ou, error: ouErr } = await supabase.rpc('get_otp_usage_by_category', { p_date: dateStr });
+      if (ouErr) console.error('[daily-cto-report] otp usage rpc failed', ouErr);
+      else otpUsage = ou || {};
+    } catch (e) {
+      console.error('[daily-cto-report] otp usage threw', e);
+    }
+    const otpByCategory: any[] = Array.isArray(otpUsage.by_category) ? otpUsage.by_category : [];
+    const otpTotals: any = otpUsage.totals || {};
+
     const d: any = data || {};
     const P = d.platform || {}, E = d.errors || {}, A = d.auth || {}, S = d.security || {},
       I = d.infra || {}, B = d.backups || {}, J = d.jobs || {}, M = d.email || {},
@@ -1191,6 +1205,15 @@ Deno.serve(async (req) => {
       subLabel('One-time password failures') +
       table(['Reason', 'Stage', 'Times', 'Phones'],
         adOtpErrors.map((r: any) => [esc(String(r.reason)), esc(String(r.stage)), fmt(r.n), fmt(r.phones)])))}
+    ${section('OTP Usage by Category', 36,
+      `<div style="font-size:12px;color:${C.muted};margin-bottom:8px;">${fmt(otpTotals.sent)} sent, ${fmt(otpTotals.send_failed)} send failures, ${fmt(otpTotals.verify_success)} verified, ${fmt(otpTotals.verify_failed)} failed verification across every flow that gates on an SMS code.</div>` +
+      table(['Category', 'Sent', 'Send failed', 'Verified', 'Verify failed'],
+        otpByCategory.map((r: any) => [
+          esc(String(r.category).replace(/_/g, ' ')), fmt(r.sent), fmt(r.send_failed), fmt(r.verify_success), fmt(r.verify_failed),
+        ])) +
+      (otpByCategory.some((r: any) => r.category === 'uncategorized')
+        ? `<div style="font-size:11px;color:${C.muted};margin-top:8px;">"uncategorized" is a generic-flow OTP send/verify that didn't tag a category — check the calling component passes { category } to sms-otp.</div>`
+        : ''))}
 
     <div style="margin-top:26px;border-top:1px solid ${C.line};padding-top:12px;font-size:11px;color:${C.muted};">
       Generated automatically from live production telemetry at ${esc(String(d.generated_at || '').slice(0, 19).replace('T', ' '))} UTC. Overall technology health score: ${health} of 100 (${healthLabel}).
@@ -1206,6 +1229,7 @@ Deno.serve(async (req) => {
       `Auth success: ${(100 - loginFailRate).toFixed(1)}% | Median sign-in: ${fmt(A.median_login_ms_today)} ms (avg ${fmt(A.avg_login_ms_today)} ms)`,
       `Jobs: ${fmt(J.runs_24h)} runs, ${fmt(J.failed_24h)} failed (${jobFailRate.toFixed(1)}%)`,
       `Database: ${bytes(I.db_size_bytes)} | Cache hit ${cacheHit.toFixed(2)}% | Connections ${fmt(I.connections)}/${fmt(I.max_connections)}`,
+      `OTP usage: ${fmt(otpTotals.sent)} sent, ${fmt(otpTotals.verify_success)} verified, ${fmt(otpTotals.verify_failed)} failed across ${fmt(otpByCategory.length)} categories`,
       '',
       'Recommendations:',
       ...recs.map((r, i) => `${i + 1}. ${r.replace(/<[^>]+>/g, '')}`),

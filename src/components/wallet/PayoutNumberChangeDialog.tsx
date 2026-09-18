@@ -99,7 +99,7 @@ export default function PayoutNumberChangeDialog({
       toast.error('Enter the 6-digit code we sent to that number.');
       return;
     }
-    const ok = await otp.verifyOtp(codeSentTo, code.replace(/\D/g, ''));
+    const ok = await otp.verifyOtp(codeSentTo, code.replace(/\D/g, ''), { category: 'payout_number' });
     if (!ok) {
       toast.error(otp.otpError || 'That code is not correct.');
       return;

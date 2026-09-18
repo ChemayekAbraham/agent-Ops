@@ -1,6 +1,7 @@
 import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logOtpUsage } from "../_shared/otpUsageLog.ts";
 
 
 const corsHeaders = {
@@ -807,6 +808,11 @@ Deno.serve(async (req) => {
          whichever route asked them. Any other purpose keeps the generic text.
          The OTP itself, its storage and its rate limits are unchanged. */
       const purpose = String(body.purpose ?? "").trim();
+      // Usage-by-category reporting (get_otp_usage_by_category): callers that
+      // don't need custom wording still pass `category` alone (e.g. 'login',
+      // 'signup') -- falls back to `purpose` so the two payout/NIN-link
+      // callers that only ever set `purpose` are tagged for free.
+      const category = String(body.category ?? purpose ?? "").trim() || "uncategorized";
       const subjectName = String(body.subject_name ?? "").trim().slice(0, 80);
       const recipientName = String(body.recipient_name ?? "").trim().slice(0, 80);
       const last4 = phone.length >= 4 ? phone.slice(-4) : (String(body.phone_last4 ?? "").replace(/\D/g, "").slice(-4) || "????");
@@ -871,6 +877,7 @@ Deno.serve(async (req) => {
                   { phone, message, source: "sms-otp" },
                   r,
                 );
+                await logOtpUsage(adminClient, category, r.accepted ? "sent" : "send_failed", phoneKey, "sms-otp");
                 console.log(
                   `[sms-otp] late acceptance for ***${phoneKey.slice(-4)}: ${r.accepted ? "ok" : r.reason}`,
                 );
@@ -893,6 +900,7 @@ Deno.serve(async (req) => {
         { phone, message, source: "sms-otp" },
         outcome,
       );
+      await logOtpUsage(adminClient, category, outcome.accepted ? "sent" : "send_failed", phoneKey, "sms-otp");
 
       if (!outcome.accepted) {
         console.error(`[sms-otp] gateway rejected send to ***${phoneKey.slice(-4)}: ${outcome.reason}`);
@@ -929,6 +937,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === "verify") {
+      // Same fallback as the send action -- lets a caller tag category on
+      // whichever leg it calls without having to also resend `purpose`.
+      const verifyCategory = String(body.category ?? body.purpose ?? "").trim() || "uncategorized";
       const otpCode = (body.otp as string || "").trim();
       if (!otpCode || otpCode.length !== 6) {
         return new Response(JSON.stringify({ error: "Please enter the 6-digit code" }), {
@@ -981,6 +992,7 @@ Deno.serve(async (req) => {
           .from("otp_verifications")
           .update({ attempts: otpRecord.attempts + 1 })
           .eq("phone", phoneKey);
+        await logOtpUsage(adminClient, verifyCategory, "verify_failed", phoneKey, "sms-otp");
 
         const remaining = 4 - otpRecord.attempts;
         return new Response(JSON.stringify({ error: `Invalid code. ${remaining} attempts remaining.` }), {
@@ -989,6 +1001,7 @@ Deno.serve(async (req) => {
         });
       }
 
+      await logOtpUsage(adminClient, verifyCategory, "verify_success", phoneKey, "sms-otp");
       // Mark as verified
       await adminClient
         .from("otp_verifications")
