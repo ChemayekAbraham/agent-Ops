@@ -2,22 +2,26 @@
  * "My National ID" — shows who else is attached to the same National ID.
  *
  * The ID holder sees each attached person's photo, name, phone and email and
- * may remove them (with a written reason). Anyone merely attached sees only
- * the holder's name and phone. The ID number is always masked.
+ * may ask Finance Operations to remove them, giving a written reason. The
+ * removal only happens once Finance Operations approves it, and each person's
+ * card shows where their request stands. Anyone merely attached sees only the
+ * holder's name and phone. The ID number is always masked.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ShieldCheck, UserMinus, Phone, Mail } from 'lucide-react';
+import { Loader2, ShieldCheck, UserMinus, Phone, Mail, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useNationalIdGroup,
-  useUnlinkFromMyNationalId,
+  useRequestNationalIdUnlink,
+  useMyNationalIdUnlinkRequests,
   maskNationalId,
   type NationalIdGroupMember,
+  type UnlinkRequest,
 } from '@/hooks/useNationalIdGroup';
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void };
@@ -31,29 +35,74 @@ function initials(name?: string | null) {
     .join('') || '?';
 }
 
+const stamp = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+
+/** The badge shown on a person's card for their latest removal request. */
+function RequestStatusBadge({ request }: { request: UnlinkRequest }) {
+  if (request.status === 'pending') {
+    return (
+      <Badge className="bg-amber-500/15 text-[10px] text-amber-700 hover:bg-amber-500/15">
+        <Clock className="mr-1 h-3 w-3" />
+        Removal pending Finance Operations
+      </Badge>
+    );
+  }
+  if (request.status === 'approved') {
+    return (
+      <Badge className="bg-emerald-500/15 text-[10px] text-emerald-700 hover:bg-emerald-500/15">
+        Removal approved {stamp(request.decided_at)}
+      </Badge>
+    );
+  }
+  if (request.status === 'rejected') {
+    return (
+      <Badge variant="destructive" className="text-[10px]">
+        Removal refused {stamp(request.decided_at)}
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="secondary" className="text-[10px]">
+      Removal closed
+    </Badge>
+  );
+}
+
 export default function NationalIdGroupSheet({ open, onOpenChange }: Props) {
   const { data, isLoading } = useNationalIdGroup(open);
-  const unlink = useUnlinkFromMyNationalId();
+  const requests = useMyNationalIdUnlinkRequests(open);
+  const ask = useRequestNationalIdUnlink();
   const [removing, setRemoving] = useState<string | null>(null);
   const [reason, setReason] = useState('');
 
   const masked = maskNationalId(data?.masked_nin);
   const members: NationalIdGroupMember[] = data?.members ?? [];
 
+  /** Latest request per person — the card shows only the most recent one. */
+  const latestByMember = useMemo(() => {
+    const map = new Map<string, UnlinkRequest>();
+    (requests.data ?? []).forEach((r) => {
+      if (!map.has(r.member_id)) map.set(r.member_id, r);
+    });
+    return map;
+  }, [requests.data]);
+
   const confirmRemove = async (memberId: string) => {
     if (reason.trim().length < 10) {
-      toast.error('Please write a short reason (at least 10 characters).');
+      toast.error('Please write a reason (at least 10 characters).');
       return;
     }
     try {
-      const res = await unlink.mutateAsync({ memberId, reason: reason.trim() });
-      toast.success(res.sms_sent ? 'Removed. They have been sent an SMS.' : 'Removed from your National ID.');
+      await ask.mutateAsync({ memberId, reason: reason.trim() });
+      toast.success('Sent to Finance Operations for approval.');
       setRemoving(null);
       setReason('');
     } catch (e) {
       toast.error((e as Error).message);
     }
   };
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
