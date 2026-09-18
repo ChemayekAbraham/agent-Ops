@@ -83,7 +83,7 @@ export default function AgentProductCategoryPage() {
           <SmartphoneTabs category={entry.category ?? undefined} />
         ) : entry.slug === 'motor-bikes' ? (
           <MotorBikeTabs category={entry.category ?? undefined} />
-        ) : entry.slug === 'boutique' ? (
+        ) : entry.slug === 'boutique' || entry.slug === 'signages' ? (
           <BoutiqueTabs category={entry.category ?? undefined} />
         ) : (
           <div className="space-y-6">
@@ -241,9 +241,9 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
 
 function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
   const { data: pendingCount = 0 } = useQuery({
-    queryKey: ['agent-products-pending-count', 'boutique'],
+    queryKey: ['agent-products-pending-count', category],
     queryFn: async () => {
-      const { data, error } = await db.rpc('get_agent_products_overview' as any, { p_category: 'boutique' });
+      const { data, error } = await db.rpc('get_agent_products_overview' as any, { p_category: category });
       if (error) throw error;
       return (((data as any)?.pending ?? []) as unknown[]).length;
     },
