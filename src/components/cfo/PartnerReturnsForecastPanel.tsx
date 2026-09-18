@@ -264,7 +264,16 @@ export function PartnerReturnsForecastPanel({
       const band = topupPredictionBand(Number(r.topups_forecast ?? 0), sigma, step);
       if (band) map.set(r.key, band);
     }
-    return { sigma, map };
+    const futureCount = rows.filter((r) => !r.is_past).length;
+    const reason: 'ok' | 'no_history' | 'no_variation' | 'no_future' =
+      map.size > 0
+        ? 'ok'
+        : futureCount === 0
+          ? 'no_future'
+          : sigma === null
+            ? 'no_history'
+            : 'no_variation';
+    return { sigma, map, reason };
   }, [rows, settings]);
 
   const chartData = rows.map((r) => {
