@@ -283,9 +283,32 @@ export function PartnerReturnsForecastPanel({
           <Stat label="Forecast ahead" value={totals.forecastAhead} />
           <Stat label="Receivable from partners" value={totals.receivable} tone="emerald" />
           <Stat label="Top-ups received" value={totals.topups} tone="emerald" />
+          <Stat
+            label="Predicted top-ups ahead"
+            value={totals.topupsPredicted}
+            tone="emerald"
+            sub={
+              data?.topup_model?.basis_buckets
+                ? `from ${data.topup_model.basis_buckets} recent period${data.topup_model.basis_buckets === 1 ? '' : 's'}`
+                : 'not enough history yet'
+            }
+          />
           <Stat label="Promissory notes receivable" value={totals.promissory} tone="amber" />
           <Stat label="Compounding (reinvested)" value={totals.compounding} tone="violet" />
         </div>
+
+        {data?.topup_model?.basis_buckets ? (
+          <p className="text-[11px] text-muted-foreground">
+            Predicted top-ups use the last {data.topup_model.basis_buckets} completed period
+            {data.topup_model.basis_buckets === 1 ? '' : 's'} of real top-ups — averaging{' '}
+            {formatUGX(Number(data.topup_model.baseline_per_bucket))} per period and{' '}
+            {Number(data.topup_model.trend_per_bucket) >= 0 ? 'rising' : 'falling'} by{' '}
+            {formatUGX(Math.abs(Number(data.topup_model.trend_per_bucket)))} each period. Future
+            periods carry that prediction into the net position; past periods always show what was
+            really received.
+          </p>
+        ) : null}
+
 
         <div className="rounded-xl border border-border p-3">
           <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">
