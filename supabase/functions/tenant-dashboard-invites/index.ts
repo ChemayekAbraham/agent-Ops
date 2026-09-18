@@ -24,7 +24,7 @@ import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateLinkToken, sha256Hex } from "../_shared/deviceClass.ts";
 import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
-import { firstName, loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
+import { firstName, loadEvent, loadTenantStatusAppendices, renderTemplate } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
     // These templates are meaningless without a link, so a missing origin is a
     // hard error rather than a message with the link silently removed.
     const origin = Deno.env.get("PUBLIC_SITE_ORIGIN") || "https://welileapp.com";
+    const domainName = origin.replace(/^https?:\/\//, "").replace(/\/+$/, "");
     if (!event.body_template.includes("{{dashboard_link}}")) {
       throw new Error(`${eventKey} template must contain {{dashboard_link}}`);
     }
@@ -124,6 +125,11 @@ Deno.serve(async (req) => {
     const results = { sent: 0, skipped: 0, failed: 0 };
     const skipReasons: Record<string, number> = {};
     const preview: unknown[] = [];
+    const statusAppendices = await loadTenantStatusAppendices(
+      admin,
+      rows.map((row) => row.tenant_id),
+      domainName,
+    );
 
     for (const row of rows) {
       const phone = String(row.tenant_phone ?? "").trim();
@@ -139,6 +145,7 @@ Deno.serve(async (req) => {
             message: renderTemplate(event.body_template, {
               name: firstName(row.tenant_name),
               dashboard_link: `${origin}/t/<token>`,
+              status_appendix: statusAppendices.get(row.tenant_id) ?? "",
             }),
           });
         }
@@ -162,6 +169,7 @@ Deno.serve(async (req) => {
         const vars = {
           name: firstName(row.tenant_name),
           dashboard_link: dashboardLink,
+          status_appendix: statusAppendices.get(row.tenant_id) ?? "",
         };
 
         // Stage 6: DASHBOARD_INVITE/SMARTPHONE_DISCOVERY both have push/
