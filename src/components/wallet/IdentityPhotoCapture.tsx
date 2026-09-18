@@ -28,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { imageFingerprint } from '@/lib/imageFingerprint';
 import { useMyPayoutDestinations, type MyPayoutDestination } from '@/hooks/usePayoutVerification';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
+import { armAuthCriticalSection, disarmAuthCriticalSection } from '@/lib/staleSessionDetector';
 import { Smartphone } from 'lucide-react';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
 import mtnLogo from '@/assets/mtn-logo-uploaded.png.asset.json';
@@ -101,14 +102,25 @@ const ShotTile = forwardRef<ShotTileHandle, ShotTileProps>(function ShotTile(
         accept="image/*"
         capture={facing ?? 'environment'}
         className="hidden"
+        onClick={() => {
+          // The phone's camera app is about to take over the screen (the
+          // selfie has no in-page fallback, so this is its only capture path).
+          // Android in particular can discard this page while the camera is
+          // open and resume it with a momentarily stale token — arm sign-out
+          // suppression NOW, before that handoff, not in onChange, which may
+          // never fire if the page is torn down and rebuilt from scratch.
+          armAuthCriticalSection(180_000);
+        }}
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = '';
-          if (!f) return;
+          if (!f) { disarmAuthCriticalSection(); return; }
           if (f.size > MAX_BYTES) {
+            disarmAuthCriticalSection();
             toast.error('That photo is too large. Please take a smaller one.');
             return;
           }
+          disarmAuthCriticalSection();
           onPick(f);
         }}
       />
