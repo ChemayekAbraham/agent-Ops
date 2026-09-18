@@ -117,6 +117,7 @@ Deno.serve(async (req) => {
       `Welile: Dear ${snapshot.landlord_name ?? "Landlord"}, you have received ` +
       `${formatUGX(snapshot.amount)} as rent for ${snapshot.tenant_name ?? "your tenant"}. ` +
       `Processed by ${snapshot.processed_by_name ?? "Welile"} on ${formatDateTime(snapshot.paid_at ?? null)}. ` +
+      `Receipt No: ${result.receipt_number ?? receiptCode} (Code: ${receiptCode}). ` +
       `View your receipt: ${receiptUrl}`;
 
     let sent = false;
