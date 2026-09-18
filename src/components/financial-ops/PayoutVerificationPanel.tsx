@@ -1711,7 +1711,7 @@ export default function PayoutVerificationPanel() {
             </div>
           )}
 
-          {row.national_id && (
+          {row.national_id && (row.is_linked_id || row.id_account_count <= 1) && (
             <div
               role="status"
               className={`mx-5 mt-2 rounded-2xl border p-4 ${
