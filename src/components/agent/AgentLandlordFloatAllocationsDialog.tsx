@@ -91,6 +91,9 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
   }, [open, hasActiveLock]);
 
   const handleSelect = (a: LandlordFloatAllocation) => {
+    // Nothing left to pay on this earmark — refuse the tap outright rather than
+    // opening a payout form for money that has already reached the landlord.
+    if (a.status === 'fully_paid' || a.remaining_amount <= 0) return;
     const key = allocationLockKey(a);
     const expiry = locks[key];
     if (expiry && expiry > Date.now()) return; // still locked — ignore the tap
