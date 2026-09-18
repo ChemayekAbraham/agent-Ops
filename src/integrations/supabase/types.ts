@@ -58720,6 +58720,7 @@ export type Database = {
           witness_signed_on: string
         }[]
       }
+      landlord_float_withdrawals_paused: { Args: never; Returns: boolean }
       landlord_has_current_agreement: {
         Args: { p_landlord_id: string }
         Returns: boolean
