@@ -121,7 +121,41 @@ export function useInactivationReview() {
     onSuccess: refresh,
   });
 
-  return { acknowledge, resolve, reject };
+  /**
+   * Cancel the tenant's rent plan AND return the landlord float still held on the
+   * agent's float to the platform, in one server-side step
+   * (`cancel_tenant_and_return_landlord_float`).
+   *
+   * The RPC posts the reversal legs, cancels the allocations (which is what drops
+   * the agent's derived float balance), frees the house back to Priority 1, closes
+   * this review, and records the already-paid-out portion for CFO recovery.
+   * Authority is CFO / Finance Operations / COO / Operations — enforced server-side.
+   */
+  const cancelTenant = useMutation({
+    mutationFn: async ({ rentRequestId, reason }: { rentRequestId: string; reason: string }) => {
+      const { data, error } = await supabase.rpc('cancel_tenant_and_return_landlord_float', {
+        p_rent_request_id: rentRequestId,
+        p_reason: reason.trim(),
+      });
+      if (error) throw error;
+      return data as {
+        float_returned: number;
+        float_already_paid_out: number;
+        allocations_cancelled: number;
+      } | null;
+    },
+    onSuccess: () => {
+      refresh();
+      qc.invalidateQueries({ queryKey: ['priority-collection-queue'] });
+      qc.invalidateQueries({ queryKey: ['agent-daily-eligibility'] });
+      qc.invalidateQueries({ queryKey: ['agent-tenants'] });
+      qc.invalidateQueries({ queryKey: ['landlord-float-allocations'] });
+      qc.invalidateQueries({ queryKey: ['agent-landlord-float'] });
+    },
+  });
+
+  return { acknowledge, resolve, reject, cancelTenant };
 }
+
 
 export default useAgentInactivations;
