@@ -6,7 +6,7 @@
  * the caller to an existing person or types their name in by hand, records what
  * they said, and can forward the concern to a member of staff.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CCBlock, CCDialogHeading, CCEmpty, CCPanel, CC_ROW } from './ccUi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -135,20 +135,26 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
           <CCBlock>
 
             <Label className="text-[11px] font-semibold">Is the caller already with us?</Label>
-            <div className="mt-1.5 flex gap-1.5">
-              <div className="relative flex-1">
-                <UserSearch className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={lookupTerm}
-                  onChange={(e) => setLookupTerm(e.target.value)}
-                  placeholder="Search by name or phone"
-                  className="h-9 pl-9 text-xs"
-                />
-              </div>
-              <Button size="sm" variant="outline" className="h-9 text-xs" onClick={runLookup} disabled={searching}>
-                {searching ? 'Searching…' : 'Search'}
-              </Button>
+            <div className="relative mt-1.5">
+              <UserSearch className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={lookupTerm}
+                onChange={(e) => setLookupTerm(e.target.value)}
+                placeholder="Start typing a name or phone"
+                className="h-9 pl-9 text-xs"
+              />
+              {searching && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                  Searching…
+                </span>
+              )}
             </div>
+            {!searching && lookupTerm.trim().length >= 3 && matches.length === 0 && (
+              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                Nobody matches that yet — type their name and number below instead.
+              </p>
+            )}
+
             {matches.length > 0 && (
               <div className="mt-2 space-y-1">
                 {matches.map((m) => (
@@ -205,10 +211,6 @@ function RecordReceivedCallDialog({ open, onClose }: { open: boolean; onClose: (
             <Textarea value={concern} onChange={(e) => setConcern(e.target.value)} rows={3} className="text-xs" />
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-[11px] font-semibold">Your notes</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="text-xs" />
-          </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
