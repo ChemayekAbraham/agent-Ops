@@ -78,6 +78,7 @@ export function useMerchandiseRepaymentPortfolio(userId?: string) {
       >((sales || []).map((sale: any) => [sale.id, sale]));
       return rows
         .filter((row) => !row.sale_id || saleById.has(row.sale_id))
+        .filter((row) => row.status !== 'cancelled')
         .map((row) => {
           const sale = row.sale_id ? saleById.get(row.sale_id) : null;
           return {

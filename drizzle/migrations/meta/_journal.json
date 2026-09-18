@@ -1555,6 +1555,13 @@
       "when": 1789730441891,
       "tag": "0221_fix_reject_merchandise_purchase_status_check",
       "breakpoints": true
+    },
+    {
+      "idx": 222,
+      "version": "7",
+      "when": 1789731558534,
+      "tag": "0222_cascade_delete_merchandise_recovery_plans",
+      "breakpoints": true
     }
   ]
 }
