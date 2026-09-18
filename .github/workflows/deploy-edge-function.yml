@@ -61,6 +61,7 @@ on:
           - notify-landlord-payout-rejected
           - national-id-link-otp
           - password-reset-sms
+          - issue-wallet-withdrawal-otp
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
