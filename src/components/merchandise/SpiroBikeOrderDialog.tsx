@@ -170,79 +170,20 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             </p>
           </div>
 
-          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-              Your repayment summary
-            </p>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Bike price</span>
-              <span className="font-semibold">{formatUGX(schedule.base)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">
-                Monthly charge ({schedule.monthlyRatePct}% on the balance left)
-              </span>
-              <span className="font-semibold">{formatUGX(schedule.accessFee)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Total repayable</span>
-              <span className="font-bold">{formatUGX(schedule.total)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">First month</span>
-              <span className="font-bold">
-                {formatUGX(schedule.firstMonthly)}
-                {schedule.months > 1 ? ` → ${formatUGX(schedule.lastMonthly)} last` : ''}
-              </span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Daily payment</span>
-              <span className="font-bold">
-                {formatUGX(schedule.firstDaily)}
-                {schedule.months > 1 ? ` → ${formatUGX(schedule.lastDaily)}` : ''}
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground pt-1">
-              The price is split equally over the months you choose, and the {schedule.monthlyRatePct}%
-              charge is worked out only on the amount still owing — so both the monthly and the daily
-              payment get smaller every month. Repayments are recovered from your wallet earnings
-              daily and ownership transfers once the balance reaches zero.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-border">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-              <p className="text-[11px] font-semibold uppercase tracking-wide">
-                Month-by-month breakdown
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                Daily payment
               </p>
-              <span className="text-[11px] text-muted-foreground">{schedule.days} days</span>
+              <p className="text-[11px] text-muted-foreground">
+                Recovered from your wallet earnings daily; it gets smaller every month.
+              </p>
             </div>
-            <div className="max-h-56 overflow-y-auto">
-              <table className="w-full text-[11px]">
-                <thead className="sticky top-0 bg-muted/60">
-                  <tr className="text-muted-foreground">
-                    <th className="text-left font-medium px-2 py-1.5">Month</th>
-                    <th className="text-right font-medium px-2 py-1.5">Balance</th>
-                    <th className="text-right font-medium px-2 py-1.5">Charge</th>
-                    <th className="text-right font-medium px-2 py-1.5">Month pays</th>
-                    <th className="text-right font-medium px-2 py-1.5">Per day</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {schedule.rows.map((row) => (
-                    <tr key={row.month} className="border-t border-border/60">
-                      <td className="px-2 py-1.5 font-medium">{row.month}</td>
-                      <td className="px-2 py-1.5 text-right">{formatUGX(row.openingPrincipal)}</td>
-                      <td className="px-2 py-1.5 text-right">{formatUGX(row.feeDue)}</td>
-                      <td className="px-2 py-1.5 text-right font-semibold">
-                        {formatUGX(row.totalDue)}
-                      </td>
-                      <td className="px-2 py-1.5 text-right">{formatUGX(row.daily)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <p className="text-base font-bold text-foreground whitespace-nowrap">
+              {formatUGX(schedule.firstDaily)}
+              {schedule.months > 1 ? ` → ${formatUGX(schedule.lastDaily)}` : ''}
+              <span className="text-[11px] font-medium text-muted-foreground">/day</span>
+            </p>
           </div>
         </div>
 
