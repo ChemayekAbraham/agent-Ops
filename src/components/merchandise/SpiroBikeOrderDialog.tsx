@@ -54,9 +54,10 @@ interface Props {
 
 /**
  * Agent-facing Spiro electric bike lease order: dynamic catalog base price,
- * an access fee that depends on the repayment period (3m 33%, 6m 36%, 9m 39%,
- * 12m 42%) and a dynamic monthly repayment schedule. Submitting sends the
- * application to Agent Ops for eligibility review.
+ * any term from 1 to 24 months, and a 28% monthly reducing-balance charge —
+ * principal split equally across the months, the charge taken only on the
+ * principal still outstanding, so monthly and daily amounts fall each month.
+ * Submitting sends the application to Agent Ops for eligibility review.
  */
 export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Props) {
   const queryClient = useQueryClient();
