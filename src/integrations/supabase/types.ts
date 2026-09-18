@@ -51761,6 +51761,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_pay_merchandise_plan: {
+        Args: { p_amount: number; p_plan_id: string }
+        Returns: Json
+      }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_product_category: { Args: { p_item_name: string }; Returns: string }
       agent_purchase_merchandise: {
