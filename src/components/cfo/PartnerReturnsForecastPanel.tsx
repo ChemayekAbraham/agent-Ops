@@ -23,6 +23,8 @@ import {
   type DrilldownTarget,
 } from './PartnerReturnsDrilldownDialog';
 import { TopupBacktestPanel } from './TopupBacktestPanel';
+import { useTopupModelSettings, TOPUP_SETTING_LIMITS } from '@/hooks/useTopupModelSettings';
+import { Input } from '@/components/ui/input';
 import {
   buildTopupBacktest,
   topupResidualSigma,
@@ -96,13 +98,26 @@ export function PartnerReturnsForecastPanel({
   end: Date;
   bucket: 'day' | 'week' | 'month';
 }) {
+  const { settings, update, reset, isDefault } = useTopupModelSettings();
+
   const { data, isLoading } = useQuery({
-    queryKey: ['partner-returns-forecast', start.toISOString(), end.toISOString(), bucket],
+    queryKey: [
+      'partner-returns-forecast',
+      start.toISOString(),
+      end.toISOString(),
+      bucket,
+      settings.lookback,
+      settings.trendDamping,
+      settings.minHistory,
+    ],
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc('get_partner_ops_returns_forecast', {
         p_start: start.toISOString(),
         p_end: end.toISOString(),
         p_bucket: bucket,
+        p_lookback: settings.lookback,
+        p_trend_damping: settings.trendDamping,
+        p_min_history: settings.minHistory,
       });
       if (error) throw error;
       return data as Payload;
@@ -232,6 +247,7 @@ export function PartnerReturnsForecastPanel({
   const bands = useMemo(() => {
     const backtest = buildTopupBacktest(
       rows.map((r) => ({ key: r.key, label: r.label, is_past: r.is_past, topups: Number(r.topups) })),
+      settings,
     );
     const sigma = topupResidualSigma(backtest);
     const map = new Map<string, TopupBand>();
@@ -243,7 +259,7 @@ export function PartnerReturnsForecastPanel({
       if (band) map.set(r.key, band);
     }
     return { sigma, map };
-  }, [rows]);
+  }, [rows, settings]);
 
   const chartData = rows.map((r) => {
     const band = bands.map.get(r.key);
@@ -349,7 +365,52 @@ export function PartnerReturnsForecastPanel({
           </p>
         ) : null}
 
+        <div className="rounded-xl border border-border p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Prediction settings
+            </p>
+            <Button size="sm" variant="ghost" onClick={reset} disabled={isDefault} className="h-7 text-[11px]">
+              Reset to defaults
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Knob
+              label="Periods looked back"
+              hint={`How many completed periods are averaged (${TOPUP_SETTING_LIMITS.lookback.min}–${TOPUP_SETTING_LIMITS.lookback.max})`}
+              value={settings.lookback}
+              step={1}
+              min={TOPUP_SETTING_LIMITS.lookback.min}
+              max={TOPUP_SETTING_LIMITS.lookback.max}
+              onChange={(v) => update({ lookback: v })}
+            />
+            <Knob
+              label="Trend carried forward"
+              hint="0 ignores the rise or fall, 1 carries all of it"
+              value={settings.trendDamping}
+              step={0.05}
+              min={TOPUP_SETTING_LIMITS.trendDamping.min}
+              max={TOPUP_SETTING_LIMITS.trendDamping.max}
+              onChange={(v) => update({ trendDamping: v })}
+            />
+            <Knob
+              label="Minimum history for a trend"
+              hint="Periods needed before a rise or fall is applied"
+              value={settings.minHistory}
+              step={1}
+              min={TOPUP_SETTING_LIMITS.minHistory.min}
+              max={TOPUP_SETTING_LIMITS.minHistory.max}
+              onChange={(v) => update({ minHistory: v })}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Applies to the predicted top-ups, their likely range, the net position, the accuracy
+            check and the PDF export. Remembered on this device.
+          </p>
+        </div>
+
         <TopupBacktestPanel
+          settings={settings}
           periods={rows.map((r) => ({
             key: r.key,
             label: r.label,
@@ -505,6 +566,43 @@ export function PartnerReturnsForecastPanel({
         <PartnerReturnsDrilldownDialog target={drilldown} onClose={() => setDrilldown(null)} />
       </CardContent>
     </Card>
+  );
+}
+
+function Knob({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</label>
+      <Input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => {
+          const next = Number(e.target.value);
+          if (Number.isFinite(next)) onChange(next);
+        }}
+        className="h-8 text-xs font-mono"
+      />
+      <p className="text-[10px] text-muted-foreground">{hint}</p>
+    </div>
   );
 }
 
