@@ -215,7 +215,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={submitting}>
+          <Button onClick={submit} disabled={submitting || !termValid}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
             {submitting ? 'Submitting…' : 'Submit Order for Review'}
           </Button>

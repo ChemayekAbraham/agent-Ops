@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
+import BikeRepaymentTracker from '@/components/merchandise/BikeRepaymentTracker';
+
 
 const db = supabase as any;
 
