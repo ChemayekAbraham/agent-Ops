@@ -52882,6 +52882,10 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: Json
       }
+      cancel_tenant_and_return_landlord_float: {
+        Args: { p_reason: string; p_rent_request_id: string }
+        Returns: Json
+      }
       cancel_tenant_repayment_pause: {
         Args: { p_reason: string; p_rent_request_id: string }
         Returns: Json
