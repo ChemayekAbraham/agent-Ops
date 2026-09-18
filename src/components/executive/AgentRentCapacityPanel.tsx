@@ -142,7 +142,7 @@ export function AgentRentCapacityPanel({
       // 1) Pull all active rent requests (drives exposure + expected daily collections)
       const { data: active } = await supabase
         .from('rent_requests')
-        .select('id, agent_id, tenant_id, total_repayment, amount_repaid, daily_repayment')
+        .select('id, agent_id, tenant_id, total_repayment, amount_repaid, daily_repayment, status, repayment_frequency')
         .in('status', ACTIVE_RENT_STATUSES)
         .not('agent_id', 'is', null);
 
@@ -152,6 +152,7 @@ export function AgentRentCapacityPanel({
       const allActiveIds = (active || []).map((r: any) => r.id);
       const unfundedIds = new Set<string>();
       const unfundedTenantsByAgent = new Map<string, Set<string>>();
+      const fallbackBlockedByUnpaidLandlordIds = new Set<string>();
       if (allActiveIds.length > 0) {
         const BATCH_REV = 200;
         for (let i = 0; i < allActiveIds.length; i += BATCH_REV) {
@@ -172,6 +173,22 @@ export function AgentRentCapacityPanel({
               }
             });
         }
+
+        const BATCH_ALLOC = 200;
+        const blockedStatuses = new Set(['open', 'partially_paid', 'return_pending']);
+        for (let i = 0; i < allActiveIds.length; i += BATCH_ALLOC) {
+          const slice = allActiveIds.slice(i, i + BATCH_ALLOC);
+          const { data: allocs } = await supabase
+            .from('agent_landlord_float_allocations')
+            .select('rent_request_id, status, paid_out_amount')
+            .in('rent_request_id', slice);
+          (allocs || []).forEach((a: any) => {
+            const paidOut = Number(a.paid_out_amount) || 0;
+            if (blockedStatuses.has(String(a.status || '')) && paidOut <= 0) {
+              fallbackBlockedByUnpaidLandlordIds.add(a.rent_request_id);
+            }
+          });
+        }
       }
 
       const exposureMap = new Map<string, { used: number; count: number }>();
@@ -188,10 +205,18 @@ export function AgentRentCapacityPanel({
         );
         const prev = exposureMap.get(r.agent_id) || { used: 0, count: 0 };
         exposureMap.set(r.agent_id, { used: prev.used + owed, count: prev.count + 1 });
-        expectedDailyMap.set(
-          r.agent_id,
-          (expectedDailyMap.get(r.agent_id) || 0) + (Number(r.daily_repayment) || 0),
-        );
+        const isWeekly = String(r.repayment_frequency || 'daily').toLowerCase() === 'weekly';
+        const fundedAndOwing =
+          (r.status === 'funded' || r.status === 'repaying') &&
+          owed > 0 &&
+          !isWeekly &&
+          !fallbackBlockedByUnpaidLandlordIds.has(r.id);
+        if (fundedAndOwing) {
+          expectedDailyMap.set(
+            r.agent_id,
+            (expectedDailyMap.get(r.agent_id) || 0) + (Number(r.daily_repayment) || 0),
+          );
+        }
         activeIdToAgent.set(r.id, r.agent_id);
         if (r.tenant_id) {
           activeIdToTenant.set(r.id, r.tenant_id);
@@ -262,6 +287,7 @@ export function AgentRentCapacityPanel({
           'get_agent_daily_eligibility',
           { p_agent_ids: agentIds },
         );
+        const eligibilityRpcSucceeded = !eligErr;
         if (eligErr) console.error('[AgentRentCapacityPanel] eligibility RPC failed', eligErr);
         (eligRows || []).forEach((r: any) => {
           eligByAgent.set(r.agent_id, {
@@ -304,7 +330,9 @@ export function AgentRentCapacityPanel({
         const { tier, per_tenant_max } = classifyAgent(exp.count, response_rate);
         const prof = profileMap.get(id) || { name: id.slice(0, 8), phone: null };
         const elig = eligByAgent.get(id);
-        const expected_daily        = elig?.expected_daily ?? (expectedDailyMap.get(id) || 0);
+        const expected_daily = eligibilityRpcSucceeded
+          ? (elig?.expected_daily ?? 0)
+          : (expectedDailyMap.get(id) || 0);
         const paid_today_val        = elig?.paid_today     ?? 0;
         const paid_yesterday        = elig?.paid_yesterday ?? 0;
         const today_response_pct    = elig?.today_pct      ?? 0;

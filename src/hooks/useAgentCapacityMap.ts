@@ -325,9 +325,10 @@ export function useAgentCapacityMap(agentIds: string[]) {
         'get_agent_daily_eligibility',
         { p_agent_ids: agentIds },
       );
+      const eligibilityRpcSucceeded = !eligErr;
       if (eligErr) {
-        // Never silently zero everyone — fall back to empty map so the
-        // hook reports starter state instead of mass-blocking the fleet.
+        // Only use client fallback target math when the server source itself
+        // failed. A successful empty result is a valid zero target.
         console.error('[useAgentCapacityMap] eligibility RPC failed', eligErr);
       }
       const eligByAgent = new Map<string, {
@@ -414,6 +415,7 @@ export function useAgentCapacityMap(agentIds: string[]) {
       const allActiveIds = (active || []).map((r: any) => r.id);
       const unfundedIds = new Set<string>();
       const unfundedTenantsByAgent = new Map<string, Set<string>>();
+      const fallbackBlockedByUnpaidLandlordIds = new Set<string>();
       if (allActiveIds.length > 0) {
         const { data: revs } = await supabase
           .from('agent_tenant_float_reversals')
@@ -428,6 +430,20 @@ export function useAgentCapacityMap(agentIds: string[]) {
             if (r.tenant_id) s.add(r.tenant_id);
           }
         });
+
+        if (!eligibilityRpcSucceeded) {
+          const { data: allocs } = await supabase
+            .from('agent_landlord_float_allocations')
+            .select('rent_request_id, status, paid_out_amount')
+            .in('rent_request_id', allActiveIds);
+          const blockedStatuses = new Set(['open', 'partially_paid', 'return_pending']);
+          (allocs || []).forEach((a: any) => {
+            const paidOut = Number(a.paid_out_amount) || 0;
+            if (blockedStatuses.has(String(a.status || '')) && paidOut <= 0) {
+              fallbackBlockedByUnpaidLandlordIds.add(a.rent_request_id);
+            }
+          });
+        }
       }
 
       const exposure = new Map<string, { used: number; count: number }>();
@@ -449,7 +465,10 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // This fallback only runs if the server eligibility RPC failed.
         const isWeekly = String(r.repayment_frequency || 'daily').toLowerCase() === 'weekly';
         const fundedAndOwing =
-          (r.status === 'funded' || r.status === 'repaying') && owed > 0 && !isWeekly;
+          (r.status === 'funded' || r.status === 'repaying') &&
+          owed > 0 &&
+          !isWeekly &&
+          !fallbackBlockedByUnpaidLandlordIds.has(r.id);
         if (fundedAndOwing) {
           expectedDaily.set(
             r.agent_id,
@@ -521,7 +540,9 @@ export function useAgentCapacityMap(agentIds: string[]) {
         const elig = eligByAgent.get(id);
         // Prefer the server-side denominator when present (it applies the
         // same reversed/unfunded filter we apply on the client).
-        const dailyExpected = elig?.expected_daily ?? (expectedDaily.get(id) || 0);
+        const dailyExpected = eligibilityRpcSucceeded
+          ? (elig?.expected_daily ?? 0)
+          : (expectedDaily.get(id) || 0);
         const expected_weekly = dailyExpected * 7;
         const paid_last_week = paidByAgent.get(id) || 0;
         const expected_tenant_days = exp.count * 7;
@@ -611,8 +632,8 @@ export function useAgentCapacityMap(agentIds: string[]) {
          * Using exp.count here (all active rent_requests incl. weekly) would
          * make the app disagree with the database trigger.
          */
-        const daily_gate_count = elig
-          ? elig.active_count
+        const daily_gate_count = eligibilityRpcSucceeded
+          ? (elig?.active_count ?? 0)
           : (fallbackGateCount.get(id) || 0);
         const weekly_plan_count    = elig?.weekly_plan_count    ?? 0;
         const weekly_lapsed_count  = elig?.weekly_lapsed_count  ?? 0;
