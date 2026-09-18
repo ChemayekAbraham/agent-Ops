@@ -79,34 +79,69 @@ Deno.serve(async (req) => {
       }, 424);
     }
 
-    const params = new URLSearchParams({ per_page: "100" });
-    if (days > 0) {
-      params.set("since", new Date(Date.now() - days * 86_400_000).toISOString());
-    }
-
-    // Up to 3 pages (300 commits) per window — enough for the CTO feed.
-    const commits: GhCommit[] = [];
-    for (let page = 1; page <= 3; page++) {
-      params.set("page", String(page));
-      const res = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/commits?${params.toString()}`,
-        {
-          headers: {
-            Accept: "application/vnd.github+json",
-            Authorization: `Bearer ${ghToken}`,
-            "User-Agent": "welile-cto-dashboard",
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
+    const gh = (path: string) =>
+      fetch(`https://api.github.com/repos/${owner}/${repo}/${path}`, {
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${ghToken}`,
+          "User-Agent": "welile-cto-dashboard",
+          "X-GitHub-Api-Version": "2022-11-28",
         },
-      );
+      });
+
+    const since = days > 0 ? new Date(Date.now() - days * 86_400_000).toISOString() : null;
+
+    // Every branch is scanned, not just the default one — collaborators who only
+    // ever push to their own branch would otherwise be invisible here.
+    const branchNames: string[] = [];
+    for (let page = 1; page <= 3; page++) {
+      const res = await gh(`branches?per_page=100&page=${page}`);
       if (!res.ok) {
         const details = await res.text();
-        console.error(`GitHub commits request failed [${res.status}]: ${details}`);
+        console.error(`GitHub branches request failed [${res.status}]: ${details}`);
         return json({ error: "github_request_failed", status: res.status, details }, res.status);
       }
-      const batch = (await res.json()) as GhCommit[];
-      commits.push(...batch);
+      const batch = (await res.json()) as Array<{ name: string }>;
+      branchNames.push(...batch.map((b) => b.name));
       if (batch.length < 100) break;
+    }
+    // Default branch first, then the rest (bounded so one repo cannot fan out forever).
+    const branches = branchNames.length ? branchNames.slice(0, 40) : [""];
+
+    const seen = new Set<string>();
+    const commits: GhCommit[] = [];
+    let truncated = false;
+
+    for (const branch of branches) {
+      for (let page = 1; page <= 5; page++) {
+        const params = new URLSearchParams({ per_page: "100", page: String(page) });
+        if (since) params.set("since", since);
+        if (branch) params.set("sha", branch);
+        const res = await gh(`commits?${params.toString()}`);
+        if (!res.ok) {
+          // A single unreadable branch must not blank out the whole panel.
+          const details = await res.text();
+          console.error(`GitHub commits request failed [${res.status}] on ${branch}: ${details}`);
+          if (res.status === 401 || res.status === 403 || res.status === 404) {
+            if (!commits.length) {
+              return json({ error: "github_request_failed", status: res.status, details }, res.status);
+            }
+          }
+          break;
+        }
+        const batch = (await res.json()) as GhCommit[];
+        for (const c of batch) {
+          if (seen.has(c.sha)) continue;
+          seen.add(c.sha);
+          commits.push(c);
+        }
+        if (batch.length < 100) break;
+        if (page === 5) truncated = true;
+      }
+      if (commits.length >= 5000) {
+        truncated = true;
+        break;
+      }
     }
 
     const feed = commits.map((c) => ({
