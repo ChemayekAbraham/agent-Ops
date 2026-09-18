@@ -658,21 +658,59 @@ export default function MerchandiseStore() {
             <h2 className="text-sm font-bold mb-2">My merchandise orders</h2>
             <Card>
               <CardContent className="p-0 divide-y divide-border/60">
-                {plans.map((p) => (
-                  <div key={p.id} className="px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium">{p.item_name}</p>
-                      <Badge variant={p.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">
-                        {p.status === 'completed' ? 'Paid off' : 'Repaying'}
-                      </Badge>
+                {plans.map((p) => {
+                  const isRejected = p.order_status === 'rejected';
+                  return (
+                    <div key={p.id} className="px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium">{p.item_name}</p>
+                        {isRejected ? (
+                          <Badge variant="destructive" className="text-[10px]">Application Rejected</Badge>
+                        ) : (
+                          <Badge variant={p.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">
+                            {p.status === 'completed' ? 'Paid off' : 'Repaying'}
+                          </Badge>
+                        )}
+                      </div>
+                      {isRejected ? (
+                        <div className="mt-1.5 space-y-1.5">
+                          <p className="text-[11px] text-destructive">
+                            {p.rejection_reason || 'No reason was recorded. Please contact support.'}
+                          </p>
+                          {p.rejected_at && (
+                            <p className="text-[10px] text-muted-foreground">
+                              Rejected {format(new Date(p.rejected_at), 'dd MMM yyyy')}
+                            </p>
+                          )}
+                          {/* Only rejected applications can be dismissed — approved
+                              orders (active/completed plans) are never deletable. */}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[11px] text-destructive border-destructive/40 hover:bg-destructive/10"
+                            disabled={deleteApplication.isPending}
+                            onClick={() =>
+                              deleteApplication.mutate(p as any, {
+                                onSuccess: () => toast.success('Application removed.'),
+                                onError: (e) => toast.error(e.message || 'Could not remove the application.'),
+                              })
+                            }
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete application
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+                          <span>Cost {formatUGX(Number(p.original_amount))}</span>
+                          <span className="text-emerald-600">Repaid {formatUGX(Number(p.amount_recovered))}</span>
+                          <span className="text-amber-600">Left {formatUGX(Number(p.outstanding_balance))}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
-                      <span>Cost {formatUGX(Number(p.original_amount))}</span>
-                      <span className="text-emerald-600">Repaid {formatUGX(Number(p.amount_recovered))}</span>
-                      <span className="text-amber-600">Left {formatUGX(Number(p.outstanding_balance))}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           </div>
