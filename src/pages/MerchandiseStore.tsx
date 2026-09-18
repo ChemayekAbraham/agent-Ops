@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { SkeletonProductCard } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Info, Smartphone, Bike, AlertCircle, Share2,
+  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Info, Smartphone, Bike, AlertCircle, Share2, Trash2,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
@@ -25,6 +25,7 @@ import { format } from 'date-fns';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
+import { useDeleteMerchandiseApplication } from '@/hooks/useMerchandiseRepaymentPortfolio';
 import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
 import BikeLeaseStatus from '@/components/merchandise/BikeLeaseStatus';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
