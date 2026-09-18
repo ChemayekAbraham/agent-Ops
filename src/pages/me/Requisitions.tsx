@@ -63,6 +63,7 @@ interface Requisition {
   attachment_urls: string[] | null;
   request_kind: RequestKind | null;
   loan_months: number | null;
+  loan_monthly_rate: number | null;
 }
 
 interface ReqEvent {
@@ -414,7 +415,7 @@ const MyRequisitions = () => {
                   </DialogTitle>
                   <DialogDescription>
                     {kind === 'staff_loan'
-                      ? 'Reviewed by your department head, then the COO, then the CFO — the same as a requisition. Charged 30% a month on what you still owe.'
+                      ? 'Reviewed by your department head, then the COO, then the CFO — the same as a requisition. Charged 28% a month on what you still owe.'
                       : 'Approvers see your department budget alongside the request.'}
                   </DialogDescription>
                 </DialogHeader>
@@ -478,7 +479,7 @@ const MyRequisitions = () => {
                                   <tr>
                                     <th className="px-2 py-1 text-left">Month</th>
                                     <th className="px-2 py-1 text-right">Balance</th>
-                                    <th className="px-2 py-1 text-right">30% charge</th>
+                                    <th className="px-2 py-1 text-right">28% charge</th>
                                     <th className="px-2 py-1 text-right">Due</th>
                                   </tr>
                                 </thead>
@@ -495,7 +496,7 @@ const MyRequisitions = () => {
                               </table>
                             </div>
                             <p className="text-muted-foreground">
-                              The charge is 30% of what you still owe at the start of each month, so it falls as you repay.
+                              The charge is 28% of what you still owe at the start of each month, so it falls as you repay.
                               Repayments are taken from your wallet as money comes in.
                             </p>
                           </div>
@@ -639,7 +640,7 @@ const MyRequisitions = () => {
                       {row.request_kind === 'staff_loan' && (
                         <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                           <Landmark className="mr-1 h-3 w-3" />
-                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • 30%/month
+                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • {Math.round(Number(row.loan_monthly_rate ?? 0.28) * 100)}%/month
                         </Badge>
                       )}
                     </div>

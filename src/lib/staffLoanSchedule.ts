@@ -1,11 +1,9 @@
 /**
- * Staff loan schedule — 30% per month charged on the amount still owing.
- *
- * Principal is spread evenly over the chosen months; each month's charge is 30%
- * of the balance outstanding at the start of that month, so the charge falls as
+ * Staff loan schedule — 28% per month charged on the amount still owing.
+...
  * the loan is repaid. Mirrors `staff_loan_accrue_interest()` in the database.
  */
-export const STAFF_LOAN_MONTHLY_RATE = 0.3;
+export const STAFF_LOAN_MONTHLY_RATE = 0.28;
 export const STAFF_LOAN_MAX_MONTHS = 12;
 
 export interface StaffLoanMonth {
