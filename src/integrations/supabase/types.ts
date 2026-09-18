@@ -52796,6 +52796,7 @@ export type Database = {
         Args: { _job_id: string }
         Returns: undefined
       }
+      cancel_national_id_link: { Args: { p_request_id: string }; Returns: Json }
       cancel_payout_number_change: {
         Args: { p_request_id: string }
         Returns: Json
