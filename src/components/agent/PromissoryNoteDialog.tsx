@@ -613,7 +613,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
                 className={cn(
                   'rounded-lg py-2 text-xs font-semibold transition-colors',
                   contributionType === opt.key
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-success text-success-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
