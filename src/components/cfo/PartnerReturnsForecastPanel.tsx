@@ -428,17 +428,18 @@ export function PartnerReturnsForecastPanel({
             {formatUGX(totals.net)}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            Receivables + top-ups + promissory + compounding, less the Returns payable forecast.
+            Receivables + top-ups + promissory + compounding, less Returns actually paid in past
+            periods and the Returns payable forecast in future periods.
           </p>
           <div className="mt-2 space-y-0.5 text-[11px] font-mono tabular-nums">
             <p className="text-muted-foreground">
               Inflows: {formatUGX(totals.receivable + totals.topups + totals.promissory + totals.compounding)}
             </p>
             <p className="text-muted-foreground">
-              Less Returns payable forecast: −{formatUGX(totals.forecastPast + totals.forecastAhead)}
-              <span className="ml-1">
-                ({formatUGX(totals.forecastPast)} past, {formatUGX(totals.forecastAhead)} ahead)
-              </span>
+              Less Returns paid (past): −{formatUGX(totals.actualPast)}
+            </p>
+            <p className="text-muted-foreground">
+              Less Returns payable forecast (ahead): −{formatUGX(totals.forecastAhead)}
             </p>
           </div>
         </div>
@@ -571,6 +572,11 @@ export function PartnerReturnsForecastPanel({
                     }`}
                   >
                     {formatUGX(Number(r.net))}
+                    <span className="block text-[10px] font-normal text-muted-foreground">
+                      {r.is_past
+                        ? `less ${formatUGX(Number(r.actual_returns_paid))} paid`
+                        : `less ${formatUGX(Number(r.forecast_returns))} forecast`}
+                    </span>
                   </td>
                 </tr>
               ))}
