@@ -32,6 +32,7 @@ interface ActivityResponse {
   repo: string;
   repo_url: string;
   days: number;
+  branches_scanned?: number;
   total_commits: number;
   truncated: boolean;
   contributors: Contributor[];
