@@ -56911,6 +56911,15 @@ export type Database = {
         Args: { p_bucket?: string; p_end: string; p_start: string }
         Returns: Json
       }
+      get_partner_ops_returns_forecast_detail: {
+        Args: {
+          p_bucket?: string
+          p_limit?: number
+          p_metric: string
+          p_period: string
+        }
+        Returns: Json
+      }
       get_partner_total_trend: { Args: { p_preset?: string }; Returns: Json }
       get_partner_wallet_hub: {
         Args: { p_limit?: number; p_offset?: number; p_user_id: string }
