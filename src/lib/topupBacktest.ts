@@ -105,3 +105,42 @@ export function buildTopupBacktest(periods: TopupHistoryPeriod[]): TopupBacktest
     bias: actualTotal - predictedTotal,
   };
 }
+
+/**
+ * Typical size of the model's past misses, in UGX. This is the spread the
+ * confidence band is built from: how far predictions have actually landed from
+ * reality on completed periods (root mean squared error), not a guess.
+ */
+export function topupResidualSigma(backtest: TopupBacktestSummary): number | null {
+  const rows = backtest.rows;
+  if (rows.length < BACKTEST_MIN_BASIS) return null;
+  const sq = rows.map((r) => r.variance * r.variance);
+  return Math.sqrt(mean(sq));
+}
+
+/** 80% band ≈ ±1.2816σ under a normal error assumption. */
+export const BAND_Z = 1.2816;
+
+export interface TopupBand {
+  low: number;
+  high: number;
+}
+
+/**
+ * Band around a predicted top-up value. Uncertainty compounds the further out
+ * the period is, so the spread widens with sqrt(steps ahead) — the standard
+ * random-walk widening. Never goes below zero: a period cannot receive negative
+ * top-ups.
+ */
+export function topupPredictionBand(
+  predicted: number,
+  sigma: number | null,
+  stepsAhead: number,
+): TopupBand | null {
+  if (sigma === null || !Number.isFinite(sigma) || sigma <= 0) return null;
+  const spread = BAND_Z * sigma * Math.sqrt(Math.max(1, stepsAhead));
+  return {
+    low: Math.max(0, Math.round(predicted - spread)),
+    high: Math.round(predicted + spread),
+  };
+}
