@@ -73,8 +73,8 @@ const TITLES: Record<HolderBucket, { title: string; desc: string; amountLabel: s
   },
   landlord_float: {
     title: 'Landlord Float — Holders',
-    desc: 'Agents holding money reserved for landlord payouts. Tap a row to see the ledger entries behind it.',
-    amountLabel: 'Landlord float',
+    desc: 'Agents who will pay a landlord today, for rent funded today. Tap a row to see the ledger entries behind it.',
+    amountLabel: 'Due today',
   },
   merchant_float: {
     title: 'Merchant Float — Holders',
@@ -110,6 +110,45 @@ async function resolveSearchIds(query: string): Promise<string[]> {
   } as any);
   if (error) throw error;
   return ((data ?? []) as Array<{ id: string }>).map((p) => p.id).filter(Boolean);
+}
+
+interface LandlordFloatDueTodayHolder {
+  agent_id: string;
+  amount: number;
+  landlord_names: string[] | null;
+  rent_request_count: number;
+}
+
+interface LandlordFloatDueToday {
+  holders: LandlordFloatDueTodayHolder[];
+  company_amount: number;
+  company_count: number;
+  funder_amount: number;
+  funder_count: number;
+}
+
+/**
+ * Rent funded today, still owed to a landlord -- the same "today" definition
+ * as the parent Wallet Buckets tile (docs/HANDOVER/71), just grouped by the
+ * agent who will pay it instead of summed platform-wide. Deliberately NOT
+ * the agent's running agent_landlord_float.balance, which is mostly older
+ * backlog and confused Josh when it showed ~80M next to a tile that said ~4M.
+ */
+async function fetchLandlordFloatDueToday(): Promise<LandlordFloatDueToday> {
+  const { data, error } = await supabase.rpc('get_landlord_float_due_today' as any);
+  if (error) throw error;
+  const d = (data ?? {}) as any;
+  return {
+    holders: (d.holders ?? []) as LandlordFloatDueTodayHolder[],
+    company_amount: Number(d.company_amount ?? 0),
+    company_count: Number(d.company_count ?? 0),
+    funder_amount: Number(d.funder_amount ?? 0),
+    funder_count: Number(d.funder_count ?? 0),
+  };
+}
+
+async function fetchLandlordFloatDueTodayHolders(): Promise<LandlordFloatDueTodayHolder[]> {
+  return (await fetchLandlordFloatDueToday()).holders;
 }
 
 async function loadHolders(bucket: HolderBucket, searchQuery: string): Promise<HolderRow[]> {
@@ -207,73 +246,29 @@ async function loadHolders(bucket: HolderBucket, searchQuery: string): Promise<H
   }
 
   if (bucket === 'landlord_float') {
-    if (q) {
-      const ids = await resolveSearchIds(q);
-      if (ids.length === 0) return [];
-      const [rows, pmap] = await Promise.all([
-        batchedQuery<{
-          id: string;
-          agent_id: string;
-          balance: number;
-          region: string | null;
-          total_funded: number;
-          total_paid_out: number;
-        }>(ids, (batch) =>
-          supabase
-            .from('agent_landlord_float')
-            .select('id, agent_id, balance, region, total_funded, total_paid_out')
-            .in('agent_id', batch),
-        ),
-        fetchProfiles(ids),
-      ]);
-      const fmap = new Map(rows.map((r) => [r.agent_id, r]));
-      return ids.map((id) => {
-        const p = pmap.get(id);
-        const f = fmap.get(id);
-        return {
-          key: f?.id ?? id,
-          userId: id,
-          name: p?.full_name ?? 'Unknown agent',
-          phone: p?.phone ?? '',
-          amount: Number(f?.balance ?? 0),
-          meta: f
-            ? [
-                f.region ? `Region ${f.region}` : null,
-                `Funded ${formatUGX(Number(f.total_funded ?? 0))}`,
-                `Paid out ${formatUGX(Number(f.total_paid_out ?? 0))}`,
-              ]
-                .filter(Boolean)
-                .join(' • ')
-            : 'No landlord float account yet',
-        };
-      });
-    }
-    const { data: rows, error } = await supabase
-      .from('agent_landlord_float')
-      .select('id, agent_id, balance, region, total_funded, total_paid_out')
-      .gt('balance', 0)
-      .order('balance', { ascending: false })
-      .limit(500);
-    if (error) throw error;
-    const ids = (rows ?? []).map((r) => r.agent_id).filter((v): v is string => !!v);
+    const holders = await fetchLandlordFloatDueTodayHolders();
+    const ids = holders.map((h) => h.agent_id).filter((v): v is string => !!v);
     const pmap = await fetchProfiles(ids);
-    return (rows ?? []).map((r) => {
-      const p = r.agent_id ? pmap.get(r.agent_id) : undefined;
+    const rows: HolderRow[] = holders.map((h) => {
+      const p = h.agent_id ? pmap.get(h.agent_id) : undefined;
+      const names = (h.landlord_names ?? []).filter(Boolean);
       return {
-        key: r.id,
-        userId: r.agent_id ?? null,
+        key: h.agent_id,
+        userId: h.agent_id,
         name: p?.full_name ?? 'Unknown agent',
         phone: p?.phone ?? '',
-        amount: Number(r.balance ?? 0),
+        amount: Number(h.amount ?? 0),
         meta: [
-          r.region ? `Region ${r.region}` : null,
-          `Funded ${formatUGX(Number(r.total_funded ?? 0))}`,
-          `Paid out ${formatUGX(Number(r.total_paid_out ?? 0))}`,
+          `${h.rent_request_count} rent request${h.rent_request_count === 1 ? '' : 's'} funded today`,
+          names.length ? `Landlord${names.length === 1 ? '' : 's'}: ${names.join(', ')}` : null,
         ]
           .filter(Boolean)
           .join(' • '),
       };
     });
+    if (!q) return rows;
+    const ql = q.toLowerCase();
+    return rows.filter((r) => `${r.name} ${r.phone}`.toLowerCase().includes(ql));
   }
 
   const { data, error } = await supabase.rpc('get_merchant_float_positions' as any);
@@ -419,35 +414,23 @@ export function WalletBucketHoldersPanel({
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
 
-  // Landlord float only: split the outstanding earmarks by who put the money
-  // there — company float (CFO disbursements) vs funders supporting a landlord
-  // directly from their own wallet (`partner_self_funding`).
+  // Landlord float only: split TODAY's outstanding earmarks by who put the
+  // money there — company float (CFO disbursements) vs funders supporting a
+  // landlord directly from their own wallet (`partner_self_funding`). Same
+  // due-today scope as the holder rows above, from the same RPC, so this
+  // split and the list below can never disagree.
   const { data: sourceSplit } = useQuery({
-    queryKey: ['landlord-float-source-split'],
+    queryKey: ['landlord-float-due-today-source-split'],
     enabled: bucket === 'landlord_float',
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('agent_landlord_float_allocations' as any)
-        .select('source, remaining_amount, status')
-        .in('status', ['open', 'partially_paid'])
-        .limit(5000);
-      if (error) throw error;
-      let company = 0;
-      let companyCount = 0;
-      let funder = 0;
-      let funderCount = 0;
-      for (const r of (data ?? []) as any[]) {
-        const amt = Number(r.remaining_amount) || 0;
-        if (r.source === 'partner_self_funding') {
-          funder += amt;
-          funderCount += 1;
-        } else {
-          company += amt;
-          companyCount += 1;
-        }
-      }
-      return { company, companyCount, funder, funderCount };
+      const d = await fetchLandlordFloatDueToday();
+      return {
+        company: d.company_amount,
+        companyCount: d.company_count,
+        funder: d.funder_amount,
+        funderCount: d.funder_count,
+      };
     },
   });
 
