@@ -128,7 +128,7 @@ export function usePayMerchandisePlan(userId?: string) {
       qc.invalidateQueries({ queryKey: ['merchandise-repayment-plans', userId] });
       qc.invalidateQueries({ queryKey: ['merchandise-repayment-deductions', userId] });
       qc.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] });
-      qc.invalidateQueries({ queryKey: ['agent-balances', userId] });
+      qc.invalidateQueries({ queryKey: ['agent-commission-net', userId] });
       qc.invalidateQueries({ queryKey: ['wallet'] });
     },
   });
