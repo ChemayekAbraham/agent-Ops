@@ -64,6 +64,12 @@ export function BankEmailReconciliationPanel() {
 
   const mismatch = data ? data.money_at_bank_total - data.extracted_net : 0;
   const hasMismatch = Math.abs(mismatch) >= 1;
+  const latestMovementAt = data?.qualifying_emails.length
+    ? data.qualifying_emails.reduce<string | null>((latest, email) => {
+        if (!email.extracted_at) return latest;
+        return !latest || email.extracted_at > latest ? email.extracted_at : latest;
+      }, null)
+    : null;
 
   return (
     <div className="mt-3 border-t border-border pt-3">
@@ -77,7 +83,7 @@ export function BankEmailReconciliationPanel() {
             </p>
             <Badge variant="secondary" className="mt-1 gap-1 px-1.5 py-0.5 text-[10px] font-normal">
               <Clock className="h-3 w-3" />
-              Emails from 11:40 AM Kampala, 3 Sep 2026
+              {latestMovementAt ? `Latest movement: ${fmtDate(latestMovementAt)}` : 'No movements found yet'}
             </Badge>
           </div>
         </div>
