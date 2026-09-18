@@ -365,6 +365,7 @@ export function PartnerReturnsForecastPanel({
                 <th className="py-2 pr-3 font-semibold text-right">Difference</th>
                 <th className="py-2 pr-3 font-semibold text-right">Receivable</th>
                 <th className="py-2 pr-3 font-semibold text-right">Top-ups</th>
+                <th className="py-2 pr-3 font-semibold text-right">Predicted top-ups</th>
                 <th className="py-2 pr-3 font-semibold text-right">Promissory</th>
                 <th className="py-2 pr-3 font-semibold text-right">Compounding</th>
                 <th className="py-2 font-semibold text-right">Net</th>
