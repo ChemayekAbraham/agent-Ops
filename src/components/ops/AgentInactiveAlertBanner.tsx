@@ -316,6 +316,11 @@ function InactivationRow({
                 {acknowledge.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
                 Save comment
               </Button>
+            ) : cancelling ? (
+              <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={handleCancelTenant} disabled={busy}>
+                {cancelTenant.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserX className="h-4 w-4" />}
+                Cancel tenant &amp; return float
+              </Button>
             ) : (
               <Button size="sm" className="h-8 gap-1" onClick={handleResolve} disabled={busy}>
                 {resolve.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -329,8 +334,11 @@ function InactivationRow({
           <p className="text-[10px] text-muted-foreground">
             {rejecting
               ? 'Rejecting puts the tenant back as “paying” on the agent’s book and creates a high-priority follow-up task on their dashboard.'
-              : 'Notes are saved to the audit trail.'}
+              : cancelling
+                ? 'The rent plan is cancelled, the house returns to Priority 1, and the landlord float still held by the agent goes back to the platform. Anything already paid out to the landlord is logged for CFO recovery.'
+                : 'Notes are saved to the audit trail.'}
           </p>
+
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
