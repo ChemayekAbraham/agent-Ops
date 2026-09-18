@@ -5,6 +5,7 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   buildTopupBacktest,
+  summarizeTopupAccuracy,
   BACKTEST_MIN_BASIS,
   DEFAULT_TOPUP_SETTINGS,
   type TopupHistoryPeriod,
@@ -24,6 +25,7 @@ export function TopupBacktestPanel({
   settings?: TopupModelSettings;
 }) {
   const backtest = useMemo(() => buildTopupBacktest(periods, settings), [periods, settings]);
+  const accuracy = useMemo(() => summarizeTopupAccuracy(backtest.rows), [backtest.rows]);
 
   if (!backtest.rows.length) {
     return (
@@ -76,6 +78,43 @@ export function TopupBacktestPanel({
           tone={backtest.bias >= 0 ? 'emerald' : 'rose'}
         />
       </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <Mini
+          label="Typical error size (RMS)"
+          value={accuracy.rmsError === null ? '—' : formatUGX(accuracy.rmsError)}
+          sub="root-mean-square of past misses"
+        />
+        <Mini
+          label="Average error"
+          value={accuracy.meanError === null ? '—' : formatUGX(accuracy.meanError)}
+          sub={
+            accuracy.meanError === null
+              ? undefined
+              : accuracy.meanError >= 0
+                ? 'received above prediction on average'
+                : 'received below prediction on average'
+          }
+          tone={
+            accuracy.meanError === null ? undefined : accuracy.meanError >= 0 ? 'emerald' : 'rose'
+          }
+        />
+        <Mini
+          label="Inside the 80% range"
+          value={
+            accuracy.coverageShare === null ? '—' : `${Math.round(accuracy.coverageShare * 100)}%`
+          }
+          sub={
+            accuracy.coverageShare === null
+              ? 'not enough history to measure'
+              : `of ${accuracy.periods} tested period${accuracy.periods === 1 ? '' : 's'}`
+          }
+        />
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        The 80% range is the same band drawn around future predictions: predicted ± 1.28 × typical
+        error size. A well-calibrated model lands inside it about 80% of the time.
+      </p>
 
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">

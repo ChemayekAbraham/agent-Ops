@@ -166,3 +166,36 @@ export function topupPredictionBand(
     high: Math.round(predicted + spread),
   };
 }
+
+export interface TopupBacktestAccuracy {
+  periods: number;
+  /** Average signed error (received − predicted): positive means the model runs low. */
+  meanError: number | null;
+  /** Root-mean-square error across tested periods. */
+  rmsError: number | null;
+  /** Share of tested periods whose received amount fell inside the 80% band. */
+  coverageShare: number | null;
+}
+
+/**
+ * Accuracy summary over the backtest: average signed error (bias), RMS error,
+ * and how often reality landed inside the same 80% band drawn on the chart
+ * (sigma from the backtest itself, one period ahead). Coverage is null when
+ * there is too little history or zero error variation to form a band.
+ */
+export function summarizeTopupAccuracy(backtest: TopupBacktestRow[]): TopupBacktestAccuracy {
+  const rows = backtest.filter((r) => r.predicted !== null);
+  const periods = rows.length;
+  if (periods === 0) return { periods: 0, meanError: null, rmsError: null, coverageShare: null };
+  const meanError = rows.reduce((s, r) => s + (r.variance ?? 0), 0) / periods;
+  const rmsError = Math.sqrt(rows.reduce((s, r) => s + (r.variance ?? 0) ** 2, 0) / periods);
+  let coverageShare: number | null = null;
+  if (periods >= BACKTEST_MIN_BASIS && rmsError > 0) {
+    const inside = rows.filter((r) => {
+      const band = topupPredictionBand(r.predicted ?? 0, rmsError, 1);
+      return band !== null && r.actual >= band.low && r.actual <= band.high;
+    }).length;
+    coverageShare = inside / periods;
+  }
+  return { periods, meanError, rmsError, coverageShare };
+}
