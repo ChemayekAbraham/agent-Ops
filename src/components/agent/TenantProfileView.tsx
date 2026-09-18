@@ -425,13 +425,15 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         // Allocations run inside the same burst instead of after it.
         user?.id ? loadAllocations() : Promise.resolve(null),
         loadTenantCollections(),
-        // Landlord float allocations for this tenant — a row with money still
-        // remaining means the landlord has NOT been paid yet, so collection
-        // must stay closed even when the request status says repaying.
+        // Landlord float allocations for this tenant — only open rows with
+        // money still remaining mean the landlord has NOT been paid yet.
+        // Cancelled historical rows are ignored so they do not keep a repaying
+        // tenant stuck behind the landlord-payment prompt.
         supabase
           .from('agent_landlord_float_allocations')
-          .select('rent_request_id, remaining_amount')
-          .eq('tenant_id', tenantId),
+          .select('rent_request_id, remaining_amount, status')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'open'),
       ]);
 
       const [rentRes, repaymentRes, walletRes, portfolioRes, ledgerRes, rolesRes, , , landlordAllocRes] = settled.map((result, idx) =>
@@ -439,8 +441,8 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       );
 
       const unpaidLandlordIds = new Set<string>(
-        ((landlordAllocRes?.data || []) as { rent_request_id: string | null; remaining_amount: number | null }[])
-          .filter(a => a.rent_request_id && Number(a.remaining_amount || 0) > 0)
+        ((landlordAllocRes?.data || []) as { rent_request_id: string | null; remaining_amount: number | null; status: string | null }[])
+          .filter(a => a.status === 'open' && a.rent_request_id && Number(a.remaining_amount || 0) > 0)
           .map(a => a.rent_request_id as string),
       );
       setLandlordUnpaidRequestIds(unpaidLandlordIds);
