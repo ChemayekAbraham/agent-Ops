@@ -31,7 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
-import { spiroEffectiveFeePct } from '@/lib/spiroBikeLease';
+import { spiroEffectiveFeePct, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 
 const db = supabase as any;
 
