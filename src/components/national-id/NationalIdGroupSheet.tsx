@@ -139,7 +139,10 @@ export default function NationalIdGroupSheet({ open, onOpenChange }: Props) {
                   : `${members.length} ${members.length === 1 ? 'person is' : 'people are'} attached to your National ID.`}
               </p>
 
-              {members.map((m) => (
+              {members.map((m) => {
+                const request = latestByMember.get(m.user_id);
+                const pending = request?.status === 'pending';
+                return (
                 <div key={m.user_id} className="rounded-2xl border border-border/60 bg-card p-4">
                   <div className="flex items-start gap-3">
                     <Avatar className="h-11 w-11">
@@ -161,23 +164,40 @@ export default function NationalIdGroupSheet({ open, onOpenChange }: Props) {
                     </div>
                   </div>
 
+                  {request && (
+                    <div className="mt-3 space-y-1">
+                      <RequestStatusBadge request={request} />
+                      <p className="text-[11px] text-muted-foreground">
+                        Your reason: “{request.reason}”
+                      </p>
+                      {request.decision_note && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Finance Operations said: “{request.decision_note}”
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {removing === m.user_id ? (
                     <div className="mt-3 space-y-2">
                       <Textarea
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        placeholder="Why are you removing this person? (at least 10 characters)"
+                        placeholder="Why should this person be removed from your ID? (at least 10 characters)"
                         rows={3}
                       />
+                      <p className="text-[11px] text-muted-foreground">
+                        Finance Operations reviews every removal, so give them the full reason.
+                      </p>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="destructive"
-                          disabled={unlink.isPending || reason.trim().length < 10}
+                          disabled={ask.isPending || reason.trim().length < 10}
                           onClick={() => confirmRemove(m.user_id)}
                         >
-                          {unlink.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                          Confirm removal
+                          {ask.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                          Send for approval
                         </Button>
                         <Button
                           size="sm"
@@ -193,14 +213,17 @@ export default function NationalIdGroupSheet({ open, onOpenChange }: Props) {
                       size="sm"
                       variant="outline"
                       className="mt-3"
+                      disabled={pending}
                       onClick={() => { setRemoving(m.user_id); setReason(''); }}
                     >
                       <UserMinus className="mr-1.5 h-4 w-4" />
-                      Remove from my ID
+                      {pending ? 'Waiting for approval' : 'Ask to remove from my ID'}
                     </Button>
                   )}
                 </div>
-              ))}
+                );
+              })}
+
             </>
           )}
 
