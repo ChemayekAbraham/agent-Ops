@@ -753,53 +753,31 @@ export default function MerchandiseStore() {
                     <Label className="text-xs">Repayment period</Label>
                     <span className="text-[10px] text-muted-foreground">Up to 12 months</span>
                   </div>
-                  <select
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    step={1}
+                    inputMode="numeric"
                     value={termMonths}
-                    onChange={(e) => setTermMonths(Number(e.target.value))}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    {MERCHANDISE_TERMS.map((m) => (
-                      <option key={m} value={m}>
-                        {m} month{m === 1 ? '' : 's'}
-                      </option>
-                    ))}
-                  </select>
-                  {termSchedule && termRows.length > 0 && (
-                    <>
-                      <div className="text-center space-y-0.5 pt-1">
-                        <p className="text-[11px] text-muted-foreground">Daily from your wallet — first month</p>
-                        <p className="text-2xl font-bold tabular-nums text-primary">
-                          {formatUGX(termFirstDaily)}<span className="text-sm font-medium">/day</span>
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          Falls to {formatUGX(termLastDaily)}/day in your last month · {termMonths} month
-                          {termMonths === 1 ? '' : 's'} · {formatUGX(termTotalRepayable)} in total
-                        </p>
-                      </div>
-                      <div className="rounded-md border border-border bg-background/70 overflow-hidden">
-                        <div className="grid grid-cols-4 gap-1 px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          <span>Month</span>
-                          <span className="text-right">Item</span>
-                          <span className="text-right">Charge</span>
-                          <span className="text-right">Per day</span>
-                        </div>
-                        {termRows.map((r) => (
-                          <div
-                            key={r.monthIndex}
-                            className="grid grid-cols-4 gap-1 border-t border-border px-2 py-1.5 text-[11px] tabular-nums"
-                          >
-                            <span className="text-muted-foreground">Month {r.monthIndex}</span>
-                            <span className="text-right">{formatUGX(r.principalDue)}</span>
-                            <span className="text-right">{formatUGX(r.chargeDue)}</span>
-                            <span className="text-right font-semibold">{formatUGX(r.dailyDeduction)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Each month you pay part of the item price plus a monthly charge worked out on what is
-                        still owing — so the amount keeps dropping as you pay it down.
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9]/g, '');
+                      if (raw === '') return;
+                      const n = Math.max(1, Math.min(12, parseInt(raw, 10)));
+                      setTermMonths(n);
+                    }}
+                  />
+                  {termSchedule && (
+                    <div className="text-center space-y-0.5 pt-1">
+                      <p className="text-[11px] text-muted-foreground">Daily from your wallet — first month</p>
+                      <p className="text-2xl font-bold tabular-nums text-primary">
+                        {formatUGX(termFirstDaily)}<span className="text-sm font-medium">/day</span>
                       </p>
-                    </>
+                      <p className="text-[11px] text-muted-foreground">
+                        Falls to {formatUGX(termLastDaily)}/day in your last month · {termMonths} month
+                        {termMonths === 1 ? '' : 's'} · {formatUGX(termTotalRepayable)} in total
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
