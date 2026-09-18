@@ -472,17 +472,17 @@ export default function MerchandiseStore() {
         {/* Smartphone order status */}
         <SmartphoneOrderStatus userId={user?.id} onRequestNewOrder={() => setPhoneOpen(true)} />
 
-        {/* Order a Welile Spiro Bike */}
+        {/* Apply for an electric bike (Spiro, Mocoo, etc.) */}
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="p-4 flex items-center gap-3">
             <img
               src={spiroBikeAsset.url}
-              alt="Welile Spiro electric bike"
+              alt="Welile electric bike"
               loading="lazy"
               className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold leading-tight">Apply for a Spiro electric bike</p>
+              <p className="text-sm font-bold leading-tight">Apply for an electric bike</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 Pick a model and lease term. Marketing confirms the price, then the bike is released and your lease is activated.
               </p>
