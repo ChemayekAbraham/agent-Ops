@@ -190,12 +190,43 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Everyone who has ever committed to the repository is listed, even when they
+    // have nothing inside the selected window (they show as 0).
+    try {
+      const contribRes = await gh("contributors?per_page=100&anon=0");
+      if (contribRes.ok) {
+        const all = (await contribRes.json()) as Array<{
+          login?: string;
+          avatar_url?: string;
+          html_url?: string;
+        }>;
+        for (const person of all) {
+          const key = person.login;
+          if (!key || byAuthor.has(key)) continue;
+          byAuthor.set(key, {
+            key,
+            name: key,
+            login: key,
+            avatar_url: person.avatar_url ?? null,
+            profile_url: person.html_url ?? null,
+            commits: 0,
+            last_commit_at: null,
+          });
+        }
+      } else {
+        console.error(`GitHub contributors request failed [${contribRes.status}]`);
+      }
+    } catch (e) {
+      console.error("GitHub contributors lookup failed:", e);
+    }
+
     return json({
       repo: `${owner}/${repo}`,
       repo_url: `https://github.com/${owner}/${repo}`,
       days,
+      branches_scanned: branchNames.length,
       total_commits: feed.length,
-      truncated: feed.length >= 300,
+      truncated,
       contributors: [...byAuthor.values()].sort((a, b) => b.commits - a.commits),
       commits: feed,
     });
