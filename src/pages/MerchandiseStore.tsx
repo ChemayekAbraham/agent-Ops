@@ -448,6 +448,9 @@ export default function MerchandiseStore() {
           </CardContent>
         </Card>
 
+        {/* Products being repaid — plan + pay button per product */}
+        <MerchandiseRepaymentPortfolio userId={user?.id} />
+
         {/* Smartphone order status */}
         <SmartphoneOrderStatus userId={user?.id} onRequestNewOrder={() => setPhoneOpen(true)} />
 
