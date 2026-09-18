@@ -53072,7 +53072,6 @@ export type Database = {
           p_follow_up_note?: string
           p_linked_kind?: string
           p_linked_user_id?: string
-          p_notes?: string
           p_status?: string
         }
         Returns: string

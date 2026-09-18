@@ -176,7 +176,6 @@ export interface RecordReceivedCallInput {
   linked_user_id?: string | null;
   linked_kind?: string | null;
   called_at?: string;
-  notes?: string | null;
   status?: ReceivedCallStatus;
   follow_up_at?: string | null;
   follow_up_note?: string | null;
@@ -193,7 +192,6 @@ export function useRecordReceivedCall() {
         p_linked_user_id: input.linked_user_id ?? null,
         p_linked_kind: input.linked_kind ?? null,
         p_called_at: input.called_at ?? new Date().toISOString(),
-        p_notes: input.notes ?? null,
         p_status: input.status ?? 'open',
         p_follow_up_at: input.follow_up_at ?? null,
         p_follow_up_note: input.follow_up_note ?? null,
@@ -206,6 +204,7 @@ export function useRecordReceivedCall() {
     },
   });
 }
+
 
 export function useUpdateReceivedCall() {
   const qc = useQueryClient();
