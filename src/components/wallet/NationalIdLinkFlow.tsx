@@ -79,6 +79,8 @@ export default function NationalIdLinkFlow({
         toast.error('Welile staff did not confirm it. Contact Welile Support on 0748747134.');
       } else if (now === 'expired') {
         toast.error('Nobody answered within 7 days, so this request closed. You can start again.');
+      } else if (now === 'cancelled_by_requester') {
+        toast.success('Request cancelled. You can start again whenever you are ready.');
       }
     }
     setSeen(now);
