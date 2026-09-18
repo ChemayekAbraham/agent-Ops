@@ -53,6 +53,8 @@ Deno.serve(async (req) => {
     if (!roles?.length) return json({ error: "Insufficient permissions" }, 403);
 
     let days = 30;
+    let page = 1;
+    const perPage = 20;
     let owner = DEFAULT_OWNER;
     let repo = DEFAULT_REPO;
     if (req.method === "POST") {
@@ -61,6 +63,8 @@ Deno.serve(async (req) => {
         if (body && typeof body === "object") {
           const d = Number((body as Record<string, unknown>).days);
           if (Number.isFinite(d) && d >= 0 && d <= 3650) days = Math.floor(d);
+          const p = Number((body as Record<string, unknown>).page);
+          if (Number.isFinite(p) && p >= 1 && p <= 1000) page = Math.floor(p);
           const o = (body as Record<string, unknown>).owner;
           const r = (body as Record<string, unknown>).repo;
           if (typeof o === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(o)) owner = o;
