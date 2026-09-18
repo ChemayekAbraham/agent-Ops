@@ -165,3 +165,12 @@ export function spiroLeaseGrid(
 ): SpiroLeaseSchedule[] {
   return SPIRO_LEASE_PERIODS.map((p) => spiroLeaseSchedule(p.months, basePrice, startDate));
 }
+
+/**
+ * Total charge for a term as a percentage of the bike price, under the
+ * reducing-balance model: 28% × (n+1)/2 — independent of the price.
+ */
+export function spiroEffectiveFeePct(months: number): number {
+  const n = clampMonths(months);
+  return Math.round(SPIRO_MONTHLY_RATE * 100 * ((n + 1) / 2));
+}

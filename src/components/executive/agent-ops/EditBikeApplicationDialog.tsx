@@ -25,7 +25,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
-import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule, BIKE_RECOVERY_RATE } from '@/lib/spiroBikeLease';
+import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule, spiroEffectiveFeePct, BIKE_RECOVERY_RATE } from '@/lib/spiroBikeLease';
 import { useMotorBikeCatalog } from './MotorBikeCatalogDialog';
 
 const db = supabase as any;
@@ -79,16 +79,14 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
 
   const valuationNum = Math.max(0, Math.round(Number(valuation) || 0));
   const termNum = Math.max(1, parseInt(term, 10) || 12);
-  const period = SPIRO_LEASE_PERIODS.find((p) => p.months === termNum);
-  const feePct = period?.feePct ?? (termNum <= 3 ? 33 : termNum <= 6 ? 36 : termNum <= 9 ? 39 : 42);
+  const feePct = spiroEffectiveFeePct(termNum);
   const rate = feePct / 100;
   const perCredit = Math.round(valuationNum * rate);
   const monthly = termNum > 0 ? Math.round(valuationNum / termNum) : 0;
 
   const currentValNum = Number(order?.valuation_amount || 0);
   const currentTermNum = Number(order?.lease_term_months || 12);
-  const currentPeriod = SPIRO_LEASE_PERIODS.find((p) => p.months === currentTermNum);
-  const currentFeePct = currentPeriod?.feePct ?? (currentTermNum <= 3 ? 33 : currentTermNum <= 6 ? 36 : currentTermNum <= 9 ? 39 : 42);
+  const currentFeePct = spiroEffectiveFeePct(currentTermNum);
   const currentCostPrice = Math.round(currentValNum / (1 + currentFeePct / 100));
   const currentDays = currentTermNum * 30;
   const currentDailyPay = currentDays > 0 ? Math.ceil(currentValNum / currentDays) : 0;
@@ -295,7 +293,7 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
               <SelectContent>
                 {SPIRO_LEASE_PERIODS.map((p) => (
                   <SelectItem key={p.months} value={String(p.months)} className="text-xs">
-                    {p.months} months (Access fee {p.feePct}%)
+                    {p.months} {p.months === 1 ? 'month' : 'months'} (total charge {spiroEffectiveFeePct(p.months)}%)
                   </SelectItem>
                 ))}
               </SelectContent>

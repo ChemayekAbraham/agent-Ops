@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import { LEASE_TERMS } from '@/components/merchandise/SpiroBikeOrderDialog';
-import { SPIRO_LEASE_PERIODS } from '@/lib/spiroBikeLease';
+import { SPIRO_LEASE_PERIODS, spiroEffectiveFeePct } from '@/lib/spiroBikeLease';
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
 import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
@@ -90,8 +90,7 @@ const isApproved = (s: string) => s === 'approved' || s === 'completed';
 const getRowPricing = (row: BikeLeaseRow) => {
   const val = Number(row.valuation_amount || 0);
   const term = Number(row.lease_term_months || 12);
-  const period = SPIRO_LEASE_PERIODS.find((p) => p.months === term);
-  const feePct = period?.feePct ?? (term <= 3 ? 33 : term <= 6 ? 36 : term <= 9 ? 39 : 42);
+  const feePct = spiroEffectiveFeePct(term);
   const costPrice = Math.round(val / (1 + feePct / 100));
   const days = term * 30;
   const dailyPay = days > 0 ? Math.ceil(val / days) : 0;
@@ -177,8 +176,7 @@ export function BikeLeaseApprovalQueue({
 
   const valuationNum = Math.max(0, Math.round(Number(approvedValuation || 0) || 0));
   const termNum = Math.max(1, parseInt(approvedTerm, 10) || 12);
-  const termPeriod = SPIRO_LEASE_PERIODS.find((p) => p.months === termNum);
-  const interestPct = termPeriod?.feePct ?? (termNum <= 3 ? 33 : termNum <= 6 ? 36 : termNum <= 9 ? 39 : 42);
+  const interestPct = spiroEffectiveFeePct(termNum);
   const rate = interestPct / 100;
   const perCredit = Math.round(valuationNum * rate);
   const monthly = valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;

@@ -31,7 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
-import { SPIRO_LEASE_PERIODS } from '@/lib/spiroBikeLease';
+import { spiroEffectiveFeePct } from '@/lib/spiroBikeLease';
 
 const db = supabase as any;
 
@@ -103,8 +103,7 @@ export function BikeLeaseDetailDialog({
 
   const valuationNum = Number(order.valuation_amount || 0);
   const termNum = Number(order.lease_term_months || 12);
-  const period = SPIRO_LEASE_PERIODS.find((p) => p.months === termNum);
-  const feePct = period?.feePct ?? (termNum <= 3 ? 33 : termNum <= 6 ? 36 : termNum <= 9 ? 39 : 42);
+  const feePct = spiroEffectiveFeePct(termNum);
   const monthly = termNum > 0 && valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
   const outstanding = Number(order.amount_outstanding ?? valuationNum);
   const paid = Number(order.amount_paid || 0);
