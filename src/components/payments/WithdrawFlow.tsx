@@ -146,6 +146,12 @@ export default function WithdrawFlow({
   const showIdentityPanel =
     !!user?.id &&
     (identityBlock.data?.blocked || (!purePartnerLoading && !isPurePartner));
+  /* HARD STOP: no National ID / ID photos on file (or a Financial Ops block)
+     means the whole withdraw section is covered by an overlay and the stepper
+     navigation is removed, so there is no route to a payout at all. */
+  const identityHardBlock =
+    !!user?.id &&
+    (needsNationalId || needsIdentityPhotos || !!identityBlock.data?.blocked);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [source, setSource] = useState<'available' | 'roi'>('available');
