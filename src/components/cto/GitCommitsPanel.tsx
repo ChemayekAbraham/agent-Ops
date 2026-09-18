@@ -32,6 +32,7 @@ interface ActivityResponse {
   repo: string;
   repo_url: string;
   days: number;
+  branches_scanned?: number;
   total_commits: number;
   truncated: boolean;
   contributors: Contributor[];
@@ -85,7 +86,8 @@ export default function GitCommitsPanel() {
             <GitCommit className="h-5 w-5 text-primary" /> Code commits
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {data?.repo ?? 'weliletenants-sys/welilereceipts-com-98bba33b'} — who committed and when
+            {data?.repo ?? 'weliletenants-sys/welilereceipts-com-98bba33b'} — everyone who committed, across all
+            {data?.branches_scanned ? ` ${data.branches_scanned}` : ''} branches
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -131,7 +133,7 @@ export default function GitCommitsPanel() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <div className="rounded-2xl border border-border bg-card p-3">
               <p className="text-xl font-bold">{data.total_commits.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">Commits{data.truncated ? ' (capped at 300)' : ''}</p>
+              <p className="text-xs text-muted-foreground">Commits{data.truncated ? ' (partial)' : ''}</p>
             </div>
             <div className="rounded-2xl border border-border bg-card p-3">
               <p className="text-xl font-bold">{data.contributors.length}</p>
@@ -170,7 +172,9 @@ export default function GitCommitsPanel() {
                   )}
                   <span className="text-xs">
                     <span className="font-medium text-foreground">{c.login ?? c.name}</span>
-                    <span className="text-muted-foreground"> · {c.commits}</span>
+                    <span className="text-muted-foreground">
+                      {' '}· {c.commits === 0 ? 'none in this period' : c.commits}
+                    </span>
                   </span>
                 </a>
               ))}

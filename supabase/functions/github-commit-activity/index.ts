@@ -79,35 +79,76 @@ Deno.serve(async (req) => {
       }, 424);
     }
 
-    const params = new URLSearchParams({ per_page: "100" });
-    if (days > 0) {
-      params.set("since", new Date(Date.now() - days * 86_400_000).toISOString());
-    }
-
-    // Up to 3 pages (300 commits) per window — enough for the CTO feed.
-    const commits: GhCommit[] = [];
-    for (let page = 1; page <= 3; page++) {
-      params.set("page", String(page));
-      const res = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/commits?${params.toString()}`,
-        {
-          headers: {
-            Accept: "application/vnd.github+json",
-            Authorization: `Bearer ${ghToken}`,
-            "User-Agent": "welile-cto-dashboard",
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
+    const gh = (path: string) =>
+      fetch(`https://api.github.com/repos/${owner}/${repo}/${path}`, {
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${ghToken}`,
+          "User-Agent": "welile-cto-dashboard",
+          "X-GitHub-Api-Version": "2022-11-28",
         },
-      );
+      });
+
+    const since = days > 0 ? new Date(Date.now() - days * 86_400_000).toISOString() : null;
+
+    // Every branch is scanned, not just the default one — collaborators who only
+    // ever push to their own branch would otherwise be invisible here.
+    const branchNames: string[] = [];
+    for (let page = 1; page <= 3; page++) {
+      const res = await gh(`branches?per_page=100&page=${page}`);
       if (!res.ok) {
         const details = await res.text();
-        console.error(`GitHub commits request failed [${res.status}]: ${details}`);
+        console.error(`GitHub branches request failed [${res.status}]: ${details}`);
         return json({ error: "github_request_failed", status: res.status, details }, res.status);
       }
-      const batch = (await res.json()) as GhCommit[];
-      commits.push(...batch);
+      const batch = (await res.json()) as Array<{ name: string }>;
+      branchNames.push(...batch.map((b) => b.name));
       if (batch.length < 100) break;
     }
+    // Default branch first, then the rest (bounded so one repo cannot fan out forever).
+    const branches = branchNames.length ? branchNames.slice(0, 40) : [""];
+
+    const seen = new Set<string>();
+    const commits: GhCommit[] = [];
+    let truncated = false;
+
+    for (const branch of branches) {
+      for (let page = 1; page <= 5; page++) {
+        const params = new URLSearchParams({ per_page: "100", page: String(page) });
+        if (since) params.set("since", since);
+        if (branch) params.set("sha", branch);
+        const res = await gh(`commits?${params.toString()}`);
+        if (!res.ok) {
+          // A single unreadable branch must not blank out the whole panel.
+          const details = await res.text();
+          console.error(`GitHub commits request failed [${res.status}] on ${branch}: ${details}`);
+          if (res.status === 401 || res.status === 403 || res.status === 404) {
+            if (!commits.length) {
+              return json({ error: "github_request_failed", status: res.status, details }, res.status);
+            }
+          }
+          break;
+        }
+        const batch = (await res.json()) as GhCommit[];
+        for (const c of batch) {
+          if (seen.has(c.sha)) continue;
+          seen.add(c.sha);
+          commits.push(c);
+        }
+        if (batch.length < 100) break;
+        if (page === 5) truncated = true;
+      }
+      if (commits.length >= 5000) {
+        truncated = true;
+        break;
+      }
+    }
+
+    commits.sort((a, b) => {
+      const da = a.commit?.author?.date ?? "";
+      const db = b.commit?.author?.date ?? "";
+      return db.localeCompare(da);
+    });
 
     const feed = commits.map((c) => ({
       sha: c.sha,
@@ -149,12 +190,43 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Everyone who has ever committed to the repository is listed, even when they
+    // have nothing inside the selected window (they show as 0).
+    try {
+      const contribRes = await gh("contributors?per_page=100&anon=0");
+      if (contribRes.ok) {
+        const all = (await contribRes.json()) as Array<{
+          login?: string;
+          avatar_url?: string;
+          html_url?: string;
+        }>;
+        for (const person of all) {
+          const key = person.login;
+          if (!key || byAuthor.has(key)) continue;
+          byAuthor.set(key, {
+            key,
+            name: key,
+            login: key,
+            avatar_url: person.avatar_url ?? null,
+            profile_url: person.html_url ?? null,
+            commits: 0,
+            last_commit_at: null,
+          });
+        }
+      } else {
+        console.error(`GitHub contributors request failed [${contribRes.status}]`);
+      }
+    } catch (e) {
+      console.error("GitHub contributors lookup failed:", e);
+    }
+
     return json({
       repo: `${owner}/${repo}`,
       repo_url: `https://github.com/${owner}/${repo}`,
       days,
+      branches_scanned: branchNames.length,
       total_commits: feed.length,
-      truncated: feed.length >= 300,
+      truncated,
       contributors: [...byAuthor.values()].sort((a, b) => b.commits - a.commits),
       commits: feed,
     });
