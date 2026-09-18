@@ -266,6 +266,7 @@ export function PartnerReturnsForecastPanel({
     return {
       label: r.label,
       'Returns payable forecast': Number(r.forecast_returns),
+      __forecastShade: Number(r.forecast_returns),
       'Actually paid': Number(r.actual_returns_paid),
       'Partner receivable': Number(r.partner_receivable),
       'Top-ups': Number(r.topups),
@@ -329,14 +330,14 @@ export function PartnerReturnsForecastPanel({
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          <Stat label="Forecast (past periods)" value={totals.forecastPast} />
+          <Stat label="Returns payable forecast (past periods)" value={totals.forecastPast} />
           <Stat label="Actually paid (past)" value={totals.actualPast} tone="rose" />
           <Stat
             label="Delivered vs forecast"
             raw={`${Math.round(deliveryRate)}%`}
             sub={formatUGX(totals.actualPast - totals.forecastPast)}
           />
-          <Stat label="Forecast ahead" value={totals.forecastAhead} />
+          <Stat label="Returns payable forecast ahead" value={totals.forecastAhead} />
           <Stat label="Receivable from partners" value={totals.receivable} tone="emerald" />
           <Stat label="Top-ups received" value={totals.topups} tone="emerald" />
           <Stat
