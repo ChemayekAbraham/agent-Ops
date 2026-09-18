@@ -2381,7 +2381,14 @@ export default function WithdrawFlow({
         }}
         canGoNext={canProceed()}
         onNext={handleNext}
-        showNavigation={currentStep < 5 && !isProcessing && !isComplete}
+        showNavigation={
+          currentStep < 5 &&
+          !isProcessing &&
+          !isComplete &&
+          // No Continue button at all while identity is missing — the overlay
+          // is the only thing to act on.
+          !(currentStep === 0 && identityHardBlock)
+        }
         nextLabel={currentStep === 4 ? 'Confirm Withdrawal' : 'Continue'}
         nextBusy={currentStep === 4 && (validating || walletOtp.otpVerifying)}
         nextBusyLabel="Refreshing balance…"
