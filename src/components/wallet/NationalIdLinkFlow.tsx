@@ -92,7 +92,20 @@ export default function NationalIdLinkFlow({
 
   const status = s?.status;
   const closed =
-    status === 'rejected_by_owner' || status === 'rejected_by_staff' || status === 'expired';
+    status === 'rejected_by_owner' || status === 'rejected_by_staff' || status === 'expired' ||
+    status === 'cancelled_by_requester';
+
+  const doCancel = async () => {
+    if (!requestId) return;
+    try {
+      await cancel.mutateAsync(requestId);
+      setRequestId(null);
+      setCode('');
+      toast.success('Request cancelled. You can start again whenever you are ready.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not cancel that request.');
+    }
+  };
 
   const doSend = async () => {
     if (!requestId) return;
