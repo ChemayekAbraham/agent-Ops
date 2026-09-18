@@ -306,7 +306,7 @@ Deno.serve(async (req) => {
     const summaryPoints: string[] = [];
     summaryPoints.push(`Platform served ${fmt(P.active_24h)} active users in the last 24 hours across ${fmt(P.events_today)} recorded system events and ${fmt(P.txn_today)} ledger postings.`);
     summaryPoints.push(`Client-side errors ${n(E.today) <= n(E.prev_day) ? 'improved' : 'increased'} to ${fmt(E.today)} (${delta(n(E.today), n(E.prev_day))} vs prior day), affecting ${fmt(E.affected_users_today)} users.`);
-    summaryPoints.push(`Authentication success rate stands at ${(100 - loginFailRate).toFixed(1)}% with average sign-in latency of ${fmt(A.avg_login_ms_today)} ms.`);
+    summaryPoints.push(`Authentication success rate stands at ${(100 - loginFailRate).toFixed(1)}% with median sign-in latency of ${fmt(A.median_login_ms_today)} ms (average ${fmt(A.avg_login_ms_today)} ms${n(A.login_attempts_over_60s_today) > 0 ? `, skewed by ${fmt(A.login_attempts_over_60s_today)} attempts over 60s affecting ${fmt(A.login_users_over_60s_today)} users` : ''}).`);
     summaryPoints.push(`${fmt(J.total_scheduled)} scheduled automations executed ${fmt(J.runs_24h)} runs with a ${jobFailRate.toFixed(1)}% failure rate.`);
     summaryPoints.push(`Database is ${bytes(I.db_size_bytes)} with ${cacheHit.toFixed(2)}% cache hit ratio and ${connSat.toFixed(0)}% connection saturation.`);
 
@@ -415,7 +415,7 @@ Deno.serve(async (req) => {
 
     // ---- Section 7: Customer Technology Experience --------------------------
     const cxCards = kpiRows([
-      kpi('Sign-in latency', `${fmt(A.avg_login_ms_today)} ms`, 'average today', n(A.avg_login_ms_today) < 1500 ? 'good' : n(A.avg_login_ms_today) < 3000 ? 'warn' : 'bad'),
+      kpi('Sign-in latency', `${fmt(A.median_login_ms_today)} ms median (avg ${fmt(A.avg_login_ms_today)} ms)`, n(A.login_attempts_over_60s_today) > 0 ? `${fmt(A.login_attempts_over_60s_today)} attempts over 60s (${fmt(A.login_users_over_60s_today)} users) skew the average` : 'average today', n(A.median_login_ms_today) < 1500 ? 'good' : n(A.median_login_ms_today) < 3000 ? 'warn' : 'bad'),
       kpi('Auth success', `${(100 - loginFailRate).toFixed(1)}%`, `${fmt(A.login_events_today)} attempts`, loginFailRate < 20 ? 'good' : 'warn'),
       kpi('Users hitting errors', fmt(E.affected_users_today), `${pct(n(E.affected_users_today), Math.max(1, n(P.active_24h))).toFixed(2)}% of actives`),
       kpi('Notification delivery', `${(100 - emailFailRate).toFixed(1)}%`, `${fmt(M.sent_today)} emails sent today`, emailFailRate < 5 ? 'good' : 'warn'),
@@ -1203,7 +1203,7 @@ Deno.serve(async (req) => {
       `Technology health score: ${health}/100 (${healthLabel})`,
       `Active 24h: ${fmt(P.active_24h)} | Events: ${fmt(P.events_today)} | Ledger postings: ${fmt(P.txn_today)}`,
       `Errors today: ${fmt(E.today)} (${delta(n(E.today), n(E.prev_day))}) | Error rate: ${errRate.toFixed(2)}%`,
-      `Auth success: ${(100 - loginFailRate).toFixed(1)}% | Avg sign-in: ${fmt(A.avg_login_ms_today)} ms`,
+      `Auth success: ${(100 - loginFailRate).toFixed(1)}% | Median sign-in: ${fmt(A.median_login_ms_today)} ms (avg ${fmt(A.avg_login_ms_today)} ms)`,
       `Jobs: ${fmt(J.runs_24h)} runs, ${fmt(J.failed_24h)} failed (${jobFailRate.toFixed(1)}%)`,
       `Database: ${bytes(I.db_size_bytes)} | Cache hit ${cacheHit.toFixed(2)}% | Connections ${fmt(I.connections)}/${fmt(I.max_connections)}`,
       '',
@@ -1256,7 +1256,8 @@ Deno.serve(async (req) => {
         ['OTP attempts today', fmt(A.otp_attempts_today)], ['Audit writes today', fmt(S.audit_writes_today)],
       ],
       experience: [
-        ['Average sign-in latency', `${fmt(A.avg_login_ms_today)} ms`], ['Authentication success', `${(100 - loginFailRate).toFixed(1)}%`],
+        ['Median sign-in latency', `${fmt(A.median_login_ms_today)} ms`], ['Average sign-in latency', `${fmt(A.avg_login_ms_today)} ms`],
+        ['Authentication success', `${(100 - loginFailRate).toFixed(1)}%`],
         ['Weekly active share', `${pct(n(P.active_7d), Math.max(1, n(P.total_users))).toFixed(1)}%`],
         ['Monthly active share', `${pct(n(P.active_30d), Math.max(1, n(P.total_users))).toFixed(1)}%`],
         ['Emails sent today', fmt(M.sent_today)], ['Emails failed today', fmt(M.failed_today)],
