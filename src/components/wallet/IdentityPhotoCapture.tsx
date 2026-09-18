@@ -826,12 +826,34 @@ export default function IdentityPhotoCapture({ compact }: Props) {
          case-insensitively everywhere (typed input, duplicate check, link
          requests), so a lowercase read must not reach the form as-is. */
       const d = (r.data ?? {}) as Partial<NationalIdData>;
+      const readNin = (d.nin ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      /* Linking an ID that already belongs to another account: never prefill
+         the names — the person must type the names printed on the card
+         themselves, so a wrong card cannot silently overwrite the existing
+         holder's names. Only a brand-new ID gets the reader's prefill. */
+      let idAlreadyKnown = false;
+      if (/^[A-Z0-9]{12,16}$/.test(readNin)) {
+        const { data: hintRaw } = await (supabase.rpc as unknown as (
+          fn: string, args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+          'national_id_holder_hint', { p_nin: readNin },
+        );
+        idAlreadyKnown = !!(hintRaw as { found?: boolean } | null)?.found;
+      }
       setForm({
         ...EMPTY_ID_DATA,
         ...d,
-        nin: (d.nin ?? '').toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        surname: idAlreadyKnown ? '' : (d.surname ?? ''),
+        given_name: idAlreadyKnown ? '' : (d.given_name ?? ''),
+        nin: readNin,
         card_number: (d.card_number ?? '').toUpperCase(),
       });
+      if (idAlreadyKnown) {
+        setFieldError({
+          field: 'surname',
+          message: 'This National ID is already recorded. Type the names exactly as printed on the card — they were not filled in for you.',
+        });
+      }
     }
     setReading(false);
   };
