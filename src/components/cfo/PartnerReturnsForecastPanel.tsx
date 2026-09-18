@@ -89,6 +89,19 @@ const COLORS = {
   net: 'hsl(var(--foreground))',
 };
 
+/** Manual legend payload so the confidence band can be named and explained. */
+const CHART_LEGEND_PAYLOAD: { value: string; type: 'line' | 'square'; id: string; color: string }[] = [
+  { value: 'Returns payable forecast', type: 'line', id: 'Returns payable forecast', color: COLORS.forecast },
+  { value: 'Actually paid', type: 'line', id: 'Actually paid', color: COLORS.actual },
+  { value: 'Net', type: 'line', id: 'Net', color: COLORS.net },
+  { value: 'Predicted top-ups', type: 'line', id: 'Predicted top-ups', color: COLORS.topups },
+  { value: 'Likely top-up range (80%)', type: 'square', id: 'Likely top-up range', color: COLORS.topups },
+  { value: 'Top-ups', type: 'square', id: 'Top-ups', color: COLORS.topups },
+  { value: 'Partner receivable', type: 'square', id: 'Partner receivable', color: COLORS.receivable },
+  { value: 'Promissory receivable', type: 'square', id: 'Promissory receivable', color: COLORS.promissory },
+  { value: 'Compounding', type: 'square', id: 'Compounding', color: COLORS.compounding },
+];
+
 export function PartnerReturnsForecastPanel({
   start,
   end,
@@ -299,8 +312,9 @@ export function PartnerReturnsForecastPanel({
     if (!active || !payload?.length) return null;
     const row = payload[0]?.payload ?? {};
     const visible = payload.filter((p: any) => !String(p.dataKey ?? '').startsWith('__'));
+    const hasBand = row.__bandLow !== null && row.__bandLow !== undefined;
     return (
-      <div className="rounded-lg border border-border bg-background p-2.5 text-xs shadow-lg space-y-0.5">
+      <div className="rounded-lg border border-border bg-background p-2.5 text-xs shadow-lg space-y-0.5 max-w-xs">
         <p className="font-bold">{label}</p>
         {visible.map((p: any) => (
           <p key={p.name} className="flex items-center justify-between gap-3 font-mono tabular-nums">
@@ -308,11 +322,18 @@ export function PartnerReturnsForecastPanel({
             <span>{formatUGX(Number(p.value))}</span>
           </p>
         ))}
-        {row.__bandLow !== null && row.__bandLow !== undefined ? (
-          <p className="flex items-center justify-between gap-3 font-mono tabular-nums text-muted-foreground">
-            <span>Likely range</span>
-            <span>{`${formatUGX(Number(row.__bandLow))} – ${formatUGX(Number(row.__bandHigh))}`}</span>
-          </p>
+        {hasBand ? (
+          <>
+            <p className="flex items-center justify-between gap-3 font-mono tabular-nums text-muted-foreground">
+              <span>Likely range</span>
+              <span>{`${formatUGX(Number(row.__bandLow))} – ${formatUGX(Number(row.__bandHigh))}`}</span>
+            </p>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              80% range around the predicted top-ups: ±1.28 × the root-mean-square of past
+              prediction errors × √(periods ahead). About 4 in 5 future periods should land inside
+              if the recent pattern holds.
+            </p>
+          </>
         ) : null}
       </div>
     );
@@ -466,7 +487,7 @@ export function PartnerReturnsForecastPanel({
               <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 10 }} width={70} tickFormatter={(v) => new Intl.NumberFormat('en-UG').format(Number(v))} />
               <Tooltip content={<ChartTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend payload={CHART_LEGEND_PAYLOAD} wrapperStyle={{ fontSize: 11 }} />
               <ReferenceLine y={0} stroke="hsl(var(--border))" />
               <Bar dataKey="Top-ups" fill={COLORS.topups} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Partner receivable" fill={COLORS.receivable} radius={[3, 3, 0, 0]} />
@@ -532,7 +553,7 @@ export function PartnerReturnsForecastPanel({
 
         <p className="text-[11px] text-muted-foreground">
           {bands.map.size > 0
-            ? 'The shaded band around the predicted top-ups is the likely range, based on how far past predictions landed from what was really received. It widens the further ahead the period is.'
+            ? 'The shaded band around predicted top-ups is an 80% confidence range. It is calculated as predicted top-ups ± 1.28 × the root-mean-square of past prediction errors × √(periods ahead), so it widens the further ahead the period is.'
             : bands.reason === 'no_history'
               ? 'No likely range yet for predicted top-ups: at least two completed periods of top-up history are needed before a range can be worked out.'
               : bands.reason === 'no_variation'
