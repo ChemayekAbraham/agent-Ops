@@ -128,7 +128,7 @@ import { AgentPendingReceiptPanel } from '@/components/agent/AgentPendingReceipt
 import { AgentTenantHealthCard } from '@/components/agent/AgentTenantHealthCard';
 import { AgentVouchHighlightCard } from '@/components/agent/AgentVouchHighlightCard';
 import type { LandlordFloatAllocation } from '@/hooks/useLandlordFloatAllocations';
-import { usePendingLandlordReceipts } from '@/hooks/usePendingLandlordReceipts';
+import { isLandlordReceiptConfirmationEffective, usePendingLandlordReceipts } from '@/hooks/usePendingLandlordReceipts';
 
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { DeviceSessionIndicator } from '@/components/agent/DeviceSessionIndicator';
@@ -1509,7 +1509,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               onOpenOtpAudit={() => { hapticTap(); setOtpAuditOpen(true); }}
             />
             )}
-            {!isMerchant && (
+            {!isMerchant && isLandlordReceiptConfirmationEffective() && (
               <button
                 onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}
                 className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 ring-1 ring-[#9234EA]/30 active:scale-[0.98] transition-all touch-manipulation"
@@ -2045,7 +2045,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       <LazyModal when={otpAuditOpen}>
       <LandlordPayoutOtpAuditSheet open={otpAuditOpen} onOpenChange={setOtpAuditOpen} />
       </LazyModal>
-      <LazyModal when={receiptCheckOpen}>
+      <LazyModal when={receiptCheckOpen && isLandlordReceiptConfirmationEffective()}>
       <ReceiptNumberCheckDialog open={receiptCheckOpen} onOpenChange={setReceiptCheckOpen} />
       </LazyModal>
       <LazyModal when={floatHistoryOpen}>
