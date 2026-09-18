@@ -74,6 +74,7 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
       plans.filter(
         (p) =>
           !rejectedIds.has(p.id) &&
+          Number(p.amount_recovered) > 0 &&
           (p.status === 'completed' || (p.status !== 'active' && Number(p.outstanding_balance) <= 0)),
       ),
     [plans, rejectedIds],
