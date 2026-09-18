@@ -256,7 +256,11 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
       }) as LandlordFloatAllocation[];
     },
     enabled: !!user,
-    staleTime: 15_000,
+    // Money screen: never serve a cached allocation list. A row that was paid
+    // out elsewhere (wizard on another device, merchant approval, ops action)
+    // must not stay tappable here — that is how a landlord gets paid twice.
+    staleTime: 0,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
 }
