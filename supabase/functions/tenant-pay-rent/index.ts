@@ -331,6 +331,25 @@ Deno.serve(async (req) => {
       console.error("Commission error (non-blocking):", commissionErr);
     }
 
+    // 3b. When an agent collected from the tenant's wallet, the collection must
+    // land in agent_collections — "Today's capacity" reads only that table, so
+    // without this row the agent's bar stays at 0 for money they did collect.
+    if (collectingAgentId) {
+      const { error: collErr } = await supabaseAdmin.from("agent_collections").insert({
+        agent_id: collectingAgentId,
+        tenant_id: tenantId,
+        rent_request_id: rentRequest.id,
+        amount: payAmount,
+        payment_method: "in_app_wallet",
+        collection_channel: "tenant_wallet",
+        initiated_by: collectingAgentId,
+        notes: "Auto-collected from tenant wallet",
+      } as any);
+      if (collErr) console.error("agent_collections insert failed (non-blocking):", collErr);
+    }
+
+
+
     // 4. Get updated wallet balance
     const { data: updatedWallet } = await supabaseAdmin
       .from("wallets")
