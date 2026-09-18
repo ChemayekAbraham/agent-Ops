@@ -201,10 +201,14 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   });
 
   const isBoutique = category === 'boutique';
+  const isSignage = category === 'signage';
+  /** Signages are ordinary merchandise sales, so they use the same review RPCs as Boutique. */
+  const usesMerchandiseReview = isBoutique || isSignage;
 
   const approveApp = useMutation({
     mutationFn: async (row: PendingApp) => {
-      if (isBoutique) {
+      if (usesMerchandiseReview) {
+
         const { error } = await supabase.rpc('agent_ops_approve_merchandise_order' as any, {
           p_sale_id: row.sale_id,
         });
@@ -230,7 +234,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const rejectApp = useMutation({
     mutationFn: async ({ row, reason }: { row: PendingApp; reason: string }) => {
       const { error } = await supabase.rpc(
-        (isBoutique ? 'reject_merchandise_purchase' : 'reject_smartphone_order') as any,
+        (usesMerchandiseReview ? 'reject_merchandise_purchase' : 'reject_smartphone_order') as any,
         { p_sale_id: row.sale_id, p_reason: reason.trim() },
       );
       if (error) throw error;
