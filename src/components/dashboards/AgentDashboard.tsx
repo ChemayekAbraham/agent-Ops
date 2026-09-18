@@ -506,6 +506,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Standalone landlord-receipt confirmation, reachable any time from the
   // Money tab (not only right after a payout dialog).
   const [receiptCheckOpen, setReceiptCheckOpen] = useState(false);
+  // Landlord payments already paid out but still missing the landlord's receipt
+  // number. We nudge the agent on page load and again every 5 minutes until
+  // every fresh payout has its receipt filed.
+  const { pendingCount: pendingReceiptCount } = usePendingLandlordReceipts();
+  useEffect(() => {
+    if (pendingReceiptCount < 1) return;
+    setReceiptCheckOpen(true);
+    const iv = window.setInterval(() => setReceiptCheckOpen(true), 5 * 60 * 1000);
+    return () => window.clearInterval(iv);
+  }, [pendingReceiptCount]);
   const [floatHistoryOpen, setFloatHistoryOpen] = useState(false);
   const [requisitionOpen, setRequisitionOpen] = useState(false);
   const [angelPoolInvestOpen, setAngelPoolInvestOpen] = useState(false);
