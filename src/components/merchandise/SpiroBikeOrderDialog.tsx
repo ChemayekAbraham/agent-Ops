@@ -87,7 +87,10 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
     () => availableModels.find((m) => m.model === model) ?? availableModels[0],
     [availableModels, model],
   );
-  const termNum = Math.min(24, Math.max(1, parseInt(term, 10) || 3));
+  const parsedTerm = parseInt(term, 10);
+  const termValid = Number.isFinite(parsedTerm) && parsedTerm >= 1 && parsedTerm <= 24;
+  const termNum = Math.min(24, Math.max(1, parsedTerm || 3));
+
   const basePrice = selectedModel?.price ?? SPIRO_BIKE_BASE_PRICE;
   const schedule = useMemo(() => spiroLeaseSchedule(termNum, basePrice), [termNum, basePrice]);
 
@@ -174,27 +177,45 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             </p>
           </div>
 
-          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-                Daily payment
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Recovered from your wallet earnings daily.
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                  Daily payment
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Recovered from your wallet earnings daily.
+                </p>
+              </div>
+              <p className="text-base font-bold text-foreground whitespace-nowrap">
+                {termValid ? formatUGX(schedule.firstDaily) : '—'}
+                <span className="text-[11px] font-medium text-muted-foreground">/day</span>
               </p>
             </div>
-            <p className="text-base font-bold text-foreground whitespace-nowrap">
-              {formatUGX(schedule.firstDaily)}
-              <span className="text-[11px] font-medium text-muted-foreground">/day</span>
-            </p>
+            <div className="flex items-center justify-between gap-3 border-t border-primary/20 pt-2">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                  Total payable
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {termValid
+                    ? `Over ${schedule.months} month${schedule.months === 1 ? '' : 's'}.`
+                    : 'Enter a period from 1 to 24 months.'}
+                </p>
+              </div>
+              <p className="text-base font-bold text-foreground whitespace-nowrap">
+                {termValid ? formatUGX(schedule.total) : '—'}
+              </p>
+            </div>
           </div>
+
         </div>
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={submitting}>
+          <Button onClick={submit} disabled={submitting || !termValid}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
             {submitting ? 'Submitting…' : 'Submit Order for Review'}
           </Button>
