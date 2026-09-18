@@ -381,6 +381,11 @@ export function CashflowForecastGraphs() {
         </CardContent>
       </Card>
 
+      {/* Forecast vs actually paid, receivables, top-ups, promissory, compounding */}
+      {active?.key === 'roi_forecast' && (
+        <PartnerReturnsForecastPanel start={start} end={end} bucket={bucket} />
+      )}
+
       {/* Per-partner projection (Returns forecast only) */}
       {active?.key === 'roi_forecast' && (
         <Card>
