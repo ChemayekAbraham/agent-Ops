@@ -87,7 +87,7 @@ export default function AgentProductCategoryPage() {
           <BoutiqueTabs category={entry.category ?? undefined} />
         ) : (
           <div className="space-y-6">
-            <AgentProductsPanel category={entry.category ?? undefined} />
+            <AgentProductsPanel />
           </div>
         )}
 
