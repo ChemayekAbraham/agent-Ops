@@ -144,6 +144,8 @@ project_id = "wirntoujqoyjobfhyelc"
     verify_jwt = false
   [functions.generate-daily-merchant-commission]
     verify_jwt = false
+  [functions.github-commit-activity]
+    verify_jwt = false
   [functions.validate-deposit-reference]
     verify_jwt = false
   [functions.send-rent-access-sms]
