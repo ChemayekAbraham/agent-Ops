@@ -574,7 +574,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   const renderPromiseStep = () => (
     <Card className="border-border/60">
       <CardContent className="space-y-4 pt-4">
-        {sectionTitle(<Banknote className="h-5 w-5" />, 'What are they promising?', 'Amount and dates.')}
+        {sectionTitle(<Banknote className="h-5 w-5" />, 'How much are they promising?', 'Amount and dates.')}
 
         <div className="space-y-1">
           <Label htmlFor="promissory-amount" className="text-xs">
