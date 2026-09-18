@@ -25,6 +25,7 @@ import {
 import { HubEntryCard } from '@/components/ops/HubEntryCard';
 import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart';
 import { TenantRepaymentForecastPanel } from './TenantRepaymentForecastPanel';
+import { TenantOpsPipelineTrendChart } from './TenantOpsPipelineTrendChart';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
@@ -340,68 +341,8 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
           </div>
         </div>
 
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-2 px-3 sm:px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              New Tenant Registrations (30 Days)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-2 sm:px-4 pb-3">
-            <div className="h-[220px]">
-              {loadingAcquisition ? (
-                <div className="h-full w-full animate-pulse rounded-xl bg-muted" />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={acquisition?.trend ?? []} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 10 }}
-                      className="fill-muted-foreground"
-                      interval="preserveStartEnd"
-                      minTickGap={40}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10 }}
-                      className="fill-muted-foreground"
-                      allowDecimals={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                      }}
-                      formatter={(value: number, name: string) => [`${value} tenants`, name]}
-                      labelFormatter={(label, payload) => payload?.[0]?.payload?.fullDate || label}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '11px' }} />
-                    <Line
-                      type="monotone"
-                      dataKey="count"
-                      name="Registrations"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="approvedCount"
-                      name="Approved"
-                      stroke="hsl(var(--success))"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <TenantOpsPipelineTrendChart className="border shadow-sm" />
+
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <BreakdownBars
