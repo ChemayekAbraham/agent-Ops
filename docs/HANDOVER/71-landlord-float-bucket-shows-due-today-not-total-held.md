@@ -1,7 +1,7 @@
 # 71 — Financial Ops "Landlord Float" bucket now shows today's obligation, not the total float held
 
-**Migration written, blocked by the auto-mode classifier — needs manual apply, same as docs 66/69.
-Before touching `get_wallet_bucket_totals()` or `WalletBucketsPanel.tsx`'s bucket #3 again.**
+**Fixed live and verified 2026-09-18: `landlord_float_due_today_total` reads 4,000,000, not the old
+~80.3M. Before touching `get_wallet_bucket_totals()` or `WalletBucketsPanel.tsx`'s bucket #3 again.**
 
 ## What was reported
 
@@ -31,19 +31,20 @@ yet — a small, plausible number, since same-day funding is a small slice of th
 ## What was fixed
 
 - **`get_wallet_bucket_totals()`** (migration
-  `20260918140000_wallet_bucket_totals_landlord_float_due_today.sql`, **written, not yet applied**):
-  added `landlord_float_due_today_total` = `SUM(rent_requests.rent_amount)` where `funded_at` falls
-  on today (Africa/Kampala) and no `landlord_payouts` row for that `rent_request_id` has
-  `status = 'completed'` yet. `landlord_float_total` (the raw held-float figure) is **left
-  unchanged** in the same response — it's the only field `get_merchant_payout_float`-adjacent code
-  reads elsewhere, and nothing outside this one tile needed to change.
+  `20260918140000_wallet_bucket_totals_landlord_float_due_today.sql`, **applied to production
+  2026-09-18**): added `landlord_float_due_today_total` = `SUM(rent_requests.rent_amount)` where
+  `funded_at` falls on today (Africa/Kampala) and no `landlord_payouts` row for that
+  `rent_request_id` has `status = 'completed'` yet. `landlord_float_total` (the raw held-float
+  figure) is left unchanged in the same response — it's the only field
+  `get_merchant_payout_float`-adjacent code reads elsewhere, and nothing outside this one tile
+  needed to change.
 - **`WalletBucketsPanel.tsx`**: bucket #3's `totalKey` now points at
   `landlord_float_due_today_total` instead of `landlord_float_total`; description changed from
   "Money reserved for landlord payouts and funded tenants" to "Rent funded today, still owed to
   landlords."
 
-**Until the migration is applied, the tile will still show the old ~80.3M total-held figure, not
-the ~4M due-today figure.**
+**Verified live 2026-09-18** by re-running the query against production: `landlord_float_due_today_total`
+is **4,000,000** (one rent_request), matching what the fix predicted.
 
 ## What not to do
 
