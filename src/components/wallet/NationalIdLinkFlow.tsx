@@ -232,6 +232,18 @@ export default function NationalIdLinkFlow({
             </div>
           )}
 
+          {!closed && status !== 'active' && s?.code_verified && (
+            <Button
+              variant="ghost"
+              className="h-9 w-full text-xs text-muted-foreground"
+              onClick={doCancel}
+              disabled={cancel.isPending}
+            >
+              {cancel.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              Cancel this request and start again
+            </Button>
+          )}
+
           {s?.expires_at && !closed && status !== 'active' && (
             <p className="text-[11px] text-muted-foreground">
               This request closes on its own on{' '}
@@ -240,11 +252,20 @@ export default function NationalIdLinkFlow({
             </p>
           )}
           {closed && (
-            <p className="text-[11px] text-destructive">
-              {status === 'expired'
-                ? 'Nobody answered within 7 days, so this request closed. You can start again.'
-                : 'This request was closed.'}
-            </p>
+            <div className="space-y-2">
+              <p className="text-[11px] text-destructive">
+                {status === 'expired'
+                  ? 'Nobody answered within 7 days, so this request closed. You can start again.'
+                  : status === 'cancelled_by_requester'
+                    ? 'You cancelled this request.'
+                    : 'This request was closed.'}
+              </p>
+              {(status === 'cancelled_by_requester' || status === 'expired') && (
+                <Button variant="outline" className="h-10 w-full" onClick={doStartAgain}>
+                  Start again
+                </Button>
+              )}
+            </div>
           )}
         </>
       )}
