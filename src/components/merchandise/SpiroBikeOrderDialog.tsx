@@ -54,9 +54,10 @@ interface Props {
 
 /**
  * Agent-facing Spiro electric bike lease order: dynamic catalog base price,
- * an access fee that depends on the repayment period (3m 33%, 6m 36%, 9m 39%,
- * 12m 42%) and a dynamic monthly repayment schedule. Submitting sends the
- * application to Agent Ops for eligibility review.
+ * any term from 1 to 24 months, and a 28% monthly reducing-balance charge —
+ * principal split equally across the months, the charge taken only on the
+ * principal still outstanding, so monthly and daily amounts fall each month.
+ * Submitting sends the application to Agent Ops for eligibility review.
  */
 export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Props) {
   const queryClient = useQueryClient();
@@ -98,7 +99,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
       p_valuation: schedule.total,
       p_lease_term_months: schedule.months,
       p_daily_rate: BIKE_RECOVERY_RATE,
-      p_note: `Spiro bike lease — base ${formatUGX(schedule.base)}, access fee ${schedule.feePct}% (${formatUGX(schedule.accessFee)}), total ${formatUGX(schedule.total)} over ${schedule.months} months at ${formatUGX(schedule.monthly)} per month`,
+      p_note: `Spiro bike lease — base ${formatUGX(schedule.base)}, ${schedule.monthlyRatePct}% monthly on the reducing balance, fees ${formatUGX(schedule.accessFee)}, total ${formatUGX(schedule.total)} over ${schedule.months} months; month 1 ${formatUGX(schedule.firstMonthly)} down to ${formatUGX(schedule.lastMonthly)}`,
     });
     setSubmitting(false);
     if (error) {
@@ -156,14 +157,17 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-64">
                 {grid.map((row) => (
                   <SelectItem key={row.months} value={String(row.months)} className="text-sm">
-                    {row.months} months
+                    {row.months} {row.months === 1 ? 'month' : 'months'}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Any period from 1 to 24 months.
+            </p>
           </div>
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 space-y-1.5">
@@ -171,19 +175,74 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
               Your repayment summary
             </p>
             <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Bike price</span>
+              <span className="font-semibold">{formatUGX(schedule.base)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">
+                Monthly charge ({schedule.monthlyRatePct}% on the balance left)
+              </span>
+              <span className="font-semibold">{formatUGX(schedule.accessFee)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Total repayable</span>
               <span className="font-bold">{formatUGX(schedule.total)}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">
-                Daily payment ({schedule.days} days)
+              <span className="text-muted-foreground">First month</span>
+              <span className="font-bold">
+                {formatUGX(schedule.firstMonthly)}
+                {schedule.months > 1 ? ` → ${formatUGX(schedule.lastMonthly)} last` : ''}
               </span>
-              <span className="font-bold">{formatUGX(schedule.daily)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Daily payment</span>
+              <span className="font-bold">
+                {formatUGX(schedule.firstDaily)}
+                {schedule.months > 1 ? ` → ${formatUGX(schedule.lastDaily)}` : ''}
+              </span>
             </div>
             <p className="text-[11px] text-muted-foreground pt-1">
-              Repayments are recovered from your wallet earnings daily. Ownership transfers once
-              the balance reaches zero.
+              The price is split equally over the months you choose, and the {schedule.monthlyRatePct}%
+              charge is worked out only on the amount still owing — so both the monthly and the daily
+              payment get smaller every month. Repayments are recovered from your wallet earnings
+              daily and ownership transfers once the balance reaches zero.
             </p>
+          </div>
+
+          <div className="rounded-lg border border-border">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+              <p className="text-[11px] font-semibold uppercase tracking-wide">
+                Month-by-month breakdown
+              </p>
+              <span className="text-[11px] text-muted-foreground">{schedule.days} days</span>
+            </div>
+            <div className="max-h-56 overflow-y-auto">
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 bg-muted/60">
+                  <tr className="text-muted-foreground">
+                    <th className="text-left font-medium px-2 py-1.5">Month</th>
+                    <th className="text-right font-medium px-2 py-1.5">Balance</th>
+                    <th className="text-right font-medium px-2 py-1.5">Charge</th>
+                    <th className="text-right font-medium px-2 py-1.5">Month pays</th>
+                    <th className="text-right font-medium px-2 py-1.5">Per day</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schedule.rows.map((row) => (
+                    <tr key={row.month} className="border-t border-border/60">
+                      <td className="px-2 py-1.5 font-medium">{row.month}</td>
+                      <td className="px-2 py-1.5 text-right">{formatUGX(row.openingPrincipal)}</td>
+                      <td className="px-2 py-1.5 text-right">{formatUGX(row.feeDue)}</td>
+                      <td className="px-2 py-1.5 text-right font-semibold">
+                        {formatUGX(row.totalDue)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right">{formatUGX(row.daily)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
