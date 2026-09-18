@@ -191,7 +191,7 @@ SMS (\`sms_delivery_log\`, \`sms_opt_outs\`, \`sms_message_exceptions\`, \`sms_b
 
 ## 2.16 Reporting
 
-~20 scheduled report functions producing branded PDFs/emails: \`agent-ops-daily-report\`, \`agent-growth-daily-report\`, \`daily-cto-report\`, \`daily-cmo-users-report\`, \`daily-landlord-ops-report\`, \`daily-wallet-inflows-report\`, \`generate-daily-wallet-report\`, \`merchant-cashout-daily-report\`, \`generate-daily-merchant-commission\`. PDF builders live in \`src/lib/*Pdf.ts\`.
+~20 scheduled report functions producing branded PDFs/emails: \`agent-ops-daily-report\`, \`agent-growth-daily-report\`, \`daily-cmo-users-report\`, \`daily-landlord-ops-report\`, \`daily-wallet-inflows-report\`, \`generate-daily-wallet-report\`, \`merchant-cashout-daily-report\`, \`generate-daily-merchant-commission\`. PDF builders live in \`src/lib/*Pdf.ts\`. (\`daily-cto-report\` removed 2026-09-18, second time -- see docs/HANDOVER/66.)
 
 ## 2.17 Fraud prevention
 
@@ -595,7 +595,7 @@ Every public table has RLS enabled and explicit \`GRANT\`s (Data API grants are 
 | Daily 06:00 | \`auto-charge-wallets\`, \`process-supporter-roi\`, \`recognize-fee-revenue-daily\` |
 | Daily 18:00 EAT | \`process-agent-advance-deductions\`, \`auto-apply-pending-topups\` |
 | Daily 21:00 (00:00 EAT) | \`generate-daily-wallet-report\`, \`daily-wallet-inflows-report\` |
-| Daily (various) | \`agent-ops-daily-report\`, \`agent-growth-daily-report\`, \`daily-cto-report\`, \`daily-cmo-users-report\`, \`daily-landlord-ops-report\`, \`merchant-cashout-daily-report\` (x2), \`generate-daily-merchant-commission\` |
+| Daily (various) | \`agent-ops-daily-report\`, \`agent-growth-daily-report\`, \`daily-cmo-users-report\`, \`daily-landlord-ops-report\`, \`merchant-cashout-daily-report\` (x2), \`generate-daily-merchant-commission\` |
 | Daily 23:00 | \`auto_close_fully_repaid_rents\` |
 | Weekly / monthly | \`landlord-monthly-payout\`, \`apply-welile-homes-monthly-interest\`, \`apply-scheduled-portfolio-renewals\`, backup runs, log pruning (7-day retention), SEO scans |
 | Inactive (5) | \`process-debt-recovery\` and four retired detectors |

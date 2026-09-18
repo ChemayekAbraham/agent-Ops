@@ -1,8 +1,10 @@
-# 66. Triage — 2026-09-18 Daily CTO Report: one real fix live, two migrations blocked, one report metric debunked
+# 66. Triage — 2026-09-18 Daily CTO Report: one real fix live, one migration blocked, the pipeline itself deleted
 
-**Mixed status: `email_queue_dispatch` fixed and verified live; two migrations written but
-blocked from direct production application by the auto-mode classifier (needs manual apply); one
-headline report figure verified misleading, fix written but also blocked.**
+**Mixed status: `email_queue_dispatch` fixed and verified live; `refresh_wallet_totals_cache`
+migration written but blocked from direct production application (needs manual apply); the
+sign-in-latency metric fix was superseded when it turned out a prior fix for the same bug had
+silently stopped being live — the whole `daily-cto-report` pipeline was deleted instead of patched
+a fourth time (migration written, also needs manual apply).**
 
 Prompted by the 2026-09-17 report (delivered 2026-09-18 00:00 EAT) flagging sign-in as "effectively
 broken" (Recommendation 3, ranked above every numbered issue), `refresh-wallet-totals-cache`
@@ -65,7 +67,7 @@ the report's own synthesis (infra restart window, not five bugs) and isn't somet
 application code; `reconcile_evidenced_withdrawal_settlements()` itself is also just slow (16.1s
 mean / 24.3s max over 101 calls) but not near timing out.
 
-## 3. "Sign-in effectively broken" — real number, misleading statistic
+## 3. "Sign-in effectively broken" — real number, misleading statistic (superseded — see §6)
 
 The report's "average sign-in time: 67,113 ms, a 27x jump" is `get_cto_daily_report()`'s
 `avg_login_ms_today` — a raw `avg()` of `login_phase_events.detail->>'totalMs'`. Verified live for
@@ -82,12 +84,14 @@ alongside the existing (kept) mean, and updated `daily-cto-report/index.ts`'s fo
 (executive summary sentence, Section 7 KPI card, text digest, board-memo experience table) to show
 median first and call out the skew explicitly when `login_attempts_over_60s_today > 0`.
 
-**Not applied to production** — same "Production Deploy" classifier block as #2. Migration file
-(`20260918020000_add_signin_latency_median_context.sql`) and the edge function edit are both
-committed; the RPC change needs manual apply before the edge function change has any effect (the
-edge function already reads the new fields, which will come back `null` via `COALESCE`-free `fmt()`
-→ render as `0`/blank until the RPC ships — verify both landed together, not just the function
-deploy).
+**Superseded, not applied** — while writing this fix, `mem/features/cto/daily-cto-report.md` turned
+up something more important: this exact mean-vs-median bug was already "fixed" once before, on
+2026-09-08 (median-based, stalled-session split, p95 added), and documented as such. The live RPC
+verified today still ran a plain `AVG()` with none of that fix present, no migration recording a
+revert — the same "documented fix didn't actually stick in production, silently" pattern as
+`email_queue_dispatch`'s three regressions (docs 17/18, §1 above). Patching the metric a fourth
+time doesn't address that this pipeline's production state doesn't reliably match what's been
+fixed in it. See §5 — the pipeline was removed instead.
 
 ## 4. Already explained, no action needed
 
@@ -101,7 +105,45 @@ deploy).
   `q_transactional_emails`) are empty right now — no backlog, consistent with doc 18's original
   "cosmetic, not functional" finding.
 
-## 5. Found, not fixed — needs your call
+## 5. The pipeline itself was removed
+
+After §3's discovery — a documented, previously-verified fix for this exact metric that turned out
+not to be live, with no record of how it reverted — Josh asked to delete the function that
+generates the report rather than patch it again. This matches a prior precedent exactly: Josh
+removed this same pipeline once before, 2026-09-08, for the same class of reason (misleading
+metrics), then rebuilt it the same day. This time it was **not** rebuilt in the same pass.
+
+Migration `20260918030000_remove_daily_cto_report_pipeline_again.sql` (written, **not yet applied**
+— blocked by the auto-mode classifier as "Irreversible Deletion" / "Logging/Audit Tampering" on the
+individual `DROP FUNCTION`/`cron.unschedule` calls attempted directly against production; needs
+manual apply):
+
+- Drops all four RPCs: `get_cto_daily_report`, `get_cto_diagnostics`, `get_cto_issue_intelligence`,
+  `get_cto_daily_addendum`. Confirmed via repo-wide grep: nothing in `src/` or any other edge
+  function calls any of the four.
+- Deletes the `daily-cto-report` edge function entirely (already deleted from the working tree in
+  this same change).
+- Unschedules three cron jobs: `daily-cto-report-tech` (10292, the daily technical report),
+  `weekly-cto-report-board` (10463, the board memo trigger), and `capture-daily-cto-snapshot`
+  (39041) — the last one is new since the 2026-09-08 removal (added 2026-09-16 per doc 29) and
+  calls `get_cto_daily_report()` directly; left running, it would fail daily the moment the RPC is
+  dropped.
+- `db_stat_snapshots` (the table, not the capture job) is left in place — data, not logic, in case
+  of a future rebuild.
+- `send-board-memo` is unaffected — confirmed it only relays a human-reviewed PDF/HTML supplied by
+  the caller and never calls these RPCs, same as the 2026-09-08 removal noted.
+
+Also removed as part of this: this handover's own §3 fix
+(`20260918020000_add_signin_latency_median_context.sql`), since it edited a function this migration
+now drops entirely — keeping it would have been dead code.
+
+**If this gets rebuilt again**, don't just re-fix the metrics that are already documented as fixed
+twice (avg/median sign-in latency, slow-query severity capping, rollback-rate lifetime-vs-daily) —
+those keep coming back not because the fixes are wrong but because something applies changes
+directly to production outside migration history and they don't stick. Solve *that* first, or the
+rebuild inherits the same failure mode a third time.
+
+## 6. Found, not fixed — needs your call
 
 - **The other 4 watched critical functions** (`submit_withdrawal_request`, `ensure_payout_destination`,
   `enforce_withdrawal_payout_account_lock`, `enforce_withdrawal_destination_verified`) have drifted
@@ -141,9 +183,14 @@ select status, return_message, start_time from cron.job_run_details jrd
 join cron.job j using (jobid) where j.jobname = 'refresh-wallet-totals-cache'
 and start_time > now() - interval '2 hours' order by start_time desc;
 
--- sign-in latency: confirm the new fields are populated (once RPC migration lands)
-select (get_cto_daily_report()->'auth'->>'median_login_ms_today')::numeric,
-       (get_cto_daily_report()->'auth'->>'avg_login_ms_today')::numeric;
+-- pipeline removal: once the migration is applied, all four should be gone and all three
+-- cron jobs unscheduled
+select proname from pg_proc where proname in
+  ('get_cto_daily_report','get_cto_diagnostics','get_cto_issue_intelligence','get_cto_daily_addendum');
+-- expect 0 rows
+select jobname from cron.job where jobname in
+  ('daily-cto-report-tech','weekly-cto-report-board','capture-daily-cto-snapshot');
+-- expect 0 rows
 ```
 
 ## What not to do
