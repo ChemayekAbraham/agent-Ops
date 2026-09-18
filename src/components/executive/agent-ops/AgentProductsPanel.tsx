@@ -247,6 +247,36 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     onError: (e: any) => toast.error(e?.message || 'Could not reject application'),
   });
 
+  // Extra agent context shown in the reject dialog so the reviewer can decide
+  // without opening the full Agent 360 modal.
+  const { data: rejectAgentContext } = useQuery({
+    queryKey: ['agent-products-reject-context', rejectTarget?.agent_id],
+    enabled: !!rejectTarget?.agent_id,
+    queryFn: async () => {
+      const agentId = rejectTarget!.agent_id!;
+      const [profileRes, proxyRes, tenantsRes] = await Promise.all([
+        supabase.from('profiles').select('national_id, full_name, phone').eq('id', agentId).maybeSingle(),
+        supabase.from('proxy_agent_identity').select('nin').eq('agent_user_id', agentId).maybeSingle(),
+        supabase
+          .from('rent_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('agent_id', agentId)
+          .in('status', ['funded', 'repaying'])
+          .eq('tenancy_status', 'active'),
+      ]);
+      const national_id =
+        (profileRes.data?.national_id && profileRes.data.national_id.trim()) ||
+        (proxyRes.data?.nin && proxyRes.data.nin.trim()) ||
+        null;
+      return {
+        national_id,
+        full_name: profileRes.data?.full_name ?? rejectTarget!.full_name,
+        phone: profileRes.data?.phone ?? rejectTarget!.phone,
+        active_tenant_count: tenantsRes.count ?? 0,
+      };
+    },
+    staleTime: 60_000,
+  });
 
 
   const { data: bikeOrders = [], isLoading: isBikeOrdersLoading } = useQuery<any[]>({
@@ -1001,7 +1031,59 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
           <DialogHeader>
             <DialogTitle>Reject application</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {rejectTarget && (() => {
+              const qty = Math.max(1, Number(rejectTarget.quantity || 1));
+              const total = Number(rejectTarget.requested_amount || 0);
+              const unit = total / qty;
+              const item = [rejectTarget.brand, rejectTarget.model_type].filter(Boolean).join(' ') || rejectTarget.item_name || '—';
+              const centre = (rejectTarget.agent_id && centreByAgent.get(rejectTarget.agent_id)) || 'No service center';
+              const ctx = rejectAgentContext;
+              return (
+                <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+                  {/* Agent profile */}
+                  <div className="flex items-start gap-3">
+                    <UserAvatar avatarUrl={rejectTarget.avatar_url} fullName={rejectTarget.full_name || undefined} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate">{rejectTarget.full_name || 'Unknown agent'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{ctx?.phone || rejectTarget.phone || 'No phone on file'}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <Badge variant="secondary" className="text-[10px]">{centre}</Badge>
+                        {ctx?.national_id ? (
+                          <Badge variant="outline" className="text-[10px] font-mono">NIN: {ctx.national_id}</Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-[10px]">No NIN</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Active tenants</p>
+                      <p className="text-lg font-bold tabular-nums">{ctx?.active_tenant_count ?? '—'}</p>
+                    </div>
+                  </div>
+                  {/* Application details */}
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="col-span-2">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Requested item</p>
+                      <p className="font-medium truncate">{item}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Quantity</p>
+                      <p className="font-medium tabular-nums">{qty}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Unit price</p>
+                      <p className="font-medium tabular-nums">{formatUGX(unit)}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total amount</p>
+                      <p className="font-semibold tabular-nums">{formatUGX(total)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <p className="text-sm text-muted-foreground">
               Rejecting {rejectTarget?.full_name || 'this agent'}'s request applies no wallet charge.
             </p>
