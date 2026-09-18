@@ -56,6 +56,7 @@ import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
 import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
+import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
 import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
