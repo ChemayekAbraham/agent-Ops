@@ -26,6 +26,7 @@ import { HubEntryCard } from '@/components/ops/HubEntryCard';
 import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart';
 import { TenantRepaymentForecastPanel } from './TenantRepaymentForecastPanel';
 import { TenantOpsPipelineTrendChart } from './TenantOpsPipelineTrendChart';
+import { TenantOpsRepaymentWatchlistCards } from './TenantOpsRepaymentWatchlistCards';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
@@ -361,6 +362,10 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
             loading={loadingAcquisition}
           />
         </div>
+
+        {/* Agent-level repayment standing, aggregated server-side from the same
+            authoritative plan/payment fields used elsewhere in Tenant Ops. */}
+        <TenantOpsRepaymentWatchlistCards onNavigate={onNavigate} />
       </div>
 
       {/* Forward planning is separate from the existing dashboard charts. */}
