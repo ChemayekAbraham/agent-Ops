@@ -72,7 +72,10 @@ export function useMerchandiseRepaymentPortfolio(userId?: string) {
         .in('id', saleIds);
       if (salesError) throw salesError;
 
-      const saleById = new Map((sales || []).map((sale: any) => [sale.id, sale]));
+      const saleById = new Map<
+        string,
+        { id: string; order_status: string | null; rejection_reason: string | null; rejected_at: string | null }
+      >((sales || []).map((sale: any) => [sale.id, sale]));
       return rows
         .filter((row) => !row.sale_id || saleById.has(row.sale_id))
         .map((row) => {
