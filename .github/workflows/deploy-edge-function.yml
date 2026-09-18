@@ -57,6 +57,7 @@ on:
           - notify-agent-collection-lapse
           - redispatch-withdrawals
           - sms-otp
+          - daily-cto-report
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
@@ -109,7 +110,7 @@ jobs:
           # entry appearing on a JWT function, or a public function quietly
           # losing the entry that keeps its scheduler able to call it.
           case "${{ inputs.function }}" in
-            agent-daily-performance-report|agent-ops-daily-report|redispatch-withdrawals)
+            agent-daily-performance-report|agent-ops-daily-report|redispatch-withdrawals|daily-cto-report)
               EXPECT_PUBLIC=yes ;;   # invoked by pg_cron, no user JWT exists
             sms-otp)
               EXPECT_PUBLIC=yes ;;   # called pre-signup/pre-login, no user session exists yet
@@ -166,6 +167,12 @@ jobs:
               echo "Identity function - moves no money, not part of the fund-then-repay ordering."
               echo "Check: a photo check still returns a verdict, and the withdraw dialog"
               echo "prefills the six National ID fields."
+              ;;
+            daily-cto-report)
+              echo "Reporting function - moves no money. Invoked by pg_cron jobs"
+              echo "daily-cto-report-tech and weekly-cto-report-board (net.http_post, apikey only)."
+              echo "Check: next scheduled run delivers, and median/p95 sign-in fields are populated"
+              echo "once migration 20260918040000 has been applied to production."
               ;;
             *)
               echo "NEXT: verify against the live ledger before deploying anything else."
