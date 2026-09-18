@@ -63,6 +63,7 @@ interface Requisition {
   attachment_urls: string[] | null;
   request_kind: RequestKind | null;
   loan_months: number | null;
+  loan_monthly_rate: number | null;
 }
 
 interface ReqEvent {
@@ -639,7 +640,7 @@ const MyRequisitions = () => {
                       {row.request_kind === 'staff_loan' && (
                         <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                           <Landmark className="mr-1 h-3 w-3" />
-                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • 28%/month
+                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • {Math.round(Number(row.loan_monthly_rate ?? 0.28) * 100)}%/month
                         </Badge>
                       )}
                     </div>
