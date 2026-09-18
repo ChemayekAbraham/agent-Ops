@@ -59,14 +59,15 @@ function initials(name: string) {
 export default function GitCommitsPanel() {
   const [days, setDays] = useState(30);
   const [page, setPage] = useState(1);
+  const [author, setAuthor] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<ActivityResponse>({
-    queryKey: ['cto-git-commits', days, page],
+    queryKey: ['cto-git-commits', days, page, author],
     staleTime: 120_000,
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: res, error: err } = await supabase.functions.invoke('github-commit-activity', {
-        body: { days, page },
+        body: { days, page, author },
       });
       if (err) {
         let detail = err.message;
