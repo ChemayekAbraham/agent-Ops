@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const tenantId = user.id;
+    const callerId = user.id;
 
     // Parse and validate input
     const body = await req.json();
@@ -50,6 +50,59 @@ Deno.serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+
+    // Who is paying? The tenant themselves (self-pay from their own wallet), or
+    // an authorised agent collecting FROM the tenant's wallet on their behalf
+    // ("Auto-Collect from Tenant Wallet" in the agent tenant sheet).
+    //
+    // Before this, tenantId was always the caller's own id and `tenant_id` in
+    // the body was silently ignored — so an agent tap read the AGENT's wallet
+    // and the AGENT's own Rent Plan, and returned a non-2xx ("No active rent
+    // request found") instead of collecting anything.
+    const requestedTenantId =
+      typeof (body as any)?.tenant_id === "string" && (body as any).tenant_id
+        ? (body as any).tenant_id as string
+        : callerId;
+    const requestedRentRequestId =
+      typeof (body as any)?.rent_request_id === "string" && (body as any).rent_request_id
+        ? (body as any).rent_request_id as string
+        : null;
+    const onBehalf = requestedTenantId !== callerId;
+    let collectingAgentId: string | null = null;
+
+    if (onBehalf) {
+      // The caller must either be an agent attached to this tenant's Rent Plan
+      // or hold an operations role. Anything else is a 403 — never a silent
+      // fallback to the caller's own wallet.
+      const { data: linkedPlan } = await supabaseAdmin
+        .from("rent_requests")
+        .select("id")
+        .eq("tenant_id", requestedTenantId)
+        .or(`agent_id.eq.${callerId},assigned_agent_id.eq.${callerId}`)
+        .limit(1)
+        .maybeSingle();
+
+      let authorised = !!linkedPlan;
+      if (!authorised) {
+        const { data: roles } = await supabaseAdmin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", callerId);
+        authorised = (roles || []).some((r: any) =>
+          ["agent_ops", "manager", "operations", "super_admin", "tenant_ops"].includes(r.role)
+        );
+      }
+
+      if (!authorised) {
+        return new Response(
+          JSON.stringify({ error: "Not permitted to collect from this tenant's wallet" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      collectingAgentId = callerId;
+    }
+
+    const tenantId = requestedTenantId;
 
     // Get tenant's wallet balance from wallets table (source of truth)
     const { data: walletData, error: walletErr } = await supabaseAdmin
