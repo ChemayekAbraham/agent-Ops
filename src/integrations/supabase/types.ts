@@ -57018,6 +57018,7 @@ export type Database = {
           og_title: string
         }[]
       }
+      get_otp_usage_by_category: { Args: { p_date?: string }; Returns: Json }
       get_outstanding_agent_float: {
         Args: never
         Returns: {
