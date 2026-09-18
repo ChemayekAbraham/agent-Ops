@@ -99,12 +99,20 @@ export default function NationalIdLinkFlow({
     if (!requestId) return;
     try {
       await cancel.mutateAsync(requestId);
-      setRequestId(null);
       setCode('');
       toast.success('Request cancelled. You can start again whenever you are ready.');
+      state.refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not cancel that request.');
     }
+  };
+
+  // After a cancellation, "Start again" clears the cancelled request so the
+  // setup effect can open a fresh one.
+  const doStartAgain = () => {
+    setRequestId(null);
+    setCode('');
+    setSeen(null);
   };
 
   const doSend = async () => {
