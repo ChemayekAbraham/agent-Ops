@@ -123,10 +123,10 @@ export async function generatePartnerReturnsForecastPdf(
   doc.setTextColor(...INK);
   doc.setFontSize(9);
   const summary: [string, string][] = [
-    ['Forecast (past periods)', fmtUGX(forecastPast)],
+    ['Returns payable forecast (past periods)', fmtUGX(forecastPast)],
     ['Actually paid (past periods)', fmtUGX(actualPast)],
     ['Difference', fmtUGX(actualPast - forecastPast)],
-    ['Forecast ahead', fmtUGX(forecastAhead)],
+    ['Returns payable forecast ahead', fmtUGX(forecastAhead)],
     ['Receivable from partners', fmtUGX(sum('partner_receivable'))],
     ['Top-ups received', fmtUGX(sum('topups'))],
     ['Predicted top-ups ahead', fmtUGX(sum('topups_forecast'))],
@@ -151,6 +151,15 @@ export async function generatePartnerReturnsForecastPdf(
   });
   y += Math.ceil(summary.length / 2) * 5.5 + 3;
 
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.5);
+  doc.text(
+    'Net = receivables + top-ups + promissory notes + compounding, less Returns actually paid in past periods and less the Returns payable forecast for periods ahead.',
+    margin,
+    y,
+  );
+  y += 6;
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.text('Period figures', margin, y);
@@ -160,7 +169,7 @@ export async function generatePartnerReturnsForecastPdf(
     head: [
       [
         'Period',
-        'Forecast',
+        'Returns payable forecast',
         'Actually paid',
         'Difference',
         'Receivable',
