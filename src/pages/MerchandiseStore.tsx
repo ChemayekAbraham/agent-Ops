@@ -22,6 +22,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { MERCHANDISE_TERMS, merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
 import { format } from 'date-fns';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
+import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
 import BikeLeaseStatus from '@/components/merchandise/BikeLeaseStatus';
@@ -447,6 +448,9 @@ export default function MerchandiseStore() {
 
           </CardContent>
         </Card>
+
+        {/* Products being repaid — plan + pay button per product */}
+        <MerchandiseRepaymentPortfolio userId={user?.id} />
 
         {/* Smartphone order status */}
         <SmartphoneOrderStatus userId={user?.id} onRequestNewOrder={() => setPhoneOpen(true)} />
