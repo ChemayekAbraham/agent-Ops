@@ -1736,13 +1736,27 @@ export default function PayoutVerificationPanel() {
                   {row.is_linked_id ? (
                     <>
                       <p className="text-base font-extrabold leading-tight text-sky-800 dark:text-sky-300">
-                        Linked to an existing National ID
+                        {row.linked_id_is_this_one
+                          ? 'This National ID is already in the system — linked account'
+                          : 'This account is linked to another National ID'}
                       </p>
                       <p className="mt-1 text-sm font-semibold text-sky-800/90 dark:text-sky-300/90">
-                        This ID was already in the system
-                        {row.duplicate_id_name ? ` under ${row.duplicate_id_name}` : ''} — this person
-                        joined it through the ID-link process, which the ID holder approved. The names
-                        on this submission were typed by the person, not read fresh from a new card.
+                        {row.linked_id_is_this_one ? (
+                          <>
+                            This person joined an existing ID
+                            {row.linked_id_holder ? ` held by ${row.linked_id_holder}` : ''} through the
+                            ID-link process, which the ID holder approved. The names here were typed by
+                            the person, not read fresh from a new card.
+                          </>
+                        ) : (
+                          <>
+                            The ID submitted here
+                            {row.id_account_count > 1 ? '' : ' is new, but '} this account is also linked
+                            to a different National ID
+                            {row.linked_id_holder ? ` held by ${row.linked_id_holder}` : ''}. Check both
+                            before verifying.
+                          </>
+                        )}
                       </p>
                     </>
                   ) : (
