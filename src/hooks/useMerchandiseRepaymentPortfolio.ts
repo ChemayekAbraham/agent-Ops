@@ -78,7 +78,14 @@ export function useMerchandiseRepaymentPortfolio(userId?: string) {
       >((sales || []).map((sale: any) => [sale.id, sale]));
       return rows
         .filter((row) => !row.sale_id || saleById.has(row.sale_id))
-        .filter((row) => row.status !== 'cancelled')
+        // Rejection cancels the recovery plan, but the agent must still see the
+        // rejected application (with the reviewer's reason) — only hide plans
+        // that were cancelled for any other reason (e.g. deleted applications).
+        .filter((row) => {
+          if (row.status !== 'cancelled') return true;
+          const sale = row.sale_id ? saleById.get(row.sale_id) : null;
+          return sale?.order_status === 'rejected';
+        })
         .map((row) => {
           const sale = row.sale_id ? saleById.get(row.sale_id) : null;
           return {
