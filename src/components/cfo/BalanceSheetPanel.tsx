@@ -431,7 +431,7 @@ interface CarriedForwardRow {
  * Detailed breakdown of the carried-forward equity line (ledger account E3),
  * fetched only while its drill-down modal is open.
  */
-function useCarriedForwardBreakdown(active: boolean) {
+function useEquityBreakdown(rpcName: string, active: boolean) {
   const [rows, setRows] = useState<CarriedForwardRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
@@ -439,7 +439,7 @@ function useCarriedForwardBreakdown(active: boolean) {
     let cancelled = false;
     setLoading(true);
     (supabase as any)
-      .rpc('get_carried_forward_breakdown', { p_as_at: new Date().toISOString() })
+      .rpc(rpcName, { p_as_at: new Date().toISOString() })
       .then(({ data, error }: { data: CarriedForwardRow[] | null; error: unknown }) => {
         if (cancelled) return;
         if (error) setRows([]);
@@ -447,9 +447,10 @@ function useCarriedForwardBreakdown(active: boolean) {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [active]);
+  }, [rpcName, active]);
   return { rows, loading };
 }
+
 
 /** The drill-down modal: named components and exact values for any tapped line or total. */
 function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
