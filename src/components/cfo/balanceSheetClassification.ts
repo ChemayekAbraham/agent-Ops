@@ -192,7 +192,7 @@ const EQUITY_LABEL_MAP: Record<string, string> = {
 const EQUITY_ACCOUNT_MAP: Record<string, string> = {
   E1: 'Angel Pool Shares',
   E3: CARRIED_FORWARD_LABEL,
-  E4: 'Legacy One-Sided Posting Counterparts',
+  E4: UNMATCHED_HISTORIC_POSTINGS_LABEL,
 };
 
 
