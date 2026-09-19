@@ -14,7 +14,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Check,
   SlidersHorizontal, X, Droplets, Zap, Car, Sofa, Loader2,
   ArrowUpDown, BedDouble,
-  Map as MapIcon, List as ListIcon, ArrowLeft
+  ArrowLeft
 } from 'lucide-react';
 
 import HouseRatingBadge from '@/components/house/HouseRatingBadge';
@@ -1104,16 +1104,6 @@ export default function FindAHouse() {
                   }
                   suffix={`${sortLabel.toLowerCase()}${loadingMore ? ' · loading more…' : ''}`}
                 />
-                <Button
-                  variant={showMap ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setShowMap((v) => !v)}
-                  className="gap-1.5 shrink-0"
-                  aria-pressed={showMap}
-                >
-                  {showMap ? <ListIcon className="h-4 w-4" /> : <MapIcon className="h-4 w-4" />}
-                  {showMap ? 'Hide map' : 'Show map'}
-                </Button>
               </div>
 
               {showMap ? (

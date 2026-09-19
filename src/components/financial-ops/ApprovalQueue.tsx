@@ -607,7 +607,7 @@ export function ApprovalQueue() {
               frozen_by: user.id,
               frozen_reason: reason.trim() || null,
               frozen_category: categoryFilter !== 'all' ? categoryFilter : null,
-            })
+            } as any)
             .in('id', ids);
           if (freezeErr) throw freezeErr;
         } else if (bulkAction === 'unfreeze') {
@@ -619,7 +619,7 @@ export function ApprovalQueue() {
               frozen_by: null,
               frozen_reason: null,
               frozen_category: null,
-            })
+            } as any)
             .in('id', ids);
           if (unfreezeErr) throw unfreezeErr;
         } else {
