@@ -6,6 +6,7 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import type { HouseListing } from '@/hooks/useHouseListings';
+import type { MapPin } from '@/hooks/useHouseMapPins';
 import { formatUGX } from '@/lib/rentCalculations';
 import { resolveHouseCoords, buildDirectionsUrl } from '@/lib/houseGeo';
 
@@ -86,6 +87,9 @@ function buildPopup(l: MappableListing, onOpenDetails: (l: HouseListing) => void
 
 interface HouseMapViewProps {
   listings: HouseListing[];
+  /** Optional full-dataset pins (lightweight). When provided, the map renders
+   *  ALL houses instead of just the paginated `listings`. */
+  mapPins?: MapPin[];
   userCoords: { lat: number; lng: number } | null;
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -219,16 +223,52 @@ function FitBounds({
   return null;
 }
 
-export function HouseMapView({ listings, userCoords, selectedId, onSelect, onOpenDetails }: HouseMapViewProps) {
-  // Resolve a coordinate for every listing — exact GPS when present, otherwise
-  // an approximate district/region centroid — so all houses appear on the map.
+export function HouseMapView({ listings, mapPins, userCoords, selectedId, onSelect, onOpenDetails }: HouseMapViewProps) {
+  // When mapPins is provided, merge them with the full listings. Pins that also
+  // exist in `listings` use the full listing data (richer popups). Pins that
+  // don't have a full listing get a minimal placeholder.
   const mappable = useMemo<MappableListing[]>(() => {
+    // If we have the lightweight full-dataset pins, use them as the base
+    if (mapPins && mapPins.length > 0) {
+      const listingMap = new Map(listings.map((l) => [l.id, l]));
+      return mapPins.flatMap((pin) => {
+        // Use full listing data when available (richer popup)
+        const fullListing = listingMap.get(pin.id);
+        const source = fullListing || pin;
+        const c = resolveHouseCoords(source as any);
+        if (!c) return [];
+        // Build a HouseListing-compatible object from the pin
+        const entry: MappableListing = fullListing
+          ? { ...fullListing, _lat: c.lat, _lng: c.lng, _approx: c.approximate }
+          : {
+              ...pin as any,
+              description: null,
+              number_of_rooms: 0,
+              monthly_rent: 0,
+              access_fee: 0,
+              platform_fee: 0,
+              total_monthly_cost: 0,
+              status: 'listed',
+              has_water: false,
+              has_electricity: false,
+              has_security: false,
+              has_parking: false,
+              is_furnished: false,
+              created_at: '',
+              _lat: c.lat,
+              _lng: c.lng,
+              _approx: c.approximate,
+            } as MappableListing;
+        return [entry];
+      });
+    }
+    // Fallback: only the paginated listings
     return listings.flatMap((l) => {
       const c = resolveHouseCoords(l);
       if (!c) return [];
       return [{ ...l, _lat: c.lat, _lng: c.lng, _approx: c.approximate }];
     });
-  }, [listings]);
+  }, [listings, mapPins]);
 
   const points = useMemo<[number, number][]>(
     () => mappable.map((l) => [l._lat, l._lng]),

@@ -19,6 +19,7 @@ import {
 
 import HouseRatingBadge from '@/components/house/HouseRatingBadge';
 import { useNearbyHouses, useHouseListingCount, HouseListing } from '@/hooks/useHouseListings';
+import { useHouseMapPins } from '@/hooks/useHouseMapPins';
 import { HouseListingCount } from '@/components/tenant/HouseListingCount';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -386,6 +387,14 @@ export default function FindAHouse() {
   const debouncedSearch = useDebouncedValue(searchText, 250);
   const [showMap, setShowMap] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Lightweight full-dataset pins for the map — only fetched when map is open.
+  const { data: mapPins } = useHouseMapPins({
+    region: selectedRegion !== 'All Regions' ? selectedRegion : undefined,
+    category: selectedCategory !== 'all' ? selectedCategory : undefined,
+    district: selectedDistrict !== 'all' ? selectedDistrict : undefined,
+    enabled: showMap,
+  });
 
   // Funder context flows in from the funders dashboard "See all" link.
   const cameFromFunder = (location.state as { from?: string } | null)?.from === 'funder';
@@ -1114,6 +1123,7 @@ export default function FindAHouse() {
                     <Suspense fallback={<Skeleton className="h-full w-full" />}>
                       <HouseMapView
                         listings={filtered}
+                        mapPins={mapPins}
                         userCoords={
                           effectiveLat != null && effectiveLng != null
                             ? { lat: effectiveLat, lng: effectiveLng }
