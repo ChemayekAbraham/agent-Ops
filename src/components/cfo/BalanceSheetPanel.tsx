@@ -550,6 +550,10 @@ export default function BalanceSheetPanel() {
       });
       if (splitError) console.warn('Landlord float split unavailable:', splitError.message);
       setFloatSplit((split as LandlordFloatSplit) ?? null);
+
+      const { data: stat, error: statError } = await (supabase as any).rpc('hr_pay_statutory_liability');
+      if (statError) console.warn('Statutory payroll obligations unavailable:', statError.message);
+      setStatutory((stat as StatutoryLiabilityRow[]) ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to generate the statement of financial position');
     } finally {
