@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
@@ -85,18 +86,32 @@ export interface StatementOfFinancialPosition {
   };
 }
 
-function LineRow({ line, showSources }: { line: PositionLine; showSources: boolean }) {
+/** Payload for the tap-to-drill-down modal. */
+interface Drilldown {
+  title: string;
+  value: number;
+  unsourced?: boolean;
+  /** Account-level lines behind the figure. */
+  lines?: PositionLine[];
+  /** Indented component lines (e.g. partner obligations inside Landlord Float). */
+  components?: PositionLine[];
+  /** Whole groups, for section totals. */
+  groups?: BsGroup[];
+}
+
+function LineRow({ line, showSources, onOpen }: { line: PositionLine; showSources: boolean; onOpen?: () => void }) {
   const [open, setOpen] = useState(false);
+  const tappable = !!onOpen;
   return (
     <div className="border-b border-border/40 last:border-0">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => (onOpen ? onOpen() : setOpen(o => !o))}
         className="w-full flex items-start justify-between gap-3 py-1.5 text-left"
       >
         <span className="flex items-start gap-1 min-w-0 text-xs text-muted-foreground">
-          {showSources
-            ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
+          {tappable || showSources
+            ? (open && !tappable ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
             : null}
           <span className="truncate">{line.label}</span>
         </span>
@@ -104,28 +119,35 @@ function LineRow({ line, showSources }: { line: PositionLine; showSources: boole
           {line.value < 0 ? `(${formatUGX(Math.abs(line.value))})` : formatUGX(line.value)}
         </span>
       </button>
-      {showSources && open && (
+      {!tappable && showSources && open && (
         <p className="pb-2 pl-4 text-[10px] text-muted-foreground">Derived from {line.source}</p>
       )}
     </div>
   );
 }
 
-function TotalRow({ label, value, emphasis, depth = 0 }: {
-  label: string; value: number; emphasis?: boolean; depth?: number;
+function TotalRow({ label, value, emphasis, depth = 0, onOpen }: {
+  label: string; value: number; emphasis?: boolean; depth?: number; onOpen?: () => void;
 }) {
-  return (
-    <div className={cn(
-      'flex items-center justify-between gap-3 py-2 border-t',
-      emphasis ? 'border-primary/50 mt-1' : 'border-border',
-      depth > 0 && 'pl-3',
-    )}>
-      <span className={cn('text-xs', emphasis ? 'font-bold uppercase tracking-wide' : 'font-semibold')}>{label}</span>
+  const inner = (
+    <>
+      <span className={cn('text-xs flex items-center gap-1', emphasis ? 'font-bold uppercase tracking-wide' : 'font-semibold')}>
+        {onOpen && <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />}
+        {label}
+      </span>
       <span className={cn('font-mono', emphasis ? 'text-sm font-bold' : 'text-xs font-semibold')}>
         {value < 0 ? `(${formatUGX(Math.abs(value))})` : formatUGX(value)}
       </span>
-    </div>
+    </>
   );
+  const cls = cn(
+    'flex items-center justify-between gap-3 py-2 border-t w-full text-left',
+    emphasis ? 'border-primary/50 mt-1' : 'border-border',
+    depth > 0 && 'pl-3',
+  );
+  return onOpen
+    ? <button type="button" onClick={onOpen} className={cls}>{inner}</button>
+    : <div className={cls}>{inner}</div>;
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
