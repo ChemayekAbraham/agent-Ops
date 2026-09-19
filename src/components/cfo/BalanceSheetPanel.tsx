@@ -173,18 +173,19 @@ function SubHeading({ children }: { children: React.ReactNode }) {
  * so no balance can silently disappear from the statement.
  */
 function GroupRow({
-  group, showSources, components, heading, depth = 0,
+  group, showSources, components, heading, depth = 0, onOpen,
 }: {
   group: BsGroup; showSources: boolean; components?: PositionLine[];
-  heading?: boolean; depth?: number;
+  heading?: boolean; depth?: number; onOpen?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const expandable = showSources && group.lines.length > 0;
+  const expandable = !onOpen && showSources && group.lines.length > 0;
+  const showChevron = !!onOpen || expandable;
   return (
     <div className={cn('last:border-0', heading ? '' : 'border-b border-border/40')}>
       <button
         type="button"
-        onClick={() => expandable && setOpen(o => !o)}
+        onClick={() => (onOpen ? onOpen() : expandable && setOpen(o => !o))}
         className={cn('w-full flex items-start justify-between gap-3 py-1.5 text-left', depth > 0 && 'pl-3')}
       >
         <span
