@@ -91,6 +91,8 @@ interface Drilldown {
   title: string;
   value: number;
   unsourced?: boolean;
+  /** Plain-language explanation for derived values that are not a direct account line. */
+  sourceNote?: string;
   /** Account-level lines behind the figure. */
   lines?: PositionLine[];
   /** Indented component lines (e.g. partner obligations inside Landlord Float). */
@@ -280,6 +282,7 @@ function FlaggedBlock({ group, showSources, onOpen }: { group?: BsGroup; showSou
 /** The drill-down modal: account-level breakdown of any tapped line or total. */
 function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
   const fmt = (v: number) => (v < 0 ? `(${formatUGX(Math.abs(v))})` : formatUGX(v));
+  const sourceText = (line: PositionLine) => line.source || 'Calculated from the displayed balance-sheet components';
   return (
     <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
@@ -300,48 +303,89 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   No ledger account maps here yet — any balance sits in an operational sub-ledger and is shown under memo sub-ledgers, not in the ledger totals.
                 </p>
               )}
+              {drill.sourceNote && (
+                <div className="rounded-md border border-border bg-muted/30 p-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Value source</p>
+                  <p className="mt-0.5 text-xs text-foreground">{drill.sourceNote}</p>
+                </div>
+              )}
               {drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Components</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this balance comes from</p>
                   {drill.components.map(c => (
-                    <div key={c.label} className="flex items-start justify-between gap-3 border-b border-border/40 py-1 last:border-0">
-                      <span className="text-xs text-muted-foreground truncate">{c.label}</span>
-                      <span className={cn('font-mono text-xs shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                    <div key={c.label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-xs text-muted-foreground">{c.label}</span>
+                        <span className={cn('font-mono text-xs shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/70 break-words">
+                        <span className="font-medium text-muted-foreground">Value source:</span> {sourceText(c)}
+                      </p>
                     </div>
                   ))}
                 </div>
               )}
               {drill.groups && drill.groups.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Made up of</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this total comes from</p>
                   {drill.groups.map(g => (
-                    <div key={g.label} className="border-b border-border/40 py-1 last:border-0">
+                    <div key={g.label} className="border-b border-border/40 py-1.5 last:border-0">
                       <div className="flex items-start justify-between gap-3">
-                        <span className="text-xs text-muted-foreground truncate" style={{ paddingLeft: (g.depth ?? 0) * 12 }}>{g.label}</span>
+                        <span className="text-xs font-medium text-muted-foreground" style={{ paddingLeft: (g.depth ?? 0) * 12 }}>{g.label}</span>
                         <span className={cn('font-mono text-xs shrink-0', g.value < 0 ? 'text-destructive' : '')}>
                           {g.heading ? '' : fmt(g.value)}
                         </span>
                       </div>
                       {(g.components ?? []).map(c => (
-                        <div key={c.label} className="flex items-start justify-between gap-3 pl-4">
-                          <span className="text-[11px] text-muted-foreground/80 truncate">{c.label}</span>
-                          <span className={cn('font-mono text-[11px] shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                        <div key={c.label} className="pl-4 pt-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="text-[11px] text-muted-foreground/80">{c.label}</span>
+                            <span className={cn('font-mono text-[11px] shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground/70 break-words">
+                            <span className="font-medium text-muted-foreground">Value source:</span> {sourceText(c)}
+                          </p>
                         </div>
                       ))}
+                      {g.lines.length > 0 ? (
+                        <div className="mt-1 space-y-1 pl-4">
+                          {g.lines.map(l => (
+                            <div key={`${g.label}-${l.label}`} className="border-l border-border/60 pl-2">
+                              <div className="flex items-start justify-between gap-3">
+                                <span className="text-[11px] text-muted-foreground/80">{l.label}</span>
+                                <span className={cn('font-mono text-[11px] shrink-0', l.value < 0 ? 'text-destructive' : '')}>{fmt(l.value)}</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground/70 break-words">
+                                <span className="font-medium text-muted-foreground">Value source:</span> {sourceText(l)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : g.unsourced ? (
+                        <p className="mt-1 pl-4 text-[10px] text-muted-foreground/70">
+                          Value source: operational records outside the ledger; no mapped ledger account is available yet.
+                        </p>
+                      ) : (
+                        <p className="mt-1 pl-4 text-[10px] text-muted-foreground/70">
+                          Value source: calculated from the displayed balance-sheet components.
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
               {drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ledger accounts</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this balance comes from</p>
                   {drill.lines.map(l => (
-                    <div key={l.label} className="border-b border-border/40 py-1 last:border-0">
+                    <div key={l.label} className="border-b border-border/40 py-1.5 last:border-0">
                       <div className="flex items-start justify-between gap-3">
-                        <span className="text-xs text-muted-foreground truncate">{l.label}</span>
+                        <span className="text-xs text-muted-foreground">{l.label}</span>
                         <span className={cn('font-mono text-xs shrink-0', l.value < 0 ? 'text-destructive' : '')}>{fmt(l.value)}</span>
                       </div>
-                      {l.source && <p className="text-[10px] text-muted-foreground/70">Derived from {l.source}</p>}
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/70 break-words">
+                        <span className="font-medium text-muted-foreground">Value source:</span> {sourceText(l)}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -737,7 +781,14 @@ export default function BalanceSheetPanel() {
               <div>
                 {assetRows.map(g => (
                   g.subtotal
-                    ? <TotalRow key={g.label} label={g.label} value={g.value} depth={g.depth} />
+                    ? <TotalRow
+                        key={g.label} label={g.label} value={g.value} depth={g.depth}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value,
+                          sourceNote: 'Calculated by adding the asset lines shown in this section.',
+                          groups: assetRows.filter(row => !row.subtotal && !row.heading),
+                        })}
+                      />
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
@@ -750,6 +801,7 @@ export default function BalanceSheetPanel() {
                 label="Total Assets" value={assetsTotal} emphasis
                 onOpen={() => setDrill({
                   title: 'Total Assets', value: assetsTotal,
+                  sourceNote: 'Calculated by adding all asset balances returned by the general ledger statement.',
                   groups: [...assetRows.filter(g => !g.subtotal), ...(assetGroups && hasFlagged(assetGroups.flagged) ? [assetGroups.flagged] : [])],
                 })}
               />
@@ -769,11 +821,23 @@ export default function BalanceSheetPanel() {
               <div>
                 {marketplaceRows.map(g => (
                   g.subtotal
-                    ? <TotalRow key={g.label} label={g.label} value={g.value} depth={g.depth} />
+                    ? <TotalRow
+                        key={g.label} label={g.label} value={g.value} depth={g.depth}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value,
+                          sourceNote: 'Calculated by adding the marketplace liability lines shown in this section.',
+                          groups: marketplaceRows.filter(row => !row.subtotal && !row.heading),
+                        })}
+                      />
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
-                        onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components,
+                          sourceNote: g.lines.length === 0 && !g.unsourced
+                            ? 'Measured from landlord float ledger entries and split by the landlord record’s management type.'
+                            : undefined,
+                        })}
                       />
                 ))}
               </div>
@@ -781,6 +845,7 @@ export default function BalanceSheetPanel() {
                 label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0}
                 onOpen={() => setDrill({
                   title: 'Market Place Liabilities', value: liabilityGroups?.marketplaceTotal ?? 0,
+                  sourceNote: 'Calculated by adding all marketplace liability balances shown below.',
                   groups: marketplaceRows.filter(g => !g.subtotal),
                 })}
               />
@@ -789,6 +854,7 @@ export default function BalanceSheetPanel() {
                 label="Total Liabilities" value={data.liabilities.total}
                 onOpen={() => setDrill({
                   title: 'Total Liabilities', value: data.liabilities.total,
+                  sourceNote: 'Calculated by adding every liability account returned by the general ledger statement.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
                     ...marketplaceRows.filter(g => !g.subtotal),
@@ -809,6 +875,7 @@ export default function BalanceSheetPanel() {
                 label="Total Shareholders&apos; Equity" value={equityTotal}
                 onOpen={() => setDrill({
                   title: "Total Shareholders' Equity", value: equityTotal,
+                  sourceNote: 'Calculated by adding every shareholders’ equity balance returned by the general ledger statement.',
                   groups: [...(equityGroups?.groups ?? []), ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : [])],
                 })}
               />
@@ -817,6 +884,7 @@ export default function BalanceSheetPanel() {
                 label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis
                 onOpen={() => setDrill({
                   title: "Total Liabilities and Shareholders' Equity", value: totalLiabilitiesAndEquity,
+                  sourceNote: 'Calculated by adding Total Liabilities and Total Shareholders’ Equity.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
                     ...marketplaceRows.filter(g => !g.subtotal),
