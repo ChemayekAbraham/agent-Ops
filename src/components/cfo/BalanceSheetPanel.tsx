@@ -983,7 +983,7 @@ export default function BalanceSheetPanel() {
                         onOpen={() => setDrill({
                           title: g.label, value: g.value,
                           sourceNote: 'Calculated by adding the marketplace liability lines shown in this section.',
-                          groups: marketplaceRows.filter(row => !row.subtotal && !row.heading),
+                          groups: marketplaceRows.filter(row => !row.subtotal && !row.heading && !row.depth),
                         })}
                       />
                     : <GroupRow
@@ -992,7 +992,7 @@ export default function BalanceSheetPanel() {
                         onOpen={() => setDrill({
                           title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components,
                           sourceNote: g.lines.length === 0 && !g.unsourced
-                            ? 'Measured from landlord float ledger entries and split by the landlord record’s management type.'
+                            ? 'Measured from landlord float ledger entries, split by whether the rent plan is funded and managed directly by a funder (self managed) or by the company.'
                             : undefined,
                         })}
                       />
@@ -1003,7 +1003,7 @@ export default function BalanceSheetPanel() {
                 onOpen={() => setDrill({
                   title: 'Market Place Liabilities', value: liabilityGroups?.marketplaceTotal ?? 0,
                   sourceNote: 'Calculated by adding all marketplace liability balances shown below.',
-                  groups: marketplaceRows.filter(g => !g.subtotal),
+                  groups: marketplaceRows.filter(g => !g.subtotal && !g.depth),
                 })}
               />
               <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
@@ -1014,7 +1014,7 @@ export default function BalanceSheetPanel() {
                   sourceNote: 'Calculated by adding every liability account returned by the general ledger statement.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
-                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...marketplaceRows.filter(g => !g.subtotal && !g.depth),
                     ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
                   ],
                 })}
@@ -1044,7 +1044,7 @@ export default function BalanceSheetPanel() {
                   sourceNote: 'Calculated by adding Total Liabilities and Total Shareholders’ Equity.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
-                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...marketplaceRows.filter(g => !g.subtotal && !g.depth),
                     ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
                     ...(equityGroups?.groups ?? []),
                     ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : []),

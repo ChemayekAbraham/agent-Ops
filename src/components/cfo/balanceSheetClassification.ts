@@ -305,9 +305,12 @@ export function expandLandlordFloat(
     const self = Math.round(split.self_managed ?? 0);
     const unresolved = Math.round(split.unresolved ?? 0);
     const company = Math.round(g.value) - self - unresolved;
+    // Parent line carries the full Landlord Float balance; the management
+    // split is shown as nested lines underneath it.
     const rows: MarketplaceRow[] = [
-      { label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [], unsourced: g.unsourced },
-      { label: LANDLORD_FLOAT_COMPANY_LABEL, value: company, lines: g.lines, unsourced: g.unsourced },
+      { ...g, components: g.components },
+      { label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [], unsourced: g.unsourced, depth: 1 },
+      { label: LANDLORD_FLOAT_COMPANY_LABEL, value: company, lines: g.lines, unsourced: g.unsourced, depth: 1 },
     ];
     if (unresolved !== 0) {
       rows.push({
@@ -315,6 +318,7 @@ export function expandLandlordFloat(
         value: unresolved,
         lines: [],
         unsourced: g.unsourced,
+        depth: 1,
       });
     }
     return rows;
