@@ -382,14 +382,16 @@ export function AgentCollectionsCommandCenter() {
     }
   };
 
-  const collectedTotal = num(totals?.collected);
-
-  // Coverage answers "how much of what we billed this window came in", so the
-  // numerator is only money against plans this window actually billed. Arrears
-  // are real cash and stay visible via `arrearsCollected` — they just don't
-  // count as attainment on a bill that never included them.
-  const collectedOnSchedule = num(coverageData?.collected_on_schedule);
-  const arrearsCollected = num(coverageData?.collected_arrears) + num(coverageData?.collected_unattributed);
+  // Single definition of "Collected", shared with Tenant Ops → Classic → Home:
+  // money received against this window's own bills, capped at what each plan was
+  // billed (`capped` in the coverage RPC, `collected` in ops_tenant_ops_home_range).
+  // Everything else received in the window — older bills, plans this window never
+  // billed, and token payments with no plan attached — is arrears and gets its own
+  // line rather than being folded into attainment.
+  const collectedOnSchedule = num(coverageData?.collected_on_schedule_capped);
+  const collectedTotal = collectedOnSchedule;
+  const cashReceived = num(coverageData?.collected_total);
+  const arrearsCollected = Math.max(0, cashReceived - collectedOnSchedule);
   const coverage = expectedTotal > 0 ? Math.round((collectedOnSchedule / expectedTotal) * 100) : null;
 
   return (
