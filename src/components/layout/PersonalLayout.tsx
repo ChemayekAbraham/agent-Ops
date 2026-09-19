@@ -85,6 +85,16 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
     },
   });
 
+  const { data: isStaff } = useQuery<boolean>({
+    queryKey: ['hr-my-staff-id'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('hr_my_staff_id' as any);
+      if (error) return false;
+      return typeof data === 'string' && data.length > 0;
+    },
+  });
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
