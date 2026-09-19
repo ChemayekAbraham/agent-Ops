@@ -1611,6 +1611,13 @@
       "when": 1789743466953,
       "tag": "0229_tighten_misc_sensitive_read_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1789812464650,
+      "tag": "0230_tighten_partner_and_marketing_reference_reads",
+      "breakpoints": true
     }
   ]
 }
