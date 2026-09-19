@@ -64,7 +64,13 @@ Deno.serve(async (req) => {
 
     // A staff loan is the same request, routed and approved identically, but it is
     // repaid: 28% per month on the amount still owing, over 1-12 months.
+    const requestKind = String(body.request_kind || "requisition") === "staff_loan"
+      ? "staff_loan"
+      : "requisition";
     const loanRate = requestKind === "staff_loan" ? 0.28 : null;
+    const loanMonths = requestKind === "staff_loan"
+      ? Math.min(12, Math.max(1, Math.round(Number(body.loan_months) || 1)))
+      : null;
 
     if (requestKind === "staff_loan") {
       const { data: empRole } = await admin
