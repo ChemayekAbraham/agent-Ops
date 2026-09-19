@@ -272,24 +272,28 @@ export type MarketplaceRow = BsGroup & {
 export const LANDLORD_FLOAT_LABEL = 'Landlord Float';
 export const LANDLORD_FLOAT_SELF_LABEL = 'Landlord Float — Self Managed';
 export const LANDLORD_FLOAT_COMPANY_LABEL = 'Landlord Float — Company Managed';
+export const LANDLORD_FLOAT_UNRESOLVED_LABEL = 'Landlord Float — Landlord Not Linked';
 
 /** Measured on the ledger by get_landlord_float_management_split(). */
 export interface LandlordFloatSplit {
   total: number;
   self_managed: number;
   company_managed: number;
+  /** Legs whose landlord record cannot be identified from the subscription. */
+  unresolved?: number;
 }
 
 /**
- * Presentation only: reports the existing Landlord Float as two lines — Self
- * Managed and Company Managed — per the landlord record's own management flag.
+ * Presentation only: reports the existing Landlord Float as up to three lines —
+ * Self Managed, Company Managed, and (where the underlying subscription has no
+ * identifiable landlord record) Landlord Not Linked.
  *
- * The reported group value is never changed: the self-managed amount measured
- * on the ledger is shown as-is and the company line is the residual, so the two
- * lines always foot to the existing total exactly. The partner/agent obligation
- * accounts inside the group are company-managed by definition and therefore sit
- * in the residual. With no split available the original single line is returned
- * untouched.
+ * The reported group value is never changed: the self-managed and unresolved
+ * amounts measured on the ledger are shown as-is and the company line is the
+ * residual, so the lines always foot to the existing total exactly. Reporting
+ * the unresolved amount separately keeps unlinked balances from being asserted
+ * as company managed. With no split available the original single line is
+ * returned untouched.
  */
 export function expandLandlordFloat(
   marketplace: BsGroup[],
@@ -299,13 +303,24 @@ export function expandLandlordFloat(
   return marketplace.flatMap<MarketplaceRow>(g => {
     if (g.label !== LANDLORD_FLOAT_LABEL) return [g];
     const self = Math.round(split.self_managed ?? 0);
-    const company = Math.round(g.value) - self;
-    return [
+    const unresolved = Math.round(split.unresolved ?? 0);
+    const company = Math.round(g.value) - self - unresolved;
+    const rows: MarketplaceRow[] = [
       { label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [], unsourced: g.unsourced },
       { label: LANDLORD_FLOAT_COMPANY_LABEL, value: company, lines: g.lines, unsourced: g.unsourced },
     ];
+    if (unresolved !== 0) {
+      rows.push({
+        label: LANDLORD_FLOAT_UNRESOLVED_LABEL,
+        value: unresolved,
+        lines: [],
+        unsourced: g.unsourced,
+      });
+    }
+    return rows;
   });
 }
+
 
 
 /**
