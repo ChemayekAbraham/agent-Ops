@@ -575,6 +575,11 @@ function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; as
                           {g.heading ? '' : fmt(g.value)}
                         </span>
                       </div>
+                      {receivablesCategoryOf(g.label) && (
+                        <div className="pl-4 pt-1">
+                          <ReceivablesDetail categoryKey={receivablesCategoryOf(g.label) as string} />
+                        </div>
+                      )}
                       {(g.components ?? []).map(c => (
                         <div key={c.label} className="pl-4 pt-1">
                           <ModalLine line={c} asAt={asAt} size="xs" />
