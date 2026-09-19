@@ -431,7 +431,7 @@ interface CarriedForwardRow {
  * Detailed breakdown of the carried-forward equity line (ledger account E3),
  * fetched only while its drill-down modal is open.
  */
-function useCarriedForwardBreakdown(active: boolean) {
+function useEquityBreakdown(rpcName: string, active: boolean) {
   const [rows, setRows] = useState<CarriedForwardRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
@@ -439,7 +439,7 @@ function useCarriedForwardBreakdown(active: boolean) {
     let cancelled = false;
     setLoading(true);
     (supabase as any)
-      .rpc('get_carried_forward_breakdown', { p_as_at: new Date().toISOString() })
+      .rpc(rpcName, { p_as_at: new Date().toISOString() })
       .then(({ data, error }: { data: CarriedForwardRow[] | null; error: unknown }) => {
         if (cancelled) return;
         if (error) setRows([]);
@@ -447,9 +447,10 @@ function useCarriedForwardBreakdown(active: boolean) {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [active]);
+  }, [rpcName, active]);
   return { rows, loading };
 }
+
 
 /** The drill-down modal: named components and exact values for any tapped line or total. */
 function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
@@ -457,7 +458,9 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
   const receivablesKey = drill ? receivablesCategoryOf(drill.title) : null;
   const isCarriedForward = drill?.title === CARRIED_FORWARD_LABEL;
   const isUnmatchedHistoricPostings = drill?.title === UNMATCHED_HISTORIC_POSTINGS_LABEL;
-  const carriedForward = useCarriedForwardBreakdown(!!isCarriedForward);
+  const carriedForward = useEquityBreakdown('get_carried_forward_breakdown', !!isCarriedForward);
+  const unmatchedPostings = useEquityBreakdown('get_unmatched_postings_breakdown', !!isUnmatchedHistoricPostings);
+
   return (
     <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
@@ -505,10 +508,35 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                 </div>
               )}
               {isUnmatchedHistoricPostings && (
-                <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
-                  {UNMATCHED_POSTINGS_NOTE}
-                </p>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Detailed Breakdown
+                  </p>
+                  {unmatchedPostings.loading && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading breakdown…
+                    </p>
+                  )}
+                  {!unmatchedPostings.loading && (unmatchedPostings.rows ?? []).map(r => (
+                    <div key={r.group_label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine
+                        line={{
+                          label: r.group_label,
+                          value: r.amount,
+                          source: `${r.legs} ledger ${r.legs === 1 ? 'entry' : 'entries'}`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {!unmatchedPostings.loading && (unmatchedPostings.rows ?? []).length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">No underlying entries found.</p>
+                  )}
+                  <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                    {UNMATCHED_POSTINGS_NOTE}
+                  </p>
+                </div>
               )}
+
               {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -566,7 +594,7 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   ))}
                 </div>
               )}
-              {!receivablesKey && !isCarriedForward && drill.lines && drill.lines.length > 0 && (
+              {!receivablesKey && !isCarriedForward && !isUnmatchedHistoricPostings && drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
                   {drill.lines.map(l => {

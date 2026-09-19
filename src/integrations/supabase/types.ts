@@ -58260,6 +58260,14 @@ export type Database = {
       }
       get_treasury_snapshot: { Args: never; Returns: Json }
       get_trust_coverage_stats: { Args: never; Returns: Json }
+      get_unmatched_postings_breakdown: {
+        Args: { p_as_at?: string }
+        Returns: {
+          amount: number
+          group_label: string
+          legs: number
+        }[]
+      }
       get_unregistered_recipient_transfers: {
         Args: { p_days?: number }
         Returns: Json
