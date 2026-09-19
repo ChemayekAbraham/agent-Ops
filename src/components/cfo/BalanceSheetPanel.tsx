@@ -378,12 +378,12 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
               {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Breakdown
+                    Outstanding receivables
                   </p>
                    <ReceivablesDetail categoryKey={receivablesKey} />
                 </div>
               )}
-              {!receivablesKey && drill.components && drill.components.length > 0 && (
+              {drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
                   {drill.components.map(c => (
@@ -393,7 +393,7 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   ))}
                 </div>
               )}
-              {!receivablesKey && drill.groups && drill.groups.length > 0 && (
+              {drill.groups && drill.groups.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
                   {drill.groups.map(g => (
@@ -427,7 +427,7 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   ))}
                 </div>
               )}
-              {!receivablesKey && drill.lines && drill.lines.length > 0 && (
+              {drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
                   {drill.lines.map(l => (
