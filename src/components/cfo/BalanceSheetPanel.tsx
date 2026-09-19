@@ -421,22 +421,12 @@ function receivablesCategoryOf(label: string): string | null {
 }
 
 function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
-  const [open, setOpen] = useState(false);
-  const { data, isLoading, error } = useReceivablesBreakdown(open);
+  const { data, isLoading, error } = useReceivablesBreakdown(true);
   const category = (data?.categories ?? []).find(c => c.key === categoryKey);
 
   return (
     <div className="mt-1">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1 text-[10px] font-medium text-primary"
-      >
-        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-        {open ? 'Hide the actual receivables' : 'See the actual receivables'}
-      </button>
-      {open && (
-        <div className="mt-1 rounded-md border border-border/60 bg-muted/20 p-2">
+      <div className="mt-1 rounded-md border border-border/60 bg-muted/20 p-2">
           {isLoading && (
             <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" /> Loading receivables…
@@ -487,8 +477,7 @@ function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
               ))}
             </div>
           )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -512,7 +501,7 @@ function ModalLine({ line, asAt, size = 'sm' }: { line: PositionLine; asAt: Date
         {line.source || 'Calculated from the displayed balance-sheet components'}
       </p>
       {receivablesKey && <ReceivablesDetail categoryKey={receivablesKey} />}
-      {code && <AccountActivity accountCode={code} asAt={asAt} />}
+      {code && !receivablesKey && <AccountActivity accountCode={code} asAt={asAt} />}
     </div>
   );
 }
@@ -520,6 +509,7 @@ function ModalLine({ line, asAt, size = 'sm' }: { line: PositionLine; asAt: Date
 /** The drill-down modal: account-level breakdown of any tapped line or total. */
 function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; asAt: Date; onClose: () => void }) {
   const fmt = fmtAmount;
+  const receivablesKey = drill ? receivablesCategoryOf(drill.title) : null;
   return (
     <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
@@ -540,21 +530,21 @@ function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; as
                   No ledger account maps here yet — any balance sits in an operational sub-ledger and is shown under memo sub-ledgers, not in the ledger totals.
                 </p>
               )}
-              {drill.sourceNote && (
+              {drill.sourceNote && !receivablesKey && (
                 <div className="rounded-md border border-border bg-muted/30 p-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Value source</p>
                   <p className="mt-0.5 text-xs text-foreground">{drill.sourceNote}</p>
                 </div>
               )}
-              {receivablesCategoryOf(drill.title) && (
+              {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Actual receivables behind this balance
                   </p>
-                  <ReceivablesDetail categoryKey={receivablesCategoryOf(drill.title) as string} />
+                   <ReceivablesDetail categoryKey={receivablesKey} />
                 </div>
               )}
-              {drill.components && drill.components.length > 0 && (
+              {!receivablesKey && drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this balance comes from</p>
                   {drill.components.map(c => (
@@ -564,7 +554,7 @@ function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; as
                   ))}
                 </div>
               )}
-              {drill.groups && drill.groups.length > 0 && (
+              {!receivablesKey && drill.groups && drill.groups.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this total comes from</p>
                   {drill.groups.map(g => (
@@ -606,7 +596,7 @@ function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; as
                   ))}
                 </div>
               )}
-              {drill.lines && drill.lines.length > 0 && (
+              {!receivablesKey && drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this balance comes from</p>
                   {drill.lines.map(l => (
@@ -616,7 +606,7 @@ function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; as
                   ))}
                 </div>
               )}
-              {(!drill.lines || drill.lines.length === 0) && (!drill.groups || drill.groups.length === 0) && (!drill.components || drill.components.length === 0) && !drill.unsourced && (
+              {!receivablesKey && (!drill.lines || drill.lines.length === 0) && (!drill.groups || drill.groups.length === 0) && (!drill.components || drill.components.length === 0) && !drill.unsourced && (
                 <p className="text-[10px] text-muted-foreground">No further account-level breakdown is available for this line.</p>
               )}
             </div>
