@@ -569,11 +569,16 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
               {!receivablesKey && !isCarriedForward && drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
-                  {drill.lines.map(l => (
-                    <div key={l.label} className="border-b border-border/40 py-1.5 last:border-0">
-                      <ModalLine line={l} />
-                    </div>
-                  ))}
+                  {drill.lines.map(l => {
+                    const displayLine = isUnmatchedHistoricPostings
+                      ? { ...l, label: 'Unmatched Historic Postings — Opening Balance Counterpart' }
+                      : l;
+                    return (
+                      <div key={displayLine.label} className="border-b border-border/40 py-1.5 last:border-0">
+                        <ModalLine line={displayLine} />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
