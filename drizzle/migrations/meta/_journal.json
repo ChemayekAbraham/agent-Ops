@@ -1681,6 +1681,13 @@
       "when": 1789829208852,
       "tag": "0239_unmatched_postings_breakdown_labels",
       "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1789832615532,
+      "tag": "0240_deferred_fee_breakdown",
+      "breakpoints": true
     }
   ]
 }
