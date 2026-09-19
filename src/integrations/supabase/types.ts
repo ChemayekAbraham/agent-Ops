@@ -56608,10 +56608,19 @@ export type Database = {
         }[]
       }
       get_landlord_float_due_today: { Args: never; Returns: Json }
-      get_landlord_float_management_split: {
-        Args: { p_as_at?: string }
-        Returns: Json
-      }
+      get_landlord_float_management_split:
+        | {
+            Args: { p_as_at?: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_landlord_float_management_split(p_as_at => date), public.get_landlord_float_management_split(p_as_at => timestamptz). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: { p_as_at?: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_landlord_float_management_split(p_as_at => date), public.get_landlord_float_management_split(p_as_at => timestamptz). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
       get_landlord_ops_rows:
         | {
             Args: {
