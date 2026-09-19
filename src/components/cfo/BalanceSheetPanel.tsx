@@ -8,7 +8,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat,
+  expandLandlordFloat, CARRIED_FORWARD_LABEL,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -416,6 +416,36 @@ function ModalLine({ line, size = 'sm' }: { line: PositionLine; size?: 'sm' | 'x
       </div>
     </div>
   );
+}
+
+interface CarriedForwardRow {
+  group_label: string;
+  legs: number;
+  amount: number;
+}
+
+/**
+ * Detailed breakdown of the carried-forward equity line (ledger account E3),
+ * fetched only while its drill-down modal is open.
+ */
+function useCarriedForwardBreakdown(active: boolean) {
+  const [rows, setRows] = useState<CarriedForwardRow[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    setLoading(true);
+    (supabase as any)
+      .rpc('get_carried_forward_breakdown', { p_as_at: new Date().toISOString() })
+      .then(({ data, error }: { data: CarriedForwardRow[] | null; error: unknown }) => {
+        if (cancelled) return;
+        if (error) setRows([]);
+        else setRows((data ?? []).map(r => ({ ...r, amount: Number(r.amount) })));
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [active]);
+  return { rows, loading };
 }
 
 /** The drill-down modal: named components and exact values for any tapped line or total. */
