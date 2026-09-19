@@ -288,120 +288,6 @@ function accountCodeOf(line: PositionLine): string | null {
   return m ? m[1].toUpperCase() : null;
 }
 
-interface AccountDetail {
-  account_code: string;
-  net: number;
-  legs: number;
-  shown: number;
-  truncated: boolean;
-  categories: { category: string; ledger_scope: string; legs: number; net: number }[];
-  transactions: {
-    transaction_group_id: string | null;
-    transaction_date: string;
-    category: string;
-    source_table: string | null;
-    net: number;
-  }[];
-}
-
-/**
- * Second drill level: the ledger activity behind one reporting account, grouped
- * by movement category plus the most recent individual entries. Everything is
- * computed server-side by `get_sofp_account_detail`, which reads the same
- * `sofp_ledger_legs` basis as the statement itself — read-only, no new maths.
- */
-function AccountActivity({ accountCode, asAt }: { accountCode: string; asAt: Date }) {
-  const [open, setOpen] = useState(false);
-  const [detail, setDetail] = useState<AccountDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const toggle = async () => {
-    const next = !open;
-    setOpen(next);
-    if (!next || detail || loading) return;
-    setLoading(true);
-    setError(null);
-    const { data, error: rpcError } = await supabase.rpc('get_sofp_account_detail', {
-      p_as_at: endOfDay(asAt).toISOString(),
-      p_account_code: accountCode,
-      p_limit: 50,
-    });
-    if (rpcError) setError(rpcError.message);
-    else setDetail(data as unknown as AccountDetail);
-    setLoading(false);
-  };
-
-  return (
-    <div className="mt-1">
-      <button
-        type="button"
-        onClick={toggle}
-        className="flex items-center gap-1 text-[10px] font-medium text-primary"
-      >
-        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-        {open ? 'Hide activity detail' : 'See activity detail'}
-      </button>
-      {open && (
-        <div className="mt-1 rounded-md border border-border/60 bg-muted/20 p-2">
-          {loading && (
-            <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> Loading activity…
-            </p>
-          )}
-          {error && <p className="text-[10px] text-destructive">Could not load the detail: {error}</p>}
-          {detail && (
-            <div className="space-y-2">
-              <p className="text-[10px] text-muted-foreground">
-                {detail.legs.toLocaleString()} ledger entries up to the selected date · net {fmtAmount(detail.net)}
-              </p>
-              {detail.categories.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">By category</p>
-                  {detail.categories.map(c => (
-                    <div key={`${c.ledger_scope}-${c.category}`} className="flex items-start justify-between gap-3 py-0.5">
-                      <span className="text-[11px] text-muted-foreground truncate">
-                        {c.category} <span className="text-muted-foreground/60">({c.ledger_scope} · {c.legs.toLocaleString()})</span>
-                      </span>
-                      <span className={cn('font-mono text-[11px] shrink-0', c.net < 0 ? 'text-destructive' : '')}>
-                        {fmtAmount(c.net)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {detail.transactions.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recent entries</p>
-                  {detail.transactions.map((t, i) => (
-                    <div key={`${t.transaction_group_id ?? 'x'}-${i}`} className="flex items-start justify-between gap-3 py-0.5">
-                      <span className="text-[11px] text-muted-foreground truncate">
-                        {format(new Date(t.transaction_date), 'dd MMM yyyy')} · {t.category}
-                        {t.source_table ? <span className="text-muted-foreground/60"> · {t.source_table}</span> : null}
-                      </span>
-                      <span className={cn('font-mono text-[11px] shrink-0', t.net < 0 ? 'text-destructive' : '')}>
-                        {fmtAmount(t.net)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {detail.legs === 0 && (
-                <p className="text-[10px] text-muted-foreground">No ledger activity on this account up to the selected date.</p>
-              )}
-              {detail.truncated && (
-                <p className="text-[10px] text-muted-foreground/70">
-                  Showing the {detail.shown} most recent entries only — older activity is still included in the balance above.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ---------------------------------------------------------------------------
  * Receivables detail: the actual outstanding receivables behind a receivables
  * line — who owes it, the exact amount, when it is due and its status. Read
@@ -460,10 +346,8 @@ function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
   );
 }
 
-/** One line inside the modal: its amount, where the value comes from, and its activity. */
-function ModalLine({ line, asAt, size = 'sm' }: { line: PositionLine; asAt: Date; size?: 'sm' | 'xs' }) {
-  const code = accountCodeOf(line);
-  const receivablesKey = receivablesCategoryOf(line.label);
+/** One named component and its exact value inside the modal. */
+function ModalLine({ line, size = 'sm' }: { line: PositionLine; size?: 'sm' | 'xs' }) {
   return (
     <div>
       <div className="flex items-start justify-between gap-3">
@@ -474,18 +358,12 @@ function ModalLine({ line, asAt, size = 'sm' }: { line: PositionLine; asAt: Date
           {fmtAmount(line.value)}
         </span>
       </div>
-      <p className="mt-0.5 text-[10px] text-muted-foreground/70 break-words">
-        <span className="font-medium text-muted-foreground">Value source:</span>{' '}
-        {line.source || 'Calculated from the displayed balance-sheet components'}
-      </p>
-      {receivablesKey && <ReceivablesDetail categoryKey={receivablesKey} />}
-      {code && !receivablesKey && <AccountActivity accountCode={code} asAt={asAt} />}
     </div>
   );
 }
 
-/** The drill-down modal: account-level breakdown of any tapped line or total. */
-function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; asAt: Date; onClose: () => void }) {
+/** The drill-down modal: named components and exact values for any tapped line or total. */
+function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
   const fmt = fmtAmount;
   const receivablesKey = drill ? receivablesCategoryOf(drill.title) : null;
   return (
@@ -503,38 +381,27 @@ function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; as
                   {fmt(drill.value)}
                 </span>
               </div>
-              {drill.unsourced && (
-                <p className="text-[10px] text-muted-foreground">
-                  No ledger account maps here yet — any balance sits in an operational sub-ledger and is shown under memo sub-ledgers, not in the ledger totals.
-                </p>
-              )}
-              {drill.sourceNote && !receivablesKey && (
-                <div className="rounded-md border border-border bg-muted/30 p-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Value source</p>
-                  <p className="mt-0.5 text-xs text-foreground">{drill.sourceNote}</p>
-                </div>
-              )}
               {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Actual receivables behind this balance
+                    Breakdown
                   </p>
                    <ReceivablesDetail categoryKey={receivablesKey} />
                 </div>
               )}
               {!receivablesKey && drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this balance comes from</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
                   {drill.components.map(c => (
                     <div key={c.label} className="border-b border-border/40 py-1.5 last:border-0">
-                      <ModalLine line={c} asAt={asAt} />
+                      <ModalLine line={c} />
                     </div>
                   ))}
                 </div>
               )}
               {!receivablesKey && drill.groups && drill.groups.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this total comes from</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
                   {drill.groups.map(g => (
                     <div key={g.label} className="border-b border-border/40 py-1.5 last:border-0">
                       <div className="flex items-start justify-between gap-3">
@@ -550,42 +417,31 @@ function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; as
                       )}
                       {(g.components ?? []).map(c => (
                         <div key={c.label} className="pl-4 pt-1">
-                          <ModalLine line={c} asAt={asAt} size="xs" />
+                          <ModalLine line={c} size="xs" />
                         </div>
                       ))}
                       {g.lines.length > 0 ? (
                         <div className="mt-1 space-y-1 pl-4">
                           {g.lines.map(l => (
                             <div key={`${g.label}-${l.label}`} className="border-l border-border/60 pl-2">
-                              <ModalLine line={l} asAt={asAt} size="xs" />
+                               <ModalLine line={l} size="xs" />
                             </div>
                           ))}
                         </div>
-                      ) : g.unsourced ? (
-                        <p className="mt-1 pl-4 text-[10px] text-muted-foreground/70">
-                          Value source: operational records outside the ledger; no mapped ledger account is available yet.
-                        </p>
-                      ) : (
-                        <p className="mt-1 pl-4 text-[10px] text-muted-foreground/70">
-                          Value source: calculated from the displayed balance-sheet components.
-                        </p>
-                      )}
+                       ) : null}
                     </div>
                   ))}
                 </div>
               )}
               {!receivablesKey && drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this balance comes from</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
                   {drill.lines.map(l => (
                     <div key={l.label} className="border-b border-border/40 py-1.5 last:border-0">
-                      <ModalLine line={l} asAt={asAt} />
+                      <ModalLine line={l} />
                     </div>
                   ))}
                 </div>
-              )}
-              {!receivablesKey && (!drill.lines || drill.lines.length === 0) && (!drill.groups || drill.groups.length === 0) && (!drill.components || drill.components.length === 0) && !drill.unsourced && (
-                <p className="text-[10px] text-muted-foreground">No further account-level breakdown is available for this line.</p>
               )}
             </div>
           </>
@@ -1186,7 +1042,7 @@ export default function BalanceSheetPanel() {
         </>
       )}
 
-      <DrilldownDialog drill={drill} asAt={asAt} onClose={() => setDrill(null)} />
+      <DrilldownDialog drill={drill} onClose={() => setDrill(null)} />
     </div>
   );
 }
