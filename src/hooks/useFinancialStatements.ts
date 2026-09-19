@@ -57,7 +57,7 @@ export interface ServiceIncomeStatement {
 }
 
 export type StatementPeriod = 'today' | '7days' | 'week' | '30days' | 'month' | 'quarter' | 'year' | 'all' | 'custom';
-export type ComparisonMode = 'none' | 'dod' | 'wow' | 'mom' | 'yoy';
+export type ComparisonMode = 'none' | 'previous' | 'dod' | 'wow' | 'mom' | 'yoy';
 
 export interface StatementFilters {
   period: StatementPeriod;
@@ -101,6 +101,10 @@ export interface IncomeStatementData {
     taxExpense: number;
     interestExpense: number;
     equipmentExpense: number;
+    tenantDefaultCharges: number;
+    debtClearance: number;
+    platformLossWriteoff: number;
+    merchantOopReimbursement: number;
     operationalSubcategories: {
       salaries: number;
       transport: number;
@@ -1319,6 +1323,7 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
             generalOperating: totalGeneralAdmin, payrollExpenses: totalPayroll, agentRequisitions, financialAgentExpenses,
             marketingExpenses: totalMarketingExpense, researchDevelopment: totalRnD,
             taxExpense: totalTaxExpense, interestExpense: totalInterestExpense, equipmentExpense: totalEquipmentExpense,
+            tenantDefaultCharges, debtClearance, platformLossWriteoff, merchantOopReimbursement,
             operationalSubcategories: {
               salaries: opSubSalaries, transport: opSubTransport, food: opSubFood,
               officeRent: opSubOfficeRent, internet: opSubInternet, airtime: opSubAirtime,
@@ -1462,6 +1467,10 @@ function getPreviousPeriodDates(
   mode: ComparisonMode
 ): { start: Date; end: Date } {
   switch (mode) {
+    case 'previous': {
+      const days = differenceInDays(currentEnd, currentStart);
+      return { start: subDays(currentStart, days + 1), end: subDays(currentStart, 1) };
+    }
     case 'dod': return { start: subDays(currentStart, 1), end: subDays(currentEnd, 1) };
     case 'wow': return { start: subWeeks(currentStart, 1), end: subWeeks(currentEnd, 1) };
     case 'mom': return { start: subMonths(currentStart, 1), end: subMonths(currentEnd, 1) };
@@ -1482,7 +1491,7 @@ export function useFinancialStatements() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<FinancialStatementsData | null>(null);
   const [previousData, setPreviousData] = useState<FinancialStatementsData | null>(null);
-  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('none');
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('previous');
   const [loadingComparison, setLoadingComparison] = useState(false);
   const [filters, setFilters] = useState<StatementFilters>({
     period: '30days',
