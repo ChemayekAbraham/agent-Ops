@@ -91,6 +91,8 @@ interface Drilldown {
   title: string;
   value: number;
   unsourced?: boolean;
+  /** Plain-language explanation for derived values that are not a direct account line. */
+  sourceNote?: string;
   /** Account-level lines behind the figure. */
   lines?: PositionLine[];
   /** Indented component lines (e.g. partner obligations inside Landlord Float). */
@@ -300,6 +302,12 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                 <p className="text-[10px] text-muted-foreground">
                   No ledger account maps here yet — any balance sits in an operational sub-ledger and is shown under memo sub-ledgers, not in the ledger totals.
                 </p>
+              )}
+              {drill.sourceNote && (
+                <div className="rounded-md border border-border bg-muted/30 p-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Value source</p>
+                  <p className="mt-0.5 text-xs text-foreground">{drill.sourceNote}</p>
+                </div>
               )}
               {drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
@@ -773,7 +781,14 @@ export default function BalanceSheetPanel() {
               <div>
                 {assetRows.map(g => (
                   g.subtotal
-                    ? <TotalRow key={g.label} label={g.label} value={g.value} depth={g.depth} />
+                    ? <TotalRow
+                        key={g.label} label={g.label} value={g.value} depth={g.depth}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value,
+                          sourceNote: 'Calculated by adding the asset lines shown in this section.',
+                          groups: assetRows.filter(row => !row.subtotal && !row.heading),
+                        })}
+                      />
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
@@ -786,6 +801,7 @@ export default function BalanceSheetPanel() {
                 label="Total Assets" value={assetsTotal} emphasis
                 onOpen={() => setDrill({
                   title: 'Total Assets', value: assetsTotal,
+                  sourceNote: 'Calculated by adding all asset balances returned by the general ledger statement.',
                   groups: [...assetRows.filter(g => !g.subtotal), ...(assetGroups && hasFlagged(assetGroups.flagged) ? [assetGroups.flagged] : [])],
                 })}
               />
@@ -805,11 +821,23 @@ export default function BalanceSheetPanel() {
               <div>
                 {marketplaceRows.map(g => (
                   g.subtotal
-                    ? <TotalRow key={g.label} label={g.label} value={g.value} depth={g.depth} />
+                    ? <TotalRow
+                        key={g.label} label={g.label} value={g.value} depth={g.depth}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value,
+                          sourceNote: 'Calculated by adding the marketplace liability lines shown in this section.',
+                          groups: marketplaceRows.filter(row => !row.subtotal && !row.heading),
+                        })}
+                      />
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
-                        onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components,
+                          sourceNote: g.lines.length === 0 && !g.unsourced
+                            ? 'Measured from landlord float ledger entries and split by the landlord record’s management type.'
+                            : undefined,
+                        })}
                       />
                 ))}
               </div>
@@ -817,6 +845,7 @@ export default function BalanceSheetPanel() {
                 label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0}
                 onOpen={() => setDrill({
                   title: 'Market Place Liabilities', value: liabilityGroups?.marketplaceTotal ?? 0,
+                  sourceNote: 'Calculated by adding all marketplace liability balances shown below.',
                   groups: marketplaceRows.filter(g => !g.subtotal),
                 })}
               />
@@ -825,6 +854,7 @@ export default function BalanceSheetPanel() {
                 label="Total Liabilities" value={data.liabilities.total}
                 onOpen={() => setDrill({
                   title: 'Total Liabilities', value: data.liabilities.total,
+                  sourceNote: 'Calculated by adding every liability account returned by the general ledger statement.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
                     ...marketplaceRows.filter(g => !g.subtotal),
@@ -845,6 +875,7 @@ export default function BalanceSheetPanel() {
                 label="Total Shareholders&apos; Equity" value={equityTotal}
                 onOpen={() => setDrill({
                   title: "Total Shareholders' Equity", value: equityTotal,
+                  sourceNote: 'Calculated by adding every shareholders’ equity balance returned by the general ledger statement.',
                   groups: [...(equityGroups?.groups ?? []), ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : [])],
                 })}
               />
@@ -853,6 +884,7 @@ export default function BalanceSheetPanel() {
                 label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis
                 onOpen={() => setDrill({
                   title: "Total Liabilities and Shareholders' Equity", value: totalLiabilitiesAndEquity,
+                  sourceNote: 'Calculated by adding Total Liabilities and Total Shareholders’ Equity.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
                     ...marketplaceRows.filter(g => !g.subtotal),
