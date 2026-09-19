@@ -327,8 +327,8 @@ const MyConcerns = () => {
 
           <TabsContent value="all" className="mt-3 space-y-2">
             <p className="rounded-xl border border-border/80 bg-muted/30 px-2.5 py-2 text-[11px] text-muted-foreground">
-              You can see these because of your role. Only the sender and the person handling it can move a concern
-              along.
+              You can see these as a designated overseer of concerns. Only the sender and the person handling it can
+              move a concern along.
             </p>
             {oversight.map((c) => (
               <ConcernCard key={c.id} concern={c} mine={false} reviewerRows={reviewersByConcern.get(c.id) ?? []} />
