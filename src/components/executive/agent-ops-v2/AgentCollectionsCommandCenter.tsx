@@ -344,7 +344,8 @@ export function AgentCollectionsCommandCenter() {
         bucket,
         generatedAt: data.generated_at,
         totals: {
-          collected: num(data.totals?.collected),
+          // Same definition as the screen and as Tenant Ops Home.
+          collected: num(coverageData?.collected_on_schedule_capped),
           expected: num(data.totals?.expected_due),
           collections_count: num(data.totals?.collections_count),
           avg_collection: num(data.totals?.avg_collection),
