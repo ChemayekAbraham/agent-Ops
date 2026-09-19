@@ -300,9 +300,47 @@ function receivablesCategoryOf(label: string): string | null {
   return null;
 }
 
+/**
+ * Receivable products that must always be listed for a category, even when the
+ * server returns no outstanding items for them (so a nil balance reads as
+ * "nothing owed" rather than looking absent). `from` names the server category
+ * the product is actually returned under.
+ */
+const ALWAYS_SHOWN_PRODUCTS: Record<string, { key: string; label: string; from: string }[]> = {
+  tenant: [
+    { key: 'rent_plan', label: 'Rent Access Plans', from: 'tenant' },
+    { key: 'tenant_service_charge', label: 'Tenant Service Charges', from: 'other' },
+    { key: 'business_advance', label: 'Business Advances', from: 'other' },
+  ],
+};
+
 function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
   const { data, isLoading, error } = useReceivablesBreakdown(true);
   const category = (data?.categories ?? []).find(c => c.key === categoryKey);
+
+  // Rows to render: every product the server returned for this category, plus
+  // any always-shown product (possibly from another server category) at its
+  // real outstanding value, or zero when it has no open items.
+  const rows: { key: string; label: string; outstanding: number }[] = [];
+  if (data) {
+    const expected = ALWAYS_SHOWN_PRODUCTS[categoryKey] ?? [];
+    const findProduct = (fromKey: string, productKey: string) =>
+      (data.categories ?? [])
+        .find(c => c.key === fromKey)
+        ?.products.find(p => p.key === productKey);
+
+    for (const e of expected) {
+      const p = findProduct(e.from, e.key);
+      rows.push({ key: e.key, label: p?.label ?? e.label, outstanding: p?.outstanding ?? 0 });
+    }
+    for (const p of category?.products ?? []) {
+      if (!rows.some(r => r.key === p.key)) {
+        rows.push({ key: p.key, label: p.label, outstanding: p.outstanding });
+      }
+    }
+  }
+
+  const total = rows.reduce((s, r) => s + (r.outstanding ?? 0), 0);
 
   return (
     <div className="mt-1">
@@ -317,19 +355,19 @@ function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
               Could not load the receivables: {(error as Error).message}
             </p>
           )}
-          {data && !category && (
+          {data && rows.length === 0 && (
             <p className="text-[10px] text-muted-foreground">No outstanding receivables recorded here.</p>
           )}
-          {category && (
+          {rows.length > 0 && (
             <div className="space-y-2">
               <p className="text-[10px] text-muted-foreground">
-                Total receivables · {fmtAmount(category.outstanding)}
+                Total receivables · {fmtAmount(total)}
               </p>
-              {category.products.map(p => (
-                <div key={p.key}>
+              {rows.map(r => (
+                <div key={r.key}>
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-[11px] font-medium text-foreground truncate">{p.label}</span>
-                    <span className="font-mono text-[11px] shrink-0">{fmtAmount(p.outstanding)}</span>
+                    <span className="text-[11px] font-medium text-foreground truncate">{r.label}</span>
+                    <span className="font-mono text-[11px] shrink-0">{fmtAmount(r.outstanding)}</span>
                   </div>
                 </div>
               ))}
@@ -339,6 +377,7 @@ function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
     </div>
   );
 }
+
 
 /** One named component and its exact value inside the modal. */
 function ModalLine({ line, size = 'sm' }: { line: PositionLine; size?: 'sm' | 'xs' }) {
