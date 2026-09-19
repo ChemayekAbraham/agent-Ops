@@ -508,10 +508,35 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                 </div>
               )}
               {isUnmatchedHistoricPostings && (
-                <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
-                  {UNMATCHED_POSTINGS_NOTE}
-                </p>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Detailed Breakdown
+                  </p>
+                  {unmatchedPostings.loading && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading breakdown…
+                    </p>
+                  )}
+                  {!unmatchedPostings.loading && (unmatchedPostings.rows ?? []).map(r => (
+                    <div key={r.group_label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine
+                        line={{
+                          label: r.group_label,
+                          value: r.amount,
+                          source: `${r.legs} ledger ${r.legs === 1 ? 'entry' : 'entries'}`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {!unmatchedPostings.loading && (unmatchedPostings.rows ?? []).length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">No underlying entries found.</p>
+                  )}
+                  <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                    {UNMATCHED_POSTINGS_NOTE}
+                  </p>
+                </div>
               )}
+
               {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
