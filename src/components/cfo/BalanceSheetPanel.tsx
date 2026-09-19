@@ -617,7 +617,7 @@ export default function BalanceSheetPanel() {
    */
   const standaloneRows: BsGroup[] = (liabilityGroups?.standalone ?? []).map(g =>
     isTaxLine(g.label) && statutory
-      ? { ...g, value: statutoryTotal, components: statutoryLines, unsourced: false }
+      ? { ...g, value: statutoryTotal, components: [], unsourced: false }
       : g,
   );
 
