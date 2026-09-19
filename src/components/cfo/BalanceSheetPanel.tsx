@@ -194,8 +194,8 @@ function GroupRow({
             heading ? 'font-medium text-foreground' : 'text-muted-foreground',
           )}
         >
-          {expandable
-            ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
+          {showChevron
+            ? (open && expandable ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
             : null}
           <span className="truncate">{group.label}</span>
           {/* A category with no ledger account behind it is a structural gap,
