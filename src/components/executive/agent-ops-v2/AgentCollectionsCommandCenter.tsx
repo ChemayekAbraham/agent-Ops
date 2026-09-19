@@ -49,35 +49,64 @@ function lastWeekend(now: Date): { start: Date; end: Date } {
   return { start: sat, end: endOfDay(addDays(sat, 1)) };
 }
 
+/**
+ * Uganda (EAT, UTC+3) day boundaries.
+ *
+ * The Home page snaps its window to Kampala calendar days server-side, so the
+ * device's local midnight must never be sent as the window edge — on any
+ * non-EAT device it shifts the window and the two pages stop reconciling.
+ */
+const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+/** Today's Kampala calendar date, expressed as a local-midnight Date for calendar maths. */
+function kampalaToday(): Date {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Kampala', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+  const [y, m, d] = parts.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** Instant of 00:00 Kampala on the calendar date carried by `d`. */
+function eatDayStart(d: Date): Date {
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0) - EAT_OFFSET_MS);
+}
+
+/** Exclusive end: 00:00 Kampala on the day after the calendar date carried by `d`. */
+function eatDayEnd(d: Date): Date {
+  return new Date(eatDayStart(d).getTime() + 86_400_000);
+}
+
 function resolveRange(preset: PresetKey, custom?: DateRange): { start: Date; end: Date; bucket: string } {
-  const now = new Date();
+  const now = kampalaToday();
+  const win = (from: Date, to: Date, bucket: string) => ({ start: eatDayStart(from), end: eatDayEnd(to), bucket });
   switch (preset) {
     case 'today':
-      return { start: startOfDay(now), end: endOfDay(now), bucket: 'hour' };
+      return win(now, now, 'hour');
     case 'yesterday': {
       const y = subDays(now, 1);
-      return { start: startOfDay(y), end: endOfDay(y), bucket: 'hour' };
+      return win(y, y, 'hour');
     }
     case 'five':
-      return { start: startOfDay(subDays(now, 4)), end: endOfDay(now), bucket: 'day' };
+      return win(subDays(now, 4), now, 'day');
     case 'next7':
       // Forward-looking tab: the window is tomorrow → +7 days. The command
       // center RPC is not queried for it; NextSevenDaysExpected renders instead.
-      return { start: startOfDay(addDays(now, 1)), end: endOfDay(addDays(now, 7)), bucket: 'day' };
+      return win(addDays(now, 1), addDays(now, 7), 'day');
     case 'weekend': {
       const w = lastWeekend(now);
-      return { start: w.start, end: w.end, bucket: 'hour' };
+      return win(w.start, w.end, 'hour');
     }
     case 'month':
-      return { start: startOfMonth(now), end: endOfDay(now), bucket: 'day' };
+      return win(startOfMonth(now), now, 'day');
     case 'year':
-      return { start: startOfYear(now), end: endOfDay(now), bucket: 'month' };
+      return win(startOfYear(now), now, 'month');
     case 'custom': {
-      const from = custom?.from ? startOfDay(custom.from) : startOfDay(now);
-      const to = custom?.to ? endOfDay(custom.to) : endOfDay(custom?.from ?? now);
-      const days = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000));
+      const from = custom?.from ? startOfDay(custom.from) : now;
+      const to = custom?.to ? startOfDay(custom.to) : startOfDay(custom?.from ?? now);
+      const days = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000) + 1);
       const bucket = days <= 1 ? 'hour' : days <= 62 ? 'day' : 'month';
-      return { start: from, end: to, bucket };
+      return win(from, to, bucket);
     }
   }
 }
@@ -121,8 +150,12 @@ interface CoverageData {
   /** Token/QR collections carry no rent_request_id, so they match nothing. */
   collected_unattributed: number;
   coverage_pct: number | null;
+  /** Capped at what each plan was billed — the figure Tenant Ops Home reports. */
+  collected_on_schedule_capped: number;
+  pending_capped: number;
+  coverage_pct_capped: number | null;
   coverage_basis: string;
-  agents: { agent_id: string; collected: number; collected_on_schedule: number }[];
+  agents: { agent_id: string; collected: number; collected_on_schedule: number; collected_on_schedule_capped: number }[];
   generated_at: string;
 }
 
@@ -196,10 +229,14 @@ export function AgentCollectionsCommandCenter() {
     staleTime: 20_000,
   });
 
-  /** Per-agent on-schedule collections, for attainment that excludes arrears. */
+  /**
+   * Per-agent collected on the window's own bills, CAPPED at what each plan was
+   * billed — the same definition Tenant Ops Home reports, so the agent figures
+   * sum to the headline and attainment can never exceed 100%.
+   */
   const onScheduleByAgent = useMemo(() => {
     const map = new Map<string, number>();
-    (coverageData?.agents ?? []).forEach(a => map.set(a.agent_id, num(a.collected_on_schedule)));
+    (coverageData?.agents ?? []).forEach(a => map.set(a.agent_id, num(a.collected_on_schedule_capped)));
     return map;
   }, [coverageData]);
 
@@ -248,14 +285,18 @@ export function AgentCollectionsCommandCenter() {
       // Attainment must compare like with like. `collected` includes arrears an
       // agent cleared on plans this window never billed, which on a normal day
       // pushes the best collectors past 200% and makes the column meaningless.
-      const collected = num(a.collected);
+      const cash = num(a.collected);
       const onSchedule = onScheduleByAgent.get(a.agent_id) ?? 0;
       const expected = num(a.expected);
       return {
         ...a,
-        collected,
+        // "Collected" is the Home definition: money against this window's own
+        // bills, capped at what each plan was billed. Arrears stay visible on
+        // their own line instead of being folded into attainment.
+        collected: onSchedule,
+        collectedCash: cash,
         collectedOnSchedule: onSchedule,
-        collectedArrears: Math.max(0, collected - onSchedule),
+        collectedArrears: Math.max(0, cash - onSchedule),
         expected,
         pct: expected > 0 ? Math.round((onSchedule / expected) * 100) : null,
       };
@@ -303,7 +344,8 @@ export function AgentCollectionsCommandCenter() {
         bucket,
         generatedAt: data.generated_at,
         totals: {
-          collected: num(data.totals?.collected),
+          // Same definition as the screen and as Tenant Ops Home.
+          collected: num(coverageData?.collected_on_schedule_capped),
           expected: num(data.totals?.expected_due),
           collections_count: num(data.totals?.collections_count),
           avg_collection: num(data.totals?.avg_collection),
@@ -341,14 +383,16 @@ export function AgentCollectionsCommandCenter() {
     }
   };
 
-  const collectedTotal = num(totals?.collected);
-
-  // Coverage answers "how much of what we billed this window came in", so the
-  // numerator is only money against plans this window actually billed. Arrears
-  // are real cash and stay visible via `arrearsCollected` — they just don't
-  // count as attainment on a bill that never included them.
-  const collectedOnSchedule = num(coverageData?.collected_on_schedule);
-  const arrearsCollected = num(coverageData?.collected_arrears) + num(coverageData?.collected_unattributed);
+  // Single definition of "Collected", shared with Tenant Ops → Classic → Home:
+  // money received against this window's own bills, capped at what each plan was
+  // billed (`capped` in the coverage RPC, `collected` in ops_tenant_ops_home_range).
+  // Everything else received in the window — older bills, plans this window never
+  // billed, and token payments with no plan attached — is arrears and gets its own
+  // line rather than being folded into attainment.
+  const collectedOnSchedule = num(coverageData?.collected_on_schedule_capped);
+  const collectedTotal = collectedOnSchedule;
+  const cashReceived = num(coverageData?.collected_total);
+  const arrearsCollected = Math.max(0, cashReceived - collectedOnSchedule);
   const coverage = expectedTotal > 0 ? Math.round((collectedOnSchedule / expectedTotal) * 100) : null;
 
   return (
@@ -425,12 +469,12 @@ export function AgentCollectionsCommandCenter() {
         <Card className="p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Banknote className="h-3.5 w-3.5" /> Collected</div>
           <p className="text-lg font-bold mt-1">{formatUGX(collectedTotal)}</p>
-          <p className="text-[11px] text-muted-foreground">{num(totals?.collections_count)} payments · avg {formatUGX(num(totals?.avg_collection))}</p>
+          <p className="text-[11px] text-muted-foreground">On this period's bills{arrearsCollected > 0 ? ` · ${formatUGX(arrearsCollected)} arrears` : ''}</p>
         </Card>
         <Card className="p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Receipt className="h-3.5 w-3.5" /> Total collections</div>
           <p className="text-lg font-bold mt-1">{num(totals?.collections_count).toLocaleString()}</p>
-          <p className="text-[11px] text-muted-foreground">{formatUGX(collectedTotal)} collected · avg {formatUGX(num(totals?.avg_collection))}</p>
+          <p className="text-[11px] text-muted-foreground">{formatUGX(cashReceived)} cash received · avg {formatUGX(num(totals?.avg_collection))}</p>
         </Card>
         <Card className="p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Target className="h-3.5 w-3.5" /> Expected</div>

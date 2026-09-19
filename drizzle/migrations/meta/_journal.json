@@ -1688,6 +1688,13 @@
       "when": 1789832615532,
       "tag": "0240_deferred_fee_breakdown",
       "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1789849772234,
+      "tag": "0241_coverage_per_agent_capped_on_schedule",
+      "breakpoints": true
     }
   ]
 }
