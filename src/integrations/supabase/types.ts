@@ -48134,22 +48134,7 @@ export type Database = {
           unit_key: string | null
           window_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "engrep_rows_window_id_fkey"
-            columns: ["window_id"]
-            isOneToOne: false
-            referencedRelation: "engrep_window_summary"
-            referencedColumns: ["window_id"]
-          },
-          {
-            foreignKeyName: "engrep_rows_window_id_fkey"
-            columns: ["window_id"]
-            isOneToOne: false
-            referencedRelation: "engrep_windows"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       engrep_claimed_not_live: {
         Row: {
@@ -54622,6 +54607,7 @@ export type Database = {
         Returns: string
       }
       engrep_is_adjudicator: { Args: never; Returns: boolean }
+      engrep_is_generated_path: { Args: { p_path: string }; Returns: boolean }
       engrep_lock_window: { Args: { p_window_id: string }; Returns: number }
       engrep_mark_harvested: {
         Args: { p_window_id: string }
