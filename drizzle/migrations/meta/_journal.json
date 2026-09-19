@@ -1660,6 +1660,13 @@
       "when": 1789822219910,
       "tag": "0236_landlord_float_split_follow_subscription",
       "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "7",
+      "when": 1789822502324,
+      "tag": "0237_landlord_float_self_managed_by_funder",
+      "breakpoints": true
     }
   ]
 }
