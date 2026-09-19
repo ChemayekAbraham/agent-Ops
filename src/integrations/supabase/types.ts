@@ -6739,10 +6739,13 @@ export type Database = {
       bot_referral_ring_detections: {
         Row: {
           action_taken: string
+          bots_preserved_for_review: number
           bots_soft_deleted: number
           detected_at: string
+          detection_signal: string | null
           distinct_names: number
           id: string
+          low_quality_name_count: number | null
           notes: string | null
           referred_count: number
           referrer_id: string
@@ -6751,10 +6754,13 @@ export type Database = {
         }
         Insert: {
           action_taken: string
+          bots_preserved_for_review?: number
           bots_soft_deleted?: number
           detected_at?: string
+          detection_signal?: string | null
           distinct_names: number
           id?: string
+          low_quality_name_count?: number | null
           notes?: string | null
           referred_count: number
           referrer_id: string
@@ -6763,10 +6769,13 @@ export type Database = {
         }
         Update: {
           action_taken?: string
+          bots_preserved_for_review?: number
           bots_soft_deleted?: number
           detected_at?: string
+          detection_signal?: string | null
           distinct_names?: number
           id?: string
+          low_quality_name_count?: number | null
           notes?: string | null
           referred_count?: number
           referrer_id?: string
