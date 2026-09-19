@@ -60,6 +60,12 @@ interface GmailTx {
   direction: string | null;
   channel: string | null;
   counterparty: string | null;
+  /** Payer's real name, kept distinct from `counterparty` once a till/merchant
+   *  row is phone-enriched (see gmail-poll-transactions' enrich-on-duplicate
+   *  step) — at that point `counterparty` holds the resolved phone, not the
+   *  name. Routing must read this field for the name-learning path, never
+   *  `counterparty`, or it teaches the matcher the phone string as a "name". */
+  counterparty_name: string | null;
   fee: number | null;
   balance: number | null;
   linked_deposit_request_id: string | null;
@@ -1290,7 +1296,7 @@ export function EmailTransactionsPanel() {
     // same builder across awaits can stack modifiers in PostgREST.
     const buildQuery = () => {
       let q: any = (supabase.from('gmail_transactions') as any)
-        .select('id,gmail_message_id,from_email,from_name,subject,snippet,amount,transaction_id,parsed,internal_date,direction,channel,counterparty,fee,balance,linked_deposit_request_id,auto_matched_at')
+        .select('id,gmail_message_id,from_email,from_name,subject,snippet,amount,transaction_id,parsed,internal_date,direction,channel,counterparty,counterparty_name,fee,balance,linked_deposit_request_id,auto_matched_at')
         .order('internal_date', { ascending: false, nullsFirst: false });
       // When the operator has typed a search query, IGNORE the date range
       // entirely so the search reaches the full email history. This makes the

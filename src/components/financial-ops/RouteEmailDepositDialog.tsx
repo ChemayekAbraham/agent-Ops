@@ -692,6 +692,13 @@ export interface EmailRowForRouting {
    *  debit flow to compose a reason that names who actually received the
    *  money rather than the bank/MNO that sent the confirmation email. */
   counterparty?: string | null;
+  /** Payer's real name. Distinct from `counterparty`: once a till/merchant
+   *  row is phone-enriched from a duplicate MTN receipt (gmail-poll-
+   *  transactions' enrich-on-duplicate step), `counterparty` holds the
+   *  resolved phone number instead of the name, and this field is the only
+   *  place the name still lives. Name-learning below must read this, not
+   *  `counterparty`, or it teaches the matcher the phone digits as a "name". */
+  counterparty_name?: string | null;
   /** Raw email body / preview text. Used to auto-extract a MoMo / bank
    *  transaction reference when the email carries no parsed transaction_id
    *  of its own, so operators don't have to retype it manually. */
@@ -1713,6 +1720,14 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
         );
         return found.size === 1 ? Array.from(found)[0] : null;
       })();
+      // Payer name for the name-learning path. `counterparty_name` is the
+      // authoritative field once a row has been phone-enriched (see the type
+      // doc above); `counterparty` is only a valid name source when it isn't
+      // itself phone-shaped (older / non-enriched name-only receipts still
+      // carry the name there).
+      const phoneShapeRe = /^(?:\+?256|0)\d{9}$/;
+      const sourceName = row.counterparty_name
+        || (row.counterparty && !phoneShapeRe.test(row.counterparty.trim()) ? row.counterparty : null);
       const body = {
         target_user_id: user.id,
         amount: amt,
@@ -1735,7 +1750,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
         // name, never a phone) — lets the backend learn "this name pays on
         // behalf of this user" so the next receipt from the same name
         // auto-credits instead of returning to this manual queue.
-        source_name: row.counterparty || null,
+        source_name: sourceName,
       };
       // ── Authoritative backend pre-flight ──────────────────────────
       // Re-checks credited status from the DB (not React Query cache)
