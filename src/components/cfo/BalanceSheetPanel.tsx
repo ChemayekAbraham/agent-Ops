@@ -255,7 +255,7 @@ function GroupRow({
 
 
 /** Unclassified lines, itemised so nothing hides inside a total. */
-function FlaggedBlock({ group, showSources }: { group?: BsGroup; showSources: boolean }) {
+function FlaggedBlock({ group, showSources, onOpen }: { group?: BsGroup; showSources: boolean; onOpen?: (d: Drilldown) => void }) {
   if (!group || !hasFlagged(group)) return null;
   return (
     <div className="mt-2 rounded-md border border-warning/40 bg-warning/5 p-2">
@@ -263,9 +263,97 @@ function FlaggedBlock({ group, showSources }: { group?: BsGroup; showSources: bo
       <p className="mb-1 text-[10px] text-muted-foreground">
         Included in the section total. These accounts have no confident home in the current structure.
       </p>
-      {visibleFlaggedLines(group).map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}
-      <TotalRow label="Subtotal — flagged" value={group.value} />
+      {visibleFlaggedLines(group).map(l => (
+        <LineRow
+          key={l.label} line={l} showSources={showSources}
+          onOpen={onOpen ? () => onOpen({ title: l.label, value: l.value, lines: [l] }) : undefined}
+        />
+      ))}
+      <TotalRow
+        label="Subtotal — flagged" value={group.value}
+        onOpen={onOpen ? () => onOpen({ title: group.label, value: group.value, lines: visibleFlaggedLines(group) }) : undefined}
+      />
     </div>
+  );
+}
+
+/** The drill-down modal: account-level breakdown of any tapped line or total. */
+function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
+  const fmt = (v: number) => (v < 0 ? `(${formatUGX(Math.abs(v))})` : formatUGX(v));
+  return (
+    <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        {drill && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-sm leading-snug pr-6">{drill.title}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Balance</span>
+                <span className={cn('font-mono text-base font-bold', drill.value < 0 ? 'text-destructive' : 'text-foreground')}>
+                  {fmt(drill.value)}
+                </span>
+              </div>
+              {drill.unsourced && (
+                <p className="text-[10px] text-muted-foreground">
+                  No ledger account maps here yet — any balance sits in an operational sub-ledger and is shown under memo sub-ledgers, not in the ledger totals.
+                </p>
+              )}
+              {drill.components && drill.components.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Components</p>
+                  {drill.components.map(c => (
+                    <div key={c.label} className="flex items-start justify-between gap-3 border-b border-border/40 py-1 last:border-0">
+                      <span className="text-xs text-muted-foreground truncate">{c.label}</span>
+                      <span className={cn('font-mono text-xs shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {drill.groups && drill.groups.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Made up of</p>
+                  {drill.groups.map(g => (
+                    <div key={g.label} className="border-b border-border/40 py-1 last:border-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-xs text-muted-foreground truncate" style={{ paddingLeft: (g.depth ?? 0) * 12 }}>{g.label}</span>
+                        <span className={cn('font-mono text-xs shrink-0', g.value < 0 ? 'text-destructive' : '')}>
+                          {g.heading ? '' : fmt(g.value)}
+                        </span>
+                      </div>
+                      {(g.components ?? []).map(c => (
+                        <div key={c.label} className="flex items-start justify-between gap-3 pl-4">
+                          <span className="text-[11px] text-muted-foreground/80 truncate">{c.label}</span>
+                          <span className={cn('font-mono text-[11px] shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {drill.lines && drill.lines.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ledger accounts</p>
+                  {drill.lines.map(l => (
+                    <div key={l.label} className="border-b border-border/40 py-1 last:border-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-xs text-muted-foreground truncate">{l.label}</span>
+                        <span className={cn('font-mono text-xs shrink-0', l.value < 0 ? 'text-destructive' : '')}>{fmt(l.value)}</span>
+                      </div>
+                      {l.source && <p className="text-[10px] text-muted-foreground/70">Derived from {l.source}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(!drill.lines || drill.lines.length === 0) && (!drill.groups || drill.groups.length === 0) && (!drill.components || drill.components.length === 0) && !drill.unsourced && (
+                <p className="text-[10px] text-muted-foreground">No further account-level breakdown is available for this line.</p>
+              )}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
