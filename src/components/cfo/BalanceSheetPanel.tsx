@@ -443,6 +443,11 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                    <ReceivablesDetail categoryKey={receivablesKey} />
                 </div>
               )}
+              {drill.sourceNote && (
+                <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                  {drill.sourceNote}
+                </p>
+              )}
               {!receivablesKey && drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
