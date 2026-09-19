@@ -54635,6 +54635,10 @@ export type Database = {
         Args: { p_on: string; p_paths: string[] }
         Returns: string
       }
+      engrep_reevaluate_liveness: {
+        Args: { p_window: string }
+        Returns: number
+      }
       engrep_refresh_catalog_movement: {
         Args: { p_since?: string }
         Returns: number
