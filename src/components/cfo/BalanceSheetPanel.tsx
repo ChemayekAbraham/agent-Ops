@@ -401,9 +401,101 @@ function AccountActivity({ accountCode, asAt }: { accountCode: string; asAt: Dat
   );
 }
 
+/* ---------------------------------------------------------------------------
+ * Receivables detail: the actual outstanding receivables behind a receivables
+ * line — who owes it, the exact amount, when it is due and its status. Read
+ * from the authoritative server-side definition (`get_receivables_breakdown`
+ * over `v_receivables_lines`); no receivables maths is done here.
+ * ------------------------------------------------------------------------- */
+
+/** Which receivables category (if any) a balance-sheet label refers to. */
+function receivablesCategoryOf(label: string): string | null {
+  const l = label.toLowerCase();
+  if (!l.includes('receivable')) return null;
+  if (l.includes('tenant')) return 'tenant';
+  if (l.includes('agent')) return 'agent';
+  if (l.includes('landlord')) return 'landlord';
+  if (l.includes('partner')) return 'partner';
+  return null;
+}
+
+function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
+  const [open, setOpen] = useState(false);
+  const { data, isLoading, error } = useReceivablesBreakdown(open);
+  const category = (data?.categories ?? []).find(c => c.key === categoryKey);
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1 text-[10px] font-medium text-primary"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {open ? 'Hide the actual receivables' : 'See the actual receivables'}
+      </button>
+      {open && (
+        <div className="mt-1 rounded-md border border-border/60 bg-muted/20 p-2">
+          {isLoading && (
+            <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Loading receivables…
+            </p>
+          )}
+          {error && (
+            <p className="text-[10px] text-destructive">
+              Could not load the receivables: {(error as Error).message}
+            </p>
+          )}
+          {data && !category && (
+            <p className="text-[10px] text-muted-foreground">No outstanding receivables recorded here.</p>
+          )}
+          {category && (
+            <div className="space-y-2">
+              <p className="text-[10px] text-muted-foreground">
+                {category.item_count.toLocaleString()} outstanding receivables · total {fmtAmount(category.outstanding)}
+              </p>
+              {category.products.map(p => (
+                <div key={p.key}>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-[11px] font-medium text-foreground truncate">
+                      {p.label} <span className="text-muted-foreground/70">({p.item_count.toLocaleString()})</span>
+                    </span>
+                    <span className="font-mono text-[11px] shrink-0">{fmtAmount(p.outstanding)}</span>
+                  </div>
+                  {p.items.map(it => (
+                    <div key={it.item_id} className="flex items-start justify-between gap-3 py-0.5 pl-2">
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        {it.counterparty || 'Unnamed account'}
+                        {it.due_date ? (
+                          <span className="text-muted-foreground/60">
+                            {' '}· due {format(new Date(it.due_date), 'dd MMM yyyy')}
+                            {it.due_kind === 'projected' ? ' (expected)' : ''}
+                          </span>
+                        ) : null}
+                        {it.status ? <span className="text-muted-foreground/60"> · {it.status}</span> : null}
+                      </span>
+                      <span className="font-mono text-[11px] shrink-0">{fmtAmount(it.amount)}</span>
+                    </div>
+                  ))}
+                  {p.item_count > p.items.length && (
+                    <p className="pl-2 text-[10px] text-muted-foreground/70">
+                      Showing the {p.items.length} largest of {p.item_count.toLocaleString()} — the total above includes them all.
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** One line inside the modal: its amount, where the value comes from, and its activity. */
 function ModalLine({ line, asAt, size = 'sm' }: { line: PositionLine; asAt: Date; size?: 'sm' | 'xs' }) {
   const code = accountCodeOf(line);
+  const receivablesKey = receivablesCategoryOf(line.label);
   return (
     <div>
       <div className="flex items-start justify-between gap-3">
@@ -418,6 +510,7 @@ function ModalLine({ line, asAt, size = 'sm' }: { line: PositionLine; asAt: Date
         <span className="font-medium text-muted-foreground">Value source:</span>{' '}
         {line.source || 'Calculated from the displayed balance-sheet components'}
       </p>
+      {receivablesKey && <ReceivablesDetail categoryKey={receivablesKey} />}
       {code && <AccountActivity accountCode={code} asAt={asAt} />}
     </div>
   );
