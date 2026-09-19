@@ -443,36 +443,14 @@ function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
           {category && (
             <div className="space-y-2">
               <p className="text-[10px] text-muted-foreground">
-                {category.item_count.toLocaleString()} outstanding receivables · total {fmtAmount(category.outstanding)}
+                Total receivables · {fmtAmount(category.outstanding)}
               </p>
               {category.products.map(p => (
                 <div key={p.key}>
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-[11px] font-medium text-foreground truncate">
-                      {p.label} <span className="text-muted-foreground/70">({p.item_count.toLocaleString()})</span>
-                    </span>
+                    <span className="text-[11px] font-medium text-foreground truncate">{p.label}</span>
                     <span className="font-mono text-[11px] shrink-0">{fmtAmount(p.outstanding)}</span>
                   </div>
-                  {p.items.map(it => (
-                    <div key={it.item_id} className="flex items-start justify-between gap-3 py-0.5 pl-2">
-                      <span className="text-[11px] text-muted-foreground truncate">
-                        {it.counterparty || 'Unnamed account'}
-                        {it.due_date ? (
-                          <span className="text-muted-foreground/60">
-                            {' '}· due {format(new Date(it.due_date), 'dd MMM yyyy')}
-                            {it.due_kind === 'projected' ? ' (expected)' : ''}
-                          </span>
-                        ) : null}
-                        {it.status ? <span className="text-muted-foreground/60"> · {it.status}</span> : null}
-                      </span>
-                      <span className="font-mono text-[11px] shrink-0">{fmtAmount(it.amount)}</span>
-                    </div>
-                  ))}
-                  {p.item_count > p.items.length && (
-                    <p className="pl-2 text-[10px] text-muted-foreground/70">
-                      Showing the {p.items.length} largest of {p.item_count.toLocaleString()} — the total above includes them all.
-                    </p>
-                  )}
                 </div>
               ))}
             </div>
