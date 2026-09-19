@@ -8,7 +8,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat, CARRIED_FORWARD_LABEL,
+  expandLandlordFloat, CARRIED_FORWARD_LABEL, UNMATCHED_HISTORIC_POSTINGS_LABEL,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -99,6 +99,9 @@ interface StatutoryLiabilityRow {
 
 const STATUTORY_NOTE =
   'Taken from payroll records, not the general ledger: amounts withheld on payroll that has already been paid, less anything already remitted. The books hold no tax account, so this figure is shown for disclosure and is not included in Total Liabilities.';
+
+const UNMATCHED_POSTINGS_NOTE =
+  'Old ledger entries that are missing their matching side. These are not cash, income or a new transaction — they are bookkeeping placeholders that keep the balance sheet level while the original entries are traced and completed.';
 
 /** Payload for the tap-to-drill-down modal. */
 interface Drilldown {
@@ -453,6 +456,7 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
   const fmt = fmtAmount;
   const receivablesKey = drill ? receivablesCategoryOf(drill.title) : null;
   const isCarriedForward = drill?.title === CARRIED_FORWARD_LABEL;
+  const isUnmatchedHistoricPostings = drill?.title === UNMATCHED_HISTORIC_POSTINGS_LABEL;
   const carriedForward = useCarriedForwardBreakdown(!!isCarriedForward);
   return (
     <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
@@ -499,6 +503,11 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                     obligations.
                   </p>
                 </div>
+              )}
+              {isUnmatchedHistoricPostings && (
+                <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                  {UNMATCHED_POSTINGS_NOTE}
+                </p>
               )}
               {receivablesKey && (
                 <div className="space-y-1">
@@ -560,11 +569,16 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
               {!receivablesKey && !isCarriedForward && drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
-                  {drill.lines.map(l => (
-                    <div key={l.label} className="border-b border-border/40 py-1.5 last:border-0">
-                      <ModalLine line={l} />
-                    </div>
-                  ))}
+                  {drill.lines.map(l => {
+                    const displayLine = isUnmatchedHistoricPostings
+                      ? { ...l, label: 'Unmatched Historic Postings — Opening Balance Counterpart' }
+                      : l;
+                    return (
+                      <div key={displayLine.label} className="border-b border-border/40 py-1.5 last:border-0">
+                        <ModalLine line={displayLine} />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -640,7 +654,8 @@ export default function BalanceSheetPanel() {
   const liabilityGroups = data
     ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
-  // E3 and E4 are equity accounts in ledger_account_catalog and are reported in
+  // E3 (Balances Carried Forward from Earlier Records) and E4 (Unmatched Historic
+  // Postings) are equity accounts in ledger_account_catalog and are reported in
   // equity. They were briefly reclassified onto the asset side as components of
   // Intangible Assets, which inverted their sign and produced a negative
   // intangible asset; per BIS approval that reclassification is removed. Every
@@ -1145,7 +1160,7 @@ export default function BalanceSheetPanel() {
                   <p className="text-[10px] text-muted-foreground">
                     {data.reconciliation.unresolved_groups.toLocaleString()} historic ledger transactions carry only one side of their entry
                     ({formatUGX(data.reconciliation.unresolved_absolute_amount)} in absolute terms) and are listed below by category.
-                    Their missing side is recognised, itemised, in the equity line "Unmatched Historic Postings"
+                    Their missing side is recognised, itemised, in the equity line "{UNMATCHED_HISTORIC_POSTINGS_LABEL}"
                     {typeof data.reconciliation.one_sided_equity_counterpart === 'number'
                       ? ` (${formatUGX(data.reconciliation.one_sided_equity_counterpart)})`
                       : ''}. No suspense plug is applied: every balanced ledger entry is mapped to a real debit and a real credit, so nothing
