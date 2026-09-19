@@ -56147,6 +56147,14 @@ export type Database = {
           tenant_ops_reviewed_at: string
         }[]
       }
+      get_carried_forward_breakdown: {
+        Args: { p_as_at?: string }
+        Returns: {
+          amount: number
+          group_label: string
+          legs: number
+        }[]
+      }
       get_cash_at_hand_total: { Args: never; Returns: Json }
       get_cash_at_hand_total_system: { Args: never; Returns: Json }
       get_cashflow_forecast_series: {
