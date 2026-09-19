@@ -930,78 +930,48 @@ function FinancialStatementsPanelInner() {
 
       if (activeTab === 'income') {
         const d = data.incomeStatement;
-        const totals = incomeStatementTotals(d);
-        addSection('Revenue');
-        d.byService.revenueFamilies.forEach(fam => {
-          addSection(fam.label);
-          fam.lines.forEach(l => addRow(l.label, l.amount, false, false, true));
-          addRow(`${fam.label} Subtotal`, fam.total, true);
-        });
-        addRow('Gross Revenue', d.byService.grossRevenue, true);
-        if (d.byService.contraRevenue.lines.length > 0) {
-          addSection('Revenue Deductions');
-          d.byService.contraRevenue.lines.forEach(l => addRow(l.label, l.amount, false, true, true));
-          addRow('Total Revenue Deductions', d.byService.contraRevenue.total, true, true);
-        }
-        addRow('Net Revenue', totals.netRevenue, true);
-        y += 3;
-        if (d.byService.reviewQueue.length > 0) {
-          addSection('Flagged for Review (Unmapped Categories)');
-          d.byService.reviewQueue.forEach(l => addRow(`${l.category} (${l.direction})`, l.amount, false, false, true));
-          y += 3;
-        }
-        addSection('Cost of Revenue');
-        addRow('Platform Rewards', d.serviceDeliveryCosts.platformRewards, false, true, true);
-        addRow('Agent Commissions', d.serviceDeliveryCosts.agentCommissions, false, true, true);
-        addRow('Referral Bonuses', d.serviceDeliveryCosts.referralBonuses, false, true, true);
-        addRow('Agent Bonuses', d.serviceDeliveryCosts.agentBonuses, false, true, true);
-        addRow('Transaction Expenses', d.serviceDeliveryCosts.transactionExpenses, false, true, true);
-        addRow('Total Cost of Revenue', d.serviceDeliveryCosts.total, true, true);
-        addRow('Gross Profit', totals.grossProfit, true, totals.grossProfit < 0);
-        y += 3;
-        addSection('Operating Expenses');
-        addRow('Payroll & Staff Costs', d.operatingExpenses.payrollExpenses, false, true, true);
-        addRow('Agent Requisitions', d.operatingExpenses.agentRequisitions, false, true, true);
-        addRow('Financial Agent Expenses', d.operatingExpenses.financialAgentExpenses, false, true, true);
-        addRow('Marketing Expenses', d.operatingExpenses.marketingExpenses, false, true, true);
-        addRow('Research & Development', d.operatingExpenses.researchDevelopment, false, true, true);
-        addRow('General & Admin', d.operatingExpenses.generalOperating, false, true, true);
-        addRow('Total Operating Expenses', d.operatingExpenses.total, true, true);
-        if (d.adjustments.total !== 0) {
-          addSection('Adjustments & Corrections');
-          if (d.adjustments.walletDeductions) addRow('Wallet Deductions (Recoveries)', d.adjustments.walletDeductions, false, false, true);
-          if (d.adjustments.systemCorrections) addRow('System Balance Corrections', d.adjustments.systemCorrections, false, false, true);
-          if (d.adjustments.orphanReassignments) addRow('Orphan Reassignments', d.adjustments.orphanReassignments, false, false, true);
-          if (d.adjustments.orphanReversals) addRow('Orphan Reversals', d.adjustments.orphanReversals, false, true, true);
-          addRow('Net Adjustments', d.adjustments.total, true, d.adjustments.total < 0);
-        }
-        addRow('EBITDA', totals.ebitda, true, totals.ebitda < 0);
-        addSection('Depreciation & Amortization');
-        addRow('Depreciation (Property & Equipment)', d.depreciation, false, true, true);
-        addRow('Amortization (Software & IP)', d.amortization, false, true, true);
-        addRow('Operating Profit / (Loss) (EBIT)', totals.operatingIncome, true, totals.operatingIncome < 0);
-        addSection('Finance Income / (Costs)');
-        addRow('Finance Income', d.interestIncome, false, false, true);
-        addRow('Interest Expense', d.interestExpense, false, true, true);
-        addRow('Net Finance Income / (Costs)', d.otherIncomeExpensesNet, true, d.otherIncomeExpensesNet < 0);
-        addRow('Profit / (Loss) Before Tax', totals.profitBeforeTax, true, totals.profitBeforeTax < 0);
-        addSection('Tax');
-        addRow('Tax Provision', d.taxProvision, false, true, true);
-        y += 3;
-        pdf.setFontSize(11);
+        const pnlRows = buildManagementPnl(d, previousData?.incomeStatement);
+        const columns = [margin, 128, 174, 220, pw - margin];
+        pdf.setFontSize(7);
         pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(totals.netIncome >= 0 ? 22 : 220, totals.netIncome >= 0 ? 163 : 38, totals.netIncome >= 0 ? 74 : 38);
-        pdf.text('NET INCOME', margin, y);
-        pdf.text(formatUGX(totals.netIncome), pw - margin, y, { align: 'right' });
-        y += 8;
-        addSection('Supporting Schedule — Revenue Recognition');
-        addRow('Expected Access Fees', d.revenueRecognition.expectedAccessFees, false, false, true);
-        addRow('Expected Request Fees', d.revenueRecognition.expectedRequestFees, false, false, true);
-        addRow('Total Expected Revenue', d.revenueRecognition.totalExpectedRevenue, true);
-        addRow('Realized Access Fees', d.revenueRecognition.realizedAccessFees, false, false, true);
-        addRow('Realized Request Fees', d.revenueRecognition.realizedRequestFees, false, false, true);
-        addRow('Total Realized Revenue', d.revenueRecognition.totalRealizedRevenue, true);
-        addRow('Revenue Not Yet Collected', d.revenueRecognition.deferredRevenue, false, false, true);
+        pdf.setTextColor(90, 90, 90);
+        ['ACCOUNT', 'CURRENT PERIOD', 'PREVIOUS PERIOD', 'CHANGE', 'CHANGE %'].forEach((label, index) =>
+          pdf.text(label, columns[index], y, { align: index === 0 ? 'left' : 'right' }));
+        y += 5;
+        pdf.setDrawColor(190, 190, 190);
+        pdf.line(margin, y - 3, pw - margin, y - 3);
+        pnlRows.forEach(row => {
+          if (y > 190) { pdf.addPage(); y = 18; }
+          if (row.kind === 'section' || row.kind === 'group') {
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(row.kind === 'section' ? 8 : 7);
+            pdf.setTextColor(row.kind === 'section' ? 37 : 55, row.kind === 'section' ? 99 : 55, row.kind === 'section' ? 235 : 55);
+            pdf.text(row.label.toUpperCase(), margin, y);
+            y += row.kind === 'section' ? 6 : 5;
+            return;
+          }
+          const current = row.current ?? 0;
+          const previous = row.previous;
+          const change = previous === undefined ? undefined : current - previous;
+          const pct = previous === undefined ? undefined : pnlChangePercent(current, previous);
+          const bold = row.kind === 'highlight' || row.kind === 'subtotal' || row.kind === 'margin';
+          pdf.setFont('helvetica', bold ? 'bold' : 'normal');
+          pdf.setFontSize(bold ? 7.5 : 7);
+          pdf.setTextColor(30, 30, 30);
+          pdf.text(row.label, row.kind === 'detail' ? margin + 4 : margin, y);
+          const values = [
+            row.percentage ? `${current.toFixed(1)}%` : pnlValue(current),
+            previous === undefined ? '—' : row.percentage ? `${previous.toFixed(1)}%` : pnlValue(previous),
+            change === undefined ? '—' : row.percentage ? `${change.toFixed(1)} pp` : pnlValue(change),
+            pct === undefined || pct === null ? '—' : `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`,
+          ];
+          values.forEach((value, index) => pdf.text(value, columns[index + 1], y, { align: 'right' }));
+          if (row.kind === 'highlight') {
+            pdf.setDrawColor(180, 180, 180);
+            pdf.line(margin, y + 1.5, pw - margin, y + 1.5);
+          }
+          y += 5;
+        });
       } else if (activeTab === 'cashflow') {
         if (!cashFlow) { toast.error('Cash flow statement is still loading'); setSharing(false); return; }
         pdf.setFontSize(7);
@@ -1224,7 +1194,7 @@ function FinancialStatementsPanelInner() {
             </div>
 
             {/* Active Statement */}
-            {activeTab === 'income' && data && <IncomeStatementSection d={data.incomeStatement} cm={comparisonMetrics} />}
+            {activeTab === 'income' && data && <IncomeStatementSection d={data.incomeStatement} previous={previousData?.incomeStatement} />}
             {activeTab === 'cashflow' && data && <CashFlowSection d={cashFlow} error={cashFlowError} />}
             {activeTab === 'movement' && <ComprehensiveCashMovement />}
             {activeTab === 'balance' && <BalanceSheetPanel />}
