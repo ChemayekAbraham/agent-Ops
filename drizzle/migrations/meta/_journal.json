@@ -1695,6 +1695,13 @@
       "when": 1789849772234,
       "tag": "0241_coverage_per_agent_capped_on_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 242,
+      "version": "7",
+      "when": 1789853673420,
+      "tag": "0242_pin_concern_oversight_to_named_overseers",
+      "breakpoints": true
     }
   ]
 }

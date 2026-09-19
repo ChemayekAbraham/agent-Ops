@@ -8947,6 +8947,27 @@ export type Database = {
         }
         Relationships: []
       }
+      cc_concern_overseers: {
+        Row: {
+          created_at: string
+          note: string | null
+          required_role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          required_role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          required_role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       cc_concern_reviewers: {
         Row: {
           acknowledged_at: string | null
@@ -58897,6 +58918,7 @@ export type Database = {
       is_budget_coo_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_budget_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_business_advance_ops: { Args: { _uid: string }; Returns: boolean }
+      is_cc_concern_overseer: { Args: { _user_id: string }; Returns: boolean }
       is_cfo_approver: { Args: { _user_id: string }; Returns: boolean }
       is_conversation_participant: {
         Args: { _conversation_id: string; _user_id: string }
