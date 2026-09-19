@@ -1,4 +1,4 @@
-- [ ] Reconcile current production Income Statement totals before presentation changes.
-- [ ] Build the comparative management P&L table using existing account labels and calculations.
-- [ ] Align CSV and PDF exports with Current, Previous, Change, and Change %.
-- [ ] Verify calculations, safeguards, and desktop/mobile presentation.
+- [x] Reconcile current production Income Statement totals before presentation changes.
+- [x] Build the comparative management P&L table using existing account labels and calculations.
+- [x] Align CSV and PDF exports with Current, Previous, Change, and Change %.
+- [x] Verify calculations, safeguards, and desktop/mobile presentation.
