@@ -280,6 +280,7 @@ function FlaggedBlock({ group, showSources, onOpen }: { group?: BsGroup; showSou
 /** The drill-down modal: account-level breakdown of any tapped line or total. */
 function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
   const fmt = (v: number) => (v < 0 ? `(${formatUGX(Math.abs(v))})` : formatUGX(v));
+  const sourceText = (line: PositionLine) => line.source || 'Calculated from the displayed balance-sheet components';
   return (
     <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
@@ -302,46 +303,81 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
               )}
               {drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Components</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this balance comes from</p>
                   {drill.components.map(c => (
-                    <div key={c.label} className="flex items-start justify-between gap-3 border-b border-border/40 py-1 last:border-0">
-                      <span className="text-xs text-muted-foreground truncate">{c.label}</span>
-                      <span className={cn('font-mono text-xs shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                    <div key={c.label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-xs text-muted-foreground">{c.label}</span>
+                        <span className={cn('font-mono text-xs shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/70 break-words">
+                        <span className="font-medium text-muted-foreground">Value source:</span> {sourceText(c)}
+                      </p>
                     </div>
                   ))}
                 </div>
               )}
               {drill.groups && drill.groups.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Made up of</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this total comes from</p>
                   {drill.groups.map(g => (
-                    <div key={g.label} className="border-b border-border/40 py-1 last:border-0">
+                    <div key={g.label} className="border-b border-border/40 py-1.5 last:border-0">
                       <div className="flex items-start justify-between gap-3">
-                        <span className="text-xs text-muted-foreground truncate" style={{ paddingLeft: (g.depth ?? 0) * 12 }}>{g.label}</span>
+                        <span className="text-xs font-medium text-muted-foreground" style={{ paddingLeft: (g.depth ?? 0) * 12 }}>{g.label}</span>
                         <span className={cn('font-mono text-xs shrink-0', g.value < 0 ? 'text-destructive' : '')}>
                           {g.heading ? '' : fmt(g.value)}
                         </span>
                       </div>
                       {(g.components ?? []).map(c => (
-                        <div key={c.label} className="flex items-start justify-between gap-3 pl-4">
-                          <span className="text-[11px] text-muted-foreground/80 truncate">{c.label}</span>
-                          <span className={cn('font-mono text-[11px] shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                        <div key={c.label} className="pl-4 pt-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="text-[11px] text-muted-foreground/80">{c.label}</span>
+                            <span className={cn('font-mono text-[11px] shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground/70 break-words">
+                            <span className="font-medium text-muted-foreground">Value source:</span> {sourceText(c)}
+                          </p>
                         </div>
                       ))}
+                      {g.lines.length > 0 ? (
+                        <div className="mt-1 space-y-1 pl-4">
+                          {g.lines.map(l => (
+                            <div key={`${g.label}-${l.label}`} className="border-l border-border/60 pl-2">
+                              <div className="flex items-start justify-between gap-3">
+                                <span className="text-[11px] text-muted-foreground/80">{l.label}</span>
+                                <span className={cn('font-mono text-[11px] shrink-0', l.value < 0 ? 'text-destructive' : '')}>{fmt(l.value)}</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground/70 break-words">
+                                <span className="font-medium text-muted-foreground">Value source:</span> {sourceText(l)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : g.unsourced ? (
+                        <p className="mt-1 pl-4 text-[10px] text-muted-foreground/70">
+                          Value source: operational records outside the ledger; no mapped ledger account is available yet.
+                        </p>
+                      ) : (
+                        <p className="mt-1 pl-4 text-[10px] text-muted-foreground/70">
+                          Value source: calculated from the displayed balance-sheet components.
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
               {drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ledger accounts</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this balance comes from</p>
                   {drill.lines.map(l => (
-                    <div key={l.label} className="border-b border-border/40 py-1 last:border-0">
+                    <div key={l.label} className="border-b border-border/40 py-1.5 last:border-0">
                       <div className="flex items-start justify-between gap-3">
-                        <span className="text-xs text-muted-foreground truncate">{l.label}</span>
+                        <span className="text-xs text-muted-foreground">{l.label}</span>
                         <span className={cn('font-mono text-xs shrink-0', l.value < 0 ? 'text-destructive' : '')}>{fmt(l.value)}</span>
                       </div>
-                      {l.source && <p className="text-[10px] text-muted-foreground/70">Derived from {l.source}</p>}
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/70 break-words">
+                        <span className="font-medium text-muted-foreground">Value source:</span> {sourceText(l)}
+                      </p>
                     </div>
                   ))}
                 </div>
