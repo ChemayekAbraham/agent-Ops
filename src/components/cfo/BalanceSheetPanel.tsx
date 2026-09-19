@@ -1155,7 +1155,7 @@ export default function BalanceSheetPanel() {
                   <p className="text-[10px] text-muted-foreground">
                     {data.reconciliation.unresolved_groups.toLocaleString()} historic ledger transactions carry only one side of their entry
                     ({formatUGX(data.reconciliation.unresolved_absolute_amount)} in absolute terms) and are listed below by category.
-                    Their missing side is recognised, itemised, in the equity line "Unmatched Historic Postings"
+                    Their missing side is recognised, itemised, in the equity line "{UNMATCHED_HISTORIC_POSTINGS_LABEL}"
                     {typeof data.reconciliation.one_sided_equity_counterpart === 'number'
                       ? ` (${formatUGX(data.reconciliation.one_sided_equity_counterpart)})`
                       : ''}. No suspense plug is applied: every balanced ledger entry is mapped to a real debit and a real credit, so nothing
