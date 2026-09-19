@@ -619,7 +619,7 @@ export function ApprovalQueue() {
               frozen_by: null,
               frozen_reason: null,
               frozen_category: null,
-            })
+            } as any)
             .in('id', ids);
           if (unfreezeErr) throw unfreezeErr;
         } else {
