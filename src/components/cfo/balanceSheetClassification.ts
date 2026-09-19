@@ -154,7 +154,7 @@ export const EQUITY_CATEGORIES = [
   'Angel Pool Shares',
   'Retained Earnings',
   'Proposed Dividends',
-  'Legacy Opening Balance Adjustments',
+  'Balances Carried Forward from Earlier Records',
   'Legacy One-Sided Posting Counterparts',
 ] as const;
 
@@ -186,7 +186,7 @@ const EQUITY_LABEL_MAP: Record<string, string> = {
 
 const EQUITY_ACCOUNT_MAP: Record<string, string> = {
   E1: 'Angel Pool Shares',
-  E3: 'Legacy Opening Balance Adjustments',
+  E3: 'Balances Carried Forward from Earlier Records',
   E4: 'Legacy One-Sided Posting Counterparts',
 };
 
