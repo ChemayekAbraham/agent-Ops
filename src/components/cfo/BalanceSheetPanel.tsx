@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
@@ -11,6 +12,7 @@ import {
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
+import { useReceivablesBreakdown } from '@/hooks/useReceivables';
 import { format, endOfDay } from 'date-fns';
 import {
   AlertTriangle, Calendar, CheckCircle2, ChevronDown, ChevronRight,
@@ -85,18 +87,34 @@ export interface StatementOfFinancialPosition {
   };
 }
 
-function LineRow({ line, showSources }: { line: PositionLine; showSources: boolean }) {
+/** Payload for the tap-to-drill-down modal. */
+interface Drilldown {
+  title: string;
+  value: number;
+  unsourced?: boolean;
+  /** Plain-language explanation for derived values that are not a direct account line. */
+  sourceNote?: string;
+  /** Account-level lines behind the figure. */
+  lines?: PositionLine[];
+  /** Indented component lines (e.g. partner obligations inside Landlord Float). */
+  components?: PositionLine[];
+  /** Whole groups, for section totals. */
+  groups?: BsGroup[];
+}
+
+function LineRow({ line, showSources, onOpen }: { line: PositionLine; showSources: boolean; onOpen?: () => void }) {
   const [open, setOpen] = useState(false);
+  const tappable = !!onOpen;
   return (
     <div className="border-b border-border/40 last:border-0">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => (onOpen ? onOpen() : setOpen(o => !o))}
         className="w-full flex items-start justify-between gap-3 py-1.5 text-left"
       >
         <span className="flex items-start gap-1 min-w-0 text-xs text-muted-foreground">
-          {showSources
-            ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
+          {tappable || showSources
+            ? (open && !tappable ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
             : null}
           <span className="truncate">{line.label}</span>
         </span>
@@ -104,28 +122,35 @@ function LineRow({ line, showSources }: { line: PositionLine; showSources: boole
           {line.value < 0 ? `(${formatUGX(Math.abs(line.value))})` : formatUGX(line.value)}
         </span>
       </button>
-      {showSources && open && (
+      {!tappable && showSources && open && (
         <p className="pb-2 pl-4 text-[10px] text-muted-foreground">Derived from {line.source}</p>
       )}
     </div>
   );
 }
 
-function TotalRow({ label, value, emphasis, depth = 0 }: {
-  label: string; value: number; emphasis?: boolean; depth?: number;
+function TotalRow({ label, value, emphasis, depth = 0, onOpen }: {
+  label: string; value: number; emphasis?: boolean; depth?: number; onOpen?: () => void;
 }) {
-  return (
-    <div className={cn(
-      'flex items-center justify-between gap-3 py-2 border-t',
-      emphasis ? 'border-primary/50 mt-1' : 'border-border',
-      depth > 0 && 'pl-3',
-    )}>
-      <span className={cn('text-xs', emphasis ? 'font-bold uppercase tracking-wide' : 'font-semibold')}>{label}</span>
+  const inner = (
+    <>
+      <span className={cn('text-xs flex items-center gap-1', emphasis ? 'font-bold uppercase tracking-wide' : 'font-semibold')}>
+        {onOpen && <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />}
+        {label}
+      </span>
       <span className={cn('font-mono', emphasis ? 'text-sm font-bold' : 'text-xs font-semibold')}>
         {value < 0 ? `(${formatUGX(Math.abs(value))})` : formatUGX(value)}
       </span>
-    </div>
+    </>
   );
+  const cls = cn(
+    'flex items-center justify-between gap-3 py-2 border-t w-full text-left',
+    emphasis ? 'border-primary/50 mt-1' : 'border-border',
+    depth > 0 && 'pl-3',
+  );
+  return onOpen
+    ? <button type="button" onClick={onOpen} className={cls}>{inner}</button>
+    : <div className={cls}>{inner}</div>;
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
@@ -151,18 +176,19 @@ function SubHeading({ children }: { children: React.ReactNode }) {
  * so no balance can silently disappear from the statement.
  */
 function GroupRow({
-  group, showSources, components, heading, depth = 0,
+  group, showSources, components, heading, depth = 0, onOpen,
 }: {
   group: BsGroup; showSources: boolean; components?: PositionLine[];
-  heading?: boolean; depth?: number;
+  heading?: boolean; depth?: number; onOpen?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const expandable = showSources && group.lines.length > 0;
+  const expandable = !onOpen && showSources && group.lines.length > 0;
+  const showChevron = !!onOpen || expandable;
   return (
     <div className={cn('last:border-0', heading ? '' : 'border-b border-border/40')}>
       <button
         type="button"
-        onClick={() => expandable && setOpen(o => !o)}
+        onClick={() => (onOpen ? onOpen() : expandable && setOpen(o => !o))}
         className={cn('w-full flex items-start justify-between gap-3 py-1.5 text-left', depth > 0 && 'pl-3')}
       >
         <span
@@ -171,8 +197,8 @@ function GroupRow({
             heading ? 'font-medium text-foreground' : 'text-muted-foreground',
           )}
         >
-          {expandable
-            ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
+          {showChevron
+            ? (open && expandable ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
             : null}
           <span className="truncate">{group.label}</span>
           {/* A category with no ledger account behind it is a structural gap,
@@ -232,7 +258,7 @@ function GroupRow({
 
 
 /** Unclassified lines, itemised so nothing hides inside a total. */
-function FlaggedBlock({ group, showSources }: { group?: BsGroup; showSources: boolean }) {
+function FlaggedBlock({ group, showSources, onOpen }: { group?: BsGroup; showSources: boolean; onOpen?: (d: Drilldown) => void }) {
   if (!group || !hasFlagged(group)) return null;
   return (
     <div className="mt-2 rounded-md border border-warning/40 bg-warning/5 p-2">
@@ -240,9 +266,221 @@ function FlaggedBlock({ group, showSources }: { group?: BsGroup; showSources: bo
       <p className="mb-1 text-[10px] text-muted-foreground">
         Included in the section total. These accounts have no confident home in the current structure.
       </p>
-      {visibleFlaggedLines(group).map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}
-      <TotalRow label="Subtotal — flagged" value={group.value} />
+      {visibleFlaggedLines(group).map(l => (
+        <LineRow
+          key={l.label} line={l} showSources={showSources}
+          onOpen={onOpen ? () => onOpen({ title: l.label, value: l.value, lines: [l] }) : undefined}
+        />
+      ))}
+      <TotalRow
+        label="Subtotal — flagged" value={group.value}
+        onOpen={onOpen ? () => onOpen({ title: group.label, value: group.value, lines: visibleFlaggedLines(group) }) : undefined}
+      />
     </div>
+  );
+}
+
+const fmtAmount = (v: number) => (v < 0 ? `(${formatUGX(Math.abs(v))})` : formatUGX(v));
+
+/* ---------------------------------------------------------------------------
+ * Receivables detail: the actual outstanding receivables behind a receivables
+ * line, grouped by product with each exact value. Read from the authoritative
+ * server-side definition (`get_receivables_breakdown` over
+ * `v_receivables_lines`); no receivables maths is done here.
+ * ------------------------------------------------------------------------- */
+
+/** Which receivables category (if any) a balance-sheet label refers to. */
+function receivablesCategoryOf(label: string): string | null {
+  const l = label.toLowerCase();
+  if (!l.includes('receivable')) return null;
+  if (l.includes('tenant')) return 'tenant';
+  if (l.includes('agent')) return 'agent';
+  if (l.includes('landlord')) return 'landlord';
+  if (l.includes('partner')) return 'partner';
+  return null;
+}
+
+/**
+ * Receivable products that must always be listed for a category, even when the
+ * server returns no outstanding items for them (so a nil balance reads as
+ * "nothing owed" rather than looking absent). `from` names the server category
+ * the product is actually returned under.
+ */
+const ALWAYS_SHOWN_PRODUCTS: Record<string, { key: string; label: string; from: string }[]> = {
+  tenant: [
+    { key: 'rent_plan', label: 'Rent Access Plans', from: 'tenant' },
+    { key: 'tenant_service_charge', label: 'Tenant Service Charges', from: 'other' },
+    { key: 'business_advance', label: 'Business Advances', from: 'other' },
+  ],
+};
+
+function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
+  const { data, isLoading, error } = useReceivablesBreakdown(true);
+  const category = (data?.categories ?? []).find(c => c.key === categoryKey);
+
+  // Rows to render: every product the server returned for this category, plus
+  // any always-shown product (possibly from another server category) at its
+  // real outstanding value, or zero when it has no open items.
+  const rows: { key: string; label: string; outstanding: number }[] = [];
+  if (data) {
+    const expected = ALWAYS_SHOWN_PRODUCTS[categoryKey] ?? [];
+    const findProduct = (fromKey: string, productKey: string) =>
+      (data.categories ?? [])
+        .find(c => c.key === fromKey)
+        ?.products.find(p => p.key === productKey);
+
+    for (const e of expected) {
+      const p = findProduct(e.from, e.key);
+      rows.push({ key: e.key, label: p?.label ?? e.label, outstanding: p?.outstanding ?? 0 });
+    }
+    for (const p of category?.products ?? []) {
+      if (!rows.some(r => r.key === p.key)) {
+        rows.push({ key: p.key, label: p.label, outstanding: p.outstanding });
+      }
+    }
+  }
+
+  const total = rows.reduce((s, r) => s + (r.outstanding ?? 0), 0);
+
+  return (
+    <div className="mt-1">
+      <div className="mt-1 rounded-md border border-border/60 bg-muted/20 p-2">
+          {isLoading && (
+            <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Loading receivables…
+            </p>
+          )}
+          {error && (
+            <p className="text-[10px] text-destructive">
+              Could not load the receivables: {(error as Error).message}
+            </p>
+          )}
+          {data && rows.length === 0 && (
+            <p className="text-[10px] text-muted-foreground">No outstanding receivables recorded here.</p>
+          )}
+          {rows.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] text-muted-foreground">
+                Total receivables · {fmtAmount(total)}
+              </p>
+              {rows.map(r => (
+                <div key={r.key}>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-[11px] font-medium text-foreground truncate">{r.label}</span>
+                    <span className="font-mono text-[11px] shrink-0">{fmtAmount(r.outstanding)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+      </div>
+    </div>
+  );
+}
+
+
+/** One named component and its exact value inside the modal. */
+function ModalLine({ line, size = 'sm' }: { line: PositionLine; size?: 'sm' | 'xs' }) {
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-3">
+        <span className={cn('text-muted-foreground', size === 'sm' ? 'text-xs' : 'text-[11px] text-muted-foreground/80')}>
+          {line.label}
+        </span>
+        <span className={cn('font-mono shrink-0', size === 'sm' ? 'text-xs' : 'text-[11px]', line.value < 0 ? 'text-destructive' : '')}>
+          {fmtAmount(line.value)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** The drill-down modal: named components and exact values for any tapped line or total. */
+function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
+  const fmt = fmtAmount;
+  const receivablesKey = drill ? receivablesCategoryOf(drill.title) : null;
+  return (
+    <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        {drill && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-sm leading-snug pr-6">{drill.title}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Balance</span>
+                <span className={cn('font-mono text-base font-bold', drill.value < 0 ? 'text-destructive' : 'text-foreground')}>
+                  {fmt(drill.value)}
+                </span>
+              </div>
+              {receivablesKey && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Breakdown
+                  </p>
+                   <ReceivablesDetail categoryKey={receivablesKey} />
+                </div>
+              )}
+              {!receivablesKey && drill.components && drill.components.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
+                  {drill.components.map(c => (
+                    <div key={c.label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine line={c} />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!receivablesKey && drill.groups && drill.groups.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
+                  {drill.groups.map(g => (
+                    <div key={g.label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-xs font-medium text-muted-foreground" style={{ paddingLeft: (g.depth ?? 0) * 12 }}>{g.label}</span>
+                        <span className={cn('font-mono text-xs shrink-0', g.value < 0 ? 'text-destructive' : '')}>
+                          {g.heading ? '' : fmt(g.value)}
+                        </span>
+                      </div>
+                      {receivablesCategoryOf(g.label) && (
+                        <div className="pl-4 pt-1">
+                          <ReceivablesDetail categoryKey={receivablesCategoryOf(g.label) as string} />
+                        </div>
+                      )}
+                      {(g.components ?? []).map(c => (
+                        <div key={c.label} className="pl-4 pt-1">
+                          <ModalLine line={c} size="xs" />
+                        </div>
+                      ))}
+                      {g.lines.length > 0 ? (
+                        <div className="mt-1 space-y-1 pl-4">
+                          {g.lines.map(l => (
+                            <div key={`${g.label}-${l.label}`} className="border-l border-border/60 pl-2">
+                               <ModalLine line={l} size="xs" />
+                            </div>
+                          ))}
+                        </div>
+                       ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!receivablesKey && drill.lines && drill.lines.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
+                  {drill.lines.map(l => (
+                    <div key={l.label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine line={l} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -265,6 +503,8 @@ export default function BalanceSheetPanel() {
   const [exporting, setExporting] = useState(false);
   /** Presentation-only breakdown of the existing Landlord Float. */
   const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
+  /** Line or total the user tapped, shown as a modal breakdown. */
+  const [drill, setDrill] = useState<Drilldown | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
@@ -624,43 +864,119 @@ export default function BalanceSheetPanel() {
               <div>
                 {assetRows.map(g => (
                   g.subtotal
-                    ? <TotalRow key={g.label} label={g.label} value={g.value} depth={g.depth} />
+                    ? <TotalRow
+                        key={g.label} label={g.label} value={g.value} depth={g.depth}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value,
+                          sourceNote: 'Calculated by adding the asset lines shown in this section.',
+                          groups: assetRows.filter(row => !row.subtotal && !row.heading),
+                        })}
+                      />
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
+                        onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
                       />
                 ))}
               </div>
-              <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Assets" value={assetsTotal} emphasis />
+              <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Assets" value={assetsTotal} emphasis
+                onOpen={() => setDrill({
+                  title: 'Total Assets', value: assetsTotal,
+                  sourceNote: 'Calculated by adding all asset balances returned by the general ledger statement.',
+                  groups: [...assetRows.filter(g => !g.subtotal), ...(assetGroups && hasFlagged(assetGroups.flagged) ? [assetGroups.flagged] : [])],
+                })}
+              />
               <DriftNote drift={assetDrift} of="Total Assets" />
             </div>
 
             <div>
               <Badge variant="outline" className="text-[10px]">Liabilities &amp; Shareholders&apos; Equity</Badge>
               <SectionHeading>Liabilities</SectionHeading>
-              <div>{liabilityGroups?.standalone.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <div>{liabilityGroups?.standalone.map(g => (
+                <GroupRow
+                  key={g.label} group={g} showSources={showSources}
+                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                />
+              ))}</div>
               <SubHeading>Market Place Liabilities</SubHeading>
               <div>
                 {marketplaceRows.map(g => (
                   g.subtotal
-                    ? <TotalRow key={g.label} label={g.label} value={g.value} depth={g.depth} />
+                    ? <TotalRow
+                        key={g.label} label={g.label} value={g.value} depth={g.depth}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value,
+                          sourceNote: 'Calculated by adding the marketplace liability lines shown in this section.',
+                          groups: marketplaceRows.filter(row => !row.subtotal && !row.heading),
+                        })}
+                      />
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
+                        onOpen={() => setDrill({
+                          title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components,
+                          sourceNote: g.lines.length === 0 && !g.unsourced
+                            ? 'Measured from landlord float ledger entries and split by the landlord record’s management type.'
+                            : undefined,
+                        })}
                       />
                 ))}
               </div>
-              <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
-              <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Liabilities" value={data.liabilities.total} />
+              <TotalRow
+                label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0}
+                onOpen={() => setDrill({
+                  title: 'Market Place Liabilities', value: liabilityGroups?.marketplaceTotal ?? 0,
+                  sourceNote: 'Calculated by adding all marketplace liability balances shown below.',
+                  groups: marketplaceRows.filter(g => !g.subtotal),
+                })}
+              />
+              <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Liabilities" value={data.liabilities.total}
+                onOpen={() => setDrill({
+                  title: 'Total Liabilities', value: data.liabilities.total,
+                  sourceNote: 'Calculated by adding every liability account returned by the general ledger statement.',
+                  groups: [
+                    ...(liabilityGroups?.standalone ?? []),
+                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
+                  ],
+                })}
+              />
               <DriftNote drift={liabilityGroupDrift} of="Total Liabilities" />
               <SectionHeading>Shareholders&apos; Equity</SectionHeading>
-              <div>{equityGroups?.groups.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
-              <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Shareholders&apos; Equity" value={equityTotal} />
+              <div>{equityGroups?.groups.map(g => (
+                <GroupRow
+                  key={g.label} group={g} showSources={showSources}
+                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                />
+              ))}</div>
+              <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Shareholders&apos; Equity" value={equityTotal}
+                onOpen={() => setDrill({
+                  title: "Total Shareholders' Equity", value: equityTotal,
+                  sourceNote: 'Calculated by adding every shareholders’ equity balance returned by the general ledger statement.',
+                  groups: [...(equityGroups?.groups ?? []), ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : [])],
+                })}
+              />
               <DriftNote drift={equityDrift} of="Total Shareholders&apos; Equity" />
-              <TotalRow label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis />
+              <TotalRow
+                label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis
+                onOpen={() => setDrill({
+                  title: "Total Liabilities and Shareholders' Equity", value: totalLiabilitiesAndEquity,
+                  sourceNote: 'Calculated by adding Total Liabilities and Total Shareholders’ Equity.',
+                  groups: [
+                    ...(liabilityGroups?.standalone ?? []),
+                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
+                    ...(equityGroups?.groups ?? []),
+                    ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : []),
+                  ],
+                })}
+              />
             </div>
           </div>
 
@@ -758,6 +1074,8 @@ export default function BalanceSheetPanel() {
           </p>
         </>
       )}
+
+      <DrilldownDialog drill={drill} onClose={() => setDrill(null)} />
     </div>
   );
 }

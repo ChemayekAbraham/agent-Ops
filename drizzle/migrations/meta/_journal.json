@@ -1611,6 +1611,27 @@
       "when": 1789743466953,
       "tag": "0229_tighten_misc_sensitive_read_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1789812464650,
+      "tag": "0230_tighten_partner_and_marketing_reference_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1789813449153,
+      "tag": "0231_sofp_account_detail",
+      "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1789814364260,
+      "tag": "0232_fix_sofp_account_detail_no_temp_table",
+      "breakpoints": true
     }
   ]
 }

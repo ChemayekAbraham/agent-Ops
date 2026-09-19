@@ -57608,6 +57608,10 @@ export type Database = {
         Args: { p_hours?: number }
         Returns: Json
       }
+      get_sofp_account_detail: {
+        Args: { p_account_code: string; p_as_at: string; p_limit?: number }
+        Returns: Json
+      }
       get_stale_withdrawal_hold_count: { Args: never; Returns: Json }
       get_stale_withdrawal_hold_queue: {
         Args: { p_min_age_days?: number }
