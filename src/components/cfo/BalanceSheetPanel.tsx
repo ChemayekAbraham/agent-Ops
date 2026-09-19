@@ -750,7 +750,7 @@ export default function BalanceSheetPanel() {
                 label="Total Assets" value={assetsTotal} emphasis
                 onOpen={() => setDrill({
                   title: 'Total Assets', value: assetsTotal,
-                  groups: [...assetRows.filter(g => !g.subtotal), ...(hasFlagged(assetGroups?.flagged) ? [assetGroups!.flagged] : [])],
+                  groups: [...assetRows.filter(g => !g.subtotal), ...(assetGroups && hasFlagged(assetGroups.flagged) ? [assetGroups.flagged] : [])],
                 })}
               />
               <DriftNote drift={assetDrift} of="Total Assets" />
@@ -923,6 +923,8 @@ export default function BalanceSheetPanel() {
           </p>
         </>
       )}
+
+      <DrilldownDialog drill={drill} onClose={() => setDrill(null)} />
     </div>
   );
 }
