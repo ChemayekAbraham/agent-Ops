@@ -87,6 +87,19 @@ export interface StatementOfFinancialPosition {
   };
 }
 
+/** One statutory payroll obligation returned by hr_pay_statutory_liability(). */
+interface StatutoryLiabilityRow {
+  authority: string;
+  component_code: string;
+  label: string;
+  withheld: number;
+  remitted: number;
+  outstanding: number;
+}
+
+const STATUTORY_NOTE =
+  'Taken from payroll records, not the general ledger: amounts withheld on payroll that has already been paid, less anything already remitted. The books hold no tax account, so this figure is shown for disclosure and is not included in Total Liabilities.';
+
 /** Payload for the tap-to-drill-down modal. */
 interface Drilldown {
   title: string;
@@ -513,6 +526,14 @@ export default function BalanceSheetPanel() {
   const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
   /** Line or total the user tapped, shown as a modal breakdown. */
   const [drill, setDrill] = useState<Drilldown | null>(null);
+  /**
+   * Statutory payroll obligations (PAYE / NSSF / LST) withheld on payroll that
+   * has actually been paid, net of recorded remittances. No ledger account
+   * exists for taxes, so this is a payroll-derived disclosure: it prints on the
+   * Taxes Payable line but is NOT added to Total Liabilities, which stays the
+   * ledger's own figure so the balance check remains a real assertion.
+   */
+  const [statutory, setStatutory] = useState<StatutoryLiabilityRow[] | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
