@@ -56394,6 +56394,14 @@ export type Database = {
           signups: number
         }[]
       }
+      get_deferred_fee_breakdown: {
+        Args: { p_as_at: string }
+        Returns: {
+          amount: number
+          group_label: string
+          legs: number
+        }[]
+      }
       get_deposit_autocredit_success_rate: {
         Args: { p_window_hours?: number }
         Returns: Json
