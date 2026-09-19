@@ -104,6 +104,20 @@ const PersonalHub = () => {
     return () => { cancelled = true; };
   }, []);
 
+  const { data: isPsoOfficer } = useQuery<boolean>({
+    queryKey: ['pso-is-officer'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('pso_is_officer' as any);
+      if (error) return false;
+      return data === true;
+    },
+  });
+
+  const visibleCards = CARDS.filter(
+    (card) => (!card.requiresPsoOfficer || isPsoOfficer === true) && (!card.requiresStaff || !!staffRecord),
+  );
+
   return (
     <PersonalLayout title="My space">
       <div className="space-y-5">
@@ -116,10 +130,10 @@ const PersonalHub = () => {
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">Workspace</p>
               <h2 id="workspace-heading" className="mt-1 text-base font-semibold tracking-tight sm:text-lg">Your tools and records</h2>
             </div>
-            <span className="text-xs text-muted-foreground">{CARDS.length} areas</span>
+            <span className="text-xs text-muted-foreground">{visibleCards.length} areas</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {CARDS.map((card, index) => (
+            {visibleCards.map((card, index) => (
               <HubCard key={index} {...card} badges={card.to === '/me/requisitions' ? [
                 { label: 'pending', count: reqCounts.pending, tone: 'pending' as const },
                 { label: 'approved', count: reqCounts.approved, tone: 'approved' as const },

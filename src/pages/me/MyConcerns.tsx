@@ -1,9 +1,10 @@
 /**
  * My Space → Concerns forwarded to me.
  *
- * The same append-only record the Calling Center writes. What a person sees here
- * depends on who they are: the receiver accepts, starts and completes; the sender
- * follows their own hand-offs; HR and the CEO see everything without acting.
+ * The same append-only record the Calling Center writes. The sender, the current
+ * recipient and anyone still an active recipient on the thread can see a concern
+ * and act on it. Two named overseers can see all concerns and can reassign one or
+ * change its answer time. Nobody else can see any of it.
  */
 import { useMemo, useState } from 'react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
