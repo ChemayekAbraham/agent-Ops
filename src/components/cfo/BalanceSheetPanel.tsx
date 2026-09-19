@@ -617,7 +617,7 @@ export default function BalanceSheetPanel() {
    */
   const standaloneRows: BsGroup[] = (liabilityGroups?.standalone ?? []).map(g =>
     isTaxLine(g.label) && statutory
-      ? { ...g, value: statutoryTotal, components: statutoryLines, unsourced: false }
+      ? { ...g, value: statutoryTotal, components: [], unsourced: false }
       : g,
   );
 
@@ -969,7 +969,7 @@ export default function BalanceSheetPanel() {
                   key={g.label} group={g} components={isTaxLine(g.label) ? g.components : undefined} showSources={showSources}
                   onOpen={() => setDrill({
                     title: g.label, value: g.value, unsourced: g.unsourced,
-                    lines: g.lines, components: g.components,
+                    lines: g.lines, components: standaloneComponents(g),
                     note: standaloneNote(g),
                   })}
                 />
