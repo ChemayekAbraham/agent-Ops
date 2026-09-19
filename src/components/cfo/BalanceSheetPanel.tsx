@@ -8,7 +8,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat,
+  expandLandlordFloat, accountCodeOf,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
