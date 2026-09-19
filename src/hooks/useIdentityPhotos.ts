@@ -15,6 +15,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 
@@ -37,17 +38,23 @@ function extensionOf(file: File): string {
 }
 
 export function useMyIdentityPhotos() {
+  const { user } = useAuth();
+  const uid = user?.id;
   return useQuery({
-    queryKey: ['my-identity-photos'],
+    // Keyed by user id — a bare 'my-identity-photos' key let React Query serve
+    // one agent's cached "already on file" thumbnails to the next person who
+    // logs into the same device/session without a full page reload, and a
+    // resubmit built on those stale paths was silently rejected server-side
+    // (paths belong to someone else's storage folder), leaving the new user
+    // with nothing recorded despite believing they had submitted.
+    queryKey: ['my-identity-photos', uid],
+    enabled: !!uid,
     staleTime: 60_000,
     queryFn: async (): Promise<MyIdentityPhotos | null> => {
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth.user?.id;
-      if (!uid) return null;
       const { data, error } = await supabase
         .from('profiles')
         .select('national_id_photo_path, national_id_back_photo_path, selfie_photo_path, identity_photos_submitted_at')
-        .eq('id', uid)
+        .eq('id', uid!)
         .maybeSingle();
       if (error) throw error;
       return (data as MyIdentityPhotos) ?? null;

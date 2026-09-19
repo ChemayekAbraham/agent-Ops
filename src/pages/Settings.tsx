@@ -637,30 +637,7 @@ export default function Settings() {
                   )}
 
                   {accountTab === 'withdrawal' && (
-                    <div className="space-y-6">
-                      <div>
-                        <SectionHeading>Withdrawal account</SectionHeading>
-                        <p className="px-1 text-xs text-muted-foreground mt-0.5">
-                          The mobile money destination all your withdrawals are paid to.
-                        </p>
-                      </div>
-                      {user && (
-                        <LazySection name="MobileMoneyName">
-                          <MobileMoneyNameCard userId={user.id} />
-                        </LazySection>
-                      )}
-
-                      <div className="pt-2">
-                        <SectionHeading>Identity verification</SectionHeading>
-                        <p className="px-1 text-xs text-muted-foreground mt-0.5">
-                          Financial Ops verifies your payout destination against your National ID before releasing funds.
-                        </p>
-                      </div>
-                      {user && (
-                        <LazySection name="NationalIdCard">
-                          <NationalIdCard userId={user.id} />
-                        </LazySection>
-                      )}
+                    <div className="space-y-4">
                       {user && (
                         <LazySection name="IdentityPhotoCapture">
                           <IdentityPhotoCapture compact={false} />

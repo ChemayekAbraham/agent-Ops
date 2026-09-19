@@ -39,8 +39,9 @@ import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdr
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
 import { AlertTriangle, ShieldCheck, MessageSquare, Camera, IdCard } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
-import { maskPayoutNumber } from '@/hooks/useIdentityBinding';
+import { useIdentityBinding, maskPayoutNumber } from '@/hooks/useIdentityBinding';
 import { useWithdrawalBlockReasons } from '@/hooks/usePayoutNumberChange';
+import IdentityVerificationChecklist from '@/components/wallet/IdentityVerificationChecklist';
 
 /**
  * Maps a Ugandan mobile-money number to its provider based on the operator
@@ -194,6 +195,23 @@ export default function WithdrawFlow({
   // is released; this only surfaces that state so nobody is surprised at
   // submit time. The gate itself is in the database.
   const myDestinations = useMyPayoutDestinations(user?.id);
+  const identityBinding = useIdentityBinding(user?.id ?? undefined);
+  const hasVerifiedPayoutNumber =
+    Boolean(identityBinding.data?.locked_payout_number) ||
+    (myDestinations.data ?? []).some(
+      (d) =>
+        d.destination_type === 'mobile_money' &&
+        (d.status === 'verified' || Boolean(d.ownership_code_confirmed_at))
+    );
+  const isActualRejection =
+    identityBlock.data?.status === 'rejected' ||
+    identityBlock.data?.code === 'destination_rejected' ||
+    (myDestinations.data ?? []).some((d) => d.status === 'rejected');
+  const rejectionReason =
+    identityBlock.data?.reasons?.[0] ??
+    (myDestinations.data ?? []).find((d) => d.status === 'rejected')?.decision_reason ??
+    null;
+
   // Verification state can change while the app sits open (Financial Ops
   // verifies or rejects, the user submits photos on another device), so the
   // gate always re-reads it the moment the dialog is opened rather than
@@ -1278,103 +1296,50 @@ export default function WithdrawFlow({
       case 0:
         return (
           <div className="space-y-4">
-            {/* The photo step now READS the card and asks the person to confirm the
-                six printed fields, so it supplies the National ID itself. Asking
-                them to type the NIN from memory first, only to photograph the
-                same card a moment later, made them key in what the camera was
-                about to read. The typed prompt stays for the case it still
-                answers: photos already on file but no ID number recorded. */}
-            {/* What Financial Ops needs put right, in the order to fix it. */}
-            {identityBlock.data?.blocked && (identityBlock.data.reasons?.length ?? 0) > 0 && (
-              <div className="rounded-xl border-2 border-destructive bg-destructive/10 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-                  <h4 className="font-bold text-destructive">
-                    {identityBlock.data.headline ?? 'Oops! Your details did not meet the criteria.'}
-                  </h4>
-                </div>
-                <ol className="list-decimal space-y-1 pl-5 text-sm text-black">
-                  {identityBlock.data.reasons.map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
-                </ol>
-                <div className="pt-1 space-y-2">
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    className="w-full font-bold h-11 gap-2 shadow-sm"
-                    onClick={() => {
-                      handleClose();
-                      navigate('/settings?section=account&tab=verification');
-                    }}
-                  >
-                    <Camera className="h-4 w-4" />
-                    Add My Details Now
-                  </Button>
-                </div>
-              </div>
-            )}
-            <div ref={identityPanelRef} id="identity-verification-panel" className="scroll-mt-4">
-              {showIdentityPanel && <IdentityPhotoCapture compact />}
-              {needsNationalId && !needsIdentityPhotos && (
-                <NationalIdPrompt blocking withdrawableBalance={Math.max(1, maxAmount)} />
-              )}
-            </div>
-            {!withdrawCtx.isLoading && !withdrawCtx.gates.canSubmit && (
-              <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 space-y-1">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                  <h4 className="font-bold text-destructive">Withdrawal blocked</h4>
-                </div>
-                <p className="text-sm text-destructive/90">
-                  {withdrawCtx.gates.blockReason ?? 'You cannot submit a withdrawal right now.'}
-                </p>
-              </div>
-            )}
-            <div className="relative">
-            {identityHardBlock && (
-              <div className="absolute inset-0 z-20 -m-2 rounded-xl bg-background/85 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="max-w-sm w-full rounded-xl border-2 border-destructive bg-card p-4 text-center space-y-3 shadow-lg">
-                  <div className="mx-auto w-11 h-11 rounded-full bg-destructive/15 flex items-center justify-center">
-                    <IdCard className="w-6 h-6 text-destructive" />
+            {identityHardBlock ? (
+              <div className="space-y-4">
+                {isActualRejection && rejectionReason && (
+                  <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3.5 text-xs text-destructive flex items-start gap-2.5">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold">National ID verification needs attention</p>
+                      <p className="mt-0.5 text-destructive/90">{rejectionReason}</p>
+                    </div>
                   </div>
-                  <h4 className="font-bold text-destructive leading-tight">
-                    Submit your National ID first
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    You cannot withdraw until your National ID number, the name on it, a photo of
-                    the card and a selfie are submitted and your payout number is confirmed.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    className="w-full font-bold h-11"
-                    onClick={() => {
-                      handleClose();
-                      navigate('/settings?section=account&tab=withdrawal');
-                    }}
-                  >
-                    Submit my details now
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      identityPanelRef.current?.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start',
-                      });
-                    }}
-                  >
-                    Or fill it in here
-                  </Button>
-                </div>
+                )}
+
+                <IdentityVerificationChecklist
+                  payoutDone={hasVerifiedPayoutNumber}
+                  payoutRejected={isActualRejection && !hasVerifiedPayoutNumber}
+                  payoutNote={!hasVerifiedPayoutNumber ? 'Mobile money code confirmation required' : undefined}
+                  idFrontDone={Boolean(myIdentityPhotos.data?.national_id_photo_path)}
+                  idFrontRejected={isActualRejection && !myIdentityPhotos.data?.national_id_photo_path}
+                  idFrontNote={!myIdentityPhotos.data?.national_id_photo_path ? 'Front photo of card required' : undefined}
+                  idBackDone={Boolean(myIdentityPhotos.data?.national_id_back_photo_path)}
+                  idBackRejected={isActualRejection && !myIdentityPhotos.data?.national_id_back_photo_path}
+                  idBackNote={!myIdentityPhotos.data?.national_id_back_photo_path ? 'Back photo with barcode required' : undefined}
+                  selfieDone={Boolean(myIdentityPhotos.data?.selfie_photo_path)}
+                  selfieRejected={isActualRejection && !myIdentityPhotos.data?.selfie_photo_path}
+                  selfieNote={!myIdentityPhotos.data?.selfie_photo_path ? 'Selfie photo required' : undefined}
+                  variant="card"
+                />
+
+                <Button
+                  type="button"
+                  className="w-full h-11 font-medium gap-2"
+                  onClick={() => {
+                    handleClose();
+                    navigate('/settings?section=account&tab=withdrawal');
+                  }}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {isActualRejection ? 'Resubmit details in Settings' : 'Complete verification in Settings'}
+                </Button>
               </div>
-            )}
-            <div className={identityHardBlock ? 'pointer-events-none select-none opacity-40' : undefined}>
-            <Label>Withdraw From</Label>
-            <div className="space-y-3">
+            ) : (
+              <div>
+                <Label>Withdraw From</Label>
+                <div className="space-y-3 mt-2">
               <Card 
                 className={`p-4 cursor-pointer transition-all ${source === 'available' ? 'ring-2 ring-primary border-primary' : 'hover:border-primary/50'}`}
                 onClick={() => setSource('available')}
@@ -1427,8 +1392,8 @@ export default function WithdrawFlow({
                 </p>
               </div>
             )}
-            </div>
-            </div>
+              </div>
+            )}
           </div>
         );
 
@@ -2422,6 +2387,25 @@ export default function WithdrawFlow({
         nextBusyLabel="Refreshing balance…"
         isProcessing={isProcessing}
         isComplete={isComplete}
+        customSubtitle={
+          identityHardBlock && currentStep === 0 ? (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Verification required before withdrawal
+            </p>
+          ) : undefined
+        }
+        customStepIndicator={
+          identityHardBlock && currentStep === 0 ? (
+            <IdentityVerificationChecklist
+              payoutDone={hasVerifiedPayoutNumber}
+              payoutRejected={isActualRejection && !hasVerifiedPayoutNumber}
+              idFrontDone={Boolean(myIdentityPhotos.data?.national_id_photo_path)}
+              idBackDone={Boolean(myIdentityPhotos.data?.national_id_back_photo_path)}
+              selfieDone={Boolean(myIdentityPhotos.data?.selfie_photo_path)}
+              variant="compact"
+            />
+          ) : undefined
+        }
       >
         {/* Rejection banner — pinned above every step until the user resubmits.
             No onResubmit here on purpose: this banner already renders on step 0

@@ -36,6 +36,8 @@ interface StepperModalProps {
   isProcessing?: boolean;
   isComplete?: boolean;
   hideProgress?: boolean;
+  customStepIndicator?: ReactNode;
+  customSubtitle?: ReactNode;
 }
 
 export default function StepperModal({
@@ -57,6 +59,8 @@ export default function StepperModal({
   isProcessing = false,
   isComplete = false,
   hideProgress = false,
+  customStepIndicator,
+  customSubtitle,
 }: StepperModalProps) {
   const progress = ((currentStep + 1) / steps.length) * 100;
   const isLastStep = currentStep === steps.length - 1;
@@ -111,22 +115,30 @@ export default function StepperModal({
             )}
             <div className="flex-1">
               <DialogTitle className="text-lg">{title}</DialogTitle>
-              {currentStepData && (
+              {customSubtitle ? (
+                <div className="mt-0.5">{customSubtitle}</div>
+              ) : currentStepData ? (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Step {currentStep + 1} of {steps.length}: {currentStepData.title}
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
           
-          {/* Progress bar */}
+          {/* Progress bar or custom step indicator */}
           {!hideProgress && !isComplete && (
-            <Progress value={progress} className="h-1 mt-3" />
+            customStepIndicator ? (
+              <div className="mt-2.5">
+                {customStepIndicator}
+              </div>
+            ) : (
+              <Progress value={progress} className="h-1 mt-3" />
+            )
           )}
         </DialogHeader>
 
         {/* Step indicators */}
-        {!hideProgress && !isComplete && (
+        {!hideProgress && !isComplete && !customStepIndicator && (
           <div className="flex justify-center gap-2 p-3 bg-muted/30">
             {steps.map((step, index) => (
               <div 

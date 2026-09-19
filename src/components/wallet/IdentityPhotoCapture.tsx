@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace, Wallet, Save, ChevronRight, Upload } from 'lucide-react';
+import { Camera, ShieldCheck, Loader2, X, ScanLine, CheckCircle2, AlertTriangle, ScanFace, Wallet, Save, ChevronRight, ChevronDown, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -48,6 +48,7 @@ import SelfieProfilePreviewDialog from './SelfieProfilePreviewDialog';
 import NationalIdLinkFlow from './NationalIdLinkFlow';
 import CardCameraCapture from './CardCameraCapture';
 import SelfieCameraCapture from './SelfieCameraCapture';
+import IdentityVerificationChecklist from './IdentityVerificationChecklist';
 
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -666,6 +667,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const frontShotRef = useRef<ShotTileHandle>(null);
   const backShotRef = useRef<ShotTileHandle>(null);
   const selfieShotRef = useRef<ShotTileHandle>(null);
+  const [showFrontTips, setShowFrontTips] = useState(false);
+  const [showBackTips, setShowBackTips] = useState(false);
+  const [showBlockers, setShowBlockers] = useState(false);
 
   /* Shared by the "Take photo" button and the in-page camera — same effect
      either way a fresh front photo arrives. */
@@ -1052,21 +1056,31 @@ export default function IdentityPhotoCapture({ compact }: Props) {
      look like one. */
   if (alreadyDone) {
     return (
-      <Card className={compact ? 'border-2 border-amber-500/60' : undefined}>
+      <Card className={compact ? 'border border-border shadow-sm' : undefined}>
         <CardContent className="space-y-3 p-4">
-          <p className="flex items-center gap-2 text-sm font-semibold">
-            <ShieldCheck className="h-4 w-4 text-amber-600" />
-            Your ID and selfie are with Financial Ops
-          </p>
+          <IdentityVerificationChecklist
+            payoutDone={hasVerifiedPayoutNumber}
+            payoutRejected={payoutRows.some((d) => d.status === 'rejected')}
+            idFrontDone={true}
+            idBackDone={true}
+            selfieDone={true}
+            variant="compact"
+            className="mb-2"
+          />
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+            <p className="text-sm font-semibold text-foreground">
+              Your details are with Financial Ops
+            </p>
+          </div>
           <p className="text-xs text-muted-foreground">
-            They were received
+            Received
             {mine.data?.identity_photos_submitted_at
               ? ` on ${new Date(mine.data.identity_photos_submitted_at).toLocaleString('en-GB', {
                   dateStyle: 'medium', timeStyle: 'short',
                 })}`
               : ''}
-            . You do not need to send them again. You can still withdraw to your locked number
-            while Financial Ops finishes checking it.
+            . You do not need to send them again.
           </p>
 
           <div className="grid gap-2 sm:grid-cols-2">
@@ -1256,55 +1270,89 @@ export default function IdentityPhotoCapture({ compact }: Props) {
      withdrawal. The full inline form stays available on the Settings page. */
   if (compact) {
     return (
-      <button
-        type="button"
-        onClick={() => navigate('/settings?section=account&tab=verification')}
-        className="block w-full text-left"
-        aria-label="Verify your identity before you withdraw. Opens settings."
-      >
-        <Card className="border-2 border-destructive transition-colors hover:bg-accent/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="h-4 w-4 text-primary" />
-              <span className="flex-1 text-emerald-600">Verify your identity before you withdraw</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Complete your National ID, selfie and payout number verification in Settings, then
-              return here to withdraw.
-            </p>
-          </CardContent>
-        </Card>
-      </button>
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <span className="font-semibold text-sm">Identity verification</span>
+          </div>
+          <span className="text-[11px] text-muted-foreground font-medium">4 items required</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Confirm your payout number, National ID photos, and selfie to unlock withdrawals.
+        </p>
+        <IdentityVerificationChecklist
+          payoutDone={hasVerifiedPayoutNumber}
+          payoutRejected={payoutRows.some((d) => d.status === 'rejected')}
+          idFrontDone={haveId}
+          idBackDone={haveIdBack}
+          selfieDone={haveSelfie}
+          variant="compact"
+        />
+        <Button
+          type="button"
+          className="w-full h-10 font-medium text-xs gap-1.5"
+          onClick={() => navigate('/settings?section=account&tab=withdrawal')}
+        >
+          Complete verification in Settings
+          <ChevronRight className="h-4 w-4 ml-auto" />
+        </Button>
+      </div>
     );
   }
 
   return (
-    <Card className={compact ? 'border-2 border-destructive' : undefined}>
+    <Card className="border border-border shadow-sm">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <ShieldCheck className="h-4 w-4 text-primary" />
           Verify your identity before you withdraw
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Take a clear photo of the FRONT and the BACK of your National ID, and a selfie. Your
-          original selfie is kept in your verification history for Financial Ops; the version you
-          crop becomes your profile picture.
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Complete the 4 steps below so Financial Ops can verify your account.
         </p>
 
-        {/* How to hold the card. Shown up front, because a card lying the wrong
-            way round is the single commonest reason a good photo fails. */}
-        <div className="rounded-lg border bg-muted/40 p-3 text-xs">
-          <p className="font-semibold">How to hold your card</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
-            {ID_POSITION_TIPS.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
+        {/* Persistent verification checklist */}
+        <IdentityVerificationChecklist
+          payoutDone={hasVerifiedPayoutNumber}
+          payoutRejected={payoutRows.some((d) => d.status === 'rejected')}
+          idFrontDone={haveId}
+          idBackDone={haveIdBack}
+          selfieDone={haveSelfie}
+          variant="compact"
+          className="mb-1"
+        />
+
+        {/* Step 1: Payout number verification */}
+        <PayoutNumberVerification userId={user?.id} />
+
+        {/* Step 2: How to hold card — short caption + optional Tips toggle */}
+        <div className="rounded-lg border bg-muted/20 p-3 text-xs space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-muted-foreground font-medium">
+              Position your card upright within the frame with all four corners visible.
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground shrink-0 gap-1"
+              onClick={() => setShowFrontTips((v) => !v)}
+              aria-expanded={showFrontTips}
+            >
+              <span>{showFrontTips ? 'Hide tips' : 'Tips'}</span>
+              <ChevronDown className={cn('h-3 w-3 transition-transform', showFrontTips && 'rotate-180')} />
+            </Button>
+          </div>
+          {showFrontTips && (
+            <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground pt-1 border-t border-border/40">
+              {ID_POSITION_TIPS.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {storedIdPath ? (
@@ -1614,13 +1662,30 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         )}
 
         {!storedIdBackPath && !idBackPhoto && (
-          <div className="rounded-lg border bg-muted/40 p-3 text-xs">
-            <p className="font-semibold">Taking the back of the card</p>
-            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
-              {ID_BACK_TIPS.map((t) => (
-                <li key={t}>{t}</li>
-              ))}
-            </ul>
+          <div className="rounded-lg border bg-muted/20 p-3 text-xs space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-muted-foreground font-medium">
+                Ensure the card number and barcode lines are sharp and glare-free.
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground shrink-0 gap-1"
+                onClick={() => setShowBackTips((v) => !v)}
+                aria-expanded={showBackTips}
+              >
+                <span>{showBackTips ? 'Hide tips' : 'Tips'}</span>
+                <ChevronDown className={cn('h-3 w-3 transition-transform', showBackTips && 'rotate-180')} />
+              </Button>
+            </div>
+            {showBackTips && (
+              <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground pt-1 border-t border-border/40">
+                {ID_BACK_TIPS.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
@@ -1761,8 +1826,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
 
 
-        <PayoutNumberVerification userId={user?.id} />
-
         {/* Repeated right above the button rather than only higher up the page —
             a disabled "Send" button with its explanation scrolled out of view
             reads as broken/silent, which is exactly what was reported. */}
@@ -1783,13 +1846,30 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         )}
 
         {!sendError && blockers.length > 0 && (
-          <div className="rounded-lg border bg-muted/40 p-3 text-xs">
-            <p className="font-semibold">Before you can send:</p>
-            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
-              {blockers.map((b) => (
-                <li key={b}>{b}</li>
-              ))}
-            </ul>
+          <div className="rounded-lg border bg-muted/20 p-3 text-xs space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-muted-foreground font-medium">
+                All 4 checklist items must be complete before sending.
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground shrink-0 gap-1"
+                onClick={() => setShowBlockers((v) => !v)}
+                aria-expanded={showBlockers}
+              >
+                <span>{showBlockers ? 'Hide' : 'Details'}</span>
+                <ChevronDown className={cn('h-3 w-3 transition-transform', showBlockers && 'rotate-180')} />
+              </Button>
+            </div>
+            {showBlockers && (
+              <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground pt-1 border-t border-border/40">
+                {blockers.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 

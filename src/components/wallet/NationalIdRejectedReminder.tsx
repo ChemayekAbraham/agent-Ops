@@ -145,20 +145,15 @@ export default function NationalIdRejectedReminder({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <NationalIdPrompt
-              blocking
-              allowResubmit
-              withdrawableBalance={Math.max(1, withdrawableBalance)}
-            />
             <IdentityPhotoCapture compact={false} />
             <Button
               type="button"
               variant="link"
               size="sm"
-              className="h-auto p-0 text-xs text-destructive hover:underline font-medium"
+              className="h-auto p-0 text-xs text-muted-foreground hover:underline font-medium"
               onClick={() => {
                 setResubmitOpen(false);
-                navigate('/settings?section=account&tab=verification');
+                navigate('/settings?section=account&tab=withdrawal');
               }}
             >
               Or manage in Settings →
