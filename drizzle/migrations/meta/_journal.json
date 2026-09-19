@@ -1618,6 +1618,13 @@
       "when": 1789812464650,
       "tag": "0230_tighten_partner_and_marketing_reference_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1789813449153,
+      "tag": "0231_sofp_account_detail",
+      "breakpoints": true
     }
   ]
 }
