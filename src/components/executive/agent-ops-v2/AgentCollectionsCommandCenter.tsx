@@ -229,10 +229,14 @@ export function AgentCollectionsCommandCenter() {
     staleTime: 20_000,
   });
 
-  /** Per-agent on-schedule collections, for attainment that excludes arrears. */
+  /**
+   * Per-agent collected on the window's own bills, CAPPED at what each plan was
+   * billed — the same definition Tenant Ops Home reports, so the agent figures
+   * sum to the headline and attainment can never exceed 100%.
+   */
   const onScheduleByAgent = useMemo(() => {
     const map = new Map<string, number>();
-    (coverageData?.agents ?? []).forEach(a => map.set(a.agent_id, num(a.collected_on_schedule)));
+    (coverageData?.agents ?? []).forEach(a => map.set(a.agent_id, num(a.collected_on_schedule_capped)));
     return map;
   }, [coverageData]);
 
