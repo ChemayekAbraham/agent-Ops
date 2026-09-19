@@ -292,18 +292,18 @@ export interface LandlordFloatSplit {
  * amounts measured on the ledger are shown as-is and the company line is the
  * residual, so the lines always foot to the existing total exactly. Reporting
  * the unresolved amount separately keeps unlinked balances from being asserted
- * as company managed. With no split available the original single line is
- * returned untouched.
+ * as company managed. The two requested management rows remain visible while
+ * the split is loading or unavailable; in that fallback state the full reported
+ * balance stays under Company Managed and Self Managed remains zero.
  */
 export function expandLandlordFloat(
   marketplace: BsGroup[],
   split?: LandlordFloatSplit | null,
 ): MarketplaceRow[] {
-  if (!split) return marketplace;
   return marketplace.flatMap<MarketplaceRow>(g => {
     if (g.label !== LANDLORD_FLOAT_LABEL) return [g];
-    const self = Math.round(split.self_managed ?? 0);
-    const unresolved = Math.round(split.unresolved ?? 0);
+    const self = Math.round(split?.self_managed ?? 0);
+    const unresolved = Math.round(split?.unresolved ?? 0);
     const company = Math.round(g.value) - self - unresolved;
     // Parent line carries the full Landlord Float balance; the management
     // split is shown as nested lines underneath it.
