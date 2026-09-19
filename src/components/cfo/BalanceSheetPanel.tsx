@@ -590,6 +590,21 @@ export default function BalanceSheetPanel() {
     ? Math.round(liabilityGroups.total - data.liabilities.total)
     : 0;
 
+  /** Payroll-derived statutory obligation lines and their total. */
+  const statutoryLines: PositionLine[] = (statutory ?? []).map(r => ({
+    label: r.label,
+    value: Number(r.outstanding ?? 0),
+  }));
+  const statutoryTotal = statutoryLines.reduce((t, l) => t + l.value, 0);
+  const isTaxLine = (label: string) => label === 'Taxes Payable';
+  /** Taxes Payable prints the payroll-derived figure; every other line is the ledger's. */
+  const standaloneValue = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? statutoryTotal : g.value;
+  const standaloneComponents = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? statutoryLines : g.components;
+  const standaloneNote = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? STATUTORY_NOTE : undefined;
+
   const exportCSV = () => {
     if (!data) return;
     const rows: (string | number)[][] = [[title], []];
