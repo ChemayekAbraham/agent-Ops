@@ -604,6 +604,15 @@ export default function BalanceSheetPanel() {
     isTaxLine(g.label) && statutory ? statutoryLines : g.components;
   const standaloneNote = (g: BsGroup) =>
     isTaxLine(g.label) && statutory ? STATUTORY_NOTE : undefined;
+  /**
+   * Rows as printed on the statement. Only the Taxes Payable row is restated,
+   * from payroll; Total Liabilities below is untouched and stays the ledger's.
+   */
+  const standaloneRows: BsGroup[] = (liabilityGroups?.standalone ?? []).map(g =>
+    isTaxLine(g.label) && statutory
+      ? { ...g, value: statutoryTotal, components: statutoryLines, unsourced: false }
+      : g,
+  );
 
   const exportCSV = () => {
     if (!data) return;
