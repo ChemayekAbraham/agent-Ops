@@ -12,6 +12,7 @@ import {
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
+import { useReceivablesBreakdown } from '@/hooks/useReceivables';
 import { format, endOfDay } from 'date-fns';
 import {
   AlertTriangle, Calendar, CheckCircle2, ChevronDown, ChevronRight,
