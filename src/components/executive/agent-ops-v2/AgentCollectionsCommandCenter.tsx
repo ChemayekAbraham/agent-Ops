@@ -469,12 +469,12 @@ export function AgentCollectionsCommandCenter() {
         <Card className="p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Banknote className="h-3.5 w-3.5" /> Collected</div>
           <p className="text-lg font-bold mt-1">{formatUGX(collectedTotal)}</p>
-          <p className="text-[11px] text-muted-foreground">{num(totals?.collections_count)} payments · avg {formatUGX(num(totals?.avg_collection))}</p>
+          <p className="text-[11px] text-muted-foreground">On this period's bills{arrearsCollected > 0 ? ` · ${formatUGX(arrearsCollected)} arrears` : ''}</p>
         </Card>
         <Card className="p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Receipt className="h-3.5 w-3.5" /> Total collections</div>
           <p className="text-lg font-bold mt-1">{num(totals?.collections_count).toLocaleString()}</p>
-          <p className="text-[11px] text-muted-foreground">{formatUGX(collectedTotal)} collected · avg {formatUGX(num(totals?.avg_collection))}</p>
+          <p className="text-[11px] text-muted-foreground">{formatUGX(cashReceived)} cash received · avg {formatUGX(num(totals?.avg_collection))}</p>
         </Card>
         <Card className="p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Target className="h-3.5 w-3.5" /> Expected</div>
