@@ -8,7 +8,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat, accountCodeOf,
+  expandLandlordFloat,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -571,41 +571,30 @@ export default function BalanceSheetPanel() {
   useEffect(() => { load(asAt); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const title = `WELILE — BALANCE SHEET — As at ${format(asAt, 'dd MMMM yyyy')}`;
-  const statementAssetLines = data
-    ? [...data.assets.current, ...data.assets.non_current]
-    : [];
-  const operationalFloatLines = statementAssetLines.filter(line => accountCodeOf(line) === 'A2');
   const assetGroups = data
-    ? classifyAssets(statementAssetLines.filter(line => accountCodeOf(line) !== 'A2'))
+    ? classifyAssets([...data.assets.current, ...data.assets.non_current])
     : null;
   const liabilityGroups = data
-    ? classifyLiabilities([
-        ...data.liabilities.current,
-        ...data.liabilities.non_current,
-        ...operationalFloatLines,
-      ])
+    ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
   // E3 and E4 are equity accounts in ledger_account_catalog and are reported in
   // equity. They were briefly reclassified onto the asset side as components of
   // Intangible Assets, which inverted their sign and produced a negative
   // intangible asset; per BIS approval that reclassification is removed. Every
-  // equity. Agent-held operational float is presentation-reclassified from A2
-  // into marketplace liabilities without changing its ledger account or value.
+  // total below is now the RPC's own figure, with nothing added or moved.
   const equityGroups = data ? classifyEquity(data.equity.lines) : null;
   const assetRows = assetGroups?.groups ?? [];
-  const operationalFloatTotal = operationalFloatLines.reduce((total, line) => total + line.value, 0);
-  const assetsTotal = data ? data.assets.total - operationalFloatTotal : 0;
-  const liabilitiesTotal = data ? data.liabilities.total + operationalFloatTotal : 0;
+  const assetsTotal = data ? data.assets.total : 0;
   const equityTotal = data ? data.equity.total : 0;
-  const totalLiabilitiesAndEquity = liabilitiesTotal + equityTotal;
-  const balanceDifference = assetsTotal - totalLiabilitiesAndEquity;
-  const statementBalanced = Math.abs(balanceDifference) < 0.01;
+  const totalLiabilitiesAndEquity = data
+    ? data.balance_check.total_liabilities_and_equity
+    : 0;
   const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], floatSplit);
   /** Each section's groups must still sum to the RPC's own total. */
-  const assetDrift = data && assetGroups ? Math.round(assetGroups.total - assetsTotal) : 0;
+  const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;
   const equityDrift = data && equityGroups ? Math.round(equityGroups.total - equityTotal) : 0;
   const liabilityGroupDrift = data && liabilityGroups
-    ? Math.round(liabilityGroups.total - liabilitiesTotal)
+    ? Math.round(liabilityGroups.total - data.liabilities.total)
     : 0;
 
   /** Payroll-derived statutory obligation lines and their total. */
@@ -663,7 +652,7 @@ export default function BalanceSheetPanel() {
       rows.push([liabilityGroups.flagged.label, liabilityGroups.flagged.value]);
       visibleFlaggedLines(liabilityGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
     }
-    rows.push(['TOTAL LIABILITIES', liabilitiesTotal]);
+    rows.push(['TOTAL LIABILITIES', data.liabilities.total]);
     rows.push([]);
     rows.push(["SHAREHOLDERS' EQUITY", '']);
     (equityGroups?.groups ?? []).forEach(g => rows.push([g.label, g.value]));
@@ -674,8 +663,8 @@ export default function BalanceSheetPanel() {
     rows.push(["TOTAL SHAREHOLDERS' EQUITY", equityTotal]);
     rows.push([]);
     rows.push(['TOTAL LIABILITIES AND EQUITY', totalLiabilitiesAndEquity]);
-    rows.push(['Balance check difference', balanceDifference]);
-    rows.push(['Balanced', statementBalanced ? 'YES' : 'NO']);
+    rows.push(['Balance check difference', data.balance_check.difference]);
+    rows.push(['Balanced', data.balance_check.balanced ? 'YES' : 'NO']);
     if (data.trial_balance) {
       rows.push([]);
       rows.push(['TRIAL BALANCE', '']);
@@ -689,7 +678,7 @@ export default function BalanceSheetPanel() {
       rows.push(['Transactions affected', data.reconciliation.unresolved_groups]);
       rows.push(['Absolute amount', data.reconciliation.unresolved_absolute_amount]);
       rows.push(['Suspense plug applied', 'NO — no plug is used; the balance check is a real assertion']);
-      rows.push(['Unreconciled difference (assets less liabilities and equity)', balanceDifference]);
+      rows.push(['Unreconciled difference (assets less liabilities and equity)', data.reconciliation.unreconciled_difference ?? data.balance_check.difference]);
       data.reconciliation.schedule?.forEach(r =>
         rows.push([`${r.category} (${r.ledger_scope}) — ${r.groups} transactions`, r.net_debit_less_credit]));
       rows.push([]);
@@ -801,7 +790,7 @@ export default function BalanceSheetPanel() {
       });
       row('Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
       flaggedRows(liabilityGroups?.flagged);
-       row('TOTAL LIABILITIES', liabilitiesTotal, true);
+      row('TOTAL LIABILITIES', data.liabilities.total, true);
 
       heading("Shareholders' Equity");
       (equityGroups?.groups ?? []).forEach(g => row(g.label, g.value));
@@ -811,7 +800,7 @@ export default function BalanceSheetPanel() {
       heading('Balance Check');
       row('Total Assets', assetsTotal);
       row('Total Liabilities and Equity', totalLiabilitiesAndEquity);
-       row('Difference', balanceDifference, true);
+      row('Difference', data.balance_check.difference, true);
       if (data.trial_balance) {
         heading('Trial Balance');
         row('Total Debits', data.trial_balance.total_debits);
@@ -823,7 +812,7 @@ export default function BalanceSheetPanel() {
         row(`Transactions affected: ${data.reconciliation.unresolved_groups.toLocaleString()}`, data.reconciliation.unresolved_absolute_amount);
         row(
           'Unreconciled difference (no suspense plug applied)',
-           balanceDifference,
+          data.reconciliation.unreconciled_difference ?? data.balance_check.difference,
           true,
         );
         data.reconciliation.schedule?.forEach(r =>
@@ -833,9 +822,9 @@ export default function BalanceSheetPanel() {
       }
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'bold');
-       pdf.setTextColor(...(statementBalanced ? [22, 163, 74] : [220, 38, 38]) as [number, number, number]);
+      pdf.setTextColor(...(data.balance_check.balanced ? [22, 163, 74] : [220, 38, 38]) as [number, number, number]);
       pdf.text(
-         statementBalanced
+        data.balance_check.balanced
           ? 'BALANCED — Total Assets = Total Liabilities + Equity'
           : 'NOT BALANCED — difference shown above; no figures have been adjusted',
         margin, y,
@@ -914,24 +903,25 @@ export default function BalanceSheetPanel() {
           <div
             className={cn(
               'rounded-lg border p-3 flex items-start gap-2',
-               statementBalanced ? 'border-success/40 bg-success/5' : 'border-destructive/40 bg-destructive/5',
+              data.balance_check.balanced ? 'border-success/40 bg-success/5' : 'border-destructive/40 bg-destructive/5',
             )}
           >
-             {statementBalanced
+            {data.balance_check.balanced
               ? <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />
               : <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />}
             <div className="min-w-0 space-y-1">
-               <p className={cn('text-xs font-semibold', statementBalanced ? 'text-success' : 'text-destructive')}>
-                 {statementBalanced
+              <p className={cn('text-xs font-semibold', data.balance_check.balanced ? 'text-success' : 'text-destructive')}>
+                {data.balance_check.balanced
                   ? 'Balanced — Total Assets = Total Liabilities + Equity (real ledger data, no plug)'
                   : 'BALANCE CHECK FAILED — Total Assets do not equal Total Liabilities + Equity'}
               </p>
               <p className="text-[10px] font-mono text-muted-foreground break-words">
-                 {formatUGX(assetsTotal)} vs {formatUGX(totalLiabilitiesAndEquity)} · Difference {formatUGX(balanceDifference)}
+                {formatUGX(assetsTotal)} vs {formatUGX(totalLiabilitiesAndEquity)} · Difference {formatUGX(data.balance_check.difference)}
               </p>
-               {!statementBalanced && (
+              {!data.balance_check.balanced && (
                 <p className="text-[10px] text-destructive/90 break-words">
-                  Agent-held operational float has been presentation-reclassified from assets to liabilities. No balancing plug has been applied.
+                  {data.balance_check.message
+                    ?? 'No suspense plug has been applied — the difference above is real and must be resolved in the ledger.'}
                 </p>
               )}
             </div>
@@ -964,7 +954,7 @@ export default function BalanceSheetPanel() {
                 label="Total Assets" value={assetsTotal} emphasis
                 onOpen={() => setDrill({
                   title: 'Total Assets', value: assetsTotal,
-                  sourceNote: 'Calculated by adding all asset balances except A2, which is presented as Operational Float under Market Place Liabilities.',
+                  sourceNote: 'Calculated by adding all asset balances returned by the general ledger statement.',
                   groups: [...assetRows.filter(g => !g.subtotal), ...(assetGroups && hasFlagged(assetGroups.flagged) ? [assetGroups.flagged] : [])],
                 })}
               />
@@ -1018,10 +1008,10 @@ export default function BalanceSheetPanel() {
               />
               <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
               <TotalRow
-                 label="Total Liabilities" value={liabilitiesTotal}
+                label="Total Liabilities" value={data.liabilities.total}
                 onOpen={() => setDrill({
-                   title: 'Total Liabilities', value: liabilitiesTotal,
-                   sourceNote: 'Calculated by adding ledger liabilities and A2, presented here as Operational Float.',
+                  title: 'Total Liabilities', value: data.liabilities.total,
+                  sourceNote: 'Calculated by adding every liability account returned by the general ledger statement.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
                     ...marketplaceRows.filter(g => !g.subtotal && !g.depth),

@@ -49,6 +49,7 @@ export function accountCodeOf(line: PositionLine): string | null {
 
 export const ASSET_CATEGORIES = [
   'Cash at Bank',
+  'Agent Float — Amounts with Agents',
   'Cash in Custody — Not Yet Confirmed Banked',
   'Agent and Merchant Float Cycle Control',
   'Receivables from Tenant Products and Services',
@@ -69,11 +70,12 @@ export const CASH_AT_BANK_LABEL = 'Cash at Bank';
 /**
  * Only mappings that are unambiguous.
  *
- * Cash presentation: A1 is the ONLY bank line. A5 is physical cash received
- * and not yet confirmed banked, and A8 is the agent/merchant float cycle
- * control account. A2 is presented as Operational Float under Market Place
- * Liabilities and is therefore removed from the asset input before this
- * classifier runs.
+ * Cash presentation (approved correction, 2026-09-15): A1 is the ONLY bank
+ * line. A2 is money in agents' hands, A5 is physical cash received and not yet
+ * confirmed banked, and A8 is the agent/merchant float cycle control account —
+ * none of the three is company bank cash, so each reports on its own line and
+ * none is added into "Cash at Bank". They were previously grouped together,
+ * which presented float and custody as bank money.
  *
  * A3 is tenant rent access receivables.
  *
@@ -89,6 +91,7 @@ export const CASH_AT_BANK_LABEL = 'Cash at Bank';
  */
 const ASSET_ACCOUNT_MAP: Record<string, string> = {
   A1: 'Cash at Bank',
+  A2: 'Agent Float — Amounts with Agents',
   A5: 'Cash in Custody — Not Yet Confirmed Banked',
   A8: 'Agent and Merchant Float Cycle Control',
   A3: 'Receivables from Tenant Products and Services',
@@ -134,9 +137,6 @@ export const STANDALONE_LIABILITY_CATEGORIES = [
  * visible as unresolved.
  */
 const LIABILITY_ACCOUNT_MAP: Record<string, string> = {
-  // Presentation reclassification: agent-held operational float is shown as a
-  // marketplace obligation. The underlying A2 ledger line is not changed.
-  A2: 'Operational Float',
   L4: 'Landlord Float',
   L1: 'Withdrawal Balances',
   L7: 'Deferred Rent Plan Fee Income',
