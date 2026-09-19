@@ -316,6 +316,9 @@ const ALWAYS_SHOWN_PRODUCTS: Record<string, { key: string; label: string; from: 
     { key: 'welile_homes', label: 'Welile Homes Subscriptions', from: 'landlord' },
     { key: 'landlord_float_receivable', label: 'Landlord Float Receivables', from: 'landlord' },
   ],
+  partner: [
+    { key: 'promissory_note', label: 'Promissory Notes', from: 'partner' },
+  ],
 };
 
 
