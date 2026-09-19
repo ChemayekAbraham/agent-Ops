@@ -957,10 +957,14 @@ export default function BalanceSheetPanel() {
             <div>
               <Badge variant="outline" className="text-[10px]">Liabilities &amp; Shareholders&apos; Equity</Badge>
               <SectionHeading>Liabilities</SectionHeading>
-              <div>{liabilityGroups?.standalone.map(g => (
+              <div>{standaloneRows.map(g => (
                 <GroupRow
-                  key={g.label} group={g} showSources={showSources}
-                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                  key={g.label} group={g} components={isTaxLine(g.label) ? g.components : undefined} showSources={showSources}
+                  onOpen={() => setDrill({
+                    title: g.label, value: g.value, unsourced: g.unsourced,
+                    lines: g.lines, components: g.components,
+                    sourceNote: standaloneNote(g),
+                  })}
                 />
               ))}</div>
               <SubHeading>Market Place Liabilities</SubHeading>
