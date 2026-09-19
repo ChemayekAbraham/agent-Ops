@@ -150,8 +150,12 @@ interface CoverageData {
   /** Token/QR collections carry no rent_request_id, so they match nothing. */
   collected_unattributed: number;
   coverage_pct: number | null;
+  /** Capped at what each plan was billed — the figure Tenant Ops Home reports. */
+  collected_on_schedule_capped: number;
+  pending_capped: number;
+  coverage_pct_capped: number | null;
   coverage_basis: string;
-  agents: { agent_id: string; collected: number; collected_on_schedule: number }[];
+  agents: { agent_id: string; collected: number; collected_on_schedule: number; collected_on_schedule_capped: number }[];
   generated_at: string;
 }
 
