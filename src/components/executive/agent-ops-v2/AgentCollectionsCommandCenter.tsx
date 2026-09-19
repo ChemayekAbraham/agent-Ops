@@ -285,14 +285,18 @@ export function AgentCollectionsCommandCenter() {
       // Attainment must compare like with like. `collected` includes arrears an
       // agent cleared on plans this window never billed, which on a normal day
       // pushes the best collectors past 200% and makes the column meaningless.
-      const collected = num(a.collected);
+      const cash = num(a.collected);
       const onSchedule = onScheduleByAgent.get(a.agent_id) ?? 0;
       const expected = num(a.expected);
       return {
         ...a,
-        collected,
+        // "Collected" is the Home definition: money against this window's own
+        // bills, capped at what each plan was billed. Arrears stay visible on
+        // their own line instead of being folded into attainment.
+        collected: onSchedule,
+        collectedCash: cash,
         collectedOnSchedule: onSchedule,
-        collectedArrears: Math.max(0, collected - onSchedule),
+        collectedArrears: Math.max(0, cash - onSchedule),
         expected,
         pct: expected > 0 ? Math.round((onSchedule / expected) * 100) : null,
       };
