@@ -87,6 +87,19 @@ export interface StatementOfFinancialPosition {
   };
 }
 
+/** One statutory payroll obligation returned by hr_pay_statutory_liability(). */
+interface StatutoryLiabilityRow {
+  authority: string;
+  component_code: string;
+  label: string;
+  withheld: number;
+  remitted: number;
+  outstanding: number;
+}
+
+const STATUTORY_NOTE =
+  'Taken from payroll records, not the general ledger: amounts withheld on payroll that has already been paid, less anything already remitted. The books hold no tax account, so this figure is shown for disclosure and is not included in Total Liabilities.';
+
 /** Payload for the tap-to-drill-down modal. */
 interface Drilldown {
   title: string;
@@ -94,6 +107,8 @@ interface Drilldown {
   unsourced?: boolean;
   /** Plain-language explanation for derived values that are not a direct account line. */
   sourceNote?: string;
+  /** Disclosure note printed in the modal (used for payroll-derived figures). */
+  note?: string;
   /** Account-level lines behind the figure. */
   lines?: PositionLine[];
   /** Indented component lines (e.g. partner obligations inside Landlord Float). */
@@ -430,6 +445,11 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                    <ReceivablesDetail categoryKey={receivablesKey} />
                 </div>
               )}
+              {drill.note && (
+                <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                  {drill.note}
+                </p>
+              )}
               {!receivablesKey && drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
@@ -513,6 +533,14 @@ export default function BalanceSheetPanel() {
   const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
   /** Line or total the user tapped, shown as a modal breakdown. */
   const [drill, setDrill] = useState<Drilldown | null>(null);
+  /**
+   * Statutory payroll obligations (PAYE / NSSF / LST) withheld on payroll that
+   * has actually been paid, net of recorded remittances. No ledger account
+   * exists for taxes, so this is a payroll-derived disclosure: it prints on the
+   * Taxes Payable line but is NOT added to Total Liabilities, which stays the
+   * ledger's own figure so the balance check remains a real assertion.
+   */
+  const [statutory, setStatutory] = useState<StatutoryLiabilityRow[] | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
@@ -529,6 +557,10 @@ export default function BalanceSheetPanel() {
       });
       if (splitError) console.warn('Landlord float split unavailable:', splitError.message);
       setFloatSplit((split as LandlordFloatSplit) ?? null);
+
+      const { data: stat, error: statError } = await (supabase as any).rpc('hr_pay_statutory_liability');
+      if (statError) console.warn('Statutory payroll obligations unavailable:', statError.message);
+      setStatutory((stat as StatutoryLiabilityRow[]) ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to generate the statement of financial position');
     } finally {
@@ -565,6 +597,30 @@ export default function BalanceSheetPanel() {
     ? Math.round(liabilityGroups.total - data.liabilities.total)
     : 0;
 
+  /** Payroll-derived statutory obligation lines and their total. */
+  const statutoryLines: PositionLine[] = (statutory ?? []).map(r => ({
+    label: r.label,
+    value: Number(r.outstanding ?? 0),
+  }));
+  const statutoryTotal = statutoryLines.reduce((t, l) => t + l.value, 0);
+  const isTaxLine = (label: string) => label === 'Taxes Payable';
+  /** Taxes Payable prints the payroll-derived figure; every other line is the ledger's. */
+  const standaloneValue = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? statutoryTotal : g.value;
+  const standaloneComponents = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? statutoryLines : g.components;
+  const standaloneNote = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? STATUTORY_NOTE : undefined;
+  /**
+   * Rows as printed on the statement. Only the Taxes Payable row is restated,
+   * from payroll; Total Liabilities below is untouched and stays the ledger's.
+   */
+  const standaloneRows: BsGroup[] = (liabilityGroups?.standalone ?? []).map(g =>
+    isTaxLine(g.label) && statutory
+      ? { ...g, value: statutoryTotal, components: statutoryLines, unsourced: false }
+      : g,
+  );
+
   const exportCSV = () => {
     if (!data) return;
     const rows: (string | number)[][] = [[title], []];
@@ -580,7 +636,10 @@ export default function BalanceSheetPanel() {
     rows.push(['TOTAL ASSETS', assetsTotal]);
     rows.push([]);
     rows.push(['LIABILITIES', '']);
-    (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
+    standaloneRows.forEach(g => {
+      rows.push([g.label, g.value]);
+      (isTaxLine(g.label) ? g.components ?? [] : []).forEach(c => rows.push(['   ' + c.label, c.value]));
+    });
     rows.push(['Market Place Liabilities', '']);
     marketplaceRows.forEach(g => {
       const pad = '   '.repeat(1 + (g.depth ?? 0));
@@ -718,7 +777,10 @@ export default function BalanceSheetPanel() {
       row('TOTAL ASSETS', assetsTotal, true);
 
       heading('Liabilities');
-      (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
+      standaloneRows.forEach(g => {
+        row(g.label, g.value);
+        (isTaxLine(g.label) ? g.components ?? [] : []).forEach(c => row('   ' + c.label, c.value));
+      });
       heading('Market Place Liabilities');
       marketplaceRows.forEach(g => {
         const pad = '   '.repeat(g.depth ?? 0);
@@ -902,10 +964,14 @@ export default function BalanceSheetPanel() {
             <div>
               <Badge variant="outline" className="text-[10px]">Liabilities &amp; Shareholders&apos; Equity</Badge>
               <SectionHeading>Liabilities</SectionHeading>
-              <div>{liabilityGroups?.standalone.map(g => (
+              <div>{standaloneRows.map(g => (
                 <GroupRow
-                  key={g.label} group={g} showSources={showSources}
-                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                  key={g.label} group={g} components={isTaxLine(g.label) ? g.components : undefined} showSources={showSources}
+                  onOpen={() => setDrill({
+                    title: g.label, value: g.value, unsourced: g.unsourced,
+                    lines: g.lines, components: g.components,
+                    note: standaloneNote(g),
+                  })}
                 />
               ))}</div>
               <SubHeading>Market Place Liabilities</SubHeading>

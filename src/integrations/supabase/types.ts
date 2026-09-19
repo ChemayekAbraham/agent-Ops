@@ -18645,6 +18645,53 @@ export type Database = {
           },
         ]
       }
+      hr_pay_statutory_remittances: {
+        Row: {
+          amount: number
+          authority: string
+          basis: string | null
+          component_code: string
+          created_at: string
+          id: string
+          paid_on: string
+          period_id: string | null
+          recorded_by: string | null
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          authority: string
+          basis?: string | null
+          component_code: string
+          created_at?: string
+          id?: string
+          paid_on?: string
+          period_id?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          authority?: string
+          basis?: string | null
+          component_code?: string
+          created_at?: string
+          id?: string
+          paid_on?: string
+          period_id?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_statutory_remittances_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_pay_tax_bands: {
         Row: {
           band_order: number
@@ -58630,6 +58677,17 @@ export type Database = {
           _staff_id: string
         }
         Returns: string
+      }
+      hr_pay_statutory_liability: {
+        Args: never
+        Returns: {
+          authority: string
+          component_code: string
+          label: string
+          outstanding: number
+          remitted: number
+          withheld: number
+        }[]
       }
       hr_pay_statutory_return: {
         Args: { _run_id: string }
