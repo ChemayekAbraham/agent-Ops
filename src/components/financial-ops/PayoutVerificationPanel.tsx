@@ -8,6 +8,7 @@
  * lives in the database and the approve-withdrawal function.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -208,11 +209,17 @@ function matchSignal(score: number | null): {
  * pairs a distinct icon and plain-word label with its colour, so the badge
  * reads the same for colour-blind operators.
  */
-function statusBadge(row: PayoutDestinationRow): {
+function statusBadge(row: PayoutDestinationRow, isLinkedAutoVerified?: boolean): {
   label: string;
   Icon: typeof BadgeCheck;
   classes: string;
 } {
+  if (isLinkedAutoVerified)
+    return {
+      label: 'Linked · Auto-Verified',
+      Icon: BadgeCheck,
+      classes: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/40 dark:text-emerald-400 dark:ring-emerald-500/30',
+    };
   if (row.status === 'verified')
     return { label: 'Verified', Icon: BadgeCheck, classes: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/40' };
   if (row.status === 'rejected')
@@ -472,25 +479,53 @@ function CheckLine({
   value,
   outcome,
   note,
+  className = '',
+  singleLine = false,
 }: {
-  label: string;
+  label?: string;
   value: string;
   outcome: boolean | null;
   note?: string | null;
+  className?: string;
+  singleLine?: boolean;
 }) {
+  const isCentered = singleLine && !note;
   return (
-    <div className="flex items-start gap-2 rounded-xl bg-background/70 px-3 py-2">
+    <div
+      className={`flex ${
+        isCentered ? 'items-center' : 'items-start'
+      } gap-2 rounded-xl bg-background/70 px-3 py-2 ${className}`}
+    >
       {outcome === true ? (
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        <CheckCircle2
+          className={`${isCentered ? '' : 'mt-0.5 '}h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400`}
+          aria-hidden="true"
+        />
       ) : outcome === false ? (
-        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+        <XCircle
+          className={`${isCentered ? '' : 'mt-0.5 '}h-4 w-4 shrink-0 text-destructive`}
+          aria-hidden="true"
+        />
       ) : (
-        <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <HelpCircle
+          className={`${isCentered ? '' : 'mt-0.5 '}h-4 w-4 shrink-0 text-muted-foreground`}
+          aria-hidden="true"
+        />
       )}
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{label}</p>
-        <p className="truncate text-sm font-bold tabular-nums text-foreground">{value}</p>
-        {note && <p className="text-[11px] leading-snug text-muted-foreground">{note}</p>}
+      <div className="min-w-0 flex-1">
+        {singleLine ? (
+          <p className="text-xs font-semibold text-foreground">{value}</p>
+        ) : (
+          <>
+            {label && (
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
+                {label}
+              </p>
+            )}
+            <p className="text-sm font-bold tabular-nums text-foreground">{value}</p>
+          </>
+        )}
+        {note && <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{note}</p>}
       </div>
       <span className="sr-only">
         {outcome === true ? 'Checked' : outcome === false ? 'Does not match' : 'Nothing to compare'}
@@ -561,66 +596,70 @@ function StoredIdReadingCard({ row }: { row: PayoutDestinationRow }) {
           value={maskedNin ?? 'Not read'}
           outcome={ninMatches}
           note={
-            ninMatches === true
-              ? 'Same as the number they typed in.'
-              : ninMatches === false
-                ? `They typed ${enteredMask ?? '—'} — different card.`
-                : row.national_id
-                  ? 'Nothing was read off the card to compare.'
-                  : 'They have not typed an ID number yet.'
+            ninMatches === false
+              ? `Typed ${enteredMask ?? '—'} — different card.`
+              : !ninMatches && !row.national_id
+                ? 'No ID number typed yet.'
+                : undefined
           }
         />
         <CheckLine
           label="Card number"
           value={maskedCard ?? 'Not read'}
           outcome={maskedCard ? true : null}
-          note={maskedCard ? 'Printed on the front of the card.' : 'Could not be read off the photo.'}
         />
         <CheckLine
           label="Sex"
           value={data.sex ?? 'Not read'}
           outcome={data.sex ? true : null}
-          note={data.sex ? 'Read from the National ID.' : 'Could not be read off the photo.'}
         />
         <CheckLine
           label="Age"
           value={age != null ? `${age} years` : 'Not read'}
           outcome={age != null ? true : null}
-          note={
-            age != null
-              ? `Calculated from date of birth (${data.dateOfBirth}).`
-              : 'Could not be read off the photo.'
-          }
         />
         <CheckLine
-          label="Selfie is a real face"
-          value={data.faceVerified === true ? 'Face confirmed' : data.faceVerified === false ? 'Not a face' : 'Not checked'}
-          outcome={data.faceVerified}
-          note={
+          singleLine
+          value={
             data.faceVerified === true
-              ? 'The photo passed the face check.'
+              ? 'Face confirmed'
               : data.faceVerified === false
-                ? 'The photo did not pass the face check — ask for a new selfie.'
-                : 'No face check was recorded for this photo.'
+                ? 'Photo did not pass face check'
+                : 'Face check not recorded'
           }
+          outcome={data.faceVerified}
+          note={data.faceVerified === false ? 'Ask for a new selfie.' : undefined}
         />
         <CheckLine
-          label="Payout number confirmed by code"
-          value={otpPassed ? 'Code passed' : numberConfirmed.isLoading ? 'Checking…' : 'No code on file'}
+          singleLine
+          value={
+            otpPassed
+              ? 'Code confirmed'
+              : numberConfirmed.isLoading
+                ? 'Checking confirmation code…'
+                : 'No confirmed code for payout number'
+          }
           outcome={numberConfirmed.isLoading ? null : otpPassed}
           note={
-            otpPassed
-              ? 'They entered the code sent to that number, so they hold the SIM.'
-              : 'No confirmed code for that number — ask them to confirm it on the identity screen.'
+            !otpPassed && !numberConfirmed.isLoading
+              ? 'Ask them to confirm payout number on the identity screen.'
+              : undefined
           }
         />
         <CheckLine
-          label="Name on card vs account"
-          value={namesMatch === true ? 'Names match' : namesMatch === false ? 'Names differ' : 'Nothing to compare'}
-          outcome={namesMatch}
-          note={idNameOnFile ? `${idNameOnFile} · account: ${accountName || '—'}` : 'No name read off the card yet.'}
+          singleLine
+          className="sm:col-span-2"
+          value={
+            row.is_linked_id
+              ? 'Linked account — names differ as expected'
+              : namesMatch === true
+                ? `Names match${idNameOnFile ? `: ${idNameOnFile}` : ''}`
+                : namesMatch === false
+                  ? `Names differ: ${idNameOnFile || '—'} (ID) vs ${accountName || '—'} (account)`
+                  : 'No name read off the card yet to compare'
+          }
+          outcome={row.is_linked_id ? true : namesMatch}
         />
-
       </div>
 
       <p className="mt-2 text-[11px] text-muted-foreground">
@@ -701,7 +740,6 @@ function StoredIdBackReadingCard({
               label={d.label}
               value={d.value}
               outcome={true}
-              note={d.label === 'Card number' ? 'Printed on the back of the card.' : undefined}
             />
           ))}
         </div>
@@ -1165,6 +1203,122 @@ function readStoredSort(): PayoutQueueSort {
   return 'ready_first';
 }
 
+/**
+ * Compact informational card rendered for linked accounts where the National ID
+ * holder has approved the link request. Payout is auto-verified immediately upon
+ * holder approval; staff does not manually call or gate money movement.
+ */
+function LinkedAutoVerifiedCard({
+  row,
+  linkRequest,
+}: {
+  row: PayoutDestinationRow;
+  linkRequest?: {
+    id: string;
+    nin?: string;
+    status: string;
+    owner_confirmed_at: string | null;
+    created_at?: string | null;
+  } | null;
+}) {
+  const holderName = row.linked_id_holder || row.national_id_name || 'National ID Holder';
+  const approvedAt = linkRequest?.owner_confirmed_at || row.decided_at || row.first_seen_at;
+  const approvedFormatted = approvedAt
+    ? new Date(approvedAt).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Recently';
+
+  const recordId = linkRequest?.id;
+  const isAwaitingStaffAudit = linkRequest?.status === 'owner_approved';
+
+  const scrollToReviewRecord = () => {
+    if (recordId) {
+      const targetEl = document.getElementById(`national-id-link-record-${recordId}`);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetEl.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+        setTimeout(() => {
+          targetEl.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+        }, 2500);
+        return;
+      }
+    }
+    const queueEl = document.getElementById('national-id-link-staff-queue');
+    if (queueEl) {
+      queueEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      toast.info(
+        recordId
+          ? `Link review record ${recordId.slice(0, 8)} is recorded on file.`
+          : 'National ID link is confirmed on file.'
+      );
+    }
+  };
+
+  return (
+    <div className="mx-5 my-4 overflow-hidden rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4 shadow-sm dark:border-emerald-500/25 dark:bg-emerald-950/20">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400">
+            <BadgeCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+              Verified via National ID Link
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Destination auto-verified upon holder approval · No manual verification needed
+            </p>
+          </div>
+        </div>
+        <span className="shrink-0 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-inset ring-emerald-500/30 dark:text-emerald-400">
+          Auto-Verified
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2 rounded-xl border border-emerald-500/20 bg-background/80 px-3.5 py-2.5 text-xs sm:grid-cols-2">
+        <div className="flex items-center gap-2 font-semibold text-foreground">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+          <span>
+            Approved by {holderName}
+            {row.national_id ? ` (${maskIdNumber(row.national_id)})` : ''}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 font-semibold text-foreground">
+          <Clock className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span>Approved on {approvedFormatted}</span>
+        </div>
+      </div>
+
+      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-emerald-500/20 pt-3">
+        <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+          <Link2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span>
+            {isAwaitingStaffAudit
+              ? 'Staff role: Link record awaiting audit in queue above'
+              : 'Staff role: Informational audit record'}
+          </span>
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={scrollToReviewRecord}
+          className="h-8 gap-1 rounded-lg border-emerald-500/40 text-xs font-semibold text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
+        >
+          <span>View National ID link review record</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function PayoutVerificationPanel() {
   const [status, setStatus] = useState<PayoutQueueFilter>('waiting');
   // Financial Ops should see people who have already submitted their National ID
@@ -1232,6 +1386,29 @@ export default function PayoutVerificationPanel() {
   }, [row?.id]);
   const nameCheckPassed = nameCheck?.outcome === 'match';
   const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheckPassed;
+
+  const linkRequestQuery = useQuery({
+    queryKey: ['national-id-link-for-user', row?.user_id],
+    enabled: !!row?.user_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('national_id_link_requests')
+        .select('id, nin, status, owner_confirmed_at, code_verified_at, created_at, expires_at, holder_id')
+        .eq('requester_id', row!.user_id)
+        .in('status', ['owner_approved', 'active'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+  });
+
+  const associatedLink = linkRequestQuery.data;
+  const isLinkedCase = Boolean(
+    (associatedLink && (associatedLink.status === 'owner_approved' || associatedLink.status === 'active')) ||
+    row?.is_linked_id
+  );
 
 
 
@@ -1584,7 +1761,7 @@ export default function PayoutVerificationPanel() {
               </div>
             </div>
             {(() => {
-              const badge = statusBadge(row);
+              const badge = statusBadge(row, isLinkedCase);
               return (
                 <span
                   role="status"
@@ -1817,6 +1994,33 @@ export default function PayoutVerificationPanel() {
           {/* Glanceable match strip */}
           <div className="mx-5 flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3">
             {(() => {
+              if (isLinkedCase) {
+                return (
+                  <>
+                    <span
+                      role="img"
+                      aria-label="Name match result: Linked account"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-primary-foreground"
+                    >
+                      <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                        Linked account · Name difference expected
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        Account: {row.account_name || row.full_name || '—'} · ID holder: {row.linked_id_holder || row.national_id_name || '—'}
+                      </p>
+                    </div>
+                    <p
+                      className="shrink-0 text-sm font-bold tabular-nums text-foreground whitespace-nowrap"
+                      title={`Withdrawable balance: ${formatUGX(row.withdrawable_balance)}`}
+                    >
+                      {formatUGX(row.withdrawable_balance)}
+                    </p>
+                  </>
+                );
+              }
               const sig = matchSignal(row.name_match_score);
               return (
                 <>
@@ -1833,7 +2037,10 @@ export default function PayoutVerificationPanel() {
                       Account: {row.account_name || '—'} · ID: {row.national_id_name || '—'}
                     </p>
                   </div>
-                  <p className="shrink-0 text-sm font-bold text-foreground">
+                  <p
+                    className="shrink-0 text-sm font-bold tabular-nums text-foreground whitespace-nowrap"
+                    title={`Withdrawable balance: ${formatUGX(row.withdrawable_balance)}`}
+                  >
                     {formatUGX(row.withdrawable_balance)}
                   </p>
                 </>
@@ -1848,13 +2055,17 @@ export default function PayoutVerificationPanel() {
             <div className="rounded-2xl border border-border bg-card p-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Selfie name</p>
               <p className="mt-1 truncate text-sm font-bold text-foreground">{row.full_name || '—'}</p>
-              <p className="text-[10px] text-muted-foreground">Name on the account</p>
+              <p className="text-[10px] text-muted-foreground">
+                {row.account_name && row.account_name !== row.full_name
+                  ? `Withdrawal: ${row.account_name}`
+                  : 'Name on the account'}
+              </p>
             </div>
             <div
               className={`rounded-2xl border p-3 ${
                 idNameUnreadable
                   ? 'border-destructive/50 bg-destructive/10'
-                  : row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8
+                  : !isLinkedCase && row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8
                     ? 'border-amber-500/50 bg-amber-500/10'
                     : 'border-border bg-card'
               }`}
@@ -1868,18 +2079,20 @@ export default function PayoutVerificationPanel() {
                 </p>
               ) : (
                 <p className="text-[10px] text-muted-foreground">
-                  {row.national_id_name
-                    ? row.name_match_score !== null && row.name_match_score < 0.8
-                      ? 'Does not match the selfie name'
-                      : 'Matches the selfie name'
-                    : 'Not read from the ID yet'}
+                  {isLinkedCase
+                    ? 'Differs from withdrawal account — expected for linked account'
+                    : row.national_id_name
+                      ? row.name_match_score !== null && row.name_match_score < 0.8
+                        ? 'Does not match the withdrawal account name'
+                        : 'Matches the withdrawal account name'
+                      : 'Not read from the ID yet'}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Names do not match: show the ID name and let it become the holder's name */}
-          {row.name_match_score !== null && row.name_match_score < 0.8 && (
+          {/* Names do not match: show the ID name and let it become the holder's name (suppressed for linked cases) */}
+          {!isLinkedCase && row.name_match_score !== null && row.name_match_score < 0.8 && (
             <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
           )}
 
@@ -1889,114 +2102,118 @@ export default function PayoutVerificationPanel() {
           {/* What was read off the BACK of the card, re-read from the archived photo */}
           <StoredIdBackReadingCard row={row} backPath={idBackPath} />
 
-          {/* Mandatory network name check before Verify can be tapped */}
-          <PayoutNameCheckCard row={row} check={nameCheck} onChange={setNameCheck} />
+          {isLinkedCase ? (
+            <LinkedAutoVerifiedCard row={row} linkRequest={associatedLink} />
+          ) : (
+            <>
+              {/* Mandatory network name check before Verify can be tapped */}
+              <PayoutNameCheckCard row={row} check={nameCheck} onChange={setNameCheck} />
 
-          {/* Audit trail of name replacements */}
-          <NameChangeHistory userId={row.user_id} />
+              {/* Audit trail of name replacements */}
+              <NameChangeHistory userId={row.user_id} />
 
+              {/* Contact actions */}
+              <div className="grid grid-cols-2 gap-2 px-5 pt-3">
+                {row.user_phone && (
+                  <a
+                    href={`tel:${row.user_phone}`}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground"
+                  >
+                    <PhoneCall className="h-4 w-4" /> Call
+                  </a>
+                )}
+                {(() => {
+                  const href = waHref(
+                    row.user_phone,
+                    `Hello ${(row.full_name || '').split(' ')[0] || 'there'}, this is Welile Financial Ops about your payout verification.`,
+                  );
+                  return href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-emerald-600/40 text-sm font-bold text-emerald-700 dark:text-emerald-400"
+                    >
+                      <MessageCircle className="h-4 w-4" /> WhatsApp
+                    </a>
+                  ) : null;
+                })()}
+                {row.destination_type === 'mobile_money' &&
+                  row.momo_number &&
+                  last9(row.momo_number) !== last9(row.user_phone) && (
+                    <a
+                      href={`tel:${row.momo_number}`}
+                      className="col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-primary/40 text-xs font-bold text-primary"
+                    >
+                      <Smartphone className="h-4 w-4" /> Call payout number {row.momo_number}
+                    </a>
+                  )}
+                {row.destination_type !== 'mobile_money' && (
+                  <p className="col-span-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <Building2 className="h-3.5 w-3.5" /> Bank account — confirm with the bank on the call
+                  </p>
+                )}
+              </div>
 
-
-          {/* Contact actions */}
-          <div className="grid grid-cols-2 gap-2 px-5 pt-3">
-            {row.user_phone && (
-              <a
-                href={`tel:${row.user_phone}`}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground"
-              >
-                <PhoneCall className="h-4 w-4" /> Call
-              </a>
-            )}
-            {(() => {
-              const href = waHref(
-                row.user_phone,
-                `Hello ${(row.full_name || '').split(' ')[0] || 'there'}, this is Welile Financial Ops about your payout verification.`,
-              );
-              return href ? (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-emerald-600/40 text-sm font-bold text-emerald-700 dark:text-emerald-400"
+              {/* Decisions */}
+              <div className="flex gap-3 p-5">
+                <Button
+                  variant="outline"
+                  className="h-14 flex-1 rounded-2xl text-xs font-bold uppercase tracking-widest"
+                  onClick={() => setDeciding(true)}
                 >
-                  <MessageCircle className="h-4 w-4" /> WhatsApp
-                </a>
-              ) : null;
-            })()}
-            {row.destination_type === 'mobile_money' &&
-              row.momo_number &&
-              last9(row.momo_number) !== last9(row.user_phone) && (
-                <a
-                  href={`tel:${row.momo_number}`}
-                  className="col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-primary/40 text-xs font-bold text-primary"
+                  Reject / note
+                </Button>
+                <Button
+                  className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
+                  disabled={verifyBlocked || quickVerify.isPending}
+                  onClick={() => setConfirmingVerify(row)}
                 >
-                  <Smartphone className="h-4 w-4" /> Call payout number {row.momo_number}
-                </a>
-              )}
-            {row.destination_type !== 'mobile_money' && (
-              <p className="col-span-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Building2 className="h-3.5 w-3.5" /> Bank account — confirm with the bank on the call
-              </p>
-            )}
-          </div>
+                  {quickVerify.isPending ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="mr-2 h-5 w-5" />
+                  )}
+                  Verify payout
+                </Button>
+              </div>
 
-          {/* Decisions */}
-          <div className="flex gap-3 p-5">
-            <Button
-              variant="outline"
-              className="h-14 flex-1 rounded-2xl text-xs font-bold uppercase tracking-widest"
-              onClick={() => setDeciding(true)}
-            >
-              Reject / note
-            </Button>
-            <Button
-              className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
-              disabled={verifyBlocked || quickVerify.isPending}
-              onClick={() => setConfirmingVerify(row)}
-            >
-              {quickVerify.isPending ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="mr-2 h-5 w-5" />
+              {!photosReady && (
+                <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Waiting for their National ID photo and selfie
+                </p>
               )}
-              Verify payout
-            </Button>
-          </div>
-
-          {!photosReady && (
-            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Waiting for their National ID photo and selfie
-            </p>
-          )}
-          {photosReady && idNameUnreadable && (
-            <p role="alert" className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Verify is off — {idNameConfidence.reason} Ask for a clearer ID photo.
-            </p>
-          )}
-          {photosReady && !idNameUnreadable && !isDouble && !nameCheckPassed && (
-            <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-amber-600">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {nameCheck
-                ? 'Verify is off — the name on the number is not clearly the same person as the National ID.'
-                : 'Verify is off — do the name check on the payout number first (Step 1 above).'}
-            </p>
-          )}
-          {(() => {
-            const reason = blockedReasonFor(row);
-            if (!reason) return null;
-            return (
-              <p className={`-mt-1 flex items-start justify-center gap-1.5 px-5 pb-4 text-center text-xs font-medium ${reason.tone}`}>
-                <reason.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span>{reason.text}</span>
-              </p>
-            );
-          })()}
-          {row.decision_reason && (
-            <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
-              Last note: {row.decision_reason}
-            </p>
+              {photosReady && idNameUnreadable && (
+                <p role="alert" className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Verify is off — {idNameConfidence.reason} Ask for a clearer ID photo.
+                </p>
+              )}
+              {photosReady && !idNameUnreadable && !isDouble && !nameCheckPassed && (
+                <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-amber-600">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {nameCheck
+                    ? 'Verify is off — the name on the number is not clearly the same person as the National ID.'
+                    : 'Verify is off — do the name check on the payout number first (Step 1 above).'}
+                </p>
+              )}
+              {(() => {
+                const reason = blockedReasonFor(row);
+                if (!reason) return null;
+                return (
+                  <p className={`-mt-1 flex items-start justify-center gap-1.5 px-5 pb-4 text-center text-xs font-medium ${reason.tone}`}>
+                    <reason.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>{reason.text}</span>
+                  </p>
+                );
+              })()}
+              {row.decision_reason && (
+                <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
+                  Last note: {row.decision_reason}
+                </p>
+              )}
+            </>
           )}
 
           {/* Queue navigation — the next NUMBER for this person, or the next real PERSON. */}

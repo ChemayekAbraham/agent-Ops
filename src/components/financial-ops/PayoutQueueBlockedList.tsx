@@ -12,9 +12,11 @@ import type { PayoutDestinationRow } from '@/hooks/usePayoutVerification';
 
 export type BlockedReason = {
   blocked: boolean;
+  chip: string;
   text: string;
   Icon: typeof AlertTriangle;
   tone: string;
+  chipClasses: string;
 };
 
 /** Why this case cannot be verified right now, in the reviewer's own words. */
@@ -28,56 +30,88 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
           ? 'ID photo'
           : 'National ID';
 
+  if (row.is_linked_id) {
+    return {
+      blocked: false,
+      chip: 'Auto-verified',
+      text: 'Auto-verified via National ID link.',
+      Icon: BadgeCheck,
+      tone: 'text-emerald-700 dark:text-emerald-400',
+      chipClasses: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 ring-1 ring-inset ring-emerald-500/30',
+    };
+  }
   if (row.status === 'verified') {
     return {
       blocked: true,
+      chip: 'Already verified',
       text: 'Blocked because this account is already verified by Financial Ops — reject it first if anything needs to change.',
       Icon: BadgeCheck,
-      tone: 'text-primary',
+      tone: 'text-emerald-700 dark:text-emerald-400',
+      chipClasses: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 ring-1 ring-inset ring-emerald-500/30',
     };
   }
   if (row.status === 'rejected') {
     return {
       blocked: true,
+      chip: 'Rejected',
       text: `Blocked because this case was rejected${row.decision_reason ? `: ${row.decision_reason}` : '. It needs a fresh submission.'}`,
       Icon: XCircle,
       tone: 'text-destructive',
+      chipClasses: 'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/30',
     };
   }
   if (row.double_submission) {
     return {
       blocked: true,
+      chip: 'Double submission',
       text: `Blocked because this ${what} already verifies ${row.double_of_name || 'an earlier account'} — only the account that submitted first may be verified.`,
       Icon: AlertTriangle,
       tone: 'text-destructive',
+      chipClasses: 'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/30',
     };
   }
   if (!row.national_id) {
     return {
       blocked: true,
+      chip: 'Waiting for ID',
       text: 'Waiting because no National ID number has been entered on this account yet.',
       Icon: Clock,
-      tone: 'text-amber-600',
+      tone: 'text-amber-700 dark:text-amber-400',
+      chipClasses: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-500/30',
     };
   }
   if (!assessIdNameConfidence(row.national_id_name).confident) {
     return {
       blocked: true,
+      chip: 'Unreadable ID',
       text: `Waiting because the name could not be read from the ID photo — ${assessIdNameConfidence(row.national_id_name).reason} A clearer photo is needed.`,
       Icon: Clock,
-      tone: 'text-amber-600',
+      tone: 'text-amber-700 dark:text-amber-400',
+      chipClasses: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-500/30',
+    };
+  }
+  if (row.name_match_score !== null && row.name_match_score < 0.5) {
+    return {
+      blocked: true,
+      chip: 'Name mismatch',
+      text: 'Names do not match between payout destination and National ID.',
+      Icon: AlertTriangle,
+      tone: 'text-amber-700 dark:text-amber-400',
+      chipClasses: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-500/30',
     };
   }
   return {
     blocked: false,
+    chip: 'Ready to review',
     text: 'Ready to review — ID name read, photos on file, nothing blocking.',
     Icon: CheckCircle2,
     tone: 'text-primary',
+    chipClasses: 'bg-primary/15 text-primary ring-1 ring-inset ring-primary/30',
   };
 }
 
 /** Only the rows in view are rendered once the list gets long. */
-const ESTIMATED_ROW_PX = 96;
+const ESTIMATED_ROW_PX = 68;
 const VIRTUALIZE_ABOVE = 12;
 const MAX_LIST_PX = 560;
 
@@ -130,10 +164,15 @@ export function PayoutQueueBlockedList({
         </div>
         <p className="ml-5 truncate text-xs text-muted-foreground">{number}</p>
         {reason && (
-          <p className={`ml-5 mt-1 flex items-start gap-1.5 text-xs font-medium ${reason.tone}`}>
-            <reason.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span>{reason.text}</span>
-          </p>
+          <div className="ml-5 mt-1.5 flex items-center gap-2">
+            <span
+              title={reason.text}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${reason.chipClasses}`}
+            >
+              <reason.Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>{reason.chip}</span>
+            </span>
+          </div>
         )}
       </button>
     );

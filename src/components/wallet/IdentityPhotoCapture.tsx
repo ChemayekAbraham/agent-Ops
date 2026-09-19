@@ -1047,14 +1047,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const storedSelfiePath = replacing ? null : onFileSelfiePath;
 
   const alreadyDone = !replacing && !!storedIdPath && !!storedIdBackPath && !!storedSelfiePath;
-  // Verified once means verified for good — nothing more to send or explain.
-  if (alreadyVerified.data === true) return null;
+  const isVerified = alreadyVerified.data === true;
 
-  /* Everything is in and Financial Ops has it. This used to render NOTHING,
-     which read as the screen being broken: the upload tiles vanished, the
-     withdraw gate still refused, and there was no sentence anywhere saying the
-     photos had arrived or what happens next. Waiting is a state, and it has to
-     look like one. */
+  /* A verified account still needs this screen: it's the only place to see
+     what's on file and the only path to request a change (new photos, a
+     different payout number). This used to return null here for a verified
+     user, which read as the screen being broken — no confirmation, no way to
+     see or change anything. Waiting-for-review and already-verified are both
+     states, and both have to look like one. */
   if (alreadyDone) {
     return (
       <Card className={compact ? 'border border-border shadow-sm' : undefined}>
@@ -1071,17 +1071,21 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
             <p className="text-sm font-semibold text-foreground">
-              Your details are with Financial Ops
+              {isVerified ? 'Your identity is verified' : 'Your details are with Financial Ops'}
             </p>
           </div>
           <p className="text-xs text-muted-foreground">
-            Received
-            {mine.data?.identity_photos_submitted_at
-              ? ` on ${new Date(mine.data.identity_photos_submitted_at).toLocaleString('en-GB', {
-                  dateStyle: 'medium', timeStyle: 'short',
-                })}`
-              : ''}
-            . You do not need to send them again.
+            {isVerified
+              ? 'You do not need to send these again. Use the options below if anything needs to change.'
+              : <>
+                  Received
+                  {mine.data?.identity_photos_submitted_at
+                    ? ` on ${new Date(mine.data.identity_photos_submitted_at).toLocaleString('en-GB', {
+                        dateStyle: 'medium', timeStyle: 'short',
+                      })}`
+                    : ''}
+                  . You do not need to send them again.
+                </>}
           </p>
 
           <div className="grid gap-2 sm:grid-cols-2">

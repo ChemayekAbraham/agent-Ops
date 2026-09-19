@@ -46857,6 +46857,11 @@ export type Database = {
           fin_ops_reference: string | null
           fin_ops_verified_at: string | null
           fin_ops_verified_by: string | null
+          frozen: boolean
+          frozen_at: string | null
+          frozen_by: string | null
+          frozen_category: string | null
+          frozen_reason: string | null
           hidden_from_merchant_queue: boolean
           hidden_from_merchant_queue_at: string | null
           hidden_from_merchant_queue_by: string | null
@@ -46932,6 +46937,11 @@ export type Database = {
           fin_ops_reference?: string | null
           fin_ops_verified_at?: string | null
           fin_ops_verified_by?: string | null
+          frozen?: boolean
+          frozen_at?: string | null
+          frozen_by?: string | null
+          frozen_category?: string | null
+          frozen_reason?: string | null
           hidden_from_merchant_queue?: boolean
           hidden_from_merchant_queue_at?: string | null
           hidden_from_merchant_queue_by?: string | null
@@ -47007,6 +47017,11 @@ export type Database = {
           fin_ops_reference?: string | null
           fin_ops_verified_at?: string | null
           fin_ops_verified_by?: string | null
+          frozen?: boolean
+          frozen_at?: string | null
+          frozen_by?: string | null
+          frozen_category?: string | null
+          frozen_reason?: string | null
           hidden_from_merchant_queue?: boolean
           hidden_from_merchant_queue_at?: string | null
           hidden_from_merchant_queue_by?: string | null
