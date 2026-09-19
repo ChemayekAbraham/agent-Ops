@@ -469,6 +469,37 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   {fmt(drill.value)}
                 </span>
               </div>
+              {isCarriedForward && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Detailed Breakdown
+                  </p>
+                  {carriedForward.loading && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading breakdown…
+                    </p>
+                  )}
+                  {!carriedForward.loading && (carriedForward.rows ?? []).map(r => (
+                    <div key={r.group_label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine
+                        line={{
+                          label: r.group_label,
+                          value: r.amount,
+                          source: `${r.legs} ledger ${r.legs === 1 ? 'entry' : 'entries'}`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {!carriedForward.loading && (carriedForward.rows ?? []).length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">No underlying entries found.</p>
+                  )}
+                  <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                    These are starting balances and corrections brought into the books from earlier
+                    records. They are historical bookkeeping entries, not new cash, revenue or
+                    obligations.
+                  </p>
+                </div>
+              )}
               {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
