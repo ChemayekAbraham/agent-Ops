@@ -538,6 +538,37 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   </p>
                 </div>
               )}
+              {isDeferredFee && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Detailed Breakdown
+                  </p>
+                  {deferredFee.loading && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading breakdown…
+                    </p>
+                  )}
+                  {!deferredFee.loading && (deferredFee.rows ?? []).map(r => (
+                    <div key={r.group_label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine
+                        line={{
+                          label: r.group_label,
+                          value: r.amount,
+                          source: `${r.legs} ledger ${r.legs === 1 ? 'entry' : 'entries'}`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {!deferredFee.loading && (deferredFee.rows ?? []).length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">No underlying entries found.</p>
+                  )}
+                  <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                    Rent plan fees are recorded when a plan is funded and earned gradually as the
+                    tenant repays. The balance above is the portion still to be earned; it falls
+                    automatically with every repayment.
+                  </p>
+                </div>
+              )}
 
               {receivablesKey && (
                 <div className="space-y-1">
