@@ -1,1 +1,3 @@
-- No open tasks.
+- [ ] Reorganize the on-screen Income Statement into a conventional multi-step sequence.
+- [ ] Align CSV and PDF exports with the corrected structure.
+- [ ] Verify subtotals, safeguards, and the live report.
