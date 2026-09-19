@@ -182,8 +182,10 @@ import {
   ArrowRightLeft, ScrollText, KeyRound, ReceiptText
   , Bell, HandCoins, MessageSquare
   , Store, Archive, Activity, CheckCircle2, Sparkles, PanelLeftClose, PanelLeftOpen, Wallet, CalendarClock,
-  Smartphone
+  Smartphone, Zap, History, Loader2
 } from 'lucide-react';
+import { formatUGX } from '@/lib/rentCalculations';
+import { formatDistanceToNow } from 'date-fns';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -567,6 +569,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         setMoreSheet={setMoreSheet}
         openMoreAction={openMoreAction}
         onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
+        badgeCounts={badgeCounts}
       />
     );
   }
@@ -663,8 +666,8 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
           <div className="px-2 pt-2">
             <button
               onClick={() => { setActiveTool(null); setView('home'); setMobileDrawerOpen(false); }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                activeId === null ? 'bg-primary/10 text-primary font-semibold' : 'text-foreground hover:bg-muted/60'
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                activeId === null ? 'bg-primary/10 text-primary font-bold shadow-2xs' : 'text-foreground hover:bg-muted/60'
               }`}
             >
               <HomeIcon className={`h-4 w-4 shrink-0 ${activeId === null ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -692,9 +695,9 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
                       <button
                         key={`m-${a.kind}-${a.id}`}
                         onClick={() => openMoreAction(a)}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative ${
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative ${
                           isActive
-                            ? 'bg-primary/10 text-primary font-semibold'
+                            ? 'bg-primary/10 text-primary font-bold shadow-2xs'
                             : 'text-foreground/85 hover:bg-muted/60 hover:text-foreground'
                         }`}
                       >
@@ -730,7 +733,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
 
       {/* Persistent sidebar (desktop) — hidden when Email Transactions is open full-screen */}
       {!emailTxFullscreen && (
-      <aside className={`hidden lg:flex ${sidebarCollapsed ? 'w-14' : 'w-64 xl:w-72'} shrink-0 self-stretch min-h-[calc(100vh-2rem)] flex-col rounded-2xl border border-border bg-card overflow-hidden transition-[width] duration-200 shadow-xs`}>
+      <aside className={`hidden lg:flex ${sidebarCollapsed ? 'w-14' : 'w-64 xl:w-72'} shrink-0 self-stretch min-h-[calc(100vh-2rem)] flex-col rounded-3xl border border-border/80 bg-card/95 backdrop-blur overflow-hidden transition-[width] duration-200 shadow-sm`}>
         {/* Sidebar header */}
         <div className={`${sidebarCollapsed ? 'px-2 py-3' : 'px-4 pt-4 pb-3'} border-b border-border bg-gradient-to-br from-primary/5 via-card to-card`}>
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-2`}>
@@ -771,9 +774,9 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         <div className={`${sidebarCollapsed ? 'px-1.5' : 'px-2'} pt-2`}>
           <button
             onClick={() => { setActiveTool(null); setView('home'); }}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'} py-2 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'} py-2 rounded-xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               activeId === null
-                ? 'bg-primary/10 text-primary font-semibold'
+                ? 'bg-primary/10 text-primary font-bold shadow-2xs'
                 : 'text-foreground hover:bg-muted/60'
             }`}
             title="Overview"
@@ -805,9 +808,9 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
                     <button
                       key={`${a.kind}-${a.id}`}
                       onClick={() => openMoreAction(a)}
-                      className={`group w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-1.5'} rounded-md text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative ${
+                      className={`group w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-1.5'} rounded-xl text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative ${
                         isActive
-                          ? 'bg-primary/10 text-primary font-semibold'
+                          ? 'bg-primary/10 text-primary font-bold shadow-2xs'
                           : 'text-foreground/85 hover:bg-muted/60 hover:text-foreground'
                       }`}
                       title={sidebarCollapsed ? `${a.label}${badgeCount ? ` (${badgeCount})` : ''}` : a.desc}
@@ -888,7 +891,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
             <MomoFeedSilenceAlert />
 
             {/* IFTTT Diagnostics Accordion — collapsed by default */}
-            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+            <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-sm">
               <button
                 type="button"
                 onClick={() => setIftttDiagnosticsOpen(!iftttDiagnosticsOpen)}
@@ -925,7 +928,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
             </div>
 
             {/* Merchant Phone Checklist Accordion — collapsed by default */}
-            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+            <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-sm">
               <button
                 type="button"
                 onClick={() => setMerchantChecklistOpen(!merchantChecklistOpen)}
@@ -971,6 +974,86 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
 // Precision FinOps — professional home view
 // ═══════════════════════════════════════════════════════════════════
 
+function getActionBadgeStyle(actionType: string) {
+  const t = actionType.toLowerCase();
+  if (t.includes('approve') || t.includes('verify') || t.includes('success')) {
+    return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 ring-1 ring-inset ring-emerald-500/30';
+  }
+  if (t.includes('reject') || t.includes('fail') || t.includes('stale') || t.includes('cancel')) {
+    return 'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/30';
+  }
+  if (t.includes('deposit') || t.includes('topup') || t.includes('wallet')) {
+    return 'bg-primary/15 text-primary ring-1 ring-inset ring-primary/30';
+  }
+  if (t.includes('payout') || t.includes('withdrawal') || t.includes('claim') || t.includes('float')) {
+    return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-500/30';
+  }
+  return 'bg-muted text-muted-foreground ring-1 ring-inset ring-border';
+}
+
+function GradientStatTile({
+  icon: Icon,
+  title,
+  value,
+  subtext,
+  actionLabel,
+  onClick,
+  gradient,
+  glow,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  value: string | number;
+  subtext: string;
+  actionLabel: string;
+  onClick: () => void;
+  gradient: string;
+  glow: string;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`group relative flex flex-col justify-between p-4 sm:p-5 rounded-2xl sm:rounded-3xl cursor-pointer text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${gradient} ${glow} border border-white/15 min-h-[175px] sm:min-h-[200px]`}
+    >
+      {/* Top soft icon badge */}
+      <div className="flex items-center justify-between">
+        <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shadow-inner">
+          <Icon className="h-5 w-5 sm:h-5.5 sm:w-5.5" />
+        </div>
+      </div>
+
+      {/* Middle metric value & label */}
+      <div className="my-2 min-w-0">
+        <p className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white tabular-nums truncate leading-none">
+          {value}
+        </p>
+        <p className="mt-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white/85 truncate">
+          {title}
+        </p>
+        <p className="text-[11px] text-white/70 truncate mt-0.5">
+          {subtext}
+        </p>
+      </div>
+
+      {/* Bottom pill action button */}
+      <div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/20 group-hover:bg-white/30 backdrop-blur-sm px-3 py-1 text-[11px] font-bold text-white transition-colors">
+          <span>{actionLabel}</span>
+          <ChevronRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 interface FinOpsHomeProps {
   onView: (v: View) => void;
   onOpenTool: (t: Tool) => void;
@@ -984,12 +1067,13 @@ interface FinOpsHomeProps {
   setMoreSheet: (v: boolean) => void;
   openMoreAction: (a: MoreAction) => void;
   onOpenMobileDrawer?: () => void;
+  badgeCounts: Partial<Record<string, number>>;
 }
 
 function FinOpsHome({
   onView, onOpenTool, onOpenMore, onFocusBucket,
   walletBreakdownOpen, setWalletBreakdownOpen, focusBucket, onClearFocus,
-  moreSheet, setMoreSheet, openMoreAction, onOpenMobileDrawer,
+  moreSheet, setMoreSheet, openMoreAction, onOpenMobileDrawer, badgeCounts,
 }: FinOpsHomeProps) {
   const qc = useQueryClient();
   const [exploreQuery, setExploreQuery] = useState('');
@@ -1057,13 +1141,39 @@ function FinOpsHome({
     },
     staleTime: 60_000,
   });
-  const badgeCounts: Partial<Record<string, number>> = staleHolds?.count
-    ? { stale_withdrawal_holds: staleHolds.count }
-    : {};
+
+  const { data: recentActivity = [], isLoading: activityLoading } = useQuery({
+    queryKey: ['finops-home-recent-activity'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('id, action_type, user_id, metadata, created_at, table_name')
+        .order('created_at', { ascending: false })
+        .limit(8);
+      if (error || !data) return [];
+
+      const userIds = [...new Set(data.filter((l) => l.user_id).map((l) => l.user_id!))];
+      const profileMap = new Map<string, string>();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        profiles?.forEach((p) => profileMap.set(p.id, p.full_name || 'Staff'));
+      }
+
+      return data.map((l) => ({
+        ...l,
+        actor_name: l.user_id ? profileMap.get(l.user_id) || 'Staff' : 'System',
+      }));
+    },
+    staleTime: 30_000,
+  });
 
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ['finops-wallet-overview'] });
     qc.invalidateQueries({ queryKey: ['finops-wallet-overview-queues'] });
+    qc.invalidateQueries({ queryKey: ['finops-home-recent-activity'] });
   };
 
   const eq = exploreQuery.trim().toLowerCase();
@@ -1072,13 +1182,15 @@ function FinOpsHome({
     : moreActions;
 
   return (
-    <div className="space-y-6">
-      {/* Header row */}
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header row with greeting (Yoola reference pattern) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground">Financial Operations</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
-            Verify deposits, approve withdrawals and keep the platform balanced.
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-foreground">
+            Financial Operations
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Live overview of platform liquidity, deposit verifications, and payout settlements.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -1086,19 +1198,19 @@ function FinOpsHome({
             <button
               type="button"
               onClick={onOpenMobileDrawer}
-              className="lg:hidden inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+              className="lg:hidden inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
             >
               <Menu className="h-3.5 w-3.5" /> All Tools
             </button>
           )}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> Live
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> Live Ledger
           </span>
           <button
             onClick={refreshAll}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 sm:px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 sm:px-3.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-xs"
           >
-            <ArrowRightLeft className="h-3.5 w-3.5" /> Refresh
+            <ArrowRightLeft className="h-3.5 w-3.5 text-primary" /> Refresh
           </button>
         </div>
       </div>
@@ -1106,49 +1218,311 @@ function FinOpsHome({
       {/* Verified payout destinations — nobody is paid to an unverified number */}
       <PayoutVerificationCallout onOpen={() => onOpenTool('payout_verification')} />
 
-      {/* Above-the-fold highest frequency daily operations */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-        <MajorActionButton
-          onClick={() => onOpenTool('cash_codes')}
-          icon={KeyRound}
-          tone="amber"
-          title="Cash Deposit Codes"
-          desc="Read pending codes back to depositors — codes expire in 2 min."
-        />
-        <MajorActionButton
-          onClick={() => onOpenTool('email_tx')}
-          icon={Mail}
-          tone="blue"
-          title="Email Transactions"
-          desc="Live transaction inbox extracted from Gmail."
-        />
-        <MajorActionButton
-          onClick={() => onOpenTool('wallet_buckets')}
+      {/* 1. Colorful Gradient Stat Tiles (Yoola reference pattern using Welile's design tokens) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
+        {/* Tile 1: Platform Balance (Primary Brand Purple) */}
+        <GradientStatTile
           icon={Wallet}
-          tone="primary"
-          title="Wallet Buckets"
-          desc="Withdrawable, float & advance balances per wallet — spot drift, open the ledger."
+          title="Platform Balance"
+          value={totalsLoading ? '…' : formatUGX(totals?.totalBalance ?? 0)}
+          subtext={`${totals?.walletCount?.toLocaleString() ?? 0} wallets`}
+          actionLabel="View Buckets"
+          onClick={() => onOpenTool('wallet_buckets')}
+          gradient="bg-gradient-to-br from-primary via-purple-700 to-indigo-900"
+          glow="shadow-lg shadow-primary/20"
         />
-        <MajorActionButton
-          onClick={() => onOpenTool('withdrawals')}
+
+        {/* Tile 2: Withdrawable Balance (Positive/Settled - Success Green) */}
+        <GradientStatTile
+          icon={CheckCircle2}
+          title="Withdrawable"
+          value={totalsLoading ? '…' : formatUGX(totals?.totalWithdrawable ?? 0)}
+          subtext={`${totals?.activeWallets?.toLocaleString() ?? 0} active wallets`}
+          actionLabel="Breakdown"
+          onClick={() => onOpenTool('wallet_breakdown')}
+          gradient="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800"
+          glow="shadow-lg shadow-emerald-600/20"
+        />
+
+        {/* Tile 3: Pending Deposits (Primary Accent / Deep Violet) */}
+        <GradientStatTile
+          icon={ShieldCheck}
+          title="Pending Deposits"
+          value={queues?.depositsPending ?? 0}
+          subtext="User & agent cash"
+          actionLabel="Verify All"
+          onClick={() => onView('deposits')}
+          gradient="bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-800"
+          glow="shadow-lg shadow-violet-600/20"
+        />
+
+        {/* Tile 4: Payout Queue (Waiting / Warning - Amber scale) */}
+        <GradientStatTile
           icon={Banknote}
-          tone="blue"
-          title="Payout Queue"
-          desc={`${queues?.payoutsPending ?? 0} withdrawal${(queues?.payoutsPending ?? 0) === 1 ? '' : 's'} pending payout.`}
-          badgeCount={queues?.payoutsPending}
+          title="Pending Payouts"
+          value={queues?.payoutsPending ?? 0}
+          subtext="Awaiting release"
+          actionLabel="Review"
+          onClick={() => onOpenTool('withdrawals')}
+          gradient="bg-gradient-to-br from-amber-500 via-amber-600 to-orange-600"
+          glow="shadow-lg shadow-amber-500/20"
         />
-        <MajorActionButton
-          onClick={() => onOpenTool('merchant_float')}
+
+        {/* Tile 5: Stale Holds / Attention (Negative/Failed - Destructive Red / Slate) */}
+        <GradientStatTile
+          icon={AlertTriangle}
+          title="Stale Holds"
+          value={staleHolds?.count ?? 0}
+          subtext={
+            staleHolds?.count
+              ? `${staleHolds.criticalCount || 0} critical holds`
+              : 'Zero stale holds'
+          }
+          actionLabel="Inspect"
+          onClick={() => onOpenTool('stale_withdrawal_holds')}
+          gradient={
+            staleHolds?.count
+              ? 'bg-gradient-to-br from-rose-600 via-destructive to-red-700'
+              : 'bg-gradient-to-br from-slate-700 via-slate-800 to-zinc-900'
+          }
+          glow={
+            staleHolds?.count
+              ? 'shadow-lg shadow-destructive/25'
+              : 'shadow-lg shadow-slate-900/10'
+          }
+        />
+
+        {/* Tile 6: Operational Float (Neutral / Secondary Deep Indigo) */}
+        <GradientStatTile
           icon={HandCoins}
-          tone="amber"
-          title="Merchant Float"
-          desc={`${queues?.activeClaims ?? 0} active claim${(queues?.activeClaims ?? 0) === 1 ? '' : 's'} & float requests.`}
-          badgeCount={queues?.activeClaims}
+          title="Operational Float"
+          value={totalsLoading ? '…' : formatUGX(totals?.totalFloat ?? 0)}
+          subtext={`${queues?.activeClaims ?? 0} claims in flight`}
+          actionLabel="Merchant Float"
+          onClick={() => onOpenTool('merchant_float')}
+          gradient="bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-800"
+          glow="shadow-lg shadow-indigo-600/20"
         />
       </div>
 
+      {/* 2. Clean Two-Column Layout: Quick Actions + Recent Activity (Yoola reference split) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
+        {/* Quick Actions Panel (Column 1) */}
+        <div className="lg:col-span-4 xl:col-span-4 flex flex-col justify-between gap-5 rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-sm">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
+                <Zap className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground">Quick Actions</h2>
+                <p className="text-xs text-muted-foreground">High-frequency workflows</p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-2.5">
+              <button
+                type="button"
+                onClick={() => onView('deposits')}
+                className="w-full h-12 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all flex items-center justify-between px-4"
+              >
+                <span className="flex items-center gap-2.5">
+                  <ShieldCheck className="h-4.5 w-4.5" />
+                  <span>Verify Deposits</span>
+                </span>
+                {typeof queues?.depositsPending === 'number' && queues.depositsPending > 0 && (
+                  <span className="rounded-full bg-white/25 px-2 py-0.5 text-xs font-bold text-white tabular-nums">
+                    {queues.depositsPending}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onOpenTool('withdrawals')}
+                className="w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-purple-700 hover:from-primary/90 hover:to-purple-600 text-white font-bold text-sm shadow-md shadow-primary/20 hover:shadow-lg transition-all flex items-center justify-between px-4"
+              >
+                <span className="flex items-center gap-2.5">
+                  <Banknote className="h-4.5 w-4.5" />
+                  <span>Approve Payouts</span>
+                </span>
+                {typeof queues?.payoutsPending === 'number' && queues.payoutsPending > 0 && (
+                  <span className="rounded-full bg-white/25 px-2 py-0.5 text-xs font-bold text-white tabular-nums">
+                    {queues.payoutsPending}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onOpenTool('cash_codes')}
+                className="w-full h-11 rounded-2xl border-2 border-amber-500/30 hover:border-amber-500/60 bg-amber-500/5 hover:bg-amber-500/10 text-foreground font-bold text-sm transition-all flex items-center justify-between px-4"
+              >
+                <span className="flex items-center gap-2.5">
+                  <KeyRound className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <span>Cash Deposit Codes</span>
+                </span>
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  2 min
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onOpenTool('email_tx')}
+                className="w-full h-11 rounded-2xl border-2 border-primary/30 hover:border-primary/60 bg-primary/5 hover:bg-primary/10 text-foreground font-bold text-sm transition-all flex items-center justify-between px-4"
+              >
+                <span className="flex items-center gap-2.5">
+                  <Mail className="h-4 w-4 text-primary" />
+                  <span>Email Transactions</span>
+                </span>
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Inbox
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onOpenMore}
+                className="w-full h-10 rounded-2xl border border-border bg-muted/30 hover:bg-muted/70 text-foreground font-semibold text-xs transition-all flex items-center justify-center gap-2"
+              >
+                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                <span>Explore All 35+ Tools</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Account/Status overview card (like Yoola's account info card) */}
+          <div className="rounded-2xl border border-border/80 bg-muted/30 p-4 space-y-2 text-xs">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Operational Status
+            </p>
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-muted-foreground">Withdrawable Pool</span>
+              <span className="font-bold text-foreground tabular-nums">
+                {formatUGX(totals?.totalWithdrawable ?? 0)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Operational Float</span>
+              <span className="font-bold text-foreground tabular-nums">
+                {formatUGX(totals?.totalFloat ?? 0)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Active Wallets</span>
+              <span className="font-mono font-bold text-foreground tabular-nums">
+                {totals?.activeWallets?.toLocaleString() ?? '—'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-border/60">
+              <span className="text-muted-foreground">Ledger Sync</span>
+              <span className="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live · Active
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity Panel (Column 2 - Yoola Recent Messages style) */}
+        <div className="lg:col-span-8 xl:col-span-8 rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-3 pb-4 border-b border-border/60">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold shadow-xs">
+                  <History className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-foreground">Recent Activity</h2>
+                  <p className="text-xs text-muted-foreground">Live operational ledger trail</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenTool('audit')}
+                className="rounded-full border border-border px-3.5 py-1 text-xs font-bold text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all"
+              >
+                View All
+              </button>
+            </div>
+
+            <div className="mt-3 overflow-x-auto">
+              {activityLoading ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <p className="text-xs">Loading operational activity…</p>
+                </div>
+              ) : recentActivity.length === 0 ? (
+                <div className="py-12 text-center text-xs text-muted-foreground">
+                  No recent activity recorded today. System is operating normally.
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border/50 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <th className="pb-2.5 pl-2 w-8">#</th>
+                      <th className="pb-2.5 px-2">Action</th>
+                      <th className="pb-2.5 px-2">Actor</th>
+                      <th className="pb-2.5 px-2">Details</th>
+                      <th className="pb-2.5 pr-2 text-right">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/30">
+                    {recentActivity.map((log, idx) => {
+                      const meta = (log.metadata && typeof log.metadata === 'object' ? log.metadata : {}) as Record<string, unknown>;
+                      const actionLabel = log.action_type.replace(/_/g, ' ');
+                      const badgeStyle = getActionBadgeStyle(log.action_type);
+                      const details =
+                        (typeof meta.reason === 'string' ? meta.reason : null) ||
+                        (typeof meta.note === 'string' ? meta.note : null) ||
+                        (log.table_name ? `Record in ${log.table_name}` : 'Platform operation');
+                      const timeStr = formatDistanceToNow(new Date(log.created_at!), { addSuffix: true });
+                      return (
+                        <tr
+                          key={log.id}
+                          onClick={() => onOpenTool('audit')}
+                          className="group hover:bg-muted/40 cursor-pointer transition-colors"
+                        >
+                          <td className="py-2.5 pl-2 font-mono text-[11px] text-muted-foreground">{idx + 1}</td>
+                          <td className="py-2.5 px-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeStyle}`}>
+                              {actionLabel}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-2 font-semibold text-foreground max-w-[130px] truncate">
+                            {log.actor_name}
+                          </td>
+                          <td className="py-2.5 px-2 text-muted-foreground max-w-[200px] truncate">
+                            {details}
+                          </td>
+                          <td className="py-2.5 pr-2 text-right tabular-nums text-muted-foreground whitespace-nowrap text-[11px]">
+                            {timeStr}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-border/50 mt-4 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Showing recent platform events</span>
+            <button
+              type="button"
+              onClick={() => onOpenTool('audit')}
+              className="font-semibold text-primary hover:underline"
+            >
+              Open complete audit log &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Wallet Breakdown — collapsed by default; expand to search every wallet */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+      <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-sm">
         <button
           type="button"
           onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
@@ -1357,11 +1731,11 @@ function ActionStatTile({
   return (
     <button
       onClick={onClick}
-      className={`group relative text-left rounded-xl sm:rounded-2xl border border-border/80 p-4 sm:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[140px] sm:min-h-[160px] flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs ${gradientBg}`}
+      className={`group relative text-left rounded-2xl sm:rounded-3xl border border-border/80 p-5 sm:p-6 hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[140px] sm:min-h-[160px] flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-xs ${gradientBg}`}
     >
       <div className="flex items-start justify-between gap-3 w-full">
-        <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center shrink-0 border ${toneClass}`}>
-          <Icon className="h-5 w-5" />
+        <div className={`h-11 w-11 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shrink-0 border ${toneClass}`}>
+          <Icon className="h-5 sm:h-5.5 w-5 sm:w-5.5" />
         </div>
         <div className="text-right">
           <p className="text-2xl sm:text-4xl font-black tabular-nums leading-none text-foreground tracking-tight">
@@ -1394,14 +1768,14 @@ function QuickTile({
   return (
     <button
       onClick={onClick}
-      className="group text-left rounded-xl border border-border/80 bg-card p-3.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-xs transition-all min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary flex items-start gap-3"
+      className="group text-left rounded-2xl border border-border/80 bg-card p-4 hover:border-primary/40 hover:bg-primary/5 hover:shadow-xs transition-all min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary flex items-start gap-3 shadow-2xs"
     >
-      <div className="h-8.5 w-8.5 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-        <Icon className="h-4 w-4 text-primary" />
+      <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+        <Icon className="h-4.5 w-4.5 text-primary" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-1">
-          <p className="text-xs sm:text-sm font-semibold truncate text-foreground group-hover:text-primary transition-colors">{label}</p>
+          <p className="text-xs sm:text-sm font-bold truncate text-foreground group-hover:text-primary transition-colors">{label}</p>
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
         </div>
         <p className="text-[11px] text-muted-foreground truncate mt-0.5">{desc}</p>
@@ -1441,7 +1815,7 @@ function MajorActionButton({
   return (
     <button
       onClick={onClick}
-      className={`group relative text-left rounded-xl sm:rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[105px] sm:min-h-[128px] shadow-2xs ${accentBorder}`}
+      className={`group relative text-left rounded-2xl sm:rounded-3xl border border-border/80 bg-card p-4 sm:p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[105px] sm:min-h-[128px] shadow-xs ${accentBorder}`}
     >
       <div className="flex items-start justify-between gap-2.5 w-full">
         <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0 border ${toneBadge}`}>
