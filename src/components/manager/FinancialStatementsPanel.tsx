@@ -804,62 +804,44 @@ function FinancialStatementsPanelInner() {
 
     if (activeTab === 'income') {
       const d = data.incomeStatement;
+      const totals = incomeStatementTotals(d);
       rows.push(['WELILE — Income Statement', '', period]);
       rows.push(['', '', '']);
-      rows.push(['REVENUE BY WELILE SERVICE', '', '']);
+      rows.push(['REVENUE', '', '']);
       d.byService.revenueFamilies.forEach(fam => {
         rows.push([fam.label, '', '']);
         fam.lines.forEach(l => rows.push([`  ${l.label}`, l.source, l.amount]));
         rows.push([`  ${fam.label} Subtotal`, '', fam.total]);
       });
-      rows.push(['Total Revenue (Services)', '', d.byService.totalRevenue]);
+      rows.push(['Gross Revenue', '', d.byService.grossRevenue]);
+      if (d.byService.contraRevenue.lines.length > 0) {
+        rows.push(['REVENUE DEDUCTIONS', '', '']);
+        d.byService.contraRevenue.lines.forEach(l => rows.push([`  ${l.label}`, l.source, -l.amount]));
+        rows.push(['Total Revenue Deductions', '', -d.byService.contraRevenue.total]);
+      }
+      rows.push(['Net Revenue', '', totals.netRevenue]);
       rows.push(['', '', '']);
-      rows.push(['MARKETING EXPENSES', '', '']);
-      d.byService.marketing.lines.forEach(l => rows.push([`  ${l.label}`, l.source, -l.amount]));
-      rows.push(['Total Marketing Expenses', '', -d.byService.totalMarketingExpenses]);
-      rows.push(['', '', '']);
-      rows.push(['OPERATING EXPENSES', '', '']);
-      d.byService.operating.lines.forEach(l => rows.push([`  ${l.label}`, l.source, -l.amount]));
-      rows.push(['Total Operating Expenses', '', -d.byService.totalOperatingExpenses]);
-      rows.push(['Net Profit/(Loss)', '', d.byService.netProfit]);
       if (d.byService.reviewQueue.length > 0) {
-        rows.push(['', '', '']);
         rows.push(['FLAGGED FOR REVIEW (UNMAPPED CATEGORIES)', '', '']);
         d.byService.reviewQueue.forEach(l => rows.push([`  ${l.category}`, l.direction, l.amount]));
+        rows.push(['', '', '']);
       }
-      rows.push(['', '', '']);
-      rows.push(['REVENUE RECOGNITION', '', '']);
-      rows.push(['Expected Access Fees', '', d.revenueRecognition.expectedAccessFees]);
-      rows.push(['Expected Request Fees', '', d.revenueRecognition.expectedRequestFees]);
-      rows.push(['Total Expected Revenue', '', d.revenueRecognition.totalExpectedRevenue]);
-      rows.push(['Realized Access Fees', '', d.revenueRecognition.realizedAccessFees]);
-      rows.push(['Realized Request Fees', '', d.revenueRecognition.realizedRequestFees]);
-      rows.push(['Total Realized Revenue', '', d.revenueRecognition.totalRealizedRevenue]);
-      rows.push(['Deferred Revenue', '', d.revenueRecognition.deferredRevenue]);
-      rows.push(['Recognition Rate (%)', '', d.revenueRecognition.recognitionRate.toFixed(1)]);
-      rows.push(['', '', '']);
-      rows.push(['REALIZED REVENUE (LEDGER)', '', '']);
-      rows.push(['Access Fees', '', d.revenue.accessFees]);
-      rows.push(['Request Fees', '', d.revenue.requestFees]);
-      rows.push(['Other Service Income', '', d.revenue.otherServiceIncome]);
-      rows.push(['Advance Access Fees Collected', '', d.revenue.advanceAccessFeesCollected]);
-      rows.push(['Total Revenue', '', d.revenue.total]);
-      rows.push(['', '', '']);
-      rows.push(['SERVICE DELIVERY COSTS', '', '']);
+      rows.push(['COST OF REVENUE', '', '']);
       rows.push(['Platform Rewards', '', -d.serviceDeliveryCosts.platformRewards]);
       rows.push(['Agent Commissions', '', -d.serviceDeliveryCosts.agentCommissions]);
       rows.push(['Referral Bonuses', '', -d.serviceDeliveryCosts.referralBonuses]);
       rows.push(['Agent Bonuses', '', -d.serviceDeliveryCosts.agentBonuses]);
       rows.push(['Transaction Expenses', '', -d.serviceDeliveryCosts.transactionExpenses]);
-      rows.push(['Total Service Costs', '', -d.serviceDeliveryCosts.total]);
+      rows.push(['Total Cost of Revenue', '', -d.serviceDeliveryCosts.total]);
+      rows.push(['Gross Profit', '', totals.grossProfit]);
+      rows.push(['Gross Margin (%)', '', totals.grossMargin.toFixed(1)]);
+      rows.push(['', '', '']);
+      rows.push(['OPERATING EXPENSES', '', '']);
       rows.push(['Payroll & Staff Costs', '', -d.operatingExpenses.payrollExpenses]);
       rows.push(['Agent Requisitions', '', -d.operatingExpenses.agentRequisitions]);
       rows.push(['Financial Agent Expenses', '', -d.operatingExpenses.financialAgentExpenses]);
       rows.push(['Marketing Expenses', '', -d.operatingExpenses.marketingExpenses]);
       rows.push(['Research & Development', '', -d.operatingExpenses.researchDevelopment]);
-      rows.push(['Tax Expense', '', -d.operatingExpenses.taxExpense]);
-      rows.push(['Interest Expense', '', -d.operatingExpenses.interestExpense]);
-      rows.push(['Equipment & Depreciation', '', -d.operatingExpenses.equipmentExpense]);
       if (d.operatingExpenses.operationalSubcategories.salaries) rows.push(['  Salaries', '', -d.operatingExpenses.operationalSubcategories.salaries]);
       if (d.operatingExpenses.operationalSubcategories.transport) rows.push(['  Transport', '', -d.operatingExpenses.operationalSubcategories.transport]);
       if (d.operatingExpenses.operationalSubcategories.food) rows.push(['  Food', '', -d.operatingExpenses.operationalSubcategories.food]);
@@ -867,19 +849,38 @@ function FinancialStatementsPanelInner() {
       if (d.operatingExpenses.operationalSubcategories.internet) rows.push(['  Internet', '', -d.operatingExpenses.operationalSubcategories.internet]);
       if (d.operatingExpenses.operationalSubcategories.airtime) rows.push(['  Airtime', '', -d.operatingExpenses.operationalSubcategories.airtime]);
       if (d.operatingExpenses.operationalSubcategories.stationery) rows.push(['  Stationery', '', -d.operatingExpenses.operationalSubcategories.stationery]);
-      if (d.operatingExpenses.operationalSubcategories.propertyEquipment) rows.push(['  Property & Equipment', '', -d.operatingExpenses.operationalSubcategories.propertyEquipment]);
-      if (d.operatingExpenses.operationalSubcategories.taxes) rows.push(['  Taxes (legacy)', '', -d.operatingExpenses.operationalSubcategories.taxes]);
-      if (d.operatingExpenses.operationalSubcategories.interests) rows.push(['  Interests (legacy)', '', -d.operatingExpenses.operationalSubcategories.interests]);
       rows.push(['General & Admin Expenses', '', -d.operatingExpenses.generalOperating]);
       rows.push(['Total Operating Expenses', '', -d.operatingExpenses.total]);
+      if (d.adjustments.total !== 0) {
+        rows.push(['ADJUSTMENTS & CORRECTIONS', '', '']);
+        if (d.adjustments.walletDeductions) rows.push(['Wallet Deductions (Recoveries)', '', d.adjustments.walletDeductions]);
+        if (d.adjustments.systemCorrections) rows.push(['System Balance Corrections', '', d.adjustments.systemCorrections]);
+        if (d.adjustments.orphanReassignments) rows.push(['Orphan Reassignments', '', d.adjustments.orphanReassignments]);
+        if (d.adjustments.orphanReversals) rows.push(['Orphan Reversals', '', -d.adjustments.orphanReversals]);
+        rows.push(['Net Adjustments', '', d.adjustments.total]);
+      }
+      rows.push(['EBITDA', '', totals.ebitda]);
+      rows.push(['DEPRECIATION & AMORTIZATION', '', '']);
+      rows.push(['Depreciation (Property & Equipment)', '', -d.depreciation]);
+      rows.push(['Amortization (Software & IP)', '', -d.amortization]);
+      rows.push(['Operating Profit / (Loss) (EBIT)', '', totals.operatingIncome]);
+      rows.push(['FINANCE INCOME / (COSTS)', '', '']);
+      rows.push(['Finance Income', '', d.interestIncome]);
+      rows.push(['Interest Expense', '', -d.interestExpense]);
+      rows.push(['Net Finance Income / (Costs)', '', d.otherIncomeExpensesNet]);
+      rows.push(['Profit / (Loss) Before Tax', '', totals.profitBeforeTax]);
+      rows.push(['Tax Provision', '', -d.taxProvision]);
+      rows.push(['NET INCOME', '', totals.netIncome]);
       rows.push(['', '', '']);
-      rows.push(['ADJUSTMENTS & CORRECTIONS', '', '']);
-      if (d.adjustments.walletDeductions) rows.push(['Wallet Deductions (Recoveries)', '', d.adjustments.walletDeductions]);
-      if (d.adjustments.systemCorrections) rows.push(['System Balance Corrections', '', d.adjustments.systemCorrections]);
-      if (d.adjustments.orphanReassignments) rows.push(['Orphan Reassignments', '', d.adjustments.orphanReassignments]);
-      if (d.adjustments.orphanReversals) rows.push(['Orphan Reversals', '', -d.adjustments.orphanReversals]);
-      rows.push(['Net Adjustments', '', d.adjustments.total]);
-      rows.push(['NET OPERATING INCOME', '', d.netOperatingIncome]);
+      rows.push(['SUPPORTING SCHEDULE — REVENUE RECOGNITION', '', '']);
+      rows.push(['Expected Access Fees', '', d.revenueRecognition.expectedAccessFees]);
+      rows.push(['Expected Request Fees', '', d.revenueRecognition.expectedRequestFees]);
+      rows.push(['Total Expected Revenue', '', d.revenueRecognition.totalExpectedRevenue]);
+      rows.push(['Realized Access Fees', '', d.revenueRecognition.realizedAccessFees]);
+      rows.push(['Realized Request Fees', '', d.revenueRecognition.realizedRequestFees]);
+      rows.push(['Total Realized Revenue', '', d.revenueRecognition.totalRealizedRevenue]);
+      rows.push(['Revenue Not Yet Collected', '', d.revenueRecognition.deferredRevenue]);
+      rows.push(['Recognition Rate (%)', '', d.revenueRecognition.recognitionRate.toFixed(1)]);
     } else if (activeTab === 'cashflow') {
       if (!cashFlow) { toast.error('Cash flow statement is still loading'); return; }
       rows.push(['WELILE — Statement of Cash Flows', '', period]);
