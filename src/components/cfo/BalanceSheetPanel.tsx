@@ -107,6 +107,8 @@ interface Drilldown {
   unsourced?: boolean;
   /** Plain-language explanation for derived values that are not a direct account line. */
   sourceNote?: string;
+  /** Disclosure note printed in the modal (used for payroll-derived figures). */
+  note?: string;
   /** Account-level lines behind the figure. */
   lines?: PositionLine[];
   /** Indented component lines (e.g. partner obligations inside Landlord Float). */
@@ -443,9 +445,9 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                    <ReceivablesDetail categoryKey={receivablesKey} />
                 </div>
               )}
-              {drill.sourceNote && (
+              {drill.note && (
                 <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
-                  {drill.sourceNote}
+                  {drill.note}
                 </p>
               )}
               {!receivablesKey && drill.components && drill.components.length > 0 && (
@@ -968,7 +970,7 @@ export default function BalanceSheetPanel() {
                   onOpen={() => setDrill({
                     title: g.label, value: g.value, unsourced: g.unsourced,
                     lines: g.lines, components: g.components,
-                    sourceNote: standaloneNote(g),
+                    note: standaloneNote(g),
                   })}
                 />
               ))}</div>
