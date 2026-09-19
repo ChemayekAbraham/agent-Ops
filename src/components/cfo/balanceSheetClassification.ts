@@ -48,7 +48,7 @@ export function accountCodeOf(line: PositionLine): string | null {
 /* ── Assets ────────────────────────────────────────────────────────────── */
 
 export const ASSET_CATEGORIES = [
-  'Cash at Bank',
+  'Cash at Hand and Bank',
   'Agent Float — Amounts with Agents',
   'Cash in Custody — Not Yet Confirmed Banked',
   'Agent and Merchant Float Cycle Control',
@@ -64,17 +64,17 @@ export const ASSET_CATEGORIES = [
   'Goodwill',
 ] as const;
 
-/** The bank line is A1 alone — float and custody are never bank cash. */
-export const CASH_AT_BANK_LABEL = 'Cash at Bank';
+/** The cash-at-hand-and-bank line is A1 alone — float and custody are excluded. */
+export const CASH_AT_BANK_LABEL = 'Cash at Hand and Bank';
 
 /**
  * Only mappings that are unambiguous.
  *
- * Cash presentation (approved correction, 2026-09-15): A1 is the ONLY bank
+ * Cash presentation (approved correction, 2026-09-15): A1 is the ONLY cash-at-hand-and-bank
  * line. A2 is money in agents' hands, A5 is physical cash received and not yet
  * confirmed banked, and A8 is the agent/merchant float cycle control account —
  * none of the three is company bank cash, so each reports on its own line and
- * none is added into "Cash at Bank". They were previously grouped together,
+ * none is added into "Cash at Hand and Bank". They were previously grouped together,
  * which presented float and custody as bank money.
  *
  * A3 is tenant rent access receivables.
@@ -90,7 +90,7 @@ export const CASH_AT_BANK_LABEL = 'Cash at Bank';
  * A9 Suspense is unresolved postings by definition and is never classified.
  */
 const ASSET_ACCOUNT_MAP: Record<string, string> = {
-  A1: 'Cash at Bank',
+  A1: 'Cash at Hand and Bank',
   A2: 'Agent Float — Amounts with Agents',
   A5: 'Cash in Custody — Not Yet Confirmed Banked',
   A8: 'Agent and Merchant Float Cycle Control',
