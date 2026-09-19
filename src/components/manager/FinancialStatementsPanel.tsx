@@ -240,6 +240,19 @@ function buildManagementPnl(d: FinancialStatementsData['incomeStatement'], previ
   return rows;
 }
 
+function buildRevenueRecognitionRows(d: FinancialStatementsData['incomeStatement'], previous?: FinancialStatementsData['incomeStatement']): PnlRow[] {
+  return [
+    { key: 'expected-access', label: 'Expected Access Fees', current: d.revenueRecognition.expectedAccessFees, previous: previous?.revenueRecognition.expectedAccessFees, kind: 'detail' },
+    { key: 'expected-request', label: 'Expected Request Fees', current: d.revenueRecognition.expectedRequestFees, previous: previous?.revenueRecognition.expectedRequestFees, kind: 'detail' },
+    { key: 'expected-total', label: 'Total Expected Revenue', current: d.revenueRecognition.totalExpectedRevenue, previous: previous?.revenueRecognition.totalExpectedRevenue, kind: 'subtotal' },
+    { key: 'realized-access', label: 'Realized Access Fees', current: d.revenueRecognition.realizedAccessFees, previous: previous?.revenueRecognition.realizedAccessFees, kind: 'detail' },
+    { key: 'realized-request', label: 'Realized Request Fees', current: d.revenueRecognition.realizedRequestFees, previous: previous?.revenueRecognition.realizedRequestFees, kind: 'detail' },
+    { key: 'realized-total', label: 'Total Realized Revenue', current: d.revenueRecognition.totalRealizedRevenue, previous: previous?.revenueRecognition.totalRealizedRevenue, kind: 'subtotal' },
+    { key: 'deferred-revenue', label: 'Revenue Not Yet Collected', current: d.revenueRecognition.deferredRevenue, previous: previous?.revenueRecognition.deferredRevenue, kind: 'detail' },
+    { key: 'recognition-rate', label: 'Recognition Rate', current: d.revenueRecognition.recognitionRate, previous: previous?.revenueRecognition.recognitionRate, kind: 'margin', percentage: true },
+  ];
+}
+
 function ManagementPnlTable({ rows }: { rows: PnlRow[] }) {
   return (
     <div className="overflow-x-auto border border-border rounded-md">
@@ -294,16 +307,7 @@ function ManagementPnlTable({ rows }: { rows: PnlRow[] }) {
 
 function IncomeStatementSection({ d, previous }: { d: FinancialStatementsData['incomeStatement']; previous?: FinancialStatementsData['incomeStatement'] }) {
   const rows = buildManagementPnl(d, previous);
-  const recognitionRows: PnlRow[] = [
-    { key: 'expected-access', label: 'Expected Access Fees', current: d.revenueRecognition.expectedAccessFees, previous: previous?.revenueRecognition.expectedAccessFees, kind: 'detail' },
-    { key: 'expected-request', label: 'Expected Request Fees', current: d.revenueRecognition.expectedRequestFees, previous: previous?.revenueRecognition.expectedRequestFees, kind: 'detail' },
-    { key: 'expected-total', label: 'Total Expected Revenue', current: d.revenueRecognition.totalExpectedRevenue, previous: previous?.revenueRecognition.totalExpectedRevenue, kind: 'subtotal' },
-    { key: 'realized-access', label: 'Realized Access Fees', current: d.revenueRecognition.realizedAccessFees, previous: previous?.revenueRecognition.realizedAccessFees, kind: 'detail' },
-    { key: 'realized-request', label: 'Realized Request Fees', current: d.revenueRecognition.realizedRequestFees, previous: previous?.revenueRecognition.realizedRequestFees, kind: 'detail' },
-    { key: 'realized-total', label: 'Total Realized Revenue', current: d.revenueRecognition.totalRealizedRevenue, previous: previous?.revenueRecognition.totalRealizedRevenue, kind: 'subtotal' },
-    { key: 'deferred-revenue', label: 'Revenue Not Yet Collected', current: d.revenueRecognition.deferredRevenue, previous: previous?.revenueRecognition.deferredRevenue, kind: 'detail' },
-    { key: 'recognition-rate', label: 'Recognition Rate', current: d.revenueRecognition.recognitionRate, previous: previous?.revenueRecognition.recognitionRate, kind: 'margin', percentage: true },
-  ];
+  const recognitionRows = buildRevenueRecognitionRows(d, previous);
   return (
     <div className="space-y-6">
       <div>
@@ -803,6 +807,15 @@ function FinancialStatementsPanelInner() {
         const pct = previous === undefined ? '' : pnlChangePercent(current, previous);
         rows.push([row.label, row.percentage ? `${current.toFixed(1)}%` : current, previous === undefined ? '' : row.percentage ? `${previous.toFixed(1)}%` : previous, change === '' ? '' : row.percentage ? `${Number(change).toFixed(1)} pp` : change, pct === null || pct === '' ? '' : `${Number(pct).toFixed(1)}%`]);
       });
+      rows.push(['', '', '', '', '']);
+      rows.push(['SUPPORTING SCHEDULE — REVENUE RECOGNITION', '', '', '', '']);
+      buildRevenueRecognitionRows(d, previousData?.incomeStatement).forEach(row => {
+        const current = row.current ?? 0;
+        const previous = row.previous;
+        const change = previous === undefined ? '' : current - previous;
+        const pct = previous === undefined ? '' : pnlChangePercent(current, previous);
+        rows.push([row.label, row.percentage ? `${current.toFixed(1)}%` : current, previous === undefined ? '' : row.percentage ? `${previous.toFixed(1)}%` : previous, change === '' ? '' : row.percentage ? `${Number(change).toFixed(1)} pp` : change, pct === null || pct === '' ? '' : `${Number(pct).toFixed(1)}%`]);
+      });
     } else if (activeTab === 'cashflow') {
       if (!cashFlow) { toast.error('Cash flow statement is still loading'); return; }
       rows.push(['WELILE — Statement of Cash Flows', '', period]);
@@ -970,6 +983,27 @@ function FinancialStatementsPanelInner() {
             pdf.setDrawColor(180, 180, 180);
             pdf.line(margin, y + 1.5, pw - margin, y + 1.5);
           }
+          y += 5;
+        });
+        y += 3;
+        addSection('Supporting Schedule — Revenue Recognition');
+        buildRevenueRecognitionRows(d, previousData?.incomeStatement).forEach(row => {
+          const current = row.current ?? 0;
+          const previous = row.previous;
+          const change = previous === undefined ? undefined : current - previous;
+          const pct = previous === undefined ? undefined : pnlChangePercent(current, previous);
+          if (y > 190) { pdf.addPage(); y = 18; }
+          pdf.setFont('helvetica', row.kind === 'subtotal' || row.kind === 'margin' ? 'bold' : 'normal');
+          pdf.setFontSize(7);
+          pdf.setTextColor(30, 30, 30);
+          pdf.text(row.label, row.kind === 'detail' ? margin + 4 : margin, y);
+          const values = [
+            row.percentage ? `${current.toFixed(1)}%` : pnlValue(current),
+            previous === undefined ? '—' : row.percentage ? `${previous.toFixed(1)}%` : pnlValue(previous),
+            change === undefined ? '—' : row.percentage ? `${change.toFixed(1)} pp` : pnlValue(change),
+            pct === undefined || pct === null ? '—' : `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`,
+          ];
+          values.forEach((value, index) => pdf.text(value, columns[index + 1], y, { align: 'right' }));
           y += 5;
         });
       } else if (activeTab === 'cashflow') {
