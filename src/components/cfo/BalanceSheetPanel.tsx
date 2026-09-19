@@ -546,6 +546,14 @@ function DrilldownDialog({ drill, asAt, onClose }: { drill: Drilldown | null; as
                   <p className="mt-0.5 text-xs text-foreground">{drill.sourceNote}</p>
                 </div>
               )}
+              {receivablesCategoryOf(drill.title) && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Actual receivables behind this balance
+                  </p>
+                  <ReceivablesDetail categoryKey={receivablesCategoryOf(drill.title) as string} />
+                </div>
+              )}
               {drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Where this balance comes from</p>
