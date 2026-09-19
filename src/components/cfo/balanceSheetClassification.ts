@@ -50,7 +50,6 @@ export function accountCodeOf(line: PositionLine): string | null {
 export const ASSET_CATEGORIES = [
   'Cash at Hand and Bank',
   'Agent Float — Amounts with Agents',
-  'Cash in Custody — Not Yet Confirmed Banked',
   'Agent and Merchant Float Cycle Control',
   'Receivables from Tenant Products and Services',
   'Receivables from Agent Products and Services',
@@ -64,18 +63,17 @@ export const ASSET_CATEGORIES = [
   'Goodwill',
 ] as const;
 
-/** The cash-at-hand-and-bank line is A1 alone — float and custody are excluded. */
+/** The cash-at-hand-and-bank line combines A1 bank cash and A5 physical cash custody. */
 export const CASH_AT_BANK_LABEL = 'Cash at Hand and Bank';
 
 /**
  * Only mappings that are unambiguous.
  *
- * Cash presentation (approved correction, 2026-09-15): A1 is the ONLY cash-at-hand-and-bank
- * line. A2 is money in agents' hands, A5 is physical cash received and not yet
- * confirmed banked, and A8 is the agent/merchant float cycle control account —
- * none of the three is company bank cash, so each reports on its own line and
- * none is added into "Cash at Hand and Bank". They were previously grouped together,
- * which presented float and custody as bank money.
+ * Cash presentation: A1 bank cash and A5 physical cash received but not yet
+ * confirmed banked are combined under "Cash at Hand and Bank". Their exact
+ * account balances remain separate in the row's drill-down. A2 is money in
+ * agents' hands and A8 is the agent/merchant float cycle control account, so
+ * neither is included in cash.
  *
  * A3 is tenant rent access receivables.
  *
@@ -92,7 +90,7 @@ export const CASH_AT_BANK_LABEL = 'Cash at Hand and Bank';
 const ASSET_ACCOUNT_MAP: Record<string, string> = {
   A1: 'Cash at Hand and Bank',
   A2: 'Agent Float — Amounts with Agents',
-  A5: 'Cash in Custody — Not Yet Confirmed Banked',
+  A5: 'Cash at Hand and Bank',
   A8: 'Agent and Merchant Float Cycle Control',
   A3: 'Receivables from Tenant Products and Services',
   A4: 'Receivables from Agent Products and Services',
