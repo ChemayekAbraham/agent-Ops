@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
@@ -85,18 +86,32 @@ export interface StatementOfFinancialPosition {
   };
 }
 
-function LineRow({ line, showSources }: { line: PositionLine; showSources: boolean }) {
+/** Payload for the tap-to-drill-down modal. */
+interface Drilldown {
+  title: string;
+  value: number;
+  unsourced?: boolean;
+  /** Account-level lines behind the figure. */
+  lines?: PositionLine[];
+  /** Indented component lines (e.g. partner obligations inside Landlord Float). */
+  components?: PositionLine[];
+  /** Whole groups, for section totals. */
+  groups?: BsGroup[];
+}
+
+function LineRow({ line, showSources, onOpen }: { line: PositionLine; showSources: boolean; onOpen?: () => void }) {
   const [open, setOpen] = useState(false);
+  const tappable = !!onOpen;
   return (
     <div className="border-b border-border/40 last:border-0">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => (onOpen ? onOpen() : setOpen(o => !o))}
         className="w-full flex items-start justify-between gap-3 py-1.5 text-left"
       >
         <span className="flex items-start gap-1 min-w-0 text-xs text-muted-foreground">
-          {showSources
-            ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
+          {tappable || showSources
+            ? (open && !tappable ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
             : null}
           <span className="truncate">{line.label}</span>
         </span>
@@ -104,28 +119,35 @@ function LineRow({ line, showSources }: { line: PositionLine; showSources: boole
           {line.value < 0 ? `(${formatUGX(Math.abs(line.value))})` : formatUGX(line.value)}
         </span>
       </button>
-      {showSources && open && (
+      {!tappable && showSources && open && (
         <p className="pb-2 pl-4 text-[10px] text-muted-foreground">Derived from {line.source}</p>
       )}
     </div>
   );
 }
 
-function TotalRow({ label, value, emphasis, depth = 0 }: {
-  label: string; value: number; emphasis?: boolean; depth?: number;
+function TotalRow({ label, value, emphasis, depth = 0, onOpen }: {
+  label: string; value: number; emphasis?: boolean; depth?: number; onOpen?: () => void;
 }) {
-  return (
-    <div className={cn(
-      'flex items-center justify-between gap-3 py-2 border-t',
-      emphasis ? 'border-primary/50 mt-1' : 'border-border',
-      depth > 0 && 'pl-3',
-    )}>
-      <span className={cn('text-xs', emphasis ? 'font-bold uppercase tracking-wide' : 'font-semibold')}>{label}</span>
+  const inner = (
+    <>
+      <span className={cn('text-xs flex items-center gap-1', emphasis ? 'font-bold uppercase tracking-wide' : 'font-semibold')}>
+        {onOpen && <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />}
+        {label}
+      </span>
       <span className={cn('font-mono', emphasis ? 'text-sm font-bold' : 'text-xs font-semibold')}>
         {value < 0 ? `(${formatUGX(Math.abs(value))})` : formatUGX(value)}
       </span>
-    </div>
+    </>
   );
+  const cls = cn(
+    'flex items-center justify-between gap-3 py-2 border-t w-full text-left',
+    emphasis ? 'border-primary/50 mt-1' : 'border-border',
+    depth > 0 && 'pl-3',
+  );
+  return onOpen
+    ? <button type="button" onClick={onOpen} className={cls}>{inner}</button>
+    : <div className={cls}>{inner}</div>;
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
@@ -151,18 +173,19 @@ function SubHeading({ children }: { children: React.ReactNode }) {
  * so no balance can silently disappear from the statement.
  */
 function GroupRow({
-  group, showSources, components, heading, depth = 0,
+  group, showSources, components, heading, depth = 0, onOpen,
 }: {
   group: BsGroup; showSources: boolean; components?: PositionLine[];
-  heading?: boolean; depth?: number;
+  heading?: boolean; depth?: number; onOpen?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const expandable = showSources && group.lines.length > 0;
+  const expandable = !onOpen && showSources && group.lines.length > 0;
+  const showChevron = !!onOpen || expandable;
   return (
     <div className={cn('last:border-0', heading ? '' : 'border-b border-border/40')}>
       <button
         type="button"
-        onClick={() => expandable && setOpen(o => !o)}
+        onClick={() => (onOpen ? onOpen() : expandable && setOpen(o => !o))}
         className={cn('w-full flex items-start justify-between gap-3 py-1.5 text-left', depth > 0 && 'pl-3')}
       >
         <span
@@ -171,8 +194,8 @@ function GroupRow({
             heading ? 'font-medium text-foreground' : 'text-muted-foreground',
           )}
         >
-          {expandable
-            ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
+          {showChevron
+            ? (open && expandable ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
             : null}
           <span className="truncate">{group.label}</span>
           {/* A category with no ledger account behind it is a structural gap,
@@ -232,7 +255,7 @@ function GroupRow({
 
 
 /** Unclassified lines, itemised so nothing hides inside a total. */
-function FlaggedBlock({ group, showSources }: { group?: BsGroup; showSources: boolean }) {
+function FlaggedBlock({ group, showSources, onOpen }: { group?: BsGroup; showSources: boolean; onOpen?: (d: Drilldown) => void }) {
   if (!group || !hasFlagged(group)) return null;
   return (
     <div className="mt-2 rounded-md border border-warning/40 bg-warning/5 p-2">
@@ -240,9 +263,97 @@ function FlaggedBlock({ group, showSources }: { group?: BsGroup; showSources: bo
       <p className="mb-1 text-[10px] text-muted-foreground">
         Included in the section total. These accounts have no confident home in the current structure.
       </p>
-      {visibleFlaggedLines(group).map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}
-      <TotalRow label="Subtotal — flagged" value={group.value} />
+      {visibleFlaggedLines(group).map(l => (
+        <LineRow
+          key={l.label} line={l} showSources={showSources}
+          onOpen={onOpen ? () => onOpen({ title: l.label, value: l.value, lines: [l] }) : undefined}
+        />
+      ))}
+      <TotalRow
+        label="Subtotal — flagged" value={group.value}
+        onOpen={onOpen ? () => onOpen({ title: group.label, value: group.value, lines: visibleFlaggedLines(group) }) : undefined}
+      />
     </div>
+  );
+}
+
+/** The drill-down modal: account-level breakdown of any tapped line or total. */
+function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
+  const fmt = (v: number) => (v < 0 ? `(${formatUGX(Math.abs(v))})` : formatUGX(v));
+  return (
+    <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        {drill && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-sm leading-snug pr-6">{drill.title}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Balance</span>
+                <span className={cn('font-mono text-base font-bold', drill.value < 0 ? 'text-destructive' : 'text-foreground')}>
+                  {fmt(drill.value)}
+                </span>
+              </div>
+              {drill.unsourced && (
+                <p className="text-[10px] text-muted-foreground">
+                  No ledger account maps here yet — any balance sits in an operational sub-ledger and is shown under memo sub-ledgers, not in the ledger totals.
+                </p>
+              )}
+              {drill.components && drill.components.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Components</p>
+                  {drill.components.map(c => (
+                    <div key={c.label} className="flex items-start justify-between gap-3 border-b border-border/40 py-1 last:border-0">
+                      <span className="text-xs text-muted-foreground truncate">{c.label}</span>
+                      <span className={cn('font-mono text-xs shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {drill.groups && drill.groups.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Made up of</p>
+                  {drill.groups.map(g => (
+                    <div key={g.label} className="border-b border-border/40 py-1 last:border-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-xs text-muted-foreground truncate" style={{ paddingLeft: (g.depth ?? 0) * 12 }}>{g.label}</span>
+                        <span className={cn('font-mono text-xs shrink-0', g.value < 0 ? 'text-destructive' : '')}>
+                          {g.heading ? '' : fmt(g.value)}
+                        </span>
+                      </div>
+                      {(g.components ?? []).map(c => (
+                        <div key={c.label} className="flex items-start justify-between gap-3 pl-4">
+                          <span className="text-[11px] text-muted-foreground/80 truncate">{c.label}</span>
+                          <span className={cn('font-mono text-[11px] shrink-0', c.value < 0 ? 'text-destructive' : '')}>{fmt(c.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {drill.lines && drill.lines.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ledger accounts</p>
+                  {drill.lines.map(l => (
+                    <div key={l.label} className="border-b border-border/40 py-1 last:border-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-xs text-muted-foreground truncate">{l.label}</span>
+                        <span className={cn('font-mono text-xs shrink-0', l.value < 0 ? 'text-destructive' : '')}>{fmt(l.value)}</span>
+                      </div>
+                      {l.source && <p className="text-[10px] text-muted-foreground/70">Derived from {l.source}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(!drill.lines || drill.lines.length === 0) && (!drill.groups || drill.groups.length === 0) && (!drill.components || drill.components.length === 0) && !drill.unsourced && (
+                <p className="text-[10px] text-muted-foreground">No further account-level breakdown is available for this line.</p>
+              )}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -265,6 +376,8 @@ export default function BalanceSheetPanel() {
   const [exporting, setExporting] = useState(false);
   /** Presentation-only breakdown of the existing Landlord Float. */
   const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
+  /** Line or total the user tapped, shown as a modal breakdown. */
+  const [drill, setDrill] = useState<Drilldown | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
@@ -628,18 +741,30 @@ export default function BalanceSheetPanel() {
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
+                        onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
                       />
                 ))}
               </div>
-              <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Assets" value={assetsTotal} emphasis />
+              <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Assets" value={assetsTotal} emphasis
+                onOpen={() => setDrill({
+                  title: 'Total Assets', value: assetsTotal,
+                  groups: [...assetRows.filter(g => !g.subtotal), ...(assetGroups && hasFlagged(assetGroups.flagged) ? [assetGroups.flagged] : [])],
+                })}
+              />
               <DriftNote drift={assetDrift} of="Total Assets" />
             </div>
 
             <div>
               <Badge variant="outline" className="text-[10px]">Liabilities &amp; Shareholders&apos; Equity</Badge>
               <SectionHeading>Liabilities</SectionHeading>
-              <div>{liabilityGroups?.standalone.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <div>{liabilityGroups?.standalone.map(g => (
+                <GroupRow
+                  key={g.label} group={g} showSources={showSources}
+                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                />
+              ))}</div>
               <SubHeading>Market Place Liabilities</SubHeading>
               <div>
                 {marketplaceRows.map(g => (
@@ -648,19 +773,59 @@ export default function BalanceSheetPanel() {
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
+                        onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
                       />
                 ))}
               </div>
-              <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
-              <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Liabilities" value={data.liabilities.total} />
+              <TotalRow
+                label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0}
+                onOpen={() => setDrill({
+                  title: 'Market Place Liabilities', value: liabilityGroups?.marketplaceTotal ?? 0,
+                  groups: marketplaceRows.filter(g => !g.subtotal),
+                })}
+              />
+              <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Liabilities" value={data.liabilities.total}
+                onOpen={() => setDrill({
+                  title: 'Total Liabilities', value: data.liabilities.total,
+                  groups: [
+                    ...(liabilityGroups?.standalone ?? []),
+                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
+                  ],
+                })}
+              />
               <DriftNote drift={liabilityGroupDrift} of="Total Liabilities" />
               <SectionHeading>Shareholders&apos; Equity</SectionHeading>
-              <div>{equityGroups?.groups.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
-              <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Shareholders&apos; Equity" value={equityTotal} />
+              <div>{equityGroups?.groups.map(g => (
+                <GroupRow
+                  key={g.label} group={g} showSources={showSources}
+                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                />
+              ))}</div>
+              <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Shareholders&apos; Equity" value={equityTotal}
+                onOpen={() => setDrill({
+                  title: "Total Shareholders' Equity", value: equityTotal,
+                  groups: [...(equityGroups?.groups ?? []), ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : [])],
+                })}
+              />
               <DriftNote drift={equityDrift} of="Total Shareholders&apos; Equity" />
-              <TotalRow label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis />
+              <TotalRow
+                label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis
+                onOpen={() => setDrill({
+                  title: "Total Liabilities and Shareholders' Equity", value: totalLiabilitiesAndEquity,
+                  groups: [
+                    ...(liabilityGroups?.standalone ?? []),
+                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
+                    ...(equityGroups?.groups ?? []),
+                    ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : []),
+                  ],
+                })}
+              />
             </div>
           </div>
 
@@ -758,6 +923,8 @@ export default function BalanceSheetPanel() {
           </p>
         </>
       )}
+
+      <DrilldownDialog drill={drill} onClose={() => setDrill(null)} />
     </div>
   );
 }
