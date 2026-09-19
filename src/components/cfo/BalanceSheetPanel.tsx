@@ -640,7 +640,8 @@ export default function BalanceSheetPanel() {
   const liabilityGroups = data
     ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
-  // E3 and E4 are equity accounts in ledger_account_catalog and are reported in
+  // E3 (Balances Carried Forward from Earlier Records) and E4 (Unmatched Historic
+  // Postings) are equity accounts in ledger_account_catalog and are reported in
   // equity. They were briefly reclassified onto the asset side as components of
   // Intangible Assets, which inverted their sign and produced a negative
   // intangible asset; per BIS approval that reclassification is removed. Every
