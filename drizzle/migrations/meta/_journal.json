@@ -1653,6 +1653,13 @@
       "when": 1789820476208,
       "tag": "0235_statutory_liability_current_payslips_only",
       "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1789822219910,
+      "tag": "0236_landlord_float_split_follow_subscription",
+      "breakpoints": true
     }
   ]
 }
