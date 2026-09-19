@@ -100,6 +100,9 @@ interface StatutoryLiabilityRow {
 const STATUTORY_NOTE =
   'Taken from payroll records, not the general ledger: amounts withheld on payroll that has already been paid, less anything already remitted. The books hold no tax account, so this figure is shown for disclosure and is not included in Total Liabilities.';
 
+const UNMATCHED_POSTINGS_NOTE =
+  'Old ledger entries that are missing their matching side. These are not cash, income or a new transaction — they are bookkeeping placeholders that keep the balance sheet level while the original entries are traced and completed.';
+
 /** Payload for the tap-to-drill-down modal. */
 interface Drilldown {
   title: string;
