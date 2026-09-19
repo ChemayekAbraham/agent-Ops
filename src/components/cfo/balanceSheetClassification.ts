@@ -150,11 +150,14 @@ const LIABILITY_ACCOUNT_MAP: Record<string, string> = {
 
 /* ── Equity ────────────────────────────────────────────────────────────── */
 
+/** E3 — opening balances and corrections carried in from earlier records. */
+export const CARRIED_FORWARD_LABEL = 'Balances Carried Forward from Earlier Records';
+
 export const EQUITY_CATEGORIES = [
   'Angel Pool Shares',
   'Retained Earnings',
   'Proposed Dividends',
-  'Balances Carried Forward from Earlier Records',
+  CARRIED_FORWARD_LABEL,
   'Legacy One-Sided Posting Counterparts',
 ] as const;
 
@@ -186,7 +189,7 @@ const EQUITY_LABEL_MAP: Record<string, string> = {
 
 const EQUITY_ACCOUNT_MAP: Record<string, string> = {
   E1: 'Angel Pool Shares',
-  E3: 'Balances Carried Forward from Earlier Records',
+  E3: CARRIED_FORWARD_LABEL,
   E4: 'Legacy One-Sided Posting Counterparts',
 };
 

@@ -8,7 +8,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat,
+  expandLandlordFloat, CARRIED_FORWARD_LABEL,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -418,10 +418,42 @@ function ModalLine({ line, size = 'sm' }: { line: PositionLine; size?: 'sm' | 'x
   );
 }
 
+interface CarriedForwardRow {
+  group_label: string;
+  legs: number;
+  amount: number;
+}
+
+/**
+ * Detailed breakdown of the carried-forward equity line (ledger account E3),
+ * fetched only while its drill-down modal is open.
+ */
+function useCarriedForwardBreakdown(active: boolean) {
+  const [rows, setRows] = useState<CarriedForwardRow[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    setLoading(true);
+    (supabase as any)
+      .rpc('get_carried_forward_breakdown', { p_as_at: new Date().toISOString() })
+      .then(({ data, error }: { data: CarriedForwardRow[] | null; error: unknown }) => {
+        if (cancelled) return;
+        if (error) setRows([]);
+        else setRows((data ?? []).map(r => ({ ...r, amount: Number(r.amount) })));
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [active]);
+  return { rows, loading };
+}
+
 /** The drill-down modal: named components and exact values for any tapped line or total. */
 function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
   const fmt = fmtAmount;
   const receivablesKey = drill ? receivablesCategoryOf(drill.title) : null;
+  const isCarriedForward = drill?.title === CARRIED_FORWARD_LABEL;
+  const carriedForward = useCarriedForwardBreakdown(!!isCarriedForward);
   return (
     <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
@@ -437,6 +469,37 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   {fmt(drill.value)}
                 </span>
               </div>
+              {isCarriedForward && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Detailed Breakdown
+                  </p>
+                  {carriedForward.loading && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading breakdown…
+                    </p>
+                  )}
+                  {!carriedForward.loading && (carriedForward.rows ?? []).map(r => (
+                    <div key={r.group_label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine
+                        line={{
+                          label: r.group_label,
+                          value: r.amount,
+                          source: `${r.legs} ledger ${r.legs === 1 ? 'entry' : 'entries'}`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {!carriedForward.loading && (carriedForward.rows ?? []).length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">No underlying entries found.</p>
+                  )}
+                  <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                    These are starting balances and corrections brought into the books from earlier
+                    records. They are historical bookkeeping entries, not new cash, revenue or
+                    obligations.
+                  </p>
+                </div>
+              )}
               {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -494,7 +557,7 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   ))}
                 </div>
               )}
-              {!receivablesKey && drill.lines && drill.lines.length > 0 && (
+              {!receivablesKey && !isCarriedForward && drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
                   {drill.lines.map(l => (
