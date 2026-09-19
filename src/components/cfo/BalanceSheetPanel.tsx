@@ -282,17 +282,11 @@ function FlaggedBlock({ group, showSources, onOpen }: { group?: BsGroup; showSou
 
 const fmtAmount = (v: number) => (v < 0 ? `(${formatUGX(Math.abs(v))})` : formatUGX(v));
 
-/** Reporting account code embedded in a line's source ("... — account A1"). */
-function accountCodeOf(line: PositionLine): string | null {
-  const m = /account\s+([A-Za-z]\d+)/.exec(line.source ?? '');
-  return m ? m[1].toUpperCase() : null;
-}
-
 /* ---------------------------------------------------------------------------
  * Receivables detail: the actual outstanding receivables behind a receivables
- * line — who owes it, the exact amount, when it is due and its status. Read
- * from the authoritative server-side definition (`get_receivables_breakdown`
- * over `v_receivables_lines`); no receivables maths is done here.
+ * line, grouped by product with each exact value. Read from the authoritative
+ * server-side definition (`get_receivables_breakdown` over
+ * `v_receivables_lines`); no receivables maths is done here.
  * ------------------------------------------------------------------------- */
 
 /** Which receivables category (if any) a balance-sheet label refers to. */
