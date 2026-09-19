@@ -689,7 +689,7 @@ export default function BalanceSheetPanel() {
       rows.push(['Transactions affected', data.reconciliation.unresolved_groups]);
       rows.push(['Absolute amount', data.reconciliation.unresolved_absolute_amount]);
       rows.push(['Suspense plug applied', 'NO — no plug is used; the balance check is a real assertion']);
-      rows.push(['Unreconciled difference (assets less liabilities and equity)', data.reconciliation.unreconciled_difference ?? data.balance_check.difference]);
+      rows.push(['Unreconciled difference (assets less liabilities and equity)', balanceDifference]);
       data.reconciliation.schedule?.forEach(r =>
         rows.push([`${r.category} (${r.ledger_scope}) — ${r.groups} transactions`, r.net_debit_less_credit]));
       rows.push([]);
@@ -931,8 +931,7 @@ export default function BalanceSheetPanel() {
               </p>
                {!statementBalanced && (
                 <p className="text-[10px] text-destructive/90 break-words">
-                  {data.balance_check.message
-                    ?? 'No suspense plug has been applied — the difference above is real and must be resolved in the ledger.'}
+                  Agent-held operational float has been presentation-reclassified from assets to liabilities. No balancing plug has been applied.
                 </p>
               )}
             </div>
@@ -965,7 +964,7 @@ export default function BalanceSheetPanel() {
                 label="Total Assets" value={assetsTotal} emphasis
                 onOpen={() => setDrill({
                   title: 'Total Assets', value: assetsTotal,
-                  sourceNote: 'Calculated by adding all asset balances returned by the general ledger statement.',
+                  sourceNote: 'Calculated by adding all asset balances except A2, which is presented as Operational Float under Market Place Liabilities.',
                   groups: [...assetRows.filter(g => !g.subtotal), ...(assetGroups && hasFlagged(assetGroups.flagged) ? [assetGroups.flagged] : [])],
                 })}
               />
@@ -1022,7 +1021,7 @@ export default function BalanceSheetPanel() {
                  label="Total Liabilities" value={liabilitiesTotal}
                 onOpen={() => setDrill({
                    title: 'Total Liabilities', value: liabilitiesTotal,
-                  sourceNote: 'Calculated by adding every liability account returned by the general ledger statement.',
+                   sourceNote: 'Calculated by adding ledger liabilities and A2, presented here as Operational Float.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
                     ...marketplaceRows.filter(g => !g.subtotal && !g.depth),
