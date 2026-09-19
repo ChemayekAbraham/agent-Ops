@@ -6739,10 +6739,13 @@ export type Database = {
       bot_referral_ring_detections: {
         Row: {
           action_taken: string
+          bots_preserved_for_review: number
           bots_soft_deleted: number
           detected_at: string
+          detection_signal: string | null
           distinct_names: number
           id: string
+          low_quality_name_count: number | null
           notes: string | null
           referred_count: number
           referrer_id: string
@@ -6751,10 +6754,13 @@ export type Database = {
         }
         Insert: {
           action_taken: string
+          bots_preserved_for_review?: number
           bots_soft_deleted?: number
           detected_at?: string
+          detection_signal?: string | null
           distinct_names: number
           id?: string
+          low_quality_name_count?: number | null
           notes?: string | null
           referred_count: number
           referrer_id: string
@@ -6763,10 +6769,13 @@ export type Database = {
         }
         Update: {
           action_taken?: string
+          bots_preserved_for_review?: number
           bots_soft_deleted?: number
           detected_at?: string
+          detection_signal?: string | null
           distinct_names?: number
           id?: string
+          low_quality_name_count?: number | null
           notes?: string | null
           referred_count?: number
           referrer_id?: string
@@ -18642,6 +18651,53 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_pso_officers"
             referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      hr_pay_statutory_remittances: {
+        Row: {
+          amount: number
+          authority: string
+          basis: string | null
+          component_code: string
+          created_at: string
+          id: string
+          paid_on: string
+          period_id: string | null
+          recorded_by: string | null
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          authority: string
+          basis?: string | null
+          component_code: string
+          created_at?: string
+          id?: string
+          paid_on?: string
+          period_id?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          authority?: string
+          basis?: string | null
+          component_code?: string
+          created_at?: string
+          id?: string
+          paid_on?: string
+          period_id?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_statutory_remittances_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_periods"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -56115,6 +56171,14 @@ export type Database = {
           tenant_ops_reviewed_at: string
         }[]
       }
+      get_carried_forward_breakdown: {
+        Args: { p_as_at?: string }
+        Returns: {
+          amount: number
+          group_label: string
+          legs: number
+        }[]
+      }
       get_cash_at_hand_total: { Args: never; Returns: Json }
       get_cash_at_hand_total_system: { Args: never; Returns: Json }
       get_cashflow_forecast_series: {
@@ -56354,6 +56418,14 @@ export type Database = {
           signups: number
         }[]
       }
+      get_deferred_fee_breakdown: {
+        Args: { p_as_at: string }
+        Returns: {
+          amount: number
+          group_label: string
+          legs: number
+        }[]
+      }
       get_deposit_autocredit_success_rate: {
         Args: { p_window_hours?: number }
         Returns: Json
@@ -56576,10 +56648,19 @@ export type Database = {
         }[]
       }
       get_landlord_float_due_today: { Args: never; Returns: Json }
-      get_landlord_float_management_split: {
-        Args: { p_as_at?: string }
-        Returns: Json
-      }
+      get_landlord_float_management_split:
+        | {
+            Args: { p_as_at?: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_landlord_float_management_split(p_as_at => date), public.get_landlord_float_management_split(p_as_at => timestamptz). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: { p_as_at?: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_landlord_float_management_split(p_as_at => date), public.get_landlord_float_management_split(p_as_at => timestamptz). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
       get_landlord_ops_rows:
         | {
             Args: {
@@ -58211,6 +58292,14 @@ export type Database = {
       }
       get_treasury_snapshot: { Args: never; Returns: Json }
       get_trust_coverage_stats: { Args: never; Returns: Json }
+      get_unmatched_postings_breakdown: {
+        Args: { p_as_at?: string }
+        Returns: {
+          amount: number
+          group_label: string
+          legs: number
+        }[]
+      }
       get_unregistered_recipient_transfers: {
         Args: { p_days?: number }
         Returns: Json
@@ -58645,6 +58734,17 @@ export type Database = {
           _staff_id: string
         }
         Returns: string
+      }
+      hr_pay_statutory_liability: {
+        Args: never
+        Returns: {
+          authority: string
+          component_code: string
+          label: string
+          outstanding: number
+          remitted: number
+          withheld: number
+        }[]
       }
       hr_pay_statutory_return: {
         Args: { _run_id: string }

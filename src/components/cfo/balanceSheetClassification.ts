@@ -48,9 +48,8 @@ export function accountCodeOf(line: PositionLine): string | null {
 /* ── Assets ────────────────────────────────────────────────────────────── */
 
 export const ASSET_CATEGORIES = [
-  'Cash at Bank',
+  'Cash at Hand and Bank',
   'Agent Float — Amounts with Agents',
-  'Cash in Custody — Not Yet Confirmed Banked',
   'Agent and Merchant Float Cycle Control',
   'Receivables from Tenant Products and Services',
   'Receivables from Agent Products and Services',
@@ -64,18 +63,17 @@ export const ASSET_CATEGORIES = [
   'Goodwill',
 ] as const;
 
-/** The bank line is A1 alone — float and custody are never bank cash. */
-export const CASH_AT_BANK_LABEL = 'Cash at Bank';
+/** The cash-at-hand-and-bank line combines A1 bank cash and A5 physical cash custody. */
+export const CASH_AT_BANK_LABEL = 'Cash at Hand and Bank';
 
 /**
  * Only mappings that are unambiguous.
  *
- * Cash presentation (approved correction, 2026-09-15): A1 is the ONLY bank
- * line. A2 is money in agents' hands, A5 is physical cash received and not yet
- * confirmed banked, and A8 is the agent/merchant float cycle control account —
- * none of the three is company bank cash, so each reports on its own line and
- * none is added into "Cash at Bank". They were previously grouped together,
- * which presented float and custody as bank money.
+ * Cash presentation: A1 bank cash and A5 physical cash received but not yet
+ * confirmed banked are combined under "Cash at Hand and Bank". Their exact
+ * account balances remain separate in the row's drill-down. A2 is money in
+ * agents' hands and A8 is the agent/merchant float cycle control account, so
+ * neither is included in cash.
  *
  * A3 is tenant rent access receivables.
  *
@@ -90,9 +88,9 @@ export const CASH_AT_BANK_LABEL = 'Cash at Bank';
  * A9 Suspense is unresolved postings by definition and is never classified.
  */
 const ASSET_ACCOUNT_MAP: Record<string, string> = {
-  A1: 'Cash at Bank',
+  A1: 'Cash at Hand and Bank',
   A2: 'Agent Float — Amounts with Agents',
-  A5: 'Cash in Custody — Not Yet Confirmed Banked',
+  A5: 'Cash at Hand and Bank',
   A8: 'Agent and Merchant Float Cycle Control',
   A3: 'Receivables from Tenant Products and Services',
   A4: 'Receivables from Agent Products and Services',
@@ -152,12 +150,17 @@ const LIABILITY_ACCOUNT_MAP: Record<string, string> = {
 
 /* ── Equity ────────────────────────────────────────────────────────────── */
 
+/** E3 — opening balances and corrections carried in from earlier records. */
+export const CARRIED_FORWARD_LABEL = 'Balances Carried Forward from Earlier Records';
+
+export const UNMATCHED_HISTORIC_POSTINGS_LABEL = 'Unmatched Historic Postings';
+
 export const EQUITY_CATEGORIES = [
   'Angel Pool Shares',
   'Retained Earnings',
   'Proposed Dividends',
-  'Legacy Opening Balance Adjustments',
-  'Legacy One-Sided Posting Counterparts',
+  CARRIED_FORWARD_LABEL,
+  UNMATCHED_HISTORIC_POSTINGS_LABEL,
 ] as const;
 
 /**
@@ -188,8 +191,8 @@ const EQUITY_LABEL_MAP: Record<string, string> = {
 
 const EQUITY_ACCOUNT_MAP: Record<string, string> = {
   E1: 'Angel Pool Shares',
-  E3: 'Legacy Opening Balance Adjustments',
-  E4: 'Legacy One-Sided Posting Counterparts',
+  E3: CARRIED_FORWARD_LABEL,
+  E4: UNMATCHED_HISTORIC_POSTINGS_LABEL,
 };
 
 
@@ -272,40 +275,59 @@ export type MarketplaceRow = BsGroup & {
 export const LANDLORD_FLOAT_LABEL = 'Landlord Float';
 export const LANDLORD_FLOAT_SELF_LABEL = 'Landlord Float — Self Managed';
 export const LANDLORD_FLOAT_COMPANY_LABEL = 'Landlord Float — Company Managed';
+export const LANDLORD_FLOAT_UNRESOLVED_LABEL = 'Landlord Float — Landlord Not Linked';
 
 /** Measured on the ledger by get_landlord_float_management_split(). */
 export interface LandlordFloatSplit {
   total: number;
   self_managed: number;
   company_managed: number;
+  /** Legs whose landlord record cannot be identified from the subscription. */
+  unresolved?: number;
 }
 
 /**
- * Presentation only: reports the existing Landlord Float as two lines — Self
- * Managed and Company Managed — per the landlord record's own management flag.
+ * Presentation only: reports the existing Landlord Float as up to three lines —
+ * Self Managed, Company Managed, and (where the underlying subscription has no
+ * identifiable landlord record) Landlord Not Linked.
  *
- * The reported group value is never changed: the self-managed amount measured
- * on the ledger is shown as-is and the company line is the residual, so the two
- * lines always foot to the existing total exactly. The partner/agent obligation
- * accounts inside the group are company-managed by definition and therefore sit
- * in the residual. With no split available the original single line is returned
- * untouched.
+ * The reported group value is never changed: the self-managed and unresolved
+ * amounts measured on the ledger are shown as-is and the company line is the
+ * residual, so the lines always foot to the existing total exactly. Reporting
+ * the unresolved amount separately keeps unlinked balances from being asserted
+ * as company managed. The two requested management rows remain visible while
+ * the split is loading or unavailable; in that fallback state the full reported
+ * balance stays under Company Managed and Self Managed remains zero.
  */
 export function expandLandlordFloat(
   marketplace: BsGroup[],
   split?: LandlordFloatSplit | null,
 ): MarketplaceRow[] {
-  if (!split) return marketplace;
   return marketplace.flatMap<MarketplaceRow>(g => {
     if (g.label !== LANDLORD_FLOAT_LABEL) return [g];
-    const self = Math.round(split.self_managed ?? 0);
-    const company = Math.round(g.value) - self;
-    return [
-      { label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [], unsourced: g.unsourced },
-      { label: LANDLORD_FLOAT_COMPANY_LABEL, value: company, lines: g.lines, unsourced: g.unsourced },
+    const self = Math.round(split?.self_managed ?? 0);
+    const unresolved = Math.round(split?.unresolved ?? 0);
+    const company = Math.round(g.value) - self - unresolved;
+    // Parent line carries the full Landlord Float balance; the management
+    // split is shown as nested lines underneath it.
+    const rows: MarketplaceRow[] = [
+      { ...g, components: g.components },
+      { label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [], unsourced: g.unsourced, depth: 1 },
+      { label: LANDLORD_FLOAT_COMPANY_LABEL, value: company, lines: g.lines, unsourced: g.unsourced, depth: 1 },
     ];
+    if (unresolved !== 0) {
+      rows.push({
+        label: LANDLORD_FLOAT_UNRESOLVED_LABEL,
+        value: unresolved,
+        lines: [],
+        unsourced: g.unsourced,
+        depth: 1,
+      });
+    }
+    return rows;
   });
 }
+
 
 
 /**

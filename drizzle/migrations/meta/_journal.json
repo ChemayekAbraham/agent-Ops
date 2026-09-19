@@ -1639,6 +1639,55 @@
       "when": 1789818142995,
       "tag": "0233_split_bike_receivables_in_view",
       "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1789820080381,
+      "tag": "0234_payroll_statutory_liability",
+      "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1789820476208,
+      "tag": "0235_statutory_liability_current_payslips_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1789822219910,
+      "tag": "0236_landlord_float_split_follow_subscription",
+      "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "7",
+      "when": 1789822502324,
+      "tag": "0237_landlord_float_self_managed_by_funder",
+      "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1789829088371,
+      "tag": "0238_unmatched_postings_breakdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1789829208852,
+      "tag": "0239_unmatched_postings_breakdown_labels",
+      "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1789832615532,
+      "tag": "0240_deferred_fee_breakdown",
+      "breakpoints": true
     }
   ]
 }

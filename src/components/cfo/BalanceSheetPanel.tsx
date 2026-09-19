@@ -8,7 +8,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat,
+  expandLandlordFloat, CARRIED_FORWARD_LABEL, UNMATCHED_HISTORIC_POSTINGS_LABEL,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -87,6 +87,22 @@ export interface StatementOfFinancialPosition {
   };
 }
 
+/** One statutory payroll obligation returned by hr_pay_statutory_liability(). */
+interface StatutoryLiabilityRow {
+  authority: string;
+  component_code: string;
+  label: string;
+  withheld: number;
+  remitted: number;
+  outstanding: number;
+}
+
+const STATUTORY_NOTE =
+  'Taken from payroll records, not the general ledger: amounts withheld on payroll that has already been paid, less anything already remitted. The books hold no tax account, so this figure is shown for disclosure and is not included in Total Liabilities.';
+
+const UNMATCHED_POSTINGS_NOTE =
+  'Old ledger entries that are missing their matching side. These are not cash, income or a new transaction — they are bookkeeping placeholders that keep the balance sheet level while the original entries are traced and completed.';
+
 /** Payload for the tap-to-drill-down modal. */
 interface Drilldown {
   title: string;
@@ -94,6 +110,8 @@ interface Drilldown {
   unsourced?: boolean;
   /** Plain-language explanation for derived values that are not a direct account line. */
   sourceNote?: string;
+  /** Disclosure note printed in the modal (used for payroll-derived figures). */
+  note?: string;
   /** Account-level lines behind the figure. */
   lines?: PositionLine[];
   /** Indented component lines (e.g. partner obligations inside Landlord Float). */
@@ -316,6 +334,9 @@ const ALWAYS_SHOWN_PRODUCTS: Record<string, { key: string; label: string; from: 
     { key: 'welile_homes', label: 'Welile Homes Subscriptions', from: 'landlord' },
     { key: 'landlord_float_receivable', label: 'Landlord Float Receivables', from: 'landlord' },
   ],
+  partner: [
+    { key: 'promissory_note', label: 'Promissory Notes', from: 'partner' },
+  ],
 };
 
 
@@ -400,10 +421,48 @@ function ModalLine({ line, size = 'sm' }: { line: PositionLine; size?: 'sm' | 'x
   );
 }
 
+interface CarriedForwardRow {
+  group_label: string;
+  legs: number;
+  amount: number;
+}
+
+/**
+ * Detailed breakdown of the carried-forward equity line (ledger account E3),
+ * fetched only while its drill-down modal is open.
+ */
+function useEquityBreakdown(rpcName: string, active: boolean) {
+  const [rows, setRows] = useState<CarriedForwardRow[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    setLoading(true);
+    (supabase as any)
+      .rpc(rpcName, { p_as_at: new Date().toISOString() })
+      .then(({ data, error }: { data: CarriedForwardRow[] | null; error: unknown }) => {
+        if (cancelled) return;
+        if (error) setRows([]);
+        else setRows((data ?? []).map(r => ({ ...r, amount: Number(r.amount) })));
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [rpcName, active]);
+  return { rows, loading };
+}
+
+
 /** The drill-down modal: named components and exact values for any tapped line or total. */
 function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
   const fmt = fmtAmount;
   const receivablesKey = drill ? receivablesCategoryOf(drill.title) : null;
+  const isCarriedForward = drill?.title === CARRIED_FORWARD_LABEL;
+  const isUnmatchedHistoricPostings = drill?.title === UNMATCHED_HISTORIC_POSTINGS_LABEL;
+  const isDeferredFee = drill?.title === 'Deferred Rent Plan Fee Income';
+  const carriedForward = useEquityBreakdown('get_carried_forward_breakdown', !!isCarriedForward);
+  const unmatchedPostings = useEquityBreakdown('get_unmatched_postings_breakdown', !!isUnmatchedHistoricPostings);
+  const deferredFee = useEquityBreakdown('get_deferred_fee_breakdown', !!isDeferredFee);
+
   return (
     <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
@@ -419,6 +478,98 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   {fmt(drill.value)}
                 </span>
               </div>
+              {isCarriedForward && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Detailed Breakdown
+                  </p>
+                  {carriedForward.loading && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading breakdown…
+                    </p>
+                  )}
+                  {!carriedForward.loading && (carriedForward.rows ?? []).map(r => (
+                    <div key={r.group_label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine
+                        line={{
+                          label: r.group_label,
+                          value: r.amount,
+                          source: `${r.legs} ledger ${r.legs === 1 ? 'entry' : 'entries'}`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {!carriedForward.loading && (carriedForward.rows ?? []).length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">No underlying entries found.</p>
+                  )}
+                  <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                    These are starting balances and corrections brought into the books from earlier
+                    records. They are historical bookkeeping entries, not new cash, revenue or
+                    obligations.
+                  </p>
+                </div>
+              )}
+              {isUnmatchedHistoricPostings && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Detailed Breakdown
+                  </p>
+                  {unmatchedPostings.loading && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading breakdown…
+                    </p>
+                  )}
+                  {!unmatchedPostings.loading && (unmatchedPostings.rows ?? []).map(r => (
+                    <div key={r.group_label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine
+                        line={{
+                          label: r.group_label,
+                          value: r.amount,
+                          source: `${r.legs} ledger ${r.legs === 1 ? 'entry' : 'entries'}`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {!unmatchedPostings.loading && (unmatchedPostings.rows ?? []).length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">No underlying entries found.</p>
+                  )}
+                  <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                    {UNMATCHED_POSTINGS_NOTE}
+                  </p>
+                </div>
+              )}
+              {isDeferredFee && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Detailed Breakdown
+                  </p>
+                  {deferredFee.loading && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading breakdown…
+                    </p>
+                  )}
+                  {!deferredFee.loading && (deferredFee.rows ?? []).map(r => (
+                    <div key={r.group_label} className="border-b border-border/40 py-1.5 last:border-0">
+                      <ModalLine
+                        line={{
+                          label: r.group_label,
+                          value: r.amount,
+                          source: `${r.legs} ledger ${r.legs === 1 ? 'entry' : 'entries'}`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {!deferredFee.loading && (deferredFee.rows ?? []).length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">No underlying entries found.</p>
+                  )}
+                  <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                    Rent plan fees are recorded when a plan is funded and earned gradually as the
+                    tenant repays. The balance above is the portion still to be earned; it falls
+                    automatically with every repayment.
+                  </p>
+                </div>
+              )}
+
               {receivablesKey && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -426,6 +577,11 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   </p>
                    <ReceivablesDetail categoryKey={receivablesKey} />
                 </div>
+              )}
+              {drill.note && (
+                <p className="rounded-md border border-border/60 bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                  {drill.note}
+                </p>
               )}
               {!receivablesKey && drill.components && drill.components.length > 0 && (
                 <div className="space-y-1">
@@ -471,14 +627,19 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   ))}
                 </div>
               )}
-              {!receivablesKey && drill.lines && drill.lines.length > 0 && (
+              {!receivablesKey && !isCarriedForward && !isUnmatchedHistoricPostings && !isDeferredFee && drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
-                  {drill.lines.map(l => (
-                    <div key={l.label} className="border-b border-border/40 py-1.5 last:border-0">
-                      <ModalLine line={l} />
-                    </div>
-                  ))}
+                  {drill.lines.map(l => {
+                    const displayLine = isUnmatchedHistoricPostings
+                      ? { ...l, label: 'Unmatched Historic Postings — Opening Balance Counterpart' }
+                      : l;
+                    return (
+                      <div key={displayLine.label} className="border-b border-border/40 py-1.5 last:border-0">
+                        <ModalLine line={displayLine} />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -510,6 +671,14 @@ export default function BalanceSheetPanel() {
   const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
   /** Line or total the user tapped, shown as a modal breakdown. */
   const [drill, setDrill] = useState<Drilldown | null>(null);
+  /**
+   * Statutory payroll obligations (PAYE / NSSF / LST) withheld on payroll that
+   * has actually been paid, net of recorded remittances. No ledger account
+   * exists for taxes, so this is a payroll-derived disclosure: it prints on the
+   * Taxes Payable line but is NOT added to Total Liabilities, which stays the
+   * ledger's own figure so the balance check remains a real assertion.
+   */
+  const [statutory, setStatutory] = useState<StatutoryLiabilityRow[] | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
@@ -526,6 +695,10 @@ export default function BalanceSheetPanel() {
       });
       if (splitError) console.warn('Landlord float split unavailable:', splitError.message);
       setFloatSplit((split as LandlordFloatSplit) ?? null);
+
+      const { data: stat, error: statError } = await (supabase as any).rpc('hr_pay_statutory_liability');
+      if (statError) console.warn('Statutory payroll obligations unavailable:', statError.message);
+      setStatutory((stat as StatutoryLiabilityRow[]) ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to generate the statement of financial position');
     } finally {
@@ -542,7 +715,8 @@ export default function BalanceSheetPanel() {
   const liabilityGroups = data
     ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
-  // E3 and E4 are equity accounts in ledger_account_catalog and are reported in
+  // E3 (Balances Carried Forward from Earlier Records) and E4 (Unmatched Historic
+  // Postings) are equity accounts in ledger_account_catalog and are reported in
   // equity. They were briefly reclassified onto the asset side as components of
   // Intangible Assets, which inverted their sign and produced a negative
   // intangible asset; per BIS approval that reclassification is removed. Every
@@ -562,6 +736,30 @@ export default function BalanceSheetPanel() {
     ? Math.round(liabilityGroups.total - data.liabilities.total)
     : 0;
 
+  /** Payroll-derived statutory obligation lines and their total. */
+  const statutoryLines: PositionLine[] = (statutory ?? []).map(r => ({
+    label: r.label,
+    value: Number(r.outstanding ?? 0),
+  }));
+  const statutoryTotal = statutoryLines.reduce((t, l) => t + l.value, 0);
+  const isTaxLine = (label: string) => label === 'Taxes Payable';
+  /** Taxes Payable prints the payroll-derived figure; every other line is the ledger's. */
+  const standaloneValue = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? statutoryTotal : g.value;
+  const standaloneComponents = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? statutoryLines : g.components;
+  const standaloneNote = (g: BsGroup) =>
+    isTaxLine(g.label) && statutory ? STATUTORY_NOTE : undefined;
+  /**
+   * Rows as printed on the statement. Only the Taxes Payable row is restated,
+   * from payroll; Total Liabilities below is untouched and stays the ledger's.
+   */
+  const standaloneRows: BsGroup[] = (liabilityGroups?.standalone ?? []).map(g =>
+    isTaxLine(g.label) && statutory
+      ? { ...g, value: statutoryTotal, components: [], unsourced: false }
+      : g,
+  );
+
   const exportCSV = () => {
     if (!data) return;
     const rows: (string | number)[][] = [[title], []];
@@ -577,7 +775,10 @@ export default function BalanceSheetPanel() {
     rows.push(['TOTAL ASSETS', assetsTotal]);
     rows.push([]);
     rows.push(['LIABILITIES', '']);
-    (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
+    standaloneRows.forEach(g => {
+      rows.push([g.label, g.value]);
+      (isTaxLine(g.label) ? g.components ?? [] : []).forEach(c => rows.push(['   ' + c.label, c.value]));
+    });
     rows.push(['Market Place Liabilities', '']);
     marketplaceRows.forEach(g => {
       const pad = '   '.repeat(1 + (g.depth ?? 0));
@@ -715,7 +916,10 @@ export default function BalanceSheetPanel() {
       row('TOTAL ASSETS', assetsTotal, true);
 
       heading('Liabilities');
-      (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
+      standaloneRows.forEach(g => {
+        row(g.label, g.value);
+        (isTaxLine(g.label) ? g.components ?? [] : []).forEach(c => row('   ' + c.label, c.value));
+      });
       heading('Market Place Liabilities');
       marketplaceRows.forEach(g => {
         const pad = '   '.repeat(g.depth ?? 0);
@@ -899,10 +1103,14 @@ export default function BalanceSheetPanel() {
             <div>
               <Badge variant="outline" className="text-[10px]">Liabilities &amp; Shareholders&apos; Equity</Badge>
               <SectionHeading>Liabilities</SectionHeading>
-              <div>{liabilityGroups?.standalone.map(g => (
+              <div>{standaloneRows.map(g => (
                 <GroupRow
-                  key={g.label} group={g} showSources={showSources}
-                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                  key={g.label} group={g} components={isTaxLine(g.label) ? g.components : undefined} showSources={showSources}
+                  onOpen={() => setDrill({
+                    title: g.label, value: g.value, unsourced: g.unsourced,
+                    lines: g.lines, components: standaloneComponents(g),
+                    note: standaloneNote(g),
+                  })}
                 />
               ))}</div>
               <SubHeading>Market Place Liabilities</SubHeading>
@@ -914,7 +1122,7 @@ export default function BalanceSheetPanel() {
                         onOpen={() => setDrill({
                           title: g.label, value: g.value,
                           sourceNote: 'Calculated by adding the marketplace liability lines shown in this section.',
-                          groups: marketplaceRows.filter(row => !row.subtotal && !row.heading),
+                          groups: marketplaceRows.filter(row => !row.subtotal && !row.heading && !row.depth),
                         })}
                       />
                     : <GroupRow
@@ -923,7 +1131,7 @@ export default function BalanceSheetPanel() {
                         onOpen={() => setDrill({
                           title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components,
                           sourceNote: g.lines.length === 0 && !g.unsourced
-                            ? 'Measured from landlord float ledger entries and split by the landlord record’s management type.'
+                            ? 'Measured from landlord float ledger entries, split by whether the rent plan is funded and managed directly by a funder (self managed) or by the company.'
                             : undefined,
                         })}
                       />
@@ -934,7 +1142,7 @@ export default function BalanceSheetPanel() {
                 onOpen={() => setDrill({
                   title: 'Market Place Liabilities', value: liabilityGroups?.marketplaceTotal ?? 0,
                   sourceNote: 'Calculated by adding all marketplace liability balances shown below.',
-                  groups: marketplaceRows.filter(g => !g.subtotal),
+                  groups: marketplaceRows.filter(g => !g.subtotal && !g.depth),
                 })}
               />
               <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
@@ -945,7 +1153,7 @@ export default function BalanceSheetPanel() {
                   sourceNote: 'Calculated by adding every liability account returned by the general ledger statement.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
-                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...marketplaceRows.filter(g => !g.subtotal && !g.depth),
                     ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
                   ],
                 })}
@@ -975,7 +1183,7 @@ export default function BalanceSheetPanel() {
                   sourceNote: 'Calculated by adding Total Liabilities and Total Shareholders’ Equity.',
                   groups: [
                     ...(liabilityGroups?.standalone ?? []),
-                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...marketplaceRows.filter(g => !g.subtotal && !g.depth),
                     ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
                     ...(equityGroups?.groups ?? []),
                     ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : []),
@@ -1013,7 +1221,7 @@ export default function BalanceSheetPanel() {
                   <p className="text-[10px] text-muted-foreground">
                     {data.reconciliation.unresolved_groups.toLocaleString()} historic ledger transactions carry only one side of their entry
                     ({formatUGX(data.reconciliation.unresolved_absolute_amount)} in absolute terms) and are listed below by category.
-                    Their missing side is recognised, itemised, in the equity line "Unmatched Historic Postings"
+                    Their missing side is recognised, itemised, in the equity line "{UNMATCHED_HISTORIC_POSTINGS_LABEL}"
                     {typeof data.reconciliation.one_sided_equity_counterpart === 'number'
                       ? ` (${formatUGX(data.reconciliation.one_sided_equity_counterpart)})`
                       : ''}. No suspense plug is applied: every balanced ledger entry is mapped to a real debit and a real credit, so nothing

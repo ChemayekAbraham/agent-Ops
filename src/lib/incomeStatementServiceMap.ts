@@ -210,6 +210,8 @@ export const NON_PL_CATEGORIES = [
   'cash_at_bank_reclass',                 // A1 Cash and Bank Balances
   'agent_float_assignment',               // A1 Cash and Bank Balances
   'agent_float_cash_offset',              // A2 Cash at Hand - Float with Agents
+  'verified_bank_cash_recognised',        // A1 bank cash recognised from settled agent float
+  'agent_float_cycle_settled_to_bank',    // A8 agent float cycle cleared into bank cash
   // Custody liabilities and receivables.
   'cash_custody_payable',                 // L1 Wallet Custody Payable
   'agent_facilitated_capital_receivable', // A2 Cash at Hand - Float with Agents
@@ -226,6 +228,14 @@ export const NON_PL_CATEGORIES = [
   // leg as revenue would double count the fee.
   'treasury_fee_recognised',              // L7 Platform Treasury Control
   'treasury_fee_drawdown',                // L7 Platform Treasury Control
+  'treasury_allocated',                   // L7 deferred-fee liability allocation
+  // L5 commission-payable control. Accrual and settlement are liability
+  // movements; the commission expense is already recorded by its expense leg.
+  'agent_commission_accrued',
+  'agent_commission_settled',
+  // Balanced historical reconciliation entries are bookkeeping corrections,
+  // not current-period revenue or expense.
+  'reconciliation',
   // NOT LISTED - 'treasury_net_revenue'. See CONTRA_REVENUE_CATEGORIES below:
   // it is a revenue deduction, not a non-P&L item.
 ];
