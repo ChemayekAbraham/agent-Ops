@@ -1,3 +1,11 @@
+-- SUPERSEDED 2026-09-19: the standing bot-referral-ring hunter was rebuilt the same day
+-- (20260919170000_rebuild_bot_referral_ring_hunter_v2.sql, docs/HANDOVER/86) and its first run
+-- purged nearly all of the accounts this migration targets. Re-running this file now will
+-- correctly abort on its own pre-flight count assertion (expects exactly 53 referrers / 4,499
+-- bots; that count has changed). Left in the repo unmodified as the record of the original
+-- manual investigation -- see the rebuilt migration's own "RESULTS" section for what actually
+-- ran and what, if anything, is still outstanding.
+--
 -- Root-cause trace: docs/HANDOVER/85-gibberish-name-referral-ring-root-cause-and-purge.md
 --
 -- 53 referrer identities, 2026-02-11 -> 2026-09-14, fed 4,499 confirmed-garbage-name
