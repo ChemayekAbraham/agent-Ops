@@ -1,3 +1,4 @@
-- [x] Reorganize the on-screen Income Statement into a conventional multi-step sequence.
-- [x] Align CSV and PDF exports with the corrected structure.
-- [x] Verify subtotals, safeguards, and the live report.
+- [ ] Reconcile current production Income Statement totals before presentation changes.
+- [ ] Build the comparative management P&L table using existing account labels and calculations.
+- [ ] Align CSV and PDF exports with Current, Previous, Change, and Change %.
+- [ ] Verify calculations, safeguards, and desktop/mobile presentation.
