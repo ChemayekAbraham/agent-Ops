@@ -13,6 +13,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 
 /** How often the asker's screen re-checks whether the holder has answered. */
 export const LINK_POLL_INTERVAL_MS = 25_000;
@@ -118,7 +119,11 @@ export function useNationalIdLinkOtp() {
       const { data, error } = await supabase.functions.invoke('national-id-link-otp', {
         body: { action: 'send', request_id: requestId },
       });
-      if (error) throw new Error(error.message);
+      // supabase-js wraps a non-2xx edge-function response in a FunctionsHttpError
+      // whose own .message is just "Edge Function returned a non-2xx status
+      // code" — the real backend reason ("That request is closed.", etc.) lives
+      // in the response body, which extractFromErrorObject reads instead.
+      if (error) throw new Error(await extractFromErrorObject(error, 'Could not send the code.'));
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) throw new Error(res.error ?? 'Could not send the code.');
       return true;
@@ -131,7 +136,7 @@ export function useNationalIdLinkOtp() {
       const { data, error } = await supabase.functions.invoke('national-id-link-otp', {
         body: { action: 'verify', request_id: requestId, code },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await extractFromErrorObject(error, 'That code is not right.'));
       const res = (data ?? {}) as { success?: boolean; error?: string };
       if (!res.success) throw new Error(res.error ?? 'That code is not right.');
       return true;
