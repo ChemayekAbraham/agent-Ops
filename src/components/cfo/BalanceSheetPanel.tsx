@@ -1111,7 +1111,7 @@ export default function BalanceSheetPanel() {
         </>
       )}
 
-      <DrilldownDialog drill={drill} onClose={() => setDrill(null)} />
+      <DrilldownDialog drill={drill} asAt={asAt} onClose={() => setDrill(null)} />
     </div>
   );
 }
