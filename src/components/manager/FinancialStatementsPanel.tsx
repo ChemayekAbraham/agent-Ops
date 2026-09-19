@@ -719,7 +719,7 @@ function Figure({ label, value }: { label: string; value: number }) {
 }
 
 function FinancialStatementsPanelInner() {
-  const { data, loading, filters, generate, updatePeriod, setFilters, comparisonMode, updateComparisonMode, comparisonMetrics, loadingComparison } = useFinancialStatements();
+  const { data, previousData, loading, filters, generate, updatePeriod, setFilters, comparisonMode, updateComparisonMode, comparisonMetrics, loadingComparison } = useFinancialStatements();
   const [customStart, setCustomStart] = useState<Date | undefined>();
   const [customEnd, setCustomEnd] = useState<Date | undefined>();
   const [activeTab, setActiveTab] = useState<Tab>('movement');
@@ -789,83 +789,20 @@ function FinancialStatementsPanelInner() {
 
     if (activeTab === 'income') {
       const d = data.incomeStatement;
-      const totals = incomeStatementTotals(d);
-      rows.push(['WELILE — Income Statement', '', period]);
-      rows.push(['', '', '']);
-      rows.push(['REVENUE', '', '']);
-      d.byService.revenueFamilies.forEach(fam => {
-        rows.push([fam.label, '', '']);
-        fam.lines.forEach(l => rows.push([`  ${l.label}`, l.source, l.amount]));
-        rows.push([`  ${fam.label} Subtotal`, '', fam.total]);
+      const pnlRows = buildManagementPnl(d, previousData?.incomeStatement);
+      rows.push(['WELILE — Management P&L', period, previousData?.incomeStatement.period ?? 'Previous period', '', '']);
+      rows.push(['', '', '', '', '']);
+      pnlRows.forEach(row => {
+        if (row.kind === 'section' || row.kind === 'group') {
+          rows.push([row.label.toUpperCase(), '', '', '', '']);
+          return;
+        }
+        const current = row.current ?? 0;
+        const previous = row.previous;
+        const change = previous === undefined ? '' : current - previous;
+        const pct = previous === undefined ? '' : pnlChangePercent(current, previous);
+        rows.push([row.label, row.percentage ? `${current.toFixed(1)}%` : current, previous === undefined ? '' : row.percentage ? `${previous.toFixed(1)}%` : previous, change === '' ? '' : row.percentage ? `${Number(change).toFixed(1)} pp` : change, pct === null || pct === '' ? '' : `${Number(pct).toFixed(1)}%`]);
       });
-      rows.push(['Gross Revenue', '', d.byService.grossRevenue]);
-      if (d.byService.contraRevenue.lines.length > 0) {
-        rows.push(['REVENUE DEDUCTIONS', '', '']);
-        d.byService.contraRevenue.lines.forEach(l => rows.push([`  ${l.label}`, l.source, -l.amount]));
-        rows.push(['Total Revenue Deductions', '', -d.byService.contraRevenue.total]);
-      }
-      rows.push(['Net Revenue', '', totals.netRevenue]);
-      rows.push(['', '', '']);
-      if (d.byService.reviewQueue.length > 0) {
-        rows.push(['FLAGGED FOR REVIEW (UNMAPPED CATEGORIES)', '', '']);
-        d.byService.reviewQueue.forEach(l => rows.push([`  ${l.category}`, l.direction, l.amount]));
-        rows.push(['', '', '']);
-      }
-      rows.push(['COST OF REVENUE', '', '']);
-      rows.push(['Platform Rewards', '', -d.serviceDeliveryCosts.platformRewards]);
-      rows.push(['Agent Commissions', '', -d.serviceDeliveryCosts.agentCommissions]);
-      rows.push(['Referral Bonuses', '', -d.serviceDeliveryCosts.referralBonuses]);
-      rows.push(['Agent Bonuses', '', -d.serviceDeliveryCosts.agentBonuses]);
-      rows.push(['Transaction Expenses', '', -d.serviceDeliveryCosts.transactionExpenses]);
-      rows.push(['Total Cost of Revenue', '', -d.serviceDeliveryCosts.total]);
-      rows.push(['Gross Profit', '', totals.grossProfit]);
-      rows.push(['Gross Margin (%)', '', totals.grossMargin.toFixed(1)]);
-      rows.push(['', '', '']);
-      rows.push(['OPERATING EXPENSES', '', '']);
-      rows.push(['Payroll & Staff Costs', '', -d.operatingExpenses.payrollExpenses]);
-      rows.push(['Agent Requisitions', '', -d.operatingExpenses.agentRequisitions]);
-      rows.push(['Financial Agent Expenses', '', -d.operatingExpenses.financialAgentExpenses]);
-      rows.push(['Marketing Expenses', '', -d.operatingExpenses.marketingExpenses]);
-      rows.push(['Research & Development', '', -d.operatingExpenses.researchDevelopment]);
-      if (d.operatingExpenses.operationalSubcategories.salaries) rows.push(['  Salaries', '', -d.operatingExpenses.operationalSubcategories.salaries]);
-      if (d.operatingExpenses.operationalSubcategories.transport) rows.push(['  Transport', '', -d.operatingExpenses.operationalSubcategories.transport]);
-      if (d.operatingExpenses.operationalSubcategories.food) rows.push(['  Food', '', -d.operatingExpenses.operationalSubcategories.food]);
-      if (d.operatingExpenses.operationalSubcategories.officeRent) rows.push(['  Office Rent', '', -d.operatingExpenses.operationalSubcategories.officeRent]);
-      if (d.operatingExpenses.operationalSubcategories.internet) rows.push(['  Internet', '', -d.operatingExpenses.operationalSubcategories.internet]);
-      if (d.operatingExpenses.operationalSubcategories.airtime) rows.push(['  Airtime', '', -d.operatingExpenses.operationalSubcategories.airtime]);
-      if (d.operatingExpenses.operationalSubcategories.stationery) rows.push(['  Stationery', '', -d.operatingExpenses.operationalSubcategories.stationery]);
-      rows.push(['General & Admin Expenses', '', -d.operatingExpenses.generalOperating]);
-      rows.push(['Total Operating Expenses', '', -d.operatingExpenses.total]);
-      if (d.adjustments.total !== 0) {
-        rows.push(['ADJUSTMENTS & CORRECTIONS', '', '']);
-        if (d.adjustments.walletDeductions) rows.push(['Wallet Deductions (Recoveries)', '', d.adjustments.walletDeductions]);
-        if (d.adjustments.systemCorrections) rows.push(['System Balance Corrections', '', d.adjustments.systemCorrections]);
-        if (d.adjustments.orphanReassignments) rows.push(['Orphan Reassignments', '', d.adjustments.orphanReassignments]);
-        if (d.adjustments.orphanReversals) rows.push(['Orphan Reversals', '', -d.adjustments.orphanReversals]);
-        rows.push(['Net Adjustments', '', d.adjustments.total]);
-      }
-      rows.push(['EBITDA', '', totals.ebitda]);
-      rows.push(['DEPRECIATION & AMORTIZATION', '', '']);
-      rows.push(['Depreciation (Property & Equipment)', '', -d.depreciation]);
-      rows.push(['Amortization (Software & IP)', '', -d.amortization]);
-      rows.push(['Operating Profit / (Loss) (EBIT)', '', totals.operatingIncome]);
-      rows.push(['FINANCE INCOME / (COSTS)', '', '']);
-      rows.push(['Finance Income', '', d.interestIncome]);
-      rows.push(['Interest Expense', '', -d.interestExpense]);
-      rows.push(['Net Finance Income / (Costs)', '', d.otherIncomeExpensesNet]);
-      rows.push(['Profit / (Loss) Before Tax', '', totals.profitBeforeTax]);
-      rows.push(['Tax Provision', '', -d.taxProvision]);
-      rows.push(['NET INCOME', '', totals.netIncome]);
-      rows.push(['', '', '']);
-      rows.push(['SUPPORTING SCHEDULE — REVENUE RECOGNITION', '', '']);
-      rows.push(['Expected Access Fees', '', d.revenueRecognition.expectedAccessFees]);
-      rows.push(['Expected Request Fees', '', d.revenueRecognition.expectedRequestFees]);
-      rows.push(['Total Expected Revenue', '', d.revenueRecognition.totalExpectedRevenue]);
-      rows.push(['Realized Access Fees', '', d.revenueRecognition.realizedAccessFees]);
-      rows.push(['Realized Request Fees', '', d.revenueRecognition.realizedRequestFees]);
-      rows.push(['Total Realized Revenue', '', d.revenueRecognition.totalRealizedRevenue]);
-      rows.push(['Revenue Not Yet Collected', '', d.revenueRecognition.deferredRevenue]);
-      rows.push(['Recognition Rate (%)', '', d.revenueRecognition.recognitionRate.toFixed(1)]);
     } else if (activeTab === 'cashflow') {
       if (!cashFlow) { toast.error('Cash flow statement is still loading'); return; }
       rows.push(['WELILE — Statement of Cash Flows', '', period]);
@@ -924,7 +861,10 @@ function FinancialStatementsPanelInner() {
       rows.push(['Request Fee Income', '', d.totalRequestFeeIncome]);
     }
 
-    exportToCSV({ headers: ['Item', 'Sub-item', 'Amount (UGX)'], rows }, `welile-${activeTab}-${format(new Date(), 'yyyy-MM-dd')}`);
+    const headers = activeTab === 'income'
+      ? ['Account', 'Current Period', 'Previous Period', 'Change', 'Change %']
+      : ['Item', 'Sub-item', 'Amount (UGX)'];
+    exportToCSV({ headers, rows }, `welile-${activeTab}-${format(new Date(), 'yyyy-MM-dd')}`);
     toast.success('CSV exported');
   };
 
@@ -933,7 +873,7 @@ function FinancialStatementsPanelInner() {
     setSharing(true);
     try {
       const { jsPDF } = await import('jspdf');
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdf = new jsPDF({ orientation: activeTab === 'income' ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
       const pw = pdf.internal.pageSize.getWidth();
       const margin = 15;
       let y = 20;
