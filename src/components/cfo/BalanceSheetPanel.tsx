@@ -629,7 +629,10 @@ export default function BalanceSheetPanel() {
     rows.push(['TOTAL ASSETS', assetsTotal]);
     rows.push([]);
     rows.push(['LIABILITIES', '']);
-    (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
+    standaloneRows.forEach(g => {
+      rows.push([g.label, g.value]);
+      (isTaxLine(g.label) ? g.components ?? [] : []).forEach(c => rows.push(['   ' + c.label, c.value]));
+    });
     rows.push(['Market Place Liabilities', '']);
     marketplaceRows.forEach(g => {
       const pad = '   '.repeat(1 + (g.depth ?? 0));
@@ -767,7 +770,10 @@ export default function BalanceSheetPanel() {
       row('TOTAL ASSETS', assetsTotal, true);
 
       heading('Liabilities');
-      (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
+      standaloneRows.forEach(g => {
+        row(g.label, g.value);
+        (isTaxLine(g.label) ? g.components ?? [] : []).forEach(c => row('   ' + c.label, c.value));
+      });
       heading('Market Place Liabilities');
       marketplaceRows.forEach(g => {
         const pad = '   '.repeat(g.depth ?? 0);
