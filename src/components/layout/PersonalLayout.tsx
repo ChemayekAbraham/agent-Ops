@@ -158,7 +158,7 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
           Tools and records
         </p>
         <div className="space-y-1 px-2">
-          {PERSONAL_NAV.filter((item) => !item.requiresPsoOfficer || isPsoOfficer === true)
+          {PERSONAL_NAV.filter((item) => (!item.requiresPsoOfficer || isPsoOfficer === true) && (!item.requiresStaff || isStaff === true))
             .map((item) => (
               <NavRow key={item.to} to={item.to} icon={item.icon} label={item.title} />
             ))}
