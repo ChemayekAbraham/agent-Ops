@@ -452,6 +452,8 @@ function useCarriedForwardBreakdown(active: boolean) {
 function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose: () => void }) {
   const fmt = fmtAmount;
   const receivablesKey = drill ? receivablesCategoryOf(drill.title) : null;
+  const isCarriedForward = drill?.title === CARRIED_FORWARD_LABEL;
+  const carriedForward = useCarriedForwardBreakdown(!!isCarriedForward);
   return (
     <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
