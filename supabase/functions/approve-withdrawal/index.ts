@@ -461,6 +461,35 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Financial Ops liquidity hold. Independent of the account-level fraud
+    // freeze below — an operator can put a specific pending withdrawal on
+    // hold (e.g. "freeze the rest of this week's Landlord Payouts") without
+    // touching the requester's account. This is the single choke point both
+    // the Financial Ops approval queue AND the cashout agent's "Confirm
+    // payout" flow call through, so it blocks completion even when an agent
+    // has already claimed/dispatched the payout. `trg_enforce_no_progress_on_frozen_withdrawal`
+    // backstops this at the database layer if this check is ever bypassed.
+    if (wr.frozen) {
+      await admin.from("audit_logs").insert({
+        user_id: user.id,
+        action_type: "withdrawal_blocked_frozen",
+        action: "withdrawal_blocked_frozen",
+        table_name: "withdrawal_requests",
+        record_id: withdrawal_id,
+        metadata: { reason: wr.frozen_reason ?? null, amount: wr.amount },
+      });
+      return new Response(JSON.stringify({
+        success: false,
+        error: wr.frozen_reason
+          ? `This withdrawal is on hold: ${wr.frozen_reason}`
+          : "This withdrawal has been put on hold by Financial Ops and cannot be paid out yet.",
+        code: "WITHDRAWAL_FROZEN",
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Fraud/freeze gate MUST run before any ledger write. The database trigger
     // also blocks status changes, but this early check prevents a ledger debit
     // from being posted and then failing only when the request flips to

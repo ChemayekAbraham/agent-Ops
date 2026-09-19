@@ -13,12 +13,35 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/rentCalculations';
 import { differenceInHours } from 'date-fns';
-import { Search, CheckCircle2, XCircle, Clock, Banknote, Wallet, Loader2, ArrowUpDown, Copy, Check } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, Clock, Banknote, Wallet, Loader2, ArrowUpDown, Copy, Check, Snowflake, Unlock } from 'lucide-react';
 import { toast } from 'sonner';
 import { extractFromErrorObject, extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 import { RequestDetailSheet } from './RequestDetailSheet';
 
 type QueueType = 'wallet_withdrawals' | 'wallet_ops';
+
+// Liquidity-control categories for the Cash Out queue. Lets an operator
+// freeze e.g. "the rest of this week's Landlord Payouts" while still paying
+// out a chosen few — independent of the requester's account-level fraud
+// freeze. Derived from the requester's enabled role; `landlord_payout_id`
+// overrides role since that column is a definitive link to a landlord payout
+// event regardless of who technically holds the withdrawing wallet.
+const WITHDRAWAL_CATEGORY_LABELS: Record<string, string> = {
+  landlord: 'Landlord Payouts',
+  agent: 'Agent Payouts',
+  supporter: 'Supporter Payouts',
+  tenant: 'Tenant Payouts',
+  staff: 'Staff & Other',
+};
+
+function categorizeWithdrawal(row: { landlord_payout_id?: string | null }, role: string | undefined): string {
+  if (row.landlord_payout_id) return 'landlord';
+  if (role === 'landlord' || role === 'landlord_ops') return 'landlord';
+  if (role === 'agent' || role === 'senior_agent' || role === 'sub_agent' || role === 'agent_ops') return 'agent';
+  if (role === 'supporter') return 'supporter';
+  if (role === 'tenant' || role === 'tenant_ops') return 'tenant';
+  return 'staff';
+}
 
 interface QueueItem {
   id: string;
@@ -58,8 +81,9 @@ export function ApprovalQueue() {
   const queryClient = useQueryClient();
   const [activeQueue, setActiveQueue] = useState<QueueType>('wallet_withdrawals');
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkAction, setBulkAction] = useState<'approve' | 'reject' | null>(null);
+  const [bulkAction, setBulkAction] = useState<'approve' | 'reject' | 'freeze' | 'unfreeze' | null>(null);
   const [reason, setReason] = useState('');
   const [processing, setProcessing] = useState(false);
   const [inspectItem, setInspectItem] = useState<QueueItem | null>(null);
@@ -85,6 +109,16 @@ export function ApprovalQueue() {
         .select('id, full_name, phone')
         .in('id', userIds);
       const pm = new Map(profiles?.map(p => [p.id, p]) || []);
+
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', userIds)
+        .eq('enabled', true);
+      const roleByUser = new Map<string, string>();
+      for (const r of roles || []) {
+        if (!roleByUser.has(r.user_id)) roleByUser.set(r.user_id, r.role as string);
+      }
 
       // Enrich cash withdrawals with their WPO pickup code. The code lives
       // in `payout_codes` (issued at submission). `withdrawal_requests.payout_code`
@@ -122,7 +156,7 @@ export function ApprovalQueue() {
           userPhone: profile?.phone || '',
           amount: w.amount,
           description: payoutLabel,
-          category: 'wallet_withdrawal',
+          category: categorizeWithdrawal(w, roleByUser.get(w.user_id)),
           createdAt: w.created_at,
           ageHours: ageH,
           urgency: ageH < 1 ? 'green' as const : ageH < 4 ? 'amber' as const : 'red' as const,
@@ -216,8 +250,19 @@ export function ApprovalQueue() {
   const queues: Record<QueueType, QueueItem[]> = { wallet_withdrawals: walletWithdrawals, wallet_ops: walletOps };
   const isLoading = activeQueue === 'wallet_withdrawals' ? loadingWalletWithdrawals : loadingWalletOps;
 
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const i of walletWithdrawals) {
+      counts.set(i.category, (counts.get(i.category) || 0) + 1);
+    }
+    return counts;
+  }, [walletWithdrawals]);
+
   const items = useMemo(() => {
     let list = queues[activeQueue];
+    if (activeQueue === 'wallet_withdrawals' && categoryFilter !== 'all') {
+      list = list.filter(i => i.category === categoryFilter);
+    }
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(i =>
@@ -231,7 +276,7 @@ export function ApprovalQueue() {
       list = [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
     return list;
-  }, [activeQueue, search, sortNewest, walletWithdrawals, walletOps]);
+  }, [activeQueue, categoryFilter, search, sortNewest, walletWithdrawals, walletOps]);
 
   // Group cash withdrawals by pickup code for visual clustering
   const groupedByCode = useMemo(() => {
@@ -265,6 +310,7 @@ export function ApprovalQueue() {
     const isCashOut = item.type === 'wallet_withdrawals';
     const isCashMissingCode = isCashOut && item.payoutDetails?.method === 'cash' && !item.payoutDetails?.payoutCode;
     const isSelectedMissingCode = selected.has(item.id) && isCashMissingCode;
+    const isFrozen = isCashOut && !!item.rawData?.frozen;
     const ageMinutes = Math.floor((Date.now() - new Date(item.createdAt).getTime()) / 60000);
     const ageLabel = ageMinutes < 60 ? `${ageMinutes}m` : ageMinutes < 1440 ? `${Math.floor(ageMinutes / 60)}h` : `${Math.floor(ageMinutes / 1440)}d`;
 
@@ -299,6 +345,11 @@ export function ApprovalQueue() {
             </span>
           </div>
           <div className="flex items-center gap-1.5">
+            {isFrozen && (
+              <Badge variant="outline" className="text-[9px] h-5 px-1.5 gap-1 border-sky-500/40 bg-sky-500/10 text-sky-700">
+                <Snowflake className="h-2.5 w-2.5" /> Frozen
+              </Badge>
+            )}
             {item.pairedLegs && item.pairedLegs.length > 1 && (
               <Badge variant="outline" className="text-[9px] h-5 px-1.5 gap-1 border-primary/40 bg-primary/5 text-primary">
                 ⛓ {item.pairedLegs.length} linked legs
@@ -329,6 +380,17 @@ export function ApprovalQueue() {
               </p>
             </div>
           </div>
+
+          {isFrozen && (
+            <div className="p-2.5 rounded-xl bg-sky-500/5 border border-sky-500/20 space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-sky-700 flex items-center gap-1">
+                <Snowflake className="h-3 w-3" /> On hold — Financial Ops
+              </p>
+              {item.rawData?.frozen_reason && (
+                <p className="text-[11px] text-muted-foreground">{item.rawData.frozen_reason}</p>
+              )}
+            </div>
+          )}
 
           {item.pairedLegs && item.pairedLegs.length > 1 && (
             <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/20 space-y-1.5">
@@ -388,15 +450,27 @@ export function ApprovalQueue() {
         </div>
 
         <div className="grid grid-cols-2 gap-0 border-t border-border/40">
-          <Button
-            variant="ghost"
-            className="h-12 rounded-none text-sm font-bold gap-1.5 text-primary hover:bg-primary/10"
-            onClick={(e) => { e.stopPropagation(); setSelected(new Set([item.id])); setBulkAction('approve'); }}
-            disabled={processing}
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            Approve
-          </Button>
+          {isFrozen ? (
+            <Button
+              variant="ghost"
+              className="h-12 rounded-none text-sm font-bold gap-1.5 text-sky-700 hover:bg-sky-500/10"
+              onClick={(e) => { e.stopPropagation(); setSelected(new Set([item.id])); setBulkAction('unfreeze'); }}
+              disabled={processing}
+            >
+              <Unlock className="h-4 w-4" />
+              Unfreeze
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              className="h-12 rounded-none text-sm font-bold gap-1.5 text-primary hover:bg-primary/10"
+              onClick={(e) => { e.stopPropagation(); setSelected(new Set([item.id])); setBulkAction('approve'); }}
+              disabled={processing}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Approve
+            </Button>
+          )}
           <Button
             variant="ghost"
             className="h-12 rounded-none text-sm font-bold gap-1.5 text-destructive hover:bg-destructive/10 border-l border-border/40"
@@ -524,6 +598,30 @@ export function ApprovalQueue() {
           }
           ids.length = 0;
           ids.push(...rejectedIds);
+        } else if (bulkAction === 'freeze') {
+          const { error: freezeErr } = await supabase
+            .from('withdrawal_requests')
+            .update({
+              frozen: true,
+              frozen_at: new Date().toISOString(),
+              frozen_by: user.id,
+              frozen_reason: reason.trim() || null,
+              frozen_category: categoryFilter !== 'all' ? categoryFilter : null,
+            })
+            .in('id', ids);
+          if (freezeErr) throw freezeErr;
+        } else if (bulkAction === 'unfreeze') {
+          const { error: unfreezeErr } = await supabase
+            .from('withdrawal_requests')
+            .update({
+              frozen: false,
+              frozen_at: null,
+              frozen_by: null,
+              frozen_reason: null,
+              frozen_category: null,
+            })
+            .in('id', ids);
+          if (unfreezeErr) throw unfreezeErr;
         } else {
           // Ledger-first: approve each withdrawal via the edge function
           const selectedItem = items.find(i => selected.has(i.id));
@@ -609,14 +707,29 @@ export function ApprovalQueue() {
         metadata: { ids, reason: reason || undefined, payout_proof: payoutProof || undefined, count: ids.length },
       });
 
+      const actionLabel = bulkAction === 'approve' ? 'Approved'
+        : bulkAction === 'reject' ? 'Rejected'
+        : bulkAction === 'freeze' ? 'Froze'
+        : 'Unfroze';
       if (ids.length > 0) {
-        toast.success(`${bulkAction === 'approve' ? 'Approved' : 'Rejected'} ${ids.length} items`);
+        toast.success(`${actionLabel} ${ids.length} item(s)`);
       }
 
       const cacheKey = `approval-queue-${activeQueue}`;
-      queryClient.setQueryData<QueueItem[]>([cacheKey], (old) =>
-        (old || []).filter(item => !ids.includes(item.id))
-      );
+      if (bulkAction === 'freeze' || bulkAction === 'unfreeze') {
+        // Frozen/unfrozen items keep their status — they stay in the queue,
+        // just re-flagged, unlike approve/reject which remove them.
+        const nowFrozen = bulkAction === 'freeze';
+        queryClient.setQueryData<QueueItem[]>([cacheKey], (old) =>
+          (old || []).map(item => ids.includes(item.id)
+            ? { ...item, rawData: { ...item.rawData, frozen: nowFrozen, frozen_reason: nowFrozen ? (reason.trim() || null) : null } }
+            : item)
+        );
+      } else {
+        queryClient.setQueryData<QueueItem[]>([cacheKey], (old) =>
+          (old || []).filter(item => !ids.includes(item.id))
+        );
+      }
 
       setSelected(new Set());
       setBulkAction(null);
@@ -632,7 +745,7 @@ export function ApprovalQueue() {
     } finally {
       setProcessing(false);
     }
-  }, [bulkAction, selected, activeQueue, user, reason, payoutProof, queryClient, items]);
+  }, [bulkAction, selected, activeQueue, user, reason, payoutProof, categoryFilter, queryClient, items]);
 
   const urgencyBg = { green: 'border-l-emerald-500', amber: 'border-l-amber-500', red: 'border-l-destructive' };
   const queueIcon: Record<QueueType, typeof Banknote> = { wallet_withdrawals: Banknote, wallet_ops: Wallet };
@@ -652,6 +765,10 @@ export function ApprovalQueue() {
     return item.description;
   };
 
+  const selectedItems = items.filter(i => selected.has(i.id));
+  const anySelectedFrozen = activeQueue === 'wallet_withdrawals' && selectedItems.some(i => i.rawData?.frozen);
+  const anySelectedUnfrozen = activeQueue === 'wallet_withdrawals' && selectedItems.some(i => !i.rawData?.frozen);
+
   return (
     <>
       <Card>
@@ -662,13 +779,23 @@ export function ApprovalQueue() {
             </CardTitle>
             <div className="flex items-center gap-2">
               {selected.size > 0 && (
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   <Button size="sm" variant="default" className="h-7 text-[11px] sm:text-xs px-2 sm:px-3" onClick={() => setBulkAction('approve')}>
                     <CheckCircle2 className="h-3 w-3 mr-0.5" /> Approve ({selected.size})
                   </Button>
                   <Button size="sm" variant="destructive" className="h-7 text-[11px] sm:text-xs px-2 sm:px-3" onClick={() => setBulkAction('reject')}>
                     <XCircle className="h-3 w-3 mr-0.5" /> Reject ({selected.size})
                   </Button>
+                  {activeQueue === 'wallet_withdrawals' && anySelectedUnfrozen && (
+                    <Button size="sm" variant="outline" className="h-7 text-[11px] sm:text-xs px-2 sm:px-3 border-sky-500/40 text-sky-700 hover:bg-sky-500/10" onClick={() => setBulkAction('freeze')}>
+                      <Snowflake className="h-3 w-3 mr-0.5" /> Freeze ({selected.size})
+                    </Button>
+                  )}
+                  {activeQueue === 'wallet_withdrawals' && anySelectedFrozen && (
+                    <Button size="sm" variant="outline" className="h-7 text-[11px] sm:text-xs px-2 sm:px-3 border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10" onClick={() => setBulkAction('unfreeze')}>
+                      <Unlock className="h-3 w-3 mr-0.5" /> Unfreeze ({selectedItems.filter(i => i.rawData?.frozen).length})
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
@@ -676,7 +803,7 @@ export function ApprovalQueue() {
         </CardHeader>
         <CardContent className="space-y-2 sm:space-y-3 px-3 sm:px-6">
           <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-none">
-            <Tabs value={activeQueue} onValueChange={(v) => { setActiveQueue(v as QueueType); setSelected(new Set()); }}>
+            <Tabs value={activeQueue} onValueChange={(v) => { setActiveQueue(v as QueueType); setSelected(new Set()); setCategoryFilter('all'); }}>
               <TabsList className="h-8 w-max sm:w-auto">
                 <TabsTrigger value="wallet_withdrawals" className="text-[10px] sm:text-xs gap-1 h-7 px-2 sm:px-3">
                   <Banknote className="h-3 w-3" /> Cash Out
@@ -689,6 +816,32 @@ export function ApprovalQueue() {
               </TabsList>
             </Tabs>
           </div>
+
+          {activeQueue === 'wallet_withdrawals' && categoryCounts.size > 0 && (
+            <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-none">
+              <div className="flex items-center gap-1.5 w-max sm:w-auto">
+                <Button
+                  size="sm"
+                  variant={categoryFilter === 'all' ? 'default' : 'outline'}
+                  className="h-7 text-[10px] sm:text-xs px-2 sm:px-3 shrink-0"
+                  onClick={() => setCategoryFilter('all')}
+                >
+                  All ({walletWithdrawals.length})
+                </Button>
+                {Array.from(categoryCounts.entries()).map(([cat, count]) => (
+                  <Button
+                    key={cat}
+                    size="sm"
+                    variant={categoryFilter === cat ? 'default' : 'outline'}
+                    className="h-7 text-[10px] sm:text-xs px-2 sm:px-3 shrink-0"
+                    onClick={() => setCategoryFilter(cat)}
+                  >
+                    {WITHDRAWAL_CATEGORY_LABELS[cat] || cat} ({count})
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -791,7 +944,10 @@ export function ApprovalQueue() {
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm sm:text-base">
-              {bulkAction === 'approve' ? '✅ Approve' : '❌ Reject'} {selected.size} item(s)
+              {bulkAction === 'approve' ? '✅ Approve'
+                : bulkAction === 'reject' ? '❌ Reject'
+                : bulkAction === 'freeze' ? '❄️ Freeze'
+                : '🔓 Unfreeze'} {selected.size} item(s)
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
@@ -805,6 +961,24 @@ export function ApprovalQueue() {
                 onChange={e => setReason(e.target.value)}
                 className="text-sm min-h-[80px]"
               />
+            )}
+            {bulkAction === 'freeze' && (
+              <div className="space-y-2">
+                <div className="p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-800">
+                  These withdrawals stay in the queue but are blocked from approval — by the operator and by any cashout agent who has already claimed a payout — until unfrozen.
+                </div>
+                <Textarea
+                  placeholder="Reason for freezing (optional, visible to other operators)…"
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                  className="text-sm min-h-[60px]"
+                />
+              </div>
+            )}
+            {bulkAction === 'unfreeze' && (
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                These withdrawals become approvable again, including by any cashout agent who already claimed the payout.
+              </p>
             )}
             {bulkAction === 'approve' && activeQueue === 'wallet_withdrawals' && (
               <div className="space-y-3">
@@ -885,13 +1059,16 @@ export function ApprovalQueue() {
             <Button variant="outline" size="sm" onClick={() => { setBulkAction(null); setPayoutProof(''); }} className="w-full sm:w-auto">Cancel</Button>
             <Button
               size="sm"
-              variant={bulkAction === 'approve' ? 'default' : 'destructive'}
+              variant={bulkAction === 'approve' ? 'default' : bulkAction === 'reject' ? 'destructive' : 'outline'}
               onClick={handleBulkAction}
               disabled={processing || (bulkAction === 'reject' && reason.length < 10) || approveBlocked}
               className="w-full sm:w-auto"
             >
               {processing && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-              Confirm {bulkAction === 'approve' ? 'Approval' : 'Rejection'}
+              Confirm {bulkAction === 'approve' ? 'Approval'
+                : bulkAction === 'reject' ? 'Rejection'
+                : bulkAction === 'freeze' ? 'Freeze'
+                : 'Unfreeze'}
             </Button>
           </DialogFooter>
         </DialogContent>
