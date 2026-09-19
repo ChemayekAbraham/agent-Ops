@@ -741,18 +741,30 @@ export default function BalanceSheetPanel() {
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
+                        onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
                       />
                 ))}
               </div>
-              <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Assets" value={assetsTotal} emphasis />
+              <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Assets" value={assetsTotal} emphasis
+                onOpen={() => setDrill({
+                  title: 'Total Assets', value: assetsTotal,
+                  groups: [...assetRows.filter(g => !g.subtotal), ...(hasFlagged(assetGroups?.flagged) ? [assetGroups!.flagged] : [])],
+                })}
+              />
               <DriftNote drift={assetDrift} of="Total Assets" />
             </div>
 
             <div>
               <Badge variant="outline" className="text-[10px]">Liabilities &amp; Shareholders&apos; Equity</Badge>
               <SectionHeading>Liabilities</SectionHeading>
-              <div>{liabilityGroups?.standalone.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <div>{liabilityGroups?.standalone.map(g => (
+                <GroupRow
+                  key={g.label} group={g} showSources={showSources}
+                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                />
+              ))}</div>
               <SubHeading>Market Place Liabilities</SubHeading>
               <div>
                 {marketplaceRows.map(g => (
@@ -761,19 +773,59 @@ export default function BalanceSheetPanel() {
                     : <GroupRow
                         key={g.label} group={g} components={g.components}
                         heading={g.heading} depth={g.depth} showSources={showSources}
+                        onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
                       />
                 ))}
               </div>
-              <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
-              <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Liabilities" value={data.liabilities.total} />
+              <TotalRow
+                label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0}
+                onOpen={() => setDrill({
+                  title: 'Market Place Liabilities', value: liabilityGroups?.marketplaceTotal ?? 0,
+                  groups: marketplaceRows.filter(g => !g.subtotal),
+                })}
+              />
+              <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Liabilities" value={data.liabilities.total}
+                onOpen={() => setDrill({
+                  title: 'Total Liabilities', value: data.liabilities.total,
+                  groups: [
+                    ...(liabilityGroups?.standalone ?? []),
+                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
+                  ],
+                })}
+              />
               <DriftNote drift={liabilityGroupDrift} of="Total Liabilities" />
               <SectionHeading>Shareholders&apos; Equity</SectionHeading>
-              <div>{equityGroups?.groups.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
-              <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Shareholders&apos; Equity" value={equityTotal} />
+              <div>{equityGroups?.groups.map(g => (
+                <GroupRow
+                  key={g.label} group={g} showSources={showSources}
+                  onOpen={() => setDrill({ title: g.label, value: g.value, unsourced: g.unsourced, lines: g.lines, components: g.components })}
+                />
+              ))}</div>
+              <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} onOpen={setDrill} />
+              <TotalRow
+                label="Total Shareholders&apos; Equity" value={equityTotal}
+                onOpen={() => setDrill({
+                  title: "Total Shareholders' Equity", value: equityTotal,
+                  groups: [...(equityGroups?.groups ?? []), ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : [])],
+                })}
+              />
               <DriftNote drift={equityDrift} of="Total Shareholders&apos; Equity" />
-              <TotalRow label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis />
+              <TotalRow
+                label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis
+                onOpen={() => setDrill({
+                  title: "Total Liabilities and Shareholders' Equity", value: totalLiabilitiesAndEquity,
+                  groups: [
+                    ...(liabilityGroups?.standalone ?? []),
+                    ...marketplaceRows.filter(g => !g.subtotal),
+                    ...(liabilityGroups && hasFlagged(liabilityGroups.flagged) ? [liabilityGroups.flagged] : []),
+                    ...(equityGroups?.groups ?? []),
+                    ...(equityGroups && hasFlagged(equityGroups.flagged) ? [equityGroups.flagged] : []),
+                  ],
+                })}
+              />
             </div>
           </div>
 
