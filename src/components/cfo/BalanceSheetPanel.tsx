@@ -312,7 +312,12 @@ const ALWAYS_SHOWN_PRODUCTS: Record<string, { key: string; label: string; from: 
     { key: 'tenant_service_charge', label: 'Tenant Service Charges', from: 'other' },
     { key: 'business_advance', label: 'Business Advances', from: 'other' },
   ],
+  landlord: [
+    { key: 'welile_homes', label: 'Welile Homes Subscriptions', from: 'landlord' },
+    { key: 'landlord_float_receivable', label: 'Landlord Float Receivables', from: 'landlord' },
+  ],
 };
+
 
 function ReceivablesDetail({ categoryKey }: { categoryKey: string }) {
   const { data, isLoading, error } = useReceivablesBreakdown(true);
