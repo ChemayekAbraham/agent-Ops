@@ -594,7 +594,7 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
                   ))}
                 </div>
               )}
-              {!receivablesKey && !isCarriedForward && drill.lines && drill.lines.length > 0 && (
+              {!receivablesKey && !isCarriedForward && !isUnmatchedHistoricPostings && drill.lines && drill.lines.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
                   {drill.lines.map(l => {
