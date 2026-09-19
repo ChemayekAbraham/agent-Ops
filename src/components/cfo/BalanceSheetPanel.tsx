@@ -456,6 +456,7 @@ function DrilldownDialog({ drill, onClose }: { drill: Drilldown | null; onClose:
   const fmt = fmtAmount;
   const receivablesKey = drill ? receivablesCategoryOf(drill.title) : null;
   const isCarriedForward = drill?.title === CARRIED_FORWARD_LABEL;
+  const isUnmatchedHistoricPostings = drill?.title === UNMATCHED_HISTORIC_POSTINGS_LABEL;
   const carriedForward = useCarriedForwardBreakdown(!!isCarriedForward);
   return (
     <Dialog open={!!drill} onOpenChange={o => { if (!o) onClose(); }}>
