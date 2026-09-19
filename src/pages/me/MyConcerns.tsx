@@ -1,9 +1,10 @@
 /**
  * My Space → Concerns forwarded to me.
  *
- * The same append-only record the Calling Center writes. What a person sees here
- * depends on who they are: the receiver accepts, starts and completes; the sender
- * follows their own hand-offs; HR and the CEO see everything without acting.
+ * The same append-only record the Calling Center writes. The sender, the current
+ * recipient and anyone still an active recipient on the thread can see a concern
+ * and act on it. Two named overseers can see all concerns and can reassign one or
+ * change its answer time. Nobody else can see any of it.
  */
 import { useMemo, useState } from 'react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
@@ -326,8 +327,8 @@ const MyConcerns = () => {
 
           <TabsContent value="all" className="mt-3 space-y-2">
             <p className="rounded-xl border border-border/80 bg-muted/30 px-2.5 py-2 text-[11px] text-muted-foreground">
-              You can see these because of your role. Only the sender and the person handling it can move a concern
-              along.
+              You can see these as a designated overseer of concerns. Only the sender and the person handling it can
+              move a concern along.
             </p>
             {oversight.map((c) => (
               <ConcernCard key={c.id} concern={c} mine={false} reviewerRows={reviewersByConcern.get(c.id) ?? []} />

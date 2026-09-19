@@ -25,6 +25,7 @@ export interface PersonalNavItem {
   title: string;
   description: string;
   requiresPsoOfficer?: boolean;
+  requiresStaff?: boolean;
 }
 
 export const PERSONAL_NAV: PersonalNavItem[] = [
@@ -36,6 +37,7 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
     icon: PhoneIncoming,
     title: 'Concerns',
     description: 'Caller concerns forwarded to you from the Calling Center',
+    requiresStaff: true,
   },
   { to: '/me/performance', icon: TrendingUp, title: 'My performance', description: 'Your notes, your cohort', requiresPsoOfficer: true },
   { to: '/me/tickets', icon: Ticket, title: 'Tickets', description: 'Raise a fault or pick one up' },
