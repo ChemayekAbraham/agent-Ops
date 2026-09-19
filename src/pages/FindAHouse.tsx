@@ -14,7 +14,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Check,
   SlidersHorizontal, X, Droplets, Zap, Car, Sofa, Loader2,
   ArrowUpDown, BedDouble,
-  Map as MapIcon, List as ListIcon, ArrowLeft
+  ArrowLeft
 } from 'lucide-react';
 
 import HouseRatingBadge from '@/components/house/HouseRatingBadge';
