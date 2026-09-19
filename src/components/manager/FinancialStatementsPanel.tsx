@@ -39,7 +39,7 @@ const PERIODS: { value: StatementPeriod; label: string }[] = [
 ];
 
 const COMPARISON_MODES: { value: ComparisonMode; label: string; short: string }[] = [
-  { value: 'none', label: 'No Comparison', short: 'Off' },
+  { value: 'previous', label: 'Previous Equivalent Period', short: 'Previous' },
   { value: 'dod', label: 'Day over Day', short: 'DoD' },
   { value: 'wow', label: 'Week over Week', short: 'WoW' },
   { value: 'mom', label: 'Month over Month', short: 'MoM' },
@@ -151,190 +151,175 @@ function incomeStatementTotals(d: FinancialStatementsData['incomeStatement']) {
   };
 }
 
-function IncomeStatementSection({ d, cm }: { d: FinancialStatementsData['incomeStatement']; cm?: ComparisonMetrics | null }) {
-  const bs = d.byService;
-  const totals = incomeStatementTotals(d);
+type PnlRowKind = 'section' | 'group' | 'detail' | 'subtotal' | 'highlight' | 'margin';
+
+interface PnlRow {
+  key: string;
+  label: string;
+  current?: number;
+  previous?: number;
+  kind: PnlRowKind;
+  source?: string;
+  percentage?: boolean;
+}
+
+const pnlValue = (value: number) => value < 0 ? `(${formatUGX(Math.abs(value))})` : formatUGX(value);
+const pnlChangePercent = (current: number, previous: number) => previous === 0 ? null : ((current - previous) / Math.abs(previous)) * 100;
+
+function buildManagementPnl(d: FinancialStatementsData['incomeStatement'], previous?: FinancialStatementsData['incomeStatement']): PnlRow[] {
+  const c = incomeStatementTotals(d);
+  const p = previous ? incomeStatementTotals(previous) : undefined;
+  const rows: PnlRow[] = [];
+  const add = (key: string, label: string, current: number, previousValue: number | undefined, kind: PnlRowKind, source?: string, percentage?: boolean) =>
+    rows.push({ key, label, current, previous: previousValue, kind, source, percentage });
+  const previousRevenueLine = (source: string) => previous?.byService.revenueFamilies.flatMap(f => f.lines).find(l => l.source === source)?.amount ?? 0;
+  const previousContraLine = (source: string) => previous?.byService.contraRevenue.lines.find(l => l.source === source)?.amount ?? 0;
+
+  rows.push({ key: 'revenue', label: 'Revenue', kind: 'section' });
+  d.byService.revenueFamilies.forEach(family => {
+    rows.push({ key: `revenue-family-${family.key}`, label: family.label, kind: 'group' });
+    family.lines.forEach(line => add(`revenue-${line.source}`, line.label, line.amount, previousRevenueLine(line.source), 'detail', line.source));
+    const previousFamily = previous?.byService.revenueFamilies.find(item => item.key === family.key)?.total ?? 0;
+    add(`revenue-family-total-${family.key}`, `Total ${family.label}`, family.total, previousFamily, 'subtotal');
+  });
+  add('gross-revenue', 'Gross Revenue', d.byService.grossRevenue, previous?.byService.grossRevenue, 'subtotal');
+  if (d.byService.contraRevenue.lines.length > 0 || (previous?.byService.contraRevenue.lines.length ?? 0) > 0) {
+    rows.push({ key: 'revenue-deductions', label: 'Revenue Deductions', kind: 'group' });
+    d.byService.contraRevenue.lines.forEach(line => add(`contra-${line.source}`, line.label, -line.amount, -previousContraLine(line.source), 'detail', line.source));
+    add('total-revenue-deductions', 'Total Revenue Deductions', -d.byService.contraRevenue.total, previous ? -previous.byService.contraRevenue.total : undefined, 'subtotal');
+  }
+  add('net-revenue', 'Net Revenue', c.netRevenue, p?.netRevenue, 'subtotal');
+
+  rows.push({ key: 'cost-of-revenue', label: 'Cost of Revenue', kind: 'section' });
+  add('platform-rewards', 'Platform Rewards (Supporters)', -d.serviceDeliveryCosts.platformRewards, previous ? -previous.serviceDeliveryCosts.platformRewards : undefined, 'detail');
+  add('agent-commissions', 'Agent Commissions', -d.serviceDeliveryCosts.agentCommissions, previous ? -previous.serviceDeliveryCosts.agentCommissions : undefined, 'detail');
+  add('referral-bonuses', 'Referral Bonuses', -d.serviceDeliveryCosts.referralBonuses, previous ? -previous.serviceDeliveryCosts.referralBonuses : undefined, 'detail');
+  add('agent-bonuses', 'Agent Bonuses', -d.serviceDeliveryCosts.agentBonuses, previous ? -previous.serviceDeliveryCosts.agentBonuses : undefined, 'detail');
+  add('transaction-expenses', 'Transaction Expenses', -d.serviceDeliveryCosts.transactionExpenses, previous ? -previous.serviceDeliveryCosts.transactionExpenses : undefined, 'detail');
+  add('total-cost-of-revenue', 'Total Cost of Revenue', -d.serviceDeliveryCosts.total, previous ? -previous.serviceDeliveryCosts.total : undefined, 'subtotal');
+  add('gross-profit', 'Gross Profit / (Loss)', c.grossProfit, p?.grossProfit, 'highlight');
+  add('gross-margin', 'Gross Margin %', c.grossMargin, p?.grossMargin, 'margin', undefined, true);
+
+  rows.push({ key: 'operating-expenses', label: 'Operating Expenses', kind: 'section' });
+  rows.push({ key: 'people-operations', label: 'People & Field Operations', kind: 'group' });
+  add('payroll', 'Payroll & Staff Costs', -d.operatingExpenses.payrollExpenses, previous ? -previous.operatingExpenses.payrollExpenses : undefined, 'detail');
+  add('agent-requisitions', 'Agent Requisitions', -d.operatingExpenses.agentRequisitions, previous ? -previous.operatingExpenses.agentRequisitions : undefined, 'detail');
+  add('financial-agent-expenses', 'Financial Agent Expenses', -d.operatingExpenses.financialAgentExpenses, previous ? -previous.operatingExpenses.financialAgentExpenses : undefined, 'detail');
+  rows.push({ key: 'growth-product', label: 'Growth & Product', kind: 'group' });
+  add('marketing', 'Marketing Expenses', -d.operatingExpenses.marketingExpenses, previous ? -previous.operatingExpenses.marketingExpenses : undefined, 'detail');
+  add('research-development', 'Research & Development', -d.operatingExpenses.researchDevelopment, previous ? -previous.operatingExpenses.researchDevelopment : undefined, 'detail');
+  rows.push({ key: 'general-administration', label: 'General & Administration', kind: 'group' });
+  add('general-admin', 'General & Admin Expenses', -d.operatingExpenses.generalOperating, previous ? -previous.operatingExpenses.generalOperating : undefined, 'detail');
+  add('tenant-default', 'Tenant Default Charge', -d.operatingExpenses.tenantDefaultCharges, previous ? -previous.operatingExpenses.tenantDefaultCharges : undefined, 'detail');
+  add('debt-clearance', 'Debt Clearance', -d.operatingExpenses.debtClearance, previous ? -previous.operatingExpenses.debtClearance : undefined, 'detail');
+  add('platform-loss', 'Platform Loss Writeoff', -d.operatingExpenses.platformLossWriteoff, previous ? -previous.operatingExpenses.platformLossWriteoff : undefined, 'detail');
+  add('merchant-oop', 'Merchant Oop Reimbursement', -d.operatingExpenses.merchantOopReimbursement, previous ? -previous.operatingExpenses.merchantOopReimbursement : undefined, 'detail');
+  add('total-operating-expenses', 'Total Operating Expenses', -d.operatingExpenses.total, previous ? -previous.operatingExpenses.total : undefined, 'subtotal');
+
+  if (d.adjustments.total !== 0 || (previous?.adjustments.total ?? 0) !== 0) {
+    rows.push({ key: 'adjustments', label: 'Operating Adjustments & Corrections', kind: 'group' });
+    add('wallet-deductions', 'Wallet Deductions (Recoveries)', d.adjustments.walletDeductions, previous?.adjustments.walletDeductions, 'detail');
+    add('system-corrections', 'System Balance Corrections', d.adjustments.systemCorrections, previous?.adjustments.systemCorrections, 'detail');
+    add('orphan-reassignments', 'Orphan Reassignments', d.adjustments.orphanReassignments, previous?.adjustments.orphanReassignments, 'detail');
+    add('orphan-reversals', 'Orphan Reversals', -d.adjustments.orphanReversals, previous ? -previous.adjustments.orphanReversals : undefined, 'detail');
+    add('net-adjustments', 'Net Operating Adjustments', d.adjustments.total, previous?.adjustments.total, 'subtotal');
+  }
+  rows.push({ key: 'depreciation-amortization', label: 'Depreciation & Amortization', kind: 'group' });
+  add('depreciation', 'Depreciation (Property & Equipment)', -d.depreciation, previous ? -previous.depreciation : undefined, 'detail');
+  add('amortization', 'Amortization (Software & IP)', -d.amortization, previous ? -previous.amortization : undefined, 'detail');
+  add('operating-profit', 'Operating Profit / (Loss)', c.operatingIncome, p?.operatingIncome, 'highlight');
+
+  rows.push({ key: 'other-income-expense', label: 'Other Income / (Expense)', kind: 'section' });
+  add('finance-income', 'Finance Income', d.interestIncome, previous?.interestIncome, 'detail');
+  add('interest-expense', 'Interest Expense', -d.interestExpense, previous ? -previous.interestExpense : undefined, 'detail');
+  add('net-other-income-expense', 'Net Other Income / (Expense)', d.otherIncomeExpensesNet, previous?.otherIncomeExpensesNet, 'subtotal');
+  add('profit-before-tax', 'Profit / (Loss) Before Tax', c.profitBeforeTax, p?.profitBeforeTax, 'highlight');
+  rows.push({ key: 'tax', label: 'Tax', kind: 'section' });
+  add('tax-provision', 'Tax Provision', -d.taxProvision, previous ? -previous.taxProvision : undefined, 'detail');
+  add('net-profit', 'Net Profit / (Loss)', c.netIncome, p?.netIncome, 'highlight');
+  return rows;
+}
+
+function ManagementPnlTable({ rows }: { rows: PnlRow[] }) {
   return (
-    <div className="space-y-1">
-      <SectionHeader>Revenue</SectionHeader>
-      <p className="text-[10px] text-muted-foreground pl-4 -mt-1 mb-1">
-        Revenue from approved ledger transactions, grouped by Welile service.
-      </p>
-      {bs.revenueFamilies.length === 0 && (
-        <p className="text-xs text-muted-foreground pl-4">No service revenue recorded for this period.</p>
-      )}
-      {bs.revenueFamilies.map(fam => (
-        <div key={fam.key} className="mb-1">
-          <p className="text-[11px] font-medium pl-2 mt-2">{fam.label}</p>
-          {fam.lines.map(l => (
-            <div key={l.source} className="flex justify-between items-center text-sm pl-6" title={`Ledger source: ${l.source}`}>
-              <span className="text-muted-foreground">{l.label}</span>
-              <span className="font-mono text-success">{formatUGX(l.amount)}</span>
-            </div>
-          ))}
-          <div className="flex justify-between items-center text-xs pl-4 pr-0 font-medium border-t border-border/40 pt-1 mt-1">
-            <span>{fam.label} — Subtotal</span>
-            <span className="font-mono">{formatUGX(fam.total)}</span>
-          </div>
+    <div className="overflow-x-auto border border-border rounded-md">
+      <div className="min-w-[820px]">
+        <div className="grid grid-cols-[minmax(250px,1.8fr)_repeat(4,minmax(125px,1fr))] bg-muted/60 border-b border-border text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="px-3 py-2.5">Account</div>
+          <div className="px-3 py-2.5 text-right">Current Period</div>
+          <div className="px-3 py-2.5 text-right">Previous Period</div>
+          <div className="px-3 py-2.5 text-right">Change</div>
+          <div className="px-3 py-2.5 text-right">Change %</div>
         </div>
-      ))}
-      <LineItem label="Gross Revenue" value={bs.grossRevenue} bold />
-      {bs.contraRevenue.lines.length > 0 && (
-        <>
-          <SectionHeader>Revenue Deductions</SectionHeader>
-          {bs.contraRevenue.lines.map(l => (
-            <div key={l.source} className="flex justify-between items-center text-sm pl-6" title={`Ledger source: ${l.source}`}>
-              <span className="text-muted-foreground">{l.label}</span>
-              <span className="font-mono text-destructive">({formatUGX(l.amount)})</span>
+        {rows.map(row => {
+          if (row.kind === 'section') return (
+            <div key={row.key} className="px-3 py-2.5 bg-secondary/70 border-t border-border first:border-t-0 text-xs font-bold uppercase tracking-wider">
+              {row.label}
             </div>
-          ))}
-          <LineItem label="Total Revenue Deductions" value={bs.contraRevenue.total} negative bold />
-        </>
-      )}
-      <LineItem label="Net Revenue" value={totals.netRevenue} bold />
+          );
+          if (row.kind === 'group') return (
+            <div key={row.key} className="px-3 py-2 bg-muted/30 border-t border-border/60 text-[11px] font-semibold text-foreground">
+              {row.label}
+            </div>
+          );
+          const current = row.current ?? 0;
+          const previous = row.previous;
+          const change = previous === undefined ? undefined : current - previous;
+          const changePercent = previous === undefined ? undefined : pnlChangePercent(current, previous);
+          const emphasized = row.kind === 'highlight';
+          return (
+            <div key={row.key} title={row.source ? `Ledger source: ${row.source}` : undefined} className={cn(
+              'grid grid-cols-[minmax(250px,1.8fr)_repeat(4,minmax(125px,1fr))] border-t border-border/50 text-xs tabular-nums',
+              row.kind === 'detail' && 'text-muted-foreground',
+              row.kind === 'subtotal' && 'font-semibold bg-muted/10',
+              emphasized && 'font-bold bg-primary/5 border-t-2 border-primary/30 text-foreground',
+              row.kind === 'margin' && 'font-semibold bg-primary/5 text-foreground',
+            )}>
+              <div className={cn('px-3 py-2', row.kind === 'detail' && 'pl-7')}>{row.label}</div>
+              {[current, previous, change].map((value, index) => (
+                <div key={index} className={cn('px-3 py-2 text-right font-mono', value !== undefined && value < 0 && 'text-destructive')}>
+                  {value === undefined ? '—' : row.percentage ? `${value.toFixed(1)}%` : pnlValue(value)}
+                </div>
+              ))}
+              <div className={cn('px-3 py-2 text-right font-mono', changePercent !== undefined && changePercent !== null && changePercent < 0 && 'text-destructive')}>
+                {changePercent === undefined || changePercent === null ? '—' : `${changePercent > 0 ? '+' : ''}${changePercent.toFixed(1)}%`}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-      {bs.reviewQueue.length > 0 && (
-        <div className="mt-3 p-3 rounded-lg border border-warning/30 bg-warning/5">
+function IncomeStatementSection({ d, previous }: { d: FinancialStatementsData['incomeStatement']; previous?: FinancialStatementsData['incomeStatement'] }) {
+  const rows = buildManagementPnl(d, previous);
+  const recognitionRows: PnlRow[] = [
+    { key: 'expected-access', label: 'Expected Access Fees', current: d.revenueRecognition.expectedAccessFees, previous: previous?.revenueRecognition.expectedAccessFees, kind: 'detail' },
+    { key: 'expected-request', label: 'Expected Request Fees', current: d.revenueRecognition.expectedRequestFees, previous: previous?.revenueRecognition.expectedRequestFees, kind: 'detail' },
+    { key: 'expected-total', label: 'Total Expected Revenue', current: d.revenueRecognition.totalExpectedRevenue, previous: previous?.revenueRecognition.totalExpectedRevenue, kind: 'subtotal' },
+    { key: 'realized-access', label: 'Realized Access Fees', current: d.revenueRecognition.realizedAccessFees, previous: previous?.revenueRecognition.realizedAccessFees, kind: 'detail' },
+    { key: 'realized-request', label: 'Realized Request Fees', current: d.revenueRecognition.realizedRequestFees, previous: previous?.revenueRecognition.realizedRequestFees, kind: 'detail' },
+    { key: 'realized-total', label: 'Total Realized Revenue', current: d.revenueRecognition.totalRealizedRevenue, previous: previous?.revenueRecognition.totalRealizedRevenue, kind: 'subtotal' },
+    { key: 'deferred-revenue', label: 'Revenue Not Yet Collected', current: d.revenueRecognition.deferredRevenue, previous: previous?.revenueRecognition.deferredRevenue, kind: 'detail' },
+    { key: 'recognition-rate', label: 'Recognition Rate', current: d.revenueRecognition.recognitionRate, previous: previous?.revenueRecognition.recognitionRate, kind: 'margin', percentage: true },
+  ];
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs text-muted-foreground mb-3">Management P&amp;L · all amounts in UGX · ledger-backed registered accounts only</p>
+        <ManagementPnlTable rows={rows} />
+      </div>
+      {d.byService.reviewQueue.length > 0 && (
+        <div className="p-3 rounded-md border border-warning/30 bg-warning/5">
           <p className="text-xs font-semibold text-warning uppercase tracking-wider mb-1">Flagged for review — unmapped ledger categories</p>
-          <p className="text-[10px] text-muted-foreground mb-2">
-            These approved ledger entries do not map to an existing service or accounting category. They are excluded from the totals above until classified.
-          </p>
-          {bs.reviewQueue.map(l => (
-            <div key={`${l.category}-${l.direction}`} className="flex justify-between items-center text-xs">
-              <span className="text-muted-foreground">{l.category} · {l.direction === 'cash_in' ? 'in' : 'out'}</span>
-              <span className="font-mono">{formatUGX(l.amount)}</span>
-            </div>
-          ))}
+          {d.byService.reviewQueue.map(line => <div key={`${line.category}-${line.direction}`} className="flex justify-between text-xs"><span>{line.category}</span><span className="font-mono">{formatUGX(line.amount)}</span></div>)}
         </div>
       )}
-
-      <SectionHeader>Cost of Revenue</SectionHeader>
-      <LineItem label="Platform Rewards (Supporters)" value={d.serviceDeliveryCosts.platformRewards} negative indent />
-      <LineItem label="Agent Commissions" value={d.serviceDeliveryCosts.agentCommissions} negative indent />
-      <LineItem label="Referral Bonuses" value={d.serviceDeliveryCosts.referralBonuses} negative indent />
-      <LineItem label="Agent Bonuses" value={d.serviceDeliveryCosts.agentBonuses} negative indent />
-      <LineItem label="Transaction Expenses" value={d.serviceDeliveryCosts.transactionExpenses} negative indent />
-      <LineItem label="Total Cost of Revenue" value={d.serviceDeliveryCosts.total} negative bold delta={cm?.totalServiceCosts} />
-
-      <div className={cn(
-        'flex justify-between items-center font-semibold pt-2 mt-1 border-t border-primary/20',
-        totals.grossProfit >= 0 ? 'text-success' : 'text-destructive'
-      )}>
-        <span className="flex items-center">Gross Profit{cm && <DeltaBadge delta={cm.grossProfit} />}</span>
-        <span className="font-mono">{formatUGX(totals.grossProfit)}</span>
-      </div>
-      <div className="flex justify-between items-center text-xs pl-4 pr-2">
-        <span className="text-muted-foreground">Gross Margin</span>
-        <span className="font-mono text-muted-foreground">{totals.grossMargin.toFixed(1)}%</span>
-      </div>
-
-      <SectionHeader>Operating Expenses</SectionHeader>
-      <LineItem label="Payroll & Staff Costs" value={d.operatingExpenses.payrollExpenses} negative indent />
-      <LineItem label="Agent Requisitions" value={d.operatingExpenses.agentRequisitions} negative indent />
-      <LineItem label="Financial Agent Expenses" value={d.operatingExpenses.financialAgentExpenses} negative indent />
-      <LineItem label="Marketing Expenses" value={d.operatingExpenses.marketingExpenses} negative indent />
-      <LineItem label="Research & Development" value={d.operatingExpenses.researchDevelopment} negative indent />
-      {(d.operatingExpenses.operationalSubcategories.salaries > 0 ||
-        d.operatingExpenses.operationalSubcategories.transport > 0 ||
-        d.operatingExpenses.operationalSubcategories.food > 0 ||
-        d.operatingExpenses.operationalSubcategories.officeRent > 0 ||
-        d.operatingExpenses.operationalSubcategories.internet > 0 ||
-        d.operatingExpenses.operationalSubcategories.airtime > 0 ||
-        d.operatingExpenses.operationalSubcategories.stationery > 0) && (
-        <>
-          <p className="text-[10px] text-muted-foreground pl-4 mt-1 font-medium">Operational Breakdown:</p>
-          {d.operatingExpenses.operationalSubcategories.salaries > 0 && <LineItem label="  Salaries" value={d.operatingExpenses.operationalSubcategories.salaries} negative indent />}
-          {d.operatingExpenses.operationalSubcategories.transport > 0 && <LineItem label="  Transport" value={d.operatingExpenses.operationalSubcategories.transport} negative indent />}
-          {d.operatingExpenses.operationalSubcategories.food > 0 && <LineItem label="  Food" value={d.operatingExpenses.operationalSubcategories.food} negative indent />}
-          {d.operatingExpenses.operationalSubcategories.officeRent > 0 && <LineItem label="  Office Rent" value={d.operatingExpenses.operationalSubcategories.officeRent} negative indent />}
-          {d.operatingExpenses.operationalSubcategories.internet > 0 && <LineItem label="  Internet" value={d.operatingExpenses.operationalSubcategories.internet} negative indent />}
-          {d.operatingExpenses.operationalSubcategories.airtime > 0 && <LineItem label="  Airtime" value={d.operatingExpenses.operationalSubcategories.airtime} negative indent />}
-          {d.operatingExpenses.operationalSubcategories.stationery > 0 && <LineItem label="  Stationery" value={d.operatingExpenses.operationalSubcategories.stationery} negative indent />}
-        </>
-      )}
-      <LineItem label="General & Admin Expenses" value={d.operatingExpenses.generalOperating} negative indent />
-      <LineItem label="Total Operating Expenses" value={d.operatingExpenses.total} negative bold delta={cm?.totalOperatingExpenses} />
-
-      {/* Adjustments are a component of Operating Income below, so they are
-          presented here rather than after Net Income, where they read as a
-          footnote to a figure they had already changed. */}
-      {(d.adjustments.walletDeductions > 0 || d.adjustments.systemCorrections > 0 || d.adjustments.orphanReassignments > 0 || d.adjustments.orphanReversals > 0) && (
-        <>
-          <SectionHeader>Adjustments & Corrections</SectionHeader>
-          {d.adjustments.walletDeductions > 0 && <LineItem label="Wallet Deductions (Recoveries)" value={d.adjustments.walletDeductions} indent />}
-          {d.adjustments.systemCorrections > 0 && <LineItem label="System Balance Corrections" value={d.adjustments.systemCorrections} indent />}
-          {d.adjustments.orphanReassignments > 0 && <LineItem label="Orphan Reassignments" value={d.adjustments.orphanReassignments} indent />}
-          {d.adjustments.orphanReversals > 0 && <LineItem label="Orphan Reversals" value={d.adjustments.orphanReversals} negative indent />}
-          <LineItem label="Net Adjustments" value={d.adjustments.total} bold />
-        </>
-      )}
-
-      <div className="mt-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
-        <div className="flex justify-between items-center font-bold">
-          <span className="flex items-center text-primary">EBITDA{cm && <DeltaBadge delta={cm.ebitda} />}</span>
-          <span className="font-mono text-primary">{formatUGX(totals.ebitda)}</span>
-        </div>
-        <div className="flex justify-between items-center text-xs mt-1">
-          <span className="text-muted-foreground">EBITDA Margin</span>
-          <span className="font-mono text-muted-foreground">{totals.ebitdaMargin.toFixed(1)}%</span>
-        </div>
-      </div>
-
-      <SectionHeader>Depreciation &amp; Amortization</SectionHeader>
-      <LineItem label="Depreciation (Property & Equipment)" value={d.depreciation} negative indent />
-      <LineItem label="Amortization (Software & IP)" value={d.amortization} negative indent />
-
-      <div className={cn(
-        'flex justify-between items-center font-semibold pt-2 mt-1 border-t border-primary/20',
-        totals.operatingIncome >= 0 ? 'text-success' : 'text-destructive'
-      )}>
-        <span className="flex items-center">Operating Profit / (Loss) (EBIT){cm && <DeltaBadge delta={cm.operatingIncome} />}</span>
-        <span className="font-mono">{formatUGX(totals.operatingIncome)}</span>
-      </div>
-      <div className="flex justify-between items-center text-xs pl-4 pr-2">
-        <span className="text-muted-foreground">Operating Margin</span>
-        <span className="font-mono text-muted-foreground">{totals.operatingMargin.toFixed(1)}%</span>
-      </div>
-
-      <SectionHeader>Finance Income / (Costs)</SectionHeader>
-      <LineItem label="Finance Income" value={d.interestIncome} indent />
-      <LineItem label="Interest Expense" value={d.interestExpense} negative indent />
-      <LineItem label="Net Finance Income / (Costs)" value={d.otherIncomeExpensesNet} bold />
-
-      <div className={cn(
-        'flex justify-between items-center font-semibold pt-2 mt-1 border-t border-primary/20',
-        totals.profitBeforeTax >= 0 ? 'text-success' : 'text-destructive'
-      )}>
-        <span>Profit / (Loss) Before Tax</span>
-        <span className="font-mono">{formatUGX(totals.profitBeforeTax)}</span>
-      </div>
-
-      <SectionHeader>Tax</SectionHeader>
-      <LineItem label="Tax Provision" value={d.taxProvision} negative indent />
-
-
-      <div className={cn(
-        'flex justify-between items-center text-base font-bold pt-3 border-t-2 border-primary/30 mt-2',
-        totals.netIncome >= 0 ? 'text-success' : 'text-destructive'
-      )}>
-        <span className="flex items-center">Net Income{cm && <DeltaBadge delta={cm.netOperatingIncome} />}</span>
-        <span className="font-mono">{formatUGX(totals.netIncome)}</span>
-      </div>
-
-      <div className="mt-6 pt-3 border-t border-border">
+      <div>
         <SectionHeader>Supporting Schedule — Revenue Recognition</SectionHeader>
-        <p className="text-[10px] text-muted-foreground pl-4 -mt-1 mb-1">Expected revenue from active Rent Plans compared with ledger-confirmed collections.</p>
-        <LineItem label="Expected Access Fees" value={d.revenueRecognition.expectedAccessFees} indent />
-        <LineItem label="Expected Request Fees" value={d.revenueRecognition.expectedRequestFees} indent />
-        <LineItem label="Total Expected Revenue" value={d.revenueRecognition.totalExpectedRevenue} bold />
-        <LineItem label="Realized Access Fees" value={d.revenueRecognition.realizedAccessFees} indent />
-        <LineItem label="Realized Request Fees" value={d.revenueRecognition.realizedRequestFees} indent />
-        <LineItem label="Total Realized Revenue" value={d.revenueRecognition.totalRealizedRevenue} bold />
-        <LineItem label="Revenue Not Yet Collected" value={d.revenueRecognition.deferredRevenue} indent />
-        <div className="flex justify-between items-center text-xs pl-4 pr-2">
-          <span className="text-muted-foreground">Recognition Rate</span>
-          <span className="font-mono text-muted-foreground">{d.revenueRecognition.recognitionRate.toFixed(1)}%</span>
-        </div>
+        <p className="text-[10px] text-muted-foreground mb-2">Expected revenue from active Rent Plans compared with ledger-confirmed collections.</p>
+        <ManagementPnlTable rows={recognitionRows} />
       </div>
     </div>
   );
