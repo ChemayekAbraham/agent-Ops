@@ -376,6 +376,8 @@ export default function BalanceSheetPanel() {
   const [exporting, setExporting] = useState(false);
   /** Presentation-only breakdown of the existing Landlord Float. */
   const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
+  /** Line or total the user tapped, shown as a modal breakdown. */
+  const [drill, setDrill] = useState<Drilldown | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
