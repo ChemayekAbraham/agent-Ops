@@ -542,6 +542,14 @@ export function SelfPortfolioFundingCard({
                   </div>
                 </div>
 
+                <p className="mt-1.5 flex items-start gap-1 text-[10px] leading-snug text-muted-foreground">
+                  <Calculator className="mt-0.5 h-3 w-3 flex-none" />
+                  <span>
+                    Monthly earnings = {formatDynamic(plan.funding_amount)} × {MONTHLY_ROI_RATE}%.
+                    Total payout = {formatDynamic(monthlyRoi)} × {planMonths} {planMonths === 1 ? 'month' : 'months'}.
+                  </span>
+                </p>
+
                 {unaffordable && !heldByOther && (
                   <p className="mt-1.5 text-[10px] font-semibold text-muted-foreground">
                     Add {formatDynamic(Number(plan.funding_amount) - remaining)} to your balance to include this plan.
