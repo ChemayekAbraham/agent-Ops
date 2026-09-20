@@ -365,11 +365,19 @@ export function EmptyHouseMapBrowser({
           <Rectangle
             key={tile.key}
             bounds={tile.bounds}
-            interactive={false}
+            interactive
             pathOptions={{
-              stroke: false,
+              stroke: tile.cellKey === activeRegionKey,
+              color: 'hsl(var(--primary))',
+              weight: 2,
               fillColor: tile.bucket.color,
               fillOpacity: tile.bucket.opacity,
+            }}
+            eventHandlers={{
+              click: () => {
+                setActiveHouse(null);
+                setActiveRegionKey(tile.cellKey);
+              },
             }}
           />
         ))}
