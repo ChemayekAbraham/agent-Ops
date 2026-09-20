@@ -112,7 +112,7 @@ export function SelfPortfolioFundingCard({
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
-  const [houseSort, setHouseSort] = useState<HouseSort>('return_desc');
+  const [houseSort, setHouseSort] = useState<HouseSort>('rent_asc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
   const [houseSearch, setHouseSearch] = useState('');
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
