@@ -982,6 +982,10 @@ export function SelfPortfolioFundingCard({
             searchQuery={houseSearch}
             remaining={remaining}
             busy={busy}
+            minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
+            maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
+            district={houseDistrict !== 'all' ? houseDistrict : null}
+            onHousesDiscovered={registerDiscoveredHouses}
             onSearchQueryChange={setHouseSearch}
             onOpenHouse={setDetailHouse}
             onFundHouse={(house) => toggleHouse(house.house_id)}
