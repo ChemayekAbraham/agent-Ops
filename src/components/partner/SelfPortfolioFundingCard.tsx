@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
@@ -39,6 +39,23 @@ const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
 ];
 
 export type FeedOrder = 'rent' | 'houses';
+
+/** One recorded "balance now covers your saved houses" alert. */
+interface HouseBalanceAlert {
+  ids: string[];
+  at: number;
+}
+
+const timeAgo = (at: number) => {
+  const s = Math.max(1, Math.floor((Date.now() - at) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  const d = Math.floor(h / 24);
+  return `${d} day${d === 1 ? '' : 's'} ago`;
+};
 
 
 
@@ -96,6 +113,34 @@ export function SelfPortfolioFundingCard({
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
   const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
+  const alertsKey = `psm-house-alerts-${partnerId}`;
+  const [houseAlerts, setHouseAlerts] = useState<HouseBalanceAlert[]>(() => {
+    try {
+      const raw = window.localStorage.getItem(alertsKey);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter(
+            (a): a is HouseBalanceAlert =>
+              !!a && Array.isArray(a.ids) && typeof a.at === 'number',
+          )
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const persistAlerts = useCallback(
+    (next: HouseBalanceAlert[]) => {
+      setHouseAlerts(next);
+      try {
+        window.localStorage.setItem(alertsKey, JSON.stringify(next));
+      } catch {
+        /* storage unavailable — history just won't persist */
+      }
+    },
+    [alertsKey],
+  );
 
   // Picked houses survive reloads until the partner funds or removes them.
   const selectionKey = `psm-house-selection-${partnerId}`;
