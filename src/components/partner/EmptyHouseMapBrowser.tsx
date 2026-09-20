@@ -15,6 +15,7 @@ import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './empt
 import { MapPerfOverlay } from './MapPerfOverlay';
 import { HEAT_BUCKETS, heatBucketFor, heatmapAppliesAtZoom } from './emptyHouseHeatmap';
 import { mapPerf } from '@/lib/mapPerf';
+import type { CountryBounds } from '@/lib/africaCountries';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
