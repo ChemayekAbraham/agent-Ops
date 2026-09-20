@@ -429,6 +429,26 @@ export function SelfPortfolioFundingCard({
     [houses, houseSelected],
   );
 
+  // Compare picks that are still listed (drop houses funded by someone else).
+  const compareHouses = useMemo(
+    () => compareIds.map((id) => houses.find((h) => h.house_id === id)).filter((h): h is SupportableHouse => !!h),
+    [compareIds, houses],
+  );
+
+  const toggleCompare = useCallback(
+    (id: string) => {
+      setCompareIds((prev) => {
+        if (prev.includes(id)) return prev.filter((x) => x !== id);
+        if (prev.length >= 3) {
+          toast.info('You can compare up to 3 houses at a time. Remove one first.');
+          return prev;
+        }
+        return [...prev, id];
+      });
+    },
+    [],
+  );
+
   // Funding (or unpicking) a highlighted house clears its highlight. Wait for
   // the persisted selection to be restored first, or a fresh page load would
   // wipe the highlight before the picks are read back.
