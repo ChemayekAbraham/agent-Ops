@@ -205,7 +205,13 @@ export function EmptyHouseMapBrowser({
     const half = cellSize / 2;
     return cells.map((cell) => ({
       key: `heat-${cell.key}`,
+      cellKey: cell.key,
       count: cell.count,
+      sumRent: cell.sumRent,
+      minRent: cell.minRent,
+      maxRent: cell.maxRent,
+      district: cell.district,
+      center: [cell.latitude, cell.longitude] as [number, number],
       bucket: heatBucketFor(cell.count),
       bounds: L.latLngBounds(
         [cell.latitude - half, cell.longitude - half],
@@ -213,6 +219,21 @@ export function EmptyHouseMapBrowser({
       ),
     }));
   }, [cells, cellSize, heatmapActive]);
+
+  /**
+   * A tapped density region: the funder reads how many empty houses the area
+   * holds, the rent needed to fund all of them and the average rent, before
+   * deciding to zoom into individual houses.
+   */
+  const [activeRegionKey, setActiveRegionKey] = useState<string | null>(null);
+  const activeRegion = useMemo(
+    () => heatTiles.find((tile) => tile.cellKey === activeRegionKey) ?? null,
+    [heatTiles, activeRegionKey],
+  );
+  // Leaving the density view (or zooming past it) closes the summary.
+  useEffect(() => {
+    if (!heatmapActive) setActiveRegionKey(null);
+  }, [heatmapActive]);
 
   /** Single-house cells, enriched with the fuller record when the list already holds it. */
   const mappedHouses = useMemo(() => {
@@ -344,11 +365,19 @@ export function EmptyHouseMapBrowser({
           <Rectangle
             key={tile.key}
             bounds={tile.bounds}
-            interactive={false}
+            interactive
             pathOptions={{
-              stroke: false,
+              stroke: tile.cellKey === activeRegionKey,
+              color: 'hsl(var(--primary))',
+              weight: 2,
               fillColor: tile.bucket.color,
               fillOpacity: tile.bucket.opacity,
+            }}
+            eventHandlers={{
+              click: () => {
+                setActiveHouse(null);
+                setActiveRegionKey(tile.cellKey);
+              },
             }}
           />
         ))}
@@ -501,8 +530,73 @@ export function EmptyHouseMapBrowser({
               Zoom out to see how many empty houses each area holds.
             </p>
           )}
+          {heatmapActive && (
+            <p className="mt-1.5 max-w-[11rem] text-[10px] font-medium leading-snug text-muted-foreground">
+              Tap a shaded area for its totals.
+            </p>
+          )}
         </div>
       )}
+
+      {activeRegion && (
+        <section
+          aria-label="Summary of empty houses in the selected area"
+          className="absolute inset-x-2 bottom-2 z-[1050] rounded-lg border border-border bg-background/95 p-3 shadow-xl backdrop-blur sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[20rem]"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Selected area</p>
+              <p className="truncate text-sm font-bold text-foreground">
+                {activeRegion.district ? `${activeRegion.district} area` : 'Empty houses here'}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => setActiveRegionKey(null)}
+              aria-label="Close area summary"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </Button>
+          </div>
+
+          <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-md bg-muted/60 p-2">
+              <dt className="text-[10px] font-semibold text-muted-foreground">Empty houses</dt>
+              <dd className="text-sm font-bold text-foreground">{activeRegion.count.toLocaleString()}</dd>
+            </div>
+            <div className="rounded-md bg-muted/60 p-2">
+              <dt className="text-[10px] font-semibold text-muted-foreground">Rent needed</dt>
+              <dd className="text-sm font-bold text-foreground">{formatDynamic(activeRegion.sumRent)}</dd>
+            </div>
+            <div className="rounded-md bg-muted/60 p-2">
+              <dt className="text-[10px] font-semibold text-muted-foreground">Average rent</dt>
+              <dd className="text-sm font-bold text-foreground">
+                {formatDynamic(activeRegion.count > 0 ? Math.round(activeRegion.sumRent / activeRegion.count) : 0)}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="mt-2 text-[11px] font-medium leading-snug text-muted-foreground">
+            Rent runs from {formatDynamic(activeRegion.minRent)} to {formatDynamic(activeRegion.maxRent)} a month here.
+          </p>
+
+          <Button
+            type="button"
+            size="sm"
+            className="mt-2 h-10 w-full text-xs font-bold"
+            onClick={() => {
+              setActiveRegionKey(null);
+              mapInstance?.flyTo(activeRegion.center, clusterZoomTarget(viewport?.zoom ?? 11), { duration: 0.6 });
+            }}
+          >
+            Zoom into these houses
+          </Button>
+        </section>
+      )}
+
 
       <MapPerfOverlay />
 
