@@ -423,6 +423,8 @@ export function SelfPortfolioFundingCard({
         const unaffordable = !isSelected && Number(plan.funding_amount || 0) > remaining;
         const images = (plan.house_image_urls ?? []).filter(Boolean);
         const monthlyRoi = Math.round((Number(plan.funding_amount || 0) * MONTHLY_ROI_RATE) / 100);
+        const planMonths = plan.duration_days ? Math.max(1, Math.round(Number(plan.duration_days) / 30)) : 1;
+        const totalReturn = monthlyRoi * planMonths;
         const prettyName = (raw?: string | null) =>
           (raw ?? '')
             .replace(/[_-]/g, ' ')
@@ -499,9 +501,6 @@ export function SelfPortfolioFundingCard({
                     <p className="truncate text-base font-black leading-none sm:text-lg">
                       {formatDynamic(plan.funding_amount)}
                     </p>
-                    <p className="mt-1 truncate text-[10px] text-muted-foreground">
-                      Earn <span className="font-bold text-primary">{formatDynamic(monthlyRoi)}</span> monthly
-                    </p>
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -521,6 +520,25 @@ export function SelfPortfolioFundingCard({
                         {isSelected ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                       </Button>
                     )}
+                  </div>
+                </div>
+
+                {/* Earnings breakdown: monthly amount, timeframe, total return */}
+                <div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-xl bg-primary/5 px-2.5 py-2">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">You earn</p>
+                    <p className="truncate text-xs font-black text-primary sm:text-sm">{formatDynamic(monthlyRoi)}</p>
+                    <p className="text-[9px] text-muted-foreground">per month</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">For</p>
+                    <p className="truncate text-xs font-black sm:text-sm">{planMonths} {planMonths === 1 ? 'month' : 'months'}</p>
+                    <p className="text-[9px] text-muted-foreground">{plan.duration_days ? `${plan.duration_days} days` : 'plan term'}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Total return</p>
+                    <p className="truncate text-xs font-black text-primary sm:text-sm">{formatDynamic(totalReturn)}</p>
+                    <p className="text-[9px] text-muted-foreground">by plan end</p>
                   </div>
                 </div>
 
