@@ -5,16 +5,19 @@ import 'leaflet/dist/leaflet.css';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { Home, MapPin, X } from 'lucide-react';
+import { Home, MapPin, Search, X } from 'lucide-react';
 import { houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
   selectedIds: string[];
   focusedId?: string | null;
+  searchQuery: string;
   remaining: number;
   busy: boolean;
+  onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
 }
@@ -52,8 +55,10 @@ export function EmptyHouseMapBrowser({
   houses,
   selectedIds,
   focusedId,
+  searchQuery,
   remaining,
   busy,
+  onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
 }: EmptyHouseMapBrowserProps) {
@@ -65,8 +70,40 @@ export function EmptyHouseMapBrowser({
     [houses],
   );
 
+  useEffect(() => {
+    if (activeHouse && !houses.some((house) => house.house_id === activeHouse.house_id)) {
+      setActiveHouse(null);
+    }
+  }, [activeHouse, houses]);
+
   return (
     <div className="relative h-[18rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
+      <div className="absolute inset-x-3 top-3 z-[1000] sm:right-auto sm:w-[22rem]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            type="text"
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            placeholder="Search district, neighborhood, or house"
+            aria-label="Search empty houses by district, neighborhood, or house name"
+            className="h-11 bg-background/95 pl-9 pr-10 text-sm shadow-lg backdrop-blur"
+          />
+          {searchQuery && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
+              onClick={() => onSearchQueryChange('')}
+              aria-label="Clear house search"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </Button>
+          )}
+        </div>
+      </div>
+
       <MapContainer
         center={KAMPALA}
         zoom={11}
@@ -107,7 +144,7 @@ export function EmptyHouseMapBrowser({
         return (
           <section
             aria-label={`Funding details for ${houseTitleLine(activeHouse)}`}
-            className="absolute inset-x-2 bottom-2 z-[500] overflow-hidden rounded-lg border border-border bg-background/95 shadow-xl backdrop-blur sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]"
+            className="absolute inset-x-2 bottom-2 z-[1000] overflow-hidden rounded-lg border border-border bg-background/95 shadow-xl backdrop-blur sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]"
           >
             <div className="flex gap-3 p-3">
               {image ? (
@@ -166,10 +203,12 @@ export function EmptyHouseMapBrowser({
         );
       })()}
 
-      {!activeHouse && <div className="pointer-events-none absolute bottom-3 left-3 z-[400] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
+      {!activeHouse && <div role="status" className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
         {mappedHouses.length > 0
-          ? `${mappedHouses.length.toLocaleString()} on this map · tap a rent marker`
-          : 'Location details open from each house card'}
+          ? `${mappedHouses.length.toLocaleString()} ${mappedHouses.length === 1 ? 'house' : 'houses'} on this map · tap a rent marker`
+          : searchQuery.trim()
+            ? 'No houses match this search'
+            : 'Location details open from each house card'}
       </div>}
     </div>
   );
