@@ -170,6 +170,7 @@ export function SelfPortfolioFundingCard({
 
   // Picked houses survive reloads until the partner funds or removes them.
   const selectionKey = `psm-house-selection-${partnerId}`;
+  const [selectionRestored, setSelectionRestored] = useState(false);
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(selectionKey) ?? '[]');
@@ -177,6 +178,7 @@ export function SelfPortfolioFundingCard({
     } catch {
       /* ignore corrupt cache */
     }
+    setSelectionRestored(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey]);
   useEffect(() => {
@@ -383,11 +385,14 @@ export function SelfPortfolioFundingCard({
     [houses, fundableIds, houseSelected],
   );
 
-  // Funding (or unpicking) a highlighted house clears its highlight.
+  // Funding (or unpicking) a highlighted house clears its highlight. Wait for
+  // the persisted selection to be restored first, or a fresh page load would
+  // wipe the highlight before the picks are read back.
   useEffect(() => {
+    if (!selectionRestored) return;
     const next = fundableIds.filter((id) => houseSelected.includes(id));
     if (next.length !== fundableIds.length) persistFundable(next);
-  }, [houseSelected, fundableIds, persistFundable]);
+  }, [houseSelected, fundableIds, persistFundable, selectionRestored]);
 
   // Jump to a picked house: switch to the houses feed, clear any filters that
   // could hide it, open its page, scroll it into view and flash it.
