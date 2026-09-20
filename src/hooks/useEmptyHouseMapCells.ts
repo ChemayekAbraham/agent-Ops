@@ -28,6 +28,8 @@ export interface MapCellFilters {
   district?: string;
   minRent?: number | null;
   maxRent?: number | null;
+  /** Listing age: only houses listed within this many days are aggregated. */
+  maxAgeDays?: number | null;
 }
 
 export interface EmptyHouseMapCell {
