@@ -485,7 +485,17 @@ export function SelfPortfolioFundingCard({
       )}
 
 
-      {feed.length === 0 && (
+      {feed.length === 0 && feedOrder === 'houses' && houses.length > 0 && (
+        <Card className="p-6 rounded-2xl text-center">
+          <Home className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+          <p className="text-sm font-semibold">No houses match these filters</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Try another district or tap Reset to see all {houses.length} houses again.
+          </p>
+        </Card>
+      )}
+
+      {feed.length === 0 && !(feedOrder === 'houses' && houses.length > 0) && (
         <Card className="p-6 rounded-2xl text-center">
           <Wallet className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
           <p className="text-sm font-semibold">Nothing awaiting money right now</p>
