@@ -349,10 +349,15 @@ export function SelfPortfolioFundingCard({
             setHouseWithinFloat(false);
             setHouseSort('return_desc');
             setFlashHouseId(target);
-            window.setTimeout(() => {
-              const index = feed.findIndex((f) => f.kind === 'house' && f.id === target);
-              if (index >= 0) setPage(Math.floor(index / PLANS_PER_PAGE));
-            }, 60);
+            // Index against the default (return high→low) order we just reset
+            // to, so the page math matches the next render's feed.
+            const sorted = [...houses].sort(
+              (a, b) =>
+                Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
+                Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100)),
+            );
+            const index = sorted.findIndex((h) => h.house_id === target);
+            if (index >= 0) setPage(Math.floor(index / PLANS_PER_PAGE));
             window.setTimeout(() => {
               document
                 .querySelector(`[data-house-id="${target}"]`)
