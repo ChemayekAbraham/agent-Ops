@@ -106,6 +106,8 @@ export function HouseSupportCard({
   onOpenDetail: (house: SupportableHouse) => void;
   /** Opens the funding flow with the exact missing amount prefilled. */
   onTopUp?: (shortfall: number) => void;
+  /** Momentary highlight (e.g. after a "now fundable" notification action). */
+  flash?: boolean;
 }) {
   const images = (house.image_urls ?? []).filter(Boolean);
   const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
