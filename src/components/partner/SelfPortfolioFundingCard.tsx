@@ -908,6 +908,8 @@ export function SelfPortfolioFundingCard({
     setHouseFundingStatus('all');
     setHouseWithinFloat(false);
     setShowSavedReadyOnly(false);
+    setHouseCountry('all');
+    setHouseListingAge('all');
     setReferencePoint(null);
   }, []);
 
