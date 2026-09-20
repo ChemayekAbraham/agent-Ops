@@ -88,6 +88,9 @@ export function SelfPortfolioFundingCard({
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
+  const [houseSort, setHouseSort] = useState<HouseSort>('return_desc');
+  const [houseDistrict, setHouseDistrict] = useState<string>('all');
+  const [houseWithinFloat, setHouseWithinFloat] = useState(false);
 
 
   // Cached so returning to this tab paints instantly; refreshes happen silently.
