@@ -272,23 +272,89 @@ export function EmptyHouseMapBrowser({
    * refused, the loaded-houses fit below takes over.
    */
   useEffect(() => {
-    if (!mapInstance || initialFitDone.current || !navigator.geolocation) return;
+    if (!mapInstance || initialFitDone.current) return;
+    if (!navigator.geolocation) {
+      setGeoStatus('unsupported');
+      return;
+    }
     let cancelled = false;
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled || initialFitDone.current) return;
         const point: [number, number] = [position.coords.latitude, position.coords.longitude];
         initialFitDone.current = true;
+        setGeoStatus('granted');
         setUserPosition(point);
         mapInstance.setView(point, 13);
       },
-      () => undefined,
+      () => {
+        if (cancelled) return;
+        setGeoStatus('denied');
+      },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
     return () => {
       cancelled = true;
     };
   }, [mapInstance]);
+
+  /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
+  const retryLocate = useCallback(() => {
+    if (!navigator.geolocation || !mapInstance) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+        initialFitDone.current = true;
+        setGeoStatus('granted');
+        setGeoPromptDismissed(true);
+        setUserPosition(point);
+        mapInstance.flyTo(point, 13, { duration: 0.6 });
+      },
+      () => setGeoStatus('denied'),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+  }, [mapInstance]);
+
+  /**
+   * Manual area choice: districts seen in the loaded houses (with one house's
+   * coordinates as the anchor) plus every African country centre, so a funder
+   * anywhere on the continent can tell the map where to look.
+   */
+  const manualAreaOptions = useMemo(() => {
+    const districts = new Map<string, [number, number]>();
+    houses.forEach((house) => {
+      const key = String(house.district ?? '').trim();
+      if (!key || districts.has(key)) return;
+      const lat = Number(house.latitude);
+      const lng = Number(house.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)) {
+        districts.set(key, [lat, lng]);
+      }
+    });
+    const countryOptions = AFRICA_COUNTRIES.map((c) => ({
+      label: c.name,
+      point: [(c.bbox[0] + c.bbox[2]) / 2, (c.bbox[1] + c.bbox[3]) / 2] as [number, number],
+    }));
+    return [
+      ...[...districts.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([label, point]) => ({ label, point })),
+      ...countryOptions,
+    ];
+  }, [houses]);
+
+  const chooseManualArea = useCallback(
+    (label: string) => {
+      const match = manualAreaOptions.find((o) => o.label === label);
+      if (!match || !mapInstance) return;
+      initialFitDone.current = true;
+      setUserPosition(match.point);
+      setGeoPromptDismissed(true);
+      setAreaPickerOpen(false);
+      mapInstance.flyTo(match.point, 11, { duration: 0.6 });
+    },
+    [manualAreaOptions, mapInstance],
+  );
 
   // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
