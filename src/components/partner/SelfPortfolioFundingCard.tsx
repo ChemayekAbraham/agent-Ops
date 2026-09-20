@@ -945,7 +945,10 @@ export function SelfPortfolioFundingCard({
                     </Button>
                     <button
                       type="button"
-                      onClick={() => persistFundable(fundableIds.filter((id) => id !== h.house_id))}
+                      onClick={() => {
+                        recordAlertAction(h.house_id, 'dismissed');
+                        persistFundable(fundableIds.filter((id) => id !== h.house_id));
+                      }}
                       aria-label={`Dismiss highlight for ${houseTitleLine(h)}`}
                       className="flex h-7 w-7 flex-none items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground"
                     >
