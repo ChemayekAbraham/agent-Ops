@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
@@ -147,6 +147,21 @@ export function EmptyHouseMapBrowser({
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
+  const [isOffline, setIsOffline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine === false : false,
+  );
+
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
 
   const cellsQuery = useEmptyHouseMapCells(viewport, {
     search: searchQuery,
@@ -392,6 +407,42 @@ export function EmptyHouseMapBrowser({
         >
           <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
           Loading houses in view
+        </div>
+      )}
+
+      {(isOffline || cellsQuery.isError) && (
+        <div
+          role="alert"
+          className="absolute inset-x-3 top-3 z-[1100] flex flex-col gap-2 rounded-xl border border-destructive/40 bg-background/95 p-3 shadow-lg backdrop-blur sm:inset-x-auto sm:left-3 sm:right-16"
+        >
+          <div className="flex items-start gap-2">
+            <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
+            <div className="text-xs leading-snug">
+              <p className="font-semibold text-foreground">
+                {isOffline ? "You're offline" : "Couldn't load houses in this area"}
+              </p>
+              <p className="text-muted-foreground">
+                {isOffline
+                  ? 'The map is showing the houses loaded before you lost connection. Reconnect and try again.'
+                  : 'Your connection dropped while loading. The houses shown may be out of date.'}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-9 self-start text-xs"
+            onClick={() => void cellsQuery.refetch()}
+            disabled={cellsQuery.isFetching}
+          >
+            {cellsQuery.isFetching ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            )}
+            Try again
+          </Button>
         </div>
       )}
 
