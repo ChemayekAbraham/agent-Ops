@@ -281,22 +281,24 @@ function OptionCard({
 
 
 function DetailShell({ title, subtitle, onBack, children }: {
-  title: string; subtitle: string; onBack: () => void; children: React.ReactNode;
+  title: string; subtitle: string; onBack?: () => void; children: React.ReactNode;
 }) {
   return (
     <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm">
       <div className="px-5 pt-4 pb-3 flex items-center gap-2.5 border-b border-border/50">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => { hapticTap(); onBack(); }}
-          className="-ml-1.5 gap-1 px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60"
-          aria-label="Back to Capital Opportunities"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          <span className="text-xs font-semibold">Back</span>
-        </Button>
+        {onBack && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => { hapticTap(); onBack(); }}
+            className="-ml-1.5 gap-1 px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+            aria-label="Back to Capital Opportunities"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span className="text-xs font-semibold">Back</span>
+          </Button>
+        )}
         <div className="min-w-0">
           <h3 className="font-black text-foreground text-sm tracking-tight leading-tight truncate">{title}</h3>
           <p className="text-[10px] text-muted-foreground font-medium leading-tight truncate">{subtitle}</p>
@@ -491,7 +493,13 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
 
 // ═══ MAIN ═══
 
-export function FunderCapitalOpportunities() {
+export function FunderCapitalOpportunities({
+  initialView = 'menu',
+  embedded = false,
+}: {
+  initialView?: ViewState;
+  embedded?: boolean;
+} = {}) {
   const { formatAmountCompact, currency, convertFromUGX, convertToUGX } = useCurrency();
   const { wallet } = useWallet();
   const walletBalance = wallet?.balance ?? 0;
@@ -500,7 +508,7 @@ export function FunderCapitalOpportunities() {
   const { profile } = useProfile();
   const { isApproved, status: approvalStatus } = useFunderApprovalStatus(user?.id);
 
-  const [view, setView] = useState<ViewState>('menu');
+  const [view, setView] = useState<ViewState>(initialView);
   const [housePickerOpen, setHousePickerOpen] = useState(false);
   const [showFundDialog, setShowFundDialog] = useState(false);
   const [angelAmount, setAngelAmount] = useState(0);
@@ -725,7 +733,7 @@ export function FunderCapitalOpportunities() {
         <DetailShell
           title="Support Tenants via Welile"
           subtitle="Managed tenant-support contract"
-          onBack={() => setView('menu')}
+          onBack={embedded ? undefined : () => setView('menu')}
         >
           <HowItWorksSteps steps={MANAGED_FUNDING_STEPS} />
 
@@ -799,7 +807,7 @@ export function FunderCapitalOpportunities() {
       <DetailShell
         title="Support Tenants Directly"
         subtitle="Fund approved tenant rent plans from your balance"
-        onBack={() => setView('menu')}
+        onBack={embedded ? undefined : () => setView('menu')}
       >
         <HowItWorksSteps steps={DIRECT_FUNDING_STEPS} />
 
@@ -1112,7 +1120,7 @@ export function FunderCapitalOpportunities() {
     <DetailShell
       title="Angel Pool"
       subtitle={`Buy a Welile share — up to ${POOL_PERCENT}% equity pool`}
-      onBack={() => setView('menu')}
+      onBack={embedded ? undefined : () => setView('menu')}
     >
       <HowItWorksSteps steps={ANGEL_POOL_STEPS} label="Own shares in Welile's future" />
 

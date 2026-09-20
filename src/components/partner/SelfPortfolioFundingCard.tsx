@@ -245,8 +245,8 @@ export function SelfPortfolioFundingCard({
   const remaining = Math.max(0, available - total - houseTotal);
   const overBudget = total + houseTotal > available;
 
-  // One continuous feed: all rent requests then all houses by default. The
-  // order control can bring houses first, but never removes either dataset.
+  // The dashboard switch intentionally separates ready-tenant Rent Plans from
+  // vacant houses so supporters always know which funding path they are using.
   type FeedItem =
     | { kind: 'plan'; id: string; plan: FundablePlan }
     | { kind: 'house'; id: string; house: SupportableHouse };
@@ -262,7 +262,7 @@ export function SelfPortfolioFundingCard({
       id: house.house_id,
       house,
     }));
-    return feedOrder === 'houses' ? [...houseItems, ...planItems] : [...planItems, ...houseItems];
+    return feedOrder === 'houses' ? houseItems : planItems;
   }, [plans, houses, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
@@ -445,11 +445,11 @@ export function SelfPortfolioFundingCard({
                 setDetailPlan(plan);
               }
             }}
-            className={`relative overflow-hidden rounded-3xl p-2.5 transition-all cursor-pointer border ${isSelected ? 'ring-2 ring-primary bg-primary/5 border-primary' : 'border-primary/30 hover:border-primary/60'}`}
+            className={`relative overflow-hidden rounded-2xl p-0 transition-all cursor-pointer border ${isSelected ? 'ring-2 ring-primary bg-primary/5 border-primary' : 'border-primary/30 hover:border-primary/60'}`}
           >
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col">
               {/* Photo */}
-              <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-2xl bg-muted sm:aspect-square sm:w-32">
+              <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
                 {images.length > 0 ? (
                   <img src={images[0]} alt={titleLine} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : (
@@ -469,7 +469,7 @@ export function SelfPortfolioFundingCard({
               </div>
 
               {/* Details */}
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 p-4">
                 <p className="truncate text-sm font-bold leading-tight sm:text-base">{titleLine}</p>
                 <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
                   <MapPin className="mt-0.5 h-3 w-3 flex-none" />
