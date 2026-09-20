@@ -245,8 +245,8 @@ export function SelfPortfolioFundingCard({
   const remaining = Math.max(0, available - total - houseTotal);
   const overBudget = total + houseTotal > available;
 
-  // One continuous feed: all rent requests then all houses by default. The
-  // order control can bring houses first, but never removes either dataset.
+  // The dashboard switch intentionally separates ready-tenant Rent Plans from
+  // vacant houses so supporters always know which funding path they are using.
   type FeedItem =
     | { kind: 'plan'; id: string; plan: FundablePlan }
     | { kind: 'house'; id: string; house: SupportableHouse };
@@ -262,7 +262,7 @@ export function SelfPortfolioFundingCard({
       id: house.house_id,
       house,
     }));
-    return feedOrder === 'houses' ? [...houseItems, ...planItems] : [...planItems, ...houseItems];
+    return feedOrder === 'houses' ? houseItems : planItems;
   }, [plans, houses, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));

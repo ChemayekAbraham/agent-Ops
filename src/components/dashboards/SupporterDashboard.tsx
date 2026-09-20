@@ -418,10 +418,6 @@ export default function SupporterDashboard({
     ]);
   };
 
-  const menuItems = [
-    { icon: Menu, label: 'Funder Menu', onClick: () => setMenuOpen(true) },
-  ];
-
   return (
     <div className="h-dvh bg-background flex flex-col overflow-hidden">
       {/* Inactivity lock overlay */}
@@ -438,7 +434,7 @@ export default function SupporterDashboard({
         availableRoles={availableRoles}
         onRoleChange={onRoleChange}
         onSignOut={signOut}
-        menuItems={menuItems}
+        onMenuClick={() => setMenuOpen(true)}
         headerActions={<NotificationBell userId={user.id} />}
       />
 

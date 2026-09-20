@@ -44,6 +44,7 @@ interface DashboardHeaderProps {
   onOpportunityBadgeClick?: () => void;
   headerActions?: React.ReactNode;
   showInstallPrompt?: boolean;
+  onMenuClick?: () => void;
 }
 
 const roleConfigMap: Record<string, { label: string; emoji: string; icon: React.ReactNode }> = {
@@ -84,6 +85,7 @@ const DashboardHeader = memo(function DashboardHeader({
   opportunityCount,
   onOpportunityBadgeClick,
   headerActions,
+  onMenuClick,
 }: DashboardHeaderProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -260,8 +262,19 @@ const DashboardHeader = memo(function DashboardHeader({
                 <TenantInAppNotificationBell tenantId={user.id} />
               )}
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              {onMenuClick ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onMenuClick}
+                  aria-label="Open menu"
+                  className="h-10 w-10 min-w-[44px] min-h-[44px] text-white/90 hover:text-white hover:bg-white/10 rounded-xl touch-manipulation"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -383,8 +396,9 @@ const DashboardHeader = memo(function DashboardHeader({
                     </div>
                     Sign Out
                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </div>
         </div>
