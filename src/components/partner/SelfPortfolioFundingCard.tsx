@@ -8,7 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
+import { ArrowUpDown, Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
 import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
@@ -25,6 +26,15 @@ import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet'
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
+
+type HouseSort = 'return_desc' | 'rent_desc' | 'rent_asc' | 'rooms_desc';
+
+const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
+  { value: 'return_desc', label: 'Biggest monthly return' },
+  { value: 'rent_desc', label: 'Rent: high to low' },
+  { value: 'rent_asc', label: 'Rent: low to high' },
+  { value: 'rooms_desc', label: 'Most rooms' },
+];
 
 export type FeedOrder = 'rent' | 'houses';
 
