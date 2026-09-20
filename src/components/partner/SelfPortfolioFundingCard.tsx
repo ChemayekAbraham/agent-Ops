@@ -718,7 +718,10 @@ export function SelfPortfolioFundingCard({
             houses={visibleMapHouses}
             selectedIds={houseSelected}
             focusedId={flashHouseId}
+            remaining={remaining}
+            busy={busy}
             onOpenHouse={setDetailHouse}
+            onFundHouse={(house) => toggleHouse(house.house_id)}
           />
           <div className="flex min-h-0 flex-col gap-3 border-t border-border p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-4">
             <div>

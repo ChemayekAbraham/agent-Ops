@@ -1,16 +1,22 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
+import { Home, MapPin, X } from 'lucide-react';
+import { houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
   selectedIds: string[];
   focusedId?: string | null;
+  remaining: number;
+  busy: boolean;
   onOpenHouse: (house: SupportableHouse) => void;
+  onFundHouse: (house: SupportableHouse) => void;
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
@@ -46,8 +52,12 @@ export function EmptyHouseMapBrowser({
   houses,
   selectedIds,
   focusedId,
+  remaining,
+  busy,
   onOpenHouse,
+  onFundHouse,
 }: EmptyHouseMapBrowserProps) {
+  const [activeHouse, setActiveHouse] = useState<SupportableHouse | null>(null);
   const mappedHouses = useMemo(
     () =>
       houses
@@ -80,18 +90,87 @@ export function EmptyHouseMapBrowser({
               position={[Number(house.latitude), Number(house.longitude)]}
               icon={icon}
               title={`${houseTitleLine(house)} · ${formatDynamic(Number(house.monthly_rent || 0))}`}
-              eventHandlers={{ click: () => onOpenHouse(house) }}
+              eventHandlers={{ click: () => setActiveHouse(house) }}
             />
           );
         })}
         <FitHouseBounds houses={mappedHouses} />
       </MapContainer>
 
-      <div className="pointer-events-none absolute bottom-3 left-3 z-[400] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
+      {activeHouse && (() => {
+        const rent = Number(activeHouse.monthly_rent || 0);
+        const isPicked = selectedIds.includes(activeHouse.house_id);
+        const shortfall = Math.max(0, rent - remaining);
+        const image = (activeHouse.image_urls ?? []).filter(Boolean)[0] ?? activeHouse.image_url;
+        const location = houseAddressLine(activeHouse) || 'Uganda';
+
+        return (
+          <section
+            aria-label={`Funding details for ${houseTitleLine(activeHouse)}`}
+            className="absolute inset-x-2 bottom-2 z-[500] overflow-hidden rounded-lg border border-border bg-background/95 shadow-xl backdrop-blur sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]"
+          >
+            <div className="flex gap-3 p-3">
+              {image ? (
+                <img
+                  src={image}
+                  alt={houseTitleLine(activeHouse)}
+                  className="h-20 w-24 shrink-0 rounded-md object-cover"
+                />
+              ) : (
+                <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-md bg-muted">
+                  <Home className="h-5 w-5 text-muted-foreground" aria-hidden />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="line-clamp-1 text-sm font-bold text-foreground">{houseTitleLine(activeHouse)}</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="-mr-2 -mt-2 h-8 w-8 shrink-0"
+                    onClick={() => setActiveHouse(null)}
+                    aria-label="Close house details"
+                  >
+                    <X className="h-4 w-4" aria-hidden />
+                  </Button>
+                </div>
+                <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                  <span className="line-clamp-2">{location}</span>
+                </p>
+                <p className="mt-1.5 text-lg font-black leading-none text-foreground">{formatDynamic(rent)}</p>
+                <Badge
+                  variant={isPicked ? 'default' : 'secondary'}
+                  className="mt-2 rounded-full text-[10px] font-bold"
+                >
+                  {isPicked ? 'Selected for funding' : shortfall > 0 ? `Top up ${formatDynamic(shortfall)}` : 'Ready to fund'}
+                </Badge>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 border-t border-border p-2.5">
+              <Button type="button" variant="outline" size="sm" onClick={() => onOpenHouse(activeHouse)}>
+                View details
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={isPicked ? 'secondary' : 'default'}
+                disabled={busy}
+                onClick={() => onFundHouse(activeHouse)}
+              >
+                {isPicked ? 'Remove' : 'Fund'}
+              </Button>
+            </div>
+          </section>
+        );
+      })()}
+
+      {!activeHouse && <div className="pointer-events-none absolute bottom-3 left-3 z-[400] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
         {mappedHouses.length > 0
           ? `${mappedHouses.length.toLocaleString()} on this map · tap a rent marker`
           : 'Location details open from each house card'}
-      </div>
+      </div>}
     </div>
   );
 }
