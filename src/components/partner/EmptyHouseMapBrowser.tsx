@@ -191,6 +191,8 @@ export function EmptyHouseMapBrowser({
           );
         })}
         <FitHouseBounds houses={mappedHouses} />
+        <PanToHouse house={activeHouse} />
+        <LocateMeButton />
       </MapContainer>
 
       {activeHouse && (() => {
@@ -244,31 +246,83 @@ export function EmptyHouseMapBrowser({
                 </Badge>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 border-t border-border p-2.5">
-              <Button type="button" variant="outline" size="sm" onClick={() => onOpenHouse(activeHouse)}>
+            <div className="flex items-center gap-2 border-t border-border px-2.5 pt-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 shrink-0"
+                onClick={() => stepHouse(-1)}
+                disabled={mappedHouses.length < 2}
+                aria-label="Show the previous house on the map"
+              >
+                <ChevronLeft className="h-5 w-5" aria-hidden />
+              </Button>
+              <p className="flex-1 text-center text-[11px] font-semibold text-muted-foreground">
+                {activeIndex >= 0 ? `House ${activeIndex + 1} of ${mappedHouses.length}` : `${mappedHouses.length} houses`}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 shrink-0"
+                onClick={() => stepHouse(1)}
+                disabled={mappedHouses.length < 2}
+                aria-label="Show the next house on the map"
+              >
+                <ChevronRight className="h-5 w-5" aria-hidden />
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 p-2.5">
+              <Button type="button" variant="outline" className="h-11" onClick={() => onOpenHouse(activeHouse)}>
                 View details
               </Button>
               <Button
                 type="button"
-                size="sm"
+                className="h-11"
                 variant={isPicked ? 'secondary' : 'default'}
                 disabled={busy}
                 onClick={() => onFundHouse(activeHouse)}
               >
                 {isPicked ? 'Remove' : 'Fund'}
               </Button>
+              <Button
+                asChild
+                variant="ghost"
+                className="col-span-2 h-11 text-xs font-semibold"
+              >
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${Number(activeHouse.latitude)},${Number(activeHouse.longitude)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Navigation className="mr-1.5 h-4 w-4" aria-hidden />
+                  Get directions to this house
+                </a>
+              </Button>
             </div>
           </section>
         );
       })()}
 
-      {!activeHouse && <div role="status" className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
-        {mappedHouses.length > 0
-          ? `${mappedHouses.length.toLocaleString()} ${mappedHouses.length === 1 ? 'house' : 'houses'} on this map · tap a rent marker`
-          : searchQuery.trim()
-            ? 'No houses match this search'
-            : 'Location details open from each house card'}
-      </div>}
+      {!activeHouse && mappedHouses.length > 0 && (
+        <div className="absolute inset-x-2 bottom-2 z-[1000] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]">
+          <Button
+            type="button"
+            className="h-12 w-full text-sm font-bold shadow-xl"
+            onClick={() => setActiveHouse(mappedHouses[0])}
+          >
+            <Home className="mr-2 h-4 w-4" aria-hidden />
+            Browse {mappedHouses.length.toLocaleString()} {mappedHouses.length === 1 ? 'house' : 'houses'} one by one
+          </Button>
+        </div>
+      )}
+
+      {!activeHouse && mappedHouses.length === 0 && (
+        <div role="status" className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
+          {searchQuery.trim() ? 'No houses match this search' : 'Location details open from each house card'}
+        </div>
+      )}
     </div>
   );
 }
