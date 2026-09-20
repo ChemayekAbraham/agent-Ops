@@ -417,6 +417,59 @@ export function HouseSupportBar({
           </DialogHeader>
 
           <div className="px-4 sm:px-6 py-4 space-y-3">
+            {/* Selected houses summary */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold text-muted-foreground">
+                You are funding {selectedCount} {selectedCount === 1 ? 'house' : 'houses'}
+              </p>
+              <div className="max-h-60 overflow-y-auto rounded-xl border border-border bg-background space-y-2 p-2">
+                {(selectedHouses ?? []).length === 0 ? (
+                  <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                    {formatDynamic(total)} total contribution
+                  </p>
+                ) : (
+                  selectedHouses!.map((house) => {
+                    const rent = Number(house.monthly_rent || 0);
+                    const image = (house.image_urls ?? []).filter(Boolean)[0] ?? house.image_url;
+                    return (
+                      <div
+                        key={house.house_id}
+                        className="flex items-start gap-2.5 rounded-lg bg-muted/30 p-2"
+                      >
+                        {image ? (
+                          <img
+                            src={image}
+                            alt={houseTitleLine(house)}
+                            loading="lazy"
+                            decoding="async"
+                            className="h-14 w-16 shrink-0 rounded-md object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-14 w-16 shrink-0 items-center justify-center rounded-md bg-muted">
+                            <Home className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold text-foreground">
+                            {houseTitleLine(house)}
+                          </p>
+                          <p className="mt-0.5 flex items-start gap-1 text-[10px] leading-snug text-muted-foreground">
+                            <MapPin className="mt-0.5 h-3 w-3 flex-none" />
+                            <span className="line-clamp-2">{houseAddressLine(house) || 'Uganda'}</span>
+                          </p>
+                          <p className="mt-1 text-xs font-black text-primary">{formatDynamic(rent)}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <div className="flex items-center justify-between border-t border-border pt-2 px-1">
+                  <span className="text-[11px] font-bold text-muted-foreground">Total contribution</span>
+                  <span className="text-sm font-black text-foreground">{formatDynamic(total)}</span>
+                </div>
+              </div>
+            </div>
+
             {canTopUp && (
               <div className="space-y-2">
                 <p className="text-[11px] font-bold text-muted-foreground">Where should this capital go?</p>
