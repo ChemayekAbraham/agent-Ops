@@ -112,9 +112,15 @@ export function useEmptyHouseMapCells(
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    queryFn: async () => {
+    // A flaky mobile network is the norm in the field: retry with backoff, and
+    // only surface a failure once the retries are exhausted.
+    retry: 2,
+    retryDelay: (attempt) => Math.min(4000, 600 * 2 ** attempt),
+    queryFn: async ({ signal }) => {
       if (!viewport) return { cells: [], housesInView: 0, scanCapped: false, cellSize: 0 };
       const startedAt = performance.now();
+      // Stale-result protection: a superseded viewport read is aborted, so a
+      // slow response can never overwrite the houses now on screen.
       const { data, error } = await supabase.rpc('map_empty_house_cells', {
         p_min_lat: viewport.minLat,
         p_min_lng: viewport.minLng,
