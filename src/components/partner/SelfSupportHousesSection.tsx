@@ -15,7 +15,8 @@ import {
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
+import { Car, Check, Home, Loader2, MapPin, Navigation, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
+import { estimateRoute } from '@/lib/houseGeo';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { FundHouseTooltip } from './FundHouseTooltip';
 
@@ -141,6 +142,7 @@ export function HouseSupportCard({
   onTopUp,
   flash = false,
   searchQuery = '',
+  origin = null,
 }: {
   house: SupportableHouse;
   isSelected: boolean;
@@ -154,6 +156,8 @@ export function HouseSupportCard({
   flash?: boolean;
   /** Search query used to highlight matching house names and locations. */
   searchQuery?: string;
+  /** Point the distance / travel-time labels are measured from (funder's location or the house tapped on the map). */
+  origin?: { lat: number; lng: number } | null;
 }) {
   const images = (house.image_urls ?? []).filter(Boolean);
   const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
@@ -161,6 +165,10 @@ export function HouseSupportCard({
   const addressLine = houseAddressLine(house);
   const shortfall = Number(house.monthly_rent || 0) - remaining;
   const unaffordable = shortfall > 0;
+  // How far away and roughly how long a drive it is, measured from the funder's
+  // location (or the house they tapped on the map). No API call — estimated.
+  const route = origin ? estimateRoute(house, origin.lat, origin.lng) : null;
+
 
   return (
     <Card
@@ -218,6 +226,23 @@ export function HouseSupportCard({
               <HighlightText text={addressLine || 'Uganda'} query={searchQuery} />
             </span>
           </p>
+
+          {route ? (
+            <p
+              className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-muted-foreground"
+              aria-label={`About ${route.distanceLabel} away, roughly ${route.durationLabel} by car${route.approximate ? ', approximate location' : ''}`}
+            >
+              <span className="inline-flex items-center gap-1">
+                <Navigation className="h-3 w-3 flex-none text-primary" aria-hidden />
+                {route.distanceLabel} away
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Car className="h-3 w-3 flex-none text-primary" aria-hidden />
+                about {route.durationLabel} by car
+              </span>
+              {route.approximate ? <span className="text-[9px] italic">(approximate area)</span> : null}
+            </p>
+          ) : null}
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
