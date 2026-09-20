@@ -281,7 +281,7 @@ export function EmptyHouseMapBrowser({
               eventHandlers={{
                 click: () => {
                   setActiveHouse(null);
-                  mapInstance?.flyTo([cell.latitude, cell.longitude], Math.min((viewport?.zoom ?? 11) + 3, 18), {
+                  mapInstance?.flyTo([cell.latitude, cell.longitude], clusterZoomTarget(viewport?.zoom ?? 11), {
                     duration: 0.6,
                   });
                 },
