@@ -113,6 +113,7 @@ export function SelfPortfolioFundingCard({
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
   const [houseSort, setHouseSort] = useState<HouseSort>('return_desc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
+  const [houseSearch, setHouseSearch] = useState('');
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
   // Show only saved houses whose current balance is enough to fund them.
   const [showSavedReadyOnly, setShowSavedReadyOnly] = useState(false);
@@ -590,6 +591,20 @@ export function SelfPortfolioFundingCard({
       plan,
     }));
     let visibleHouses = houses;
+    const normalizedSearch = houseSearch.trim().toLocaleLowerCase();
+    if (normalizedSearch) {
+      visibleHouses = visibleHouses.filter((house) =>
+        [
+          houseTitleLine(house),
+          house.title,
+          house.house_category,
+          house.district,
+          house.sub_county,
+          house.village,
+          house.region,
+        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)),
+      );
+    }
     if (houseDistrict !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
@@ -625,16 +640,17 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
+  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseSearch, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
 
   useEffect(() => {
     setPage(0);
-  }, [houseSort, houseDistrict, houseWithinFloat, showSavedReadyOnly, feedOrder]);
+  }, [houseSort, houseDistrict, houseSearch, houseWithinFloat, showSavedReadyOnly, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
   const pageItems = feed.slice(pageStart, pageStart + PLANS_PER_PAGE);
   const visibleMapHouses = pageItems.flatMap((item) => (item.kind === 'house' ? [item.house] : []));
+  const searchableMapHouses = feed.flatMap((item) => (item.kind === 'house' ? [item.house] : []));
 
   useEffect(() => {
     setPage((current) => Math.min(current, pageCount - 1));
@@ -715,11 +731,13 @@ export function SelfPortfolioFundingCard({
       {feedOrder === 'houses' && houses.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
           <EmptyHouseMapBrowser
-            houses={visibleMapHouses}
+            houses={searchableMapHouses}
             selectedIds={houseSelected}
             focusedId={flashHouseId}
+            searchQuery={houseSearch}
             remaining={remaining}
             busy={busy}
+            onSearchQueryChange={setHouseSearch}
             onOpenHouse={setDetailHouse}
             onFundHouse={(house) => toggleHouse(house.house_id)}
           />
@@ -729,7 +747,7 @@ export function SelfPortfolioFundingCard({
                 <div>
                   <p className="text-base font-black text-foreground">Empty houses</p>
                   <p className="text-[11px] font-medium text-muted-foreground">
-                    {feed.length.toLocaleString()} available · showing {visibleMapHouses.length}
+                    {feed.length.toLocaleString()} available · showing {visibleMapHouses.length} cards
                   </p>
                 </div>
                 <Badge variant="secondary" className="rounded-full text-[10px] font-bold">
@@ -854,7 +872,7 @@ export function SelfPortfolioFundingCard({
           >
             Saved · Ready to fund
           </Button>
-          {(houseDistrict !== 'all' || houseWithinFloat || showSavedReadyOnly || houseSort !== 'return_desc') && (
+          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'return_desc') && (
             <Button
               type="button"
               variant="ghost"
@@ -863,6 +881,7 @@ export function SelfPortfolioFundingCard({
               onClick={() => {
                 setHouseSort('return_desc');
                 setHouseDistrict('all');
+                setHouseSearch('');
                 setHouseWithinFloat(false);
                 setShowSavedReadyOnly(false);
               }}
@@ -871,7 +890,7 @@ export function SelfPortfolioFundingCard({
               Reset
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseWithinFloat || showSavedReadyOnly) && (
+          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly) && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
