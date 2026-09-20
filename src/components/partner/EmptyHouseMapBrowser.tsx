@@ -319,6 +319,8 @@ export function EmptyHouseMapBrowser({
         </div>
       )}
 
+      <MapPerfOverlay />
+
       {activeHouse && (() => {
         const rent = Number(activeHouse.monthly_rent || 0);
         const isPicked = selectedIds.includes(activeHouse.house_id);
