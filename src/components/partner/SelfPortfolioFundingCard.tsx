@@ -933,6 +933,7 @@ export function SelfPortfolioFundingCard({
                       size="sm"
                       disabled={busy}
                       onClick={() => {
+                        recordAlertAction(h.house_id, 'funded');
                         jumpToHouse(h.house_id);
                         setFundConfirmKey(`${Date.now()}`);
                       }}
