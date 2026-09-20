@@ -780,6 +780,19 @@ export function SelfPortfolioFundingCard({
     return feedOrder === 'houses' ? houseItems : planItems;
   }, [plans, houses, feedOrder, houseSort, referencePoint, houseDistrict, houseSubCounty, matchesBaseFilters]);
 
+  const resetFilters = useCallback(() => {
+    setHouseSort('rent_asc');
+    setHouseDistrict('all');
+    setHouseSubCounty('all');
+    setHouseSearch('');
+    setHouseRentMin('');
+    setHouseRentMax('');
+    setHouseFundingStatus('all');
+    setHouseWithinFloat(false);
+    setShowSavedReadyOnly(false);
+    setReferencePoint(null);
+  }, []);
+
   useEffect(() => {
     setPage(0);
   }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, feedOrder]);
@@ -1099,17 +1112,7 @@ export function SelfPortfolioFundingCard({
               variant="ghost"
               size="sm"
               className="h-9 text-xs"
-              onClick={() => {
-                setHouseSort('rent_asc');
-                setHouseDistrict('all');
-                setHouseSubCounty('all');
-                setHouseSearch('');
-                setHouseRentMin('');
-                setHouseRentMax('');
-                setHouseFundingStatus('all');
-                setHouseWithinFloat(false);
-                setShowSavedReadyOnly(false);
-              }}
+              onClick={resetFilters}
             >
               <X className="h-3.5 w-3.5 mr-1" aria-hidden />
               Reset
@@ -1413,14 +1416,32 @@ export function SelfPortfolioFundingCard({
       )}
 
       {feed.length === 0 && feedOrder === 'houses' && houses.length > 0 && (
-        <Card className="p-6 rounded-2xl text-center">
-          <Home className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-          <p className="text-sm font-semibold">No houses match these filters</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {showSavedReadyOnly
-              ? 'You have no saved houses that your current balance can fund. Tap Reset to see all houses or top up your balance.'
-              : `Try another district or tap Reset to see all ${houses.length} houses again.`}
-          </p>
+        <Card className="p-6 rounded-2xl text-center space-y-3">
+          <Home className="h-8 w-8 mx-auto text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">No houses match your filters</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {houseSearch
+                ? `We could not find any houses matching "${houseSearch}". Try a different name, district, or neighborhood.`
+                : showSavedReadyOnly
+                  ? 'You have no saved houses that your current balance can fund. Reset to see all houses, or top up your balance.'
+                  : houseDistrict !== 'all' || houseSubCounty !== 'all'
+                    ? 'No empty houses in this area match the other filters. Try a different location or widen your search.'
+                    : houseFundingStatus !== 'all' || houseWithinFloat
+                      ? 'No houses match the funding-status filter. Reset to see every available house.'
+                      : `No houses match the current rent range or sort filters. Reset to see all ${houses.length.toLocaleString()} houses again.`}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full text-xs font-bold"
+            onClick={resetFilters}
+          >
+            <X className="h-3.5 w-3.5 mr-1" aria-hidden />
+            Reset filters
+          </Button>
         </Card>
       )}
 
