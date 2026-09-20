@@ -15,7 +15,7 @@ import {
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck } from 'lucide-react';
+import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 
 export const HOUSE_MONTHLY_ROI_RATE = 15;
