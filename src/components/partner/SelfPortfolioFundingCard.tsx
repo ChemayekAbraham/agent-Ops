@@ -780,6 +780,19 @@ export function SelfPortfolioFundingCard({
     return feedOrder === 'houses' ? houseItems : planItems;
   }, [plans, houses, feedOrder, houseSort, referencePoint, houseDistrict, houseSubCounty, matchesBaseFilters]);
 
+  const resetFilters = useCallback(() => {
+    setHouseSort('rent_asc');
+    setHouseDistrict('all');
+    setHouseSubCounty('all');
+    setHouseSearch('');
+    setHouseRentMin('');
+    setHouseRentMax('');
+    setHouseFundingStatus('all');
+    setHouseWithinFloat(false);
+    setShowSavedReadyOnly(false);
+    setReferencePoint(null);
+  }, []);
+
   useEffect(() => {
     setPage(0);
   }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, feedOrder]);
