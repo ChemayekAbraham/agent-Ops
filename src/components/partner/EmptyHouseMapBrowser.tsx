@@ -141,6 +141,8 @@ export function EmptyHouseMapBrowser({
   minRent,
   maxRent,
   district,
+  country,
+  maxAgeDays,
   onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
