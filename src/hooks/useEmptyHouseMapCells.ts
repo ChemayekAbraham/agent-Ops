@@ -28,6 +28,8 @@ export interface MapCellFilters {
   district?: string;
   minRent?: number | null;
   maxRent?: number | null;
+  /** Listing age: only houses listed within this many days are aggregated. */
+  maxAgeDays?: number | null;
 }
 
 export interface EmptyHouseMapCell {
@@ -143,6 +145,7 @@ export function useEmptyHouseMapCells(
         p_min_rent: filters.minRent ?? null,
         p_max_rent: filters.maxRent ?? null,
         p_limit: 400,
+        p_max_age_days: filters.maxAgeDays ?? null,
       }).abortSignal(signal);
       if (signal?.aborted) throw new Error('aborted');
       if (error) {

@@ -15,6 +15,7 @@ import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './empt
 import { MapPerfOverlay } from './MapPerfOverlay';
 import { HEAT_BUCKETS, heatBucketFor, heatmapAppliesAtZoom } from './emptyHouseHeatmap';
 import { mapPerf } from '@/lib/mapPerf';
+import { pointInCountry, type CountryBounds } from '@/lib/africaCountries';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
@@ -28,6 +29,10 @@ interface EmptyHouseMapBrowserProps {
   maxRent?: number | null;
   /** District currently applied to the list, mirrored on the map. */
   district?: string | null;
+  /** Country box currently applied to the list — the map fits to it so the heatmap covers that country only. */
+  country?: CountryBounds | null;
+  /** Listing-age ceiling in days, applied in the database alongside the viewport. */
+  maxAgeDays?: number | null;
   onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
@@ -136,6 +141,8 @@ export function EmptyHouseMapBrowser({
   minRent,
   maxRent,
   district,
+  country,
+  maxAgeDays,
   onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
@@ -163,13 +170,27 @@ export function EmptyHouseMapBrowser({
   }, []);
 
 
+  // Picking a country frames the map on that country, so the viewport query —
+  // and therefore the density heatmap — only covers houses inside it.
+  useEffect(() => {
+    if (!mapInstance || !country) return;
+    const [south, west, north, east] = country.bbox;
+    mapInstance.fitBounds(L.latLngBounds([south, west], [north, east]), { padding: [24, 24] });
+  }, [mapInstance, country]);
+
   const cellsQuery = useEmptyHouseMapCells(viewport, {
     search: searchQuery,
     district: district ?? undefined,
     minRent: minRent ?? null,
     maxRent: maxRent ?? null,
+    maxAgeDays: maxAgeDays ?? null,
   });
-  const cells = cellsQuery.data?.cells ?? [];
+  const rawCells = cellsQuery.data?.cells ?? [];
+  // A viewport can spill past the chosen country's border — drop the pins that fall outside it.
+  const cells = useMemo(
+    () => (country ? rawCells.filter((cell) => pointInCountry(country, cell.latitude, cell.longitude)) : rawCells),
+    [rawCells, country],
+  );
   const housesInView = cellsQuery.data?.housesInView ?? 0;
   const cellSize = cellsQuery.data?.cellSize ?? 0;
 

@@ -30,6 +30,7 @@ import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
 import { HouseCompareDialog } from './HouseCompareDialog';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { HousePlacementTimeline } from './HousePlacementTimeline';
+import { AFRICA_COUNTRIES, countryByCode, pointInCountry } from '@/lib/africaCountries';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
@@ -160,6 +161,10 @@ export function SelfPortfolioFundingCard({
   // not cover it yet — "ready" fits within float, "topup" needs a top-up first.
   type HouseFundingStatus = 'all' | 'ready' | 'topup';
   const [houseFundingStatus, setHouseFundingStatus] = useState<HouseFundingStatus>('all');
+  // Country filter (Africa-wide): narrows both the map/heatmap viewport and the cards.
+  const [houseCountry, setHouseCountry] = useState<string>('all');
+  // Listing age ceiling in days ('all' = any age).
+  const [houseListingAge, setHouseListingAge] = useState<string>('all');
   // Reference point for the "Nearest first" sort, taken from the last house selected on the map.
   const [referencePoint, setReferencePoint] = useState<{ lat: number; lng: number } | null>(null);
   // Side-by-side comparison picks (in-session only; never touches funding).
@@ -680,6 +685,18 @@ export function SelfPortfolioFundingCard({
   const normalizedSearch = useMemo(() => houseSearch.trim().toLocaleLowerCase(), [houseSearch]);
   const rentMinBound = useMemo(() => Number(houseRentMin), [houseRentMin]);
   const rentMaxBound = useMemo(() => Number(houseRentMax), [houseRentMax]);
+  const selectedCountry = useMemo(
+    () => (houseCountry === 'all' ? null : countryByCode(houseCountry)),
+    [houseCountry],
+  );
+  const listingAgeDays = useMemo(
+    () => (houseListingAge === 'all' ? null : Number(houseListingAge)),
+    [houseListingAge],
+  );
+  const listedAfter = useMemo(
+    () => (listingAgeDays ? Date.now() - listingAgeDays * 24 * 60 * 60 * 1000 : null),
+    [listingAgeDays],
+  );
 
   // Shared filter predicate used by location-chip counts and the main feed.
   const matchesBaseFilters = useCallback(
@@ -703,10 +720,17 @@ export function SelfPortfolioFundingCard({
       if (houseFundingStatus === 'topup' && rent <= remaining) return false;
       if (houseWithinFloat && rent > remaining) return false;
       if (showSavedReadyOnly && (!houseSelected.includes(h.house_id) || rent > remaining)) return false;
+      if (selectedCountry && !pointInCountry(selectedCountry, h.latitude, h.longitude)) return false;
+      if (listedAfter !== null) {
+        const listedAt = h.created_at ? new Date(h.created_at).getTime() : NaN;
+        if (!Number.isFinite(listedAt) || listedAt < listedAfter) return false;
+      }
       return true;
     },
     [
       normalizedSearch,
+      selectedCountry,
+      listedAfter,
       houseRentMin,
       houseRentMax,
       houseFundingStatus,
@@ -884,12 +908,14 @@ export function SelfPortfolioFundingCard({
     setHouseFundingStatus('all');
     setHouseWithinFloat(false);
     setShowSavedReadyOnly(false);
+    setHouseCountry('all');
+    setHouseListingAge('all');
     setReferencePoint(null);
   }, []);
 
   useEffect(() => {
     setPage(0);
-  }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, feedOrder]);
+  }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseCountry, houseListingAge, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
@@ -985,6 +1011,8 @@ export function SelfPortfolioFundingCard({
             minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
             maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
             district={houseDistrict !== 'all' ? houseDistrict : null}
+            country={selectedCountry}
+            maxAgeDays={listingAgeDays}
             onHousesDiscovered={registerDiscoveredHouses}
             onSearchQueryChange={setHouseSearch}
             onOpenHouse={setDetailHouse}
@@ -1104,6 +1132,31 @@ export function SelfPortfolioFundingCard({
               </span>
             )}
           </div>
+          <Select value={houseCountry} onValueChange={setHouseCountry}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by country">
+              <SelectValue placeholder="All countries" />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">All of Africa</SelectItem>
+              {AFRICA_COUNTRIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={houseListingAge} onValueChange={setHouseListingAge}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by listing age">
+              <SelectValue placeholder="Any listing age" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any listing age</SelectItem>
+              <SelectItem value="7">Listed in last 7 days</SelectItem>
+              <SelectItem value="30">Listed in last 30 days</SelectItem>
+              <SelectItem value="90">Listed in last 3 months</SelectItem>
+              <SelectItem value="365">Listed in last year</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={houseDistrict} onValueChange={setHouseDistrict}>
             <SelectTrigger className="h-9 w-auto min-w-[130px] text-xs font-semibold" aria-label="Filter by district">
               <SelectValue placeholder="All districts" />
@@ -1204,7 +1257,7 @@ export function SelfPortfolioFundingCard({
               Clear compare
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all') && (
             <Button
               type="button"
               variant="ghost"
@@ -1216,7 +1269,7 @@ export function SelfPortfolioFundingCard({
               Reset
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all') && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
@@ -1525,7 +1578,11 @@ export function SelfPortfolioFundingCard({
                 ? `We could not find any houses matching "${houseSearch}". Try a different name, district, or neighborhood.`
                 : showSavedReadyOnly
                   ? 'You have no saved houses that your current balance can fund. Reset to see all houses, or top up your balance.'
-                  : houseDistrict !== 'all' || houseSubCounty !== 'all'
+                  : selectedCountry
+                    ? `No empty houses in ${selectedCountry.name} match the other filters yet. Choose "All of Africa" or widen your filters.`
+                    : houseListingAge !== 'all'
+                      ? 'No empty houses were listed in that period. Try a longer listing age.'
+                      : houseDistrict !== 'all' || houseSubCounty !== 'all'
                     ? 'No empty houses in this area match the other filters. Try a different location or widen your search.'
                     : houseFundingStatus !== 'all' || houseWithinFloat
                       ? 'No houses match the funding-status filter. Reset to see every available house.'
