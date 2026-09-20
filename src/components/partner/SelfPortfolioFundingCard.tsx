@@ -30,6 +30,7 @@ import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
 import { HouseCompareDialog } from './HouseCompareDialog';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { HousePlacementTimeline } from './HousePlacementTimeline';
+import { AFRICA_COUNTRIES, countryByCode, pointInCountry } from '@/lib/africaCountries';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
