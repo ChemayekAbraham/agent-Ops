@@ -863,6 +863,31 @@ export function FunderCapitalOpportunities({
             </h4>
           </div>
 
+          {/* The empty-house story, in plain words — how a small saver turns savings into monthly earnings */}
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 sm:p-3.5 space-y-2.5">
+            <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
+              Start a rental business with your savings — even small ones.
+            </p>
+            <ol className="space-y-1.5">
+              <li className="flex items-start gap-2 text-[11px] sm:text-xs text-foreground/90 font-medium leading-snug">
+                <span className="shrink-0 mt-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-black flex items-center justify-center">1</span>
+                <span><span className="font-bold text-foreground">Fund an empty house</span> — cover its rent amount. Every house below is ready to fund today.</span>
+              </li>
+              <li className="flex items-start gap-2 text-[11px] sm:text-xs text-foreground/90 font-medium leading-snug">
+                <span className="shrink-0 mt-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-black flex items-center justify-center">2</span>
+                <span><span className="font-bold text-foreground">Welile places a tenant for you</span> — our agents find the tenant, they move in and start paying rent.</span>
+              </li>
+              <li className="flex items-start gap-2 text-[11px] sm:text-xs text-foreground/90 font-medium leading-snug">
+                <span className="shrink-0 mt-0.5 h-4 w-4 rounded-full bg-success text-success-foreground text-[10px] font-black flex items-center justify-center">3</span>
+                <span><span className="font-bold text-foreground">You earn 15% every month</span> of the rent amount you contributed — paid into your Welile wallet as the tenant pays.</span>
+              </li>
+            </ol>
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium leading-snug">
+              Example: fund a house with rent of UGX 600,000 and you earn UGX 90,000 every month.
+            </p>
+          </div>
+
+
           {/* Compact summary above the list: houses + biggest opportunity first, rent needed secondary */}
           {(() => {
             const s = emptyHouseSummary;
