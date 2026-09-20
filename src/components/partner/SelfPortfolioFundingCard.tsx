@@ -871,8 +871,12 @@ export function SelfPortfolioFundingCard({
                       </div>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-bold text-foreground">{houseTitleLine(house)}</span>
-                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{house.district || 'Uganda'}</span>
+                      <span className="block truncate text-xs font-bold text-foreground">
+                        <HighlightText text={houseTitleLine(house)} query={houseSearch} />
+                      </span>
+                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                        <HighlightText text={house.district || 'Uganda'} query={houseSearch} />
+                      </span>
                       <span className="mt-1 block text-xs font-black text-foreground">{formatDynamic(house.monthly_rent)}</span>
                       <span className="block text-[10px] font-semibold text-primary">Earn {formatDynamic(monthlyReturn)} monthly</span>
                     </span>
