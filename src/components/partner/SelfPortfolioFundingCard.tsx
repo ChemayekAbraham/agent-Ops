@@ -1132,6 +1132,31 @@ export function SelfPortfolioFundingCard({
               </span>
             )}
           </div>
+          <Select value={houseCountry} onValueChange={setHouseCountry}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by country">
+              <SelectValue placeholder="All countries" />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">All of Africa</SelectItem>
+              {AFRICA_COUNTRIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={houseListingAge} onValueChange={setHouseListingAge}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by listing age">
+              <SelectValue placeholder="Any listing age" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any listing age</SelectItem>
+              <SelectItem value="7">Listed in last 7 days</SelectItem>
+              <SelectItem value="30">Listed in last 30 days</SelectItem>
+              <SelectItem value="90">Listed in last 3 months</SelectItem>
+              <SelectItem value="365">Listed in last year</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={houseDistrict} onValueChange={setHouseDistrict}>
             <SelectTrigger className="h-9 w-auto min-w-[130px] text-xs font-semibold" aria-label="Filter by district">
               <SelectValue placeholder="All districts" />
