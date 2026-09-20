@@ -267,6 +267,13 @@ const h1: React.CSSProperties = { margin: '0 0 10px 0', color: INK, fontSize: '2
 const h2: React.CSSProperties = { margin: '0 0 10px 0', color: INK, fontSize: '18px', fontWeight: 800 }
 const sub: React.CSSProperties = { margin: '0 0 10px 0', color: SUB, fontSize: '15px', lineHeight: '24px' }
 const panel: React.CSSProperties = { border: `1px solid ${BORDER}`, borderRadius: '12px', backgroundColor: '#fffbeb' }
+const hero: React.CSSProperties = { border: `1px solid #fcd34d`, borderRadius: '14px', backgroundColor: '#fffbeb' }
+const heroLabel: React.CSSProperties = { margin: '0 0 6px 0', color: BRAND, fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }
+const heroAmount: React.CSSProperties = { margin: '0 0 6px 0', color: INK, fontSize: '36px', lineHeight: '42px', fontWeight: 800, letterSpacing: '-1px' }
+const heroPer: React.CSSProperties = { margin: 0, color: BODY_C, fontSize: '15px', fontWeight: 600 }
+const heroDate: React.CSSProperties = { margin: 0, color: BODY_C, fontSize: '14px', lineHeight: '22px', textAlign: 'center' as const }
+const step: React.CSSProperties = { margin: '0 0 8px 0', color: BODY_C, fontSize: '14px', lineHeight: '22px' }
+
 const cell: React.CSSProperties = { padding: '16px 20px', width: '50%' }
 const label: React.CSSProperties = { margin: '0 0 4px 0', color: MUTED, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' }
 const value: React.CSSProperties = { margin: 0, color: INK, fontSize: '18px', fontWeight: 800 }
