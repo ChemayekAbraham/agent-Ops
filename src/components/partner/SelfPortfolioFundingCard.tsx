@@ -604,7 +604,7 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseWithinFloat, remaining]);
+  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
 
   useEffect(() => {
     setPage(0);
