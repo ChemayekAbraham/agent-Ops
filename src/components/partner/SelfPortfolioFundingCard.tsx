@@ -30,12 +30,13 @@ const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
 
-type HouseSort = 'return_desc' | 'rent_desc' | 'rent_asc' | 'rooms_desc';
+type HouseSort = 'return_desc' | 'rent_desc' | 'rent_asc' | 'rooms_desc' | 'nearest';
 
 const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
+  { value: 'rent_asc', label: 'Rent: low to high' },
+  { value: 'nearest', label: 'Nearest first' },
   { value: 'return_desc', label: 'Biggest monthly return' },
   { value: 'rent_desc', label: 'Rent: high to low' },
-  { value: 'rent_asc', label: 'Rent: low to high' },
   { value: 'rooms_desc', label: 'Most rooms' },
 ];
 
@@ -111,7 +112,7 @@ export function SelfPortfolioFundingCard({
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
-  const [houseSort, setHouseSort] = useState<HouseSort>('return_desc');
+  const [houseSort, setHouseSort] = useState<HouseSort>('rent_asc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
   const [houseSearch, setHouseSearch] = useState('');
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
@@ -619,11 +620,19 @@ export function SelfPortfolioFundingCard({
       );
     }
     visibleHouses = [...visibleHouses].sort((a, b) => {
+      const rentA = Number(a.monthly_rent || 0);
+      const rentB = Number(b.monthly_rent || 0);
+      const distA = a.distance_km ?? Infinity;
+      const distB = b.distance_km ?? Infinity;
       switch (houseSort) {
+        case 'nearest':
+          if (distA !== distB) return distA - distB;
+          return rentA - rentB;
         case 'rent_asc':
-          return Number(a.monthly_rent || 0) - Number(b.monthly_rent || 0);
+          if (rentA !== rentB) return rentA - rentB;
+          return distA - distB;
         case 'rent_desc':
-          return Number(b.monthly_rent || 0) - Number(a.monthly_rent || 0);
+          return rentB - rentA;
         case 'rooms_desc':
           return Number(b.number_of_rooms || 0) - Number(a.number_of_rooms || 0);
         case 'return_desc':
@@ -872,14 +881,14 @@ export function SelfPortfolioFundingCard({
           >
             Saved · Ready to fund
           </Button>
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'return_desc') && (
+          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc') && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className="h-9 text-xs"
               onClick={() => {
-                setHouseSort('return_desc');
+                setHouseSort('rent_asc');
                 setHouseDistrict('all');
                 setHouseSearch('');
                 setHouseWithinFloat(false);
