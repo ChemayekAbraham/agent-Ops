@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
@@ -289,6 +289,16 @@ export function SelfPortfolioFundingCard({
   // Both lists draw from the same operational float.
   const remaining = Math.max(0, available - total - houseTotal);
   const overBudget = total + houseTotal > available;
+
+  // "Saved for later": picked houses the current float cannot cover yet. They
+  // stay visible with the exact top-up each one still needs.
+  const savedForLater = useMemo(
+    () =>
+      houses.filter(
+        (h) => houseSelected.includes(h.house_id) && Number(h.monthly_rent || 0) > remaining,
+      ),
+    [houses, houseSelected, remaining],
+  );
 
   // The dashboard switch intentionally separates ready-tenant Rent Plans from
   // vacant houses so supporters always know which funding path they are using.
