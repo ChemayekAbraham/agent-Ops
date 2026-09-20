@@ -109,6 +109,7 @@ export function EmptyHouseMapBrowser({
   onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
+  onActiveHouseChange,
 }: EmptyHouseMapBrowserProps) {
   const [activeHouse, setActiveHouse] = useState<SupportableHouse | null>(null);
   const mappedHouses = useMemo(
