@@ -15,7 +15,7 @@ import {
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck } from 'lucide-react';
+import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 
 export const HOUSE_MONTHLY_ROI_RATE = 15;
@@ -96,6 +96,7 @@ export function HouseSupportCard({
   busy,
   onToggle,
   onOpenDetail,
+  onTopUp,
 }: {
   house: SupportableHouse;
   isSelected: boolean;
@@ -103,6 +104,8 @@ export function HouseSupportCard({
   busy: boolean;
   onToggle: (id: string) => void;
   onOpenDetail: (house: SupportableHouse) => void;
+  /** Opens the funding flow with the exact missing amount prefilled. */
+  onTopUp?: (shortfall: number) => void;
 }) {
   const images = (house.image_urls ?? []).filter(Boolean);
   const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
@@ -214,6 +217,23 @@ export function HouseSupportCard({
                 ? `Picked — add ${formatDynamic(shortfall)} to your balance to fund it. It stays saved while you top up.`
                 : `Add ${formatDynamic(shortfall)} to your balance to include this house.`}
             </p>
+          )}
+
+          {isSelected && unaffordable && onTopUp && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTopUp(shortfall);
+              }}
+              aria-label={`Top up ${formatDynamic(shortfall)} to fund ${titleLine}`}
+              className="mt-2 h-9 w-full rounded-xl border-primary/40 text-[11px] font-bold text-primary"
+            >
+              <Wallet className="mr-1.5 h-3.5 w-3.5" />
+              Top up {formatDynamic(shortfall)}
+            </Button>
           )}
         </div>
       </div>

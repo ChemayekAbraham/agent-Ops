@@ -22,6 +22,7 @@ import {
   type SupportableHouse,
 } from './SelfSupportHousesSection';
 import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
+import DepositFlow from '@/components/payments/DepositFlow';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
@@ -91,6 +92,8 @@ export function SelfPortfolioFundingCard({
   const [houseSort, setHouseSort] = useState<HouseSort>('return_desc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
+  // Top-up launched from a picked house card: deposit opens with the exact shortfall.
+  const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
 
   // Picked houses survive reloads until the partner funds or removes them.
   const selectionKey = `psm-house-selection-${partnerId}`;
@@ -565,6 +568,7 @@ export function SelfPortfolioFundingCard({
                 busy={busy}
                 onToggle={toggleHouse}
                 onOpenDetail={setDetailHouse}
+                onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
               />
             </div>
           );
@@ -841,6 +845,14 @@ export function SelfPortfolioFundingCard({
         open={!!detailPlan}
         onOpenChange={(v) => !v && setDetailPlan(null)}
         isFunded={!!detailPlan && fundedIds.includes(detailPlan.rent_request_id)}
+      />
+
+      <DepositFlow
+        open={topUpAmount !== null}
+        onOpenChange={(v) => {
+          if (!v) setTopUpAmount(null);
+        }}
+        defaultAmount={topUpAmount ?? undefined}
       />
     </div>
   );
