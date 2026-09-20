@@ -294,12 +294,21 @@ export const template: TemplateEntry = {
   subject: (data: Record<string, any>) => {
     const count = Number(data?.house_count ?? 0) || 0
     const noun = `${count} ${count === 1 ? 'house' : 'houses'}`
+    const currency = String(data?.currency ?? 'UGX')
+    const earn = Number(String(data?.monthly_return ?? 0).replace(/,/g, '')) || 0
+    const earnLabel = `${currency} ${earn.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
     switch (String(data?.kind ?? 'booked')) {
-      case 'funded': return `Funding received for ${noun}`
+      case 'funded':
+        return earn > 0
+          ? `Funding received for ${noun} — you earn ${earnLabel} a month`
+          : `Funding received for ${noun}`
       case 'reminder': return `${Number(data?.days_left ?? 3) || 3} days left to fund ${noun}`
       case 'released': return `Your booking of ${noun} has lapsed`
       case 'given_up': return `You released ${noun}`
-      default: return `${noun} held for you for 7 days`
+      default:
+        return earn > 0
+          ? `${noun} held for you — you earn ${earnLabel} a month`
+          : `${noun} held for you for 7 days`
     }
   },
   previewData: {
@@ -310,7 +319,10 @@ export const template: TemplateEntry = {
     monthly_return: 135000,
     release_date: '10 Sep 2026',
     promised_funding_date: '8 Sep 2026',
+    first_return_date: '10 Oct 2026',
+    return_rate: 15,
     houses: [
+
       { title: 'Two-bedroom in Kabaale', district: 'Wakiso', monthly_rent: 500000 },
       { title: 'Single room in Bweyogerere', district: 'Wakiso', monthly_rent: 400000 },
     ],
