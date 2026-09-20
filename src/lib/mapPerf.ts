@@ -7,6 +7,8 @@
  * production. The optional on-map overlay reads the same snapshot.
  */
 
+import { mapTelemetry } from './mapTelemetry';
+
 const WINDOW = 50;
 
 export interface MapPerfSnapshot {
