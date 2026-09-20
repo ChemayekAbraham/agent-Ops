@@ -165,6 +165,10 @@ export function HouseSupportCard({
   const addressLine = houseAddressLine(house);
   const shortfall = Number(house.monthly_rent || 0) - remaining;
   const unaffordable = shortfall > 0;
+  // How far away and roughly how long a drive it is, measured from the funder's
+  // location (or the house they tapped on the map). No API call — estimated.
+  const route = origin ? estimateRoute(house, origin.lat, origin.lng) : null;
+
 
   return (
     <Card
