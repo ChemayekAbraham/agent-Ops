@@ -536,7 +536,7 @@ export function SelfPortfolioFundingCard({
             <Bookmark className="h-3.5 w-3.5 text-primary" aria-hidden />
             <p className="text-xs font-black text-foreground">Saved for later</p>
             <span className="text-[10px] font-semibold text-muted-foreground">
-              · {savedForLater.length} {savedForLater.length === 1 ? 'house' : 'houses'} waiting on a top-up
+              {`· ${savedForLater.length} ${savedForLater.length === 1 ? 'house' : 'houses'} waiting on a top-up`}
             </span>
           </div>
           <div className="mt-2 space-y-2">
