@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { Home, MapPin, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Home, MapPin, Navigation, Search, X } from 'lucide-react';
 import { houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 
 interface EmptyHouseMapBrowserProps {
@@ -51,6 +51,52 @@ function FitHouseBounds({ houses }: { houses: SupportableHouse[] }) {
   return null;
 }
 
+function PanToHouse({ house }: { house: SupportableHouse | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!house) return;
+    const lat = Number(house.latitude);
+    const lng = Number(house.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
+  }, [house, map]);
+
+  return null;
+}
+
+function LocateMeButton() {
+  const map = useMap();
+  const [locating, setLocating] = useState(false);
+
+  const locate = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false);
+        map.flyTo([position.coords.latitude, position.coords.longitude], 14, { duration: 0.6 });
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      size="icon"
+      onClick={locate}
+      disabled={locating}
+      aria-label="Center the map on my location"
+      className="absolute right-3 top-16 z-[1000] h-11 w-11 rounded-full border border-border bg-background/95 shadow-lg backdrop-blur sm:top-3"
+    >
+      <Crosshair className={`h-5 w-5${locating ? ' animate-pulse' : ''}`} aria-hidden />
+    </Button>
+  );
+}
+
 export function EmptyHouseMapBrowser({
   houses,
   selectedIds,
@@ -76,8 +122,21 @@ export function EmptyHouseMapBrowser({
     }
   }, [activeHouse, houses]);
 
+  const activeIndex = activeHouse
+    ? mappedHouses.findIndex((house) => house.house_id === activeHouse.house_id)
+    : -1;
+
+  const stepHouse = (direction: 1 | -1) => {
+    if (mappedHouses.length === 0) return;
+    const base = activeIndex >= 0 ? activeIndex : 0;
+    const next = activeIndex >= 0
+      ? (base + direction + mappedHouses.length) % mappedHouses.length
+      : base;
+    setActiveHouse(mappedHouses[next]);
+  };
+
   return (
-    <div className="relative h-[18rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
+    <div className="relative h-[26rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
       <div className="absolute inset-x-3 top-3 z-[1000] sm:right-auto sm:w-[22rem]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -132,6 +191,8 @@ export function EmptyHouseMapBrowser({
           );
         })}
         <FitHouseBounds houses={mappedHouses} />
+        <PanToHouse house={activeHouse} />
+        <LocateMeButton />
       </MapContainer>
 
       {activeHouse && (() => {
@@ -185,31 +246,83 @@ export function EmptyHouseMapBrowser({
                 </Badge>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 border-t border-border p-2.5">
-              <Button type="button" variant="outline" size="sm" onClick={() => onOpenHouse(activeHouse)}>
+            <div className="flex items-center gap-2 border-t border-border px-2.5 pt-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 shrink-0"
+                onClick={() => stepHouse(-1)}
+                disabled={mappedHouses.length < 2}
+                aria-label="Show the previous house on the map"
+              >
+                <ChevronLeft className="h-5 w-5" aria-hidden />
+              </Button>
+              <p className="flex-1 text-center text-[11px] font-semibold text-muted-foreground">
+                {activeIndex >= 0 ? `House ${activeIndex + 1} of ${mappedHouses.length}` : `${mappedHouses.length} houses`}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 shrink-0"
+                onClick={() => stepHouse(1)}
+                disabled={mappedHouses.length < 2}
+                aria-label="Show the next house on the map"
+              >
+                <ChevronRight className="h-5 w-5" aria-hidden />
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 p-2.5">
+              <Button type="button" variant="outline" className="h-11" onClick={() => onOpenHouse(activeHouse)}>
                 View details
               </Button>
               <Button
                 type="button"
-                size="sm"
+                className="h-11"
                 variant={isPicked ? 'secondary' : 'default'}
                 disabled={busy}
                 onClick={() => onFundHouse(activeHouse)}
               >
                 {isPicked ? 'Remove' : 'Fund'}
               </Button>
+              <Button
+                asChild
+                variant="ghost"
+                className="col-span-2 h-11 text-xs font-semibold"
+              >
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${Number(activeHouse.latitude)},${Number(activeHouse.longitude)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Navigation className="mr-1.5 h-4 w-4" aria-hidden />
+                  Get directions to this house
+                </a>
+              </Button>
             </div>
           </section>
         );
       })()}
 
-      {!activeHouse && <div role="status" className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
-        {mappedHouses.length > 0
-          ? `${mappedHouses.length.toLocaleString()} ${mappedHouses.length === 1 ? 'house' : 'houses'} on this map · tap a rent marker`
-          : searchQuery.trim()
-            ? 'No houses match this search'
-            : 'Location details open from each house card'}
-      </div>}
+      {!activeHouse && mappedHouses.length > 0 && (
+        <div className="absolute inset-x-2 bottom-2 z-[1000] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]">
+          <Button
+            type="button"
+            className="h-12 w-full text-sm font-bold shadow-xl"
+            onClick={() => setActiveHouse(mappedHouses[0])}
+          >
+            <Home className="mr-2 h-4 w-4" aria-hidden />
+            Browse {mappedHouses.length.toLocaleString()} {mappedHouses.length === 1 ? 'house' : 'houses'} one by one
+          </Button>
+        </div>
+      )}
+
+      {!activeHouse && mappedHouses.length === 0 && (
+        <div role="status" className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
+          {searchQuery.trim() ? 'No houses match this search' : 'Location details open from each house card'}
+        </div>
+      )}
     </div>
   );
 }
