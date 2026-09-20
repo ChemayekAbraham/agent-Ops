@@ -116,6 +116,29 @@ export function SelfPortfolioFundingCard({
   // A changing key asks HouseSupportBar to open its confirm dialog (used by
   // the balance-ready notification's "Fund this house" action).
   const [fundConfirmKey, setFundConfirmKey] = useState<string | null>(null);
+  // Houses that just became fundable stay highlighted until the partner
+  // dismisses the highlight or funds them. Persisted so it survives reloads.
+  const fundableKey = `psm-house-fundable-${partnerId}`;
+  const [fundableIds, setFundableIds] = useState<string[]>(() => {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(fundableKey) ?? '[]');
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const persistFundable = useCallback(
+    (next: string[]) => {
+      setFundableIds(next);
+      try {
+        if (next.length) window.localStorage.setItem(fundableKey, JSON.stringify(next));
+        else window.localStorage.removeItem(fundableKey);
+      } catch {
+        /* storage unavailable — highlight just won't persist */
+      }
+    },
+    [fundableKey],
+  );
   const alertsKey = `psm-house-alerts-${partnerId}`;
   const [houseAlerts, setHouseAlerts] = useState<HouseBalanceAlert[]>(() => {
     try {
@@ -349,6 +372,22 @@ export function SelfPortfolioFundingCard({
       ),
     [houses, houseSelected, remaining],
   );
+
+  // Picked houses whose highlight is still on: they became fundable and have
+  // not been dismissed or funded yet.
+  const fundableNow = useMemo(
+    () =>
+      houses.filter(
+        (h) => fundableIds.includes(h.house_id) && houseSelected.includes(h.house_id),
+      ),
+    [houses, fundableIds, houseSelected],
+  );
+
+  // Funding (or unpicking) a highlighted house clears its highlight.
+  useEffect(() => {
+    const next = fundableIds.filter((id) => houseSelected.includes(id));
+    if (next.length !== fundableIds.length) persistFundable(next);
+  }, [houseSelected, fundableIds, persistFundable]);
 
   // Jump to a picked house: switch to the houses feed, clear any filters that
   // could hide it, open its page, scroll it into view and flash it.
