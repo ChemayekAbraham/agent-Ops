@@ -634,7 +634,7 @@ export function SelfPortfolioFundingCard({
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
   const pageItems = feed.slice(pageStart, pageStart + PLANS_PER_PAGE);
-  const visibleMapHouses = feed.flatMap((item) => (item.kind === 'house' ? [item.house] : []));
+  const visibleMapHouses = pageItems.flatMap((item) => (item.kind === 'house' ? [item.house] : []));
 
   useEffect(() => {
     setPage((current) => Math.min(current, pageCount - 1));
@@ -720,13 +720,13 @@ export function SelfPortfolioFundingCard({
             focusedId={flashHouseId}
             onOpenHouse={setDetailHouse}
           />
-          <div className="flex min-h-0 flex-col justify-between gap-3 border-t border-border p-3 lg:border-l lg:border-t-0 lg:p-4">
+          <div className="flex min-h-0 flex-col gap-3 border-t border-border p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-4">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-base font-black text-foreground">Empty houses</p>
                   <p className="text-[11px] font-medium text-muted-foreground">
-                    {visibleMapHouses.length.toLocaleString()} shown on the map
+                    {feed.length.toLocaleString()} available · showing {visibleMapHouses.length}
                   </p>
                 </div>
                 <Badge variant="secondary" className="rounded-full text-[10px] font-bold">
@@ -736,6 +736,34 @@ export function SelfPortfolioFundingCard({
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                 Tap a rent marker to see the house, location, photos and expected monthly Returns.
               </p>
+            </div>
+            <div className="hidden space-y-2 lg:block">
+              {visibleMapHouses.map((house) => {
+                const image = (house.image_urls ?? []).filter(Boolean)[0] ?? house.image_url;
+                const monthlyReturn = Number(house.partner_monthly_return ?? house.monthly_rent * (MONTHLY_ROI_RATE / 100));
+                return (
+                  <button
+                    key={`map-list-${house.house_id}`}
+                    type="button"
+                    onClick={() => setDetailHouse(house)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-background p-2 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                  >
+                    {image ? (
+                      <img src={image} alt="" loading="lazy" className="h-16 w-20 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex h-16 w-20 shrink-0 items-center justify-center rounded-lg bg-muted">
+                        <Home className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-bold text-foreground">{houseTitleLine(house)}</span>
+                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{house.district || 'Uganda'}</span>
+                      <span className="mt-1 block text-xs font-black text-foreground">{formatDynamic(house.monthly_rent)}</span>
+                      <span className="block text-[10px] font-semibold text-primary">Earn {formatDynamic(monthlyReturn)} monthly</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <div className="rounded-xl bg-primary/5 p-3">
               <p className="text-[10px] font-semibold text-muted-foreground">Available to fund</p>

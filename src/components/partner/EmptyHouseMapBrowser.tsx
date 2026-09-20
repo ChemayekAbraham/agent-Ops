@@ -14,6 +14,11 @@ interface EmptyHouseMapBrowserProps {
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
+const isUgandaCoordinate = (house: SupportableHouse) => {
+  const lat = Number(house.latitude);
+  const lng = Number(house.longitude);
+  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -1.6 && lat <= 4.4 && lng >= 29.4 && lng <= 35.1;
+};
 
 function FitHouseBounds({ houses }: { houses: SupportableHouse[] }) {
   const map = useMap();
@@ -46,17 +51,12 @@ export function EmptyHouseMapBrowser({
   const mappedHouses = useMemo(
     () =>
       houses
-        .filter((house) => {
-          const lat = Number(house.latitude);
-          const lng = Number(house.longitude);
-          return Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0);
-        })
-        .slice(0, 150),
+        .filter(isUgandaCoordinate),
     [houses],
   );
 
   return (
-    <div className="relative h-[46vh] min-h-[320px] w-full overflow-hidden bg-muted sm:h-[34rem] lg:h-[42rem]">
+    <div className="relative h-[18rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
       <MapContainer
         center={KAMPALA}
         zoom={11}
@@ -88,7 +88,9 @@ export function EmptyHouseMapBrowser({
       </MapContainer>
 
       <div className="pointer-events-none absolute bottom-3 left-3 z-[400] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
-        {mappedHouses.length.toLocaleString()} mapped · tap a rent marker
+        {mappedHouses.length > 0
+          ? `${mappedHouses.length.toLocaleString()} on this map · tap a rent marker`
+          : 'Location details open from each house card'}
       </div>
     </div>
   );
