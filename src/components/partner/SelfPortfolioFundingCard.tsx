@@ -44,6 +44,9 @@ export type FeedOrder = 'rent' | 'houses';
 interface HouseBalanceAlert {
   ids: string[];
   at: number;
+  // 'ready' (default) = balance became enough; 'dismissed' = highlight cleared
+  // by the partner; 'funded' = partner opened the funding confirmation.
+  kind?: 'ready' | 'dismissed' | 'funded';
 }
 
 const timeAgo = (at: number) => {
