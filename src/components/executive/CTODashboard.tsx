@@ -336,6 +336,9 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
       {/* Infrastructure Health Monitor */}
       <InfrastructureHealthMonitor />
 
+      {/* Empty-house map performance across Africa */}
+      <MapQueryMonitorPanel />
+
       {/* Database Backup */}
       <RunBackupNowButton />
 
