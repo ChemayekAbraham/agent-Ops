@@ -236,7 +236,7 @@ export function HousePlacementTimeline({
                   )}
 
                   {lateBy != null && (
-                    <p className="flex items-center gap-1.5 border-t border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] font-semibold leading-snug text-amber-700 dark:text-amber-400">
+                    <p className="flex items-center gap-1.5 border-t border-warning/20 bg-warning/5 px-3 py-2 text-[10px] font-semibold leading-snug text-warning">
                       <AlertTriangle className="h-3.5 w-3.5 flex-none" aria-hidden />
                       Tenant placed {lateBy} day{lateBy === 1 ? '' : 's'} after the 7-day promise.
                     </p>
