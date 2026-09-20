@@ -144,6 +144,22 @@ export function HousePlacementTimeline({
             const dueBy = r.supported_at ? addDays(r.supported_at, PLACEMENT_PROMISE_DAYS) : null;
             const inReview = r.status !== 'active' && !placed;
             const monthlyReturn = Number(r.principal ?? 0) * (HOUSE_MONTHLY_ROI_RATE / 100);
+            const daysLeft = !placed && dueBy ? dayDiff(dueBy) : null;
+            const overdue = daysLeft != null && daysLeft < 0;
+            const lateBy =
+              placed && r.days_to_place != null && r.days_to_place > PLACEMENT_PROMISE_DAYS
+                ? r.days_to_place - PLACEMENT_PROMISE_DAYS
+                : null;
+            const countdownLabel =
+              daysLeft == null
+                ? null
+                : daysLeft > 1
+                  ? `${daysLeft} days left to place a tenant`
+                  : daysLeft === 1
+                    ? '1 day left to place a tenant'
+                    : daysLeft === 0
+                      ? 'Last day of the 7-day promise'
+                      : `${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'} past the 7-day promise`;
 
             return (
               <li key={r.house_id}>
