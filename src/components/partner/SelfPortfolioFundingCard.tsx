@@ -17,6 +17,7 @@ import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
 import { PlanShareButton } from './PlanShareButton';
 import { SlotAmount } from './SlotAmount';
 import {
+  HighlightText,
   HouseSupportBar,
   HouseSupportCard,
   houseTitleLine,
@@ -870,8 +871,12 @@ export function SelfPortfolioFundingCard({
                       </div>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-bold text-foreground">{houseTitleLine(house)}</span>
-                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{house.district || 'Uganda'}</span>
+                      <span className="block truncate text-xs font-bold text-foreground">
+                        <HighlightText text={houseTitleLine(house)} query={houseSearch} />
+                      </span>
+                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                        <HighlightText text={house.district || 'Uganda'} query={houseSearch} />
+                      </span>
                       <span className="mt-1 block text-xs font-black text-foreground">{formatDynamic(house.monthly_rent)}</span>
                       <span className="block text-[10px] font-semibold text-primary">Earn {formatDynamic(monthlyReturn)} monthly</span>
                     </span>
@@ -1255,7 +1260,9 @@ export function SelfPortfolioFundingCard({
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-bold leading-tight">{houseTitleLine(h)}</p>
+                      <p className="truncate text-xs font-bold leading-tight">
+                        <HighlightText text={houseTitleLine(h)} query={houseSearch} />
+                      </p>
                       <p className="mt-0.5 truncate text-[10px] font-semibold text-success">
                         Your balance now covers it — ready to fund
                       </p>
@@ -1314,7 +1321,9 @@ export function SelfPortfolioFundingCard({
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-bold leading-tight">{houseTitleLine(h)}</p>
+                    <p className="truncate text-xs font-bold leading-tight">
+                      <HighlightText text={houseTitleLine(h)} query={houseSearch} />
+                    </p>
                     <p className="mt-0.5 truncate text-[10px] font-semibold text-primary">
                       Top up {formatDynamic(topUpNeeded)} to fund it
                     </p>
@@ -1391,6 +1400,7 @@ export function SelfPortfolioFundingCard({
                 onOpenDetail={setDetailHouse}
                  onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
                  flash={flashHouseId === item.id || fundableIds.includes(item.id)}
+                searchQuery={houseSearch}
                 />
               <button
                 type="button"
@@ -1683,6 +1693,7 @@ export function SelfPortfolioFundingCard({
           if (!houseSelected.includes(house.house_id)) toggleHouse(house.house_id);
         }}
         onRemove={(houseId) => setCompareIds((prev) => prev.filter((x) => x !== houseId))}
+        searchQuery={houseSearch}
       />
 
       <SelfPortfolioDeployDialog

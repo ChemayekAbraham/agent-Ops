@@ -35,6 +35,47 @@ export const houseTitleLine = (house: SupportableHouse) =>
 export const houseAddressLine = (house: SupportableHouse) =>
   [house.village, house.sub_county, house.district, 'Uganda'].filter(Boolean).join(', ');
 
+/** Renders text with the matching search query highlighted. */
+export function HighlightText({
+  text,
+  query,
+  className,
+}: {
+  text: string;
+  query?: string;
+  className?: string;
+}) {
+  if (!query || !text) return <>{text}</>;
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return <>{text}</>;
+
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  while (remaining.length > 0) {
+    const index = remaining.toLowerCase().indexOf(normalizedQuery);
+    if (index === -1) {
+      parts.push(<span key={key++}>{remaining}</span>);
+      break;
+    }
+    if (index > 0) {
+      parts.push(<span key={key++}>{remaining.slice(0, index)}</span>);
+    }
+    parts.push(
+      <mark
+        key={key++}
+        className={`rounded-sm bg-primary/20 px-0.5 text-foreground ${className ?? ''}`}
+      >
+        {remaining.slice(index, index + normalizedQuery.length)}
+      </mark>,
+    );
+    remaining = remaining.slice(index + normalizedQuery.length);
+  }
+
+  return <>{parts}</>;
+}
+
 /**
  * Verified empty houses a partner can support directly.
  *
@@ -98,6 +139,7 @@ export function HouseSupportCard({
   onOpenDetail,
   onTopUp,
   flash = false,
+  searchQuery = '',
 }: {
   house: SupportableHouse;
   isSelected: boolean;
@@ -109,6 +151,8 @@ export function HouseSupportCard({
   onTopUp?: (shortfall: number) => void;
   /** Momentary highlight (e.g. after a "now fundable" notification action). */
   flash?: boolean;
+  /** Search query used to highlight matching house names and locations. */
+  searchQuery?: string;
 }) {
   const images = (house.image_urls ?? []).filter(Boolean);
   const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
@@ -164,10 +208,14 @@ export function HouseSupportCard({
         </div>
 
         <div className="min-w-0 flex-1 p-4">
-          <p className="truncate text-sm font-bold leading-tight sm:text-base">{titleLine}</p>
+          <p className="truncate text-sm font-bold leading-tight sm:text-base">
+            <HighlightText text={titleLine} query={searchQuery} />
+          </p>
           <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
             <MapPin className="mt-0.5 h-3 w-3 flex-none" />
-            <span className="line-clamp-2">{addressLine || 'Uganda'}</span>
+            <span className="line-clamp-2">
+              <HighlightText text={addressLine || 'Uganda'} query={searchQuery} />
+            </span>
           </p>
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">

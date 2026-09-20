@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { ChevronLeft, ChevronRight, Crosshair, Home, MapPin, Navigation, Search, X } from 'lucide-react';
-import { houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
+import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
@@ -219,24 +219,28 @@ export function EmptyHouseMapBrowser({
                   <Home className="h-5 w-5 text-muted-foreground" aria-hidden />
                 </div>
               )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="line-clamp-1 text-sm font-bold text-foreground">{houseTitleLine(activeHouse)}</p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="-mr-2 -mt-2 h-8 w-8 shrink-0"
-                    onClick={() => setActiveHouse(null)}
-                    aria-label="Close house details"
-                  >
-                    <X className="h-4 w-4" aria-hidden />
-                  </Button>
-                </div>
-                <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
-                  <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-                  <span className="line-clamp-2">{location}</span>
-                </p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="line-clamp-1 text-sm font-bold text-foreground">
+                      <HighlightText text={houseTitleLine(activeHouse)} query={searchQuery} />
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="-mr-2 -mt-2 h-8 w-8 shrink-0"
+                      onClick={() => setActiveHouse(null)}
+                      aria-label="Close house details"
+                    >
+                      <X className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </div>
+                  <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
+                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                    <span className="line-clamp-2">
+                      <HighlightText text={location} query={searchQuery} />
+                    </span>
+                  </p>
                 <p className="mt-1.5 text-lg font-black leading-none text-foreground">{formatDynamic(rent)}</p>
                 <Badge
                   variant={isPicked ? 'default' : 'secondary'}

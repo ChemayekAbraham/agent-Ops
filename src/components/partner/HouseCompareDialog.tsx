@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { Home, MapPin, ShieldCheck, Wallet, X } from 'lucide-react';
-import { houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
+import { HighlightText, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 
 const MONTHLY_ROI_RATE = 15;
 
@@ -16,6 +16,8 @@ interface HouseCompareDialogProps {
   busy: boolean;
   onFundHouse: (house: SupportableHouse) => void;
   onRemove: (houseId: string) => void;
+  /** Search query used to highlight matching house names and locations. */
+  searchQuery?: string;
 }
 
 const fundingStatus = (house: SupportableHouse, remaining: number) => {
@@ -40,6 +42,7 @@ export function HouseCompareDialog({
   busy,
   onFundHouse,
   onRemove,
+  searchQuery = '',
 }: HouseCompareDialogProps) {
   const rows: {
     label: string;
@@ -64,8 +67,12 @@ export function HouseCompareDialog({
     },
     {
       label: 'Location',
-      render: (h) =>
-        [h.village, h.sub_county, h.district].filter(Boolean).join(', ') || h.region || 'Location on file',
+      render: (h) => (
+        <HighlightText
+          text={[h.village, h.sub_county, h.district].filter(Boolean).join(', ') || h.region || 'Location on file'}
+          query={searchQuery}
+        />
+      ),
     },
     {
       label: 'House type',
@@ -139,11 +146,13 @@ export function HouseCompareDialog({
                         </button>
                       </div>
                       <p className="mt-1.5 line-clamp-2 text-xs font-bold leading-tight">
-                        {houseTitleLine(h)}
+                        <HighlightText text={houseTitleLine(h)} query={searchQuery} />
                       </p>
                       <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
                         <MapPin className="h-3 w-3 flex-none" aria-hidden />
-                        <span className="truncate">{h.district || 'Uganda'}</span>
+                        <span className="truncate">
+                          <HighlightText text={h.district || 'Uganda'} query={searchQuery} />
+                        </span>
                       </p>
                     </th>
                   );
