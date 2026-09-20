@@ -12,7 +12,10 @@ export function MapPerfOverlay() {
 
   useEffect(() => {
     if (!enabled) return;
-    return mapPerf.subscribe(() => setSnapshot(mapPerf.snapshot()));
+    const unsubscribe = mapPerf.subscribe(() => setSnapshot(mapPerf.snapshot()));
+    return () => {
+      unsubscribe();
+    };
   }, [enabled]);
 
   if (!enabled) return null;
