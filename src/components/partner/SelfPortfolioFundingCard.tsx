@@ -335,7 +335,32 @@ export function SelfPortfolioFundingCard({
         : `Your balance now covers your ${houseSelected.length} saved houses.`,
       {
         description: 'You can fund them now — tap "Fund these houses" below.',
-        duration: 9000,
+        duration: 12000,
+        action: {
+          label: 'View house',
+          onClick: () => {
+            // Jump straight to the first saved pick: switch to the houses
+            // feed, clear any filters that could hide it, open its page,
+            // scroll it into view and flash it.
+            const target = houseSelected[0];
+            if (!target) return;
+            onFeedOrderChange('houses');
+            setHouseDistrict('all');
+            setHouseWithinFloat(false);
+            setHouseSort('return_desc');
+            setFlashHouseId(target);
+            window.setTimeout(() => {
+              const index = feed.findIndex((f) => f.kind === 'house' && f.id === target);
+              if (index >= 0) setPage(Math.floor(index / PLANS_PER_PAGE));
+            }, 60);
+            window.setTimeout(() => {
+              document
+                .querySelector(`[data-house-id="${target}"]`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 450);
+            window.setTimeout(() => setFlashHouseId(null), 6000);
+          },
+        },
       },
     );
   }, [savedForLater.length, houseSelected.length, plansQuery.data, housesQuery.data, shortFlagKey]);
