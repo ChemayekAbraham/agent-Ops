@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
@@ -116,6 +116,8 @@ export function SelfPortfolioFundingCard({
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
   const [houseSort, setHouseSort] = useState<HouseSort>('rent_asc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
+  // Neighborhood (sub-county) quick filter — set via chips, pairs with district.
+  const [houseSubCounty, setHouseSubCounty] = useState<string>('all');
   const [houseSearch, setHouseSearch] = useState('');
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
   // Show only saved houses whose current balance is enough to fund them.
@@ -628,6 +630,27 @@ export function SelfPortfolioFundingCard({
     return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [houses]);
 
+  // Neighborhood chip options: distinct sub-counties, scoped to the selected
+  // district so tapping a district narrows the neighborhood choices.
+  const houseSubCounties = useMemo(() => {
+    const set = new Map<string, string>();
+    for (const h of houses) {
+      if (houseDistrict !== 'all' && (h.district ?? '').trim().toLowerCase() !== houseDistrict) continue;
+      const raw = (h.sub_county ?? '').trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (!set.has(key)) set.set(key, raw);
+    }
+    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [houses, houseDistrict]);
+
+  // Changing district can invalidate a neighborhood chip choice.
+  useEffect(() => {
+    if (houseSubCounty !== 'all' && !houseSubCounties.some(([key]) => key === houseSubCounty)) {
+      setHouseSubCounty('all');
+    }
+  }, [houseDistrict, houseSubCounties, houseSubCounty]);
+
   const feed = useMemo<FeedItem[]>(() => {
     const planItems: FeedItem[] = plans.map((plan) => ({
       kind: 'plan',
@@ -652,6 +675,11 @@ export function SelfPortfolioFundingCard({
     if (houseDistrict !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
+      );
+    }
+    if (houseSubCounty !== 'all') {
+      visibleHouses = visibleHouses.filter(
+        (h) => (h.sub_county ?? '').trim().toLowerCase() === houseSubCounty,
       );
     }
     const rentMinBound = Number(houseRentMin);
@@ -705,11 +733,11 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
+  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
 
   useEffect(() => {
     setPage(0);
-  }, [houseSort, houseDistrict, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, feedOrder]);
+  }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
@@ -1002,7 +1030,7 @@ export function SelfPortfolioFundingCard({
               Clear compare
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
             <Button
               type="button"
               variant="ghost"
@@ -1011,6 +1039,7 @@ export function SelfPortfolioFundingCard({
               onClick={() => {
                 setHouseSort('rent_asc');
                 setHouseDistrict('all');
+                setHouseSubCounty('all');
                 setHouseSearch('');
                 setHouseRentMin('');
                 setHouseRentMax('');
@@ -1023,7 +1052,7 @@ export function SelfPortfolioFundingCard({
               Reset
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
@@ -1044,6 +1073,75 @@ export function SelfPortfolioFundingCard({
                 {houseAlerts.length}
               </span>
             </Button>
+          )}
+        </div>
+      )}
+
+      {feedOrder === 'houses' && houses.length > 0 && (houseDistricts.length > 0 || houseSubCounties.length > 0) && (
+        <div className="space-y-1.5 px-1" aria-label="Quick location filters">
+          {houseDistricts.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="District quick filters">
+              <MapPin className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
+              <button
+                type="button"
+                aria-pressed={houseDistrict === 'all'}
+                onClick={() => setHouseDistrict('all')}
+                className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
+                  houseDistrict === 'all'
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-background text-foreground hover:bg-muted'
+                }`}
+              >
+                All districts
+              </button>
+              {houseDistricts.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={houseDistrict === key}
+                  onClick={() => setHouseDistrict(houseDistrict === key ? 'all' : key)}
+                  className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
+                    houseDistrict === key
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {houseSubCounties.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="Neighborhood quick filters">
+              <NavigationIcon className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
+              <button
+                type="button"
+                aria-pressed={houseSubCounty === 'all'}
+                onClick={() => setHouseSubCounty('all')}
+                className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
+                  houseSubCounty === 'all'
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-background text-foreground hover:bg-muted'
+                }`}
+              >
+                All neighborhoods
+              </button>
+              {houseSubCounties.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={houseSubCounty === key}
+                  onClick={() => setHouseSubCounty(houseSubCounty === key ? 'all' : key)}
+                  className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
+                    houseSubCounty === key
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
