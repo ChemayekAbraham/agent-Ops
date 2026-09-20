@@ -1751,6 +1751,13 @@
       "when": 1789912336285,
       "tag": "0249_funder_house_notice_wake_on_enqueue",
       "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1789913069567,
+      "tag": "0250_map_empty_house_cells_viewport_clusters",
+      "breakpoints": true
     }
   ]
 }
