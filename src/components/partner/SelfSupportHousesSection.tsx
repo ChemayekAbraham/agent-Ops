@@ -35,6 +35,47 @@ export const houseTitleLine = (house: SupportableHouse) =>
 export const houseAddressLine = (house: SupportableHouse) =>
   [house.village, house.sub_county, house.district, 'Uganda'].filter(Boolean).join(', ');
 
+/** Renders text with the matching search query highlighted. */
+export function HighlightText({
+  text,
+  query,
+  className,
+}: {
+  text: string;
+  query?: string;
+  className?: string;
+}) {
+  if (!query || !text) return <>{text}</>;
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return <>{text}</>;
+
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  while (remaining.length > 0) {
+    const index = remaining.toLowerCase().indexOf(normalizedQuery);
+    if (index === -1) {
+      parts.push(<span key={key++}>{remaining}</span>);
+      break;
+    }
+    if (index > 0) {
+      parts.push(<span key={key++}>{remaining.slice(0, index)}</span>);
+    }
+    parts.push(
+      <mark
+        key={key++}
+        className={`rounded-sm bg-primary/20 px-0.5 text-foreground ${className ?? ''}`}
+      >
+        {remaining.slice(index, index + normalizedQuery.length)}
+      </mark>,
+    );
+    remaining = remaining.slice(index + normalizedQuery.length);
+  }
+
+  return <>{parts}</>;
+}
+
 /**
  * Verified empty houses a partner can support directly.
  *
