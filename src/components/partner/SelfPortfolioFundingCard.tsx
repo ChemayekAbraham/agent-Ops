@@ -18,6 +18,7 @@ import { SlotAmount } from './SlotAmount';
 import {
   HouseSupportBar,
   HouseSupportCard,
+  houseTitleLine,
   useVerifiedEmptyHouses,
   type SupportableHouse,
 } from './SelfSupportHousesSection';
