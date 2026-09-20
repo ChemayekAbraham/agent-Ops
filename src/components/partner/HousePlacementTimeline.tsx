@@ -1,5 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Circle, Home, Loader2, MapPin, UserCheck } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Home,
+  Loader2,
+  MapPin,
+  UserCheck,
+} from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,6 +49,17 @@ const addDays = (iso: string, days: number) => {
   const d = new Date(iso);
   d.setDate(d.getDate() + days);
   return d.toISOString();
+};
+
+/** Kampala calendar day (YYYY-MM-DD) for an instant, so countdowns match Uganda days. */
+const kampalaDay = (d: Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(d);
+
+/** Whole Uganda days between two instants (target day minus today). */
+const dayDiff = (target: string, from: Date = new Date()) => {
+  const a = Date.parse(`${kampalaDay(new Date(target))}T00:00:00Z`);
+  const b = Date.parse(`${kampalaDay(from)}T00:00:00Z`);
+  return Math.round((a - b) / 86_400_000);
 };
 
 const locationLine = (r: PlacementRow) =>
@@ -124,6 +144,22 @@ export function HousePlacementTimeline({
             const dueBy = r.supported_at ? addDays(r.supported_at, PLACEMENT_PROMISE_DAYS) : null;
             const inReview = r.status !== 'active' && !placed;
             const monthlyReturn = Number(r.principal ?? 0) * (HOUSE_MONTHLY_ROI_RATE / 100);
+            const daysLeft = !placed && dueBy ? dayDiff(dueBy) : null;
+            const overdue = daysLeft != null && daysLeft < 0;
+            const lateBy =
+              placed && r.days_to_place != null && r.days_to_place > PLACEMENT_PROMISE_DAYS
+                ? r.days_to_place - PLACEMENT_PROMISE_DAYS
+                : null;
+            const countdownLabel =
+              daysLeft == null
+                ? null
+                : daysLeft > 1
+                  ? `${daysLeft} days left to place a tenant`
+                  : daysLeft === 1
+                    ? '1 day left to place a tenant'
+                    : daysLeft === 0
+                      ? 'Last day of the 7-day promise'
+                      : `${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'} past the 7-day promise`;
 
             return (
               <li key={r.house_id}>
@@ -166,6 +202,45 @@ export function HousePlacementTimeline({
                       </Badge>
                     )}
                   </div>
+
+                  {countdownLabel && (
+                    <div
+                      role="status"
+                      className={`flex items-center justify-between gap-2 border-t px-3 py-2 ${
+                        overdue
+                          ? 'border-destructive/20 bg-destructive/5 text-destructive'
+                          : 'border-border/60 bg-muted/40 text-foreground'
+                      }`}
+                    >
+                      <p className="flex items-center gap-1.5 text-[11px] font-bold">
+                        {overdue ? (
+                          <AlertTriangle className="h-3.5 w-3.5 flex-none" aria-hidden />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 flex-none" aria-hidden />
+                        )}
+                        {countdownLabel}
+                      </p>
+                      {dueBy && (
+                        <span className="flex-none text-[10px] font-semibold text-muted-foreground">
+                          {overdue ? 'Was due' : 'By'} {fmtDate(dueBy)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {overdue && (
+                    <p className="border-t border-destructive/20 bg-destructive/5 px-3 py-2 text-[10px] leading-snug text-destructive">
+                      This placement is running late. Welile is following up with the agent — your
+                      Returns begin as soon as the tenant starts paying rent.
+                    </p>
+                  )}
+
+                  {lateBy != null && (
+                    <p className="flex items-center gap-1.5 border-t border-warning/20 bg-warning/5 px-3 py-2 text-[10px] font-semibold leading-snug text-warning">
+                      <AlertTriangle className="h-3.5 w-3.5 flex-none" aria-hidden />
+                      Tenant placed {lateBy} day{lateBy === 1 ? '' : 's'} after the 7-day promise.
+                    </p>
+                  )}
 
                   <ol className="space-y-2.5 border-t border-border/60 px-3 py-3">
                     <Step state="done" label="You funded this house" detail={fmtDate(r.supported_at)} />
