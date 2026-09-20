@@ -97,7 +97,13 @@ function PanToHouse({ house }: { house: SupportableHouse | null }) {
   return null;
 }
 
-function LocateMeButton({ onLocated }: { onLocated?: (point: [number, number]) => void }) {
+function LocateMeButton({
+  onLocated,
+  onDenied,
+}: {
+  onLocated?: (point: [number, number]) => void;
+  onDenied?: () => void;
+}) {
   const map = useMap();
   const [locating, setLocating] = useState(false);
 
@@ -111,7 +117,10 @@ function LocateMeButton({ onLocated }: { onLocated?: (point: [number, number]) =
         onLocated?.(point);
         map.flyTo(point, 14, { duration: 0.6 });
       },
-      () => setLocating(false),
+      () => {
+        setLocating(false);
+        onDenied?.();
+      },
       { enableHighAccuracy: true, timeout: 10000 },
     );
   };
