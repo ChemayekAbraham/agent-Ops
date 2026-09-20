@@ -519,7 +519,8 @@ export function FunderCapitalOpportunities({
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
-  const [emptyHouseStoryOpen, setEmptyHouseStoryOpen] = useState(false);
+  type EmptyHouseInfoSection = 'business' | 'earnings' | 'terms' | null;
+  const [openEmptyHouseInfo, setOpenEmptyHouseInfo] = useState<EmptyHouseInfoSection>(null);
   const [feedOrder, setFeedOrder] = useState<FeedOrder>(initialFeedOrder);
 
   const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
