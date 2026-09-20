@@ -28,6 +28,7 @@ import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet'
 import DepositFlow from '@/components/payments/DepositFlow';
 import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
 import { HouseCompareDialog } from './HouseCompareDialog';
+import { FundHouseTooltip } from './FundHouseTooltip';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
@@ -1402,20 +1403,22 @@ export function SelfPortfolioFundingCard({
                         Your balance now covers it — ready to fund
                       </p>
                     </div>
-                    <Button
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => {
-                        recordAlertAction(h.house_id, 'funded');
-                        jumpToHouse(h.house_id);
-                        setFundConfirmKey(`${Date.now()}`);
-                      }}
-                      aria-label={`Fund ${houseTitleLine(h)} now`}
-                      className="h-8 flex-none rounded-lg px-2.5 text-[11px] font-bold"
-                    >
-                      <ShieldCheck className="mr-1 h-3 w-3" aria-hidden />
-                      Fund now
-                    </Button>
+                    <FundHouseTooltip>
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => {
+                          recordAlertAction(h.house_id, 'funded');
+                          jumpToHouse(h.house_id);
+                          setFundConfirmKey(`${Date.now()}`);
+                        }}
+                        aria-label={`Fund ${houseTitleLine(h)} now`}
+                        className="h-8 flex-none rounded-lg px-2.5 text-[11px] font-bold"
+                      >
+                        <ShieldCheck className="mr-1 h-3 w-3" aria-hidden />
+                        Fund now
+                      </Button>
+                    </FundHouseTooltip>
                     <button
                       type="button"
                       onClick={() => {

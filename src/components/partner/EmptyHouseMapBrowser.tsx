@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { ChevronLeft, ChevronRight, Crosshair, Home, MapPin, Navigation, Search, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
+import { FundHouseTooltip } from './FundHouseTooltip';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
@@ -294,15 +295,17 @@ export function EmptyHouseMapBrowser({
               <Button type="button" variant="outline" className="h-11" onClick={() => onOpenHouse(activeHouse)}>
                 View details
               </Button>
-              <Button
-                type="button"
-                className="h-11"
-                variant={isPicked ? 'secondary' : 'default'}
-                disabled={busy}
-                onClick={() => onFundHouse(activeHouse)}
-              >
-                {isPicked ? 'Remove' : 'Fund'}
-              </Button>
+              <FundHouseTooltip>
+                <Button
+                  type="button"
+                  className="h-11"
+                  variant={isPicked ? 'secondary' : 'default'}
+                  disabled={busy}
+                  onClick={() => onFundHouse(activeHouse)}
+                >
+                  {isPicked ? 'Remove' : 'Fund'}
+                </Button>
+              </FundHouseTooltip>
               <Button
                 asChild
                 variant="ghost"

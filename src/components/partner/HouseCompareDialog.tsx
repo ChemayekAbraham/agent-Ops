@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { Home, MapPin, ShieldCheck, Wallet, X } from 'lucide-react';
 import { HighlightText, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
+import { FundHouseTooltip } from './FundHouseTooltip';
 
 const MONTHLY_ROI_RATE = 15;
 
@@ -184,21 +185,23 @@ export function HouseCompareDialog({
                   const status = fundingStatus(h, remaining);
                   return (
                     <td key={h.house_id} className="border-t border-border py-3 pl-3">
-                      <Button
-                        size="sm"
-                        variant={status.ready ? 'default' : 'outline'}
-                        disabled={busy}
-                        onClick={() => onFundHouse(h)}
-                        aria-label={`${status.ready ? 'Fund' : 'Pick'} ${houseTitleLine(h)}`}
-                        className="h-9 w-full rounded-lg text-[11px] font-bold"
-                      >
-                        {status.ready ? (
-                          <ShieldCheck className="mr-1 h-3.5 w-3.5" aria-hidden />
-                        ) : (
-                          <Wallet className="mr-1 h-3.5 w-3.5" aria-hidden />
-                        )}
-                        {status.ready ? 'Fund this house' : 'Pick & top up'}
-                      </Button>
+                      <FundHouseTooltip>
+                        <Button
+                          size="sm"
+                          variant={status.ready ? 'default' : 'outline'}
+                          disabled={busy}
+                          onClick={() => onFundHouse(h)}
+                          aria-label={`${status.ready ? 'Fund' : 'Pick'} ${houseTitleLine(h)}`}
+                          className="h-9 w-full rounded-lg text-[11px] font-bold"
+                        >
+                          {status.ready ? (
+                            <ShieldCheck className="mr-1 h-3.5 w-3.5" aria-hidden />
+                          ) : (
+                            <Wallet className="mr-1 h-3.5 w-3.5" aria-hidden />
+                          )}
+                          {status.ready ? 'Fund this house' : 'Pick & top up'}
+                        </Button>
+                      </FundHouseTooltip>
                     </td>
                   );
                 })}
