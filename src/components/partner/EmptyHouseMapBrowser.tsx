@@ -20,6 +20,8 @@ interface EmptyHouseMapBrowserProps {
   onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
+  /** Called when the user taps a marker or steps to a new house so the list can sort by distance from it. */
+  onActiveHouseChange?: (house: SupportableHouse | null) => void;
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
@@ -107,6 +109,7 @@ export function EmptyHouseMapBrowser({
   onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
+  onActiveHouseChange,
 }: EmptyHouseMapBrowserProps) {
   const [activeHouse, setActiveHouse] = useState<SupportableHouse | null>(null);
   const mappedHouses = useMemo(
@@ -121,6 +124,16 @@ export function EmptyHouseMapBrowser({
       setActiveHouse(null);
     }
   }, [activeHouse, houses]);
+
+  useEffect(() => {
+    onActiveHouseChange?.(activeHouse);
+  }, [activeHouse, onActiveHouseChange]);
+
+  useEffect(() => {
+    if (!focusedId) return;
+    const match = houses.find((house) => house.house_id === focusedId);
+    if (match) setActiveHouse(match);
+  }, [focusedId, houses]);
 
   const activeIndex = activeHouse
     ? mappedHouses.findIndex((house) => house.house_id === activeHouse.house_id)

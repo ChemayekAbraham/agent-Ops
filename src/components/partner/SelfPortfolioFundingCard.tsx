@@ -43,6 +43,21 @@ const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
   { value: 'rooms_desc', label: 'Most rooms' },
 ];
 
+/** Haversine distance between two lat/lng points in kilometres. */
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export type FeedOrder = 'rent' | 'houses';
 
 /** One recorded "balance now covers your saved houses" alert. */
@@ -130,6 +145,8 @@ export function SelfPortfolioFundingCard({
   // not cover it yet — "ready" fits within float, "topup" needs a top-up first.
   type HouseFundingStatus = 'all' | 'ready' | 'topup';
   const [houseFundingStatus, setHouseFundingStatus] = useState<HouseFundingStatus>('all');
+  // Reference point for the "Nearest first" sort, taken from the last house selected on the map.
+  const [referencePoint, setReferencePoint] = useState<{ lat: number; lng: number } | null>(null);
   // Side-by-side comparison picks (in-session only; never touches funding).
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -707,8 +724,16 @@ export function SelfPortfolioFundingCard({
     visibleHouses = [...visibleHouses].sort((a, b) => {
       const rentA = Number(a.monthly_rent || 0);
       const rentB = Number(b.monthly_rent || 0);
-      const distA = a.distance_km ?? Infinity;
-      const distB = b.distance_km ?? Infinity;
+      const distanceTo = (h: SupportableHouse) => {
+        const lat = Number(h.latitude);
+        const lng = Number(h.longitude);
+        if (referencePoint && Number.isFinite(lat) && Number.isFinite(lng)) {
+          return distanceKm(referencePoint.lat, referencePoint.lng, lat, lng);
+        }
+        return h.distance_km ?? Infinity;
+      };
+      const distA = distanceTo(a);
+      const distB = distanceTo(b);
       switch (houseSort) {
         case 'nearest':
           if (distA !== distB) return distA - distB;
@@ -734,7 +759,7 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
+  }, [plans, houses, feedOrder, houseSort, referencePoint, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
 
   useEffect(() => {
     setPage(0);
@@ -834,6 +859,13 @@ export function SelfPortfolioFundingCard({
             onSearchQueryChange={setHouseSearch}
             onOpenHouse={setDetailHouse}
             onFundHouse={(house) => toggleHouse(house.house_id)}
+            onActiveHouseChange={(house) => {
+              if (house && Number.isFinite(Number(house.latitude)) && Number.isFinite(Number(house.longitude))) {
+                setReferencePoint({ lat: Number(house.latitude), lng: Number(house.longitude) });
+              } else if (!house) {
+                setReferencePoint(null);
+              }
+            }}
           />
           <div className="flex min-h-0 flex-col gap-3 border-t border-border p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-4">
             <div>
@@ -936,6 +968,11 @@ export function SelfPortfolioFundingCard({
                 ))}
               </SelectContent>
             </Select>
+            {houseSort === 'nearest' && (
+              <span className="text-[10px] leading-tight text-muted-foreground max-w-[16rem]">
+                {referencePoint ? 'Sorted by distance from the selected house.' : 'Tap a house on the map to sort from that location.'}
+              </span>
+            )}
           </div>
           <Select value={houseDistrict} onValueChange={setHouseDistrict}>
             <SelectTrigger className="h-9 w-auto min-w-[130px] text-xs font-semibold" aria-label="Filter by district">
