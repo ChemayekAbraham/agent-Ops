@@ -160,6 +160,10 @@ export function SelfPortfolioFundingCard({
   // not cover it yet — "ready" fits within float, "topup" needs a top-up first.
   type HouseFundingStatus = 'all' | 'ready' | 'topup';
   const [houseFundingStatus, setHouseFundingStatus] = useState<HouseFundingStatus>('all');
+  // Country filter (Africa-wide): narrows both the map/heatmap viewport and the cards.
+  const [houseCountry, setHouseCountry] = useState<string>('all');
+  // Listing age ceiling in days ('all' = any age).
+  const [houseListingAge, setHouseListingAge] = useState<string>('all');
   // Reference point for the "Nearest first" sort, taken from the last house selected on the map.
   const [referencePoint, setReferencePoint] = useState<{ lat: number; lng: number } | null>(null);
   // Side-by-side comparison picks (in-session only; never touches funding).
