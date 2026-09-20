@@ -1666,6 +1666,7 @@ export function SelfPortfolioFundingCard({
                  onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
                  flash={flashHouseId === item.id || fundableIds.includes(item.id)}
                 searchQuery={houseSearch}
+                origin={referencePoint ?? userPoint}
                 />
               <button
                 type="button"
