@@ -208,10 +208,14 @@ export function HouseSupportCard({
         </div>
 
         <div className="min-w-0 flex-1 p-4">
-          <p className="truncate text-sm font-bold leading-tight sm:text-base">{titleLine}</p>
+          <p className="truncate text-sm font-bold leading-tight sm:text-base">
+            <HighlightText text={titleLine} query={searchQuery} />
+          </p>
           <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
             <MapPin className="mt-0.5 h-3 w-3 flex-none" />
-            <span className="line-clamp-2">{addressLine || 'Uganda'}</span>
+            <span className="line-clamp-2">
+              <HighlightText text={addressLine || 'Uganda'} query={searchQuery} />
+            </span>
           </p>
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
