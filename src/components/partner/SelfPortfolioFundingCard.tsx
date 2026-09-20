@@ -170,6 +170,24 @@ export function SelfPortfolioFundingCard({
   // The funder's own device location, used for the distance / travel-time labels
   // on each house card when no map house has been tapped yet.
   const [userPoint, setUserPoint] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (cancelled) return;
+        setUserPoint({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        /* location off or refused — cards simply omit the distance labels */
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   // Side-by-side comparison picks (in-session only; never touches funding).
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
