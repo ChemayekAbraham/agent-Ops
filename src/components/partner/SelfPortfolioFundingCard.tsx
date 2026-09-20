@@ -1689,6 +1689,7 @@ export function SelfPortfolioFundingCard({
           if (!houseSelected.includes(house.house_id)) toggleHouse(house.house_id);
         }}
         onRemove={(houseId) => setCompareIds((prev) => prev.filter((x) => x !== houseId))}
+        searchQuery={houseSearch}
       />
 
       <SelfPortfolioDeployDialog
