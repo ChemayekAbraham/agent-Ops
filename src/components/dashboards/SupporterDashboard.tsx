@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
 import { 
-  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight
+  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight, Menu
 } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
@@ -125,6 +125,7 @@ export default function SupporterDashboard({
   const [showWallet, setShowWallet] = useState(false);
   const [showFunderHub, setShowFunderHub] = useState(false);
   const [showInvestments, setShowInvestments] = useState(false);
+  const [capitalView, setCapitalView] = useState<'direct' | 'managed' | 'angel'>('direct');
   const [investmentsTab, setInvestmentsTab] = useState<'accounts' | 'angel'>('accounts');
   const [focusPortfolioId, setFocusPortfolioId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -433,7 +434,7 @@ export default function SupporterDashboard({
   };
 
   const menuItems = [
-    { icon: CreditCard, label: 'Add Funding', onClick: () => setShowPaymentPartners(true) },
+    { icon: Menu, label: 'Funder Menu', onClick: () => setMenuOpen(true) },
   ];
 
   return (
@@ -458,8 +459,6 @@ export default function SupporterDashboard({
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
         <main className="px-3 xs:px-4 py-4 xs:py-5 space-y-5 max-w-lg mx-auto">
-          <MissionBanner dashboardRole="supporter" />
-
           {/* ═══ INLINE GREETING BAR ═══ */}
           <div className="flex flex-col items-center gap-2 py-2">
             <ProfileSummaryPopover
@@ -487,55 +486,14 @@ export default function SupporterDashboard({
             </div>
             <AiIdButton variant="compact" />
           </div>
-
-
-
-
-
-          <WidgetErrorBoundary label="Portfolio card">
-            <PartnerPortfolioWalletCard
-              onAddCard={() => {
-                hapticTap();
-                const el = document.getElementById('opportunities');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-              onPortfolios={() => { hapticTap(); setInvestmentsTab('accounts'); setShowInvestments(true); }}
-              onCalculator={() => { hapticTap(); setShowCalculator(true); }}
-              onMore={() => { hapticTap(); setShowFunderHub(true); }}
-            />
-          </WidgetErrorBoundary>
-
-          <WidgetErrorBoundary label="Capital routes">
-            <CapitalRoutesSection />
-          </WidgetErrorBoundary>
-
-          <WidgetErrorBoundary label="Your portfolio">
-            <PartnerPortfolioSection
-              onViewPortfolios={(portfolioId) => {
-                hapticTap();
-                if (portfolioId) setFocusPortfolioId(portfolioId);
-                setInvestmentsTab('accounts');
-                setShowInvestments(true);
-              }}
-              onExploreOpportunities={() => {
-                const el = document.getElementById('opportunities');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-            />
-          </WidgetErrorBoundary>
-
-          <WidgetErrorBoundary label="Houses you support">
-            <SupportedHouseReturnsSection />
-          </WidgetErrorBoundary>
-
-
-
-
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
           <div id="opportunities" className="relative scroll-mt-4 space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="w-1 h-5 rounded-full bg-primary" />
-              <h2 className="text-sm font-black text-foreground tracking-tight">Capital Opportunities</h2>
+              <div>
+                <h2 className="text-base font-black text-foreground tracking-tight">Support tenants directly</h2>
+                <p className="text-[11px] text-muted-foreground">Choose a verified home and fund the tenant’s Rent Plan.</p>
+              </div>
             </div>
             {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
             <WidgetErrorBoundary label="Capital opportunities">
@@ -547,56 +505,11 @@ export default function SupporterDashboard({
               ) : (
                 <>
                   <FunderApprovalBanner className="mb-3" />
-                  <FunderCapitalOpportunities />
+                  <FunderCapitalOpportunities key={capitalView} initialView={capitalView} embedded />
                 </>
               )}
             </WidgetErrorBoundary>
           </div>
-
-          {/* ═══ MY FUNDED HOUSES (collapsible) ═══ */}
-          {virtualHouses.length > 0 && (
-            <div id="my-houses" className="space-y-3 scroll-mt-4">
-              <div className="flex items-center gap-2 px-1">
-                <div className="w-1 h-5 rounded-full bg-success" />
-                <h2 className="text-sm font-black text-foreground tracking-tight">My Houses</h2>
-              </div>
-              <Collapsible defaultOpen>
-                <CollapsibleTrigger asChild>
-                  <button className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-card border border-border/60 shadow-sm hover:bg-accent/30 transition-colors touch-manipulation active:scale-[0.98]">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <span className="text-lg">🏘️</span>
-                      </div>
-                      <div className="text-left">
-                        <span className="font-bold text-sm text-foreground">{virtualHouses.length} Properties</span>
-                        <p className="text-[10px] text-muted-foreground">Your funded portfolio</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
-                        {virtualHouses.length}
-                      </Badge>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
-                    </div>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="pt-3">
-                    <WidgetErrorBoundary label="My houses">
-                      <VirtualHousesFeed
-                        houses={virtualHouses}
-                        loading={loading}
-                        onHouseTap={handleHouseTap}
-                      />
-                    </WidgetErrorBoundary>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          )}
-
-          {/* Houses on Welile / Available Now moved inside
-              "Support Tenants Directly" in Capital Opportunities. */}
 
         </main>
       </div>
@@ -618,10 +531,13 @@ export default function SupporterDashboard({
           setShowPackageSheet(true);
         }}
         onRefreshRef={opportunitiesRefreshRef}
+        onOpenWallet={() => setShowFunderHub(true)}
+        onOpenPortfolios={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
+        onShowDirectSupport={() => { setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
+        onShowManagedSupport={() => { setCapitalView('managed'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
+        onShowAngelPool={() => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
+        onShowSupportedHouses={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
       />
-
-      {/* Invite & Earn */}
-      <InviteAndEarnCard variant="supporter" compact />
 
       <PaymentPartnersDialog 
         open={showPaymentPartners} 

@@ -122,12 +122,12 @@ export function HouseSupportCard({
           onOpenDetail(house);
         }
       }}
-      className={`relative overflow-hidden rounded-3xl p-2.5 transition-all cursor-pointer border ${
+      className={`relative overflow-hidden rounded-2xl p-0 transition-all cursor-pointer border ${
         isSelected ? 'ring-2 ring-primary bg-primary/5 border-primary' : 'border-primary/30 hover:border-primary/60'
       }`}
     >
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-2xl bg-muted sm:aspect-square sm:w-32">
+      <div className="flex flex-col">
+        <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
           {images.length > 0 ? (
             <img
               src={images[0]}
@@ -152,7 +152,7 @@ export function HouseSupportCard({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 p-4">
           <p className="truncate text-sm font-bold leading-tight sm:text-base">{titleLine}</p>
           <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
             <MapPin className="mt-0.5 h-3 w-3 flex-none" />

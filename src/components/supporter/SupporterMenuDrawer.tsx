@@ -18,6 +18,9 @@ import {
   FileText,
   ChevronRight,
   Zap,
+  Home,
+  Building2,
+  Users,
   type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -37,6 +40,12 @@ interface SupporterMenuDrawerProps {
   onLockedClick?: () => void;
   onFundCategory?: (category: RentCategory) => void;
   onRefreshRef?: React.MutableRefObject<(() => Promise<void>) | null>;
+  onOpenWallet?: () => void;
+  onOpenPortfolios?: () => void;
+  onShowDirectSupport?: () => void;
+  onShowManagedSupport?: () => void;
+  onShowAngelPool?: () => void;
+  onShowSupportedHouses?: () => void;
 }
 
 interface MenuItem {
@@ -89,6 +98,12 @@ export function SupporterMenuDrawer({
   onLockedClick,
   onFundCategory,
   onRefreshRef,
+  onOpenWallet,
+  onOpenPortfolios,
+  onShowDirectSupport,
+  onShowManagedSupport,
+  onShowAngelPool,
+  onShowSupportedHouses,
 }: SupporterMenuDrawerProps) {
   const navigate = useNavigate();
 
@@ -128,9 +143,20 @@ export function SupporterMenuDrawer({
       ]
     },
     {
-      title: 'Investments',
+      title: 'Support tenants',
       items: [
+        ...(onShowDirectSupport ? [{ icon: Home, label: 'Houses with ready tenants', description: 'Support an approved tenant directly', onClick: onShowDirectSupport }] : []),
+        ...(onShowDirectSupport ? [{ icon: Building2, label: 'Houses without tenants', description: 'Browse verified vacant houses', onClick: onShowDirectSupport }] : []),
+        ...(onShowManagedSupport ? [{ icon: Users, label: 'Welile-managed support', description: 'We deploy and manage your capital', onClick: onShowManagedSupport }] : []),
         { icon: CreditCard, label: 'Support Tenant', description: 'Fund via Mobile Money', onClick: onAddInvestment },
+      ]
+    },
+    {
+      title: 'Portfolio & returns',
+      items: [
+        ...(onOpenPortfolios ? [{ icon: TrendingUp, label: 'My Portfolios', description: 'View active and past portfolios', onClick: onOpenPortfolios }] : []),
+        ...(onShowSupportedHouses ? [{ icon: Home, label: 'Houses I Support', description: 'Track funded houses and tenants', onClick: onShowSupportedHouses }] : []),
+        ...(onShowAngelPool ? [{ icon: Zap, label: 'Angel Pool', description: 'View Welile share opportunities', onClick: onShowAngelPool }] : []),
         { icon: TrendingUp, label: 'ROI Analytics', description: 'Earnings & projections', path: '/supporter-earnings' },
         { icon: History, label: 'Reinvestment History', description: 'Compounding growth timeline', path: '/reinvestment-history' },
         { icon: Calculator, label: 'ROI Calculator', description: 'Project your returns', onClick: onOpenCalculator },
@@ -139,7 +165,7 @@ export function SupporterMenuDrawer({
     {
       title: 'Finances',
       items: [
-        { icon: Wallet, label: 'My Wallet', description: 'Balance & transactions', path: '/transactions' },
+        { icon: Wallet, label: 'My Wallet', description: 'Balance & transactions', onClick: onOpenWallet, path: onOpenWallet ? undefined : '/transactions' },
         { icon: History, label: 'History', description: 'All payment activity', path: '/transactions' },
         { icon: FileText, label: 'Statement', description: 'Download financial statement', path: '/financial-statement' },
         { icon: Receipt, label: 'Receipts', description: 'Payment records', path: '/my-receipts' },
