@@ -95,6 +95,7 @@ export function SelfPortfolioFundingCard({
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
+  const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
 
   // Picked houses survive reloads until the partner funds or removes them.
   const selectionKey = `psm-house-selection-${partnerId}`;
@@ -703,8 +704,9 @@ export function SelfPortfolioFundingCard({
                 busy={busy}
                 onToggle={toggleHouse}
                 onOpenDetail={setDetailHouse}
-                onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
-              />
+                 onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
+                 flash={flashHouseId === item.id}
+               />
             </div>
           );
         }
