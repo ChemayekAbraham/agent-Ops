@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, Crosshair, Home, Loader2, MapPin, Navigation
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
+import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './emptyHouseMapCluster';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
