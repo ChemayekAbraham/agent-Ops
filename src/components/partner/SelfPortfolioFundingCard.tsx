@@ -33,13 +33,24 @@ const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
 
-type HouseSort = 'return_desc' | 'rent_desc' | 'rent_asc' | 'rooms_desc' | 'nearest';
+type HouseSort =
+  | 'return_desc'
+  | 'rent_desc'
+  | 'rent_asc'
+  | 'rooms_desc'
+  | 'nearest'
+  | 'location_asc'
+  | 'ready_first'
+  | 'relevance';
 
 const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
   { value: 'rent_asc', label: 'Rent: low to high' },
-  { value: 'nearest', label: 'Nearest first' },
-  { value: 'return_desc', label: 'Biggest monthly return' },
   { value: 'rent_desc', label: 'Rent: high to low' },
+  { value: 'nearest', label: 'Nearest first' },
+  { value: 'location_asc', label: 'Location: A to Z' },
+  { value: 'ready_first', label: 'Ready to fund first' },
+  { value: 'relevance', label: 'Best match for my search' },
+  { value: 'return_desc', label: 'Biggest monthly return' },
   { value: 'rooms_desc', label: 'Most rooms' },
 ];
 
@@ -753,6 +764,28 @@ export function SelfPortfolioFundingCard({
       };
       const distA = distanceTo(a);
       const distB = distanceTo(b);
+      const locationLabel = (h: SupportableHouse) =>
+        [h.district, h.sub_county, h.village]
+          .map((v) => (v ?? '').trim())
+          .filter(Boolean)
+          .join(', ')
+          .toLocaleLowerCase();
+      // Ready to fund now (rent covered by available balance) sorts ahead of top-up needed.
+      const readyRank = (rent: number) => (rent <= remaining ? 0 : 1);
+      // Relevance: earlier and more field matches for the search term rank higher.
+      const relevanceScore = (h: SupportableHouse) => {
+        if (!normalizedSearch) return 0;
+        const fields = [houseTitleLine(h), h.title, h.district, h.sub_county, h.village, h.house_category];
+        let score = 0;
+        for (const field of fields) {
+          const value = (field ?? '').toLocaleLowerCase();
+          if (!value) continue;
+          const at = value.indexOf(normalizedSearch);
+          if (at === 0) score += 3;
+          else if (at > 0) score += 1;
+        }
+        return score;
+      };
       switch (houseSort) {
         case 'nearest':
           if (distA !== distB) return distA - distB;
@@ -764,6 +797,21 @@ export function SelfPortfolioFundingCard({
           return rentB - rentA;
         case 'rooms_desc':
           return Number(b.number_of_rooms || 0) - Number(a.number_of_rooms || 0);
+        case 'location_asc': {
+          const cmp = locationLabel(a).localeCompare(locationLabel(b));
+          if (cmp !== 0) return cmp;
+          return rentA - rentB;
+        }
+        case 'ready_first': {
+          const cmp = readyRank(rentA) - readyRank(rentB);
+          if (cmp !== 0) return cmp;
+          return rentA - rentB;
+        }
+        case 'relevance': {
+          const cmp = relevanceScore(b) - relevanceScore(a);
+          if (cmp !== 0) return cmp;
+          return rentA - rentB;
+        }
         case 'return_desc':
         default:
           return (
@@ -778,7 +826,18 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, referencePoint, houseDistrict, houseSubCounty, matchesBaseFilters]);
+  }, [
+    plans,
+    houses,
+    feedOrder,
+    houseSort,
+    referencePoint,
+    houseDistrict,
+    houseSubCounty,
+    matchesBaseFilters,
+    normalizedSearch,
+    remaining,
+  ]);
 
   const resetFilters = useCallback(() => {
     setHouseSort('rent_asc');
