@@ -132,7 +132,8 @@ export function useEmptyHouseMapCells(
         p_min_rent: filters.minRent ?? null,
         p_max_rent: filters.maxRent ?? null,
         p_limit: 400,
-      });
+      }).abortSignal(signal);
+      if (signal?.aborted) throw new Error('aborted');
       if (error) {
         mapPerf.recordFailure(error.message ?? 'Viewport query failed');
         throw error;
