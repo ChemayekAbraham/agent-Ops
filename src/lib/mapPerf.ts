@@ -100,13 +100,15 @@ export const mapPerf = {
   recordFailure(message: string) {
     failures += 1;
     lastError = message;
+    mapTelemetry.recordFailure(message);
     emit();
   },
 
-  /** Time spent building and committing the map markers. */
+  /** Time spent building and committing the map markers (clustering response). */
   recordRender(durationMs: number, markers: number) {
     push(renderMs, durationMs);
     markersLast = markers;
+    mapTelemetry.recordRender(durationMs);
     emit();
   },
 
