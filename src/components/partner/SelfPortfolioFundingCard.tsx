@@ -684,6 +684,18 @@ export function SelfPortfolioFundingCard({
   const normalizedSearch = useMemo(() => houseSearch.trim().toLocaleLowerCase(), [houseSearch]);
   const rentMinBound = useMemo(() => Number(houseRentMin), [houseRentMin]);
   const rentMaxBound = useMemo(() => Number(houseRentMax), [houseRentMax]);
+  const selectedCountry = useMemo(
+    () => (houseCountry === 'all' ? null : countryByCode(houseCountry)),
+    [houseCountry],
+  );
+  const listingAgeDays = useMemo(
+    () => (houseListingAge === 'all' ? null : Number(houseListingAge)),
+    [houseListingAge],
+  );
+  const listedAfter = useMemo(
+    () => (listingAgeDays ? Date.now() - listingAgeDays * 24 * 60 * 60 * 1000 : null),
+    [listingAgeDays],
+  );
 
   // Shared filter predicate used by location-chip counts and the main feed.
   const matchesBaseFilters = useCallback(
