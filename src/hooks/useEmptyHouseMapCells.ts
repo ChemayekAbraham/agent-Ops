@@ -94,6 +94,13 @@ export function useEmptyHouseMapCells(
       }
     : null;
 
+  // Classify each viewport read: a key we already requested is served from cache.
+  const viewportKey = key ? JSON.stringify([key, filters]) : null;
+  useEffect(() => {
+    if (!viewportKey || !enabled) return;
+    mapPerf.noteViewportKey(viewportKey);
+  }, [viewportKey, enabled]);
+
   return useQuery<EmptyHouseMapCells>({
     queryKey: ['empty-house-map-cells', key, filters],
     enabled: enabled && !!viewport,
@@ -103,6 +110,7 @@ export function useEmptyHouseMapCells(
     refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!viewport) return { cells: [], housesInView: 0, scanCapped: false };
+      const startedAt = performance.now();
       const { data, error } = await supabase.rpc('map_empty_house_cells', {
         p_min_lat: viewport.minLat,
         p_min_lng: viewport.minLng,
