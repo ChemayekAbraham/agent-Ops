@@ -987,7 +987,9 @@ export function SelfPortfolioFundingCard({
           <Home className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
           <p className="text-sm font-semibold">No houses match these filters</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Try another district or tap Reset to see all {houses.length} houses again.
+            {showSavedReadyOnly
+              ? 'You have no saved houses that your current balance can fund. Tap Reset to see all houses or top up your balance.'
+              : `Try another district or tap Reset to see all ${houses.length} houses again.`}
           </p>
         </Card>
       )}
