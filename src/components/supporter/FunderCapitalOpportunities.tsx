@@ -519,8 +519,7 @@ export function FunderCapitalOpportunities({
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
-  type EmptyHouseInfoSection = 'business' | 'earnings' | 'terms' | null;
-  const [openEmptyHouseInfo, setOpenEmptyHouseInfo] = useState<EmptyHouseInfoSection>(null);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [feedOrder, setFeedOrder] = useState<FeedOrder>(initialFeedOrder);
 
   const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
@@ -866,43 +865,32 @@ export function FunderCapitalOpportunities({
             </div>
           </div>
 
-          {/* Expandable explainers — kept compact so the map stays visible first */}
+          {/* Single "How it works" explainer — one tap opens all guidance sections */}
           <div className="flex flex-wrap items-center gap-2">
-            {[
-              { key: 'business' as const, label: 'How it works', icon: Info },
-              { key: 'earnings' as const, label: 'Earnings example', icon: Calculator },
-              { key: 'terms' as const, label: 'Funding terms', icon: Shield },
-            ].map((section) => {
-              const active = openEmptyHouseInfo === section.key;
-              const Icon = section.icon;
-              return (
-                <Button
-                  key={section.key}
-                  type="button"
-                  variant={active ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-8 gap-1.5 rounded-full text-[11px] font-bold"
-                  aria-expanded={active}
-                  aria-controls={`empty-house-info-${section.key}`}
-                  onClick={() => setOpenEmptyHouseInfo(active ? null : section.key)}
-                >
-                  <Icon className="h-3.5 w-3.5" aria-hidden />
-                  {section.label}
-                  {active ? <ChevronUp className="h-3 w-3" aria-hidden /> : <ChevronDown className="h-3 w-3" aria-hidden />}
-                </Button>
-              );
-            })}
+            <Button
+              type="button"
+              variant={showHowItWorks ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 gap-1.5 rounded-full text-[11px] font-bold"
+              aria-expanded={showHowItWorks}
+              aria-controls="empty-house-how-it-works"
+              onClick={() => setShowHowItWorks(v => !v)}
+            >
+              <Info className="h-3.5 w-3.5" aria-hidden />
+              How it works
+              {showHowItWorks ? <ChevronUp className="h-3 w-3" aria-hidden /> : <ChevronDown className="h-3 w-3" aria-hidden />}
+            </Button>
           </div>
 
           <AnimatePresence initial={false}>
-            {openEmptyHouseInfo === 'business' && (
+            {showHowItWorks && (
               <motion.div
-                id="empty-house-info-business"
+                id="empty-house-how-it-works"
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden"
+                className="overflow-hidden space-y-3"
               >
                 <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 sm:p-3.5 space-y-2.5">
                   <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
@@ -923,18 +911,7 @@ export function FunderCapitalOpportunities({
                     ))}
                   </ol>
                 </div>
-              </motion.div>
-            )}
 
-            {openEmptyHouseInfo === 'earnings' && (
-              <motion.div
-                id="empty-house-info-earnings"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden"
-              >
                 <div className="rounded-xl border border-success/25 bg-success/5 p-3 sm:p-3.5 space-y-2.5">
                   <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
                     See what you could earn each month.
@@ -953,18 +930,7 @@ export function FunderCapitalOpportunities({
                     Monthly earnings = rent amount × 15%. Over a 12-month Rent Plan, UGX 90,000 × 12 = UGX 1,080,000.
                   </p>
                 </div>
-              </motion.div>
-            )}
 
-            {openEmptyHouseInfo === 'terms' && (
-              <motion.div
-                id="empty-house-info-terms"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden"
-              >
                 <div className="rounded-xl border border-border/60 bg-muted/30 p-3 sm:p-3.5 space-y-2">
                   <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
                     A few things to know before you fund.
