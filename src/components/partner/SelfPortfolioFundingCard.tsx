@@ -17,6 +17,7 @@ import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
 import { PlanShareButton } from './PlanShareButton';
 import { SlotAmount } from './SlotAmount';
 import {
+  HighlightText,
   HouseSupportBar,
   HouseSupportCard,
   houseTitleLine,
