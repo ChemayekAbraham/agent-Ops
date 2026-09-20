@@ -1154,8 +1154,11 @@ export function SelfPortfolioFundingCard({
                 }`}
               >
                 All districts
+                <span className="ml-1 opacity-70">
+                  ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
+                </span>
               </button>
-              {houseDistricts.map(([key, label]) => (
+              {houseDistricts.map(([key, { label, count }]) => (
                 <button
                   key={key}
                   type="button"
@@ -1168,6 +1171,7 @@ export function SelfPortfolioFundingCard({
                   }`}
                 >
                   {label}
+                  <span className="ml-1 opacity-70">({count})</span>
                 </button>
               ))}
             </div>
@@ -1186,8 +1190,11 @@ export function SelfPortfolioFundingCard({
                 }`}
               >
                 All neighborhoods
+                <span className="ml-1 opacity-70">
+                  ({houseSubCounties.reduce((sum, [, { count }]) => sum + count, 0)})
+                </span>
               </button>
-              {houseSubCounties.map(([key, label]) => (
+              {houseSubCounties.map(([key, { label, count }]) => (
                 <button
                   key={key}
                   type="button"
@@ -1200,6 +1207,7 @@ export function SelfPortfolioFundingCard({
                   }`}
                 >
                   {label}
+                  <span className="ml-1 opacity-70">({count})</span>
                 </button>
               ))}
             </div>
