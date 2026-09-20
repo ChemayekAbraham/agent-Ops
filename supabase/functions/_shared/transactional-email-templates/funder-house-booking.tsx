@@ -84,6 +84,8 @@ export function FunderHouseBooking({
   promised_funding_date = '',
   release_date = '',
   days_left = 7,
+  first_return_date = '',
+  return_rate = 15,
   houses = [],
   dashboard_url = 'https://welileapp.com/dashboard/supporter',
   currency = 'UGX',
@@ -95,6 +97,8 @@ export function FunderHouseBooking({
   const year = new Date().getFullYear()
   const count = house_count || houses.length
   const copy = COPY[kind] ?? COPY.booked
+  const showEarnings = (kind === 'booked' || kind === 'funded') && Number(monthly_return) > 0
+
 
   return (
     <Html>
