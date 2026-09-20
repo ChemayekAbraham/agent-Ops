@@ -420,6 +420,70 @@ export function SelfPortfolioFundingCard({
         {houses.length === 1 ? '' : 's'}
       </p>
 
+      {feedOrder === 'houses' && houses.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-1" aria-label="Sort and filter empty houses">
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
+              <SelectTrigger className="h-9 w-auto min-w-[150px] text-xs font-semibold" aria-label="Sort houses">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HOUSE_SORTS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Select value={houseDistrict} onValueChange={setHouseDistrict}>
+            <SelectTrigger className="h-9 w-auto min-w-[130px] text-xs font-semibold" aria-label="Filter by district">
+              <SelectValue placeholder="All districts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All districts</SelectItem>
+              {houseDistricts.map(([key, label]) => (
+                <SelectItem key={key} value={key}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            variant={houseWithinFloat ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            aria-pressed={houseWithinFloat}
+            onClick={() => setHouseWithinFloat((v) => !v)}
+          >
+            Within my float
+          </Button>
+          {(houseDistrict !== 'all' || houseWithinFloat || houseSort !== 'return_desc') && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs"
+              onClick={() => {
+                setHouseSort('return_desc');
+                setHouseDistrict('all');
+                setHouseWithinFloat(false);
+              }}
+            >
+              <X className="h-3.5 w-3.5 mr-1" aria-hidden />
+              Reset
+            </Button>
+          )}
+          {(houseDistrict !== 'all' || houseWithinFloat) && (
+            <span className="text-[11px] font-semibold text-muted-foreground">
+              {feed.length} of {houses.length} shown
+            </span>
+          )}
+        </div>
+      )}
+
 
       {feed.length === 0 && (
         <Card className="p-6 rounded-2xl text-center">
