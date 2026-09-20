@@ -110,6 +110,8 @@ export function SelfPortfolioFundingCard({
   const [houseSort, setHouseSort] = useState<HouseSort>('return_desc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
+  // Show only saved houses whose current balance is enough to fund them.
+  const [showSavedReadyOnly, setShowSavedReadyOnly] = useState(false);
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
   const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
@@ -575,6 +577,11 @@ export function SelfPortfolioFundingCard({
     if (houseWithinFloat) {
       visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
     }
+    if (showSavedReadyOnly) {
+      visibleHouses = visibleHouses.filter(
+        (h) => houseSelected.includes(h.house_id) && Number(h.monthly_rent || 0) <= remaining,
+      );
+    }
     visibleHouses = [...visibleHouses].sort((a, b) => {
       switch (houseSort) {
         case 'rent_asc':
@@ -597,11 +604,11 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseWithinFloat, remaining]);
+  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
 
   useEffect(() => {
     setPage(0);
-  }, [houseSort, houseDistrict, houseWithinFloat, feedOrder]);
+  }, [houseSort, houseDistrict, houseWithinFloat, showSavedReadyOnly, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
@@ -746,7 +753,17 @@ export function SelfPortfolioFundingCard({
           >
             Within my float
           </Button>
-          {(houseDistrict !== 'all' || houseWithinFloat || houseSort !== 'return_desc') && (
+          <Button
+            type="button"
+            variant={showSavedReadyOnly ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            aria-pressed={showSavedReadyOnly}
+            onClick={() => setShowSavedReadyOnly((v) => !v)}
+          >
+            Saved · Ready to fund
+          </Button>
+          {(houseDistrict !== 'all' || houseWithinFloat || showSavedReadyOnly || houseSort !== 'return_desc') && (
             <Button
               type="button"
               variant="ghost"
@@ -756,13 +773,14 @@ export function SelfPortfolioFundingCard({
                 setHouseSort('return_desc');
                 setHouseDistrict('all');
                 setHouseWithinFloat(false);
+                setShowSavedReadyOnly(false);
               }}
             >
               <X className="h-3.5 w-3.5 mr-1" aria-hidden />
               Reset
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseWithinFloat) && (
+          {(houseDistrict !== 'all' || houseWithinFloat || showSavedReadyOnly) && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
@@ -969,7 +987,9 @@ export function SelfPortfolioFundingCard({
           <Home className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
           <p className="text-sm font-semibold">No houses match these filters</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Try another district or tap Reset to see all {houses.length} houses again.
+            {showSavedReadyOnly
+              ? 'You have no saved houses that your current balance can fund. Tap Reset to see all houses or top up your balance.'
+              : `Try another district or tap Reset to see all ${houses.length} houses again.`}
           </p>
         </Card>
       )}
