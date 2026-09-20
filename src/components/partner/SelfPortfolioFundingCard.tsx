@@ -636,31 +636,85 @@ export function SelfPortfolioFundingCard({
     | { kind: 'plan'; id: string; plan: FundablePlan }
     | { kind: 'house'; id: string; house: SupportableHouse };
 
-  // District filter options: distinct districts present in the current list.
+  const normalizedSearch = useMemo(() => houseSearch.trim().toLocaleLowerCase(), [houseSearch]);
+  const rentMinBound = useMemo(() => Number(houseRentMin), [houseRentMin]);
+  const rentMaxBound = useMemo(() => Number(houseRentMax), [houseRentMax]);
+
+  // Shared filter predicate used by location-chip counts and the main feed.
+  const matchesBaseFilters = useCallback(
+    (h: SupportableHouse) => {
+      if (normalizedSearch) {
+        const matchesSearch = [
+          houseTitleLine(h),
+          h.title,
+          h.house_category,
+          h.district,
+          h.sub_county,
+          h.village,
+          h.region,
+        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch));
+        if (!matchesSearch) return false;
+      }
+      const rent = Number(h.monthly_rent || 0);
+      if (houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) && rent < rentMinBound) return false;
+      if (houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) && rent > rentMaxBound) return false;
+      if (houseFundingStatus === 'ready' && rent > remaining) return false;
+      if (houseFundingStatus === 'topup' && rent <= remaining) return false;
+      if (houseWithinFloat && rent > remaining) return false;
+      if (showSavedReadyOnly && (!houseSelected.includes(h.house_id) || rent > remaining)) return false;
+      return true;
+    },
+    [
+      normalizedSearch,
+      houseRentMin,
+      houseRentMax,
+      houseFundingStatus,
+      houseWithinFloat,
+      showSavedReadyOnly,
+      houseSelected,
+      remaining,
+      rentMinBound,
+      rentMaxBound,
+    ],
+  );
+
+  // District filter options with counts — scoped to current sub-county and all other active filters.
   const houseDistricts = useMemo(() => {
-    const set = new Map<string, string>();
+    const map = new Map<string, { label: string; count: number }>();
     for (const h of houses) {
+      if (!matchesBaseFilters(h)) continue;
+      if (houseSubCounty !== 'all' && (h.sub_county ?? '').trim().toLowerCase() !== houseSubCounty) continue;
       const raw = (h.district ?? '').trim();
       if (!raw) continue;
       const key = raw.toLowerCase();
-      if (!set.has(key)) set.set(key, raw);
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(key, { label: raw, count: 1 });
+      }
     }
-    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [houses]);
+    return [...map.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
+  }, [houses, matchesBaseFilters, houseSubCounty]);
 
-  // Neighborhood chip options: distinct sub-counties, scoped to the selected
-  // district so tapping a district narrows the neighborhood choices.
+  // Neighborhood filter options with counts — scoped to the selected district and all other active filters.
   const houseSubCounties = useMemo(() => {
-    const set = new Map<string, string>();
+    const map = new Map<string, { label: string; count: number }>();
     for (const h of houses) {
+      if (!matchesBaseFilters(h)) continue;
       if (houseDistrict !== 'all' && (h.district ?? '').trim().toLowerCase() !== houseDistrict) continue;
       const raw = (h.sub_county ?? '').trim();
       if (!raw) continue;
       const key = raw.toLowerCase();
-      if (!set.has(key)) set.set(key, raw);
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(key, { label: raw, count: 1 });
+      }
     }
-    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [houses, houseDistrict]);
+    return [...map.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
+  }, [houses, matchesBaseFilters, houseDistrict]);
 
   // Changing district can invalidate a neighborhood chip choice.
   useEffect(() => {
