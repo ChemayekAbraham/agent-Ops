@@ -232,33 +232,77 @@ export function EmptyHouseMapBrowser({
         center={KAMPALA}
         zoom={11}
         scrollWheelZoom
+        preferCanvas
         attributionControl={false}
         className="h-full w-full"
+        ref={setMapInstance}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-        {mappedHouses.map((house) => {
-          const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
+        {cells.map((cell) => {
+          const house = cell.count === 1 && cell.house
+            ? (mappedHouses.find((item) => item.house_id === cell.house!.house_id) ?? cell.house)
+            : null;
+
+          if (house) {
+            const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
+            const icon = L.divIcon({
+              className: '',
+              html: `<span class="empty-house-map-pin${active ? ' empty-house-map-pin--active' : ''}">${formatDynamic(Number(house.monthly_rent || 0))}</span>`,
+              iconSize: [112, 34],
+              iconAnchor: [56, 34],
+            });
+
+            return (
+              <Marker
+                key={house.house_id}
+                position={[Number(house.latitude), Number(house.longitude)]}
+                icon={icon}
+                title={`${houseTitleLine(house)} · ${formatDynamic(Number(house.monthly_rent || 0))}`}
+                eventHandlers={{ click: () => setActiveHouse(house) }}
+              />
+            );
+          }
+
+          const size = cell.count >= 1000 ? 58 : cell.count >= 100 ? 50 : 42;
+          const label = cell.count >= 1000 ? `${Math.round(cell.count / 1000)}k+` : cell.count.toLocaleString();
           const icon = L.divIcon({
             className: '',
-            html: `<span class="empty-house-map-pin${active ? ' empty-house-map-pin--active' : ''}">${formatDynamic(Number(house.monthly_rent || 0))}</span>`,
-            iconSize: [112, 34],
-            iconAnchor: [56, 34],
+            html: `<span class="empty-house-map-cluster" style="width:${size}px;height:${size}px">${label}</span>`,
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
           });
 
           return (
             <Marker
-              key={house.house_id}
-              position={[Number(house.latitude), Number(house.longitude)]}
+              key={cell.key}
+              position={[cell.latitude, cell.longitude]}
               icon={icon}
-              title={`${houseTitleLine(house)} · ${formatDynamic(Number(house.monthly_rent || 0))}`}
-              eventHandlers={{ click: () => setActiveHouse(house) }}
+              title={`${cell.count.toLocaleString()} empty houses · ${formatDynamic(cell.minRent)} – ${formatDynamic(cell.maxRent)}`}
+              eventHandlers={{
+                click: () => {
+                  setActiveHouse(null);
+                  mapInstance?.flyTo([cell.latitude, cell.longitude], Math.min((viewport?.zoom ?? 11) + 3, 18), {
+                    duration: 0.6,
+                  });
+                },
+              }}
             />
           );
         })}
-        <FitHouseBounds houses={mappedHouses} />
+        <ViewportReporter onChange={setViewport} />
         <PanToHouse house={activeHouse} />
         <LocateMeButton />
       </MapContainer>
+
+      {cellsQuery.isFetching && (
+        <div
+          role="status"
+          className="absolute right-3 top-3 z-[1000] flex items-center gap-1.5 rounded-full border border-border bg-background/95 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur sm:right-16"
+        >
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          Loading houses in view
+        </div>
+      )}
 
       {activeHouse && (() => {
         const rent = Number(activeHouse.monthly_rent || 0);
