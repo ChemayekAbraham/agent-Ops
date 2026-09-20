@@ -141,6 +141,7 @@ export function HouseSupportCard({
   onTopUp,
   flash = false,
   searchQuery = '',
+  origin = null,
 }: {
   house: SupportableHouse;
   isSelected: boolean;
