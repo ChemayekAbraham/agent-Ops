@@ -205,8 +205,11 @@ Deno.serve(async (req) => {
                 promised_funding_date: dateLabel(row.promised_funding_date),
                 release_date: dateLabel(row.release_at),
                 days_left: Number(row.days_left) || 0,
+                first_return_date: firstReturnLabel(row.promised_funding_date ?? row.funded_at ?? row.created_at),
+                return_rate: 15,
                 houses: row.houses ?? [],
                 dashboard_url: DASHBOARD_URL,
+
                 currency: "UGX",
               },
             },
