@@ -529,6 +529,61 @@ export function SelfPortfolioFundingCard({
       )}
 
 
+      {feedOrder === 'houses' && savedForLater.length > 0 && (
+        <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border-primary/30 bg-primary/5">
+          <div className="flex items-center gap-1.5 px-0.5">
+            <Bookmark className="h-3.5 w-3.5 text-primary" aria-hidden />
+            <p className="text-xs font-black text-foreground">Saved for later</p>
+            <span className="text-[10px] font-semibold text-muted-foreground">
+              · {savedForLater.length} {savedForLater.length === 1 ? 'house' : 'houses'} waiting on a top-up
+            </span>
+          </div>
+          <div className="mt-2 space-y-2">
+            {savedForLater.map((h) => {
+              const topUpNeeded = Math.max(0, Number(h.monthly_rent || 0) - remaining);
+              const img = (h.image_urls ?? []).filter(Boolean)[0];
+              return (
+                <div
+                  key={`saved-${h.house_id}`}
+                  className="flex items-center gap-2.5 rounded-xl border border-border bg-background p-2"
+                >
+                  {img ? (
+                    <img
+                      src={img}
+                      alt={houseTitleLine(h)}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-11 w-11 flex-none rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-muted">
+                      <Home className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold leading-tight">{houseTitleLine(h)}</p>
+                    <p className="mt-0.5 truncate text-[10px] font-semibold text-primary">
+                      Top up {formatDynamic(topUpNeeded)} to fund it
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => setTopUpAmount(Math.max(0, Math.round(topUpNeeded)))}
+                    aria-label={`Top up ${formatDynamic(topUpNeeded)} to fund ${houseTitleLine(h)}`}
+                    className="h-8 flex-none rounded-lg border-primary/40 px-2.5 text-[11px] font-bold text-primary"
+                  >
+                    <Wallet className="mr-1 h-3 w-3" aria-hidden />
+                    Top up
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       {feed.length === 0 && feedOrder === 'houses' && houses.length > 0 && (
         <Card className="p-6 rounded-2xl text-center">
           <Home className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
