@@ -39,6 +39,10 @@ export interface EmptyHouseMapCell {
   longitude: number;
   minRent: number;
   maxRent: number;
+  /** Rent needed to fund every empty house in this cell. */
+  sumRent: number;
+  /** A district name seen inside the cell, used to label a tapped region. */
+  district: string | null;
   /** Present only when the cell holds exactly one house. */
   house: SupportableHouse | null;
 }
@@ -59,6 +63,8 @@ interface RawCell {
   longitude: number | string | null;
   min_rent: number | string | null;
   max_rent: number | string | null;
+  sum_rent: number | string | null;
+  district: string | null;
   house: Record<string, unknown> | null;
 }
 
@@ -162,6 +168,8 @@ export function useEmptyHouseMapCells(
           longitude: Number(raw.longitude ?? 0),
           minRent: Number(raw.min_rent ?? 0),
           maxRent: Number(raw.max_rent ?? 0),
+          sumRent: Number(raw.sum_rent ?? 0),
+          district: raw.district ?? null,
           house: toHouse(raw.house),
         }))
         .filter((cell) => Number.isFinite(cell.latitude) && Number.isFinite(cell.longitude));
