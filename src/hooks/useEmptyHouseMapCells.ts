@@ -45,6 +45,8 @@ export interface EmptyHouseMapCells {
   /** Houses counted inside the viewport (capped by the server scan limit). */
   housesInView: number;
   scanCapped: boolean;
+  /** Grid pitch in degrees used for this zoom — drives the density heatmap tiles. */
+  cellSize: number;
 }
 
 interface RawCell {
