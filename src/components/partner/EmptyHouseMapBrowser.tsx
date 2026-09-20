@@ -92,7 +92,7 @@ function PanToHouse({ house }: { house: SupportableHouse | null }) {
   return null;
 }
 
-function LocateMeButton() {
+function LocateMeButton({ onLocated }: { onLocated?: (point: [number, number]) => void }) {
   const map = useMap();
   const [locating, setLocating] = useState(false);
 
@@ -102,7 +102,9 @@ function LocateMeButton() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocating(false);
-        map.flyTo([position.coords.latitude, position.coords.longitude], 14, { duration: 0.6 });
+        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+        onLocated?.(point);
+        map.flyTo(point, 14, { duration: 0.6 });
       },
       () => setLocating(false),
       { enableHighAccuracy: true, timeout: 10000 },
@@ -144,6 +146,7 @@ export function EmptyHouseMapBrowser({
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
 
   const cellsQuery = useEmptyHouseMapCells(viewport, {
     search: searchQuery,
@@ -200,8 +203,33 @@ export function EmptyHouseMapBrowser({
     if (match) setActiveHouse(match);
   }, [focusedId, houses, mappedHouses]);
 
-  // Open the map over the first loaded houses, then leave the view under the funder's control.
   const initialFitDone = useRef(false);
+
+  /**
+   * By default the map opens where the funder is, so the empty houses nearest
+   * to them are the first ones on screen. If location is unavailable or
+   * refused, the loaded-houses fit below takes over.
+   */
+  useEffect(() => {
+    if (!mapInstance || initialFitDone.current || !navigator.geolocation) return;
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled || initialFitDone.current) return;
+        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+        initialFitDone.current = true;
+        setUserPosition(point);
+        mapInstance.setView(point, 13);
+      },
+      () => undefined,
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [mapInstance]);
+
+  // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
     if (!mapInstance || initialFitDone.current) return;
     const points = houses
@@ -339,9 +367,22 @@ export function EmptyHouseMapBrowser({
             />
           );
         })}
+        {userPosition && (
+          <Marker
+            position={userPosition}
+            interactive={false}
+            title="Your location"
+            icon={L.divIcon({
+              className: '',
+              html: '<span class="empty-house-map-me" aria-hidden="true"></span>',
+              iconSize: [18, 18],
+              iconAnchor: [9, 9],
+            })}
+          />
+        )}
         <ViewportReporter onChange={setViewport} />
         <PanToHouse house={activeHouse} />
-        <LocateMeButton />
+        <LocateMeButton onLocated={setUserPosition} />
       </MapContainer>
 
       {cellsQuery.isFetching && (
