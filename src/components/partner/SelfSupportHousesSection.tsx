@@ -280,9 +280,22 @@ export function HouseSupportBar({
    */
   activeHouseCommitment?: ActiveHouseCommitment | null;
   onSubmitted: (outcome: 'submitted' | 'stale') => void;
+  /**
+   * Changing this key opens the confirmation dialog from outside (e.g. a
+   * balance-ready notification's "Fund this house" action). The submit itself
+   * still goes through the dialog's confirm button — nothing auto-submits.
+   */
+  confirmRequestKey?: string | null;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [target, setTarget] = useState<'existing' | 'new'>('existing');
+
+  // An outside request (balance-ready notification) opens the same confirm
+  // dialog the "Fund these houses" button opens. Keyed on change so repeated
+  // notifications re-open it; the funder still confirms inside the dialog.
+  useEffect(() => {
+    if (confirmRequestKey) setConfirmOpen(true);
+  }, [confirmRequestKey]);
   const overBudget = total > available;
   const canTopUp = !!activeHouseCommitment;
   const useExisting = canTopUp && target === 'existing';
