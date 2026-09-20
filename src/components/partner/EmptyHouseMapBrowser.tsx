@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { ChevronLeft, ChevronRight, Crosshair, Home, MapPin, Navigation, Search, X } from 'lucide-react';
-import { houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
+import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
