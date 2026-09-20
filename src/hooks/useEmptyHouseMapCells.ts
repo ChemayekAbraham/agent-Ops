@@ -141,11 +141,17 @@ export function useEmptyHouseMapCells(
         }))
         .filter((cell) => Number.isFinite(cell.latitude) && Number.isFinite(cell.longitude));
 
-      return {
+      const result = {
         cells,
         housesInView: Number(payload.scanned ?? 0),
         scanCapped: payload.scan_capped === true,
       };
+      mapPerf.recordQuery(performance.now() - startedAt, {
+        markers: result.cells.length,
+        housesInView: result.housesInView,
+        scanCapped: result.scanCapped,
+      });
+      return result;
     },
   });
 }
