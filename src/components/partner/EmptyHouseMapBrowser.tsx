@@ -354,6 +354,43 @@ export function EmptyHouseMapBrowser({
         </div>
       )}
 
+      <Button
+        type="button"
+        variant={showHeatmap ? 'default' : 'secondary'}
+        size="icon"
+        onClick={() => setShowHeatmap((current) => !current)}
+        aria-pressed={showHeatmap}
+        aria-label={showHeatmap ? 'Hide the empty-house density map' : 'Show the empty-house density map'}
+        title={showHeatmap ? 'Hide empty-house density' : 'Show empty-house density'}
+        className="absolute right-3 top-[7.25rem] z-[1000] h-11 w-11 rounded-full border border-border shadow-lg backdrop-blur sm:top-[4.25rem]"
+      >
+        <Flame className="h-5 w-5" aria-hidden />
+      </Button>
+
+      {showHeatmap && (
+        <div className="pointer-events-none absolute bottom-20 left-3 z-[1000] rounded-lg border border-border bg-background/95 px-2.5 py-2 shadow-lg backdrop-blur sm:bottom-24">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Empty houses per area</p>
+          {heatmapActive ? (
+            <ul className="mt-1.5 space-y-1">
+              {HEAT_BUCKETS.map((bucket) => (
+                <li key={bucket.label} className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground">
+                  <span
+                    className="h-3 w-4 rounded-sm border border-border"
+                    style={{ backgroundColor: bucket.color, opacity: Math.min(1, bucket.opacity + 0.35) }}
+                    aria-hidden
+                  />
+                  {bucket.label}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 max-w-[11rem] text-[10px] font-medium leading-snug text-muted-foreground">
+              Zoom out to see how many empty houses each area holds.
+            </p>
+          )}
+        </div>
+      )}
+
       <MapPerfOverlay />
 
       {activeHouse && (() => {
