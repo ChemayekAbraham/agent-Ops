@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
+import { Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
 
 import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
 import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
@@ -541,6 +541,14 @@ export function SelfPortfolioFundingCard({
                     <p className="text-[9px] text-muted-foreground">by plan end</p>
                   </div>
                 </div>
+
+                <p className="mt-1.5 flex items-start gap-1 text-[10px] leading-snug text-muted-foreground">
+                  <Calculator className="mt-0.5 h-3 w-3 flex-none" />
+                  <span>
+                    Monthly earnings = {formatDynamic(plan.funding_amount)} × {MONTHLY_ROI_RATE}%.
+                    Total payout = {formatDynamic(monthlyRoi)} × {planMonths} {planMonths === 1 ? 'month' : 'months'}.
+                  </span>
+                </p>
 
                 {unaffordable && !heldByOther && (
                   <p className="mt-1.5 text-[10px] font-semibold text-muted-foreground">
