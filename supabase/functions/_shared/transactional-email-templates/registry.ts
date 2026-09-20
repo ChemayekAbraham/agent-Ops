@@ -18,6 +18,7 @@ import { template as partnerSelfManagedDeploymentTemplate } from './partner-self
 import { template as promissoryNotePledgeTemplate } from './promissory-note-pledge.tsx'
 import { template as promissoryNoteReleaseWarningTemplate } from './promissory-note-release-warning.tsx'
 import { template as funderHouseBookingTemplate } from './funder-house-booking.tsx'
+import { template as funderSavedHouseFundableTemplate } from './funder-saved-house-fundable.tsx'
 import { template as partnerAccountCreatedTemplate } from './partner-account-created.tsx'
 import { template as databaseBackupReadyTemplate } from './database-backup-ready.tsx'
 import { template as databaseBackupLinkTemplate } from './database-backup-link.tsx'
@@ -80,6 +81,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'promissory-note-pledge': promissoryNotePledgeTemplate,
   'promissory-note-release-warning': promissoryNoteReleaseWarningTemplate,
   'funder-house-booking': funderHouseBookingTemplate,
+  'funder-saved-house-fundable': funderSavedHouseFundableTemplate,
   'partner-account-created': partnerAccountCreatedTemplate,
   'database-backup-ready': databaseBackupReadyTemplate,
   'database-backup-link': databaseBackupLinkTemplate,
