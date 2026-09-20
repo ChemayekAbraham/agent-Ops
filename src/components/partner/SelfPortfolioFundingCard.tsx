@@ -852,12 +852,22 @@ export function SelfPortfolioFundingCard({
                   key={`${alert.at}-${i}`}
                   className="flex items-center gap-2.5 rounded-xl border border-border bg-background p-2"
                 >
-                  <Bell className="h-3.5 w-3.5 flex-none text-primary" aria-hidden />
+                  {alert.kind === 'funded' ? (
+                    <ShieldCheck className="h-3.5 w-3.5 flex-none text-success" aria-hidden />
+                  ) : alert.kind === 'dismissed' ? (
+                    <X className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
+                  ) : (
+                    <Bell className="h-3.5 w-3.5 flex-none text-primary" aria-hidden />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-bold leading-tight">
-                      {alert.ids.length === 1
-                        ? '1 saved house became fundable'
-                        : `${alert.ids.length} saved houses became fundable`}
+                      {alert.kind === 'funded'
+                        ? 'You started funding this saved house'
+                        : alert.kind === 'dismissed'
+                          ? 'You dismissed the ready-to-fund highlight'
+                          : alert.ids.length === 1
+                            ? '1 saved house became fundable'
+                            : `${alert.ids.length} saved houses became fundable`}
                     </p>
                     <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                       {firstKnown ? houseTitleLine(firstKnown) : 'House no longer listed'} ·{' '}
