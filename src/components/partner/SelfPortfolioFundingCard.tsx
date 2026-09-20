@@ -343,15 +343,15 @@ export function SelfPortfolioFundingCard({
 
   return (
     <div className="space-y-3">
-      <Card className="p-4 rounded-2xl">
+      <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground">Available to fund</p>
-            <p className="text-lg font-black text-foreground">{formatDynamic(available)}</p>
+            <p className="text-base sm:text-lg font-black text-foreground">{formatDynamic(available)}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
               Minimum {formatDynamic(MIN_FUNDING)} per plan
             </p>
-            <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">
+            <p className="hidden sm:block text-[10px] font-semibold text-muted-foreground mt-0.5">
               You can only select plans up to your operational float —{' '}
               {formatDynamic(remaining)} left to fund
             </p>
@@ -449,7 +449,7 @@ export function SelfPortfolioFundingCard({
           >
             <div className="flex flex-col">
               {/* Photo */}
-              <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
+              <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
                 {images.length > 0 ? (
                   <img src={images[0]} alt={titleLine} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : (
