@@ -1461,11 +1461,6 @@ export function SelfPortfolioFundingCard({
         </Card>
       )}
 
-      const selectedHouseObjects = useMemo(
-        () => houses.filter((h) => houseSelected.includes(h.house_id)),
-        [houses, houseSelected],
-      );
-
       {houseSelected.length > 0 && (
         <HouseSupportBar
           selectedCount={houseSelected.length}
