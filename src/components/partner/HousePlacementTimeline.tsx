@@ -51,6 +51,17 @@ const addDays = (iso: string, days: number) => {
   return d.toISOString();
 };
 
+/** Kampala calendar day (YYYY-MM-DD) for an instant, so countdowns match Uganda days. */
+const kampalaDay = (d: Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(d);
+
+/** Whole Uganda days between two instants (target day minus today). */
+const dayDiff = (target: string, from: Date = new Date()) => {
+  const a = Date.parse(`${kampalaDay(new Date(target))}T00:00:00Z`);
+  const b = Date.parse(`${kampalaDay(from)}T00:00:00Z`);
+  return Math.round((a - b) / 86_400_000);
+};
+
 const locationLine = (r: PlacementRow) =>
   [r.village, r.sub_county, r.district].filter(Boolean).join(', ') || 'Location on file';
 
