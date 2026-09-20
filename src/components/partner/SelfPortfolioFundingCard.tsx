@@ -636,31 +636,85 @@ export function SelfPortfolioFundingCard({
     | { kind: 'plan'; id: string; plan: FundablePlan }
     | { kind: 'house'; id: string; house: SupportableHouse };
 
-  // District filter options: distinct districts present in the current list.
+  const normalizedSearch = useMemo(() => houseSearch.trim().toLocaleLowerCase(), [houseSearch]);
+  const rentMinBound = useMemo(() => Number(houseRentMin), [houseRentMin]);
+  const rentMaxBound = useMemo(() => Number(houseRentMax), [houseRentMax]);
+
+  // Shared filter predicate used by location-chip counts and the main feed.
+  const matchesBaseFilters = useCallback(
+    (h: SupportableHouse) => {
+      if (normalizedSearch) {
+        const matchesSearch = [
+          houseTitleLine(h),
+          h.title,
+          h.house_category,
+          h.district,
+          h.sub_county,
+          h.village,
+          h.region,
+        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch));
+        if (!matchesSearch) return false;
+      }
+      const rent = Number(h.monthly_rent || 0);
+      if (houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) && rent < rentMinBound) return false;
+      if (houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) && rent > rentMaxBound) return false;
+      if (houseFundingStatus === 'ready' && rent > remaining) return false;
+      if (houseFundingStatus === 'topup' && rent <= remaining) return false;
+      if (houseWithinFloat && rent > remaining) return false;
+      if (showSavedReadyOnly && (!houseSelected.includes(h.house_id) || rent > remaining)) return false;
+      return true;
+    },
+    [
+      normalizedSearch,
+      houseRentMin,
+      houseRentMax,
+      houseFundingStatus,
+      houseWithinFloat,
+      showSavedReadyOnly,
+      houseSelected,
+      remaining,
+      rentMinBound,
+      rentMaxBound,
+    ],
+  );
+
+  // District filter options with counts — scoped to current sub-county and all other active filters.
   const houseDistricts = useMemo(() => {
-    const set = new Map<string, string>();
+    const map = new Map<string, { label: string; count: number }>();
     for (const h of houses) {
+      if (!matchesBaseFilters(h)) continue;
+      if (houseSubCounty !== 'all' && (h.sub_county ?? '').trim().toLowerCase() !== houseSubCounty) continue;
       const raw = (h.district ?? '').trim();
       if (!raw) continue;
       const key = raw.toLowerCase();
-      if (!set.has(key)) set.set(key, raw);
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(key, { label: raw, count: 1 });
+      }
     }
-    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [houses]);
+    return [...map.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
+  }, [houses, matchesBaseFilters, houseSubCounty]);
 
-  // Neighborhood chip options: distinct sub-counties, scoped to the selected
-  // district so tapping a district narrows the neighborhood choices.
+  // Neighborhood filter options with counts — scoped to the selected district and all other active filters.
   const houseSubCounties = useMemo(() => {
-    const set = new Map<string, string>();
+    const map = new Map<string, { label: string; count: number }>();
     for (const h of houses) {
+      if (!matchesBaseFilters(h)) continue;
       if (houseDistrict !== 'all' && (h.district ?? '').trim().toLowerCase() !== houseDistrict) continue;
       const raw = (h.sub_county ?? '').trim();
       if (!raw) continue;
       const key = raw.toLowerCase();
-      if (!set.has(key)) set.set(key, raw);
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(key, { label: raw, count: 1 });
+      }
     }
-    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [houses, houseDistrict]);
+    return [...map.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
+  }, [houses, matchesBaseFilters, houseDistrict]);
 
   // Changing district can invalidate a neighborhood chip choice.
   useEffect(() => {
@@ -675,21 +729,7 @@ export function SelfPortfolioFundingCard({
       id: plan.rent_request_id,
       plan,
     }));
-    let visibleHouses = houses;
-    const normalizedSearch = houseSearch.trim().toLocaleLowerCase();
-    if (normalizedSearch) {
-      visibleHouses = visibleHouses.filter((house) =>
-        [
-          houseTitleLine(house),
-          house.title,
-          house.house_category,
-          house.district,
-          house.sub_county,
-          house.village,
-          house.region,
-        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)),
-      );
-    }
+    let visibleHouses = houses.filter((h) => matchesBaseFilters(h));
     if (houseDistrict !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
@@ -698,27 +738,6 @@ export function SelfPortfolioFundingCard({
     if (houseSubCounty !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.sub_county ?? '').trim().toLowerCase() === houseSubCounty,
-      );
-    }
-    const rentMinBound = Number(houseRentMin);
-    if (houseRentMin.trim() !== '' && Number.isFinite(rentMinBound)) {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) >= rentMinBound);
-    }
-    const rentMaxBound = Number(houseRentMax);
-    if (houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound)) {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= rentMaxBound);
-    }
-    if (houseFundingStatus === 'ready') {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
-    } else if (houseFundingStatus === 'topup') {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) > remaining);
-    }
-    if (houseWithinFloat) {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
-    }
-    if (showSavedReadyOnly) {
-      visibleHouses = visibleHouses.filter(
-        (h) => houseSelected.includes(h.house_id) && Number(h.monthly_rent || 0) <= remaining,
       );
     }
     visibleHouses = [...visibleHouses].sort((a, b) => {
@@ -759,7 +778,7 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, referencePoint, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
+  }, [plans, houses, feedOrder, houseSort, referencePoint, houseDistrict, houseSubCounty, matchesBaseFilters]);
 
   useEffect(() => {
     setPage(0);
@@ -979,10 +998,12 @@ export function SelfPortfolioFundingCard({
               <SelectValue placeholder="All districts" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All districts</SelectItem>
-              {houseDistricts.map(([key, label]) => (
+              <SelectItem value="all">
+                All districts ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
+              </SelectItem>
+              {houseDistricts.map(([key, { label, count }]) => (
                 <SelectItem key={key} value={key}>
-                  {label}
+                  {label} ({count})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1135,8 +1156,11 @@ export function SelfPortfolioFundingCard({
                 }`}
               >
                 All districts
+                <span className="ml-1 opacity-70">
+                  ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
+                </span>
               </button>
-              {houseDistricts.map(([key, label]) => (
+              {houseDistricts.map(([key, { label, count }]) => (
                 <button
                   key={key}
                   type="button"
@@ -1149,6 +1173,7 @@ export function SelfPortfolioFundingCard({
                   }`}
                 >
                   {label}
+                  <span className="ml-1 opacity-70">({count})</span>
                 </button>
               ))}
             </div>
@@ -1167,8 +1192,11 @@ export function SelfPortfolioFundingCard({
                 }`}
               >
                 All neighborhoods
+                <span className="ml-1 opacity-70">
+                  ({houseSubCounties.reduce((sum, [, { count }]) => sum + count, 0)})
+                </span>
               </button>
-              {houseSubCounties.map(([key, label]) => (
+              {houseSubCounties.map(([key, { label, count }]) => (
                 <button
                   key={key}
                   type="button"
@@ -1181,6 +1209,7 @@ export function SelfPortfolioFundingCard({
                   }`}
                 >
                   {label}
+                  <span className="ml-1 opacity-70">({count})</span>
                 </button>
               ))}
             </div>
