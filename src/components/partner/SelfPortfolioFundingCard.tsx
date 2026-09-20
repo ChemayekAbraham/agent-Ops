@@ -92,6 +92,25 @@ export function SelfPortfolioFundingCard({
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
 
+  // Picked houses survive reloads until the partner funds or removes them.
+  const selectionKey = `psm-house-selection-${partnerId}`;
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(selectionKey) ?? '[]');
+      if (Array.isArray(saved)) setHouseSelected(saved.filter((x) => typeof x === 'string'));
+    } catch {
+      /* ignore corrupt cache */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionKey]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(selectionKey, JSON.stringify(houseSelected));
+    } catch {
+      /* storage full or unavailable — selection still works in-session */
+    }
+  }, [selectionKey, houseSelected]);
+
 
   // Cached so returning to this tab paints instantly; refreshes happen silently.
   const plansQuery = useQuery({
@@ -358,13 +377,15 @@ export function SelfPortfolioFundingCard({
     }
     const house = houses.find((h) => h.house_id === id);
     const cost = Number(house?.monthly_rent || 0);
-    if (cost > remaining) {
-      toast.error(
-        `Not enough operational float. This house needs ${formatDynamic(cost)} and you have ${formatDynamic(remaining)} left to fund.`,
-      );
-      return;
-    }
     setHouseSelected((prev) => [...prev, id]);
+    if (cost > remaining) {
+      // Keep the house picked — it stays selected until the partner tops up
+      // their float or removes it themselves.
+      toast.info(`House saved for you. Add ${formatDynamic(cost - remaining)} to your balance to fund it.`, {
+        description: 'It stays picked while you top up your wallet.',
+        duration: 7000,
+      });
+    }
   };
 
 
