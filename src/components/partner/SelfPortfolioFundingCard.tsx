@@ -882,6 +882,39 @@ export function SelfPortfolioFundingCard({
               ))}
             </SelectContent>
           </Select>
+          <Select value={houseFundingStatus} onValueChange={(v) => setHouseFundingStatus(v as HouseFundingStatus)}>
+            <SelectTrigger className="h-9 w-auto min-w-[150px] text-xs font-semibold" aria-label="Filter by funding status">
+              <SelectValue placeholder="Any funding status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any funding status</SelectItem>
+              <SelectItem value="ready">Ready to fund now</SelectItem>
+              <SelectItem value="topup">Needs a top-up</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1.5" aria-label="Filter by monthly rent range">
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={houseRentMin}
+              onChange={(e) => setHouseRentMin(e.target.value)}
+              placeholder="Min rent"
+              aria-label="Minimum monthly rent"
+              className="h-9 w-[104px] text-xs font-semibold"
+            />
+            <span className="text-[11px] font-semibold text-muted-foreground" aria-hidden>–</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={houseRentMax}
+              onChange={(e) => setHouseRentMax(e.target.value)}
+              placeholder="Max rent"
+              aria-label="Maximum monthly rent"
+              className="h-9 w-[104px] text-xs font-semibold"
+            />
+          </div>
           <Button
             type="button"
             variant={houseWithinFloat ? 'default' : 'outline'}
@@ -902,7 +935,7 @@ export function SelfPortfolioFundingCard({
           >
             Saved · Ready to fund
           </Button>
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc') && (
+          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
             <Button
               type="button"
               variant="ghost"
@@ -912,6 +945,9 @@ export function SelfPortfolioFundingCard({
                 setHouseSort('rent_asc');
                 setHouseDistrict('all');
                 setHouseSearch('');
+                setHouseRentMin('');
+                setHouseRentMax('');
+                setHouseFundingStatus('all');
                 setHouseWithinFloat(false);
                 setShowSavedReadyOnly(false);
               }}
@@ -920,7 +956,7 @@ export function SelfPortfolioFundingCard({
               Reset
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly) && (
+          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
