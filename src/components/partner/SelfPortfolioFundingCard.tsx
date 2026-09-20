@@ -1112,17 +1112,7 @@ export function SelfPortfolioFundingCard({
               variant="ghost"
               size="sm"
               className="h-9 text-xs"
-              onClick={() => {
-                setHouseSort('rent_asc');
-                setHouseDistrict('all');
-                setHouseSubCounty('all');
-                setHouseSearch('');
-                setHouseRentMin('');
-                setHouseRentMax('');
-                setHouseFundingStatus('all');
-                setHouseWithinFloat(false);
-                setShowSavedReadyOnly(false);
-              }}
+              onClick={resetFilters}
             >
               <X className="h-3.5 w-3.5 mr-1" aria-hidden />
               Reset
