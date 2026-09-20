@@ -1857,10 +1857,13 @@ export function SelfPortfolioFundingCard({
 
           onSubmitted={async (outcome) => {
             setHouseSelected([]);
+            setDiscoveredHouses({});
             await housesQuery.refetch();
             if (outcome === 'submitted') {
               setPlacementRefresh((k) => k + 1);
               await loadFunded();
+              // Refresh the market totals (rent still needed) shown above the list.
+              window.dispatchEvent(new CustomEvent('supporter-contribution-changed'));
             }
           }}
         />
