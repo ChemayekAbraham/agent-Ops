@@ -123,7 +123,10 @@ export function useEmptyHouseMapCells(
         p_max_rent: filters.maxRent ?? null,
         p_limit: 400,
       });
-      if (error) throw error;
+      if (error) {
+        mapPerf.recordFailure(error.message ?? 'Viewport query failed');
+        throw error;
+      }
 
       const payload = (data ?? {}) as { cells?: RawCell[]; scanned?: number; scan_capped?: boolean };
       const cells = (payload.cells ?? [])
