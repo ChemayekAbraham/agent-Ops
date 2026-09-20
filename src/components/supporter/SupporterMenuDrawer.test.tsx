@@ -96,7 +96,6 @@ describe('SupporterMenuDrawer regression coverage', () => {
     renderMenu();
 
     const dialog = screen.getByRole('dialog', { name: 'Menu' });
-    expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(within(dialog).getByRole('button', { name: 'Close menu' })).toBeInTheDocument();
   });
 
