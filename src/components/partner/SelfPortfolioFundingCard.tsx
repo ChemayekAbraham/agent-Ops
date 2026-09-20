@@ -29,6 +29,7 @@ import DepositFlow from '@/components/payments/DepositFlow';
 import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
 import { HouseCompareDialog } from './HouseCompareDialog';
 import { FundHouseTooltip } from './FundHouseTooltip';
+import { HousePlacementTimeline } from './HousePlacementTimeline';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
@@ -170,6 +171,9 @@ export function SelfPortfolioFundingCard({
   // A changing key asks HouseSupportBar to open its confirm dialog (used by
   // the balance-ready notification's "Fund this house" action).
   const [fundConfirmKey, setFundConfirmKey] = useState<string | null>(null);
+  // Bumped after a house funding is submitted so the placement timeline
+  // immediately picks up the newly funded house.
+  const [placementRefresh, setPlacementRefresh] = useState(0);
   // Houses that just became fundable stay highlighted until the partner
   // dismisses the highlight or funds them. Persisted so it survives reloads.
   const fundableKey = `psm-house-fundable-${partnerId}`;
@@ -1808,6 +1812,10 @@ export function SelfPortfolioFundingCard({
         </Card>
       )}
 
+      {partnerId && (
+        <HousePlacementTimeline partnerId={partnerId} refreshKey={placementRefresh} />
+      )}
+
       {houseSelected.length > 0 && (
         <HouseSupportBar
           selectedCount={houseSelected.length}
@@ -1823,7 +1831,10 @@ export function SelfPortfolioFundingCard({
           onSubmitted={async (outcome) => {
             setHouseSelected([]);
             await housesQuery.refetch();
-            if (outcome === 'submitted') await loadFunded();
+            if (outcome === 'submitted') {
+              setPlacementRefresh((k) => k + 1);
+              await loadFunded();
+            }
           }}
         />
       )}

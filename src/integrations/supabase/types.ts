@@ -60670,6 +60670,26 @@ export type Database = {
             }
             Returns: Json
           }
+      partner_house_placement_status: {
+        Args: { p_partner_id?: string }
+        Returns: {
+          agent_name: string
+          days_to_place: number
+          district: string
+          house_category: string
+          house_id: string
+          image_url: string
+          listing_agent_id: string
+          monthly_rent: number
+          placed_at: string
+          principal: number
+          status: string
+          sub_county: string
+          supported_at: string
+          title: string
+          village: string
+        }[]
+      }
       partner_lead_attachment_stats: {
         Args: { p_lead?: string }
         Returns: {

@@ -1730,6 +1730,13 @@
       "when": 1789907035977,
       "tag": "0246_scope_internal_reference_tables_to_relevant_staff",
       "breakpoints": true
+    },
+    {
+      "idx": 247,
+      "version": "7",
+      "when": 1789911741924,
+      "tag": "0247_partner_house_placement_status",
+      "breakpoints": true
     }
   ]
 }
