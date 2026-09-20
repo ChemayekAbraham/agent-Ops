@@ -671,7 +671,7 @@ export function FunderCapitalOpportunities({
               {
                 key: 'direct' as const,
                 Icon: HandCoins,
-                title: 'Support tenants directly',
+                title: 'Fund',
                 description: 'Pay landlords yourself. We handle the introduction and the paperwork.',
                 recommended: true,
               },

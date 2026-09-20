@@ -474,7 +474,7 @@ export default function SupporterDashboard({
             <div className="flex items-center gap-2 px-1">
               <div className="w-1 h-5 rounded-full bg-primary" />
               <div>
-                <h2 className="text-lg sm:text-base font-black text-foreground tracking-tight">Support tenants directly</h2>
+                <h2 className="text-lg sm:text-base font-black text-foreground tracking-tight">Fund</h2>
                 <p className="text-[11px] text-muted-foreground">Choose a verified home and fund the tenant’s Rent Plan.</p>
               </div>
             </div>
