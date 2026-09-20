@@ -125,6 +125,16 @@ export function EmptyHouseMapBrowser({
     }
   }, [activeHouse, houses]);
 
+  useEffect(() => {
+    onActiveHouseChange?.(activeHouse);
+  }, [activeHouse, onActiveHouseChange]);
+
+  useEffect(() => {
+    if (!focusedId) return;
+    const match = houses.find((house) => house.house_id === focusedId);
+    if (match) setActiveHouse(match);
+  }, [focusedId, houses]);
+
   const activeIndex = activeHouse
     ? mappedHouses.findIndex((house) => house.house_id === activeHouse.house_id)
     : -1;
