@@ -17,6 +17,7 @@ import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
 import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
+import { FundHouseTooltip } from './FundHouseTooltip';
 
 export const HOUSE_MONTHLY_ROI_RATE = 15;
 export const HOUSE_MIN_FUNDING = 50000;
@@ -414,14 +415,16 @@ export function HouseSupportBar({
             </p>
             <p className="text-xl sm:text-2xl font-black leading-none text-primary">{formatDynamic(total)}</p>
           </div>
-          <Button
-            onClick={() => setConfirmOpen(true)}
-            disabled={busy || total < HOUSE_MIN_FUNDING || overBudget}
-            className="shrink-0 w-full sm:w-auto"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-            <span className="ml-2">Fund these houses</span>
-          </Button>
+          <FundHouseTooltip>
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              disabled={busy || total < HOUSE_MIN_FUNDING || overBudget}
+              className="shrink-0 w-full sm:w-auto"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              <span className="ml-2">Fund these houses</span>
+            </Button>
+          </FundHouseTooltip>
         </div>
 
         <div className="mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
