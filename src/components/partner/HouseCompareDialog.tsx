@@ -42,6 +42,7 @@ export function HouseCompareDialog({
   busy,
   onFundHouse,
   onRemove,
+  searchQuery = '',
 }: HouseCompareDialogProps) {
   const rows: {
     label: string;
