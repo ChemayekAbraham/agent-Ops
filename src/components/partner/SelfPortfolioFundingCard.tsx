@@ -418,6 +418,13 @@ export function SelfPortfolioFundingCard({
     [houses, fundableIds, houseSelected],
   );
 
+  // Selected house objects passed to the confirmation dialog so it can show
+  // the title, rent amount, and location for each house being funded.
+  const selectedHouseObjects = useMemo(
+    () => houses.filter((h) => houseSelected.includes(h.house_id)),
+    [houses, houseSelected],
+  );
+
   // Funding (or unpicking) a highlighted house clears its highlight. Wait for
   // the persisted selection to be restored first, or a fresh page load would
   // wipe the highlight before the picks are read back.
@@ -1469,6 +1476,7 @@ export function SelfPortfolioFundingCard({
           busy={busy}
           setBusy={setBusy}
           selectedIds={houseSelected}
+          selectedHouses={selectedHouseObjects}
           activeHouseCommitment={activeHouseCommitment}
           confirmRequestKey={fundConfirmKey}
 
