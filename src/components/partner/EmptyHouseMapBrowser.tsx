@@ -15,7 +15,7 @@ import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './empt
 import { MapPerfOverlay } from './MapPerfOverlay';
 import { HEAT_BUCKETS, heatBucketFor, heatmapAppliesAtZoom } from './emptyHouseHeatmap';
 import { mapPerf } from '@/lib/mapPerf';
-import { pointInCountry, type CountryBounds } from '@/lib/africaCountries';
+import { AFRICA_COUNTRIES, pointInCountry, type CountryBounds } from '@/lib/africaCountries';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
@@ -97,7 +97,13 @@ function PanToHouse({ house }: { house: SupportableHouse | null }) {
   return null;
 }
 
-function LocateMeButton({ onLocated }: { onLocated?: (point: [number, number]) => void }) {
+function LocateMeButton({
+  onLocated,
+  onDenied,
+}: {
+  onLocated?: (point: [number, number]) => void;
+  onDenied?: () => void;
+}) {
   const map = useMap();
   const [locating, setLocating] = useState(false);
 
@@ -111,7 +117,10 @@ function LocateMeButton({ onLocated }: { onLocated?: (point: [number, number]) =
         onLocated?.(point);
         map.flyTo(point, 14, { duration: 0.6 });
       },
-      () => setLocating(false),
+      () => {
+        setLocating(false);
+        onDenied?.();
+      },
       { enableHighAccuracy: true, timeout: 10000 },
     );
   };
@@ -154,6 +163,10 @@ export function EmptyHouseMapBrowser({
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
+  /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
+  const [geoPromptDismissed, setGeoPromptDismissed] = useState(false);
+  const [areaPickerOpen, setAreaPickerOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(() =>
     typeof navigator !== 'undefined' ? navigator.onLine === false : false,
   );
@@ -268,23 +281,89 @@ export function EmptyHouseMapBrowser({
    * refused, the loaded-houses fit below takes over.
    */
   useEffect(() => {
-    if (!mapInstance || initialFitDone.current || !navigator.geolocation) return;
+    if (!mapInstance || initialFitDone.current) return;
+    if (!navigator.geolocation) {
+      setGeoStatus('unsupported');
+      return;
+    }
     let cancelled = false;
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled || initialFitDone.current) return;
         const point: [number, number] = [position.coords.latitude, position.coords.longitude];
         initialFitDone.current = true;
+        setGeoStatus('granted');
         setUserPosition(point);
         mapInstance.setView(point, 13);
       },
-      () => undefined,
+      () => {
+        if (cancelled) return;
+        setGeoStatus('denied');
+      },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
     return () => {
       cancelled = true;
     };
   }, [mapInstance]);
+
+  /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
+  const retryLocate = useCallback(() => {
+    if (!navigator.geolocation || !mapInstance) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+        initialFitDone.current = true;
+        setGeoStatus('granted');
+        setGeoPromptDismissed(true);
+        setUserPosition(point);
+        mapInstance.flyTo(point, 13, { duration: 0.6 });
+      },
+      () => setGeoStatus('denied'),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+  }, [mapInstance]);
+
+  /**
+   * Manual area choice: districts seen in the loaded houses (with one house's
+   * coordinates as the anchor) plus every African country centre, so a funder
+   * anywhere on the continent can tell the map where to look.
+   */
+  const manualAreaOptions = useMemo(() => {
+    const districts = new Map<string, [number, number]>();
+    houses.forEach((house) => {
+      const key = String(house.district ?? '').trim();
+      if (!key || districts.has(key)) return;
+      const lat = Number(house.latitude);
+      const lng = Number(house.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)) {
+        districts.set(key, [lat, lng]);
+      }
+    });
+    const countryOptions = AFRICA_COUNTRIES.map((c) => ({
+      label: c.name,
+      point: [(c.bbox[0] + c.bbox[2]) / 2, (c.bbox[1] + c.bbox[3]) / 2] as [number, number],
+    }));
+    return [
+      ...[...districts.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([label, point]) => ({ label, point })),
+      ...countryOptions,
+    ];
+  }, [houses]);
+
+  const chooseManualArea = useCallback(
+    (label: string) => {
+      const match = manualAreaOptions.find((o) => o.label === label);
+      if (!match || !mapInstance) return;
+      initialFitDone.current = true;
+      setUserPosition(match.point);
+      setGeoPromptDismissed(true);
+      setAreaPickerOpen(false);
+      mapInstance.flyTo(match.point, 11, { duration: 0.6 });
+    },
+    [manualAreaOptions, mapInstance],
+  );
 
   // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
@@ -447,8 +526,84 @@ export function EmptyHouseMapBrowser({
         )}
         <ViewportReporter onChange={setViewport} />
         <PanToHouse house={activeHouse} />
-        <LocateMeButton onLocated={setUserPosition} />
+        <LocateMeButton
+          onLocated={(point) => {
+            setUserPosition(point);
+            setGeoStatus('granted');
+            setGeoPromptDismissed(true);
+          }}
+          onDenied={() => {
+            setGeoStatus('denied');
+            setGeoPromptDismissed(false);
+          }}
+        />
       </MapContainer>
+
+      {(geoStatus === 'denied' || geoStatus === 'unsupported') && !geoPromptDismissed && !userPosition && (
+        <div
+          role="dialog"
+          aria-label="Location access needed"
+          className="absolute inset-x-3 top-14 z-[1100] rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur sm:inset-x-auto sm:left-3 sm:right-16"
+        >
+          <div className="flex items-start gap-2">
+            <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0 text-xs leading-snug">
+              <p className="font-semibold">We couldn't get your location</p>
+              <p className="mt-0.5 text-muted-foreground">
+                {geoStatus === 'unsupported'
+                  ? 'This browser cannot share your location. Choose your area manually to see the nearest empty houses first.'
+                  : 'Location access is off, so the map cannot show the nearest empty houses first. Allow access, or pick your area yourself.'}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {geoStatus !== 'unsupported' && (
+                  <Button type="button" size="sm" className="h-8" onClick={retryLocate}>
+                    <Crosshair className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                    Try again
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  onClick={() => setAreaPickerOpen((open) => !open)}
+                  aria-expanded={areaPickerOpen}
+                >
+                  <MapPin className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  Choose my area
+                </Button>
+              </div>
+              {areaPickerOpen && (
+                <label className="mt-2 block">
+                  <span className="sr-only">Choose your district or country</span>
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+                    defaultValue=""
+                    onChange={(e) => e.target.value && chooseManualArea(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      Pick your district or country…
+                    </option>
+                    {manualAreaOptions.map((option) => (
+                      <option key={option.label} value={option.label}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss location prompt"
+              onClick={() => setGeoPromptDismissed(true)}
+              className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-muted"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+        </div>
+      )}
 
       {cellsQuery.isFetching && (
         <div
