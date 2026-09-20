@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SupporterMenuDrawer } from './SupporterMenuDrawer';
 
@@ -89,6 +90,35 @@ describe('SupporterMenuDrawer regression coverage', () => {
     for (const [label] of [...routeDestinations, ...callbackLabels]) {
       expect(getMenuButton(label)).toBeInTheDocument();
     }
+  });
+
+  it('exposes a named modal and controls to screen readers', () => {
+    renderMenu();
+
+    const dialog = screen.getByRole('dialog', { name: 'Menu' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(within(dialog).getByRole('button', { name: 'Close menu' })).toBeInTheDocument();
+  });
+
+  it('keeps keyboard focus inside the menu and closes with Escape', async () => {
+    const user = userEvent.setup();
+    const callbacks = renderMenu();
+    const dialog = screen.getByRole('dialog', { name: 'Menu' });
+
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+    await user.tab();
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard('{Escape}');
+
+    expect(callbacks.onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('uses a viewport-safe mobile width and full-height scrolling region', () => {
+    renderMenu();
+
+    const dialog = screen.getByRole('dialog', { name: 'Menu' });
+    expect(dialog).toHaveClass('w-[82%]', 'max-w-xs', 'overflow-hidden');
+    expect(dialog.querySelector('.overflow-y-auto')).toBeInTheDocument();
   });
 
   it.each(routeDestinations)('opens %s at %s', (label, destination) => {
