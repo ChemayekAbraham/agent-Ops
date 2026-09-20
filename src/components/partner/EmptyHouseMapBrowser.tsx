@@ -276,6 +276,18 @@ export function EmptyHouseMapBrowser({
         ref={setMapInstance}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+        {heatTiles.map((tile) => (
+          <Rectangle
+            key={tile.key}
+            bounds={tile.bounds}
+            interactive={false}
+            pathOptions={{
+              stroke: false,
+              fillColor: tile.bucket.color,
+              fillOpacity: tile.bucket.opacity,
+            }}
+          />
+        ))}
         {cells.map((cell) => {
           const house = cell.count === 1 && cell.house
             ? (mappedHouses.find((item) => item.house_id === cell.house!.house_id) ?? cell.house)
