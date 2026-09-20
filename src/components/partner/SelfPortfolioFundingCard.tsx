@@ -677,6 +677,11 @@ export function SelfPortfolioFundingCard({
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
       );
     }
+    if (houseSubCounty !== 'all') {
+      visibleHouses = visibleHouses.filter(
+        (h) => (h.sub_county ?? '').trim().toLowerCase() === houseSubCounty,
+      );
+    }
     const rentMinBound = Number(houseRentMin);
     if (houseRentMin.trim() !== '' && Number.isFinite(rentMinBound)) {
       visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) >= rentMinBound);
