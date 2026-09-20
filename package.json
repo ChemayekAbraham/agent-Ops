@@ -23,7 +23,8 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "guard:legacy-domain": "node scripts/guard-legacy-domain.mjs",
-    "guard:all": "node scripts/run-guards.mjs"
+    "guard:all": "node scripts/run-guards.mjs",
+    "test:loadtest": "vitest run src/test/loadtest"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

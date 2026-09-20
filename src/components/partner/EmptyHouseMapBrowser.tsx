@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, Crosshair, Home, Loader2, MapPin, Navigation
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
+import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './emptyHouseMapCluster';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
@@ -263,8 +264,8 @@ export function EmptyHouseMapBrowser({
             );
           }
 
-          const size = cell.count >= 1000 ? 58 : cell.count >= 100 ? 50 : 42;
-          const label = cell.count >= 1000 ? `${Math.round(cell.count / 1000)}k+` : cell.count.toLocaleString();
+          const size = clusterMarkerSize(cell.count);
+          const label = clusterMarkerLabel(cell.count);
           const icon = L.divIcon({
             className: '',
             html: `<span class="empty-house-map-cluster" style="width:${size}px;height:${size}px">${label}</span>`,
@@ -281,7 +282,7 @@ export function EmptyHouseMapBrowser({
               eventHandlers={{
                 click: () => {
                   setActiveHouse(null);
-                  mapInstance?.flyTo([cell.latitude, cell.longitude], Math.min((viewport?.zoom ?? 11) + 3, 18), {
+                  mapInstance?.flyTo([cell.latitude, cell.longitude], clusterZoomTarget(viewport?.zoom ?? 11), {
                     duration: 0.6,
                   });
                 },
