@@ -130,7 +130,11 @@ export function HouseSupportCard({
         }
       }}
       className={`relative overflow-hidden rounded-2xl p-0 transition-all cursor-pointer border ${
-        isSelected ? 'ring-2 ring-primary bg-primary/5 border-primary' : 'border-primary/30 hover:border-primary/60'
+        flash
+          ? 'ring-4 ring-success/70 bg-success/10 border-success shadow-lg'
+          : isSelected
+            ? 'ring-2 ring-primary bg-primary/5 border-primary'
+            : 'border-primary/30 hover:border-primary/60'
       }`}
     >
       <div className="flex flex-col">
