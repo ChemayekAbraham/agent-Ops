@@ -458,6 +458,8 @@ export function SelfPortfolioFundingCard({
       }
       return next;
     });
+    // Pin the highlight on the newly fundable houses until dismissed or funded.
+    persistFundable([...houseSelected]);
     toast.success(
       houseSelected.length === 1
         ? 'Your balance now covers your saved house.'
@@ -483,6 +485,7 @@ export function SelfPortfolioFundingCard({
     shortFlagKey,
     alertsKey,
     jumpToHouse,
+    persistFundable,
   ]);
 
   // The dashboard switch intentionally separates ready-tenant Rent Plans from
