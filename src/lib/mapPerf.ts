@@ -2,9 +2,10 @@
  * Lightweight, in-memory performance monitor for the empty-house map.
  *
  * Tracks four signals over a rolling window: viewport query latency, marker
- * rendering time, cache hit rate, and failed requests. Everything stays on the
- * client — no database writes, no network calls — so it is safe to keep on in
- * production. The optional on-map overlay reads the same snapshot.
+ * rendering time, cache hit rate, and failed requests. The live snapshot stays
+ * on the client (the optional on-map overlay reads it); the same events are
+ * forwarded to `mapTelemetry`, which aggregates them per region and posts one
+ * batched row every couple of minutes for production monitoring.
  */
 
 import { mapTelemetry } from './mapTelemetry';
