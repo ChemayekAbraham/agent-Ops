@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { Home, MapPin, ShieldCheck, Wallet, X } from 'lucide-react';
-import { houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
+import { HighlightText, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 
 const MONTHLY_ROI_RATE = 15;
 
