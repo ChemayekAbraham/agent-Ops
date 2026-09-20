@@ -59622,6 +59622,7 @@ export type Database = {
         Args: {
           p_district?: string
           p_limit?: number
+          p_max_age_days?: number
           p_max_lat: number
           p_max_lng: number
           p_max_rent?: number
