@@ -59554,6 +59554,21 @@ export type Database = {
           vendor_id: string
         }[]
       }
+      map_empty_house_cells: {
+        Args: {
+          p_district?: string
+          p_limit?: number
+          p_max_lat: number
+          p_max_lng: number
+          p_max_rent?: number
+          p_min_lat: number
+          p_min_lng: number
+          p_min_rent?: number
+          p_search?: string
+          p_zoom?: number
+        }
+        Returns: Json
+      }
       mark_budget_department_notification_read: {
         Args: { _notification_id: string }
         Returns: undefined

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { ChevronLeft, ChevronRight, Crosshair, Home, MapPin, Navigation, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Home, Loader2, MapPin, Navigation, Search, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
+import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
@@ -18,38 +19,57 @@ interface EmptyHouseMapBrowserProps {
   searchQuery: string;
   remaining: number;
   busy: boolean;
+  /** Rent floor/ceiling currently applied to the list, mirrored on the map. */
+  minRent?: number | null;
+  maxRent?: number | null;
+  /** District currently applied to the list, mirrored on the map. */
+  district?: string | null;
   onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
   /** Called when the user taps a marker or steps to a new house so the list can sort by distance from it. */
   onActiveHouseChange?: (house: SupportableHouse | null) => void;
+  /**
+   * Houses the map pulled straight from the database (outside the loaded list
+   * page) so the parent can keep selection totals and funding accurate.
+   */
+  onHousesDiscovered?: (houses: SupportableHouse[]) => void;
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
-const isUgandaCoordinate = (house: SupportableHouse) => {
-  const lat = Number(house.latitude);
-  const lng = Number(house.longitude);
-  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -1.6 && lat <= 4.4 && lng >= 29.4 && lng <= 35.1;
-};
 
-function FitHouseBounds({ houses }: { houses: SupportableHouse[] }) {
-  const map = useMap();
+/** Reports the visible bounds + zoom so the database only aggregates what is on screen. */
+function ViewportReporter({ onChange }: { onChange: (viewport: MapViewport) => void }) {
+  const timer = useRef<number | null>(null);
+
+  const report = useCallback(
+    (map: L.Map) => {
+      if (timer.current) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => {
+        const bounds = map.getBounds();
+        onChange({
+          minLat: bounds.getSouth(),
+          minLng: bounds.getWest(),
+          maxLat: bounds.getNorth(),
+          maxLng: bounds.getEast(),
+          zoom: Math.round(map.getZoom()),
+        });
+      }, 300);
+    },
+    [onChange],
+  );
+
+  const map = useMapEvents({
+    moveend: () => report(map),
+    zoomend: () => report(map),
+  });
 
   useEffect(() => {
-    const points = houses
-      .map((house) => [Number(house.latitude), Number(house.longitude)] as [number, number])
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
-
-    if (points.length === 0) {
-      map.setView(KAMPALA, 11);
-      return;
-    }
-    if (points.length === 1) {
-      map.setView(points[0], 15);
-      return;
-    }
-    map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 14 });
-  }, [houses, map]);
+    report(map);
+    return () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    };
+  }, [map, report]);
 
   return null;
 }
@@ -107,24 +127,41 @@ export function EmptyHouseMapBrowser({
   searchQuery,
   remaining,
   busy,
+  minRent,
+  maxRent,
+  district,
   onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
   onActiveHouseChange,
+  onHousesDiscovered,
 }: EmptyHouseMapBrowserProps) {
   const [activeHouse, setActiveHouse] = useState<SupportableHouse | null>(null);
-  const mappedHouses = useMemo(
-    () =>
-      houses
-        .filter(isUgandaCoordinate),
-    [houses],
-  );
+  const [viewport, setViewport] = useState<MapViewport | null>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
 
+  const cellsQuery = useEmptyHouseMapCells(viewport, {
+    search: searchQuery,
+    district: district ?? undefined,
+    minRent: minRent ?? null,
+    maxRent: maxRent ?? null,
+  });
+  const cells = cellsQuery.data?.cells ?? [];
+  const housesInView = cellsQuery.data?.housesInView ?? 0;
+
+  /** Single-house cells, enriched with the fuller record when the list already holds it. */
+  const mappedHouses = useMemo(() => {
+    const loaded = new Map(houses.map((house) => [house.house_id, house]));
+    return cells
+      .filter((cell) => cell.count === 1 && cell.house)
+      .map((cell) => loaded.get(cell.house!.house_id) ?? cell.house!);
+  }, [cells, houses]);
+
+  // Let the list keep accurate selection totals for houses only the map has seen.
   useEffect(() => {
-    if (activeHouse && !houses.some((house) => house.house_id === activeHouse.house_id)) {
-      setActiveHouse(null);
-    }
-  }, [activeHouse, houses]);
+    if (!onHousesDiscovered || mappedHouses.length === 0) return;
+    onHousesDiscovered(mappedHouses);
+  }, [mappedHouses, onHousesDiscovered]);
 
   useEffect(() => {
     onActiveHouseChange?.(activeHouse);
@@ -132,9 +169,23 @@ export function EmptyHouseMapBrowser({
 
   useEffect(() => {
     if (!focusedId) return;
-    const match = houses.find((house) => house.house_id === focusedId);
+    const match = houses.find((house) => house.house_id === focusedId)
+      ?? mappedHouses.find((house) => house.house_id === focusedId);
     if (match) setActiveHouse(match);
-  }, [focusedId, houses]);
+  }, [focusedId, houses, mappedHouses]);
+
+  // Open the map over the first loaded houses, then leave the view under the funder's control.
+  const initialFitDone = useRef(false);
+  useEffect(() => {
+    if (!mapInstance || initialFitDone.current) return;
+    const points = houses
+      .map((house) => [Number(house.latitude), Number(house.longitude)] as [number, number])
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
+    if (points.length === 0) return;
+    initialFitDone.current = true;
+    if (points.length === 1) mapInstance.setView(points[0], 15);
+    else mapInstance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 13 });
+  }, [houses, mapInstance]);
 
   const activeIndex = activeHouse
     ? mappedHouses.findIndex((house) => house.house_id === activeHouse.house_id)
@@ -181,33 +232,77 @@ export function EmptyHouseMapBrowser({
         center={KAMPALA}
         zoom={11}
         scrollWheelZoom
+        preferCanvas
         attributionControl={false}
         className="h-full w-full"
+        ref={setMapInstance}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-        {mappedHouses.map((house) => {
-          const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
+        {cells.map((cell) => {
+          const house = cell.count === 1 && cell.house
+            ? (mappedHouses.find((item) => item.house_id === cell.house!.house_id) ?? cell.house)
+            : null;
+
+          if (house) {
+            const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
+            const icon = L.divIcon({
+              className: '',
+              html: `<span class="empty-house-map-pin${active ? ' empty-house-map-pin--active' : ''}">${formatDynamic(Number(house.monthly_rent || 0))}</span>`,
+              iconSize: [112, 34],
+              iconAnchor: [56, 34],
+            });
+
+            return (
+              <Marker
+                key={house.house_id}
+                position={[Number(house.latitude), Number(house.longitude)]}
+                icon={icon}
+                title={`${houseTitleLine(house)} · ${formatDynamic(Number(house.monthly_rent || 0))}`}
+                eventHandlers={{ click: () => setActiveHouse(house) }}
+              />
+            );
+          }
+
+          const size = cell.count >= 1000 ? 58 : cell.count >= 100 ? 50 : 42;
+          const label = cell.count >= 1000 ? `${Math.round(cell.count / 1000)}k+` : cell.count.toLocaleString();
           const icon = L.divIcon({
             className: '',
-            html: `<span class="empty-house-map-pin${active ? ' empty-house-map-pin--active' : ''}">${formatDynamic(Number(house.monthly_rent || 0))}</span>`,
-            iconSize: [112, 34],
-            iconAnchor: [56, 34],
+            html: `<span class="empty-house-map-cluster" style="width:${size}px;height:${size}px">${label}</span>`,
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
           });
 
           return (
             <Marker
-              key={house.house_id}
-              position={[Number(house.latitude), Number(house.longitude)]}
+              key={cell.key}
+              position={[cell.latitude, cell.longitude]}
               icon={icon}
-              title={`${houseTitleLine(house)} · ${formatDynamic(Number(house.monthly_rent || 0))}`}
-              eventHandlers={{ click: () => setActiveHouse(house) }}
+              title={`${cell.count.toLocaleString()} empty houses · ${formatDynamic(cell.minRent)} – ${formatDynamic(cell.maxRent)}`}
+              eventHandlers={{
+                click: () => {
+                  setActiveHouse(null);
+                  mapInstance?.flyTo([cell.latitude, cell.longitude], Math.min((viewport?.zoom ?? 11) + 3, 18), {
+                    duration: 0.6,
+                  });
+                },
+              }}
             />
           );
         })}
-        <FitHouseBounds houses={mappedHouses} />
+        <ViewportReporter onChange={setViewport} />
         <PanToHouse house={activeHouse} />
         <LocateMeButton />
       </MapContainer>
+
+      {cellsQuery.isFetching && (
+        <div
+          role="status"
+          className="absolute right-3 top-3 z-[1000] flex items-center gap-1.5 rounded-full border border-border bg-background/95 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur sm:right-16"
+        >
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          Loading houses in view
+        </div>
+      )}
 
       {activeHouse && (() => {
         const rent = Number(activeHouse.monthly_rent || 0);
@@ -339,8 +434,12 @@ export function EmptyHouseMapBrowser({
       )}
 
       {!activeHouse && mappedHouses.length === 0 && (
-        <div role="status" className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
-          {searchQuery.trim() ? 'No houses match this search' : 'Location details open from each house card'}
+        <div role="status" className="pointer-events-none absolute inset-x-2 bottom-2 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur sm:inset-x-auto sm:left-3">
+          {housesInView > 0
+            ? `${housesInView.toLocaleString()}${cellsQuery.data?.scanCapped ? '+' : ''} empty houses in this area — tap a group or zoom in to see each house`
+            : searchQuery.trim()
+              ? 'No houses match this search in this area — move the map or clear the search'
+              : 'No empty houses in this area yet — move or zoom out the map'}
         </div>
       )}
     </div>
