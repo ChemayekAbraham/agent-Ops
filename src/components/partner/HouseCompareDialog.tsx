@@ -142,11 +142,13 @@ export function HouseCompareDialog({
                         </button>
                       </div>
                       <p className="mt-1.5 line-clamp-2 text-xs font-bold leading-tight">
-                        {houseTitleLine(h)}
+                        <HighlightText text={houseTitleLine(h)} query={searchQuery} />
                       </p>
                       <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
                         <MapPin className="h-3 w-3 flex-none" aria-hidden />
-                        <span className="truncate">{h.district || 'Uganda'}</span>
+                        <span className="truncate">
+                          <HighlightText text={h.district || 'Uganda'} query={searchQuery} />
+                        </span>
                       </p>
                     </th>
                   );
