@@ -92,7 +92,7 @@ function PanToHouse({ house }: { house: SupportableHouse | null }) {
   return null;
 }
 
-function LocateMeButton() {
+function LocateMeButton({ onLocated }: { onLocated?: (point: [number, number]) => void }) {
   const map = useMap();
   const [locating, setLocating] = useState(false);
 
@@ -102,7 +102,9 @@ function LocateMeButton() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocating(false);
-        map.flyTo([position.coords.latitude, position.coords.longitude], 14, { duration: 0.6 });
+        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+        onLocated?.(point);
+        map.flyTo(point, 14, { duration: 0.6 });
       },
       () => setLocating(false),
       { enableHighAccuracy: true, timeout: 10000 },
@@ -365,9 +367,22 @@ export function EmptyHouseMapBrowser({
             />
           );
         })}
+        {userPosition && (
+          <Marker
+            position={userPosition}
+            interactive={false}
+            title="Your location"
+            icon={L.divIcon({
+              className: '',
+              html: '<span class="empty-house-map-me" aria-hidden="true"></span>',
+              iconSize: [18, 18],
+              iconAnchor: [9, 9],
+            })}
+          />
+        )}
         <ViewportReporter onChange={setViewport} />
         <PanToHouse house={activeHouse} />
-        <LocateMeButton />
+        <LocateMeButton onLocated={setUserPosition} />
       </MapContainer>
 
       {cellsQuery.isFetching && (
