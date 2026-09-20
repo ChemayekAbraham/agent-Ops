@@ -44,6 +44,9 @@ export type FeedOrder = 'rent' | 'houses';
 interface HouseBalanceAlert {
   ids: string[];
   at: number;
+  // 'ready' (default) = balance became enough; 'dismissed' = highlight cleared
+  // by the partner; 'funded' = partner opened the funding confirmation.
+  kind?: 'ready' | 'dismissed' | 'funded';
 }
 
 const timeAgo = (at: number) => {
@@ -169,6 +172,23 @@ export function SelfPortfolioFundingCard({
     },
     [alertsKey],
   );
+  // Record what the partner did with a highlighted saved house so the action
+  // can be reviewed later in the same alert history.
+  const recordAlertAction = useCallback(
+    (houseId: string, kind: 'dismissed' | 'funded') => {
+      setHouseAlerts((prev) => {
+        const next = [{ ids: [houseId], at: Date.now(), kind }, ...prev].slice(0, 20);
+        try {
+          window.localStorage.setItem(alertsKey, JSON.stringify(next));
+        } catch {
+          /* storage unavailable — history just won't persist */
+        }
+        return next;
+      });
+    },
+    [alertsKey],
+  );
+
 
   // Picked houses survive reloads until the partner funds or removes them.
   const selectionKey = `psm-house-selection-${partnerId}`;
@@ -832,12 +852,22 @@ export function SelfPortfolioFundingCard({
                   key={`${alert.at}-${i}`}
                   className="flex items-center gap-2.5 rounded-xl border border-border bg-background p-2"
                 >
-                  <Bell className="h-3.5 w-3.5 flex-none text-primary" aria-hidden />
+                  {alert.kind === 'funded' ? (
+                    <ShieldCheck className="h-3.5 w-3.5 flex-none text-success" aria-hidden />
+                  ) : alert.kind === 'dismissed' ? (
+                    <X className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
+                  ) : (
+                    <Bell className="h-3.5 w-3.5 flex-none text-primary" aria-hidden />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-bold leading-tight">
-                      {alert.ids.length === 1
-                        ? '1 saved house became fundable'
-                        : `${alert.ids.length} saved houses became fundable`}
+                      {alert.kind === 'funded'
+                        ? 'You started funding this saved house'
+                        : alert.kind === 'dismissed'
+                          ? 'You dismissed the ready-to-fund highlight'
+                          : alert.ids.length === 1
+                            ? '1 saved house became fundable'
+                            : `${alert.ids.length} saved houses became fundable`}
                     </p>
                     <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                       {firstKnown ? houseTitleLine(firstKnown) : 'House no longer listed'} ·{' '}
@@ -913,6 +943,7 @@ export function SelfPortfolioFundingCard({
                       size="sm"
                       disabled={busy}
                       onClick={() => {
+                        recordAlertAction(h.house_id, 'funded');
                         jumpToHouse(h.house_id);
                         setFundConfirmKey(`${Date.now()}`);
                       }}
@@ -924,7 +955,10 @@ export function SelfPortfolioFundingCard({
                     </Button>
                     <button
                       type="button"
-                      onClick={() => persistFundable(fundableIds.filter((id) => id !== h.house_id))}
+                      onClick={() => {
+                        recordAlertAction(h.house_id, 'dismissed');
+                        persistFundable(fundableIds.filter((id) => id !== h.house_id));
+                      }}
                       aria-label={`Dismiss highlight for ${houseTitleLine(h)}`}
                       className="flex h-7 w-7 flex-none items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground"
                     >
