@@ -117,6 +117,47 @@ export function FunderHouseBooking({
                       </td>
                     </tr>
 
+                    {showEarnings && (
+                      <tr>
+                        <td style={{ padding: '20px 32px 0 32px' }}>
+                          <table role="presentation" width="100%" cellPadding={0} cellSpacing={0} style={hero}>
+                            <tbody>
+                              <tr>
+                                <td style={{ padding: '22px 24px 6px 24px' }} align="center">
+                                  <Text style={heroLabel}>You will earn</Text>
+                                  <Text style={heroAmount}>{fmt(monthly_return, currency)}</Text>
+                                  <Text style={heroPer}>every month, for as long as your money is working</Text>
+                                </td>
+                              </tr>
+                              <tr>
+                                <td style={{ padding: '4px 24px 22px 24px' }} align="center">
+                                  <Text style={heroDate}>
+                                    Welile collects your Returns for you and pays them into your
+                                    Welile wallet on <strong>{first_return_date || 'the same date each month'}</strong>
+                                    {first_return_date ? ', then on the same date every month after that.' : '.'}
+                                  </Text>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+
+                    {showEarnings && (
+                      <tr>
+                        <td style={{ padding: '18px 32px 0 32px' }}>
+                          <Heading as="h2" style={h2}>How you earn, step by step</Heading>
+                          <Text style={step}><strong>1.</strong> You put in {fmt(total_rent, currency)} — the rent these {count === 1 ? 'house needs' : 'houses need'} for the month.</Text>
+                          <Text style={step}><strong>2.</strong> A Welile agent places a tenant in {count === 1 ? 'the house' : 'each house'} and collects the rent from them.</Text>
+                          <Text style={step}><strong>3.</strong> Welile pays you {fmt(monthly_return, currency)} — that is {return_rate}% of your money — into your wallet{first_return_date ? ` on ${first_return_date}` : ''}, and again on the same date each month.</Text>
+                          <Text style={step}><strong>4.</strong> You can take your Returns out of your wallet, or leave them in to grow.</Text>
+                        </td>
+                      </tr>
+                    )}
+
+
+
                     <tr>
                       <td style={{ padding: '20px 32px 0 32px' }}>
                         <table role="presentation" width="100%" cellPadding={0} cellSpacing={0} style={panel}>
