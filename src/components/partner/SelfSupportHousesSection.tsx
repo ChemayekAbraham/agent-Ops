@@ -209,8 +209,10 @@ export function HouseSupportCard({
           </div>
 
           {unaffordable && (
-            <p className="mt-1.5 text-[10px] font-semibold text-muted-foreground">
-              Add {formatDynamic(Number(house.monthly_rent) - remaining)} to your balance to include this house.
+            <p className={`mt-1.5 text-[10px] font-semibold ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+              {isSelected
+                ? `Picked — add ${formatDynamic(shortfall)} to your balance to fund it. It stays saved while you top up.`
+                : `Add ${formatDynamic(shortfall)} to your balance to include this house.`}
             </p>
           )}
         </div>
@@ -342,8 +344,8 @@ export function HouseSupportBar({
 
         {overBudget ? (
           <p className="mt-2 text-[10px] font-semibold text-destructive">
-            This selection is {formatDynamic(total - available)} more than your operational float of{' '}
-            {formatDynamic(available)}. Remove a house or add funds.
+            Add {formatDynamic(total - available)} to your balance to fund this selection. Your{' '}
+            {selectedCount > 1 ? 'houses stay' : 'house stays'} picked while you top up.
           </p>
         ) : (
           <p className="mt-2 text-[10px] text-muted-foreground">
