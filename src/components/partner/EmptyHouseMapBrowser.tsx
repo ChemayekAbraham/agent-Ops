@@ -122,8 +122,21 @@ export function EmptyHouseMapBrowser({
     }
   }, [activeHouse, houses]);
 
+  const activeIndex = activeHouse
+    ? mappedHouses.findIndex((house) => house.house_id === activeHouse.house_id)
+    : -1;
+
+  const stepHouse = (direction: 1 | -1) => {
+    if (mappedHouses.length === 0) return;
+    const base = activeIndex >= 0 ? activeIndex : 0;
+    const next = activeIndex >= 0
+      ? (base + direction + mappedHouses.length) % mappedHouses.length
+      : base;
+    setActiveHouse(mappedHouses[next]);
+  };
+
   return (
-    <div className="relative h-[18rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
+    <div className="relative h-[26rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
       <div className="absolute inset-x-3 top-3 z-[1000] sm:right-auto sm:w-[22rem]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
