@@ -719,10 +719,17 @@ export function SelfPortfolioFundingCard({
       if (houseFundingStatus === 'topup' && rent <= remaining) return false;
       if (houseWithinFloat && rent > remaining) return false;
       if (showSavedReadyOnly && (!houseSelected.includes(h.house_id) || rent > remaining)) return false;
+      if (selectedCountry && !pointInCountry(selectedCountry, h.latitude, h.longitude)) return false;
+      if (listedAfter !== null) {
+        const listedAt = h.created_at ? new Date(h.created_at).getTime() : NaN;
+        if (!Number.isFinite(listedAt) || listedAt < listedAfter) return false;
+      }
       return true;
     },
     [
       normalizedSearch,
+      selectedCountry,
+      listedAfter,
       houseRentMin,
       houseRentMax,
       houseFundingStatus,
