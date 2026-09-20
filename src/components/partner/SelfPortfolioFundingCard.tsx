@@ -118,6 +118,13 @@ export function SelfPortfolioFundingCard({
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
   // Show only saved houses whose current balance is enough to fund them.
   const [showSavedReadyOnly, setShowSavedReadyOnly] = useState(false);
+  // Rent range filter (UGX). Empty string = no bound.
+  const [houseRentMin, setHouseRentMin] = useState('');
+  const [houseRentMax, setHouseRentMax] = useState('');
+  // Funding status filter: every house is fundable, but the funder's float may
+  // not cover it yet — "ready" fits within float, "topup" needs a top-up first.
+  type HouseFundingStatus = 'all' | 'ready' | 'topup';
+  const [houseFundingStatus, setHouseFundingStatus] = useState<HouseFundingStatus>('all');
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
   const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
