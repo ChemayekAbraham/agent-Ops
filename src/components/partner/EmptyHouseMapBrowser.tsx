@@ -185,7 +185,12 @@ export function EmptyHouseMapBrowser({
     maxRent: maxRent ?? null,
     maxAgeDays: maxAgeDays ?? null,
   });
-  const cells = cellsQuery.data?.cells ?? [];
+  const rawCells = cellsQuery.data?.cells ?? [];
+  // A viewport can spill past the chosen country's border — drop the pins that fall outside it.
+  const cells = useMemo(
+    () => (country ? rawCells.filter((cell) => pointInCountry(country, cell.latitude, cell.longitude)) : rawCells),
+    [rawCells, country],
+  );
   const housesInView = cellsQuery.data?.housesInView ?? 0;
   const cellSize = cellsQuery.data?.cellSize ?? 0;
 
