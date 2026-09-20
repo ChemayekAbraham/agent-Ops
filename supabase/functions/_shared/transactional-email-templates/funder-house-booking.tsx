@@ -21,7 +21,10 @@ interface Props {
   promised_funding_date?: string
   release_date?: string
   days_left?: number
+  first_return_date?: string
+  return_rate?: number
   houses?: HouseLine[]
+
   dashboard_url?: string
   currency?: string
   company_name?: string
@@ -81,6 +84,8 @@ export function FunderHouseBooking({
   promised_funding_date = '',
   release_date = '',
   days_left = 7,
+  first_return_date = '',
+  return_rate = 15,
   houses = [],
   dashboard_url = 'https://welileapp.com/dashboard/supporter',
   currency = 'UGX',
@@ -92,6 +97,8 @@ export function FunderHouseBooking({
   const year = new Date().getFullYear()
   const count = house_count || houses.length
   const copy = COPY[kind] ?? COPY.booked
+  const showEarnings = (kind === 'booked' || kind === 'funded') && Number(monthly_return) > 0
+
 
   return (
     <Html>
@@ -116,6 +123,47 @@ export function FunderHouseBooking({
                         <Text style={sub}>{copy.intro(count)}</Text>
                       </td>
                     </tr>
+
+                    {showEarnings && (
+                      <tr>
+                        <td style={{ padding: '20px 32px 0 32px' }}>
+                          <table role="presentation" width="100%" cellPadding={0} cellSpacing={0} style={hero}>
+                            <tbody>
+                              <tr>
+                                <td style={{ padding: '22px 24px 6px 24px' }} align="center">
+                                  <Text style={heroLabel}>You will earn</Text>
+                                  <Text style={heroAmount}>{fmt(monthly_return, currency)}</Text>
+                                  <Text style={heroPer}>every month, for as long as your money is working</Text>
+                                </td>
+                              </tr>
+                              <tr>
+                                <td style={{ padding: '4px 24px 22px 24px' }} align="center">
+                                  <Text style={heroDate}>
+                                    Welile collects your Returns for you and pays them into your
+                                    Welile wallet on <strong>{first_return_date || 'the same date each month'}</strong>
+                                    {first_return_date ? ', then on the same date every month after that.' : '.'}
+                                  </Text>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+
+                    {showEarnings && (
+                      <tr>
+                        <td style={{ padding: '18px 32px 0 32px' }}>
+                          <Heading as="h2" style={h2}>How you earn, step by step</Heading>
+                          <Text style={step}><strong>1.</strong> You put in {fmt(total_rent, currency)} — the rent these {count === 1 ? 'house needs' : 'houses need'} for the month.</Text>
+                          <Text style={step}><strong>2.</strong> A Welile agent places a tenant in {count === 1 ? 'the house' : 'each house'} and collects the rent from them.</Text>
+                          <Text style={step}><strong>3.</strong> Welile pays you {fmt(monthly_return, currency)} — that is {return_rate}% of your money — into your wallet{first_return_date ? ` on ${first_return_date}` : ''}, and again on the same date each month.</Text>
+                          <Text style={step}><strong>4.</strong> You can take your Returns out of your wallet, or leave them in to grow.</Text>
+                        </td>
+                      </tr>
+                    )}
+
+
 
                     <tr>
                       <td style={{ padding: '20px 32px 0 32px' }}>
@@ -219,6 +267,13 @@ const h1: React.CSSProperties = { margin: '0 0 10px 0', color: INK, fontSize: '2
 const h2: React.CSSProperties = { margin: '0 0 10px 0', color: INK, fontSize: '18px', fontWeight: 800 }
 const sub: React.CSSProperties = { margin: '0 0 10px 0', color: SUB, fontSize: '15px', lineHeight: '24px' }
 const panel: React.CSSProperties = { border: `1px solid ${BORDER}`, borderRadius: '12px', backgroundColor: '#fffbeb' }
+const hero: React.CSSProperties = { border: `1px solid #fcd34d`, borderRadius: '14px', backgroundColor: '#fffbeb' }
+const heroLabel: React.CSSProperties = { margin: '0 0 6px 0', color: BRAND, fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }
+const heroAmount: React.CSSProperties = { margin: '0 0 6px 0', color: INK, fontSize: '36px', lineHeight: '42px', fontWeight: 800, letterSpacing: '-1px' }
+const heroPer: React.CSSProperties = { margin: 0, color: BODY_C, fontSize: '15px', fontWeight: 600 }
+const heroDate: React.CSSProperties = { margin: 0, color: BODY_C, fontSize: '14px', lineHeight: '22px', textAlign: 'center' as const }
+const step: React.CSSProperties = { margin: '0 0 8px 0', color: BODY_C, fontSize: '14px', lineHeight: '22px' }
+
 const cell: React.CSSProperties = { padding: '16px 20px', width: '50%' }
 const label: React.CSSProperties = { margin: '0 0 4px 0', color: MUTED, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' }
 const value: React.CSSProperties = { margin: 0, color: INK, fontSize: '18px', fontWeight: 800 }
@@ -239,12 +294,21 @@ export const template: TemplateEntry = {
   subject: (data: Record<string, any>) => {
     const count = Number(data?.house_count ?? 0) || 0
     const noun = `${count} ${count === 1 ? 'house' : 'houses'}`
+    const currency = String(data?.currency ?? 'UGX')
+    const earn = Number(String(data?.monthly_return ?? 0).replace(/,/g, '')) || 0
+    const earnLabel = `${currency} ${earn.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
     switch (String(data?.kind ?? 'booked')) {
-      case 'funded': return `Funding received for ${noun}`
+      case 'funded':
+        return earn > 0
+          ? `Funding received for ${noun} — you earn ${earnLabel} a month`
+          : `Funding received for ${noun}`
       case 'reminder': return `${Number(data?.days_left ?? 3) || 3} days left to fund ${noun}`
       case 'released': return `Your booking of ${noun} has lapsed`
       case 'given_up': return `You released ${noun}`
-      default: return `${noun} held for you for 7 days`
+      default:
+        return earn > 0
+          ? `${noun} held for you — you earn ${earnLabel} a month`
+          : `${noun} held for you for 7 days`
     }
   },
   previewData: {
@@ -255,7 +319,10 @@ export const template: TemplateEntry = {
     monthly_return: 135000,
     release_date: '10 Sep 2026',
     promised_funding_date: '8 Sep 2026',
+    first_return_date: '10 Oct 2026',
+    return_rate: 15,
     houses: [
+
       { title: 'Two-bedroom in Kabaale', district: 'Wakiso', monthly_rent: 500000 },
       { title: 'Single room in Bweyogerere', district: 'Wakiso', monthly_rent: 400000 },
     ],

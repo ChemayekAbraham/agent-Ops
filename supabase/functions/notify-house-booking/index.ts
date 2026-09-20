@@ -36,6 +36,18 @@ const dateLabel = (iso: string | null) => {
 
 const DASHBOARD_URL = "https://welileapp.com/dashboard/supporter";
 
+// Date the Supporter's first monthly Returns collection lands: one month after
+// the money starts working (promised funding date, funding date, or booking date),
+// with the day capped at 28 so every month has it.
+const firstReturnLabel = (baseIso: string | null): string => {
+  const base = baseIso ? new Date(baseIso) : new Date();
+  if (Number.isNaN(base.getTime())) return "";
+  const day = Math.min(base.getUTCDate(), 28);
+  const next = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, day));
+  return dateLabel(next.toISOString());
+};
+
+
 function buildSms(row: {
   kind: string;
   partner_name: string | null;
@@ -205,8 +217,11 @@ Deno.serve(async (req) => {
                 promised_funding_date: dateLabel(row.promised_funding_date),
                 release_date: dateLabel(row.release_at),
                 days_left: Number(row.days_left) || 0,
+                first_return_date: firstReturnLabel(row.promised_funding_date ?? row.funded_at ?? row.created_at),
+                return_rate: 15,
                 houses: row.houses ?? [],
                 dashboard_url: DASHBOARD_URL,
+
                 currency: "UGX",
               },
             },
