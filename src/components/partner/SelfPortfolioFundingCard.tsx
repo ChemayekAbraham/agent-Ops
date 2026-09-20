@@ -113,6 +113,9 @@ export function SelfPortfolioFundingCard({
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
   const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
+  // A changing key asks HouseSupportBar to open its confirm dialog (used by
+  // the balance-ready notification's "Fund this house" action).
+  const [fundConfirmKey, setFundConfirmKey] = useState<string | null>(null);
   const alertsKey = `psm-house-alerts-${partnerId}`;
   const [houseAlerts, setHouseAlerts] = useState<HouseBalanceAlert[]>(() => {
     try {
@@ -421,11 +424,15 @@ export function SelfPortfolioFundingCard({
         ? 'Your balance now covers your saved house.'
         : `Your balance now covers your ${houseSelected.length} saved houses.`,
       {
-        description: 'You can fund them now — tap "Fund these houses" below.',
+        description: 'Tap the button below to review and confirm the funding right away.',
         duration: 12000,
         action: {
-          label: 'View house',
-          onClick: () => jumpToHouse(houseSelected[0]),
+          label: houseSelected.length === 1 ? 'Fund this house' : 'Fund these houses',
+          onClick: () => {
+            jumpToHouse(houseSelected[0]);
+            // Unique key so every notification re-opens the confirm dialog.
+            setFundConfirmKey(`${Date.now()}`);
+          },
         },
       },
     );
@@ -1094,6 +1101,7 @@ export function SelfPortfolioFundingCard({
           setBusy={setBusy}
           selectedIds={houseSelected}
           activeHouseCommitment={activeHouseCommitment}
+          confirmRequestKey={fundConfirmKey}
 
           onSubmitted={async (outcome) => {
             setHouseSelected([]);
