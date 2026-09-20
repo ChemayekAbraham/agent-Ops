@@ -97,6 +97,7 @@ export function HouseSupportCard({
   onToggle,
   onOpenDetail,
   onTopUp,
+  flash = false,
 }: {
   house: SupportableHouse;
   isSelected: boolean;
