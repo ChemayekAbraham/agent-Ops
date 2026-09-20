@@ -171,6 +171,9 @@ export function SelfPortfolioFundingCard({
   // A changing key asks HouseSupportBar to open its confirm dialog (used by
   // the balance-ready notification's "Fund this house" action).
   const [fundConfirmKey, setFundConfirmKey] = useState<string | null>(null);
+  // Bumped after a house funding is submitted so the placement timeline
+  // immediately picks up the newly funded house.
+  const [placementRefresh, setPlacementRefresh] = useState(0);
   // Houses that just became fundable stay highlighted until the partner
   // dismisses the highlight or funds them. Persisted so it survives reloads.
   const fundableKey = `psm-house-fundable-${partnerId}`;
