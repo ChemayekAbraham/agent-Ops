@@ -620,11 +620,19 @@ export function SelfPortfolioFundingCard({
       );
     }
     visibleHouses = [...visibleHouses].sort((a, b) => {
+      const rentA = Number(a.monthly_rent || 0);
+      const rentB = Number(b.monthly_rent || 0);
+      const distA = a.distance_km ?? Infinity;
+      const distB = b.distance_km ?? Infinity;
       switch (houseSort) {
+        case 'nearest':
+          if (distA !== distB) return distA - distB;
+          return rentA - rentB;
         case 'rent_asc':
-          return Number(a.monthly_rent || 0) - Number(b.monthly_rent || 0);
+          if (rentA !== rentB) return rentA - rentB;
+          return distA - distB;
         case 'rent_desc':
-          return Number(b.monthly_rent || 0) - Number(a.monthly_rent || 0);
+          return rentB - rentA;
         case 'rooms_desc':
           return Number(b.number_of_rooms || 0) - Number(a.number_of_rooms || 0);
         case 'return_desc':
