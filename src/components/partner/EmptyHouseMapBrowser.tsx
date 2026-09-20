@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { ChevronLeft, ChevronRight, Crosshair, Home, MapPin, Navigation, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Home, Loader2, MapPin, Navigation, Search, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
+import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
@@ -18,38 +19,57 @@ interface EmptyHouseMapBrowserProps {
   searchQuery: string;
   remaining: number;
   busy: boolean;
+  /** Rent floor/ceiling currently applied to the list, mirrored on the map. */
+  minRent?: number | null;
+  maxRent?: number | null;
+  /** District currently applied to the list, mirrored on the map. */
+  district?: string | null;
   onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
   /** Called when the user taps a marker or steps to a new house so the list can sort by distance from it. */
   onActiveHouseChange?: (house: SupportableHouse | null) => void;
+  /**
+   * Houses the map pulled straight from the database (outside the loaded list
+   * page) so the parent can keep selection totals and funding accurate.
+   */
+  onHousesDiscovered?: (houses: SupportableHouse[]) => void;
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
-const isUgandaCoordinate = (house: SupportableHouse) => {
-  const lat = Number(house.latitude);
-  const lng = Number(house.longitude);
-  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -1.6 && lat <= 4.4 && lng >= 29.4 && lng <= 35.1;
-};
 
-function FitHouseBounds({ houses }: { houses: SupportableHouse[] }) {
-  const map = useMap();
+/** Reports the visible bounds + zoom so the database only aggregates what is on screen. */
+function ViewportReporter({ onChange }: { onChange: (viewport: MapViewport) => void }) {
+  const timer = useRef<number | null>(null);
+
+  const report = useCallback(
+    (map: L.Map) => {
+      if (timer.current) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => {
+        const bounds = map.getBounds();
+        onChange({
+          minLat: bounds.getSouth(),
+          minLng: bounds.getWest(),
+          maxLat: bounds.getNorth(),
+          maxLng: bounds.getEast(),
+          zoom: Math.round(map.getZoom()),
+        });
+      }, 300);
+    },
+    [onChange],
+  );
+
+  const map = useMapEvents({
+    moveend: () => report(map),
+    zoomend: () => report(map),
+  });
 
   useEffect(() => {
-    const points = houses
-      .map((house) => [Number(house.latitude), Number(house.longitude)] as [number, number])
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
-
-    if (points.length === 0) {
-      map.setView(KAMPALA, 11);
-      return;
-    }
-    if (points.length === 1) {
-      map.setView(points[0], 15);
-      return;
-    }
-    map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 14 });
-  }, [houses, map]);
+    report(map);
+    return () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    };
+  }, [map, report]);
 
   return null;
 }
