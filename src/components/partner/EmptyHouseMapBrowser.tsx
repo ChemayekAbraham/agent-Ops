@@ -127,24 +127,41 @@ export function EmptyHouseMapBrowser({
   searchQuery,
   remaining,
   busy,
+  minRent,
+  maxRent,
+  district,
   onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
   onActiveHouseChange,
+  onHousesDiscovered,
 }: EmptyHouseMapBrowserProps) {
   const [activeHouse, setActiveHouse] = useState<SupportableHouse | null>(null);
-  const mappedHouses = useMemo(
-    () =>
-      houses
-        .filter(isUgandaCoordinate),
-    [houses],
-  );
+  const [viewport, setViewport] = useState<MapViewport | null>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
 
+  const cellsQuery = useEmptyHouseMapCells(viewport, {
+    search: searchQuery,
+    district: district ?? undefined,
+    minRent: minRent ?? null,
+    maxRent: maxRent ?? null,
+  });
+  const cells = cellsQuery.data?.cells ?? [];
+  const housesInView = cellsQuery.data?.housesInView ?? 0;
+
+  /** Single-house cells, enriched with the fuller record when the list already holds it. */
+  const mappedHouses = useMemo(() => {
+    const loaded = new Map(houses.map((house) => [house.house_id, house]));
+    return cells
+      .filter((cell) => cell.count === 1 && cell.house)
+      .map((cell) => loaded.get(cell.house!.house_id) ?? cell.house!);
+  }, [cells, houses]);
+
+  // Let the list keep accurate selection totals for houses only the map has seen.
   useEffect(() => {
-    if (activeHouse && !houses.some((house) => house.house_id === activeHouse.house_id)) {
-      setActiveHouse(null);
-    }
-  }, [activeHouse, houses]);
+    if (!onHousesDiscovered || mappedHouses.length === 0) return;
+    onHousesDiscovered(mappedHouses);
+  }, [mappedHouses, onHousesDiscovered]);
 
   useEffect(() => {
     onActiveHouseChange?.(activeHouse);
@@ -152,9 +169,23 @@ export function EmptyHouseMapBrowser({
 
   useEffect(() => {
     if (!focusedId) return;
-    const match = houses.find((house) => house.house_id === focusedId);
+    const match = houses.find((house) => house.house_id === focusedId)
+      ?? mappedHouses.find((house) => house.house_id === focusedId);
     if (match) setActiveHouse(match);
-  }, [focusedId, houses]);
+  }, [focusedId, houses, mappedHouses]);
+
+  // Open the map over the first loaded houses, then leave the view under the funder's control.
+  const initialFitDone = useRef(false);
+  useEffect(() => {
+    if (!mapInstance || initialFitDone.current) return;
+    const points = houses
+      .map((house) => [Number(house.latitude), Number(house.longitude)] as [number, number])
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
+    if (points.length === 0) return;
+    initialFitDone.current = true;
+    if (points.length === 1) mapInstance.setView(points[0], 15);
+    else mapInstance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 13 });
+  }, [houses, mapInstance]);
 
   const activeIndex = activeHouse
     ? mappedHouses.findIndex((house) => house.house_id === activeHouse.house_id)
