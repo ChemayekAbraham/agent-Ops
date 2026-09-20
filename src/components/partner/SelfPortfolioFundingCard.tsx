@@ -1578,7 +1578,11 @@ export function SelfPortfolioFundingCard({
                 ? `We could not find any houses matching "${houseSearch}". Try a different name, district, or neighborhood.`
                 : showSavedReadyOnly
                   ? 'You have no saved houses that your current balance can fund. Reset to see all houses, or top up your balance.'
-                  : houseDistrict !== 'all' || houseSubCounty !== 'all'
+                  : selectedCountry
+                    ? `No empty houses in ${selectedCountry.name} match the other filters yet. Choose "All of Africa" or widen your filters.`
+                    : houseListingAge !== 'all'
+                      ? 'No empty houses were listed in that period. Try a longer listing age.'
+                      : houseDistrict !== 'all' || houseSubCounty !== 'all'
                     ? 'No empty houses in this area match the other filters. Try a different location or widen your search.'
                     : houseFundingStatus !== 'all' || houseWithinFloat
                       ? 'No houses match the funding-status filter. Reset to see every available house.'
