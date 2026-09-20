@@ -227,6 +227,23 @@ export function HouseSupportCard({
             </span>
           </p>
 
+          {route ? (
+            <p
+              className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-muted-foreground"
+              aria-label={`About ${route.distanceLabel} away, roughly ${route.durationLabel} by car${route.approximate ? ', approximate location' : ''}`}
+            >
+              <span className="inline-flex items-center gap-1">
+                <Navigation className="h-3 w-3 flex-none text-primary" aria-hidden />
+                {route.distanceLabel} away
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Car className="h-3 w-3 flex-none text-primary" aria-hidden />
+                about {route.durationLabel} by car
+              </span>
+              {route.approximate ? <span className="text-[9px] italic">(approximate area)</span> : null}
+            </p>
+          ) : null}
+
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
               {HOUSE_MONTHLY_ROI_RATE}% / month
