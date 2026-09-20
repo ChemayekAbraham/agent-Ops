@@ -153,6 +153,27 @@ export function EmptyHouseMapBrowser({
   });
   const cells = cellsQuery.data?.cells ?? [];
   const housesInView = cellsQuery.data?.housesInView ?? 0;
+  const cellSize = cellsQuery.data?.cellSize ?? 0;
+
+  /**
+   * Optional density view: tints each grid cell by how many empty houses it
+   * holds, so a funder can read where the opportunities are across Africa
+   * before zooming into clustered houses. Built from the cells already fetched.
+   */
+  const heatmapActive = showHeatmap && heatmapAppliesAtZoom(viewport?.zoom) && cellSize > 0;
+  const heatTiles = useMemo(() => {
+    if (!heatmapActive) return [];
+    const half = cellSize / 2;
+    return cells.map((cell) => ({
+      key: `heat-${cell.key}`,
+      count: cell.count,
+      bucket: heatBucketFor(cell.count),
+      bounds: L.latLngBounds(
+        [cell.latitude - half, cell.longitude - half],
+        [cell.latitude + half, cell.longitude + half],
+      ),
+    }));
+  }, [cells, cellSize, heatmapActive]);
 
   /** Single-house cells, enriched with the fuller record when the list already holds it. */
   const mappedHouses = useMemo(() => {
