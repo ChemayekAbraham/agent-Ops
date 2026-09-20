@@ -863,12 +863,7 @@ export function FunderCapitalOpportunities({
             </h4>
           </div>
 
-          {/* House cards appear first so funders can browse immediately */}
-          {user?.id
-            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder="houses" onFeedOrderChange={setFeedOrder} />
-            : <p className="text-[11px] text-muted-foreground">Sign in to view empty houses.</p>}
-
-          {/* Compact market snapshot — keeps the numbers without leading with total rent */}
+          {/* Compact summary above the list: houses + biggest opportunity first, rent needed secondary */}
           {(() => {
             const s = emptyHouseSummary;
             const openHouses = s?.house_count ?? 0;
@@ -877,28 +872,32 @@ export function FunderCapitalOpportunities({
             const fundedPct = totalHouses > 0 ? Math.round((fundedHouses / totalHouses) * 100) : 0;
             const biggest = s?.districts?.[0] ?? s?.landlords?.[0];
             return (
-              <div className="rounded-xl border border-border/60 bg-card p-3.5 space-y-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
+              <div className="space-y-1.5">
+                <div className="flex items-stretch gap-2 rounded-xl border border-border/60 bg-card p-2.5 sm:p-3 overflow-hidden">
+                  <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Empty houses</p>
-                    <p className="text-xl font-black text-foreground tracking-tight tabular-nums">{openHouses.toLocaleString()}</p>
+                    <p className="text-lg font-black text-foreground tracking-tight tabular-nums">{openHouses.toLocaleString()}</p>
                   </div>
                   {biggest && (
-                    <div className="text-right min-w-0">
+                    <div className="flex-1 min-w-0 text-right border-l border-border/40 pl-2 sm:pl-3">
                       <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider truncate">Biggest opportunity</p>
                       <p className="text-sm font-bold text-foreground truncate">{biggest.label}</p>
                       <p className="text-[10px] text-muted-foreground">{biggest.house_count.toLocaleString()} houses</p>
                     </div>
                   )}
                 </div>
-                <div className="h-px bg-border/60" />
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-muted-foreground">{fundedHouses.toLocaleString()} funded ({fundedPct}%)</span>
-                  <span className="font-medium text-success">{formatAmountCompact(s?.total_rent_needed ?? 0)} rent still needed</span>
-                </div>
+                <p className="flex flex-col items-start gap-0.5 text-[11px] text-muted-foreground px-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+                  <span>{fundedHouses.toLocaleString()} of {totalHouses.toLocaleString()} funded ({fundedPct}%)</span>
+                  <span className="font-medium text-foreground/80">{formatAmountCompact(s?.total_rent_needed ?? 0)} rent still needed</span>
+                </p>
               </div>
             );
           })()}
+
+          {/* House cards appear first so funders can browse immediately */}
+          {user?.id
+            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder="houses" onFeedOrderChange={setFeedOrder} />
+            : <p className="text-[11px] text-muted-foreground">Sign in to view empty houses.</p>}
 
           {/* Calculator: pick how many houses (or an amount) and see the return */}
           {(() => {
