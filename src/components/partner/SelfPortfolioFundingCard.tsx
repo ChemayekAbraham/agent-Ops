@@ -354,7 +354,30 @@ export function SelfPortfolioFundingCard({
 
   const plans = plansQuery.data?.plans ?? [];
 
-  const houses = housesQuery.data?.houses ?? [];
+  // The map reads houses straight from the database per viewport, so it can show
+  // houses this page has not loaded. Anything it surfaces is registered here so
+  // selection totals, saved-for-later and funding stay accurate.
+  const [discoveredHouses, setDiscoveredHouses] = useState<Record<string, SupportableHouse>>({});
+  const registerDiscoveredHouses = useCallback((found: SupportableHouse[]) => {
+    setDiscoveredHouses((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const house of found) {
+        if (!next[house.house_id]) {
+          next[house.house_id] = house;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, []);
+
+  const houses = useMemo(() => {
+    const fetched = housesQuery.data?.houses ?? [];
+    const seen = new Set(fetched.map((h) => h.house_id));
+    const extra = Object.values(discoveredHouses).filter((h) => !seen.has(h.house_id));
+    return extra.length ? [...fetched, ...extra] : fetched;
+  }, [housesQuery.data, discoveredHouses]);
 
   // Drop picked houses that are no longer listed (already funded by someone else).
   useEffect(() => {
