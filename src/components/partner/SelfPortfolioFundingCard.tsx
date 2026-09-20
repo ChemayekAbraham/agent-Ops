@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
@@ -26,6 +26,7 @@ import {
 import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
 import DepositFlow from '@/components/payments/DepositFlow';
 import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
+import { HouseCompareDialog } from './HouseCompareDialog';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
@@ -126,6 +127,9 @@ export function SelfPortfolioFundingCard({
   // not cover it yet — "ready" fits within float, "topup" needs a top-up first.
   type HouseFundingStatus = 'all' | 'ready' | 'topup';
   const [houseFundingStatus, setHouseFundingStatus] = useState<HouseFundingStatus>('all');
+  // Side-by-side comparison picks (in-session only; never touches funding).
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
   const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
@@ -322,6 +326,10 @@ export function SelfPortfolioFundingCard({
       const next = prev.filter((id) => ids.has(id));
       return next.length === prev.length ? prev : next;
     });
+    setCompareIds((prev) => {
+      const next = prev.filter((id) => ids.has(id));
+      return next.length === prev.length ? prev : next;
+    });
   }, [housesQuery.data, houses]);
   const available = plansQuery.data?.available ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
@@ -423,6 +431,26 @@ export function SelfPortfolioFundingCard({
   const selectedHouseObjects = useMemo(
     () => houses.filter((h) => houseSelected.includes(h.house_id)),
     [houses, houseSelected],
+  );
+
+  // Compare picks that are still listed (drop houses funded by someone else).
+  const compareHouses = useMemo(
+    () => compareIds.map((id) => houses.find((h) => h.house_id === id)).filter((h): h is SupportableHouse => !!h),
+    [compareIds, houses],
+  );
+
+  const toggleCompare = useCallback(
+    (id: string) => {
+      setCompareIds((prev) => {
+        if (prev.includes(id)) return prev.filter((x) => x !== id);
+        if (prev.length >= 3) {
+          toast.info('You can compare up to 3 houses at a time. Remove one first.');
+          return prev;
+        }
+        return [...prev, id];
+      });
+    },
+    [],
   );
 
   // Funding (or unpicking) a highlighted house clears its highlight. Wait for
@@ -942,6 +970,38 @@ export function SelfPortfolioFundingCard({
           >
             Saved · Ready to fund
           </Button>
+          <Button
+            type="button"
+            variant={compareIds.length > 0 ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            disabled={compareIds.length < 2}
+            aria-label={
+              compareIds.length < 2
+                ? 'Compare houses — tap the compare icon on at least 2 house cards first'
+                : `Compare ${compareIds.length} houses side by side`
+            }
+            onClick={() => setCompareOpen(true)}
+          >
+            <GitCompareArrows className="h-3.5 w-3.5 mr-1" aria-hidden />
+            Compare
+            {compareIds.length > 0 && (
+              <span className="ml-1 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                {compareIds.length}
+              </span>
+            )}
+          </Button>
+          {compareIds.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs"
+              onClick={() => setCompareIds([])}
+            >
+              Clear compare
+            </Button>
+          )}
           {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
             <Button
               type="button"
@@ -1222,7 +1282,7 @@ export function SelfPortfolioFundingCard({
 
         if (item.kind === 'house') {
           return (
-            <div key={`house-${item.id}`} className="min-w-0 space-y-3">
+            <div key={`house-${item.id}`} className="relative min-w-0 space-y-3">
               {groupHeader}
               <HouseSupportCard
                 house={item.house}
@@ -1233,7 +1293,23 @@ export function SelfPortfolioFundingCard({
                 onOpenDetail={setDetailHouse}
                  onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
                  flash={flashHouseId === item.id || fundableIds.includes(item.id)}
-               />
+                />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCompare(item.id);
+                }}
+                aria-pressed={compareIds.includes(item.id)}
+                aria-label={`${compareIds.includes(item.id) ? 'Remove' : 'Add'} ${houseTitleLine(item.house)} ${compareIds.includes(item.id) ? 'from' : 'to'} comparison`}
+                className={`absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full shadow-sm transition-colors ${
+                  compareIds.includes(item.id)
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background/90 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <GitCompareArrows className="h-4 w-4" aria-hidden />
+              </button>
             </div>
           );
         }
@@ -1497,6 +1573,19 @@ export function SelfPortfolioFundingCard({
         onTogglePick={(h) => toggleHouse(h.house_id)}
       />
 
+
+      <HouseCompareDialog
+        open={compareOpen && compareHouses.length >= 2}
+        onOpenChange={setCompareOpen}
+        houses={compareHouses}
+        remaining={remaining}
+        busy={busy}
+        onFundHouse={(house) => {
+          setCompareOpen(false);
+          if (!houseSelected.includes(house.house_id)) toggleHouse(house.house_id);
+        }}
+        onRemove={(houseId) => setCompareIds((prev) => prev.filter((x) => x !== houseId))}
+      />
 
       <SelfPortfolioDeployDialog
         open={deployOpen}
