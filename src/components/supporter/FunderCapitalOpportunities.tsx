@@ -863,244 +863,213 @@ export function FunderCapitalOpportunities({
             </h4>
           </div>
 
-          {/* Major deal: aggregate opportunity summary */}
-          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.07] to-primary/[0.02] p-4 space-y-3.5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] text-primary font-bold uppercase tracking-wider">Major opportunity</p>
-                <p className="text-base font-black text-foreground mt-1 leading-tight">
-                  {emptyHouseSummary
-                    ? `${emptyHouseSummary.house_count.toLocaleString()} empty houses need funding`
-                    : 'Empty houses need funding'}
-                </p>
-              </div>
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                <Home className="h-5 w-5" />
-              </span>
-            </div>
+          {/* House cards appear first so funders can browse immediately */}
+          {user?.id
+            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder="houses" onFeedOrderChange={setFeedOrder} />
+            : <p className="text-[11px] text-muted-foreground">Sign in to view empty houses.</p>}
 
-            {/* Headline figures + funding progress */}
-            {(() => {
-              const s = emptyHouseSummary;
-              const openHouses = s?.house_count ?? 0;
-              const fundedHouses = s?.funded_count ?? 0;
-              const totalHouses = openHouses + fundedHouses;
-              const fundedPct = totalHouses > 0 ? Math.round((fundedHouses / totalHouses) * 100) : 0;
-              return (
-                <div className="rounded-xl bg-card border border-border/60 p-3.5 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider">Still open</p>
-                      <p className="text-xl font-black text-foreground tracking-tight mt-0.5 tabular-nums">
-                        {openHouses.toLocaleString()}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground font-medium">houses</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider">Rent needed</p>
-                      <p className="text-xl font-black text-foreground tracking-tight mt-0.5 tabular-nums">
-                        {formatAmountCompact(s?.total_rent_needed ?? 0)}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground font-medium">
-                        UGX {(s?.total_rent_needed ?? 0).toLocaleString()}
-                      </p>
-                    </div>
+          {/* Compact market snapshot — keeps the numbers without leading with total rent */}
+          {(() => {
+            const s = emptyHouseSummary;
+            const openHouses = s?.house_count ?? 0;
+            const fundedHouses = s?.funded_count ?? 0;
+            const totalHouses = openHouses + fundedHouses;
+            const fundedPct = totalHouses > 0 ? Math.round((fundedHouses / totalHouses) * 100) : 0;
+            const biggest = s?.districts?.[0] ?? s?.landlords?.[0];
+            return (
+              <div className="rounded-xl border border-border/60 bg-card p-3.5 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Empty houses</p>
+                    <p className="text-xl font-black text-foreground tracking-tight tabular-nums">{openHouses.toLocaleString()}</p>
                   </div>
-
-                  {fundedHouses > 0 && (
-                    <div className="space-y-1.5">
-                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-success transition-all"
-                          style={{ width: `${Math.min(100, Math.max(2, fundedPct))}%` }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] font-medium">
-                        <span className="text-success font-bold">
-                          {fundedHouses.toLocaleString()} funded ({fundedPct}%)
-                        </span>
-                        <span className="text-muted-foreground">
-                          {openHouses.toLocaleString()} still open
-                        </span>
-                      </div>
+                  {biggest && (
+                    <div className="text-right min-w-0">
+                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider truncate">Biggest opportunity</p>
+                      <p className="text-sm font-bold text-foreground truncate">{biggest.label}</p>
+                      <p className="text-[10px] text-muted-foreground">{biggest.house_count.toLocaleString()} houses</p>
                     </div>
                   )}
                 </div>
-              );
-            })()}
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground">{fundedHouses.toLocaleString()} funded ({fundedPct}%)</span>
+                  <span className="font-medium text-success">{formatAmountCompact(s?.total_rent_needed ?? 0)} rent still needed</span>
+                </div>
+              </div>
+            );
+          })()}
 
-            {/* Calculator: pick how many houses (or an amount) and see the return */}
-            {(() => {
-              const avgAvailable = (emptyHouseSummary?.avg_monthly_rent ?? 0) > 0;
-              return (
-                <div className="rounded-xl bg-card border border-border/60 p-3.5 space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => { hapticTap(); setCalcOpen(v => !v); }}
-                    className="w-full flex items-center justify-between gap-2 text-left"
-                    aria-expanded={calcOpen}
-                    aria-controls="empty-house-earn-calc"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Calculator className="h-4 w-4 text-primary" />
-                      <p className="text-[12px] text-foreground font-bold">
-                        What will I earn?
-                      </p>
-                    </div>
-                    {calcOpen ? (
-                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
-
-                  {calcOpen && !avgAvailable && (
-                    <p id="empty-house-earn-calc" className="text-[11px] text-muted-foreground font-medium">
-                      We can't estimate returns yet — average rent data for empty houses isn't available.
-                      Browse the houses below to see exact figures per house.
+          {/* Calculator: pick how many houses (or an amount) and see the return */}
+          {(() => {
+            const avgAvailable = (emptyHouseSummary?.avg_monthly_rent ?? 0) > 0;
+            return (
+              <div className="rounded-xl bg-card border border-border/60 p-3.5 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => { hapticTap(); setCalcOpen(v => !v); }}
+                  className="w-full flex items-center justify-between gap-2 text-left"
+                  aria-expanded={calcOpen}
+                  aria-controls="empty-house-earn-calc"
+                >
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-4 w-4 text-primary" />
+                    <p className="text-[12px] text-foreground font-bold">
+                      What will I earn?
                     </p>
+                  </div>
+                  {calcOpen ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   )}
+                </button>
 
-                  {calcOpen && avgAvailable && (
-                    <div id="empty-house-earn-calc" className="space-y-3">
-                      <div className="rounded-lg bg-muted/40 border border-border/50 p-3 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[12px] font-semibold text-foreground">Houses</p>
-                          <span className="text-base font-black text-foreground tabular-nums">
-                            {calc.houses.toLocaleString()}
-                          </span>
-                        </div>
-                        <Slider
-                          value={[Math.min(calcHouses, calc.maxHouses)]}
-                          min={1}
-                          max={calc.maxHouses}
-                          step={1}
-                          onValueChange={(v) => { setCalcAmountInput(''); setCalcHouses(v[0]); }}
+                {calcOpen && !avgAvailable && (
+                  <p id="empty-house-earn-calc" className="text-[11px] text-muted-foreground font-medium">
+                    We can't estimate returns yet — average rent data for empty houses isn't available.
+                    Browse the houses below to see exact figures per house.
+                  </p>
+                )}
+
+                {calcOpen && avgAvailable && (
+                  <div id="empty-house-earn-calc" className="space-y-3">
+                    <div className="rounded-lg bg-muted/40 border border-border/50 p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[12px] font-semibold text-foreground">Houses</p>
+                        <span className="text-base font-black text-foreground tabular-nums">
+                          {calc.houses.toLocaleString()}
+                        </span>
+                      </div>
+                      <Slider
+                        value={[Math.min(calcHouses, calc.maxHouses)]}
+                        min={1}
+                        max={calc.maxHouses}
+                        step={1}
+                        onValueChange={(v) => { setCalcAmountInput(''); setCalcHouses(v[0]); }}
+                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+                          or amount (UGX)
+                        </span>
+                        <Input
+                          inputMode="numeric"
+                          placeholder={String(calc.avg)}
+                          value={calcAmountInput}
+                          onChange={(e) => setCalcAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
+                          className="h-9 text-xs"
                         />
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-muted-foreground font-medium shrink-0">
-                            or amount (UGX)
-                          </span>
-                          <Input
-                            inputMode="numeric"
-                            placeholder={String(calc.avg)}
-                            value={calcAmountInput}
-                            onChange={(e) => setCalcAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
-                            className="h-9 text-xs"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2 pt-0.5">
-                          <div>
-                            <p className="text-[10px] text-muted-foreground font-medium">Funding total</p>
-                            <p className="text-[13px] font-black text-foreground tabular-nums">
-                              {formatAmountCompact(calc.funding)}
-                            </p>
-                          </div>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="cursor-help">
-                                <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                                  Fees <Info className="h-3 w-3 text-muted-foreground/70" />
-                                </p>
-                                <p className={`text-[13px] font-black tabular-nums ${calc.serviceFee > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
-                                  {formatAmountCompact(calc.serviceFee)}
-                                </p>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
-                              Service/access fee = Funding total × service fee rate.
-                              Current rate is {feeRatePct.toFixed(1)}%,
-                              so the fee is {formatAmountCompact(calc.serviceFee)}.
-                            </TooltipContent>
-                          </Tooltip>
-                          <div className="text-right">
-                            <p className="text-[10px] text-muted-foreground font-medium">Net monthly</p>
-                            <p className="text-[13px] font-black text-success tabular-nums">
-                              {formatAmountCompact(calc.netMonthly)}
-                            </p>
-                          </div>
-                        </div>
                       </div>
 
-                      <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Service/access fee rate
+                      <div className="grid grid-cols-3 gap-2 pt-0.5">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-medium">Funding total</p>
+                          <p className="text-[13px] font-black text-foreground tabular-nums">
+                            {formatAmountCompact(calc.funding)}
                           </p>
-                          <span className="text-[13px] font-black text-foreground tabular-nums">{feeRatePct.toFixed(1)}%</span>
                         </div>
-                        <Slider
-                          value={[feeRatePct]}
-                          min={0}
-                          max={15}
-                          step={0.5}
-                          onValueChange={(v) => setFeeRatePct(v[0])}
-                        />
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {[0, 2, 5, 10].map(p => (
-                            <button
-                              key={p}
-                              type="button"
-                              onClick={() => { hapticTap(); setFeeRatePct(p); }}
-                              className={`px-2.5 py-1 rounded-md border border-border/60 text-[11px] font-bold transition-colors ${feeRatePct === p ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/60'}`}
-                            >
-                              {p}%
-                            </button>
-                          ))}
-                          <span className="text-[10px] text-muted-foreground font-medium ml-auto">
-                            Adjust to test how fees change this estimate
-                          </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help">
+                              <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                Fees <Info className="h-3 w-3 text-muted-foreground/70" />
+                              </p>
+                              <p className={`text-[13px] font-black tabular-nums ${calc.serviceFee > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                                {formatAmountCompact(calc.serviceFee)}
+                              </p>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
+                            Service/access fee = Funding total × service fee rate.
+                            Current rate is {feeRatePct.toFixed(1)}%,
+                            so the fee is {formatAmountCompact(calc.serviceFee)}.
+                          </TooltipContent>
+                        </Tooltip>
+                        <div className="text-right">
+                          <p className="text-[10px] text-muted-foreground font-medium">Net monthly</p>
+                          <p className="text-[13px] font-black text-success tabular-nums">
+                            {formatAmountCompact(calc.netMonthly)}
+                          </p>
                         </div>
                       </div>
-
-                      <p className="text-[10px] text-muted-foreground font-medium leading-relaxed">
-                        Estimate uses the average rent of {formatAmountCompact(calc.avg)} per empty house. Exact figures are shown per house in the picker.
-                        {feeRatePct <= 0 && ' No service/access fee is currently applied.'}
-                      </p>
-
-                      <Button
-                        variant="outline"
-                        className="h-10 w-full gap-2 rounded-xl text-xs font-bold"
-                        onClick={() => { hapticTap(); setHousePickerOpen(true); }}
-                      >
-                        <Home className="h-4 w-4" />
-                        {calc.usingAmount
-                          ? `See houses up to ${formatAmountCompact(calc.typed)}`
-                          : `Pick ${calc.houses.toLocaleString()} ${calc.houses === 1 ? 'house' : 'houses'}`}
-                      </Button>
                     </div>
-                  )}
-                </div>
-              );
-            })()}
 
+                    <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Service/access fee rate
+                        </p>
+                        <span className="text-[13px] font-black text-foreground tabular-nums">{feeRatePct.toFixed(1)}%</span>
+                      </div>
+                      <Slider
+                        value={[feeRatePct]}
+                        min={0}
+                        max={15}
+                        step={0.5}
+                        onValueChange={(v) => setFeeRatePct(v[0])}
+                      />
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {[0, 2, 5, 10].map(p => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => { hapticTap(); setFeeRatePct(p); }}
+                            className={`px-2.5 py-1 rounded-md border border-border/60 text-[11px] font-bold transition-colors ${feeRatePct === p ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/60'}`}
+                          >
+                            {p}%
+                          </button>
+                        ))}
+                        <span className="text-[10px] text-muted-foreground font-medium ml-auto">
+                          Adjust to test how fees change this estimate
+                        </span>
+                      </div>
+                    </div>
 
-            {/* Mini breakdown: where the biggest opportunities are */}
-            <BiggestOpportunitiesPanel
-              districts={emptyHouseSummary?.districts ?? []}
-              landlords={emptyHouseSummary?.landlords ?? []}
-              formatAmountCompact={formatAmountCompact}
-              onExportPdf={exportRankingPdf}
-            />
+                    <p className="text-[10px] text-muted-foreground font-medium leading-relaxed">
+                      Estimate uses the average rent of {formatAmountCompact(calc.avg)} per empty house. Exact figures are shown per house in the picker.
+                      {feeRatePct <= 0 && ' No service/access fee is currently applied.'}
+                    </p>
 
-            <FunderBookedHousesPanel />
+                    <Button
+                      variant="outline"
+                      className="h-10 w-full gap-2 rounded-xl text-xs font-bold"
+                      onClick={() => { hapticTap(); setHousePickerOpen(true); }}
+                    >
+                      <Home className="h-4 w-4" />
+                      {calc.usingAmount
+                        ? `See houses up to ${formatAmountCompact(calc.typed)}`
+                        : `Pick ${calc.houses.toLocaleString()} ${calc.houses === 1 ? 'house' : 'houses'}`}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
-            <p className="text-[12px] leading-relaxed text-muted-foreground">
-              Browse empty houses with photos, landlord contact, and GPS location. Fund the ones you want
-              straight away, or book them and promise a funding date — you earn{' '}
-              <span className="font-bold text-success">15% of the rent every month for 12 months</span>.
-            </p>
+          {/* Mini breakdown: where the biggest opportunities are */}
+          <BiggestOpportunitiesPanel
+            districts={emptyHouseSummary?.districts ?? []}
+            landlords={emptyHouseSummary?.landlords ?? []}
+            formatAmountCompact={formatAmountCompact}
+            onExportPdf={exportRankingPdf}
+          />
 
+          <FunderBookedHousesPanel />
 
-            <Button
-              className="h-12 w-full gap-2 text-sm font-bold rounded-xl shadow-sm"
-              onClick={() => { hapticTap(); setHousePickerOpen(true); }}
-            >
-              <Plus className="h-4 w-4" /> Browse empty houses
-            </Button>
+          <p className="text-[12px] leading-relaxed text-muted-foreground">
+            Browse empty houses with photos, landlord contact, and GPS location. Fund the ones you want
+            straight away, or book them and promise a funding date — you earn{' '}
+            <span className="font-bold text-success">15% of the rent every month for 12 months</span>.
+          </p>
 
-          </div>
+          <Button
+            variant="outline"
+            className="h-11 w-full gap-2 text-xs font-bold rounded-xl"
+            onClick={() => { hapticTap(); setHousePickerOpen(true); }}
+          >
+            <Home className="h-4 w-4" /> Browse all empty houses
+          </Button>
+
         </div>
         )}
 
