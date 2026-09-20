@@ -434,8 +434,12 @@ export function EmptyHouseMapBrowser({
       )}
 
       {!activeHouse && mappedHouses.length === 0 && (
-        <div role="status" className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
-          {searchQuery.trim() ? 'No houses match this search' : 'Location details open from each house card'}
+        <div role="status" className="pointer-events-none absolute inset-x-2 bottom-2 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur sm:inset-x-auto sm:left-3">
+          {housesInView > 0
+            ? `${housesInView.toLocaleString()}${cellsQuery.data?.scanCapped ? '+' : ''} empty houses in this area — tap a group or zoom in to see each house`
+            : searchQuery.trim()
+              ? 'No houses match this search in this area — move the map or clear the search'
+              : 'No empty houses in this area yet — move or zoom out the map'}
         </div>
       )}
     </div>
