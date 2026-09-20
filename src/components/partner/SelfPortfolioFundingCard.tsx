@@ -1030,7 +1030,7 @@ export function SelfPortfolioFundingCard({
               Clear compare
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
             <Button
               type="button"
               variant="ghost"
@@ -1039,6 +1039,7 @@ export function SelfPortfolioFundingCard({
               onClick={() => {
                 setHouseSort('rent_asc');
                 setHouseDistrict('all');
+                setHouseSubCounty('all');
                 setHouseSearch('');
                 setHouseRentMin('');
                 setHouseRentMax('');
@@ -1051,7 +1052,7 @@ export function SelfPortfolioFundingCard({
               Reset
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
