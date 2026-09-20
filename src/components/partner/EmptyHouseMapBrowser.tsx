@@ -20,6 +20,8 @@ interface EmptyHouseMapBrowserProps {
   onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
+  /** Called when the user taps a marker or steps to a new house so the list can sort by distance from it. */
+  onActiveHouseChange?: (house: SupportableHouse | null) => void;
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
