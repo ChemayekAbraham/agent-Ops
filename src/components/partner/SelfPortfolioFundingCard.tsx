@@ -538,6 +538,8 @@ export function SelfPortfolioFundingCard({
     alertsKey,
     jumpToHouse,
     persistFundable,
+    houses,
+    partnerId,
   ]);
 
   // The dashboard switch intentionally separates ready-tenant Rent Plans from
