@@ -618,6 +618,19 @@ export function SelfPortfolioFundingCard({
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
       );
     }
+    const rentMinBound = Number(houseRentMin);
+    if (houseRentMin.trim() !== '' && Number.isFinite(rentMinBound)) {
+      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) >= rentMinBound);
+    }
+    const rentMaxBound = Number(houseRentMax);
+    if (houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound)) {
+      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= rentMaxBound);
+    }
+    if (houseFundingStatus === 'ready') {
+      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
+    } else if (houseFundingStatus === 'topup') {
+      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) > remaining);
+    }
     if (houseWithinFloat) {
       visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
     }
@@ -656,11 +669,11 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseSearch, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
+  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
 
   useEffect(() => {
     setPage(0);
-  }, [houseSort, houseDistrict, houseSearch, houseWithinFloat, showSavedReadyOnly, feedOrder]);
+  }, [houseSort, houseDistrict, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
