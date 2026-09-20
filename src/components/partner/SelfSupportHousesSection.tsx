@@ -262,6 +262,7 @@ export function HouseSupportBar({
   busy,
   setBusy,
   selectedIds,
+  selectedHouses,
   activeHouseCommitment,
   onSubmitted,
   confirmRequestKey,
@@ -272,6 +273,8 @@ export function HouseSupportBar({
   busy: boolean;
   setBusy: (v: boolean) => void;
   selectedIds: string[];
+  /** Selected house objects used to show a human-readable funding summary. */
+  selectedHouses?: SupportableHouse[];
   /**
    * The partner's current ACTIVE house portfolio, if any. Houses can only be
    * added to a house portfolio — a rent-plan portfolio follows a different
