@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
@@ -39,6 +39,23 @@ const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
 ];
 
 export type FeedOrder = 'rent' | 'houses';
+
+/** One recorded "balance now covers your saved houses" alert. */
+interface HouseBalanceAlert {
+  ids: string[];
+  at: number;
+}
+
+const timeAgo = (at: number) => {
+  const s = Math.max(1, Math.floor((Date.now() - at) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  const d = Math.floor(h / 24);
+  return `${d} day${d === 1 ? '' : 's'} ago`;
+};
 
 
 
@@ -96,6 +113,34 @@ export function SelfPortfolioFundingCard({
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
   const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
+  const alertsKey = `psm-house-alerts-${partnerId}`;
+  const [houseAlerts, setHouseAlerts] = useState<HouseBalanceAlert[]>(() => {
+    try {
+      const raw = window.localStorage.getItem(alertsKey);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter(
+            (a): a is HouseBalanceAlert =>
+              !!a && Array.isArray(a.ids) && typeof a.at === 'number',
+          )
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const persistAlerts = useCallback(
+    (next: HouseBalanceAlert[]) => {
+      setHouseAlerts(next);
+      try {
+        window.localStorage.setItem(alertsKey, JSON.stringify(next));
+      } catch {
+        /* storage unavailable — history just won't persist */
+      }
+    },
+    [alertsKey],
+  );
 
   // Picked houses survive reloads until the partner funds or removes them.
   const selectionKey = `psm-house-selection-${partnerId}`;
@@ -302,10 +347,41 @@ export function SelfPortfolioFundingCard({
     [houses, houseSelected, remaining],
   );
 
+  // Jump to a picked house: switch to the houses feed, clear any filters that
+  // could hide it, open its page, scroll it into view and flash it.
+  const jumpToHouse = useCallback(
+    (target: string) => {
+      if (!target) return;
+      onFeedOrderChange('houses');
+      setHouseDistrict('all');
+      setHouseWithinFloat(false);
+      setHouseSort('return_desc');
+      setFlashHouseId(target);
+      // Index against the default (return high→low) order we just reset to, so
+      // the page math matches the next render's feed.
+      const sorted = [...houses].sort(
+        (a, b) =>
+          Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
+          Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100)),
+      );
+      const index = sorted.findIndex((h) => h.house_id === target);
+      if (index >= 0) setPage(Math.floor(index / PLANS_PER_PAGE));
+      window.setTimeout(() => {
+        document
+          .querySelector(`[data-house-id="${target}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 450);
+      window.setTimeout(() => setFlashHouseId(null), 6000);
+    },
+    [houses, onFeedOrderChange],
+  );
+
   // Notify once when the balance grows enough to fund the saved picks. A
   // persisted flag remembers "some picks were short" across reloads, so a
   // funder who tops up and comes back later still gets the good news — and a
-  // funder who only ever picks affordable houses is never disturbed.
+  // funder who only ever picks affordable houses is never disturbed. Every
+  // alert is also recorded in a local history so it can be reviewed after the
+  // toast is dismissed.
   const shortFlagKey = `psm-house-short-${partnerId}`;
   useEffect(() => {
     if (!plansQuery.data || !housesQuery.data) return;
@@ -330,6 +406,16 @@ export function SelfPortfolioFundingCard({
     } catch {
       /* ignore */
     }
+    // Record the alert in history first so it survives dismissing the toast.
+    setHouseAlerts((prev) => {
+      const next = [{ ids: [...houseSelected], at: Date.now() }, ...prev].slice(0, 20);
+      try {
+        window.localStorage.setItem(alertsKey, JSON.stringify(next));
+      } catch {
+        /* storage unavailable — history just won't persist */
+      }
+      return next;
+    });
     toast.success(
       houseSelected.length === 1
         ? 'Your balance now covers your saved house.'
@@ -339,37 +425,19 @@ export function SelfPortfolioFundingCard({
         duration: 12000,
         action: {
           label: 'View house',
-          onClick: () => {
-            // Jump straight to the first saved pick: switch to the houses
-            // feed, clear any filters that could hide it, open its page,
-            // scroll it into view and flash it.
-            const target = houseSelected[0];
-            if (!target) return;
-            onFeedOrderChange('houses');
-            setHouseDistrict('all');
-            setHouseWithinFloat(false);
-            setHouseSort('return_desc');
-            setFlashHouseId(target);
-            // Index against the default (return high→low) order we just reset
-            // to, so the page math matches the next render's feed.
-            const sorted = [...houses].sort(
-              (a, b) =>
-                Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
-                Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100)),
-            );
-            const index = sorted.findIndex((h) => h.house_id === target);
-            if (index >= 0) setPage(Math.floor(index / PLANS_PER_PAGE));
-            window.setTimeout(() => {
-              document
-                .querySelector(`[data-house-id="${target}"]`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 450);
-            window.setTimeout(() => setFlashHouseId(null), 6000);
-          },
+          onClick: () => jumpToHouse(houseSelected[0]),
         },
       },
     );
-  }, [savedForLater.length, houseSelected.length, plansQuery.data, housesQuery.data, shortFlagKey]);
+  }, [
+    savedForLater.length,
+    houseSelected.length,
+    plansQuery.data,
+    housesQuery.data,
+    shortFlagKey,
+    alertsKey,
+    jumpToHouse,
+  ]);
 
   // The dashboard switch intentionally separates ready-tenant Rent Plans from
   // vacant houses so supporters always know which funding path they are using.
@@ -596,7 +664,84 @@ export function SelfPortfolioFundingCard({
               {feed.length} of {houses.length} shown
             </span>
           )}
+          {houseAlerts.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs font-semibold"
+              aria-label={`Balance alerts, ${houseAlerts.length} recorded`}
+              aria-expanded={alertsOpen}
+              onClick={() => setAlertsOpen((v) => !v)}
+            >
+              <Bell className="h-3.5 w-3.5 mr-1" aria-hidden />
+              Alerts
+              <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground">
+                {houseAlerts.length}
+              </span>
+            </Button>
+          )}
         </div>
+      )}
+
+      {feedOrder === 'houses' && alertsOpen && houseAlerts.length > 0 && (
+        <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border-border" aria-label="Balance alert history">
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <p className="text-xs font-black text-foreground">Balance alerts</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[11px]"
+              onClick={() => {
+                persistAlerts([]);
+                setAlertsOpen(false);
+              }}
+            >
+              Clear all
+            </Button>
+          </div>
+          <div className="mt-2 space-y-2">
+            {houseAlerts.map((alert, i) => {
+              const firstKnown = alert.ids
+                .map((id) => houses.find((h) => h.house_id === id))
+                .find((h): h is SupportableHouse => !!h);
+              return (
+                <div
+                  key={`${alert.at}-${i}`}
+                  className="flex items-center gap-2.5 rounded-xl border border-border bg-background p-2"
+                >
+                  <Bell className="h-3.5 w-3.5 flex-none text-primary" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold leading-tight">
+                      {alert.ids.length === 1
+                        ? '1 saved house became fundable'
+                        : `${alert.ids.length} saved houses became fundable`}
+                    </p>
+                    <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                      {firstKnown ? houseTitleLine(firstKnown) : 'House no longer listed'} ·{' '}
+                      {timeAgo(alert.at)}
+                    </p>
+                  </div>
+                  {firstKnown && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 flex-none text-[11px]"
+                      onClick={() => {
+                        setAlertsOpen(false);
+                        jumpToHouse(firstKnown.house_id);
+                      }}
+                    >
+                      View
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       )}
 
 
