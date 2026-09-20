@@ -301,6 +301,45 @@ export function SelfPortfolioFundingCard({
     [houses, houseSelected, remaining],
   );
 
+  // Notify once when the balance grows enough to fund the saved picks. A
+  // persisted flag remembers "some picks were short" across reloads, so a
+  // funder who tops up and comes back later still gets the good news — and a
+  // funder who only ever picks affordable houses is never disturbed.
+  const shortFlagKey = `psm-house-short-${partnerId}`;
+  useEffect(() => {
+    if (!plansQuery.data || !housesQuery.data) return;
+    if (savedForLater.length > 0) {
+      try {
+        window.localStorage.setItem(shortFlagKey, '1');
+      } catch {
+        /* storage unavailable — notification simply won't persist */
+      }
+      return;
+    }
+    if (houseSelected.length === 0) return;
+    let wasShort: string | null = null;
+    try {
+      wasShort = window.localStorage.getItem(shortFlagKey);
+    } catch {
+      /* ignore */
+    }
+    if (wasShort !== '1') return;
+    try {
+      window.localStorage.removeItem(shortFlagKey);
+    } catch {
+      /* ignore */
+    }
+    toast.success(
+      houseSelected.length === 1
+        ? 'Your balance now covers your saved house.'
+        : `Your balance now covers your ${houseSelected.length} saved houses.`,
+      {
+        description: 'You can fund them now — tap "Fund these houses" below.',
+        duration: 9000,
+      },
+    );
+  }, [savedForLater.length, houseSelected.length, plansQuery.data, housesQuery.data, shortFlagKey]);
+
   // The dashboard switch intentionally separates ready-tenant Rent Plans from
   // vacant houses so supporters always know which funding path they are using.
   type FeedItem =
