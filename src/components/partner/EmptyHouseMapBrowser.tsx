@@ -28,6 +28,10 @@ interface EmptyHouseMapBrowserProps {
   maxRent?: number | null;
   /** District currently applied to the list, mirrored on the map. */
   district?: string | null;
+  /** Country box currently applied to the list — the map fits to it so the heatmap covers that country only. */
+  country?: CountryBounds | null;
+  /** Listing-age ceiling in days, applied in the database alongside the viewport. */
+  maxAgeDays?: number | null;
   onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
