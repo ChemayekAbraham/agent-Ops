@@ -495,9 +495,11 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
 
 export function FunderCapitalOpportunities({
   initialView = 'menu',
+  initialFeedOrder = 'rent',
   embedded = false,
 }: {
   initialView?: ViewState;
+  initialFeedOrder?: FeedOrder;
   embedded?: boolean;
 } = {}) {
   const { formatAmountCompact, currency, convertFromUGX, convertToUGX } = useCurrency();
@@ -517,7 +519,7 @@ export function FunderCapitalOpportunities({
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
-  const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
+  const [feedOrder, setFeedOrder] = useState<FeedOrder>(initialFeedOrder);
 
   const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
 
