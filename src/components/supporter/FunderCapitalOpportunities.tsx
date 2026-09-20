@@ -280,12 +280,12 @@ function OptionCard({
 }
 
 
-function DetailShell({ title, subtitle, onBack, children }: {
-  title: string; subtitle: string; onBack?: () => void; children: React.ReactNode;
+function DetailShell({ title, subtitle, onBack, children, compactMobile = false }: {
+  title: string; subtitle: string; onBack?: () => void; children: React.ReactNode; compactMobile?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm">
-      <div className="px-5 pt-4 pb-3 flex items-center gap-2.5 border-b border-border/50">
+    <div className={`border border-border/80 bg-card overflow-hidden shadow-sm ${compactMobile ? 'rounded-xl sm:rounded-2xl' : 'rounded-2xl'}`}>
+      <div className={`${compactMobile ? 'px-3.5 py-3 sm:px-5 sm:pt-4 sm:pb-3' : 'px-5 pt-4 pb-3'} flex items-center gap-2.5 border-b border-border/50`}>
         {onBack && (
           <Button
             type="button"
@@ -304,7 +304,7 @@ function DetailShell({ title, subtitle, onBack, children }: {
           <p className="text-[10px] text-muted-foreground font-medium leading-tight truncate">{subtitle}</p>
         </div>
       </div>
-      <div className="px-5 py-4 space-y-4">{children}</div>
+      <div className={`${compactMobile ? 'px-3 py-3 sm:px-5 sm:py-4 sm:space-y-4' : 'px-5 py-4 space-y-4'} space-y-3`}>{children}</div>
     </div>
   );
 }
@@ -810,11 +810,12 @@ export function FunderCapitalOpportunities({
         title="Support Tenants Directly"
         subtitle="Fund approved tenant rent plans from your balance"
         onBack={embedded ? undefined : () => setView('menu')}
+        compactMobile
       >
         <HowItWorksSteps steps={DIRECT_FUNDING_STEPS} />
 
         {/* Tenant rent plans awaiting funding — stacked cards with bulk selection */}
-        <div className="pt-2 space-y-3">
+        <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
           <ToggleGroup
             type="single"
             size="sm"
@@ -824,13 +825,13 @@ export function FunderCapitalOpportunities({
           >
             <ToggleGroupItem
               value="rent"
-              className="flex-1 text-xs font-bold h-11 data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
+              className="flex-1 px-2 text-[11px] sm:text-xs font-bold min-h-11 h-auto py-2 leading-tight data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
             >
               Houses with ready tenants
             </ToggleGroupItem>
             <ToggleGroupItem
               value="houses"
-              className="flex-1 text-xs font-bold h-11 data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
+              className="flex-1 px-2 text-[11px] sm:text-xs font-bold min-h-11 h-auto py-2 leading-tight data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
             >
               Empty houses without tenants yet
             </ToggleGroupItem>

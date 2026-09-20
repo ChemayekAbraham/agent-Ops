@@ -44,6 +44,7 @@ interface DashboardHeaderProps {
   onOpportunityBadgeClick?: () => void;
   headerActions?: React.ReactNode;
   showInstallPrompt?: boolean;
+  compactInstallPrompt?: boolean;
   onMenuClick?: () => void;
 }
 
@@ -86,6 +87,7 @@ const DashboardHeader = memo(function DashboardHeader({
   onOpportunityBadgeClick,
   headerActions,
   onMenuClick,
+  compactInstallPrompt = false,
 }: DashboardHeaderProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -406,7 +408,10 @@ const DashboardHeader = memo(function DashboardHeader({
 
       {/* Install prompt sits directly below the top nav so it is fully visible
           on every screen size instead of floating above the header. */}
-      <InstallAppCard className="mx-auto w-full max-w-md px-4 pt-3 sm:px-0" />
+      <InstallAppCard
+        compactMobile={compactInstallPrompt}
+        className={`mx-auto w-full max-w-md ${compactInstallPrompt ? 'px-3 pt-2 sm:px-0 sm:pt-3' : 'px-4 pt-3 sm:px-0'}`}
+      />
 
     </>
   );

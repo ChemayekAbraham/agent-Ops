@@ -437,15 +437,16 @@ export default function SupporterDashboard({
         onSignOut={signOut}
         onMenuClick={() => setMenuOpen(true)}
         headerActions={<NotificationBell userId={user.id} />}
+        compactInstallPrompt
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
-        <main className="px-3 xs:px-4 py-4 xs:py-5 space-y-5 max-w-lg mx-auto">
+        <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg mx-auto">
           {/* ═══ INLINE GREETING BAR ═══ */}
-          <div className="flex flex-col items-center gap-2 py-2">
+          <div className="flex items-center gap-3 px-1 py-1 sm:flex-col sm:gap-2 sm:py-2">
             <ProfileSummaryPopover
               className="min-h-[44px] min-w-[44px]"
-              align="center"
+              align="start"
               avatarUrl={profile?.avatar_url}
               fullName={displayFullName}
               phone={(profile as any)?.phone}
@@ -455,8 +456,8 @@ export default function SupporterDashboard({
               roleLabel="Funder"
               triggerSize="lg"
             />
-            <div className="flex flex-col items-center gap-0.5">
-              <h1 className="font-bold text-lg leading-tight flex items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:items-center">
+              <h1 className="font-bold text-base sm:text-lg leading-tight flex items-center gap-1.5">
                 <span className="break-words">{displayFirstName}</span>
                 {profile?.verified ? (
                   <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />
@@ -466,14 +467,14 @@ export default function SupporterDashboard({
               </h1>
               <p className="text-[11px] text-muted-foreground font-medium">Welcome back</p>
             </div>
-            <AiIdButton variant="compact" />
+            <div className="shrink-0"><AiIdButton variant="compact" /></div>
           </div>
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
-          <div id="opportunities" className="relative scroll-mt-4 space-y-4">
+          <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="w-1 h-5 rounded-full bg-primary" />
               <div>
-                <h2 className="text-base font-black text-foreground tracking-tight">Support tenants directly</h2>
+                <h2 className="text-lg sm:text-base font-black text-foreground tracking-tight">Support tenants directly</h2>
                 <p className="text-[11px] text-muted-foreground">Choose a verified home and fund the tenant’s Rent Plan.</p>
               </div>
             </div>

@@ -54,6 +54,7 @@ function writeSnooze(value: 'installed' | 'snoozed') {
 
 interface InstallAppCardProps {
   className?: string;
+  compactMobile?: boolean;
   /**
    * Set on the globally-mounted instance (public shell). The header instance
    * takes priority so the card is never rendered twice.
@@ -61,7 +62,7 @@ interface InstallAppCardProps {
   global?: boolean;
 }
 
-export default function InstallAppCard({ className, global = false }: InstallAppCardProps) {
+export default function InstallAppCard({ className, global = false, compactMobile = false }: InstallAppCardProps) {
   const { canShow, isInstalled, isIOS, isAndroid, hasPrompt, canInstructInstead, promptInstall } = usePWAInstall();
   // Honour a manually chosen platform when OS detection fails, so the card
   // shows the right steps on future visits.
@@ -222,7 +223,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
             instruction inline, above the install card, so they see it without
             having to open the full guide first. Renders nothing otherwise. */}
         <WhatsAppInstallBanner className="mb-3" />
-        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm p-4 sm:p-5">
+        <div className={`relative overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm ${compactMobile ? 'p-3 sm:p-5' : 'p-4 sm:p-5'}`}>
           {/* Decorative accent */}
           <div
             aria-hidden
@@ -237,16 +238,16 @@ export default function InstallAppCard({ className, global = false }: InstallApp
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
 
-          <div className="flex items-start gap-4 pr-8">
-            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center">
-              <Zap className="h-6 w-6 text-primary" />
+          <div className={`flex items-start pr-8 ${compactMobile ? 'gap-3 sm:gap-4' : 'gap-4'}`}>
+            <div className={`flex-shrink-0 rounded-xl bg-primary/15 flex items-center justify-center ${compactMobile ? 'w-10 h-10 sm:w-12 sm:h-12' : 'w-12 h-12'}`}>
+              <Zap className={compactMobile ? 'h-5 w-5 sm:h-6 sm:w-6 text-primary' : 'h-6 w-6 text-primary'} />
             </div>
 
             <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-foreground leading-tight">
+              <h3 className={`${compactMobile ? 'text-sm sm:text-base' : 'text-base'} font-semibold text-foreground leading-tight`}>
                 Install App
               </h3>
-              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+              <p className={`${compactMobile ? 'text-xs sm:text-sm line-clamp-1 sm:line-clamp-none' : 'text-sm'} text-muted-foreground mt-1 leading-relaxed`}>
                 {effectiveIsIOS
                   ? 'Add Welile to your home screen for faster access and a native app feel.'
                   : 'Faster access, offline-ready, and a native app feel right from your home screen.'}
@@ -258,7 +259,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
               )}
 
               {/* Platform-specific quick steps, visible without opening a guide. */}
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              <p className={`${compactMobile ? 'hidden sm:block' : 'mt-2'} text-xs leading-relaxed text-muted-foreground`}>
                 {effectiveIsIOS ? (
                   <>
                     On iPhone: tap <strong>Share</strong> <Share className="inline h-3 w-3 -mt-0.5" /> in Safari, then <strong>"Add to Home Screen"</strong>, then <strong>"Add"</strong>.
@@ -270,12 +271,12 @@ export default function InstallAppCard({ className, global = false }: InstallApp
                 )}
               </p>
 
-              <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <div className={`${compactMobile ? 'mt-2 sm:mt-3' : 'mt-3'} flex items-center gap-2 flex-wrap`}>
                 <Button
                   onClick={handleInstall}
                   disabled={isInstalling}
                   size="sm"
-                  className="gap-1.5 font-semibold"
+                  className={`gap-1.5 font-semibold ${compactMobile ? 'h-8 px-3 text-xs sm:h-9' : ''}`}
                 >
                   {effectiveIsIOS ? (
                     <Share className="h-4 w-4" />
@@ -301,7 +302,7 @@ export default function InstallAppCard({ className, global = false }: InstallApp
                   onClick={handleDismiss}
                   variant="ghost"
                   size="sm"
-                  className="text-muted-foreground"
+                  className={`text-muted-foreground ${compactMobile ? 'hidden sm:inline-flex' : ''}`}
                 >
                   Not now
                 </Button>
