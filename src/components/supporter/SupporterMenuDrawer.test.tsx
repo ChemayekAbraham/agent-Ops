@@ -72,6 +72,12 @@ function renderMenu() {
   return callbacks;
 }
 
+function getMenuButton(label: string) {
+  const button = screen.getByText(label, { selector: 'p', exact: true }).closest('button');
+  expect(button).not.toBeNull();
+  return button as HTMLButtonElement;
+}
+
 describe('SupporterMenuDrawer regression coverage', () => {
   beforeEach(() => {
     navigate.mockReset();
@@ -81,14 +87,14 @@ describe('SupporterMenuDrawer regression coverage', () => {
     renderMenu();
 
     for (const [label] of [...routeDestinations, ...callbackLabels]) {
-      expect(screen.getByRole('button', { name: new RegExp(`^${label}`) })).toBeInTheDocument();
+      expect(getMenuButton(label)).toBeInTheDocument();
     }
   });
 
   it.each(routeDestinations)('opens %s at %s', (label, destination) => {
     const callbacks = renderMenu();
 
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${label}`) }));
+    fireEvent.click(getMenuButton(label));
 
     expect(navigate).toHaveBeenCalledOnce();
     expect(navigate).toHaveBeenCalledWith(destination);
@@ -98,7 +104,7 @@ describe('SupporterMenuDrawer regression coverage', () => {
   it.each(callbackLabels)('opens %s through its existing dashboard action', (label, callbackName) => {
     const callbacks = renderMenu();
 
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${label}`) }));
+    fireEvent.click(getMenuButton(label));
 
     expect(callbacks[callbackName]).toHaveBeenCalledOnce();
     expect(callbacks.onOpenChange).toHaveBeenCalledWith(false);
