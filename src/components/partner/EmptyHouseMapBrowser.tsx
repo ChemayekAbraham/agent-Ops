@@ -205,7 +205,13 @@ export function EmptyHouseMapBrowser({
     const half = cellSize / 2;
     return cells.map((cell) => ({
       key: `heat-${cell.key}`,
+      cellKey: cell.key,
       count: cell.count,
+      sumRent: cell.sumRent,
+      minRent: cell.minRent,
+      maxRent: cell.maxRent,
+      district: cell.district,
+      center: [cell.latitude, cell.longitude] as [number, number],
       bucket: heatBucketFor(cell.count),
       bounds: L.latLngBounds(
         [cell.latitude - half, cell.longitude - half],
@@ -213,6 +219,21 @@ export function EmptyHouseMapBrowser({
       ),
     }));
   }, [cells, cellSize, heatmapActive]);
+
+  /**
+   * A tapped density region: the funder reads how many empty houses the area
+   * holds, the rent needed to fund all of them and the average rent, before
+   * deciding to zoom into individual houses.
+   */
+  const [activeRegionKey, setActiveRegionKey] = useState<string | null>(null);
+  const activeRegion = useMemo(
+    () => heatTiles.find((tile) => tile.cellKey === activeRegionKey) ?? null,
+    [heatTiles, activeRegionKey],
+  );
+  // Leaving the density view (or zooming past it) closes the summary.
+  useEffect(() => {
+    if (!heatmapActive) setActiveRegionKey(null);
+  }, [heatmapActive]);
 
   /** Single-house cells, enriched with the fuller record when the list already holds it. */
   const mappedHouses = useMemo(() => {
