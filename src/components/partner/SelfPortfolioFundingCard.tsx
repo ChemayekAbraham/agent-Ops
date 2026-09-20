@@ -423,6 +423,8 @@ export function SelfPortfolioFundingCard({
         const unaffordable = !isSelected && Number(plan.funding_amount || 0) > remaining;
         const images = (plan.house_image_urls ?? []).filter(Boolean);
         const monthlyRoi = Math.round((Number(plan.funding_amount || 0) * MONTHLY_ROI_RATE) / 100);
+        const planMonths = plan.duration_days ? Math.max(1, Math.round(Number(plan.duration_days) / 30)) : 1;
+        const totalReturn = monthlyRoi * planMonths;
         const prettyName = (raw?: string | null) =>
           (raw ?? '')
             .replace(/[_-]/g, ' ')
@@ -498,9 +500,6 @@ export function SelfPortfolioFundingCard({
                   <div className="min-w-0">
                     <p className="truncate text-base font-black leading-none sm:text-lg">
                       {formatDynamic(plan.funding_amount)}
-                    </p>
-                    <p className="mt-1 truncate text-[10px] text-muted-foreground">
-                      Earn <span className="font-bold text-primary">{formatDynamic(monthlyRoi)}</span> monthly
                     </p>
                   </div>
 
