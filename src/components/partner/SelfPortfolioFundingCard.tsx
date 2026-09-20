@@ -347,10 +347,41 @@ export function SelfPortfolioFundingCard({
     [houses, houseSelected, remaining],
   );
 
+  // Jump to a picked house: switch to the houses feed, clear any filters that
+  // could hide it, open its page, scroll it into view and flash it.
+  const jumpToHouse = useCallback(
+    (target: string) => {
+      if (!target) return;
+      onFeedOrderChange('houses');
+      setHouseDistrict('all');
+      setHouseWithinFloat(false);
+      setHouseSort('return_desc');
+      setFlashHouseId(target);
+      // Index against the default (return high→low) order we just reset to, so
+      // the page math matches the next render's feed.
+      const sorted = [...houses].sort(
+        (a, b) =>
+          Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
+          Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100)),
+      );
+      const index = sorted.findIndex((h) => h.house_id === target);
+      if (index >= 0) setPage(Math.floor(index / PLANS_PER_PAGE));
+      window.setTimeout(() => {
+        document
+          .querySelector(`[data-house-id="${target}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 450);
+      window.setTimeout(() => setFlashHouseId(null), 6000);
+    },
+    [houses, onFeedOrderChange],
+  );
+
   // Notify once when the balance grows enough to fund the saved picks. A
   // persisted flag remembers "some picks were short" across reloads, so a
   // funder who tops up and comes back later still gets the good news — and a
-  // funder who only ever picks affordable houses is never disturbed.
+  // funder who only ever picks affordable houses is never disturbed. Every
+  // alert is also recorded in a local history so it can be reviewed after the
+  // toast is dismissed.
   const shortFlagKey = `psm-house-short-${partnerId}`;
   useEffect(() => {
     if (!plansQuery.data || !housesQuery.data) return;
