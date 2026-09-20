@@ -170,11 +170,20 @@ export function EmptyHouseMapBrowser({
   }, []);
 
 
+  // Picking a country frames the map on that country, so the viewport query —
+  // and therefore the density heatmap — only covers houses inside it.
+  useEffect(() => {
+    if (!mapInstance || !country) return;
+    const [south, west, north, east] = country.bbox;
+    mapInstance.fitBounds(L.latLngBounds([south, west], [north, east]), { padding: [24, 24] });
+  }, [mapInstance, country]);
+
   const cellsQuery = useEmptyHouseMapCells(viewport, {
     search: searchQuery,
     district: district ?? undefined,
     minRent: minRent ?? null,
     maxRent: maxRent ?? null,
+    maxAgeDays: maxAgeDays ?? null,
   });
   const cells = cellsQuery.data?.cells ?? [];
   const housesInView = cellsQuery.data?.housesInView ?? 0;
