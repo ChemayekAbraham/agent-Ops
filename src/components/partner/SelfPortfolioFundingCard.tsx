@@ -1574,6 +1574,19 @@ export function SelfPortfolioFundingCard({
       />
 
 
+      <HouseCompareDialog
+        open={compareOpen && compareHouses.length >= 2}
+        onOpenChange={setCompareOpen}
+        houses={compareHouses}
+        remaining={remaining}
+        busy={busy}
+        onFundHouse={(house) => {
+          setCompareOpen(false);
+          if (!houseSelected.includes(house.house_id)) toggleHouse(house.house_id);
+        }}
+        onRemove={(houseId) => setCompareIds((prev) => prev.filter((x) => x !== houseId))}
+      />
+
       <SelfPortfolioDeployDialog
         open={deployOpen}
         onOpenChange={setDeployOpen}
