@@ -1,17 +1,12 @@
 import calculatorIllustration from "@/assets/calculator-illustration.svg.asset.json";
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { AngelSharesTab } from '@/components/supporter/AngelSharesTab';
 import { useConfetti } from '@/components/Confetti';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { 
-  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight, Menu
-} from 'lucide-react';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { Badge } from '@/components/ui/badge';
+import { Calculator, BadgeCheck, Menu } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -45,8 +40,6 @@ import { hapticTap } from '@/lib/haptics';
 // motion removed — static rendering for low-end devices
 
 // Virtual Houses components
-import { PortfolioSummaryCards } from '@/components/supporter/PortfolioSummaryCards';
-import { VirtualHousesFeed } from '@/components/supporter/VirtualHousesFeed';
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
 import { VirtualHouseDetailsSheet } from '@/components/supporter/VirtualHouseDetailsSheet';
 import { RentCategoryFeed, RentCategory } from '@/components/supporter/RentCategoryFeed';
@@ -54,12 +47,6 @@ import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
 import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
-import { PartnerPortfolioSection } from '@/components/supporter/portfolio/PartnerPortfolioSection';
-import { CapitalRoutesSection } from '@/components/supporter/portfolio/CapitalRoutesSection';
-import { SupportedHouseReturnsSection } from '@/components/supporter/SupportedHouseReturnsSection';
-
-import { PartnerPortfolioWalletCard } from '@/components/supporter/portfolio/PartnerPortfolioWalletCard';
-
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 
 import { InvestmentAccountsDrawer } from '@/components/supporter/InvestmentAccountsDrawer';
@@ -70,7 +57,6 @@ import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
 
 import AiIdButton from '@/components/ai-id/AiIdButton';
 import { NotificationBell } from '@/components/supporter/NotificationBell';
-import { InviteAndEarnCard } from '@/components/shared/InviteAndEarnCard';
 import { useInactivityLock } from '@/hooks/useInactivityLock';
 import { SupporterInactivityLock } from '@/components/supporter/SupporterInactivityLock';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
@@ -78,7 +64,6 @@ import {
   WidgetCardSkeleton,
   ListSectionSkeleton,
 } from '@/components/skeletons/SectionSkeletons';
-import { MissionBanner } from '@/components/mission/MissionBanner';
 
 
 interface SupporterDashboardProps {
