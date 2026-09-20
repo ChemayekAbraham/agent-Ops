@@ -39,6 +39,7 @@ export interface HouseOpportunity {
   landlord_name?: string | null;
   landlord_phone?: string | null;
   distance_km?: number | null;
+  created_at?: string | null;
   partner_monthly_return: number;
   partner_annual_return: number;
 }

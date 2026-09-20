@@ -41,7 +41,8 @@ type HouseSort =
   | 'nearest'
   | 'location_asc'
   | 'ready_first'
-  | 'relevance';
+  | 'relevance'
+  | 'newest';
 
 const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
   { value: 'rent_asc', label: 'Rent: low to high' },
@@ -52,6 +53,7 @@ const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
   { value: 'relevance', label: 'Best match for my search' },
   { value: 'return_desc', label: 'Biggest monthly return' },
   { value: 'rooms_desc', label: 'Most rooms' },
+  { value: 'newest', label: 'Newest listings first' },
 ];
 
 /** Haversine distance between two lat/lng points in kilometres. */
@@ -809,6 +811,11 @@ export function SelfPortfolioFundingCard({
         }
         case 'relevance': {
           const cmp = relevanceScore(b) - relevanceScore(a);
+          if (cmp !== 0) return cmp;
+          return rentA - rentB;
+        }
+        case 'newest': {
+          const cmp = String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''));
           if (cmp !== 0) return cmp;
           return rentA - rentB;
         }
