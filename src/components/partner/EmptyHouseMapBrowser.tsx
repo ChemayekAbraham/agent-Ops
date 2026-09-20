@@ -144,6 +144,7 @@ export function EmptyHouseMapBrowser({
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
 
   const cellsQuery = useEmptyHouseMapCells(viewport, {
     search: searchQuery,
@@ -200,8 +201,33 @@ export function EmptyHouseMapBrowser({
     if (match) setActiveHouse(match);
   }, [focusedId, houses, mappedHouses]);
 
-  // Open the map over the first loaded houses, then leave the view under the funder's control.
   const initialFitDone = useRef(false);
+
+  /**
+   * By default the map opens where the funder is, so the empty houses nearest
+   * to them are the first ones on screen. If location is unavailable or
+   * refused, the loaded-houses fit below takes over.
+   */
+  useEffect(() => {
+    if (!mapInstance || initialFitDone.current || !navigator.geolocation) return;
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled || initialFitDone.current) return;
+        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+        initialFitDone.current = true;
+        setUserPosition(point);
+        mapInstance.setView(point, 13);
+      },
+      () => undefined,
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [mapInstance]);
+
+  // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
     if (!mapInstance || initialFitDone.current) return;
     const points = houses
