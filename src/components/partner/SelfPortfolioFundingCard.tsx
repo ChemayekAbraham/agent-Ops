@@ -1260,7 +1260,9 @@ export function SelfPortfolioFundingCard({
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-bold leading-tight">{houseTitleLine(h)}</p>
+                      <p className="truncate text-xs font-bold leading-tight">
+                        <HighlightText text={houseTitleLine(h)} query={houseSearch} />
+                      </p>
                       <p className="mt-0.5 truncate text-[10px] font-semibold text-success">
                         Your balance now covers it — ready to fund
                       </p>
