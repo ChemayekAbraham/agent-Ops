@@ -95,6 +95,7 @@ export function SelfPortfolioFundingCard({
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
+  const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
 
   // Picked houses survive reloads until the partner funds or removes them.
   const selectionKey = `psm-house-selection-${partnerId}`;
@@ -335,7 +336,37 @@ export function SelfPortfolioFundingCard({
         : `Your balance now covers your ${houseSelected.length} saved houses.`,
       {
         description: 'You can fund them now — tap "Fund these houses" below.',
-        duration: 9000,
+        duration: 12000,
+        action: {
+          label: 'View house',
+          onClick: () => {
+            // Jump straight to the first saved pick: switch to the houses
+            // feed, clear any filters that could hide it, open its page,
+            // scroll it into view and flash it.
+            const target = houseSelected[0];
+            if (!target) return;
+            onFeedOrderChange('houses');
+            setHouseDistrict('all');
+            setHouseWithinFloat(false);
+            setHouseSort('return_desc');
+            setFlashHouseId(target);
+            // Index against the default (return high→low) order we just reset
+            // to, so the page math matches the next render's feed.
+            const sorted = [...houses].sort(
+              (a, b) =>
+                Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
+                Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100)),
+            );
+            const index = sorted.findIndex((h) => h.house_id === target);
+            if (index >= 0) setPage(Math.floor(index / PLANS_PER_PAGE));
+            window.setTimeout(() => {
+              document
+                .querySelector(`[data-house-id="${target}"]`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 450);
+            window.setTimeout(() => setFlashHouseId(null), 6000);
+          },
+        },
       },
     );
   }, [savedForLater.length, houseSelected.length, plansQuery.data, housesQuery.data, shortFlagKey]);
@@ -673,8 +704,9 @@ export function SelfPortfolioFundingCard({
                 busy={busy}
                 onToggle={toggleHouse}
                 onOpenDetail={setDetailHouse}
-                onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
-              />
+                 onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
+                 flash={flashHouseId === item.id}
+               />
             </div>
           );
         }

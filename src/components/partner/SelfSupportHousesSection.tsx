@@ -97,6 +97,7 @@ export function HouseSupportCard({
   onToggle,
   onOpenDetail,
   onTopUp,
+  flash = false,
 }: {
   house: SupportableHouse;
   isSelected: boolean;
@@ -106,6 +107,8 @@ export function HouseSupportCard({
   onOpenDetail: (house: SupportableHouse) => void;
   /** Opens the funding flow with the exact missing amount prefilled. */
   onTopUp?: (shortfall: number) => void;
+  /** Momentary highlight (e.g. after a "now fundable" notification action). */
+  flash?: boolean;
 }) {
   const images = (house.image_urls ?? []).filter(Boolean);
   const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
@@ -127,7 +130,11 @@ export function HouseSupportCard({
         }
       }}
       className={`relative overflow-hidden rounded-2xl p-0 transition-all cursor-pointer border ${
-        isSelected ? 'ring-2 ring-primary bg-primary/5 border-primary' : 'border-primary/30 hover:border-primary/60'
+        flash
+          ? 'ring-4 ring-success/70 bg-success/10 border-success shadow-lg'
+          : isSelected
+            ? 'ring-2 ring-primary bg-primary/5 border-primary'
+            : 'border-primary/30 hover:border-primary/60'
       }`}
     >
       <div className="flex flex-col">
