@@ -45,6 +45,8 @@ export interface EmptyHouseMapCells {
   /** Houses counted inside the viewport (capped by the server scan limit). */
   housesInView: number;
   scanCapped: boolean;
+  /** Grid pitch in degrees used for this zoom — drives the density heatmap tiles. */
+  cellSize: number;
 }
 
 interface RawCell {
@@ -111,7 +113,7 @@ export function useEmptyHouseMapCells(
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      if (!viewport) return { cells: [], housesInView: 0, scanCapped: false };
+      if (!viewport) return { cells: [], housesInView: 0, scanCapped: false, cellSize: 0 };
       const startedAt = performance.now();
       const { data, error } = await supabase.rpc('map_empty_house_cells', {
         p_min_lat: viewport.minLat,
@@ -130,7 +132,7 @@ export function useEmptyHouseMapCells(
         throw error;
       }
 
-      const payload = (data ?? {}) as { cells?: RawCell[]; scanned?: number; scan_capped?: boolean };
+      const payload = (data ?? {}) as { cells?: RawCell[]; scanned?: number; scan_capped?: boolean; cell_size?: number | string };
       const cells = (payload.cells ?? [])
         .map((raw) => ({
           key: raw.key,
@@ -147,6 +149,7 @@ export function useEmptyHouseMapCells(
         cells,
         housesInView: Number(payload.scanned ?? 0),
         scanCapped: payload.scan_capped === true,
+        cellSize: Number(payload.cell_size ?? 0),
       };
       mapPerf.recordQuery(performance.now() - startedAt, {
         markers: result.cells.length,
