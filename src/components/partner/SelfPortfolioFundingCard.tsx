@@ -1461,6 +1461,11 @@ export function SelfPortfolioFundingCard({
         </Card>
       )}
 
+      const selectedHouseObjects = useMemo(
+        () => houses.filter((h) => houseSelected.includes(h.house_id)),
+        [houses, houseSelected],
+      );
+
       {houseSelected.length > 0 && (
         <HouseSupportBar
           selectedCount={houseSelected.length}
@@ -1469,6 +1474,7 @@ export function SelfPortfolioFundingCard({
           busy={busy}
           setBusy={setBusy}
           selectedIds={houseSelected}
+          selectedHouses={selectedHouseObjects}
           activeHouseCommitment={activeHouseCommitment}
           confirmRequestKey={fundConfirmKey}
 
