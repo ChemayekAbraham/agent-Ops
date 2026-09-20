@@ -12,6 +12,8 @@ import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse 
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
 import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './emptyHouseMapCluster';
+import { MapPerfOverlay } from './MapPerfOverlay';
+import { mapPerf } from '@/lib/mapPerf';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
