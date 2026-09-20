@@ -202,6 +202,16 @@ export function SelfPortfolioFundingCard({
   const plans = plansQuery.data?.plans ?? [];
 
   const houses = housesQuery.data?.houses ?? [];
+
+  // Drop picked houses that are no longer listed (already funded by someone else).
+  useEffect(() => {
+    if (!housesQuery.data) return;
+    const ids = new Set(houses.map((h) => h.house_id));
+    setHouseSelected((prev) => {
+      const next = prev.filter((id) => ids.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [housesQuery.data, houses]);
   const available = plansQuery.data?.available ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
   const activeCommitmentId = fundedQuery.data?.activeCommitmentId ?? null;

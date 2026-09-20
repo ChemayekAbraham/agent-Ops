@@ -108,7 +108,8 @@ export function HouseSupportCard({
   const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
   const titleLine = houseTitleLine(house);
   const addressLine = houseAddressLine(house);
-  const unaffordable = !isSelected && Number(house.monthly_rent || 0) > remaining;
+  const shortfall = Number(house.monthly_rent || 0) - remaining;
+  const unaffordable = shortfall > 0;
 
   return (
     <Card
