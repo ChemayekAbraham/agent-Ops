@@ -724,8 +724,16 @@ export function SelfPortfolioFundingCard({
     visibleHouses = [...visibleHouses].sort((a, b) => {
       const rentA = Number(a.monthly_rent || 0);
       const rentB = Number(b.monthly_rent || 0);
-      const distA = a.distance_km ?? Infinity;
-      const distB = b.distance_km ?? Infinity;
+      const distanceTo = (h: SupportableHouse) => {
+        const lat = Number(h.latitude);
+        const lng = Number(h.longitude);
+        if (referencePoint && Number.isFinite(lat) && Number.isFinite(lng)) {
+          return distanceKm(referencePoint.lat, referencePoint.lng, lat, lng);
+        }
+        return h.distance_km ?? Infinity;
+      };
+      const distA = distanceTo(a);
+      const distB = distanceTo(b);
       switch (houseSort) {
         case 'nearest':
           if (distA !== distB) return distA - distB;
