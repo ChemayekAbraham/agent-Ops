@@ -998,10 +998,12 @@ export function SelfPortfolioFundingCard({
               <SelectValue placeholder="All districts" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All districts</SelectItem>
-              {houseDistricts.map(([key, label]) => (
+              <SelectItem value="all">
+                All districts ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
+              </SelectItem>
+              {houseDistricts.map(([key, { label, count }]) => (
                 <SelectItem key={key} value={key}>
-                  {label}
+                  {label} ({count})
                 </SelectItem>
               ))}
             </SelectContent>
