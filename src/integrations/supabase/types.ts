@@ -59634,6 +59634,18 @@ export type Database = {
         }
         Returns: Json
       }
+      map_empty_house_trend: {
+        Args: {
+          p_bucket?: string
+          p_district?: string
+          p_end: string
+          p_max_rent?: number
+          p_min_rent?: number
+          p_region_limit?: number
+          p_start: string
+        }
+        Returns: Json
+      }
       mark_budget_department_notification_read: {
         Args: { _notification_id: string }
         Returns: undefined
