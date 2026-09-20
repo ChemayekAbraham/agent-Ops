@@ -15,7 +15,7 @@ import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './empt
 import { MapPerfOverlay } from './MapPerfOverlay';
 import { HEAT_BUCKETS, heatBucketFor, heatmapAppliesAtZoom } from './emptyHouseHeatmap';
 import { mapPerf } from '@/lib/mapPerf';
-import { pointInCountry, type CountryBounds } from '@/lib/africaCountries';
+import { AFRICA_COUNTRIES, pointInCountry, type CountryBounds } from '@/lib/africaCountries';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
@@ -154,6 +154,10 @@ export function EmptyHouseMapBrowser({
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
+  /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
+  const [geoPromptDismissed, setGeoPromptDismissed] = useState(false);
+  const [areaPickerOpen, setAreaPickerOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(() =>
     typeof navigator !== 'undefined' ? navigator.onLine === false : false,
   );
