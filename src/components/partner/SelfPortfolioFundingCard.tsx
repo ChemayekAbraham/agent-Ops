@@ -970,6 +970,38 @@ export function SelfPortfolioFundingCard({
           >
             Saved · Ready to fund
           </Button>
+          <Button
+            type="button"
+            variant={compareIds.length > 0 ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            disabled={compareIds.length < 2}
+            aria-label={
+              compareIds.length < 2
+                ? 'Compare houses — tap the compare icon on at least 2 house cards first'
+                : `Compare ${compareIds.length} houses side by side`
+            }
+            onClick={() => setCompareOpen(true)}
+          >
+            <GitCompareArrows className="h-3.5 w-3.5 mr-1" aria-hidden />
+            Compare
+            {compareIds.length > 0 && (
+              <span className="ml-1 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                {compareIds.length}
+              </span>
+            )}
+          </Button>
+          {compareIds.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs"
+              onClick={() => setCompareIds([])}
+            >
+              Clear compare
+            </Button>
+          )}
           {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
             <Button
               type="button"
@@ -1250,7 +1282,7 @@ export function SelfPortfolioFundingCard({
 
         if (item.kind === 'house') {
           return (
-            <div key={`house-${item.id}`} className="min-w-0 space-y-3">
+            <div key={`house-${item.id}`} className="relative min-w-0 space-y-3">
               {groupHeader}
               <HouseSupportCard
                 house={item.house}
@@ -1261,7 +1293,23 @@ export function SelfPortfolioFundingCard({
                 onOpenDetail={setDetailHouse}
                  onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
                  flash={flashHouseId === item.id || fundableIds.includes(item.id)}
-               />
+                />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCompare(item.id);
+                }}
+                aria-pressed={compareIds.includes(item.id)}
+                aria-label={`${compareIds.includes(item.id) ? 'Remove' : 'Add'} ${houseTitleLine(item.house)} ${compareIds.includes(item.id) ? 'from' : 'to'} comparison`}
+                className={`absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full shadow-sm transition-colors ${
+                  compareIds.includes(item.id)
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background/90 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <GitCompareArrows className="h-4 w-4" aria-hidden />
+              </button>
             </div>
           );
         }
