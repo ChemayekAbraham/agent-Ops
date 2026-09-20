@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { Home, MapPin, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Home, MapPin, Navigation, Search, X } from 'lucide-react';
 import { houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 
 interface EmptyHouseMapBrowserProps {
@@ -49,6 +49,52 @@ function FitHouseBounds({ houses }: { houses: SupportableHouse[] }) {
   }, [houses, map]);
 
   return null;
+}
+
+function PanToHouse({ house }: { house: SupportableHouse | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!house) return;
+    const lat = Number(house.latitude);
+    const lng = Number(house.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
+  }, [house, map]);
+
+  return null;
+}
+
+function LocateMeButton() {
+  const map = useMap();
+  const [locating, setLocating] = useState(false);
+
+  const locate = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false);
+        map.flyTo([position.coords.latitude, position.coords.longitude], 14, { duration: 0.6 });
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      size="icon"
+      onClick={locate}
+      disabled={locating}
+      aria-label="Center the map on my location"
+      className="absolute right-3 top-16 z-[1000] h-11 w-11 rounded-full border border-border bg-background/95 shadow-lg backdrop-blur sm:top-3"
+    >
+      <Crosshair className={`h-5 w-5${locating ? ' animate-pulse' : ''}`} aria-hidden />
+    </Button>
+  );
 }
 
 export function EmptyHouseMapBrowser({
