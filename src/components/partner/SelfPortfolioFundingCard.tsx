@@ -664,7 +664,84 @@ export function SelfPortfolioFundingCard({
               {feed.length} of {houses.length} shown
             </span>
           )}
+          {houseAlerts.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs font-semibold"
+              aria-label={`Balance alerts, ${houseAlerts.length} recorded`}
+              aria-expanded={alertsOpen}
+              onClick={() => setAlertsOpen((v) => !v)}
+            >
+              <Bell className="h-3.5 w-3.5 mr-1" aria-hidden />
+              Alerts
+              <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground">
+                {houseAlerts.length}
+              </span>
+            </Button>
+          )}
         </div>
+      )}
+
+      {feedOrder === 'houses' && alertsOpen && houseAlerts.length > 0 && (
+        <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border-border" aria-label="Balance alert history">
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <p className="text-xs font-black text-foreground">Balance alerts</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[11px]"
+              onClick={() => {
+                persistAlerts([]);
+                setAlertsOpen(false);
+              }}
+            >
+              Clear all
+            </Button>
+          </div>
+          <div className="mt-2 space-y-2">
+            {houseAlerts.map((alert, i) => {
+              const firstKnown = alert.ids
+                .map((id) => houses.find((h) => h.house_id === id))
+                .find((h): h is SupportableHouse => !!h);
+              return (
+                <div
+                  key={`${alert.at}-${i}`}
+                  className="flex items-center gap-2.5 rounded-xl border border-border bg-background p-2"
+                >
+                  <Bell className="h-3.5 w-3.5 flex-none text-primary" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold leading-tight">
+                      {alert.ids.length === 1
+                        ? '1 saved house became fundable'
+                        : `${alert.ids.length} saved houses became fundable`}
+                    </p>
+                    <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                      {firstKnown ? houseTitleLine(firstKnown) : 'House no longer listed'} ·{' '}
+                      {timeAgo(alert.at)}
+                    </p>
+                  </div>
+                  {firstKnown && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 flex-none text-[11px]"
+                      onClick={() => {
+                        setAlertsOpen(false);
+                        jumpToHouse(firstKnown.house_id);
+                      }}
+                    >
+                      View
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       )}
 
 
