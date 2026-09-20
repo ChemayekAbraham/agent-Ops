@@ -729,21 +729,7 @@ export function SelfPortfolioFundingCard({
       id: plan.rent_request_id,
       plan,
     }));
-    let visibleHouses = houses;
-    const normalizedSearch = houseSearch.trim().toLocaleLowerCase();
-    if (normalizedSearch) {
-      visibleHouses = visibleHouses.filter((house) =>
-        [
-          houseTitleLine(house),
-          house.title,
-          house.house_category,
-          house.district,
-          house.sub_county,
-          house.village,
-          house.region,
-        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)),
-      );
-    }
+    let visibleHouses = houses.filter((h) => matchesBaseFilters(h));
     if (houseDistrict !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
@@ -752,27 +738,6 @@ export function SelfPortfolioFundingCard({
     if (houseSubCounty !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.sub_county ?? '').trim().toLowerCase() === houseSubCounty,
-      );
-    }
-    const rentMinBound = Number(houseRentMin);
-    if (houseRentMin.trim() !== '' && Number.isFinite(rentMinBound)) {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) >= rentMinBound);
-    }
-    const rentMaxBound = Number(houseRentMax);
-    if (houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound)) {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= rentMaxBound);
-    }
-    if (houseFundingStatus === 'ready') {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
-    } else if (houseFundingStatus === 'topup') {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) > remaining);
-    }
-    if (houseWithinFloat) {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
-    }
-    if (showSavedReadyOnly) {
-      visibleHouses = visibleHouses.filter(
-        (h) => houseSelected.includes(h.house_id) && Number(h.monthly_rent || 0) <= remaining,
       );
     }
     visibleHouses = [...visibleHouses].sort((a, b) => {
@@ -813,7 +778,7 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, referencePoint, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
+  }, [plans, houses, feedOrder, houseSort, referencePoint, houseDistrict, houseSubCounty, matchesBaseFilters]);
 
   useEffect(() => {
     setPage(0);
