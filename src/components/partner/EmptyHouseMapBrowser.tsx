@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
