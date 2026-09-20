@@ -1823,6 +1823,7 @@ export function SelfPortfolioFundingCard({
         open={!!detailHouse}
         onOpenChange={(v) => !v && setDetailHouse(null)}
         isPartner
+        remaining={remaining}
         isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
         onTogglePick={(h) => toggleHouse(h.house_id)}
       />

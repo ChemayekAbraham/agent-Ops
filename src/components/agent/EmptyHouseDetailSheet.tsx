@@ -66,6 +66,7 @@ export function EmptyHouseDetailSheet({
   isPicked,
   onTogglePick,
   isPartner = false,
+  remaining,
 }: {
   house: HouseOpportunity | null;
   open: boolean;
@@ -73,6 +74,8 @@ export function EmptyHouseDetailSheet({
   isPicked?: boolean;
   onTogglePick?: (house: HouseOpportunity) => void;
   isPartner?: boolean;
+  /** Supporter balance still free to commit — drives the funding requirement block. */
+  remaining?: number;
 }) {
   const [index, setIndex] = useState(0);
 
@@ -180,6 +183,98 @@ export function EmptyHouseDetailSheet({
               <span className="font-semibold text-foreground">{formatUGX(house.partner_annual_return)}</span> in total.
             </p>
           </div>
+
+          {/* Supporter opportunity summary — tenant status, terms, requirement, earnings */}
+          {isPartner && (
+            <div className="space-y-3 rounded-2xl border p-4">
+              <p className="text-xs font-bold">Before you select this house</p>
+
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tenant status</p>
+                <p className="flex items-start gap-1.5 text-[12px] leading-snug">
+                  <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                  <span>
+                    Empty — no tenant yet. Once you fund it, a Welile agent is notified and places a
+                    tenant within 7 days. You start earning Returns as soon as the tenant begins paying rent.
+                  </span>
+                </p>
+              </div>
+
+              <div className="space-y-1.5 border-t pt-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Rent terms</p>
+                <div className="space-y-1 text-[12px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Monthly rent</span>
+                    <span className="font-semibold">{formatUGX(house.monthly_rent)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Rent Plan length</span>
+                    <span className="font-semibold">12 months</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Rent collection</span>
+                    <span className="font-semibold">Welile collects monthly</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 border-t pt-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                  What you need to fund it
+                </p>
+                <div className="space-y-1 text-[12px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Your contribution</span>
+                    <span className="font-semibold">{formatUGX(house.monthly_rent)}</span>
+                  </div>
+                  {typeof remaining === 'number' && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Balance available</span>
+                        <span className="font-semibold">{formatUGX(Math.max(0, remaining))}</span>
+                      </div>
+                      {Number(house.monthly_rent || 0) > remaining ? (
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Top-up needed</span>
+                          <span className="font-bold text-amber-600">
+                            {formatUGX(Math.max(0, Number(house.monthly_rent || 0) - remaining))}
+                          </span>
+                        </div>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600"
+                        >
+                          <ShieldCheck className="h-3 w-3" /> Ready to fund now
+                        </Badge>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 border-t pt-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Expected earnings
+                </p>
+                <div className="space-y-1 text-[12px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Returns each month (15%)</span>
+                    <span className="font-black text-emerald-600">{formatUGX(house.partner_monthly_return)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Total over 12 months</span>
+                    <span className="font-bold">{formatUGX(house.partner_annual_return)}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] leading-snug text-muted-foreground">
+                  Returns each month = your contribution × 15%. Total = that amount × 12 months.
+                </p>
+              </div>
+            </div>
+          )}
+
+
 
           {/* House facts */}
           <div className="rounded-2xl border p-4 space-y-2 text-[12px]">
