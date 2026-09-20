@@ -326,6 +326,10 @@ export function SelfPortfolioFundingCard({
       const next = prev.filter((id) => ids.has(id));
       return next.length === prev.length ? prev : next;
     });
+    setCompareIds((prev) => {
+      const next = prev.filter((id) => ids.has(id));
+      return next.length === prev.length ? prev : next;
+    });
   }, [housesQuery.data, houses]);
   const available = plansQuery.data?.available ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
