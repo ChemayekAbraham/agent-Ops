@@ -881,14 +881,14 @@ export function SelfPortfolioFundingCard({
           >
             Saved · Ready to fund
           </Button>
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'return_desc') && (
+          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc') && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className="h-9 text-xs"
               onClick={() => {
-                setHouseSort('return_desc');
+                setHouseSort('rent_asc');
                 setHouseDistrict('all');
                 setHouseSearch('');
                 setHouseWithinFloat(false);
