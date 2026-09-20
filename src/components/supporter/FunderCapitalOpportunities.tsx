@@ -886,7 +886,7 @@ export function FunderCapitalOpportunities({
                     </div>
                   )}
                 </div>
-                <p className="flex items-center justify-between text-[11px] text-muted-foreground px-0.5">
+                <p className="flex flex-col items-start gap-0.5 text-[11px] text-muted-foreground px-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
                   <span>{fundedHouses.toLocaleString()} of {totalHouses.toLocaleString()} funded ({fundedPct}%)</span>
                   <span className="font-medium text-foreground/80">{formatAmountCompact(s?.total_rent_needed ?? 0)} rent still needed</span>
                 </p>
