@@ -41,7 +41,8 @@ type HouseSort =
   | 'nearest'
   | 'location_asc'
   | 'ready_first'
-  | 'relevance';
+  | 'relevance'
+  | 'newest';
 
 const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
   { value: 'rent_asc', label: 'Rent: low to high' },
