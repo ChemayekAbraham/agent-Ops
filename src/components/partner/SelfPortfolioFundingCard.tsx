@@ -110,6 +110,8 @@ export function SelfPortfolioFundingCard({
   const [houseSort, setHouseSort] = useState<HouseSort>('return_desc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
+  // Show only saved houses whose current balance is enough to fund them.
+  const [showSavedReadyOnly, setShowSavedReadyOnly] = useState(false);
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
   const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
