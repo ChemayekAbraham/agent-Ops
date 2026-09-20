@@ -111,6 +111,7 @@ export default function SupporterDashboard({
   const [showFunderHub, setShowFunderHub] = useState(false);
   const [showInvestments, setShowInvestments] = useState(false);
   const [capitalView, setCapitalView] = useState<'direct' | 'managed' | 'angel'>('direct');
+  const [capitalFeedOrder, setCapitalFeedOrder] = useState<'rent' | 'houses'>('rent');
   const [investmentsTab, setInvestmentsTab] = useState<'accounts' | 'angel'>('accounts');
   const [focusPortfolioId, setFocusPortfolioId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -486,7 +487,12 @@ export default function SupporterDashboard({
               ) : (
                 <>
                   <FunderApprovalBanner className="mb-3" />
-                  <FunderCapitalOpportunities key={capitalView} initialView={capitalView} embedded />
+                  <FunderCapitalOpportunities
+                    key={`${capitalView}-${capitalFeedOrder}`}
+                    initialView={capitalView}
+                    initialFeedOrder={capitalFeedOrder}
+                    embedded
+                  />
                 </>
               )}
             </WidgetErrorBoundary>
@@ -514,10 +520,12 @@ export default function SupporterDashboard({
         onRefreshRef={opportunitiesRefreshRef}
         onOpenWallet={() => setShowFunderHub(true)}
         onOpenPortfolios={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
-        onShowDirectSupport={() => { setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
+        onShowDirectSupport={() => { setCapitalFeedOrder('rent'); setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
+        onShowVacantHouses={() => { setCapitalFeedOrder('houses'); setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
         onShowManagedSupport={() => { setCapitalView('managed'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
         onShowAngelPool={() => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
         onShowSupportedHouses={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
+        onSignOut={signOut}
       />
 
       <PaymentPartnersDialog 

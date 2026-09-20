@@ -21,6 +21,10 @@ import {
   Home,
   Building2,
   Users,
+  UserRound,
+  Bell,
+  Briefcase,
+  LogOut,
   type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -43,9 +47,11 @@ interface SupporterMenuDrawerProps {
   onOpenWallet?: () => void;
   onOpenPortfolios?: () => void;
   onShowDirectSupport?: () => void;
+  onShowVacantHouses?: () => void;
   onShowManagedSupport?: () => void;
   onShowAngelPool?: () => void;
   onShowSupportedHouses?: () => void;
+  onSignOut?: () => void;
 }
 
 interface MenuItem {
@@ -101,9 +107,11 @@ export function SupporterMenuDrawer({
   onOpenWallet,
   onOpenPortfolios,
   onShowDirectSupport,
+  onShowVacantHouses,
   onShowManagedSupport,
   onShowAngelPool,
   onShowSupportedHouses,
+  onSignOut,
 }: SupporterMenuDrawerProps) {
   const navigate = useNavigate();
 
@@ -146,7 +154,7 @@ export function SupporterMenuDrawer({
       title: 'Support tenants',
       items: [
         ...(onShowDirectSupport ? [{ icon: Home, label: 'Houses with ready tenants', description: 'Support an approved tenant directly', onClick: onShowDirectSupport }] : []),
-        ...(onShowDirectSupport ? [{ icon: Building2, label: 'Houses without tenants', description: 'Browse verified vacant houses', onClick: onShowDirectSupport }] : []),
+        ...(onShowVacantHouses ? [{ icon: Building2, label: 'Houses without tenants', description: 'Browse verified vacant houses', onClick: onShowVacantHouses }] : []),
         ...(onShowManagedSupport ? [{ icon: Users, label: 'Welile-managed support', description: 'We deploy and manage your capital', onClick: onShowManagedSupport }] : []),
         { icon: CreditCard, label: 'Support Tenant', description: 'Fund via Mobile Money', onClick: onAddInvestment },
       ]
@@ -180,10 +188,14 @@ export function SupporterMenuDrawer({
     {
       title: 'Account',
       items: [
+        { icon: UserRound, label: 'Your Profile', description: 'View and update your profile', path: '/your-profile' },
+        { icon: Bell, label: 'Notifications', description: 'View your latest updates', path: '/notifications' },
         { icon: ScrollText, label: 'Agreement', description: 'Terms & conditions', onClick: onViewAgreement },
         { icon: ScrollText, label: 'Angel Pool Agreement', description: 'View & sign pool terms', path: '/angel-pool-agreement' },
+        { icon: Briefcase, label: "We're Hiring", description: 'Explore and apply for open roles', path: '/careers' },
         { icon: Settings, label: 'Settings', description: 'Account preferences', path: '/settings' },
         { icon: HelpCircle, label: 'Help', description: 'Get assistance', path: '/settings' },
+        ...(onSignOut ? [{ icon: LogOut, label: 'Sign Out', description: 'Sign out of your account', onClick: onSignOut }] : []),
       ]
     },
   ];
