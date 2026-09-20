@@ -167,6 +167,9 @@ export function SelfPortfolioFundingCard({
   const [houseListingAge, setHouseListingAge] = useState<string>('all');
   // Reference point for the "Nearest first" sort, taken from the last house selected on the map.
   const [referencePoint, setReferencePoint] = useState<{ lat: number; lng: number } | null>(null);
+  // The funder's own device location, used for the distance / travel-time labels
+  // on each house card when no map house has been tapped yet.
+  const [userPoint, setUserPoint] = useState<{ lat: number; lng: number } | null>(null);
   // Side-by-side comparison picks (in-session only; never touches funding).
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
