@@ -78,7 +78,7 @@ export function EmptyHouseMapBrowser({
 
   return (
     <div className="relative h-[18rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
-      <div className="absolute inset-x-3 top-3 z-[400] sm:right-auto sm:w-[22rem]">
+      <div className="absolute inset-x-3 top-3 z-[1000] sm:right-auto sm:w-[22rem]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
@@ -144,7 +144,7 @@ export function EmptyHouseMapBrowser({
         return (
           <section
             aria-label={`Funding details for ${houseTitleLine(activeHouse)}`}
-            className="absolute inset-x-2 bottom-2 z-[500] overflow-hidden rounded-lg border border-border bg-background/95 shadow-xl backdrop-blur sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]"
+            className="absolute inset-x-2 bottom-2 z-[1000] overflow-hidden rounded-lg border border-border bg-background/95 shadow-xl backdrop-blur sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]"
           >
             <div className="flex gap-3 p-3">
               {image ? (
@@ -203,7 +203,7 @@ export function EmptyHouseMapBrowser({
         );
       })()}
 
-      {!activeHouse && <div role="status" className="pointer-events-none absolute bottom-3 left-3 z-[400] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
+      {!activeHouse && <div role="status" className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur">
         {mappedHouses.length > 0
           ? `${mappedHouses.length.toLocaleString()} ${mappedHouses.length === 1 ? 'house' : 'houses'} on this map · tap a rent marker`
           : searchQuery.trim()
