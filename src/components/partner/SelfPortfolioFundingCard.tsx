@@ -465,6 +465,53 @@ export function SelfPortfolioFundingCard({
     });
     // Pin the highlight on the newly fundable houses until dismissed or funded.
     persistFundable([...houseSelected]);
+    // Email the funder the same news: which saved houses are now fundable and
+    // what they are estimated to earn each month. Fire-and-forget — the email
+    // must never block or break the in-app alert.
+    void (async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user?.email) return;
+        const ready = houses.filter((h) => houseSelected.includes(h.house_id));
+        if (ready.length === 0) return;
+        const lines = ready.map((h) => {
+          const rent = Number(h.monthly_rent || 0);
+          return {
+            title: houseTitleLine(h),
+            district: h.district || '',
+            monthly_rent: rent,
+            monthly_earning: Math.round((rent * MONTHLY_ROI_RATE) / 100),
+          };
+        });
+        const firstReturn = new Date();
+        firstReturn.setMonth(firstReturn.getMonth() + 1);
+        firstReturn.setDate(Math.min(firstReturn.getDate(), 28));
+        await supabase.functions.invoke('send-transactional-email', {
+          body: {
+            templateName: 'funder-saved-house-fundable',
+            recipientEmail: user.email,
+            idempotencyKey: `saved-fundable-${partnerId}-${Date.now()}`,
+            templateData: {
+              partner_name:
+                (user.user_metadata as { full_name?: string } | undefined)?.full_name || 'Partner',
+              houses: lines,
+              total_needed: lines.reduce((sum, l) => sum + l.monthly_rent, 0),
+              total_monthly_earning: lines.reduce((sum, l) => sum + l.monthly_earning, 0),
+              return_rate: MONTHLY_ROI_RATE,
+              first_return_date: firstReturn.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              }),
+            },
+          },
+        });
+      } catch (e) {
+        console.warn('[SelfPortfolioFundingCard] saved-fundable email failed', e);
+      }
+    })();
     toast.success(
       houseSelected.length === 1
         ? 'Your balance now covers your saved house.'
@@ -491,6 +538,8 @@ export function SelfPortfolioFundingCard({
     alertsKey,
     jumpToHouse,
     persistFundable,
+    houses,
+    partnerId,
   ]);
 
   // The dashboard switch intentionally separates ready-tenant Rent Plans from
