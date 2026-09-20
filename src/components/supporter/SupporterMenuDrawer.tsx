@@ -1,6 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
-import { useDrawerTransition } from '@/hooks/useDrawerTransition';
 import { 
   X, 
   CreditCard,
@@ -31,6 +29,8 @@ import { cn } from '@/lib/utils';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
 import { RentCategoryFeed, RentCategory } from '@/components/supporter/RentCategoryFeed';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetClose, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import React from 'react';
 
 interface SupporterMenuDrawerProps {
@@ -70,9 +70,11 @@ interface MenuSection {
 
 function MenuItemRow({ item, onClick }: { item: MenuItem; onClick: () => void }) {
   return (
-    <button
+    <Button
+      type="button"
+      variant="ghost"
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/60 active:scale-[0.98] transition-all text-left group"
+      className="w-full min-h-11 h-auto justify-start gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/60 active:scale-[0.98] transition-all text-left group focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="w-9 h-9 rounded-lg bg-muted/80 flex items-center justify-center shrink-0">
         <item.icon className="h-[18px] w-[18px] text-foreground/70" />
@@ -89,7 +91,7 @@ function MenuItemRow({ item, onClick }: { item: MenuItem; onClick: () => void })
         </span>
       )}
       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 group-hover:text-muted-foreground transition-colors" />
-    </button>
+    </Button>
   );
 }
 
@@ -114,23 +116,6 @@ export function SupporterMenuDrawer({
   onSignOut,
 }: SupporterMenuDrawerProps) {
   const navigate = useNavigate();
-
-  const handleClose = () => {
-    hapticTap();
-    onOpenChange(false);
-  };
-
-  const { mounted, visible } = useDrawerTransition(open);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); handleClose(); }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
 
   const handleItemClick = (item: MenuItem) => {
     hapticSuccess();
@@ -200,38 +185,29 @@ export function SupporterMenuDrawer({
     },
   ];
 
-  if (!mounted) return null;
-
   return (
-    <>
-          {/* Backdrop */}
-          <div
-            onClick={handleClose}
-            className={cn(
-              "fixed inset-0 bg-black/50 backdrop-blur-[2px] z-[100] transition-opacity duration-300",
-              visible ? "opacity-100" : "opacity-0",
-            )}
-          />
-
-          {/* Drawer */}
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Supporter menu"
-            className={cn(
-              "fixed right-0 top-0 bottom-0 w-[82%] max-w-xs bg-background z-[101] shadow-2xl overflow-hidden flex flex-col transition-transform duration-300 ease-out will-change-transform",
-              visible ? "translate-x-0" : "translate-x-full",
-            )}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+          <SheetContent
+            side="right"
+            aria-describedby={undefined}
+            className="w-[82%] max-w-xs p-0 gap-0 overflow-hidden flex flex-col"
+            overlayClassName="bg-background/50 backdrop-blur-[2px]"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/60">
-              <h2 className="font-bold text-base tracking-tight">Menu</h2>
-              <button
-                onClick={handleClose}
-                className="p-1.5 rounded-lg bg-muted/60 hover:bg-muted transition-colors"
+              <SheetTitle className="font-bold text-base tracking-tight">Menu</SheetTitle>
+              <SheetClose asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Close menu"
+                  onClick={hapticTap}
+                  className="min-h-11 min-w-11 rounded-lg bg-muted/60 hover:bg-muted"
               >
                 <X className="h-4 w-4" />
-              </button>
+                </Button>
+              </SheetClose>
             </div>
 
             {/* Scrollable Content */}
@@ -279,7 +255,7 @@ export function SupporterMenuDrawer({
 
               <div className="h-6" />
             </div>
-          </div>
-    </>
+          </SheetContent>
+    </Sheet>
   );
 }
