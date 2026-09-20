@@ -1,5 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Circle, Home, Loader2, MapPin, UserCheck } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Home,
+  Loader2,
+  MapPin,
+  UserCheck,
+} from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
