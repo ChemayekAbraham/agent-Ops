@@ -60,6 +60,11 @@ const percentile = (bucket: number[], p: number) => {
 const emit = () => listeners.forEach((fn) => fn());
 
 export const mapPerf = {
+  /** Region + zoom the following events belong to, for production monitoring. */
+  setRegion(region: string, zoom: number) {
+    mapTelemetry.setContext(region, zoom);
+  },
+
   /** A viewport query that hit the database. */
   recordQuery(durationMs: number, info: { markers?: number; housesInView?: number; scanCapped?: boolean } = {}) {
     queries += 1;
@@ -67,12 +72,14 @@ export const mapPerf = {
     if (info.markers != null) markersLast = info.markers;
     if (info.housesInView != null) housesInViewLast = info.housesInView;
     if (info.scanCapped != null) scanCappedLast = info.scanCapped;
+    mapTelemetry.recordQuery(durationMs, { housesInView: info.housesInView, scanCapped: info.scanCapped });
     emit();
   },
 
   /** A viewport the funder returned to, served from cache without a request. */
   recordCacheHit() {
     cacheHits += 1;
+    mapTelemetry.recordCacheHit();
     emit();
   },
 
