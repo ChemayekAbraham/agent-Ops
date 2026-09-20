@@ -16,6 +16,8 @@ interface HouseCompareDialogProps {
   busy: boolean;
   onFundHouse: (house: SupportableHouse) => void;
   onRemove: (houseId: string) => void;
+  /** Search query used to highlight matching house names and locations. */
+  searchQuery?: string;
 }
 
 const fundingStatus = (house: SupportableHouse, remaining: number) => {
