@@ -264,19 +264,60 @@ export function SelfPortfolioFundingCard({
     | { kind: 'plan'; id: string; plan: FundablePlan }
     | { kind: 'house'; id: string; house: SupportableHouse };
 
+  // District filter options: distinct districts present in the current list.
+  const houseDistricts = useMemo(() => {
+    const set = new Map<string, string>();
+    for (const h of houses) {
+      const raw = (h.district ?? '').trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (!set.has(key)) set.set(key, raw);
+    }
+    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [houses]);
+
   const feed = useMemo<FeedItem[]>(() => {
     const planItems: FeedItem[] = plans.map((plan) => ({
       kind: 'plan',
       id: plan.rent_request_id,
       plan,
     }));
-    const houseItems: FeedItem[] = houses.map((house) => ({
+    let visibleHouses = houses;
+    if (houseDistrict !== 'all') {
+      visibleHouses = visibleHouses.filter(
+        (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
+      );
+    }
+    if (houseWithinFloat) {
+      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
+    }
+    visibleHouses = [...visibleHouses].sort((a, b) => {
+      switch (houseSort) {
+        case 'rent_asc':
+          return Number(a.monthly_rent || 0) - Number(b.monthly_rent || 0);
+        case 'rent_desc':
+          return Number(b.monthly_rent || 0) - Number(a.monthly_rent || 0);
+        case 'rooms_desc':
+          return Number(b.number_of_rooms || 0) - Number(a.number_of_rooms || 0);
+        case 'return_desc':
+        default:
+          return (
+            Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
+            Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100))
+          );
+      }
+    });
+    const houseItems: FeedItem[] = visibleHouses.map((house) => ({
       kind: 'house',
       id: house.house_id,
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder]);
+  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseWithinFloat, remaining]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [houseSort, houseDistrict, houseWithinFloat, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
