@@ -67,8 +67,12 @@ export function HouseCompareDialog({
     },
     {
       label: 'Location',
-      render: (h) =>
-        [h.village, h.sub_county, h.district].filter(Boolean).join(', ') || h.region || 'Location on file',
+      render: (h) => (
+        <HighlightText
+          text={[h.village, h.sub_county, h.district].filter(Boolean).join(', ') || h.region || 'Location on file'}
+          query={searchQuery}
+        />
+      ),
     },
     {
       label: 'House type',
