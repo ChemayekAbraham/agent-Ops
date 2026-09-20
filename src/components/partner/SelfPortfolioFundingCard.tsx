@@ -127,6 +127,9 @@ export function SelfPortfolioFundingCard({
   // not cover it yet — "ready" fits within float, "topup" needs a top-up first.
   type HouseFundingStatus = 'all' | 'ready' | 'topup';
   const [houseFundingStatus, setHouseFundingStatus] = useState<HouseFundingStatus>('all');
+  // Side-by-side comparison picks (in-session only; never touches funding).
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
   // Top-up launched from a picked house card: deposit opens with the exact shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
   const [flashHouseId, setFlashHouseId] = useState<string | null>(null);
