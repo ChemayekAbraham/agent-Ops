@@ -111,7 +111,7 @@ export default function SupporterDashboard({
   const [showFunderHub, setShowFunderHub] = useState(false);
   const [showInvestments, setShowInvestments] = useState(false);
   const [capitalView, setCapitalView] = useState<'direct' | 'managed' | 'angel'>('direct');
-  const [capitalFeedOrder, setCapitalFeedOrder] = useState<'rent' | 'houses'>('rent');
+  const [capitalFeedOrder, setCapitalFeedOrder] = useState<'rent' | 'houses'>('houses');
   const [investmentsTab, setInvestmentsTab] = useState<'accounts' | 'angel'>('accounts');
   const [focusPortfolioId, setFocusPortfolioId] = useState<string | null>(null);
   const { toast } = useToast();

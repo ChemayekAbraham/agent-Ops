@@ -495,7 +495,7 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
 
 export function FunderCapitalOpportunities({
   initialView = 'menu',
-  initialFeedOrder = 'rent',
+  initialFeedOrder = 'houses',
   embedded = false,
 }: {
   initialView?: ViewState;
