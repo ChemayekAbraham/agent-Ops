@@ -858,51 +858,139 @@ export function FunderCapitalOpportunities({
         {/* Empty houses you can support — browse, pick, and create your promissory note */}
         {feedOrder === 'houses' && (
         <div className="pt-2 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="h-5 w-1 shrink-0 rounded-full bg-primary" />
-              <div className="min-w-0">
-                <h4 className="text-sm font-black text-foreground tracking-tight">Choose an empty house</h4>
-                <p className="truncate text-[10px] text-muted-foreground">Tap a rent marker or house photo</p>
-              </div>
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="h-5 w-1 shrink-0 rounded-full bg-primary" />
+            <div className="min-w-0">
+              <h4 className="text-sm font-black text-foreground tracking-tight">Choose an empty house</h4>
+              <p className="truncate text-[10px] text-muted-foreground">Tap a rent marker or house photo</p>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 shrink-0 px-2 text-[11px] font-bold text-primary"
-              onClick={() => setEmptyHouseStoryOpen((open) => !open)}
-              aria-expanded={emptyHouseStoryOpen}
-              aria-controls="empty-house-story"
-            >
-              {emptyHouseStoryOpen ? 'Show less' : 'Read more'}
-              {emptyHouseStoryOpen ? <ChevronUp className="ml-1 h-3.5 w-3.5" /> : <ChevronDown className="ml-1 h-3.5 w-3.5" />}
-            </Button>
           </div>
 
-          {/* The empty-house story, in plain words — how a small saver turns savings into monthly earnings */}
-          {emptyHouseStoryOpen && <div id="empty-house-story" className="rounded-xl border border-primary/25 bg-primary/5 p-3 sm:p-3.5 space-y-2.5">
-            <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
-              Start a rental business with your savings — even small ones.
-            </p>
-            <ol className="space-y-1.5">
-              <li className="flex items-start gap-2 text-[11px] sm:text-xs text-foreground/90 font-medium leading-snug">
-                <span className="shrink-0 mt-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-black flex items-center justify-center">1</span>
-                <span><span className="font-bold text-foreground">Fund an empty house</span> — cover its rent amount. Every house below is ready to fund today.</span>
-              </li>
-              <li className="flex items-start gap-2 text-[11px] sm:text-xs text-foreground/90 font-medium leading-snug">
-                <span className="shrink-0 mt-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-black flex items-center justify-center">2</span>
-                <span><span className="font-bold text-foreground">Welile places a tenant for you</span> — our agents find the tenant, they move in and start paying rent.</span>
-              </li>
-              <li className="flex items-start gap-2 text-[11px] sm:text-xs text-foreground/90 font-medium leading-snug">
-                <span className="shrink-0 mt-0.5 h-4 w-4 rounded-full bg-success text-success-foreground text-[10px] font-black flex items-center justify-center">3</span>
-                <span><span className="font-bold text-foreground">You earn 15% every month</span> of the rent amount you contributed — paid into your Welile wallet as the tenant pays.</span>
-              </li>
-            </ol>
-            <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium leading-snug">
-              Example: fund a house with rent of UGX 600,000 and you earn UGX 90,000 every month.
-            </p>
-          </div>}
+          {/* Expandable explainers — kept compact so the map stays visible first */}
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { key: 'business' as const, label: 'How it works', icon: Info },
+              { key: 'earnings' as const, label: 'Earnings example', icon: Calculator },
+              { key: 'terms' as const, label: 'Funding terms', icon: Shield },
+            ].map((section) => {
+              const active = openEmptyHouseInfo === section.key;
+              const Icon = section.icon;
+              return (
+                <Button
+                  key={section.key}
+                  type="button"
+                  variant={active ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-full text-[11px] font-bold"
+                  aria-expanded={active}
+                  aria-controls={`empty-house-info-${section.key}`}
+                  onClick={() => setOpenEmptyHouseInfo(active ? null : section.key)}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden />
+                  {section.label}
+                  {active ? <ChevronUp className="h-3 w-3" aria-hidden /> : <ChevronDown className="h-3 w-3" aria-hidden />}
+                </Button>
+              );
+            })}
+          </div>
+
+          <AnimatePresence initial={false}>
+            {openEmptyHouseInfo === 'business' && (
+              <motion.div
+                id="empty-house-info-business"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 sm:p-3.5 space-y-2.5">
+                  <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
+                    Start a rental business with your savings — even small ones.
+                  </p>
+                  <ol className="space-y-1.5">
+                    {[
+                      'Fund an empty house — cover its monthly rent amount. Every house below is ready to fund today.',
+                      'Welile places a verified tenant for you — our agents find the tenant, they move in and start paying rent.',
+                      'You earn 15% every month of the rent amount you contributed — paid into your Welile wallet as the tenant pays.',
+                    ].map((text, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[11px] sm:text-xs text-foreground/90 font-medium leading-snug">
+                        <span className={`shrink-0 mt-0.5 h-4 w-4 rounded-full text-[10px] font-black flex items-center justify-center ${i === 2 ? 'bg-success text-success-foreground' : 'bg-primary text-primary-foreground'}`}>
+                          {i + 1}
+                        </span>
+                        <span>{text}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </motion.div>
+            )}
+
+            {openEmptyHouseInfo === 'earnings' && (
+              <motion.div
+                id="empty-house-info-earnings"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="rounded-xl border border-success/25 bg-success/5 p-3 sm:p-3.5 space-y-2.5">
+                  <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
+                    See what you could earn each month.
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg bg-background/60 p-2.5 space-y-1">
+                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Example house rent</p>
+                      <p className="text-base font-black text-foreground">UGX 600,000</p>
+                    </div>
+                    <div className="rounded-lg bg-background/60 p-2.5 space-y-1">
+                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Your monthly Returns</p>
+                      <p className="text-base font-black text-success">UGX 90,000</p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium leading-snug">
+                    Monthly earnings = rent amount × 15%. Over a 12-month Rent Plan, UGX 90,000 × 12 = UGX 1,080,000.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {openEmptyHouseInfo === 'terms' && (
+              <motion.div
+                id="empty-house-info-terms"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="rounded-xl border border-border/60 bg-muted/30 p-3 sm:p-3.5 space-y-2">
+                  <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
+                    A few things to know before you fund.
+                  </p>
+                  <ul className="space-y-1.5 text-[11px] sm:text-xs text-foreground/90 font-medium leading-snug">
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                      <span>Each empty-house fund is a 12-month Rent Plan.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                      <span>Returns are paid monthly into your wallet as the tenant pays rent.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                      <span>Minimum funding is UGX 50,000. If your balance is short, the house stays saved while you top up.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                      <span>Welile handles tenant placement, rent collection and reconciliation.</span>
+                    </li>
+                  </ul>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* House cards appear first so funders can browse immediately */}
           {user?.id
