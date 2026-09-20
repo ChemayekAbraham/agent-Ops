@@ -33,13 +33,24 @@ const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
 
-type HouseSort = 'return_desc' | 'rent_desc' | 'rent_asc' | 'rooms_desc' | 'nearest';
+type HouseSort =
+  | 'return_desc'
+  | 'rent_desc'
+  | 'rent_asc'
+  | 'rooms_desc'
+  | 'nearest'
+  | 'location_asc'
+  | 'ready_first'
+  | 'relevance';
 
 const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
   { value: 'rent_asc', label: 'Rent: low to high' },
-  { value: 'nearest', label: 'Nearest first' },
-  { value: 'return_desc', label: 'Biggest monthly return' },
   { value: 'rent_desc', label: 'Rent: high to low' },
+  { value: 'nearest', label: 'Nearest first' },
+  { value: 'location_asc', label: 'Location: A to Z' },
+  { value: 'ready_first', label: 'Ready to fund first' },
+  { value: 'relevance', label: 'Best match for my search' },
+  { value: 'return_desc', label: 'Biggest monthly return' },
   { value: 'rooms_desc', label: 'Most rooms' },
 ];
 
