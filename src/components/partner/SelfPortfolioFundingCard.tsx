@@ -172,6 +172,23 @@ export function SelfPortfolioFundingCard({
     },
     [alertsKey],
   );
+  // Record what the partner did with a highlighted saved house so the action
+  // can be reviewed later in the same alert history.
+  const recordAlertAction = useCallback(
+    (houseId: string, kind: 'dismissed' | 'funded') => {
+      setHouseAlerts((prev) => {
+        const next = [{ ids: [houseId], at: Date.now(), kind }, ...prev].slice(0, 20);
+        try {
+          window.localStorage.setItem(alertsKey, JSON.stringify(next));
+        } catch {
+          /* storage unavailable — history just won't persist */
+        }
+        return next;
+      });
+    },
+    [alertsKey],
+  );
+
 
   // Picked houses survive reloads until the partner funds or removes them.
   const selectionKey = `psm-house-selection-${partnerId}`;
