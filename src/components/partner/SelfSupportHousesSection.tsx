@@ -595,10 +595,12 @@ export function HouseSupportBar({
             <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)} disabled={busy}>
               Cancel
             </Button>
-            <Button size="sm" onClick={() => void doSubmit()} disabled={busy} className="gap-1.5">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              <span className="ml-2">Yes, fund these houses</span>
-            </Button>
+            <FundHouseTooltip side="top">
+              <Button size="sm" onClick={() => void doSubmit()} disabled={busy} className="gap-1.5">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                <span className="ml-2">Yes, fund these houses</span>
+              </Button>
+            </FundHouseTooltip>
           </DialogFooter>
         </DialogContent>
       </Dialog>
