@@ -577,6 +577,11 @@ export function SelfPortfolioFundingCard({
     if (houseWithinFloat) {
       visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
     }
+    if (showSavedReadyOnly) {
+      visibleHouses = visibleHouses.filter(
+        (h) => houseSelected.includes(h.house_id) && Number(h.monthly_rent || 0) <= remaining,
+      );
+    }
     visibleHouses = [...visibleHouses].sort((a, b) => {
       switch (houseSort) {
         case 'rent_asc':
