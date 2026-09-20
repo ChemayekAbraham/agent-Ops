@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { mapPerf } from '@/lib/mapPerf';
+import { mapRegionFor } from '@/lib/mapRegions';
 import type { SupportableHouse } from '@/components/partner/SelfSupportHousesSection';
 
 /**
@@ -97,6 +98,16 @@ export function useEmptyHouseMapCells(
         zoom: viewport.zoom,
       }
     : null;
+
+  // Attribute the events that follow to the region now on screen, so production
+  // monitoring can tell a slow region from a slow session.
+  const centreLat = viewport ? (viewport.minLat + viewport.maxLat) / 2 : null;
+  const centreLng = viewport ? (viewport.minLng + viewport.maxLng) / 2 : null;
+  const region = mapRegionFor(centreLat, centreLng);
+  useEffect(() => {
+    if (!viewport) return;
+    mapPerf.setRegion(region, viewport.zoom);
+  }, [region, viewport]);
 
   // Classify each viewport read: a key we already requested is served from cache.
   const viewportKey = key ? JSON.stringify([key, filters]) : null;

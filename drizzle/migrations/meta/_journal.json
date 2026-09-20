@@ -1758,6 +1758,13 @@
       "when": 1789913069567,
       "tag": "0250_map_empty_house_cells_viewport_clusters",
       "breakpoints": true
+    },
+    {
+      "idx": 251,
+      "version": "7",
+      "when": 1789915027038,
+      "tag": "0251_map_query_telemetry_production_monitoring",
+      "breakpoints": true
     }
   ]
 }

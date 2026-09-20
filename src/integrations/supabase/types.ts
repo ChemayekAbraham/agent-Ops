@@ -25185,6 +25185,69 @@ export type Database = {
         }
         Relationships: []
       }
+      map_query_telemetry: {
+        Row: {
+          cache_hits: number
+          created_at: string
+          failures: number
+          houses_in_view_max: number
+          id: number
+          last_error: string | null
+          queries: number
+          query_ms_max: number
+          query_ms_sum: number
+          region: string
+          render_ms_max: number
+          render_ms_sum: number
+          renders: number
+          scan_capped_count: number
+          user_id: string | null
+          window_end: string
+          window_start: string
+          zoom: number | null
+        }
+        Insert: {
+          cache_hits?: number
+          created_at?: string
+          failures?: number
+          houses_in_view_max?: number
+          id?: number
+          last_error?: string | null
+          queries?: number
+          query_ms_max?: number
+          query_ms_sum?: number
+          region: string
+          render_ms_max?: number
+          render_ms_sum?: number
+          renders?: number
+          scan_capped_count?: number
+          user_id?: string | null
+          window_end?: string
+          window_start: string
+          zoom?: number | null
+        }
+        Update: {
+          cache_hits?: number
+          created_at?: string
+          failures?: number
+          houses_in_view_max?: number
+          id?: number
+          last_error?: string | null
+          queries?: number
+          query_ms_max?: number
+          query_ms_sum?: number
+          region?: string
+          render_ms_max?: number
+          render_ms_sum?: number
+          renders?: number
+          scan_capped_count?: number
+          user_id?: string | null
+          window_end?: string
+          window_start?: string
+          zoom?: number | null
+        }
+        Relationships: []
+      }
       mcp_public_abuse_events: {
         Row: {
           caller_hash: string
@@ -56983,6 +57046,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_map_query_metrics: { Args: { p_hours?: number }; Returns: Json }
       get_maps_browser_key: { Args: never; Returns: string }
       get_merchandise_share_code: {
         Args: { p_catalog_id: string }
@@ -61747,6 +61811,7 @@ export type Database = {
         Args: { p_error?: string; p_ok: boolean; p_receipt_id: string }
         Returns: undefined
       }
+      record_map_query_telemetry: { Args: { p_batch: Json }; Returns: number }
       record_merchant_float_delivery: {
         Args: {
           p_agent_user_id: string

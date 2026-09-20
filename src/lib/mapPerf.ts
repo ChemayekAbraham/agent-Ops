@@ -2,10 +2,13 @@
  * Lightweight, in-memory performance monitor for the empty-house map.
  *
  * Tracks four signals over a rolling window: viewport query latency, marker
- * rendering time, cache hit rate, and failed requests. Everything stays on the
- * client — no database writes, no network calls — so it is safe to keep on in
- * production. The optional on-map overlay reads the same snapshot.
+ * rendering time, cache hit rate, and failed requests. The live snapshot stays
+ * on the client (the optional on-map overlay reads it); the same events are
+ * forwarded to `mapTelemetry`, which aggregates them per region and posts one
+ * batched row every couple of minutes for production monitoring.
  */
+
+import { mapTelemetry } from './mapTelemetry';
 
 const WINDOW = 50;
 
@@ -57,6 +60,11 @@ const percentile = (bucket: number[], p: number) => {
 const emit = () => listeners.forEach((fn) => fn());
 
 export const mapPerf = {
+  /** Region + zoom the following events belong to, for production monitoring. */
+  setRegion(region: string, zoom: number) {
+    mapTelemetry.setContext(region, zoom);
+  },
+
   /** A viewport query that hit the database. */
   recordQuery(durationMs: number, info: { markers?: number; housesInView?: number; scanCapped?: boolean } = {}) {
     queries += 1;
@@ -64,12 +72,14 @@ export const mapPerf = {
     if (info.markers != null) markersLast = info.markers;
     if (info.housesInView != null) housesInViewLast = info.housesInView;
     if (info.scanCapped != null) scanCappedLast = info.scanCapped;
+    mapTelemetry.recordQuery(durationMs, { housesInView: info.housesInView, scanCapped: info.scanCapped });
     emit();
   },
 
   /** A viewport the funder returned to, served from cache without a request. */
   recordCacheHit() {
     cacheHits += 1;
+    mapTelemetry.recordCacheHit();
     emit();
   },
 
@@ -90,13 +100,15 @@ export const mapPerf = {
   recordFailure(message: string) {
     failures += 1;
     lastError = message;
+    mapTelemetry.recordFailure(message);
     emit();
   },
 
-  /** Time spent building and committing the map markers. */
+  /** Time spent building and committing the map markers (clustering response). */
   recordRender(durationMs: number, markers: number) {
     push(renderMs, durationMs);
     markersLast = markers;
+    mapTelemetry.recordRender(durationMs);
     emit();
   },
 
