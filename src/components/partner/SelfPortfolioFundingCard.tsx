@@ -406,6 +406,16 @@ export function SelfPortfolioFundingCard({
     } catch {
       /* ignore */
     }
+    // Record the alert in history first so it survives dismissing the toast.
+    setHouseAlerts((prev) => {
+      const next = [{ ids: [...houseSelected], at: Date.now() }, ...prev].slice(0, 20);
+      try {
+        window.localStorage.setItem(alertsKey, JSON.stringify(next));
+      } catch {
+        /* storage unavailable — history just won't persist */
+      }
+      return next;
+    });
     toast.success(
       houseSelected.length === 1
         ? 'Your balance now covers your saved house.'
@@ -415,37 +425,19 @@ export function SelfPortfolioFundingCard({
         duration: 12000,
         action: {
           label: 'View house',
-          onClick: () => {
-            // Jump straight to the first saved pick: switch to the houses
-            // feed, clear any filters that could hide it, open its page,
-            // scroll it into view and flash it.
-            const target = houseSelected[0];
-            if (!target) return;
-            onFeedOrderChange('houses');
-            setHouseDistrict('all');
-            setHouseWithinFloat(false);
-            setHouseSort('return_desc');
-            setFlashHouseId(target);
-            // Index against the default (return high→low) order we just reset
-            // to, so the page math matches the next render's feed.
-            const sorted = [...houses].sort(
-              (a, b) =>
-                Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
-                Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100)),
-            );
-            const index = sorted.findIndex((h) => h.house_id === target);
-            if (index >= 0) setPage(Math.floor(index / PLANS_PER_PAGE));
-            window.setTimeout(() => {
-              document
-                .querySelector(`[data-house-id="${target}"]`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 450);
-            window.setTimeout(() => setFlashHouseId(null), 6000);
-          },
+          onClick: () => jumpToHouse(houseSelected[0]),
         },
       },
     );
-  }, [savedForLater.length, houseSelected.length, plansQuery.data, housesQuery.data, shortFlagKey]);
+  }, [
+    savedForLater.length,
+    houseSelected.length,
+    plansQuery.data,
+    housesQuery.data,
+    shortFlagKey,
+    alertsKey,
+    jumpToHouse,
+  ]);
 
   // The dashboard switch intentionally separates ready-tenant Rent Plans from
   // vacant houses so supporters always know which funding path they are using.
