@@ -826,16 +826,16 @@ export function FunderCapitalOpportunities({
             className="w-full"
           >
             <ToggleGroupItem
-              value="rent"
-              className="flex-1 px-2 text-[11px] sm:text-xs font-bold min-h-11 h-auto py-2 leading-tight data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
-            >
-              Houses with ready tenants
-            </ToggleGroupItem>
-            <ToggleGroupItem
               value="houses"
               className="flex-1 px-2 text-[11px] sm:text-xs font-bold min-h-11 h-auto py-2 leading-tight data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
             >
               Empty houses without tenants yet
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="rent"
+              className="flex-1 px-2 text-[11px] sm:text-xs font-bold min-h-11 h-auto py-2 leading-tight data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
+            >
+              Houses with ready tenants
             </ToggleGroupItem>
           </ToggleGroup>
 
