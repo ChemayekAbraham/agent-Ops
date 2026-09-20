@@ -630,6 +630,27 @@ export function SelfPortfolioFundingCard({
     return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [houses]);
 
+  // Neighborhood chip options: distinct sub-counties, scoped to the selected
+  // district so tapping a district narrows the neighborhood choices.
+  const houseSubCounties = useMemo(() => {
+    const set = new Map<string, string>();
+    for (const h of houses) {
+      if (houseDistrict !== 'all' && (h.district ?? '').trim().toLowerCase() !== houseDistrict) continue;
+      const raw = (h.sub_county ?? '').trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (!set.has(key)) set.set(key, raw);
+    }
+    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [houses, houseDistrict]);
+
+  // Changing district can invalidate a neighborhood chip choice.
+  useEffect(() => {
+    if (houseSubCounty !== 'all' && !houseSubCounties.some(([key]) => key === houseSubCounty)) {
+      setHouseSubCounty('all');
+    }
+  }, [houseDistrict, houseSubCounties, houseSubCounty]);
+
   const feed = useMemo<FeedItem[]>(() => {
     const planItems: FeedItem[] = plans.map((plan) => ({
       kind: 'plan',
