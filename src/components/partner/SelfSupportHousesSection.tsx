@@ -15,7 +15,8 @@ import {
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
+import { Car, Check, Home, Loader2, MapPin, Navigation, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
+import { estimateRoute } from '@/lib/houseGeo';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { FundHouseTooltip } from './FundHouseTooltip';
 
