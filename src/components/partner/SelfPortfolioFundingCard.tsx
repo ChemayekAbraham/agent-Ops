@@ -8,7 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
+import { ArrowUpDown, Calculator, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
 import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
@@ -25,6 +26,15 @@ import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet'
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
+
+type HouseSort = 'return_desc' | 'rent_desc' | 'rent_asc' | 'rooms_desc';
+
+const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
+  { value: 'return_desc', label: 'Biggest monthly return' },
+  { value: 'rent_desc', label: 'Rent: high to low' },
+  { value: 'rent_asc', label: 'Rent: low to high' },
+  { value: 'rooms_desc', label: 'Most rooms' },
+];
 
 export type FeedOrder = 'rent' | 'houses';
 
@@ -78,6 +88,9 @@ export function SelfPortfolioFundingCard({
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
+  const [houseSort, setHouseSort] = useState<HouseSort>('return_desc');
+  const [houseDistrict, setHouseDistrict] = useState<string>('all');
+  const [houseWithinFloat, setHouseWithinFloat] = useState(false);
 
 
   // Cached so returning to this tab paints instantly; refreshes happen silently.
@@ -251,19 +264,60 @@ export function SelfPortfolioFundingCard({
     | { kind: 'plan'; id: string; plan: FundablePlan }
     | { kind: 'house'; id: string; house: SupportableHouse };
 
+  // District filter options: distinct districts present in the current list.
+  const houseDistricts = useMemo(() => {
+    const set = new Map<string, string>();
+    for (const h of houses) {
+      const raw = (h.district ?? '').trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (!set.has(key)) set.set(key, raw);
+    }
+    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [houses]);
+
   const feed = useMemo<FeedItem[]>(() => {
     const planItems: FeedItem[] = plans.map((plan) => ({
       kind: 'plan',
       id: plan.rent_request_id,
       plan,
     }));
-    const houseItems: FeedItem[] = houses.map((house) => ({
+    let visibleHouses = houses;
+    if (houseDistrict !== 'all') {
+      visibleHouses = visibleHouses.filter(
+        (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
+      );
+    }
+    if (houseWithinFloat) {
+      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
+    }
+    visibleHouses = [...visibleHouses].sort((a, b) => {
+      switch (houseSort) {
+        case 'rent_asc':
+          return Number(a.monthly_rent || 0) - Number(b.monthly_rent || 0);
+        case 'rent_desc':
+          return Number(b.monthly_rent || 0) - Number(a.monthly_rent || 0);
+        case 'rooms_desc':
+          return Number(b.number_of_rooms || 0) - Number(a.number_of_rooms || 0);
+        case 'return_desc':
+        default:
+          return (
+            Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
+            Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100))
+          );
+      }
+    });
+    const houseItems: FeedItem[] = visibleHouses.map((house) => ({
       kind: 'house',
       id: house.house_id,
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder]);
+  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseWithinFloat, remaining]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [houseSort, houseDistrict, houseWithinFloat, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
@@ -366,8 +420,82 @@ export function SelfPortfolioFundingCard({
         {houses.length === 1 ? '' : 's'}
       </p>
 
+      {feedOrder === 'houses' && houses.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-1" aria-label="Sort and filter empty houses">
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
+              <SelectTrigger className="h-9 w-auto min-w-[150px] text-xs font-semibold" aria-label="Sort houses">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HOUSE_SORTS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Select value={houseDistrict} onValueChange={setHouseDistrict}>
+            <SelectTrigger className="h-9 w-auto min-w-[130px] text-xs font-semibold" aria-label="Filter by district">
+              <SelectValue placeholder="All districts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All districts</SelectItem>
+              {houseDistricts.map(([key, label]) => (
+                <SelectItem key={key} value={key}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            variant={houseWithinFloat ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            aria-pressed={houseWithinFloat}
+            onClick={() => setHouseWithinFloat((v) => !v)}
+          >
+            Within my float
+          </Button>
+          {(houseDistrict !== 'all' || houseWithinFloat || houseSort !== 'return_desc') && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs"
+              onClick={() => {
+                setHouseSort('return_desc');
+                setHouseDistrict('all');
+                setHouseWithinFloat(false);
+              }}
+            >
+              <X className="h-3.5 w-3.5 mr-1" aria-hidden />
+              Reset
+            </Button>
+          )}
+          {(houseDistrict !== 'all' || houseWithinFloat) && (
+            <span className="text-[11px] font-semibold text-muted-foreground">
+              {feed.length} of {houses.length} shown
+            </span>
+          )}
+        </div>
+      )}
 
-      {feed.length === 0 && (
+
+      {feed.length === 0 && feedOrder === 'houses' && houses.length > 0 && (
+        <Card className="p-6 rounded-2xl text-center">
+          <Home className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+          <p className="text-sm font-semibold">No houses match these filters</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Try another district or tap Reset to see all {houses.length} houses again.
+          </p>
+        </Card>
+      )}
+
+      {feed.length === 0 && !(feedOrder === 'houses' && houses.length > 0) && (
         <Card className="p-6 rounded-2xl text-center">
           <Wallet className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
           <p className="text-sm font-semibold">Nothing awaiting money right now</p>
