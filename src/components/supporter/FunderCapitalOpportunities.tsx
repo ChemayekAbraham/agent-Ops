@@ -519,6 +519,7 @@ export function FunderCapitalOpportunities({
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
+  const [emptyHouseStoryOpen, setEmptyHouseStoryOpen] = useState(false);
   const [feedOrder, setFeedOrder] = useState<FeedOrder>(initialFeedOrder);
 
   const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
@@ -856,15 +857,30 @@ export function FunderCapitalOpportunities({
         {/* Empty houses you can support — browse, pick, and create your promissory note */}
         {feedOrder === 'houses' && (
         <div className="pt-2 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-5 rounded-full bg-primary" />
-            <h4 className="text-xs font-black text-foreground tracking-tight">
-              Empty houses you can support
-            </h4>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="h-5 w-1 shrink-0 rounded-full bg-primary" />
+              <div className="min-w-0">
+                <h4 className="text-sm font-black text-foreground tracking-tight">Choose an empty house</h4>
+                <p className="truncate text-[10px] text-muted-foreground">Tap a rent marker or house photo</p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 px-2 text-[11px] font-bold text-primary"
+              onClick={() => setEmptyHouseStoryOpen((open) => !open)}
+              aria-expanded={emptyHouseStoryOpen}
+              aria-controls="empty-house-story"
+            >
+              {emptyHouseStoryOpen ? 'Show less' : 'Read more'}
+              {emptyHouseStoryOpen ? <ChevronUp className="ml-1 h-3.5 w-3.5" /> : <ChevronDown className="ml-1 h-3.5 w-3.5" />}
+            </Button>
           </div>
 
           {/* The empty-house story, in plain words — how a small saver turns savings into monthly earnings */}
-          <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 sm:p-3.5 space-y-2.5">
+          {emptyHouseStoryOpen && <div id="empty-house-story" className="rounded-xl border border-primary/25 bg-primary/5 p-3 sm:p-3.5 space-y-2.5">
             <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
               Start a rental business with your savings — even small ones.
             </p>
@@ -885,10 +901,14 @@ export function FunderCapitalOpportunities({
             <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium leading-snug">
               Example: fund a house with rent of UGX 600,000 and you earn UGX 90,000 every month.
             </p>
-          </div>
+          </div>}
 
+          {/* House cards appear first so funders can browse immediately */}
+          {user?.id
+            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder="houses" onFeedOrderChange={setFeedOrder} />
+            : <p className="text-[11px] text-muted-foreground">Sign in to view empty houses.</p>}
 
-          {/* Compact summary above the list: houses + biggest opportunity first, rent needed secondary */}
+          {/* Compact market figures stay secondary, after the visual house browser. */}
           {(() => {
             const s = emptyHouseSummary;
             const openHouses = s?.house_count ?? 0;
@@ -918,11 +938,6 @@ export function FunderCapitalOpportunities({
               </div>
             );
           })()}
-
-          {/* House cards appear first so funders can browse immediately */}
-          {user?.id
-            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder="houses" onFeedOrderChange={setFeedOrder} />
-            : <p className="text-[11px] text-muted-foreground">Sign in to view empty houses.</p>}
 
           {/* Calculator: pick how many houses (or an amount) and see the return */}
           {(() => {

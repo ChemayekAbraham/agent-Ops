@@ -24,6 +24,7 @@ import {
 } from './SelfSupportHousesSection';
 import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
 import DepositFlow from '@/components/payments/DepositFlow';
+import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
@@ -633,6 +634,7 @@ export function SelfPortfolioFundingCard({
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
   const pageItems = feed.slice(pageStart, pageStart + PLANS_PER_PAGE);
+  const visibleMapHouses = feed.flatMap((item) => (item.kind === 'house' ? [item.house] : []));
 
   useEffect(() => {
     setPage((current) => Math.min(current, pageCount - 1));
@@ -710,6 +712,42 @@ export function SelfPortfolioFundingCard({
 
   return (
     <div className="space-y-3">
+      {feedOrder === 'houses' && houses.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
+          <EmptyHouseMapBrowser
+            houses={visibleMapHouses}
+            selectedIds={houseSelected}
+            focusedId={flashHouseId}
+            onOpenHouse={setDetailHouse}
+          />
+          <div className="flex min-h-0 flex-col justify-between gap-3 border-t border-border p-3 lg:border-l lg:border-t-0 lg:p-4">
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-base font-black text-foreground">Empty houses</p>
+                  <p className="text-[11px] font-medium text-muted-foreground">
+                    {visibleMapHouses.length.toLocaleString()} shown on the map
+                  </p>
+                </div>
+                <Badge variant="secondary" className="rounded-full text-[10px] font-bold">
+                  Ready to fund
+                </Badge>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                Tap a rent marker to see the house, location, photos and expected monthly Returns.
+              </p>
+            </div>
+            <div className="rounded-xl bg-primary/5 p-3">
+              <p className="text-[10px] font-semibold text-muted-foreground">Available to fund</p>
+              <p className="mt-0.5 text-lg font-black text-foreground">{formatDynamic(available)}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Pick any house below. If your balance is short, it stays saved while you top up.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -728,10 +766,12 @@ export function SelfPortfolioFundingCard({
           </Button>
         </div>
       </Card>
-      <p className="text-[11px] font-semibold text-muted-foreground px-1">
-        {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
-        {houses.length === 1 ? '' : 's'}
-      </p>
+      {feedOrder !== 'houses' && (
+        <p className="text-[11px] font-semibold text-muted-foreground px-1">
+          {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
+          {houses.length === 1 ? '' : 's'}
+        </p>
+      )}
 
       {feedOrder === 'houses' && houses.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 px-1" aria-label="Sort and filter empty houses">
@@ -1042,6 +1082,7 @@ export function SelfPortfolioFundingCard({
 
 
 
+      <div className={feedOrder === 'houses' ? 'grid gap-3 sm:grid-cols-2' : 'space-y-3'}>
       {pageItems.map((item, i) => {
         const globalIndex = pageStart + i;
         const prevKind = globalIndex > 0 ? feed[globalIndex - 1].kind : null;
@@ -1058,7 +1099,7 @@ export function SelfPortfolioFundingCard({
 
         if (item.kind === 'house') {
           return (
-            <div key={`house-${item.id}`} className="space-y-3">
+            <div key={`house-${item.id}`} className="min-w-0 space-y-3">
               {groupHeader}
               <HouseSupportCard
                 house={item.house}
@@ -1226,6 +1267,7 @@ export function SelfPortfolioFundingCard({
           </div>
         );
       })}
+      </div>
 
       {feed.length > PLANS_PER_PAGE && (
         <div className="flex items-center justify-between gap-2 px-1 pt-1">

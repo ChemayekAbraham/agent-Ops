@@ -441,9 +441,9 @@ export default function SupporterDashboard({
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
-        <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg mx-auto">
+        <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg lg:max-w-7xl mx-auto">
           {/* ═══ INLINE GREETING BAR ═══ */}
-          <div className="flex items-center gap-3 px-1 py-1 sm:flex-col sm:gap-2 sm:py-2">
+          <div className="mx-auto flex max-w-lg items-center gap-3 px-1 py-1 sm:flex-col sm:gap-2 sm:py-2">
             <ProfileSummaryPopover
               className="min-h-[44px] min-w-[44px]"
               align="start"
