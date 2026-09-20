@@ -139,6 +139,7 @@ export function HouseSupportCard({
   onOpenDetail,
   onTopUp,
   flash = false,
+  searchQuery = '',
 }: {
   house: SupportableHouse;
   isSelected: boolean;
@@ -150,6 +151,8 @@ export function HouseSupportCard({
   onTopUp?: (shortfall: number) => void;
   /** Momentary highlight (e.g. after a "now fundable" notification action). */
   flash?: boolean;
+  /** Search query used to highlight matching house names and locations. */
+  searchQuery?: string;
 }) {
   const images = (house.image_urls ?? []).filter(Boolean);
   const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
