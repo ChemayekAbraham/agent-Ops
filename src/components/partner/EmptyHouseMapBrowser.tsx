@@ -263,8 +263,8 @@ export function EmptyHouseMapBrowser({
             );
           }
 
-          const size = cell.count >= 1000 ? 58 : cell.count >= 100 ? 50 : 42;
-          const label = cell.count >= 1000 ? `${Math.round(cell.count / 1000)}k+` : cell.count.toLocaleString();
+          const size = clusterMarkerSize(cell.count);
+          const label = clusterMarkerLabel(cell.count);
           const icon = L.divIcon({
             className: '',
             html: `<span class="empty-house-map-cluster" style="width:${size}px;height:${size}px">${label}</span>`,
