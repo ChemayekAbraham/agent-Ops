@@ -155,6 +155,8 @@ export function HouseSupportCard({
   flash?: boolean;
   /** Search query used to highlight matching house names and locations. */
   searchQuery?: string;
+  /** Point the distance / travel-time labels are measured from (funder's location or the house tapped on the map). */
+  origin?: { lat: number; lng: number } | null;
 }) {
   const images = (house.image_urls ?? []).filter(Boolean);
   const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
