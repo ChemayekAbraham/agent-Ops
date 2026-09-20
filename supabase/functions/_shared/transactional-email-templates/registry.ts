@@ -83,6 +83,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'promissory-note-release-warning': promissoryNoteReleaseWarningTemplate,
   'funder-house-booking': funderHouseBookingTemplate,
   'funder-saved-house-fundable': funderSavedHouseFundableTemplate,
+  'funder-house-progress': funderHouseProgressTemplate,
   'partner-account-created': partnerAccountCreatedTemplate,
   'database-backup-ready': databaseBackupReadyTemplate,
   'database-backup-link': databaseBackupLinkTemplate,
