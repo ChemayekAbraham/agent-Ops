@@ -1737,6 +1737,13 @@
       "when": 1789911741924,
       "tag": "0247_partner_house_placement_status",
       "breakpoints": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1789912137260,
+      "tag": "0248_funder_house_progress_notices",
+      "breakpoints": true
     }
   ]
 }

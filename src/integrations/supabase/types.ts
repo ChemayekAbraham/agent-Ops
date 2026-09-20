@@ -15455,6 +15455,87 @@ export type Database = {
         }
         Relationships: []
       }
+      funder_house_progress_notices: {
+        Row: {
+          agent_name: string | null
+          commitment_id: string | null
+          created_at: string
+          dedupe_key: string
+          district: string | null
+          earning_started_at: string | null
+          email: string | null
+          email_error: string | null
+          email_sent_at: string | null
+          house_count: number
+          house_id: string | null
+          house_title: string | null
+          id: string
+          kind: string
+          monthly_rent: number
+          monthly_return: number
+          partner_id: string
+          partner_name: string | null
+          phone: string | null
+          placed_at: string | null
+          principal: number
+          sms_error: string | null
+          sms_sent_at: string | null
+          supported_house_id: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          commitment_id?: string | null
+          created_at?: string
+          dedupe_key: string
+          district?: string | null
+          earning_started_at?: string | null
+          email?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          house_count?: number
+          house_id?: string | null
+          house_title?: string | null
+          id?: string
+          kind: string
+          monthly_rent?: number
+          monthly_return?: number
+          partner_id: string
+          partner_name?: string | null
+          phone?: string | null
+          placed_at?: string | null
+          principal?: number
+          sms_error?: string | null
+          sms_sent_at?: string | null
+          supported_house_id?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          commitment_id?: string | null
+          created_at?: string
+          dedupe_key?: string
+          district?: string | null
+          earning_started_at?: string | null
+          email?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          house_count?: number
+          house_id?: string | null
+          house_title?: string | null
+          id?: string
+          kind?: string
+          monthly_rent?: number
+          monthly_return?: number
+          partner_id?: string
+          partner_name?: string | null
+          phone?: string | null
+          placed_at?: string | null
+          principal?: number
+          sms_error?: string | null
+          sms_sent_at?: string | null
+          supported_house_id?: string | null
+        }
+        Relationships: []
+      }
       funder_pending_portfolios: {
         Row: {
           amount: number
@@ -54742,6 +54823,25 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      enqueue_funder_house_notice: {
+        Args: {
+          p_agent_name: string
+          p_commitment_id: string
+          p_dedupe_key: string
+          p_district: string
+          p_earning_started_at: string
+          p_house_count: number
+          p_house_id: string
+          p_house_title: string
+          p_kind: string
+          p_monthly_rent: number
+          p_partner_id: string
+          p_placed_at: string
+          p_principal: number
+          p_supported_house_id: string
+        }
+        Returns: undefined
       }
       enroll_welile_home_tenant: {
         Args: {
