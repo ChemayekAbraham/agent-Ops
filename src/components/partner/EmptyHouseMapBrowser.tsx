@@ -12,6 +12,8 @@ import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse 
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
 import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './emptyHouseMapCluster';
+import { MapPerfOverlay } from './MapPerfOverlay';
+import { mapPerf } from '@/lib/mapPerf';
 
 interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
@@ -188,6 +190,18 @@ export function EmptyHouseMapBrowser({
     else mapInstance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 13 });
   }, [houses, mapInstance]);
 
+  // Marker rendering time: stamped while the marker list is rebuilt, closed after commit.
+  const markerRenderStart = useRef<number | null>(null);
+  useMemo(() => {
+    markerRenderStart.current = performance.now();
+    return cells;
+  }, [cells]);
+  useEffect(() => {
+    if (markerRenderStart.current == null) return;
+    mapPerf.recordRender(performance.now() - markerRenderStart.current, cells.length);
+    markerRenderStart.current = null;
+  }, [cells]);
+
   const activeIndex = activeHouse
     ? mappedHouses.findIndex((house) => house.house_id === activeHouse.house_id)
     : -1;
@@ -304,6 +318,8 @@ export function EmptyHouseMapBrowser({
           Loading houses in view
         </div>
       )}
+
+      <MapPerfOverlay />
 
       {activeHouse && (() => {
         const rent = Number(activeHouse.monthly_rent || 0);

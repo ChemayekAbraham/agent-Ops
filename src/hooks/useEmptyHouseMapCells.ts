@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { mapPerf } from '@/lib/mapPerf';
 import type { SupportableHouse } from '@/components/partner/SelfSupportHousesSection';
 
 /**
@@ -94,6 +96,13 @@ export function useEmptyHouseMapCells(
       }
     : null;
 
+  // Classify each viewport read: a key we already requested is served from cache.
+  const viewportKey = key ? JSON.stringify([key, filters]) : null;
+  useEffect(() => {
+    if (!viewportKey || !enabled) return;
+    mapPerf.noteViewportKey(viewportKey);
+  }, [viewportKey, enabled]);
+
   return useQuery<EmptyHouseMapCells>({
     queryKey: ['empty-house-map-cells', key, filters],
     enabled: enabled && !!viewport,
@@ -103,6 +112,7 @@ export function useEmptyHouseMapCells(
     refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!viewport) return { cells: [], housesInView: 0, scanCapped: false };
+      const startedAt = performance.now();
       const { data, error } = await supabase.rpc('map_empty_house_cells', {
         p_min_lat: viewport.minLat,
         p_min_lng: viewport.minLng,
@@ -115,7 +125,10 @@ export function useEmptyHouseMapCells(
         p_max_rent: filters.maxRent ?? null,
         p_limit: 400,
       });
-      if (error) throw error;
+      if (error) {
+        mapPerf.recordFailure(error.message ?? 'Viewport query failed');
+        throw error;
+      }
 
       const payload = (data ?? {}) as { cells?: RawCell[]; scanned?: number; scan_capped?: boolean };
       const cells = (payload.cells ?? [])
@@ -130,11 +143,17 @@ export function useEmptyHouseMapCells(
         }))
         .filter((cell) => Number.isFinite(cell.latitude) && Number.isFinite(cell.longitude));
 
-      return {
+      const result = {
         cells,
         housesInView: Number(payload.scanned ?? 0),
         scanCapped: payload.scan_capped === true,
       };
+      mapPerf.recordQuery(performance.now() - startedAt, {
+        markers: result.cells.length,
+        housesInView: result.housesInView,
+        scanCapped: result.scanCapped,
+      });
+      return result;
     },
   });
 }
