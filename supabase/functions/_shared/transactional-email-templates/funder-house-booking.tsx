@@ -21,7 +21,10 @@ interface Props {
   promised_funding_date?: string
   release_date?: string
   days_left?: number
+  first_return_date?: string
+  return_rate?: number
   houses?: HouseLine[]
+
   dashboard_url?: string
   currency?: string
   company_name?: string
