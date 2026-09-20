@@ -753,7 +753,17 @@ export function SelfPortfolioFundingCard({
           >
             Within my float
           </Button>
-          {(houseDistrict !== 'all' || houseWithinFloat || houseSort !== 'return_desc') && (
+          <Button
+            type="button"
+            variant={showSavedReadyOnly ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            aria-pressed={showSavedReadyOnly}
+            onClick={() => setShowSavedReadyOnly((v) => !v)}
+          >
+            Saved · Ready to fund
+          </Button>
+          {(houseDistrict !== 'all' || houseWithinFloat || showSavedReadyOnly || houseSort !== 'return_desc') && (
             <Button
               type="button"
               variant="ghost"
@@ -763,13 +773,14 @@ export function SelfPortfolioFundingCard({
                 setHouseSort('return_desc');
                 setHouseDistrict('all');
                 setHouseWithinFloat(false);
+                setShowSavedReadyOnly(false);
               }}
             >
               <X className="h-3.5 w-3.5 mr-1" aria-hidden />
               Reset
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseWithinFloat) && (
+          {(houseDistrict !== 'all' || houseWithinFloat || showSavedReadyOnly) && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
