@@ -859,6 +859,13 @@ export function SelfPortfolioFundingCard({
             onSearchQueryChange={setHouseSearch}
             onOpenHouse={setDetailHouse}
             onFundHouse={(house) => toggleHouse(house.house_id)}
+            onActiveHouseChange={(house) => {
+              if (house && Number.isFinite(Number(house.latitude)) && Number.isFinite(Number(house.longitude))) {
+                setReferencePoint({ lat: Number(house.latitude), lng: Number(house.longitude) });
+              } else if (!house) {
+                setReferencePoint(null);
+              }
+            }}
           />
           <div className="flex min-h-0 flex-col gap-3 border-t border-border p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-4">
             <div>
