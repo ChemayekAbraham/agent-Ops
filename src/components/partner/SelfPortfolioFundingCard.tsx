@@ -116,6 +116,29 @@ export function SelfPortfolioFundingCard({
   // A changing key asks HouseSupportBar to open its confirm dialog (used by
   // the balance-ready notification's "Fund this house" action).
   const [fundConfirmKey, setFundConfirmKey] = useState<string | null>(null);
+  // Houses that just became fundable stay highlighted until the partner
+  // dismisses the highlight or funds them. Persisted so it survives reloads.
+  const fundableKey = `psm-house-fundable-${partnerId}`;
+  const [fundableIds, setFundableIds] = useState<string[]>(() => {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(fundableKey) ?? '[]');
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const persistFundable = useCallback(
+    (next: string[]) => {
+      setFundableIds(next);
+      try {
+        if (next.length) window.localStorage.setItem(fundableKey, JSON.stringify(next));
+        else window.localStorage.removeItem(fundableKey);
+      } catch {
+        /* storage unavailable — highlight just won't persist */
+      }
+    },
+    [fundableKey],
+  );
   const alertsKey = `psm-house-alerts-${partnerId}`;
   const [houseAlerts, setHouseAlerts] = useState<HouseBalanceAlert[]>(() => {
     try {
@@ -147,6 +170,7 @@ export function SelfPortfolioFundingCard({
 
   // Picked houses survive reloads until the partner funds or removes them.
   const selectionKey = `psm-house-selection-${partnerId}`;
+  const [selectionRestored, setSelectionRestored] = useState(false);
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(selectionKey) ?? '[]');
@@ -154,6 +178,7 @@ export function SelfPortfolioFundingCard({
     } catch {
       /* ignore corrupt cache */
     }
+    setSelectionRestored(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey]);
   useEffect(() => {
@@ -350,6 +375,25 @@ export function SelfPortfolioFundingCard({
     [houses, houseSelected, remaining],
   );
 
+  // Picked houses whose highlight is still on: they became fundable and have
+  // not been dismissed or funded yet.
+  const fundableNow = useMemo(
+    () =>
+      houses.filter(
+        (h) => fundableIds.includes(h.house_id) && houseSelected.includes(h.house_id),
+      ),
+    [houses, fundableIds, houseSelected],
+  );
+
+  // Funding (or unpicking) a highlighted house clears its highlight. Wait for
+  // the persisted selection to be restored first, or a fresh page load would
+  // wipe the highlight before the picks are read back.
+  useEffect(() => {
+    if (!selectionRestored) return;
+    const next = fundableIds.filter((id) => houseSelected.includes(id));
+    if (next.length !== fundableIds.length) persistFundable(next);
+  }, [houseSelected, fundableIds, persistFundable, selectionRestored]);
+
   // Jump to a picked house: switch to the houses feed, clear any filters that
   // could hide it, open its page, scroll it into view and flash it.
   const jumpToHouse = useCallback(
@@ -419,6 +463,8 @@ export function SelfPortfolioFundingCard({
       }
       return next;
     });
+    // Pin the highlight on the newly fundable houses until dismissed or funded.
+    persistFundable([...houseSelected]);
     toast.success(
       houseSelected.length === 1
         ? 'Your balance now covers your saved house.'
@@ -444,6 +490,7 @@ export function SelfPortfolioFundingCard({
     shortFlagKey,
     alertsKey,
     jumpToHouse,
+    persistFundable,
   ]);
 
   // The dashboard switch intentionally separates ready-tenant Rent Plans from
@@ -752,15 +799,76 @@ export function SelfPortfolioFundingCard({
       )}
 
 
-      {feedOrder === 'houses' && savedForLater.length > 0 && (
+      {feedOrder === 'houses' && (savedForLater.length > 0 || fundableNow.length > 0) && (
         <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border-primary/30 bg-primary/5">
           <div className="flex items-center gap-1.5 px-0.5">
             <Bookmark className="h-3.5 w-3.5 text-primary" aria-hidden />
             <p className="text-xs font-black text-foreground">Saved for later</p>
             <span className="text-[10px] font-semibold text-muted-foreground">
-              {`· ${savedForLater.length} ${savedForLater.length === 1 ? 'house' : 'houses'} waiting on a top-up`}
+              {savedForLater.length > 0
+                ? `· ${savedForLater.length} ${savedForLater.length === 1 ? 'house' : 'houses'} waiting on a top-up`
+                : ''}
+              {fundableNow.length > 0
+                ? `${savedForLater.length > 0 ? ' ' : '· '}${fundableNow.length} ready to fund now`
+                : ''}
             </span>
           </div>
+
+          {fundableNow.length > 0 && (
+            <div className="mt-2 space-y-2">
+              {fundableNow.map((h) => {
+                const img = (h.image_urls ?? []).filter(Boolean)[0];
+                return (
+                  <div
+                    key={`fundable-${h.house_id}`}
+                    className="flex items-center gap-2.5 rounded-xl border-2 border-success/70 bg-success/10 p-2 shadow-sm"
+                  >
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={houseTitleLine(h)}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-11 w-11 flex-none rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-muted">
+                        <Home className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold leading-tight">{houseTitleLine(h)}</p>
+                      <p className="mt-0.5 truncate text-[10px] font-semibold text-success">
+                        Your balance now covers it — ready to fund
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => {
+                        jumpToHouse(h.house_id);
+                        setFundConfirmKey(`${Date.now()}`);
+                      }}
+                      aria-label={`Fund ${houseTitleLine(h)} now`}
+                      className="h-8 flex-none rounded-lg px-2.5 text-[11px] font-bold"
+                    >
+                      <ShieldCheck className="mr-1 h-3 w-3" aria-hidden />
+                      Fund now
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => persistFundable(fundableIds.filter((id) => id !== h.house_id))}
+                      aria-label={`Dismiss highlight for ${houseTitleLine(h)}`}
+                      className="flex h-7 w-7 flex-none items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="mt-2 space-y-2">
             {savedForLater.map((h) => {
               const topUpNeeded = Math.max(0, Number(h.monthly_rent || 0) - remaining);
@@ -857,7 +965,7 @@ export function SelfPortfolioFundingCard({
                 onToggle={toggleHouse}
                 onOpenDetail={setDetailHouse}
                  onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
-                 flash={flashHouseId === item.id}
+                 flash={flashHouseId === item.id || fundableIds.includes(item.id)}
                />
             </div>
           );
