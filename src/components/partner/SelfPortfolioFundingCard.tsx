@@ -29,6 +29,7 @@ import DepositFlow from '@/components/payments/DepositFlow';
 import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
 import { HouseCompareDialog } from './HouseCompareDialog';
 import { FundHouseTooltip } from './FundHouseTooltip';
+import { HousePlacementTimeline } from './HousePlacementTimeline';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
@@ -1808,6 +1809,10 @@ export function SelfPortfolioFundingCard({
         </Card>
       )}
 
+      {partnerId && (
+        <HousePlacementTimeline partnerId={partnerId} refreshKey={placementRefresh} />
+      )}
+
       {houseSelected.length > 0 && (
         <HouseSupportBar
           selectedCount={houseSelected.length}
@@ -1823,7 +1828,10 @@ export function SelfPortfolioFundingCard({
           onSubmitted={async (outcome) => {
             setHouseSelected([]);
             await housesQuery.refetch();
-            if (outcome === 'submitted') await loadFunded();
+            if (outcome === 'submitted') {
+              setPlacementRefresh((k) => k + 1);
+              await loadFunded();
+            }
           }}
         />
       )}
