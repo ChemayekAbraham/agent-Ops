@@ -968,6 +968,11 @@ export function SelfPortfolioFundingCard({
                 ))}
               </SelectContent>
             </Select>
+            {houseSort === 'nearest' && (
+              <span className="text-[10px] leading-tight text-muted-foreground max-w-[16rem]">
+                {referencePoint ? 'Sorted by distance from the selected house.' : 'Tap a house on the map to sort from that location.'}
+              </span>
+            )}
           </div>
           <Select value={houseDistrict} onValueChange={setHouseDistrict}>
             <SelectTrigger className="h-9 w-auto min-w-[130px] text-xs font-semibold" aria-label="Filter by district">
