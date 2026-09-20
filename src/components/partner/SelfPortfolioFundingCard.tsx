@@ -523,6 +523,25 @@ export function SelfPortfolioFundingCard({
                   </div>
                 </div>
 
+                {/* Earnings breakdown: monthly amount, timeframe, total return */}
+                <div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-xl bg-primary/5 px-2.5 py-2">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">You earn</p>
+                    <p className="truncate text-xs font-black text-primary sm:text-sm">{formatDynamic(monthlyRoi)}</p>
+                    <p className="text-[9px] text-muted-foreground">per month</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">For</p>
+                    <p className="truncate text-xs font-black sm:text-sm">{planMonths} {planMonths === 1 ? 'month' : 'months'}</p>
+                    <p className="text-[9px] text-muted-foreground">{plan.duration_days ? `${plan.duration_days} days` : 'plan term'}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Total return</p>
+                    <p className="truncate text-xs font-black text-primary sm:text-sm">{formatDynamic(totalReturn)}</p>
+                    <p className="text-[9px] text-muted-foreground">by plan end</p>
+                  </div>
+                </div>
+
                 {unaffordable && !heldByOther && (
                   <p className="mt-1.5 text-[10px] font-semibold text-muted-foreground">
                     Add {formatDynamic(Number(plan.funding_amount) - remaining)} to your balance to include this plan.
