@@ -66,6 +66,7 @@ export function EmptyHouseDetailSheet({
   isPicked,
   onTogglePick,
   isPartner = false,
+  remaining,
 }: {
   house: HouseOpportunity | null;
   open: boolean;
@@ -73,6 +74,8 @@ export function EmptyHouseDetailSheet({
   isPicked?: boolean;
   onTogglePick?: (house: HouseOpportunity) => void;
   isPartner?: boolean;
+  /** Supporter balance still free to commit — drives the funding requirement block. */
+  remaining?: number;
 }) {
   const [index, setIndex] = useState(0);
 
