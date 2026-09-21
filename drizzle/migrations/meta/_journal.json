@@ -1828,6 +1828,13 @@
       "when": 1789994166478,
       "tag": "0260_loan_recovery_2026_09_21_g",
       "breakpoints": true
+    },
+    {
+      "idx": 261,
+      "version": "7",
+      "when": 1789994682243,
+      "tag": "0261_loan_policy_confirm_2026_09_21_h",
+      "breakpoints": true
     }
   ]
 }
