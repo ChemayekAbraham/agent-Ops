@@ -1272,6 +1272,28 @@ export function SelfPortfolioFundingCard({
 
       {feedOrder === 'houses' && houses.length > 0 && (
         <div className="flex items-center gap-2 px-1" aria-label="Filter empty houses">
+          <div className="relative min-w-0 flex-1 sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              value={houseSearch}
+              onChange={(e) => setHouseSearch(e.target.value)}
+              placeholder="Search by location…"
+              aria-label="Search empty houses by location"
+              className="h-9 rounded-full pl-8 pr-8 text-xs"
+            />
+            {searchBusy ? (
+              <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
+            ) : houseSearch ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                onClick={() => setHouseSearch('')}
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            ) : null}
+          </div>
           <Button
             type="button"
             variant={activeFilterCount > 0 ? 'default' : 'outline'}
