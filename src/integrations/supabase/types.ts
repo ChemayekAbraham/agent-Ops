@@ -34392,6 +34392,30 @@ export type Database = {
         }
         Relationships: []
       }
+      pso_facilitation_approvers: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          enabled: boolean
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       pso_note_reversals: {
         Row: {
           created_at: string
