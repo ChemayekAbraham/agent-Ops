@@ -1645,7 +1645,9 @@ export function SelfPortfolioFundingCard({
                     ? `No empty houses in ${selectedCountry.name} match the other filters yet. Choose "All of Africa" or widen your filters.`
                     : houseListingAge !== 'all'
                       ? 'No empty houses were listed in that period. Try a longer listing age.'
-                      : houseDistrict !== 'all' || houseSubCounty !== 'all'
+                      : houseRadiusKm !== 'all'
+                        ? `No empty houses with known GPS are within ${houseRadiusKm} km of your location. Try a wider distance.`
+                        : houseDistrict !== 'all' || houseSubCounty !== 'all'
                     ? 'No empty houses in this area match the other filters. Try a different location or widen your search.'
                     : houseFundingStatus !== 'all' || houseWithinFloat
                       ? 'No houses match the funding-status filter. Reset to see every available house.'
