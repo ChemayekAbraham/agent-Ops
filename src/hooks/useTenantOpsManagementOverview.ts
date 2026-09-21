@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  useTenantTopupEligibility,
+  type TopupEligibilityResult,
   type TopupEligibilityRow,
 } from '@/hooks/useTenantTopupEligibility';
 import {
@@ -62,19 +62,57 @@ function useInitialRents(tenantIds: string[]) {
     enabled: tenantIds.length > 0,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<Record<string, number>> => {
-      const { data, error } = await supabase
-        .from('rent_requests')
-        .select('tenant_id, rent_amount, created_at')
-        .in('tenant_id', tenantIds)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
       const out: Record<string, number> = {};
-      for (const r of data ?? []) {
-        const tid = r.tenant_id as string | null;
-        if (!tid || out[tid] !== undefined) continue;
-        out[tid] = Number(r.rent_amount ?? 0);
+      // Chunked so a large portfolio never overflows the request URL.
+      for (let i = 0; i < tenantIds.length; i += 200) {
+        const chunk = tenantIds.slice(i, i + 200);
+        const { data, error } = await supabase
+          .from('rent_requests')
+          .select('tenant_id, rent_amount, created_at')
+          .in('tenant_id', chunk)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        for (const r of data ?? []) {
+          const tid = r.tenant_id as string | null;
+          if (!tid || out[tid] !== undefined) continue;
+          out[tid] = Number(r.rent_amount ?? 0);
+        }
       }
       return out;
+    },
+  });
+}
+
+/**
+ * The eligibility report pages at 500 rows. Agent portfolio totals must cover
+ * the agent's whole portfolio, so every page of the SAME authoritative report is
+ * read — no separate aggregation query, no second definition of the figures.
+ */
+function useAllEligibilityRows(params: { search: string; agentId: string | null; tier: string | null }) {
+  const { search, agentId, tier } = params;
+  return useQuery({
+    queryKey: ['tenant-topup-eligibility', 'all-pages', search, agentId, tier],
+    staleTime: 60_000,
+    queryFn: async (): Promise<TopupEligibilityResult> => {
+      const page = async (offset: number) => {
+        const { data, error } = await supabase.rpc('get_tenant_topup_eligibility', {
+          p_search: search || null,
+          p_agent_id: agentId,
+          p_tier: tier,
+          p_limit: 500,
+          p_offset: offset,
+        });
+        if (error) throw error;
+        return data as unknown as TopupEligibilityResult;
+      };
+      const first = await page(0);
+      const rows = [...(first.rows ?? [])];
+      const total = Number(first.total ?? rows.length);
+      for (let offset = 500; offset < total && offset < 5000; offset += 500) {
+        const next = await page(offset);
+        rows.push(...(next.rows ?? []));
+      }
+      return { ...first, rows };
     },
   });
 }
@@ -83,11 +121,10 @@ export function useTenantOpsManagementOverview(params: {
   search?: string;
   agentId?: string | null;
   tier?: string | null;
-  limit?: number;
 } = {}) {
-  const { search = '', agentId = null, tier = null, limit = 300 } = params;
+  const { search = '', agentId = null, tier = null } = params;
 
-  const eligibility = useTenantTopupEligibility({ search, agentId, tier, limit });
+  const eligibility = useAllEligibilityRows({ search, agentId, tier });
   const registration = useAgentRegistrationControl({ status: 'all', limit: 500 });
 
   const tenantIds = useMemo(

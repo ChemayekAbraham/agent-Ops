@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { formatUGX } from '@/lib/rentCalculations';
 import { TOPUP_TIER_LABELS } from '@/hooks/useTenantTopupEligibility';
 import { useTenantOpsManagementOverview } from '@/hooks/useTenantOpsManagementOverview';
@@ -41,6 +42,7 @@ export default function ManagementOverviewTab() {
   const [perf, setPerf] = useState<PerfFilter>('all');
   const [agentSearch, setAgentSearch] = useState('');
   const [regFilter, setRegFilter] = useState<'all' | 'blocked' | 'allowed'>('all');
+  const [shownTenants, setShownTenants] = useState(150);
 
   const {
     tenants,
@@ -239,7 +241,7 @@ export default function ManagementOverviewTab() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {visibleTenants.map((t) => {
+                    {visibleTenants.slice(0, shownTenants).map((t) => {
                       const nextLevel = t.levels?.find((l) => !l.reached && l.amount_required > 0);
                       return (
                         <TableRow key={t.rent_request_id}>
@@ -305,6 +307,18 @@ export default function ManagementOverviewTab() {
                     )}
                   </TableBody>
                 </Table>
+              )}
+              {!isLoading && visibleTenants.length > 0 && (
+                <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <span>
+                    Showing {Math.min(shownTenants, visibleTenants.length)} of {visibleTenants.length} tenants
+                  </span>
+                  {shownTenants < visibleTenants.length && (
+                    <Button variant="outline" size="sm" onClick={() => setShownTenants((n) => n + 150)}>
+                      Show more
+                    </Button>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -379,7 +393,9 @@ export default function ManagementOverviewTab() {
                         <TableCell className="text-right">
                           {a.prev_month_pct == null ? '—' : `${a.prev_month_pct}%`}
                           <div className="text-xs text-muted-foreground">
-                            {formatUGX(a.prev_month_collected)} of {formatUGX(a.prev_month_expected)}
+                            {a.prev_month_expected > 0
+                              ? `${formatUGX(a.prev_month_collected)} of ${formatUGX(a.prev_month_expected)}`
+                              : 'Nothing was due last month'}
                           </div>
                         </TableCell>
                         <TableCell>
