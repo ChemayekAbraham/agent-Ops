@@ -925,9 +925,9 @@ export function FunderCapitalOpportunities({
                     </li>
                   </ul>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* House cards appear first so funders can browse immediately */}
           {user?.id
