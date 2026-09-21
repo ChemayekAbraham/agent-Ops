@@ -31,7 +31,9 @@ import {
   useRevokeRegistrationOverride,
   useSaveRegistrationControlRules,
   type RegistrationControlRow,
+  type RegistrationControlRules,
 } from '@/hooks/useAgentRegistrationControl';
+import RegistrationRuleGroupsDialog from './RegistrationRuleGroupsDialog';
 
 type StatusFilter = 'all' | 'blocked' | 'restricted' | 'overridden' | 'clear';
 
