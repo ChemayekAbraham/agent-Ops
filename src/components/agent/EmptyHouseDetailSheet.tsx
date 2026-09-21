@@ -6,7 +6,6 @@ import {
   MessageSquare,
   Navigation,
   ShieldCheck,
-  Users,
   ImageIcon,
   ChevronLeft,
   ChevronRight,
@@ -61,8 +60,8 @@ const photosOf = (h: HouseOpportunity) =>
   h.image_urls && h.image_urls.length ? h.image_urls : h.image_url ? [h.image_url] : [];
 
 /**
- * Full detail view for one empty house: photo gallery, landlord name and
- * contact, GPS map preview and the 15% monthly return the partner earns.
+ * Full detail view for one empty house: photo gallery, landlord contact,
+ * GPS map preview and the 15% monthly return the partner earns.
  */
 export function EmptyHouseDetailSheet({
   house,
@@ -111,6 +110,9 @@ export function EmptyHouseDetailSheet({
   const photos = photosOf(house);
   const gps = houseHasGps(house);
   const active = photos[Math.min(index, Math.max(photos.length - 1, 0))];
+  const topUpNeeded = isPartner && typeof remaining === 'number'
+    ? Math.max(0, Number(house.monthly_rent || 0) - remaining)
+    : 0;
 
   return (
     <>
@@ -120,17 +122,109 @@ export function EmptyHouseDetailSheet({
         className="z-[1350] max-h-[90vh] gap-0 overflow-y-auto rounded-t-2xl p-0 sm:left-1/2 sm:w-[26rem] sm:-translate-x-1/2 sm:rounded-t-2xl"
         overlayClassName="z-[1260]"
       >
-        <SheetHeader className="border-b p-4 text-left">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            <Home className="h-4 w-4 text-primary" />
-            {house.title || formatHouseCategory(house.house_category) || 'Empty house'}
-          </SheetTitle>
-          <SheetDescription className="flex items-center gap-1 text-[11px]">
-            <MapPin className="h-3 w-3 shrink-0" /> {housePlace(house)}
-          </SheetDescription>
+        <SheetHeader className="p-4 text-left">
+          {/* Detailed house card */}
+          <div className="space-y-3 rounded-2xl border p-4">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <Home className="h-4 w-4 text-primary" />
+              {house.title || formatHouseCategory(house.house_category) || 'Empty house'}
+            </SheetTitle>
+            <SheetDescription className="flex items-center gap-1 text-[11px]">
+              <MapPin className="h-3 w-3 shrink-0" /> {housePlace(house)}
+            </SheetDescription>
+
+            <div className="grid grid-cols-2 gap-3 pt-1 text-[12px]">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Type</p>
+                <p className="font-semibold">{formatHouseCategory(house.house_category) || 'Not stated'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Rooms</p>
+                <p className="font-semibold">{house.number_of_rooms ?? 'Not stated'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Status</p>
+                {house.verified ? (
+                  <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
+                    <ShieldCheck className="h-3 w-3" /> Verified
+                  </Badge>
+                ) : (
+                  <span className="font-semibold">Pending verification</span>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Monthly rent</p>
+                <p className="text-base font-black text-primary">{formatUGX(house.monthly_rent)}</p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 border-t pt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Landlord</p>
+              <p className="text-base font-bold leading-tight text-primary">{house.landlord_name || 'Name not on file'}</p>
+              {house.landlord_phone && (
+                <p className="text-sm font-medium text-primary/80">{house.landlord_phone}</p>
+              )}
+              {house.landlord_phone ? (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Button asChild variant="outline" size="sm" className="h-10 gap-1.5 text-[12px]">
+                    <a href={`tel:${house.landlord_phone}`}>
+                      <Phone className="h-3.5 w-3.5" /> Call
+                    </a>
+                  </Button>
+                  <Button asChild variant="secondary" size="sm" className="h-10 gap-1.5 text-[12px]">
+                    <a href={`sms:${house.landlord_phone}`}>
+                      <MessageSquare className="h-3.5 w-3.5" /> Message
+                    </a>
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">No contact on file.</p>
+              )}
+            </div>
+          </div>
         </SheetHeader>
 
         <div className="space-y-4 p-4">
+          {/* Your opportunity / benefit card */}
+          <div className="rounded-2xl border p-4 space-y-3">
+            <p className="text-xs font-bold">Your opportunity</p>
+            <div className="space-y-2 text-[12px]">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Rent amount funded</span>
+                <span className="font-bold text-primary">{formatUGX(house.monthly_rent)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Monthly Returns</span>
+                <span className="font-bold text-primary">15%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">{isPartner ? 'You earn today' : 'Partner earns today'}</span>
+                <span className="text-base font-black text-primary">{formatUGX(house.partner_monthly_return)}/mo</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Total after 12 months</span>
+                <span className="font-bold text-primary">{formatUGX(house.partner_annual_return)}</span>
+              </div>
+            </div>
+            {isPartner && typeof remaining === 'number' && (
+              <div className="border-t pt-2">
+                {topUpNeeded > 0 ? (
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="text-muted-foreground">Top-up needed</span>
+                    <span className="font-bold text-primary">{formatUGX(topUpNeeded)}</span>
+                  </div>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600"
+                  >
+                    <ShieldCheck className="h-3 w-3" /> Ready to fund now
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Gallery */}
           {photos.length > 0 ? (
             <div className="space-y-2">
@@ -196,173 +290,6 @@ export function EmptyHouseDetailSheet({
               <ImageIcon className="h-4 w-4" /> No photo on file
             </div>
           )}
-
-          {/* Money */}
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Monthly rent</p>
-                <p className="text-base font-black">{formatUGX(house.monthly_rent)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  {isPartner ? 'You earn' : 'Partner earns'}
-                </p>
-                <p className="text-base font-black text-emerald-600">
-                  {formatUGX(house.partner_monthly_return)}/mo
-                </p>
-              </div>
-            </div>
-            <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-              15% of the rent every month for 12 months —{' '}
-              <span className="font-semibold text-foreground">{formatUGX(house.partner_annual_return)}</span> in total.
-            </p>
-          </div>
-
-          {/* Supporter opportunity summary — tenant status, terms, requirement, earnings */}
-          {isPartner && (
-            <div className="space-y-3 rounded-2xl border p-4">
-              <p className="text-xs font-bold">Before you select this house</p>
-
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tenant status</p>
-                <p className="flex items-start gap-1.5 text-[12px] leading-snug">
-                  <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                  <span>
-                    Empty — no tenant yet. Once you fund it, a Welile agent is notified and places a
-                    tenant within 7 days. You start earning Returns as soon as the tenant begins paying rent.
-                  </span>
-                </p>
-              </div>
-
-              <div className="space-y-1.5 border-t pt-3">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Rent terms</p>
-                <div className="space-y-1 text-[12px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Monthly rent</span>
-                    <span className="font-semibold">{formatUGX(house.monthly_rent)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Rent Plan length</span>
-                    <span className="font-semibold">12 months</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Rent collection</span>
-                    <span className="font-semibold">Welile collects monthly</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 border-t pt-3">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  What you need to fund it
-                </p>
-                <div className="space-y-1 text-[12px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Your contribution</span>
-                    <span className="font-semibold">{formatUGX(house.monthly_rent)}</span>
-                  </div>
-                  {typeof remaining === 'number' && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Balance available</span>
-                        <span className="font-semibold">{formatUGX(Math.max(0, remaining))}</span>
-                      </div>
-                      {Number(house.monthly_rent || 0) > remaining ? (
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Top-up needed</span>
-                          <span className="font-bold text-amber-600">
-                            {formatUGX(Math.max(0, Number(house.monthly_rent || 0) - remaining))}
-                          </span>
-                        </div>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600"
-                        >
-                          <ShieldCheck className="h-3 w-3" /> Ready to fund now
-                        </Badge>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-1.5 border-t pt-3">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  Expected earnings
-                </p>
-                <div className="space-y-1 text-[12px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Returns each month (15%)</span>
-                    <span className="font-black text-emerald-600">{formatUGX(house.partner_monthly_return)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Total over 12 months</span>
-                    <span className="font-bold">{formatUGX(house.partner_annual_return)}</span>
-                  </div>
-                </div>
-                <p className="text-[10px] leading-snug text-muted-foreground">
-                  Returns each month = your contribution × 15%. Total = that amount × 12 months.
-                </p>
-              </div>
-            </div>
-          )}
-
-
-
-          {/* House facts */}
-          <div className="rounded-2xl border p-4 space-y-2 text-[12px]">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Type</span>
-              <span className="font-semibold">{formatHouseCategory(house.house_category) || 'Not stated'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Rooms</span>
-              <span className="font-semibold">{house.number_of_rooms ?? 'Not stated'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Status</span>
-              {house.verified ? (
-                <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
-                  <ShieldCheck className="h-3 w-3" /> Verified
-                </Badge>
-              ) : (
-                <span className="font-semibold">Pending verification</span>
-              )}
-            </div>
-            {house.listing_agent_name && (
-              <p className="flex items-start gap-1.5 pt-1 text-[11px] text-muted-foreground">
-                <Users className="mt-0.5 h-3 w-3 shrink-0" />
-                {house.listing_agent_name} places the tenant once this note is fulfilled.
-              </p>
-            )}
-          </div>
-
-          {/* Landlord */}
-          <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 space-y-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord</p>
-            <p className="text-base font-bold leading-tight">{house.landlord_name || 'Name not on file'}</p>
-            {house.landlord_phone && (
-              <p className="text-sm font-medium text-primary">{house.landlord_phone}</p>
-            )}
-            {house.landlord_phone ? (
-              <div className="grid grid-cols-2 gap-2">
-                <Button asChild variant="outline" size="sm" className="h-10 gap-1.5 text-[12px]">
-                  <a href={`tel:${house.landlord_phone}`}>
-                    <Phone className="h-3.5 w-3.5" /> Call
-                  </a>
-                </Button>
-                <Button asChild variant="secondary" size="sm" className="h-10 gap-1.5 text-[12px]">
-                  <a href={`sms:${house.landlord_phone}`}>
-                    <MessageSquare className="h-3.5 w-3.5" /> Message
-                  </a>
-                </Button>
-              </div>
-            ) : (
-              <p className="text-[11px] text-muted-foreground">No contact on file.</p>
-            )}
-          </div>
 
           {/* Map */}
           <div className="rounded-2xl border p-4 space-y-2">
