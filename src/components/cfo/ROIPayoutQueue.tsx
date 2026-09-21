@@ -1,18 +1,24 @@
-import { useState, Fragment } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { CheckCircle, XCircle, Loader2, User, Wallet, Pencil } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Wallet, Pencil, Eye } from 'lucide-react';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 
 interface PendingOp {
   id: string;
@@ -36,6 +42,7 @@ export function ROIPayoutQueue() {
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   // CFO-editable payout amounts, keyed by operation id. Empty until the CFO edits.
   const [editedAmounts, setEditedAmounts] = useState<Record<string, string>>({});
+  const [reviewTarget, setReviewTarget] = useState<PendingOp | null>(null);
 
   const { data: operations = [], isLoading } = useQuery({
     queryKey: ['cfo-roi-requests', 'coo_approved'],
@@ -102,6 +109,7 @@ export function ROIPayoutQueue() {
     },
     onSuccess: () => {
       toast.success('ROI payout approved — wallet credited');
+      setReviewTarget(null);
       invalidate();
     },
     onError: (err: any) => toast.error('Approval failed', { description: err.message }),
@@ -130,6 +138,7 @@ export function ROIPayoutQueue() {
     },
     onSuccess: () => {
       toast.success('ROI payout rejected');
+      setReviewTarget(null);
       invalidate();
     },
     onError: (err: any) => toast.error('Rejection failed', { description: err.message }),
@@ -151,148 +160,210 @@ export function ROIPayoutQueue() {
     );
   }
 
+  const payeeLabel = (op: PendingOp) => {
+    const meta = op.metadata as Record<string, any> | null;
+    return meta?.partner_name || getName(op.user_id);
+  };
+
+  const targetLabel = (op: PendingOp) => {
+    const meta = op.metadata as Record<string, any> | null;
+    const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
+    if (isAltWallet) return meta?.alt_recipient_name || getName(op.target_wallet_user_id);
+    return meta?.target_agent_name || getName(op.target_wallet_user_id);
+  };
+
+  const routeBadge = (op: PendingOp) => {
+    const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
+    const isProxy = !!op.target_wallet_user_id && !isAltWallet;
+    if (isAltWallet) return <Badge className="text-[9px] px-2 py-0 rounded-full bg-amber-100 text-amber-700 border-amber-200">Different Wallet</Badge>;
+    if (isProxy) return <Badge className="text-[9px] px-2 py-0 rounded-full bg-emerald-100 text-emerald-700 border-emerald-200">Proxy Agent</Badge>;
+    return <Badge className="text-[9px] px-2 py-0 rounded-full bg-muted text-muted-foreground border-border">Own Wallet</Badge>;
+  };
+
+  const reviewMeta = reviewTarget?.metadata as Record<string, any> | null;
+  const reviewEditedRaw = reviewTarget ? editedAmounts[reviewTarget.id] : undefined;
+  const reviewHasEdit = reviewEditedRaw !== undefined && reviewEditedRaw !== '';
+  const reviewEditedAmount = reviewTarget ? (reviewHasEdit ? Math.round(Number(reviewEditedRaw)) : reviewTarget.amount) : 0;
+  const reviewEditValid = !reviewHasEdit || (Number.isFinite(reviewEditedAmount) && reviewEditedAmount > 0);
+  const reviewAmountChanged = !!reviewTarget && reviewHasEdit && reviewEditValid && reviewEditedAmount !== reviewTarget.amount;
+  const reviewRejReason = reviewTarget ? rejectionReasons[reviewTarget.id] || '' : '';
+
   return (
     <div className="space-y-3">
       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {operations.length} ROI payout{operations.length === 1 ? '' : 's'} ready for CFO approval
       </p>
 
-      <div className="rounded-lg border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Payee</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Submitted</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {operations.map(op => {
-              const meta = op.metadata as Record<string, any> | null;
-              const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
-              const isProxy = !!op.target_wallet_user_id && !isAltWallet;
-              const rejReason = rejectionReasons[op.id] || '';
-              const editedRaw = editedAmounts[op.id];
-              const hasEdit = editedRaw !== undefined && editedRaw !== '';
-              const editedAmount = hasEdit ? Math.round(Number(editedRaw)) : op.amount;
-              const editValid = !hasEdit || (Number.isFinite(editedAmount) && editedAmount > 0);
-              const amountChanged = hasEdit && editValid && editedAmount !== op.amount;
-
-              return (
-                <Fragment key={op.id}>
-                  <TableRow>
-                    <TableCell>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold">{meta?.partner_name || getName(op.user_id)}</span>
-                        {isProxy && (
-                          <>
-                            <span className="text-muted-foreground">→</span>
-                            <Wallet className="h-4 w-4 text-primary" />
-                            <span className="font-semibold text-primary">{meta?.target_agent_name || getName(op.target_wallet_user_id)}</span>
-                            <Badge variant="outline" className="text-xs">Proxy Agent</Badge>
-                          </>
-                        )}
-                        {isAltWallet && (
-                          <>
-                            <span className="text-muted-foreground">→</span>
-                            <Wallet className="h-4 w-4 text-primary" />
-                            <span className="font-semibold text-primary">{meta?.alt_recipient_name || getName(op.target_wallet_user_id)}</span>
-                            <Badge variant="outline" className="text-xs">Different Wallet</Badge>
-                          </>
+      <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
+        <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
+          <table className="w-full text-sm min-w-[52rem]">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-border/70 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <th className="w-10 px-2 py-2 text-center font-semibold">#</th>
+                <th className="px-2 py-2 text-left font-semibold">Payee</th>
+                <th className="px-2 py-2 text-left font-semibold">Payout to</th>
+                <th className="px-2 py-2 text-right font-semibold">Amount</th>
+                <th className="px-2 py-2 text-left font-semibold">Date &amp; time</th>
+                <th className="px-2 py-2 text-left font-semibold">Status</th>
+                <th className="px-2 py-2 text-right font-semibold">View</th>
+              </tr>
+            </thead>
+            <tbody>
+              {operations.map((op, index) => {
+                const isNew = Date.now() - new Date(op.created_at).getTime() < 24 * 60 * 60 * 1000;
+                return (
+                  <tr
+                    key={op.id}
+                    onClick={() => setReviewTarget(op)}
+                    className="border-b border-border/70 last:border-0 cursor-pointer transition-colors hover:bg-muted/40"
+                  >
+                    <td className="w-10 px-2 py-2.5 align-middle text-center">
+                      <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-muted/60 text-[10px] font-medium text-muted-foreground">
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2.5 align-middle">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate font-semibold">{payeeLabel(op)}</span>
+                        {isNew && (
+                          <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-500 text-white border-0">
+                            NEW
+                          </Badge>
                         )}
                       </div>
-                      {op.description && (
-                        <p className="text-xs text-muted-foreground mt-1 max-w-md">{op.description}</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <p className="font-bold text-primary">{formatUGX(editValid ? editedAmount : op.amount)}</p>
-                      {amountChanged && (
-                        <p className="text-[11px] text-muted-foreground">
-                          Original: <span className="line-through">{formatUGX(op.amount)}</span>
-                        </p>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(op.created_at), 'dd MMM yyyy, HH:mm')}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">Ref: {op.reference_id || '—'}</p>
-                    </TableCell>
-                    <TableCell>
+                    </td>
+                    <td className="px-2 py-2.5 align-middle">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Wallet className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="truncate font-semibold text-primary max-w-[10rem]">{targetLabel(op)}</span>
+                        {routeBadge(op)}
+                      </div>
+                    </td>
+                    <td className="px-2 py-2.5 align-middle text-right font-bold text-primary whitespace-nowrap">
+                      {formatUGX(op.amount)}
+                    </td>
+                    <td className="px-2 py-2.5 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
+                      {format(new Date(op.created_at), 'dd MMM yyyy, HH:mm')}
+                    </td>
+                    <td className="px-2 py-2.5 align-middle whitespace-nowrap">
                       <Badge variant="secondary">COO Approved</Badge>
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow className="bg-muted/30">
-                    <TableCell colSpan={4}>
-                      <div className="grid gap-4 md:grid-cols-[240px_1fr_320px] items-start">
-                        {/* CFO-editable payout amount */}
-                        <div className="space-y-2">
-                          <Label className="text-[11px] flex items-center gap-1 text-muted-foreground">
-                            <Pencil className="h-3 w-3" /> Payout amount (editable)
-                          </Label>
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            min={1}
-                            value={editedRaw ?? String(op.amount)}
-                            onChange={e => setEditedAmounts(prev => ({ ...prev, [op.id]: e.target.value }))}
-                            className="h-9 text-sm font-mono"
-                          />
-                          {!editValid && (
-                            <p className="text-[11px] text-destructive">Enter a valid amount greater than 0.</p>
-                          )}
-                          <CfoApprovalGate>
-                          <Button
-                            size="sm"
-                            className="w-full md:w-auto"
-                            onClick={() => approveMutation.mutate({ opId: op.id, overrideAmount: amountChanged ? editedAmount : undefined })}
-                            disabled={approveMutation.isPending || !editValid}
-                          >
-                            {approveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CheckCircle className="h-3.5 w-3.5 mr-1" />}
-                            {amountChanged ? `Approve ${formatUGX(editedAmount)}` : 'Approve'}
-                          </Button>
-                          </CfoApprovalGate>
-                        </div>
-
-                        {/* Rejection reason */}
-                        <div className="space-y-2">
-                          <Label className="text-[11px] text-muted-foreground">Rejection reason (min 10 chars)</Label>
-                          <Textarea
-                            placeholder="Why is this payout being rejected?"
-                            value={rejReason}
-                            onChange={e => setRejectionReasons(prev => ({ ...prev, [op.id]: e.target.value }))}
-                            className="text-xs min-h-[60px]"
-                            rows={2}
-                          />
-                          <CfoApprovalGate>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="w-full md:w-auto"
-                            disabled={rejReason.length < 10 || rejectMutation.isPending}
-                            onClick={() => rejectMutation.mutate({ opId: op.id, reason: rejReason })}
-                          >
-                            {rejectMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
-                            Reject
-                          </Button>
-                          </CfoApprovalGate>
-                        </div>
-
-                        {/* Treasury impact */}
-                        <TreasuryImpactBanner payoutAmount={editValid ? editedAmount : op.amount} />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                </Fragment>
-              );
-            })}
-          </TableBody>
-        </Table>
+                    </td>
+                    <td className="px-2 py-2.5 align-middle text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 text-xs h-8 rounded-lg"
+                        onClick={() => setReviewTarget(op)}
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        View
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      <Sheet open={!!reviewTarget} onOpenChange={(o) => { if (!o) setReviewTarget(null); }}>
+        <SheetContent side="center" className="max-h-[80vh] w-[92vw] sm:max-w-md overflow-y-auto rounded-xl p-5">
+          {reviewTarget && (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>ROI payout review</SheetTitle>
+                <SheetDescription>
+                  COO-approved payout for {payeeLabel(reviewTarget)}.
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="rounded-xl border border-border/70 divide-y divide-border/60 text-sm">
+                {[
+                  { label: 'Payee', value: payeeLabel(reviewTarget) },
+                  { label: 'Payout to', value: targetLabel(reviewTarget) },
+                  { label: 'Amount', value: formatUGX(reviewTarget.amount) },
+                  { label: 'Submitted', value: format(new Date(reviewTarget.created_at), 'dd MMM yyyy, HH:mm') },
+                  { label: 'Reference', value: reviewTarget.reference_id || '—' },
+                ].map(row => (
+                  <div key={row.label} className="flex items-start justify-between gap-3 px-3 py-2">
+                    <span className="text-xs text-muted-foreground shrink-0">{row.label}</span>
+                    <span className="font-medium text-right break-all">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {reviewTarget.description && (
+                <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Details</p>
+                  <p className="text-xs leading-relaxed">{reviewTarget.description}</p>
+                </div>
+              )}
+
+              {/* CFO-editable payout amount */}
+              <div className="space-y-2">
+                <Label className="text-[11px] flex items-center gap-1 text-muted-foreground">
+                  <Pencil className="h-3 w-3" /> Payout amount (editable)
+                </Label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  value={reviewEditedRaw ?? String(reviewTarget.amount)}
+                  onChange={e => setEditedAmounts(prev => ({ ...prev, [reviewTarget.id]: e.target.value }))}
+                  className="h-9 text-sm font-mono"
+                />
+                {!reviewEditValid && (
+                  <p className="text-[11px] text-destructive">Enter a valid amount greater than 0.</p>
+                )}
+                {reviewAmountChanged && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Original: <span className="line-through">{formatUGX(reviewTarget.amount)}</span>
+                  </p>
+                )}
+                <CfoApprovalGate>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => approveMutation.mutate({ opId: reviewTarget.id, overrideAmount: reviewAmountChanged ? reviewEditedAmount : undefined })}
+                    disabled={approveMutation.isPending || !reviewEditValid}
+                  >
+                    {approveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CheckCircle className="h-3.5 w-3.5 mr-1" />}
+                    {reviewAmountChanged ? `Approve ${formatUGX(reviewEditedAmount)}` : 'Approve'}
+                  </Button>
+                </CfoApprovalGate>
+              </div>
+
+              {/* Rejection reason */}
+              <div className="space-y-2">
+                <Label className="text-[11px] text-muted-foreground">Rejection reason (min 10 chars)</Label>
+                <Textarea
+                  placeholder="Why is this payout being rejected?"
+                  value={reviewRejReason}
+                  onChange={e => setRejectionReasons(prev => ({ ...prev, [reviewTarget.id]: e.target.value }))}
+                  className="text-xs min-h-[60px]"
+                  rows={2}
+                />
+                <CfoApprovalGate>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="w-full"
+                    disabled={reviewRejReason.length < 10 || rejectMutation.isPending}
+                    onClick={() => rejectMutation.mutate({ opId: reviewTarget.id, reason: reviewRejReason })}
+                  >
+                    {rejectMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
+                    Reject
+                  </Button>
+                </CfoApprovalGate>
+              </div>
+
+              {/* Treasury impact */}
+              <TreasuryImpactBanner payoutAmount={reviewEditValid ? reviewEditedAmount : reviewTarget.amount} />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
