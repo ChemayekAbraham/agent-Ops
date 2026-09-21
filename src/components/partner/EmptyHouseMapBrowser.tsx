@@ -280,7 +280,7 @@ export function EmptyHouseMapBrowser({
    * holds, so a funder can read where the opportunities are across Africa
    * before zooming into clustered houses. Built from the cells already fetched.
    */
-  const heatmapActive = showHeatmap && heatmapAppliesAtZoom(viewport?.zoom) && cellSize > 0;
+  const heatmapActive = !precisionActive && showHeatmap && heatmapAppliesAtZoom(viewport?.zoom) && cellSize > 0;
   const heatTiles = useMemo(() => {
     if (!heatmapActive) return [];
     const half = cellSize / 2;
