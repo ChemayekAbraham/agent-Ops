@@ -52760,6 +52760,17 @@ export type Database = {
         Args: { p_payout_id: string; p_receipt_number: string }
         Returns: Json
       }
+      agent_registration_gate_group: {
+        Args: {
+          p_active_tenants: number
+          p_agent_id: string
+          p_district: string
+          p_region: string
+          p_rules: Json
+          p_tier: string
+        }
+        Returns: Json
+      }
       agent_registration_gate_metrics: {
         Args: { p_agent_ids: string[] }
         Returns: {
