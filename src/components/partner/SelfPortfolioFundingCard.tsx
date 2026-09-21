@@ -205,19 +205,27 @@ export function SelfPortfolioFundingCard({
 
 
 
+  // Tracks that the browser answered the location request either way, so the
+  // country pre-selection knows when to fall back to the profile country.
+  const [geoResolved, setGeoResolved] = useState(false);
   useEffect(() => {
-    if (!('geolocation' in navigator)) return;
+    if (!('geolocation' in navigator)) {
+      setGeoResolved(true);
+      return;
+    }
     let cancelled = false;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         if (cancelled) return;
         setUserPoint({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoResolved(true);
       },
       // When the browser shares the funder's location, the listing defaults to
       // nearest-first; without it the default listing order stays untouched.
       // A sort the funder picked themselves always wins.
       () => {
-        /* location off or refused — cards simply omit the distance labels */
+        if (cancelled) return;
+        setGeoResolved(true);
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
@@ -225,6 +233,7 @@ export function SelfPortfolioFundingCard({
       cancelled = true;
     };
   }, []);
+
   // Location available → list nearest-first by default. Refused or
   // unavailable → the default listing order stays as the fallback.
   useEffect(() => {
