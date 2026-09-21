@@ -150,6 +150,9 @@ export function SelfPortfolioFundingCard({
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
   const [houseSort, setHouseSort] = useState<HouseSort>('rent_asc');
+  // Once the funder manually picks a sort order, location-based auto-sorting
+  // must never override their choice.
+  const [sortTouched, setSortTouched] = useState(false);
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
   // Coordinates of the house the funder tapped "See more in <district>" from, so the map lands there.
   const [districtFocus, setDistrictFocus] = useState<{ lat: number; lng: number } | null>(null);
@@ -211,6 +214,9 @@ export function SelfPortfolioFundingCard({
         if (cancelled) return;
         setUserPoint({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
+      // When the browser shares the funder's location, the listing defaults to
+      // nearest-first; without it the default listing order stays untouched.
+      // A sort the funder picked themselves always wins.
       () => {
         /* location off or refused — cards simply omit the distance labels */
       },
