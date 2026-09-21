@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -183,6 +183,11 @@ export function SelfPortfolioFundingCard({
   const [houseRadiusKm, setHouseRadiusKm] = useState<string>('all');
   // Filter drawer (funnel button) — search stays on the map, everything else lives here.
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  // Async search: once the funder types 3+ letters, a debounced RPC call fetches
+  // matching houses from the whole database (not just the loaded list) so houses
+  // outside the current map area also appear. null = not searching.
+  const [searchResults, setSearchResults] = useState<SupportableHouse[] | null>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
   const activeFilterCount =
     (houseDistrict !== 'all' ? 1 : 0) +
     (houseSubCounty !== 'all' ? 1 : 0) +
@@ -733,6 +738,60 @@ export function SelfPortfolioFundingCard({
     | { kind: 'house'; id: string; house: SupportableHouse };
 
   const normalizedSearch = useMemo(() => houseSearch.trim().toLocaleLowerCase(), [houseSearch]);
+
+  // Debounced async house search — fires only at 3+ characters, 350ms after the
+  // last keystroke, and stale responses are discarded when the term changes.
+  useEffect(() => {
+    if (normalizedSearch.length < 3) {
+      setSearchResults(null);
+      setSearchBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setSearchBusy(true);
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
+            p_search: houseSearch.trim(),
+            p_limit: 100,
+            p_offset: 0,
+            p_district: null,
+            p_verified_only: true,
+            p_gps_only: false,
+            p_min_rent: null,
+            p_max_rent: null,
+            p_near_lat: null,
+            p_near_lng: null,
+            p_radius_km: null,
+            p_sort: 'newest',
+          });
+          if (cancelled) return;
+          if (error) throw error;
+          const payload = (data ?? {}) as { houses?: SupportableHouse[] };
+          setSearchResults(
+            (payload.houses ?? []).filter((h) => h.verified === true && Number(h.monthly_rent) > 0),
+          );
+        } catch {
+          if (!cancelled) setSearchResults([]);
+        } finally {
+          if (!cancelled) setSearchBusy(false);
+        }
+      })();
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [normalizedSearch, houseSearch]);
+
+  // While an async search is active, merge its results with the loaded houses
+  // (deduped) so matches from anywhere in the database show up.
+  const searchPool = useMemo(() => {
+    if (!searchResults) return houses;
+    const seen = new Set(searchResults.map((h) => h.house_id));
+    return [...searchResults, ...houses.filter((h) => !seen.has(h.house_id))];
+  }, [houses, searchResults]);
   const rentMinBound = useMemo(() => Number(houseRentMin), [houseRentMin]);
   const rentMaxBound = useMemo(() => Number(houseRentMax), [houseRentMax]);
   const selectedCountry = useMemo(
@@ -860,7 +919,7 @@ export function SelfPortfolioFundingCard({
       id: plan.rent_request_id,
       plan,
     }));
-    let visibleHouses = houses.filter((h) => matchesBaseFilters(h));
+    let visibleHouses = searchPool.filter((h) => matchesBaseFilters(h));
     if (houseDistrict !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
@@ -965,7 +1024,7 @@ export function SelfPortfolioFundingCard({
     return feedOrder === 'houses' ? houseItems : planItems;
   }, [
     plans,
-    houses,
+    searchPool,
     feedOrder,
     houseSort,
     referencePoint,
@@ -1213,6 +1272,28 @@ export function SelfPortfolioFundingCard({
 
       {feedOrder === 'houses' && houses.length > 0 && (
         <div className="flex items-center gap-2 px-1" aria-label="Filter empty houses">
+          <div className="relative min-w-0 flex-1 sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              value={houseSearch}
+              onChange={(e) => setHouseSearch(e.target.value)}
+              placeholder="Search by location…"
+              aria-label="Search empty houses by location"
+              className="h-9 rounded-full pl-8 pr-8 text-xs"
+            />
+            {searchBusy ? (
+              <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
+            ) : houseSearch ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                onClick={() => setHouseSearch('')}
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            ) : null}
+          </div>
           <Button
             type="button"
             variant={activeFilterCount > 0 ? 'default' : 'outline'}
