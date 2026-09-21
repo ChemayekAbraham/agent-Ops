@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
@@ -751,7 +752,8 @@ export function EmptyHouseMapBrowser({
 
       <MapPerfOverlay />
 
-      {activeHouse && (() => {
+      {(() => {
+        if (!activeHouse) return null;
         const rent = Number(activeHouse.monthly_rent || 0);
         const isPicked = selectedIds.includes(activeHouse.house_id);
         const shortfall = Math.max(0, rent - remaining);
@@ -759,111 +761,109 @@ export function EmptyHouseMapBrowser({
         const location = houseAddressLine(activeHouse) || 'Uganda';
 
         return (
-          <section
-            aria-label={`Funding details for ${houseTitleLine(activeHouse)}`}
-            className="absolute inset-x-2 bottom-2 z-[1000] overflow-hidden rounded-lg border border-border bg-background/95 shadow-xl backdrop-blur sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]"
-          >
-            <div className="flex gap-3 p-3">
-              {image ? (
-                <img
-                  src={image}
-                  alt={houseTitleLine(activeHouse)}
-                  className="h-20 w-24 shrink-0 rounded-md object-cover"
-                />
-              ) : (
-                <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-md bg-muted">
-                  <Home className="h-5 w-5 text-muted-foreground" aria-hidden />
-                </div>
-              )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="line-clamp-1 text-sm font-bold text-foreground">
-                      <HighlightText text={houseTitleLine(activeHouse)} query={searchQuery} />
-                    </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="-mr-2 -mt-2 h-8 w-8 shrink-0"
-                      onClick={() => setActiveHouse(null)}
-                      aria-label="Close house details"
-                    >
-                      <X className="h-4 w-4" aria-hidden />
-                    </Button>
+          <Sheet open onOpenChange={(open) => !open && setActiveHouse(null)}>
+            <SheetContent
+              side="bottom"
+              className="z-[1300] max-h-[85vh] gap-0 overflow-y-auto rounded-t-2xl p-0 sm:left-1/2 sm:w-[26rem] sm:-translate-x-1/2 sm:rounded-t-2xl"
+              overlayClassName="z-[1250]"
+              aria-label={`Funding details for ${houseTitleLine(activeHouse)}`}
+            >
+              <SheetHeader className="px-4 pt-4 text-left">
+                <SheetTitle className="line-clamp-1 text-base font-bold">
+                  <HighlightText text={houseTitleLine(activeHouse)} query={searchQuery} />
+                </SheetTitle>
+                <SheetDescription className="flex items-start gap-1 text-xs leading-snug">
+                  <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                  <span className="line-clamp-2">
+                    <HighlightText text={location} query={searchQuery} />
+                  </span>
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="flex gap-3 px-4 pt-3">
+                {image ? (
+                  <img
+                    src={image}
+                    alt={houseTitleLine(activeHouse)}
+                    className="h-24 w-28 shrink-0 rounded-md object-cover"
+                  />
+                ) : (
+                  <div className="flex h-24 w-28 shrink-0 items-center justify-center rounded-md bg-muted">
+                    <Home className="h-5 w-5 text-muted-foreground" aria-hidden />
                   </div>
-                  <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
-                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-                    <span className="line-clamp-2">
-                      <HighlightText text={location} query={searchQuery} />
-                    </span>
-                  </p>
-                <p className="mt-1.5 text-lg font-black leading-none text-foreground">{formatDynamic(rent)}</p>
-                <Badge
-                  variant={isPicked ? 'default' : 'secondary'}
-                  className="mt-2 rounded-full text-[10px] font-bold"
-                >
-                  {isPicked ? 'Selected for funding' : shortfall > 0 ? `Top up ${formatDynamic(shortfall)}` : 'Ready to fund'}
-                </Badge>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Rent needed</p>
+                  <p className="mt-0.5 text-2xl font-black leading-none text-foreground">{formatDynamic(rent)}</p>
+                  <Badge
+                    variant={isPicked ? 'default' : 'secondary'}
+                    className="mt-2 rounded-full text-[10px] font-bold"
+                  >
+                    {isPicked ? 'Selected for funding' : shortfall > 0 ? `Top up ${formatDynamic(shortfall)}` : 'Ready to fund'}
+                  </Badge>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 border-t border-border px-2.5 pt-2.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-11 w-11 shrink-0"
-                onClick={() => stepHouse(-1)}
-                disabled={mappedHouses.length < 2}
-                aria-label="Show the previous house on the map"
-              >
-                <ChevronLeft className="h-5 w-5" aria-hidden />
-              </Button>
-              <p className="flex-1 text-center text-[11px] font-semibold text-muted-foreground">
-                {activeIndex >= 0 ? `House ${activeIndex + 1} of ${mappedHouses.length}` : `${mappedHouses.length} houses`}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-11 w-11 shrink-0"
-                onClick={() => stepHouse(1)}
-                disabled={mappedHouses.length < 2}
-                aria-label="Show the next house on the map"
-              >
-                <ChevronRight className="h-5 w-5" aria-hidden />
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-2 p-2.5">
-              <Button type="button" variant="outline" className="h-11" onClick={() => onOpenHouse(activeHouse)}>
-                View details
-              </Button>
-              <FundHouseTooltip>
+
+              <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-2">
                 <Button
                   type="button"
-                  className="h-11"
-                  variant={isPicked ? 'secondary' : 'default'}
-                  disabled={busy}
-                  onClick={() => onFundHouse(activeHouse)}
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11 shrink-0"
+                  onClick={() => stepHouse(-1)}
+                  disabled={mappedHouses.length < 2}
+                  aria-label="Show the previous house in this area"
                 >
-                  {isPicked ? 'Remove' : 'Fund'}
+                  <ChevronLeft className="h-5 w-5" aria-hidden />
                 </Button>
-              </FundHouseTooltip>
-              <Button
-                asChild
-                variant="ghost"
-                className="col-span-2 h-11 text-xs font-semibold"
-              >
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${Number(activeHouse.latitude)},${Number(activeHouse.longitude)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <p className="flex-1 text-center text-[11px] font-semibold text-muted-foreground">
+                  {activeIndex >= 0 ? `House ${activeIndex + 1} of ${mappedHouses.length}` : `${mappedHouses.length} houses`}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11 shrink-0"
+                  onClick={() => stepHouse(1)}
+                  disabled={mappedHouses.length < 2}
+                  aria-label="Show the next house in this area"
                 >
-                  <Navigation className="mr-1.5 h-4 w-4" aria-hidden />
-                  Get directions to this house
-                </a>
-              </Button>
-            </div>
-          </section>
+                  <ChevronRight className="h-5 w-5" aria-hidden />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 p-4">
+                <Button type="button" variant="outline" className="h-11" onClick={() => onOpenHouse(activeHouse)}>
+                  View details
+                </Button>
+                <FundHouseTooltip>
+                  <Button
+                    type="button"
+                    className="h-11"
+                    variant={isPicked ? 'secondary' : 'default'}
+                    disabled={busy}
+                    onClick={() => onFundHouse(activeHouse)}
+                  >
+                    {isPicked ? 'Remove' : 'Fund'}
+                  </Button>
+                </FundHouseTooltip>
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="col-span-2 h-11 text-xs font-semibold"
+                >
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${Number(activeHouse.latitude)},${Number(activeHouse.longitude)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Navigation className="mr-1.5 h-4 w-4" aria-hidden />
+                    Get directions to this house
+                  </a>
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         );
       })()}
 
