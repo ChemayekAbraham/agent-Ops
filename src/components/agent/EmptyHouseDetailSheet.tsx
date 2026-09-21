@@ -115,12 +115,19 @@ export function EmptyHouseDetailSheet({
           {photos.length > 0 ? (
             <div className="space-y-2">
               <div className="relative overflow-hidden rounded-2xl bg-muted">
-                <img
-                  src={active}
-                  alt={`${house.title || 'Empty house'} photo ${index + 1}`}
-                  loading="lazy"
-                  className="h-56 w-full object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="block w-full cursor-zoom-in"
+                  aria-label="View full photo"
+                >
+                  <img
+                    src={active}
+                    alt={`${house.title || 'Empty house'} photo ${index + 1}`}
+                    loading="lazy"
+                    className="h-56 w-full object-cover"
+                  />
+                </button>
                 {photos.length > 1 && (
                   <>
                     <Button
