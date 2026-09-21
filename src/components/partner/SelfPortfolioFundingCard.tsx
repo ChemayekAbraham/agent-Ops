@@ -254,21 +254,8 @@ export function SelfPortfolioFundingCard({
       return match?.code ?? null;
     },
   });
-  useEffect(() => {
-    if (countryTouched || houseCountry !== 'all') return;
-    if (!geoResolved || listedCountries.length === 0) return;
-    const available = new Set(listedCountries.map((c) => c.code));
-    const fromGps = userPoint
-      ? AFRICA_COUNTRIES.find((c) => pointInCountry(c, userPoint.lat, userPoint.lng))?.code ?? null
-      : null;
-    const preferred =
-      fromGps && available.has(fromGps)
-        ? fromGps
-        : profileCountry && available.has(profileCountry)
-          ? profileCountry
-          : null;
-    if (preferred) setHouseCountry(preferred);
-  }, [countryTouched, houseCountry, geoResolved, userPoint, profileCountry, listedCountries]);
+  // (the pre-selection effect runs below, once listedCountries exists)
+
 
   // Side-by-side comparison picks (in-session only; never touches funding).
   const [compareIds, setCompareIds] = useState<string[]>([]);
