@@ -165,6 +165,11 @@ const MyRequisitions = () => {
   const [months, setMonths] = useState(3);
   const [loanInfo, setLoanInfo] = useState<LoanEligibility | null>(null);
   const [loans, setLoans] = useState<StaffLoan[]>([]);
+  // Facilitation is for Platform Sales Officers only. If the check fails we
+  // hide the entry point — fail closed.
+  const [isOfficer, setIsOfficer] = useState(false);
+  const [facOpen, setFacOpen] = useState(false);
+  const [accountFor, setAccountFor] = useState<Requisition | null>(null);
 
   const fetchRows = useCallback(async () => {
     const { data: userRes } = await supabase.auth.getUser();
