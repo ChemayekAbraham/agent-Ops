@@ -477,7 +477,7 @@ export default function SupporterDashboard({
               View portfolio
             </span>
             <Button
-              variant="outline"
+              variant="default"
               size="default"
               className="text-sm font-medium"
               onClick={() => navigate('/dashboard/funder/portfolio')}
