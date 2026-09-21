@@ -34,7 +34,14 @@ import {
   loadEvent,
   loadPaymentChannels,
   loadTenantStatusAppendices,
+  loadSupportContacts,
+  loadTenantPaymentMessageVars,
   payDirectSentence,
+  progressSentence,
+  cycleSentence,
+  accessSentence,
+  nextLevelSentence,
+  careSentence,
   renderTemplate,
   type NotificationEvent,
 } from "../_shared/tenantTemplates.ts";
@@ -125,6 +132,9 @@ Deno.serve(async (req) => {
     }
 
     const channels = await loadPaymentChannels(admin);
+    // Care numbers are configuration (tenant_support_contacts), never literals.
+    const supportContacts = await loadSupportContacts(admin);
+    const careNote = careSentence(supportContacts);
 
     // Per-tenant dashboard links do not exist yet (Stage 4C); until they do
     // dashboardSuffix() returns "" and these messages end after the balance.
@@ -207,6 +217,12 @@ Deno.serve(async (req) => {
         rows.map((row) => row.tenant_id),
         domainName,
       );
+      // Plan progress and top-up eligibility for the same tenants, read from the
+      // authoritative plan/collection data. Nothing here changes payment state.
+      const planVars = await loadTenantPaymentMessageVars(
+        admin,
+        rows.map((row) => row.tenant_id),
+      );
 
       for (const row of rows) {
         const phone = String(row.tenant_phone ?? "").trim();
@@ -223,6 +239,13 @@ Deno.serve(async (req) => {
           balance: formatUGX(row.outstanding),
           dashboard_suffix: suffix,
           status_appendix: statusAppendices.get(row.tenant_id) ?? "",
+          // Exact money amounts only — a tenant is never told a percentage.
+          plan_progress: progressSentence(planVars.get(row.tenant_id)),
+          cycle_timing: cycleSentence(planVars.get(row.tenant_id)),
+          access_now: accessSentence(planVars.get(row.tenant_id)),
+          next_level: nextLevelSentence(planVars.get(row.tenant_id)),
+          pay_direct: payDirectSentence(channels),
+          care_note: careNote,
         };
 
         // Episode is the obligation day, so a tenant who pays repeatedly gets
@@ -242,6 +265,7 @@ Deno.serve(async (req) => {
             paid_on_day: row.paid_on_day,
             remaining_today: row.remaining_today,
             outstanding: row.outstanding,
+            eligibility: planVars.get(row.tenant_id) ?? null,
           },
         );
       }
