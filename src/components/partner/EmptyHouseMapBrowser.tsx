@@ -425,7 +425,8 @@ export function EmptyHouseMapBrowser({
    * area if one was saved; otherwise show the gate again.
    */
   useEffect(() => {
-    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current) return;
+    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
+    initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       manualAreaRestored.current = true;
       const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
