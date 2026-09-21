@@ -19,6 +19,8 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { ConcernControlPanel } from '@/components/executive/tenant-ops/calling-center/ConcernControlPanel';
 import { ConcernParticipantsPanel } from '@/components/executive/tenant-ops/calling-center/ConcernParticipantsPanel';
+import { ConcernAttachmentsPanel } from '@/components/executive/tenant-ops/calling-center/ConcernAttachmentsPanel';
+import { ConcernCaseContextPanel } from '@/components/executive/tenant-ops/calling-center/ConcernCaseContextPanel';
 import { CCEmpty, CC_ROW } from '@/components/executive/tenant-ops/calling-center/ccUi';
 
 import {
