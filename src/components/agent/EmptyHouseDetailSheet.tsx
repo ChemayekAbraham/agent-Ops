@@ -129,7 +129,7 @@ export function EmptyHouseDetailSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-4 p-4 pb-28">
+        <div className="space-y-4 p-4">
           {/* Gallery */}
           {photos.length > 0 ? (
             <div className="space-y-2">
@@ -394,6 +394,22 @@ export function EmptyHouseDetailSheet({
               </p>
             )}
           </div>
+
+          {onTogglePick && (
+            <Button
+              className="h-11 w-full gap-2 font-semibold"
+              variant={isPicked ? 'outline' : 'default'}
+              onClick={() => onTogglePick(house)}
+            >
+              {isPicked ? (
+                <>
+                  <Check className="h-4 w-4" /> Selected — tap to remove
+                </>
+              ) : (
+                'Select this house'
+              )}
+            </Button>
+          )}
         </div>
 
         {/* Related houses in the same district */}
@@ -499,24 +515,6 @@ export function EmptyHouseDetailSheet({
           )}
         </div>
 
-
-        {onTogglePick && (
-          <div className="sticky bottom-0 border-t bg-background p-4">
-            <Button
-              className="h-11 w-full gap-2 font-semibold"
-              variant={isPicked ? 'outline' : 'default'}
-              onClick={() => onTogglePick(house)}
-            >
-              {isPicked ? (
-                <>
-                  <Check className="h-4 w-4" /> Selected — tap to remove
-                </>
-              ) : (
-                'Select this house'
-              )}
-            </Button>
-          </div>
-        )}
       </SheetContent>
     </Sheet>
 
