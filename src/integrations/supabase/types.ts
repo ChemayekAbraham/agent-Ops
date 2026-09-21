@@ -16213,6 +16213,13 @@ export type Database = {
             referencedRelation: "staff_requisitions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "growth_commission_claims_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
         ]
       }
       house_assignment_audit: {
@@ -34458,6 +34465,13 @@ export type Database = {
             referencedRelation: "staff_requisitions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pso_facilitation_prompts_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
         ]
       }
       pso_note_reversals: {
@@ -39484,6 +39498,13 @@ export type Database = {
             referencedRelation: "staff_requisitions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "staff_facilitation_notes_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
         ]
       }
       staff_facilitation_plan_lines: {
@@ -39521,6 +39542,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff_requisitions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_plan_lines_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
           },
         ]
       }
@@ -39753,6 +39781,13 @@ export type Database = {
             referencedRelation: "staff_requisitions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "staff_loans_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
         ]
       }
       staff_permissions: {
@@ -39914,6 +39949,13 @@ export type Database = {
             referencedRelation: "staff_requisitions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "staff_requisition_events_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
         ]
       }
       staff_requisition_usage_reports: {
@@ -39978,6 +40020,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff_requisitions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisition_usage_reports_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
           },
         ]
       }
@@ -50912,6 +50961,35 @@ export type Database = {
           source_id: string | null
           staff_id: string | null
           staff_ref: string | null
+        }
+        Relationships: []
+      }
+      v_pso_facilitation_position: {
+        Row: {
+          amount: number | null
+          amount_received: number | null
+          amount_spent: number | null
+          balance: number | null
+          coo_decided_at: string | null
+          credited_at: string | null
+          currency: string | null
+          days_since_disbursement: number | null
+          exception_flag: string | null
+          officer_name: string | null
+          officer_ref: string | null
+          plan_lines: number | null
+          plan_total: number | null
+          position: string | null
+          promissory_notes_linked: number | null
+          promissory_notes_value: number | null
+          report_filed: boolean | null
+          report_review_status: string | null
+          report_submitted_at: string | null
+          requisition_code: string | null
+          requisition_id: string | null
+          submitted_at: string | null
+          times_deferred: number | null
+          title: string | null
         }
         Relationships: []
       }
