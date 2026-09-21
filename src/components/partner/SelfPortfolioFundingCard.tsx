@@ -28,7 +28,6 @@ import {
 import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
 import DepositFlow from '@/components/payments/DepositFlow';
 import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
-import { EmptyHouseTrendPanel } from './EmptyHouseTrendPanel';
 import { useEmptyHouseTotalRentNeeded } from '@/hooks/useEmptyHouseTotalRentNeeded';
 import { HouseCompareDialog } from './HouseCompareDialog';
 import { FundHouseTooltip } from './FundHouseTooltip';
