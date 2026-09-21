@@ -61,6 +61,35 @@ refusals are "plan already cleared" and "no balance to apply".
   ahead, so agents will correctly stop chasing them for those days.
 - Plans can now be completed by a single large tenant deposit.
 
+### 2b. When the tenant deposits LESS than the expected daily amount
+
+This is the common case and it is treated as a genuine part-payment, never as a
+failure:
+
+```
+applied = LEAST( deposit amount, total rent outstanding, wallet balance )
+```
+
+The same one rule covers it — there is no minimum. A tenant whose daily amount is
+UGX 4,400 who deposits UGX 2,000 has the full UGX 2,000 applied to the Rent Plan.
+
+What the system then does:
+
+| Step | Behaviour on a short deposit |
+|---|---|
+| Amount applied | The whole deposit (UGX 2,000), not rounded, not refused |
+| Day record | The day-by-day settlement is rebuilt first-in-first-out: today shows UGX 2,000 paid and UGX 2,400 still due — the day stays **open** |
+| Arrears | Derived, never stored. Today's shortfall becomes arrears only once the day passes unpaid; the next payment (tenant or agent) clears the oldest open day first |
+| Agent's list | The tenant **stays** on the agent's collection list for today, with the expected amount reduced to the UGX 2,400 remaining |
+| Agent commission | Earned on UGX 2,000 only — commission always follows money actually received |
+| Rent plan balance | Falls by UGX 2,000; no penalty, no fee, no status change |
+| A second deposit the same day | Accepted and applied the same way; several small deposits can complete the day |
+
+So short deposits never block, never overdraw and never double-count: the day
+closes when the total received for it reaches the expected amount, whoever paid
+it in.
+
+
 ## 3. The SMS problem
 
 Current tenant message:
