@@ -51716,6 +51716,10 @@ export type Database = {
         Args: { _reason: string; _record_id: string }
         Returns: Json
       }
+      admin_void_unverified_collection: {
+        Args: { p_actor_id: string; p_collection_id: string; p_reason: string }
+        Returns: Json
+      }
       advance_campaign_house_progress: {
         Args: { p_sub_agent_id: string }
         Returns: undefined
