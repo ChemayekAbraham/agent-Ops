@@ -86,7 +86,8 @@ export function EmptyHouseDetailSheet({
   remaining?: number;
   onRelatedHouseClick?: (house: HouseOpportunity) => void;
   /** Closes this drawer and opens the map filtered to the house's district. */
-  onSeeMoreDistrict?: (district: string) => void;
+  onSeeMoreDistrict?: (district: string, anchor: { lat: number; lng: number } | null) => void;
+
 
 }) {
   const [index, setIndex] = useState(0);
