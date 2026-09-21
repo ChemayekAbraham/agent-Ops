@@ -39445,6 +39445,45 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_loan_policy_history: {
+        Row: {
+          deduction_day: number
+          id: string
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal: number | null
+          monthly_rate: number
+          note: string | null
+          set_at: string
+          set_by: string
+        }
+        Insert: {
+          deduction_day: number
+          id?: string
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal?: number | null
+          monthly_rate: number
+          note?: string | null
+          set_at?: string
+          set_by: string
+        }
+        Update: {
+          deduction_day?: number
+          id?: string
+          interest_method?: string
+          is_open?: boolean
+          max_months?: number
+          max_principal?: number | null
+          monthly_rate?: number
+          note?: string | null
+          set_at?: string
+          set_by?: string
+        }
+        Relationships: []
+      }
       staff_loan_repayments: {
         Row: {
           amount: number
@@ -63073,6 +63112,34 @@ export type Database = {
           interest_charged: number
           loans_charged: number
         }[]
+      }
+      staff_loan_policy_confirm: {
+        Args: {
+          _interest_method: string
+          _max_months: number
+          _max_principal: number
+          _monthly_rate: number
+          _note: string
+          _open: boolean
+        }
+        Returns: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          deduction_day: number
+          id: boolean
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal: number | null
+          monthly_rate: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_loan_policy"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       staff_loan_recover_from_wallet: {
         Args: { p_max_amount?: number; p_source?: string; p_user_id: string }
