@@ -9022,6 +9022,53 @@ export type Database = {
         }
         Relationships: []
       }
+      cc_concern_attachments: {
+        Row: {
+          concern_id: string
+          created_at: string
+          file_name: string
+          id: string
+          kind: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          uploaded_by: string
+          uploaded_by_name: string | null
+        }
+        Insert: {
+          concern_id: string
+          created_at?: string
+          file_name: string
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          uploaded_by: string
+          uploaded_by_name?: string | null
+        }
+        Update: {
+          concern_id?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          uploaded_by?: string
+          uploaded_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_concern_attachments_concern_id_fkey"
+            columns: ["concern_id"]
+            isOneToOne: false
+            referencedRelation: "cc_forwarded_concerns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cc_concern_overseers: {
         Row: {
           created_at: string
@@ -53692,6 +53739,16 @@ export type Database = {
         Args: { p_concern_id?: string }
         Returns: number
       }
+      cc_add_concern_attachment: {
+        Args: {
+          p_concern_id: string
+          p_file_name: string
+          p_mime_type?: string
+          p_size_bytes?: number
+          p_storage_path: string
+        }
+        Returns: string
+      }
       cc_add_concern_reviewer: {
         Args: { p_concern_id: string; p_note?: string; p_user_id: string }
         Returns: Json
@@ -53788,6 +53845,7 @@ export type Database = {
         Args: { p_followup_id: string; p_note: string }
         Returns: undefined
       }
+      cc_concern_context: { Args: { p_concern_id: string }; Returns: Json }
       cc_concern_event: {
         Args: {
           p_action: string
