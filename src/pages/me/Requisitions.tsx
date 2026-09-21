@@ -426,6 +426,11 @@ const MyRequisitions = () => {
                     </Button>
                   </DialogTrigger>
                 )}
+                {isOfficer && (
+                  <Button variant="outline" onClick={() => setFacOpen(true)}>
+                    <MapPin className="mr-2 h-4 w-4" /> Request facilitation
+                  </Button>
+                )}
               </div>
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
