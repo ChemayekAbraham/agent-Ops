@@ -35,7 +35,12 @@ import type { TenantOpsClassicView } from '../TenantOpsDashboard';
  * view keys (so selecting one simply drives `TenantOpsDashboard`) or one of the
  * shell-owned keys below.
  */
-export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates' | 'calling-hub' | 'calling-center';
+export type TenantOpsShellOnlyView =
+  | 'home'
+  | 'phone-duplicates'
+  | 'calling-hub'
+  | 'calling-center'
+  | 'tenant-operations-workspace';
 export type TenantOpsViewKey = TenantOpsShellOnlyView | TenantOpsClassicView;
 
 /** Actions that are not views — they open a sheet or leave the dashboard. */
