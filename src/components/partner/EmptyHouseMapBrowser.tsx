@@ -541,7 +541,66 @@ export function EmptyHouseMapBrowser({
         />
       </MapContainer>
 
-      {(geoStatus === 'denied' || geoStatus === 'unsupported') && !geoPromptDismissed && !userPosition && (
+      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. */}
+      {!userPosition && (
+        <div
+          role="dialog"
+          aria-label="Share your location to see empty houses near you"
+          className="absolute inset-0 z-[1200] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-4 text-center shadow-xl">
+            <Navigation className="mx-auto h-6 w-6 text-primary" aria-hidden />
+            <p className="mt-2 text-sm font-semibold">Share your location</p>
+            <p className="mt-1 text-xs leading-snug text-muted-foreground">
+              {geoStatus === 'unsupported'
+                ? 'This browser cannot share your location. Pick your area to see the empty houses there.'
+                : geoStatus === 'denied'
+                  ? 'Location access is off. Turn it on and try again, or pick your area yourself.'
+                  : 'We show the empty houses around you, so we need your location first.'}
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              {geoStatus !== 'unsupported' && (
+                <Button type="button" size="sm" className="h-9" onClick={retryLocate}>
+                  <Crosshair className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  {geoStatus === 'denied' ? 'Try again' : 'Use my location'}
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9"
+                onClick={() => setAreaPickerOpen((open) => !open)}
+                aria-expanded={areaPickerOpen}
+              >
+                <MapPin className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Choose my area
+              </Button>
+              {areaPickerOpen && (
+                <label className="block text-left">
+                  <span className="sr-only">Choose your district or country</span>
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+                    defaultValue=""
+                    onChange={(e) => e.target.value && chooseManualArea(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      Pick your district or country…
+                    </option>
+                    {manualAreaOptions.map((option) => (
+                      <option key={option.label} value={option.label}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {false && (geoStatus === 'denied' || geoStatus === 'unsupported') && !geoPromptDismissed && !userPosition && (
         <div
           role="dialog"
           aria-label="Location access needed"
