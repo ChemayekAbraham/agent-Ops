@@ -47,6 +47,7 @@ interface EmptyHouseMapBrowserProps {
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
+const LOCATION_GRANTED_KEY = 'welile-map-location-granted';
 
 /** Reports the visible bounds + zoom so the database only aggregates what is on screen. */
 function ViewportReporter({ onChange }: { onChange: (viewport: MapViewport) => void }) {
@@ -167,6 +168,7 @@ export function EmptyHouseMapBrowser({
   /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
   const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
   const [geoPromptDismissed, setGeoPromptDismissed] = useState(false);
+  const [locationPreviouslyGranted, setLocationPreviouslyGranted] = useState(false);
   const [areaPickerOpen, setAreaPickerOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(() =>
     typeof navigator !== 'undefined' ? navigator.onLine === false : false,
@@ -181,6 +183,16 @@ export function EmptyHouseMapBrowser({
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
+  }, []);
+
+  // Remember that the funder already approved location sharing so the gate
+  // does not block the map on every return.
+  useEffect(() => {
+    try {
+      setLocationPreviouslyGranted(window.localStorage.getItem(LOCATION_GRANTED_KEY) === 'true');
+    } catch {
+      // ignore storage errors
+    }
   }, []);
 
 
@@ -295,6 +307,12 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
+        try {
+          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+          setLocationPreviouslyGranted(true);
+        } catch {
+          // ignore storage errors
+        }
         // Default view: the funder's own area, so the empty houses around them
         // are the first ones on screen.
         mapInstance.setView(point, 13);
@@ -302,6 +320,12 @@ export function EmptyHouseMapBrowser({
       () => {
         if (cancelled) return;
         setGeoStatus('denied');
+        try {
+          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+          setLocationPreviouslyGranted(false);
+        } catch {
+          // ignore storage errors
+        }
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
@@ -320,9 +344,23 @@ export function EmptyHouseMapBrowser({
         setGeoStatus('granted');
         setGeoPromptDismissed(true);
         setUserPosition(point);
+        try {
+          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+          setLocationPreviouslyGranted(true);
+        } catch {
+          // ignore storage errors
+        }
         mapInstance.flyTo(point, 13, { duration: 0.6 });
       },
-      () => setGeoStatus('denied'),
+      () => {
+        setGeoStatus('denied');
+        try {
+          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+          setLocationPreviouslyGranted(false);
+        } catch {
+          // ignore storage errors
+        }
+      },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
   }, [mapInstance]);
@@ -535,16 +573,28 @@ export function EmptyHouseMapBrowser({
             setUserPosition(point);
             setGeoStatus('granted');
             setGeoPromptDismissed(true);
+            try {
+              window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+              setLocationPreviouslyGranted(true);
+            } catch {
+              // ignore storage errors
+            }
           }}
           onDenied={() => {
             setGeoStatus('denied');
             setGeoPromptDismissed(false);
+            try {
+              window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+              setLocationPreviouslyGranted(false);
+            } catch {
+              // ignore storage errors
+            }
           }}
         />
       </MapContainer>
 
-      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. */}
-      {!userPosition && (
+      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. Only show it when location has not been approved before. */}
+      {!userPosition && !locationPreviouslyGranted && (
         <div
           role="dialog"
           aria-label="Share your location to see empty houses near you"
