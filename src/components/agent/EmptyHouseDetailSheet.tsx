@@ -86,7 +86,8 @@ export function EmptyHouseDetailSheet({
   remaining?: number;
   onRelatedHouseClick?: (house: HouseOpportunity) => void;
   /** Closes this drawer and opens the map filtered to the house's district. */
-  onSeeMoreDistrict?: (district: string) => void;
+  onSeeMoreDistrict?: (district: string, anchor: { lat: number; lng: number } | null) => void;
+
 
 }) {
   const [index, setIndex] = useState(0);
@@ -504,8 +505,14 @@ export function EmptyHouseDetailSheet({
             <button
               type="button"
               onClick={() => {
+                const lat = Number(house.latitude);
+                const lng = Number(house.longitude);
+                const anchor =
+                  Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)
+                    ? { lat, lng }
+                    : null;
                 onOpenChange(false);
-                onSeeMoreDistrict(house.district as string);
+                onSeeMoreDistrict(house.district as string, anchor);
               }}
               className="mx-auto flex w-auto items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-[11px] font-semibold text-primary"
             >
@@ -513,6 +520,7 @@ export function EmptyHouseDetailSheet({
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           )}
+
         </div>
 
       </SheetContent>

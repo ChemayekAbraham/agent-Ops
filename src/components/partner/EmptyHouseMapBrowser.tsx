@@ -33,6 +33,9 @@ interface EmptyHouseMapBrowserProps {
   maxRent?: number | null;
   /** District currently applied to the list, mirrored on the map. */
   district?: string | null;
+  /** Coordinates to land on when the district was chosen from a house's details. */
+  districtFocus?: { lat: number; lng: number } | null;
+
   /** Country box currently applied to the list — the map fits to it so the heatmap covers that country only. */
   country?: CountryBounds | null;
   /** Listing-age ceiling in days, applied in the database alongside the viewport. */
@@ -156,6 +159,8 @@ export function EmptyHouseMapBrowser({
   minRent,
   maxRent,
   district,
+  districtFocus,
+
   country,
   maxAgeDays,
   onSearchQueryChange,
@@ -422,27 +427,43 @@ export function EmptyHouseMapBrowser({
   );
 
   /**
-   * When the funder taps "See more in <district>" from a house's details, the
-   * district filter changes — move the map onto that district's houses. The
-   * loaded list rarely holds them (the map only fetches the current viewport),
-   * so fall back to asking the database for that district's coordinates.
+   * When the funder taps "See more in <district>", land the map on that district.
+   * The tapped house's own coordinates are the anchor, because some listings
+   * carry stray coordinates that would otherwise stretch the view to the ocean.
    */
   useEffect(() => {
     if (!mapInstance || !district) return;
     let cancelled = false;
     const key = district.trim().toLowerCase();
 
-    const fit = (points: [number, number][]) => {
-      if (cancelled || points.length === 0) return;
-      initialFitDone.current = true;
-      if (points.length === 1) mapInstance.flyTo(points[0], 14, { duration: 0.6 });
-      else mapInstance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 13 });
-    };
-
     const usable = (rows: { latitude?: unknown; longitude?: unknown }[]) =>
       rows
         .map((h) => [Number(h.latitude), Number(h.longitude)] as [number, number])
         .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
+
+    const anchor: [number, number] | null =
+      districtFocus &&
+      Number.isFinite(districtFocus.lat) &&
+      Number.isFinite(districtFocus.lng) &&
+      (districtFocus.lat !== 0 || districtFocus.lng !== 0)
+        ? [districtFocus.lat, districtFocus.lng]
+        : null;
+
+    const fit = (points: [number, number][]) => {
+      if (cancelled) return;
+      // Keep only houses near the anchor — a district is never hundreds of km wide.
+      const near = anchor
+        ? points.filter(([lat, lng]) => Math.abs(lat - anchor[0]) <= 1.5 && Math.abs(lng - anchor[1]) <= 1.5)
+        : points;
+      const usePoints = near.length > 0 ? near : anchor ? [anchor] : points;
+      if (usePoints.length === 0) return;
+      initialFitDone.current = true;
+      if (usePoints.length === 1) mapInstance.flyTo(usePoints[0], 13, { duration: 0.6 });
+      else mapInstance.fitBounds(L.latLngBounds(usePoints), { padding: [36, 36], maxZoom: 13 });
+    };
+
+    // Land immediately on the tapped house, then tighten once the district's houses are known.
+    if (anchor) mapInstance.flyTo(anchor, 13, { duration: 0.6 });
 
     const local = usable(houses.filter((h) => String(h.district ?? '').trim().toLowerCase() === key));
     if (local.length > 0) {
@@ -471,7 +492,8 @@ export function EmptyHouseMapBrowser({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [district, mapInstance]);
+  }, [district, districtFocus, mapInstance]);
+
 
 
 

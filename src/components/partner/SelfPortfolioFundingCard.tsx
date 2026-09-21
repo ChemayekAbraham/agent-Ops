@@ -150,6 +150,9 @@ export function SelfPortfolioFundingCard({
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
   const [houseSort, setHouseSort] = useState<HouseSort>('rent_asc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
+  // Coordinates of the house the funder tapped "See more in <district>" from, so the map lands there.
+  const [districtFocus, setDistrictFocus] = useState<{ lat: number; lng: number } | null>(null);
+
   // Neighborhood (sub-county) quick filter — set via chips, pairs with district.
   const [houseSubCounty, setHouseSubCounty] = useState<string>('all');
   const [houseSearch, setHouseSearch] = useState('');
@@ -1070,6 +1073,8 @@ export function SelfPortfolioFundingCard({
             minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
             maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
             district={houseDistrict !== 'all' ? houseDistrict : null}
+            districtFocus={districtFocus}
+
             country={selectedCountry}
             maxAgeDays={listingAgeDays}
             onHousesDiscovered={registerDiscoveredHouses}
@@ -2023,8 +2028,9 @@ export function SelfPortfolioFundingCard({
         isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
         onTogglePick={(h) => toggleHouse(h.house_id)}
         onRelatedHouseClick={(h) => setDetailHouse(h)}
-        onSeeMoreDistrict={(district) => {
+        onSeeMoreDistrict={(district, anchor) => {
           setDetailHouse(null);
+          setDistrictFocus(anchor);
           setHouseDistrict(district.trim().toLowerCase());
           window.setTimeout(() => {
             document
@@ -2032,6 +2038,7 @@ export function SelfPortfolioFundingCard({
               ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }, 150);
         }}
+
 
       />
 
