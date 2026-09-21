@@ -231,9 +231,11 @@ export function FacilitationApprovalGate() {
                   {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isDisbursement ? 'Disburse' : 'Approve'}
                 </Button>
-                <Button variant="destructive" onClick={() => setDeclining(true)} disabled={working}>
-                  Decline
-                </Button>
+                {!isDisbursement && (
+                  <Button variant="destructive" onClick={() => setDeclining(true)} disabled={working}>
+                    Decline
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => void later()} disabled={working}>
                   Later
                 </Button>
