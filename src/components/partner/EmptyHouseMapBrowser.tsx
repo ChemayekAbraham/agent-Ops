@@ -5,10 +5,9 @@ import 'leaflet/dist/leaflet.css';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, WifiOff, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
@@ -24,7 +23,6 @@ interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
   selectedIds: string[];
   focusedId?: string | null;
-  searchQuery: string;
   remaining: number;
   busy: boolean;
   /** Rent floor/ceiling currently applied to the list, mirrored on the map. */
@@ -56,7 +54,6 @@ interface EmptyHouseMapBrowserProps {
   fundingStatus?: 'all' | 'ready' | 'topup';
   withinFloat?: boolean;
   savedReadyOnly?: boolean;
-  onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
   /** Called when the user taps a marker or steps to a new house so the list can sort by distance from it. */
