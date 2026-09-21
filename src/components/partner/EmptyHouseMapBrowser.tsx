@@ -679,36 +679,13 @@ export function EmptyHouseMapBrowser({
             }}
           />
         ))}
-        {cells.map((cell) => {
+        {pinHouses?.map((house) => renderHousePin(house))}
+        {!pinHouses && cells.map((cell) => {
           const house = cell.count === 1 && cell.house
             ? (mappedHouses.find((item) => item.house_id === cell.house!.house_id) ?? cell.house)
             : null;
 
-          if (house) {
-            const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
-            const categoryLabel = formatHouseCategory(house.house_category);
-            const rentLabel = formatDynamic(Number(house.monthly_rent ?? 0));
-            const icon = L.divIcon({
-              className: 'empty-house-map-pin-hitbox',
-              html: `<span class="empty-house-map-pin truncate${active ? ' empty-house-map-pin--active' : ''}">${rentLabel}</span>`,
-              iconSize: [144, 44],
-              iconAnchor: [72, 44],
-            });
-
-            return (
-              <Marker
-                key={house.house_id}
-                position={[Number(house.latitude), Number(house.longitude)]}
-                icon={icon}
-                title={`${houseTitleLine(house)} · ${rentLabel}`}
-                eventHandlers={{
-                  click: () => {
-                    onOpenHouse(house);
-                  },
-                }}
-              />
-            );
-          }
+          if (house) return renderHousePin(house);
 
           const size = clusterMarkerSize(cell.count);
           const label = clusterMarkerLabel(cell.count);
