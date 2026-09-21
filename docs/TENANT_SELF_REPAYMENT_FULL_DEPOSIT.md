@@ -1,6 +1,8 @@
 # Tenant self-repayment: take the whole deposit, not just today's amount
 
-Status: proposal — nothing implemented yet. Awaiting approval.
+Status: IMPLEMENTED 21 Sep 2026 — `settle_tenant_rent_from_deposit()` now applies the
+whole deposit and sends the upgraded messages described below.
+
 
 ## 1. What happens today
 
