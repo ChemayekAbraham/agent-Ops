@@ -211,7 +211,15 @@ export default function AgentRegistrationControlTab() {
                   <TableRow key={row.agent_id}>
                     <TableCell>
                       <div className="font-medium">{row.full_name ?? 'Unnamed agent'}</div>
-                      <div className="text-xs text-muted-foreground">{row.phone ?? '—'}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {row.phone ?? '—'}
+                        {row.district ? ` · ${row.district}` : ''}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {row.group_label
+                          ? `${row.group_label} · needs ${row.group_required_pct}%`
+                          : 'No rule applies'}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">{row.active_tenants}</TableCell>
                     <TableCell className="text-right">{formatUGX(Number(row.prev_expected))}</TableCell>
