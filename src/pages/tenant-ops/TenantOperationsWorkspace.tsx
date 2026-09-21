@@ -326,9 +326,13 @@ export default function TenantOperationsWorkspace() {
         <Tabs defaultValue="topup">
           <TabsList>
             <TabsTrigger value="topup">Tenant Top-Up Eligibility</TabsTrigger>
+            <TabsTrigger value="comms">Tenant Communications</TabsTrigger>
           </TabsList>
           <TabsContent value="topup" className="mt-3">
             <TopUpEligibilityTab />
+          </TabsContent>
+          <TabsContent value="comms" className="mt-3">
+            <TenantCommunicationsTab />
           </TabsContent>
         </Tabs>
       </CardContent>
