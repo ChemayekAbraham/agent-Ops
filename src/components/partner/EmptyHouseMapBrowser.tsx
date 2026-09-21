@@ -168,6 +168,7 @@ export function EmptyHouseMapBrowser({
   /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
   const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
   const [geoPromptDismissed, setGeoPromptDismissed] = useState(false);
+  const [locationPreviouslyGranted, setLocationPreviouslyGranted] = useState(false);
   const [areaPickerOpen, setAreaPickerOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(() =>
     typeof navigator !== 'undefined' ? navigator.onLine === false : false,
@@ -182,6 +183,16 @@ export function EmptyHouseMapBrowser({
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
+  }, []);
+
+  // Remember that the funder already approved location sharing so the gate
+  // does not block the map on every return.
+  useEffect(() => {
+    try {
+      setLocationPreviouslyGranted(window.localStorage.getItem(LOCATION_GRANTED_KEY) === 'true');
+    } catch {
+      // ignore storage errors
+    }
   }, []);
 
 
