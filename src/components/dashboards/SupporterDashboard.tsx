@@ -132,7 +132,7 @@ export default function SupporterDashboard({
   // to the same source of truth as the wallet card / withdraw flow.
   const { available: strictAvailable } = useAvailableBalance(user.id);
   const { emptyHouseSummary, loading: capitalLoading } = useCapitalOpportunities();
-  const { formatAmountCompact } = useCurrency();
+  const { formatAmount, formatAmountCompact } = useCurrency();
 
   useEffect(() => {
     if (!isSelfRegistered || !verifiedAt) return;
@@ -477,8 +477,8 @@ export default function SupporterDashboard({
               <div className="flex flex-1 flex-col items-end justify-between gap-2">
                 <AiIdButton variant="compact" />
                 <div className="text-right">
-                  <p className="text-2xl font-black leading-none tracking-tight tabular-nums sm:text-3xl">
-                    {capitalLoading && !s ? '—' : formatAmountCompact(rentNeeded)}
+                  <p className="text-base font-black leading-none tracking-tight tabular-nums sm:text-xl">
+                    {capitalLoading && !s ? '—' : formatAmount(rentNeeded)}
                   </p>
                   <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Rent needed
