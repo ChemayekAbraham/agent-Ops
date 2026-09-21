@@ -337,52 +337,6 @@ export function EmptyHouseMapBrowser({
     };
   }, [mapInstance, locationPreviouslyGranted]);
 
-  /**
-   * If the funder already approved location sharing, re-locate on return
-   * visits. When geolocation is later revoked, fall back to a manually chosen
-   * area if one was saved; otherwise show the gate again.
-   */
-  useEffect(() => {
-    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current) return;
-    if (!navigator.geolocation) {
-      manualAreaRestored.current = true;
-      const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
-      if (stored) chooseManualArea(stored);
-      return;
-    }
-    let cancelled = false;
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (cancelled) return;
-        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
-        initialFitDone.current = true;
-        setGeoStatus('granted');
-        setUserPosition(point);
-        mapInstance.flyTo(point, 13, { duration: 0.6 });
-      },
-      () => {
-        if (cancelled) return;
-        manualAreaRestored.current = true;
-        const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
-        if (stored) {
-          chooseManualArea(stored);
-        } else {
-          setGeoStatus('denied');
-          try {
-            window.localStorage.removeItem(LOCATION_GRANTED_KEY);
-            setLocationPreviouslyGranted(false);
-          } catch {
-            // ignore storage errors
-          }
-        }
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea]);
-
   /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
   const retryLocate = useCallback(() => {
     if (!navigator.geolocation || !mapInstance) return;
