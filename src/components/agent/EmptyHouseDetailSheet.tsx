@@ -101,7 +101,7 @@ export function EmptyHouseDetailSheet({
         <SheetHeader className="border-b p-4 text-left">
           <SheetTitle className="flex items-center gap-2 text-base">
             <Home className="h-4 w-4 text-primary" />
-            {house.title || prettyName(house.house_category) || 'Empty house'}
+            {house.title || formatHouseCategory(house.house_category) || 'Empty house'}
           </SheetTitle>
           <SheetDescription className="flex items-center gap-1 text-[11px]">
             <MapPin className="h-3 w-3 shrink-0" /> {housePlace(house)}
