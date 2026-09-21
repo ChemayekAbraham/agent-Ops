@@ -5,10 +5,9 @@ import 'leaflet/dist/leaflet.css';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, WifiOff, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
@@ -24,7 +23,6 @@ interface EmptyHouseMapBrowserProps {
   houses: SupportableHouse[];
   selectedIds: string[];
   focusedId?: string | null;
-  searchQuery: string;
   remaining: number;
   busy: boolean;
   /** Rent floor/ceiling currently applied to the list, mirrored on the map. */
@@ -56,7 +54,6 @@ interface EmptyHouseMapBrowserProps {
   fundingStatus?: 'all' | 'ready' | 'topup';
   withinFloat?: boolean;
   savedReadyOnly?: boolean;
-  onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
   /** Called when the user taps a marker or steps to a new house so the list can sort by distance from it. */
@@ -169,7 +166,6 @@ export function EmptyHouseMapBrowser({
   houses,
   selectedIds,
   focusedId,
-  searchQuery,
   remaining,
   busy,
   minRent,
@@ -186,7 +182,6 @@ export function EmptyHouseMapBrowser({
   fundingStatus,
   withinFloat,
   savedReadyOnly,
-  onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
   onActiveHouseChange,
@@ -237,7 +232,6 @@ export function EmptyHouseMapBrowser({
   }, [mapInstance, country]);
 
   const cellsQuery = useEmptyHouseMapCells(viewport, {
-    search: searchQuery,
     district: district ?? undefined,
     minRent: minRent ?? null,
     maxRent: maxRent ?? null,
@@ -622,32 +616,6 @@ export function EmptyHouseMapBrowser({
 
   return (
     <div className="relative h-[26rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
-      <div className="absolute inset-x-3 top-3 z-[1000] sm:right-auto sm:w-[22rem]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={(event) => onSearchQueryChange(event.target.value)}
-            placeholder="Search district, neighborhood, or house"
-            aria-label="Search empty houses by district, neighborhood, or house name"
-            className="h-11 bg-background/95 pl-9 pr-10 text-sm shadow-lg backdrop-blur"
-          />
-          {searchQuery && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
-              onClick={() => onSearchQueryChange('')}
-              aria-label="Clear house search"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </Button>
-          )}
-        </div>
-      </div>
-
       <MapContainer
         center={KAMPALA}
         zoom={11}
@@ -968,9 +936,7 @@ export function EmptyHouseMapBrowser({
         <div role="status" className="pointer-events-none absolute inset-x-2 bottom-2 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur sm:inset-x-auto sm:left-3">
           {housesInView > 0
             ? `${housesInView.toLocaleString()}${cellsQuery.data?.scanCapped ? '+' : ''} empty houses in this area — tap a group or zoom in to see each house`
-            : searchQuery.trim()
-              ? 'No houses match this search in this area — move the map or clear the search'
-              : 'No empty houses in this area yet — move or zoom out the map'}
+            : 'No empty houses in this area yet — move or zoom out the map'}
         </div>
       )}
     </div>
