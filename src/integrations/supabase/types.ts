@@ -34416,6 +34416,50 @@ export type Database = {
         }
         Relationships: []
       }
+      pso_facilitation_prompts: {
+        Row: {
+          approver_id: string
+          created_at: string
+          id: string
+          requisition_id: string
+          resolution: string | null
+          resolved_at: string | null
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        Insert: {
+          approver_id: string
+          created_at?: string
+          id?: string
+          requisition_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Update: {
+          approver_id?: string
+          created_at?: string
+          id?: string
+          requisition_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pso_facilitation_prompts_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pso_note_reversals: {
         Row: {
           created_at: string
@@ -61903,6 +61947,41 @@ export type Database = {
           staff_id: string
           staff_ref: string
         }[]
+      }
+      pso_facilitation_pending_prompt: {
+        Args: never
+        Returns: {
+          amount: number
+          currency: string
+          officer_name: string
+          prompt_id: string
+          reason: string
+          requisition_code: string
+          requisition_id: string
+          snooze_count: number
+          submitted_at: string
+          title: string
+        }[]
+      }
+      pso_facilitation_prompt_snooze: {
+        Args: { _prompt_id: string }
+        Returns: {
+          approver_id: string
+          created_at: string
+          id: string
+          requisition_id: string
+          resolution: string | null
+          resolved_at: string | null
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pso_facilitation_prompts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       pso_funded_summary: {
         Args: { p_from: string; p_staff_id?: string; p_to: string }
