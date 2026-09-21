@@ -137,7 +137,17 @@ Rent balance: UGX 468,000
 Ref TSP-4f2a9c11.
 ```
 
-### 4d. Agent
+### 4d. Tenant — deposit smaller than today's expected amount (part-payment)
+
+```
+Welile: Rent payment received, Ronald.
+Paid: UGX 2,000
+Still due today: UGX 2,400 for 21 Sep 2026.
+Rent balance: UGX 478,000
+Ref TSP-4f2a9c11. Thank you.
+```
+
+### 4e. Agent — full deposit, days covered ahead
 
 ```
 Welile: Ronald Musana paid his own rent.
@@ -145,6 +155,17 @@ Received: UGX 20,000 (covers 4 days, paid up to 25 Sep 2026)
 Your commission: UGX 1,600 - already in your withdrawable balance.
 His rent balance: UGX 460,000. No collection needed from him until 26 Sep.
 ```
+
+### 4f. Agent — tenant part-paid, collection still open
+
+```
+Welile: Ronald Musana part-paid his own rent.
+Received: UGX 2,000 of UGX 4,400 for today.
+Still to collect today: UGX 2,400.
+Your commission: UGX 200 - already in your withdrawable balance.
+His rent balance: UGX 478,000.
+```
+
 
 Rules applied to all templates:
 
