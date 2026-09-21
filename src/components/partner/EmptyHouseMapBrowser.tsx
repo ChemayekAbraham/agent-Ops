@@ -174,8 +174,8 @@ export function EmptyHouseMapBrowser({
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
-  /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
-  const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
+  /** 'locating' = browser prompt open, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'locating' | 'granted' | 'denied' | 'unsupported'>('idle');
   const [geoPromptDismissed, setGeoPromptDismissed] = useState(false);
   const [locationPreviouslyGranted, setLocationPreviouslyGranted] = useState(false);
   const [areaPickerOpen, setAreaPickerOpen] = useState(false);
@@ -300,51 +300,10 @@ export function EmptyHouseMapBrowser({
   const initialLocateStarted = useRef(false);
 
   /**
-   * By default the map opens where the funder is, so the empty houses nearest
-   * to them are the first ones on screen. If location is unavailable or
-   * refused, the loaded-houses fit below takes over.
+   * The map always opens on the funder's own area — the single locate effect
+   * lives further down (it needs the manual-area fallback), so nothing runs here.
    */
-  useEffect(() => {
-    if (!mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
-    initialLocateStarted.current = true;
-    if (!navigator.geolocation) {
-      setGeoStatus('unsupported');
-      return;
-    }
-    let cancelled = false;
-    try {
-      window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
-      setLocationPreviouslyGranted(true);
-    } catch {
-      // ignore storage errors
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (cancelled || initialFitDone.current) return;
-        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
-        initialFitDone.current = true;
-        setGeoStatus('granted');
-        setUserPosition(point);
-        // Default view: the funder's own area, so the empty houses around them
-        // are the first ones on screen.
-        mapInstance.setView(point, 13);
-      },
-      () => {
-        if (cancelled) return;
-        setGeoStatus('denied');
-        try {
-          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
-          setLocationPreviouslyGranted(false);
-        } catch {
-          // ignore storage errors
-        }
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [mapInstance, locationPreviouslyGranted]);
+
 
   /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
   const retryLocate = useCallback(() => {
@@ -498,20 +457,23 @@ export function EmptyHouseMapBrowser({
 
 
   /**
-   * If the funder already approved location sharing, re-locate on return
-   * visits. When geolocation is later revoked, fall back to a manually chosen
-   * area if one was saved; otherwise show the gate again.
+   * Ask the browser for the funder's location as soon as the map mounts, so the
+   * houses nearest to them load first. If they refuse (or the browser cannot
+   * tell us), fall back to a saved manual area, otherwise show the gate so they
+   * can allow location or pick their area.
    */
   useEffect(() => {
-    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
+    if (!mapInstance || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
     initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       manualAreaRestored.current = true;
       const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
       if (stored) chooseManualArea(stored);
+      else setGeoStatus('unsupported');
       return;
     }
     let cancelled = false;
+    setGeoStatus('locating');
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled) return;
@@ -519,22 +481,28 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
+        try {
+          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+          setLocationPreviouslyGranted(true);
+        } catch {
+          // ignore storage errors
+        }
         mapInstance.flyTo(point, 13, { duration: 0.6 });
       },
       () => {
         if (cancelled) return;
-        manualAreaRestored.current = true;
         const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
         if (stored) {
+          manualAreaRestored.current = true;
           chooseManualArea(stored);
         } else {
           setGeoStatus('denied');
-          try {
-            window.localStorage.removeItem(LOCATION_GRANTED_KEY);
-            setLocationPreviouslyGranted(false);
-          } catch {
-            // ignore storage errors
-          }
+        }
+        try {
+          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+          setLocationPreviouslyGranted(false);
+        } catch {
+          // ignore storage errors
         }
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
@@ -542,7 +510,8 @@ export function EmptyHouseMapBrowser({
     return () => {
       cancelled = true;
     };
-  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea]);
+  }, [mapInstance, userPosition, chooseManualArea]);
+
 
   // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
@@ -736,8 +705,8 @@ export function EmptyHouseMapBrowser({
         />
       </MapContainer>
 
-      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. Only show it when location has not been approved before. */}
-      {!userPosition && !locationPreviouslyGranted && (
+      {/* Location gate: houses are shown for the funder's own area. While the browser prompt is open we wait; it only appears if location was refused or is unavailable and no area was picked. */}
+      {!userPosition && (geoStatus === 'denied' || geoStatus === 'unsupported') && !manualAreaRestored.current && (
         <div
           role="dialog"
           aria-label="Share your location to see empty houses near you"
