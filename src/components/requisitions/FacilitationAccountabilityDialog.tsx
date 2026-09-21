@@ -313,7 +313,7 @@ export function FacilitationAccountabilityDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={() => void submit()} disabled={saving}>
+          <Button onClick={() => void submit()} disabled={saving || files.length === 0}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Submit report
           </Button>
