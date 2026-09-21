@@ -13,6 +13,7 @@ import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 /** These render inside the shell so the sidebar stays visible. */
 const PortfolioPerformanceReport = lazy(() => import('@/pages/tenant-ops/PortfolioPerformanceReport'));
 const TenantNotificationAnalyticsPage = lazy(() => import('@/pages/tenant-ops/TenantNotificationAnalyticsPage'));
+const TenantOperationsWorkspace = lazy(() => import('@/pages/tenant-ops/TenantOperationsWorkspace'));
 import {
   isTenantOpsAction,
   tenantOpsLabelFor,

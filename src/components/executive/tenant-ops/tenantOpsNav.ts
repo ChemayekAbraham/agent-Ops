@@ -108,6 +108,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
     icon: Gauge,
     keywords: ['hubs', 'workspaces'],
     children: [
+      { key: 'tenant-operations-workspace', label: 'Tenant Operations Workspace', icon: Gauge, keywords: ['workspace', 'top up', 'topup', 'top-up', 'eligibility', 'increase', 'tenant operations'] },
       { key: 'pipeline-hub', label: 'Pipeline Status', icon: Activity, keywords: ['lifecycle', 'receivables', 'payables', 'charts'] },
       { key: 'agent-capacity-hub', label: 'Agent Rent Capacity', icon: Gauge, keywords: ['capacity', 'eligibility', 'rating'] },
       { key: 'all-tenants-hub', label: 'All Tenants', icon: Users, keywords: ['register', 'search', 'bulk'] },
