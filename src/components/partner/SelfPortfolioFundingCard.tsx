@@ -28,6 +28,7 @@ import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet'
 import DepositFlow from '@/components/payments/DepositFlow';
 import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
 import { EmptyHouseTrendPanel } from './EmptyHouseTrendPanel';
+import { useEmptyHouseTotalRentNeeded } from '@/hooks/useEmptyHouseTotalRentNeeded';
 import { HouseCompareDialog } from './HouseCompareDialog';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { HousePlacementTimeline } from './HousePlacementTimeline';
@@ -381,6 +382,7 @@ export function SelfPortfolioFundingCard({
   });
 
   const housesQuery = useVerifiedEmptyHouses();
+  const rentNeededQuery = useEmptyHouseTotalRentNeeded();
 
   const plans = plansQuery.data?.plans ?? [];
 
@@ -423,6 +425,7 @@ export function SelfPortfolioFundingCard({
     });
   }, [housesQuery.data, houses]);
   const available = plansQuery.data?.available ?? 0;
+  const marketRentNeeded = rentNeededQuery.data?.totalRentNeeded ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
   const activeCommitmentId = fundedQuery.data?.activeCommitmentId ?? null;
   const activeHouseCommitment = fundedQuery.data?.houseCommitment ?? null;
@@ -1144,6 +1147,9 @@ export function SelfPortfolioFundingCard({
             <p className="hidden sm:block text-[10px] font-semibold text-muted-foreground mt-0.5">
               You can only select plans up to your operational float —{' '}
               {formatDynamic(remaining)} left to fund
+            </p>
+            <p className="text-[10px] font-semibold text-primary mt-1">
+              {formatDynamic(marketRentNeeded)} rent needed by empty houses
             </p>
           </div>
           <Button variant="ghost" size="sm" onClick={() => void load()} disabled={busy}>
