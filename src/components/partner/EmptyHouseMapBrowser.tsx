@@ -298,12 +298,19 @@ export function EmptyHouseMapBrowser({
    * refused, the loaded-houses fit below takes over.
    */
   useEffect(() => {
-    if (!mapInstance || initialFitDone.current || locationPreviouslyGranted) return;
+    if (!mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
+    initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       setGeoStatus('unsupported');
       return;
     }
     let cancelled = false;
+    try {
+      window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+      setLocationPreviouslyGranted(true);
+    } catch {
+      // ignore storage errors
+    }
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled || initialFitDone.current) return;
@@ -311,12 +318,6 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
-        try {
-          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
-          setLocationPreviouslyGranted(true);
-        } catch {
-          // ignore storage errors
-        }
         // Default view: the funder's own area, so the empty houses around them
         // are the first ones on screen.
         mapInstance.setView(point, 13);
