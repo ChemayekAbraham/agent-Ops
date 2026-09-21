@@ -91,7 +91,10 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
           paymentStates.length > 0 && !paymentStates.some((s) => s !== 'not_paying');
         if (flaggedNotPaying) notPaying.add(row.id);
         if (isCompleted) completedIds.add(row.id);
-        if (!flaggedNotPaying && !awaitingLandlord && (isLive || isCompleted)) activeIds.add(row.id);
+        // Landlord settlement no longer gates collection (2026-09-21): a live
+        // plan stays in the active list even when the landlord is still unpaid.
+        if (!flaggedNotPaying && (isLive || isCompleted)) activeIds.add(row.id);
+
       });
       setTenantBalances(balances);
       setUnfundedBalances(unfunded);
