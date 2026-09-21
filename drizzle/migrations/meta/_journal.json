@@ -1940,6 +1940,13 @@
       "when": 1790005118863,
       "tag": "0276_tenant_topup_eligibility_fix_temp_table",
       "breakpoints": true
+    },
+    {
+      "idx": 277,
+      "version": "7",
+      "when": 1790005188226,
+      "tag": "0277_tenant_topup_eligibility_reached_on_fallback",
+      "breakpoints": true
     }
   ]
 }
