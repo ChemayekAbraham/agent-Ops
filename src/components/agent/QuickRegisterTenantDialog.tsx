@@ -142,6 +142,21 @@ export function QuickRegisterTenantDialog({
         return;
       }
 
+      if (parsedBody?.code === 'registration_restricted') {
+        const r = (parsedBody.restriction ?? {}) as Record<string, unknown>;
+        const detail = [
+          `Active tenants: ${r.active_tenants ?? '—'} (restriction starts at ${r.min_active_tenants ?? '—'})`,
+          `Last month you collected ${r.previous_month_performance_pct ?? '—'}% of what was due`,
+          `Required: ${r.required_performance_pct ?? '—'}%`,
+        ].join(' · ');
+        setConsentModalOpen(false);
+        toast.error(
+          typeof parsedBody.error === 'string' ? parsedBody.error : 'You cannot add a new tenant right now',
+          { description: detail, duration: 15000 },
+        );
+        return;
+      }
+
       if (res.error || (parsedBody && parsedBody.error)) {
         const msg =
           (typeof parsedBody?.error === 'string' && parsedBody.error) ||

@@ -276,8 +276,47 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---- Agent Registration Control ---------------------------------------
+    // An agent carrying the configured number of active tenants whose previous
+    // calendar month collection performance fell below the required level may
+    // not take on a NEW tenant until performance recovers or management records
+    // an override. Enforced here, at the registration action itself. Existing
+    // tenants (renewals) already returned above, so this only gates new people.
+    // Fail-open on an unexpected error so registration never breaks outright.
+    try {
+      const { data: gate, error: gateErr } = await supabaseAdmin.rpc(
+        "agent_registration_gate_status",
+        { p_agent_id: callingUser.id },
+      );
+      if (gateErr) {
+        console.warn("[register-tenant] Registration gate check failed (allowing):", gateErr.message);
+      } else if (gate && (gate as any).blocked) {
+        const g = gate as any;
+        console.warn("[register-tenant] Blocked by registration control for agent", callingUser.id);
+        return new Response(JSON.stringify({
+          error: g.reason,
+          code: "registration_restricted",
+          restriction: {
+            active_tenants: g.active_tenants,
+            min_active_tenants: g.min_active_tenants,
+            previous_month_performance_pct: g.prev_month_pct,
+            required_performance_pct: g.required_prev_month_pct,
+            period_start: g.period_start,
+            period_end: g.period_end,
+            previous_month_expected: g.prev_month_expected,
+            previous_month_collected: g.prev_month_collected,
+          },
+        }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } catch (gateCatch) {
+      console.warn("[register-tenant] Registration gate threw (allowing):", gateCatch);
+    }
+
     // Create auth user with a temp password
     const tempPassword = crypto.randomUUID().slice(0, 12) + "Aa1!";
+
 
     // Anti-bot guard: log device fingerprint + true source screen + IP for this
     // agent-assisted registration and enforce the registration burst cap.

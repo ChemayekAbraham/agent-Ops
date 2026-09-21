@@ -131,6 +131,16 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
   /** Official dataset pick behind the LC1 village — sent so the row is linked. */
   const [lc1VillageSel, setLc1VillageSel] = useState<UgLocationSelection | null>(null);
   const [guarantorConsent, setGuarantorConsent] = useState(false);
+  const [registrationRestriction, setRegistrationRestriction] = useState<{
+    message: string;
+    activeTenants: number;
+    minActiveTenants: number;
+    performancePct: number | null;
+    requiredPct: number;
+    periodStart: string | null;
+    periodEnd: string | null;
+  } | null>(null);
+
 
   const agentCommission = monthlyRent ? Math.round(parseInt(monthlyRent) * 0.02) : 0;
 
@@ -425,6 +435,25 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
         return;
       }
 
+      if (parsedBody?.code === 'registration_restricted') {
+        const r = (parsedBody.restriction ?? {}) as Record<string, unknown>;
+        setRegistrationRestriction({
+          message: typeof parsedBody.error === 'string' ? parsedBody.error : 'Registration is restricted.',
+          activeTenants: Number(r.active_tenants ?? 0),
+          minActiveTenants: Number(r.min_active_tenants ?? 0),
+          performancePct: r.previous_month_performance_pct == null ? null : Number(r.previous_month_performance_pct),
+          requiredPct: Number(r.required_performance_pct ?? 0),
+          periodStart: typeof r.period_start === 'string' ? r.period_start : null,
+          periodEnd: typeof r.period_end === 'string' ? r.period_end : null,
+        });
+        setConsentModalOpen(false);
+        toast.error('Registration restricted', {
+          description: typeof parsedBody.error === 'string' ? parsedBody.error : undefined,
+          duration: 15000,
+        });
+        return;
+      }
+
       if (res.error || (parsedBody && parsedBody.error)) {
         const message =
           (typeof parsedBody?.error === 'string' ? parsedBody.error : null) ||
@@ -437,6 +466,7 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
         }
         return;
       }
+
 
       const regData = res.data as { user_id?: string; rent_request_id?: string; existing?: boolean } | null;
       if (!regData?.user_id) {
@@ -496,7 +526,38 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 pt-4 pb-4">
+        {registrationRestriction && (
+          <div className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+            <div className="flex items-center gap-2 font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              You cannot add a new tenant right now
+            </div>
+            <p className="mt-2 text-muted-foreground">{registrationRestriction.message}</p>
+            <ul className="mt-3 space-y-1 text-muted-foreground">
+              <li>
+                Active tenants you are carrying:{' '}
+                <span className="font-medium text-foreground">{registrationRestriction.activeTenants}</span>
+                {' '}(restriction starts at {registrationRestriction.minActiveTenants})
+              </li>
+              <li>
+                Last month you collected:{' '}
+                <span className="font-medium text-foreground">
+                  {registrationRestriction.performancePct == null ? '—' : `${registrationRestriction.performancePct}%`}
+                </span>
+                {' '}of what was due
+              </li>
+              <li>
+                Required to keep registering:{' '}
+                <span className="font-medium text-foreground">{registrationRestriction.requiredPct}%</span>
+              </li>
+            </ul>
+            <p className="mt-3 text-muted-foreground">
+              Collect more from the tenants you already have, or ask your manager to allow this registration.
+            </p>
+          </div>
+        )}
         <AnimatePresence mode="wait">
+
           {success ? (
             <motion.div
               key="success"
