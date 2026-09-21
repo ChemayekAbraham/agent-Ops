@@ -1968,6 +1968,20 @@
       "when": 1790005914137,
       "tag": "0280_tenant_communications_overview_and_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 281,
+      "version": "7",
+      "when": 1790006887598,
+      "tag": "0281_agent_registration_control",
+      "breakpoints": true
+    },
+    {
+      "idx": 282,
+      "version": "7",
+      "when": 1790006948702,
+      "tag": "0282_agent_registration_control_list_fix",
+      "breakpoints": true
     }
   ]
 }

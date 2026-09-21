@@ -5350,6 +5350,51 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_registration_gate_overrides: {
+        Row: {
+          active: boolean
+          agent_id: string
+          approved_by: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          new_state: Json
+          previous_state: Json
+          reason: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          agent_id: string
+          approved_by: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          new_state?: Json
+          previous_state?: Json
+          reason: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          agent_id?: string
+          approved_by?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          new_state?: Json
+          previous_state?: Json
+          reason?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: []
+      }
       agent_subagent_commission_whitelist: {
         Row: {
           created_at: string
@@ -52715,6 +52760,24 @@ export type Database = {
         Args: { p_payout_id: string; p_receipt_number: string }
         Returns: Json
       }
+      agent_registration_gate_metrics: {
+        Args: { p_agent_ids: string[] }
+        Returns: {
+          active_tenants: number
+          agent_id: string
+          basis: string
+          period_end: string
+          period_start: string
+          prev_collected: number
+          prev_expected: number
+          prev_pct: number
+        }[]
+      }
+      agent_registration_gate_rules: { Args: never; Returns: Json }
+      agent_registration_gate_status: {
+        Args: { p_agent_id?: string }
+        Returns: Json
+      }
       agent_request_subagent_tenant_transfer: {
         Args: {
           p_reason: string
@@ -56674,6 +56737,15 @@ export type Database = {
           target_wallet_user_id: string
         }[]
       }
+      get_agent_registration_control: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       get_agent_rent_request_capacity: {
         Args: { p_agent_id: string; p_tenant_id: string }
         Returns: Json
@@ -59309,6 +59381,10 @@ export type Database = {
         }[]
       }
       grade_receivables_forecast_snapshots: { Args: never; Returns: Json }
+      grant_agent_registration_override: {
+        Args: { p_agent_id: string; p_days?: number; p_reason: string }
+        Returns: Json
+      }
       growth_commission_next_window: {
         Args: { _user_id?: string }
         Returns: {
@@ -63132,6 +63208,10 @@ export type Database = {
         Args: { p_decision: string; p_id: string; p_note?: string }
         Returns: Json
       }
+      revoke_agent_registration_override: {
+        Args: { p_override_id: string; p_reason: string }
+        Returns: Json
+      }
       revoke_merchant_capacity_override: {
         Args: { p_override_id: string; p_reason: string }
         Returns: boolean
@@ -63412,6 +63492,10 @@ export type Database = {
       service_mark_landlord_verified: {
         Args: { p_landlord_id: string; p_manager_id: string; p_source?: string }
         Returns: boolean
+      }
+      set_agent_registration_gate_rules: {
+        Args: { p_rules: Json }
+        Returns: Json
       }
       set_landlord_verification: {
         Args: {
