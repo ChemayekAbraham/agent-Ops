@@ -1821,6 +1821,13 @@
       "when": 1789994043944,
       "tag": "0259_loan_schedule_2026_09_21_f",
       "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1789994166478,
+      "tag": "0260_loan_recovery_2026_09_21_g",
+      "breakpoints": true
     }
   ]
 }
