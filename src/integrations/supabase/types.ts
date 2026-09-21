@@ -43243,6 +43243,36 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_support_contacts: {
+        Row: {
+          active: boolean
+          id: string
+          label: string
+          phone: string
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          id?: string
+          label: string
+          phone: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          id?: string
+          label?: string
+          phone?: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       tenant_transfers: {
         Row: {
           actor_accuracy: number | null
@@ -58783,6 +58813,29 @@ export type Database = {
           paid_on_day: number
           remaining_today: number
           tenant_id: string
+        }[]
+      }
+      get_tenant_payment_message_vars: {
+        Args: { p_tenant_ids: string[] }
+        Returns: {
+          current_access: number
+          current_topup: number
+          days_after_cycle: number
+          days_left_in_cycle: number
+          next_level_access: number
+          next_level_deadline: string
+          next_level_key: string
+          next_level_label: string
+          next_level_required: number
+          paid_to_date: number
+          pct_covered: number
+          remaining: number
+          rent_amount: number
+          rent_request_id: string
+          tenant_id: string
+          term_end: string
+          tier_key: string
+          total_expected: number
         }[]
       }
       get_tenant_payment_notice_candidates: {
