@@ -286,7 +286,7 @@ export function EmptyHouseDetailSheet({
           <div className="rounded-2xl border p-4 space-y-2 text-[12px]">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Type</span>
-              <span className="font-semibold">{prettyName(house.house_category) || 'Not stated'}</span>
+              <span className="font-semibold">{formatHouseCategory(house.house_category) || 'Not stated'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Rooms</span>
