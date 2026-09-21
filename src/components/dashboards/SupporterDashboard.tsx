@@ -131,6 +131,8 @@ export default function SupporterDashboard({
   // the "wallet is empty" nag trigger. Keeps user-facing surfaces locked
   // to the same source of truth as the wallet card / withdraw flow.
   const { available: strictAvailable } = useAvailableBalance(user.id);
+  const { emptyHouseSummary, loading: capitalLoading } = useCapitalOpportunities();
+  const { formatAmountCompact } = useCurrency();
 
   useEffect(() => {
     if (!isSelfRegistered || !verifiedAt) return;
