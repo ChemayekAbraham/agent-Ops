@@ -2010,6 +2010,13 @@
       "when": 1790010388120,
       "tag": "0286_agent_registration_gate_default_no_barrier",
       "breakpoints": true
+    },
+    {
+      "idx": 287,
+      "version": "7",
+      "when": 1790019996190,
+      "tag": "0287_restrict_tenant_support_contacts_read",
+      "breakpoints": true
     }
   ]
 }
