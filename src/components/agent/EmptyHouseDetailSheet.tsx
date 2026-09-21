@@ -355,16 +355,6 @@ export function EmptyHouseDetailSheet({
                     referrerPolicy="no-referrer-when-downgrade"
                     className="h-48 w-full border-0"
                   />
-                  {(house.landlord_name || house.landlord_phone) && (
-                    <div className="absolute left-2 top-2 max-w-[calc(100%-1rem)] rounded-lg border border-primary/15 bg-background/95 px-2.5 py-1.5 shadow-sm">
-                      <p className="text-[10px] font-bold truncate">{house.landlord_name || 'Landlord'}</p>
-                      {house.landlord_phone && (
-                        <p className="flex items-center gap-1 text-[10px] font-semibold text-primary">
-                          <Phone className="h-3 w-3" /> {house.landlord_phone}
-                        </p>
-                      )}
-                    </div>
-                  )}
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] text-muted-foreground">
