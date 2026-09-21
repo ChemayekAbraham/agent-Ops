@@ -104,6 +104,10 @@ function ConcernCard({
       </div>
 
       {concern.context && <p className="mt-2 text-[11px] leading-snug">{concern.context}</p>}
+      <div className="mt-1.5 space-y-1.5">
+        <ConcernCaseContextPanel concernId={concern.id} fallbackName={concern.caller_name} />
+        <ConcernAttachmentsPanel concernId={concern.id} />
+      </div>
       {reviewerRows.length > 0 && (
         <div className="mt-1.5">
           <ConcernParticipantsPanel concern={concern} reviewers={reviewerRows} />
