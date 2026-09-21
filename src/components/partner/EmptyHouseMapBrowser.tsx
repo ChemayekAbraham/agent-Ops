@@ -457,7 +457,7 @@ export function EmptyHouseMapBrowser({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [district, districtFocus, mapInstance]);
+  }, [zoomDistrict, districtFocus, mapInstance]);
 
 
 
