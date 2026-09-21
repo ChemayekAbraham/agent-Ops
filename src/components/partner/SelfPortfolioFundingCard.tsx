@@ -860,6 +860,24 @@ export function SelfPortfolioFundingCard({
       .filter((c) => counts.has(c.code))
       .map((c) => ({ ...c, listings: counts.get(c.code) ?? 0 }));
   }, [houses]);
+  // Pre-select the funder's own country: GPS first, then their profile country,
+  // otherwise the Africa-wide view. Their own pick always wins.
+  useEffect(() => {
+    if (countryTouched || houseCountry !== 'all') return;
+    if (!geoResolved || listedCountries.length === 0) return;
+    const available = new Set(listedCountries.map((c) => c.code));
+    const fromGps = userPoint
+      ? AFRICA_COUNTRIES.find((c) => pointInCountry(c, userPoint.lat, userPoint.lng))?.code ?? null
+      : null;
+    const preferred =
+      fromGps && available.has(fromGps)
+        ? fromGps
+        : profileCountry && available.has(profileCountry)
+          ? profileCountry
+          : null;
+    if (preferred) setHouseCountry(preferred);
+  }, [countryTouched, houseCountry, geoResolved, userPoint, profileCountry, listedCountries]);
+
   const listingAgeDays = useMemo(
     () => (houseListingAge === 'all' ? null : Number(houseListingAge)),
     [houseListingAge],
