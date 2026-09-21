@@ -100,20 +100,26 @@ export default function AgentRegistrationControlTab() {
 
   const ruleSummary = () => {
     if (!rules) return 'Loading the approved rules…';
-    if (rules.enabled === false) return 'The restriction is switched off — no agent is stopped from registering.';
-    const parts = (rules.groups ?? []).filter((g) => g.active !== false).map((g) => {
-      const band = g.max_active_tenants == null
-        ? `${g.min_active_tenants}+ tenants`
-        : `${g.min_active_tenants}–${g.max_active_tenants} tenants`;
-      const who = [
-        g.regions?.length ? g.regions.join(', ') : null,
-        g.districts?.length ? g.districts.join(', ') : null,
-        g.tiers?.length ? g.tiers.join(', ') : null,
-        g.agent_ids?.length ? `${g.agent_ids.length} chosen agents` : null,
-      ].filter(Boolean).join(' · ');
-      return `${g.label}: ${band} must have collected ${g.required_prev_month_pct}% last month${who ? ` (${who})` : ''}`;
-    });
-    return parts.length ? parts.join('. ') : 'No rule group is active, so no agent is stopped.';
+    if (rules.enabled === false) return 'The restriction is switched off — no agent is being stopped.';
+    const active = (rules.groups ?? []).filter((g) => g.active);
+    if (active.length === 0) return 'No rules are active — no agent is being stopped.';
+    return active
+      .map((g) => {
+        const band = g.max_active_tenants
+          ? `${g.min_active_tenants}–${g.max_active_tenants} tenants`
+          : `${g.min_active_tenants}+ tenants`;
+        const who =
+          [
+            g.regions?.length ? g.regions.join(', ') : null,
+            g.districts?.length ? g.districts.join(', ') : null,
+            g.tiers?.length ? g.tiers.join(', ') : null,
+            g.agent_ids?.length ? `${g.agent_ids.length} named agent(s)` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'all agents';
+        return `${g.label}: ${who} on ${band} must have collected ${g.required_prev_month_pct}% of last month's dues.`;
+      })
+      .join(' ');
   };
 
   if (error) {
@@ -334,7 +340,7 @@ export default function AgentRegistrationControlTab() {
             <DialogTitle>Allow {overrideFor?.full_name ?? 'this agent'} to register</DialogTitle>
             <DialogDescription>
               {overrideFor
-                ? `${overrideFor.active_tenants} active tenants and ${overrideFor.prev_pct ?? 0}% collected last month, against the required ${rules?.required_prev_month_pct ?? 80}%.`
+                ? `${overrideFor.active_tenants} active tenants and ${overrideFor.prev_pct ?? 0}% collected last month, against the ${overrideFor.group_required_pct ?? rules?.required_prev_month_pct ?? 0}% required by ${overrideFor.group_label ?? 'the active rule'}.`
                 : ''}
             </DialogDescription>
           </DialogHeader>

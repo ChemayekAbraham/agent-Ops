@@ -1,9 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +7,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import type {
   RegistrationControlOptions,
   RegistrationControlRules,
@@ -24,13 +25,13 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   rules?: RegistrationControlRules;
   options?: RegistrationControlOptions;
-  saving?: boolean;
-  onSave: (rules: Partial<RegistrationControlRules>) => Promise<void> | void;
+  saving: boolean;
+  onSave: (next: Partial<RegistrationControlRules>) => void;
 }
 
-const emptyGroup = (): RegistrationRuleGroup => ({
-  id: `g-${Math.random().toString(36).slice(2, 10)}`,
-  label: 'New group',
+const emptyGroup = (index: number): RegistrationRuleGroup => ({
+  id: `group-${Date.now()}-${index}`,
+  label: `Rule ${index + 1}`,
   active: true,
   min_active_tenants: 20,
   max_active_tenants: null,
@@ -56,20 +57,23 @@ function ChipPicker({
   return (
     <div>
       <Label className="text-xs text-muted-foreground">{title}</Label>
-      <div className="mt-1 flex flex-wrap gap-1.5">
+      <div className="mt-1 flex flex-wrap gap-1">
         {values.map((v) => {
-          const on = selected.some((s) => s.toLowerCase() === v.toLowerCase());
+          const on = selected.includes(v);
           return (
-            <button key={v} type="button" onClick={() => onToggle(v)}>
-              <Badge variant={on ? 'default' : 'outline'} className="cursor-pointer capitalize">
-                {v.replace(/_/g, ' ')}
-              </Badge>
-            </button>
+            <Badge
+              key={v}
+              variant={on ? 'default' : 'outline'}
+              className="cursor-pointer"
+              onClick={() => onToggle(v)}
+            >
+              {v}
+            </Badge>
           );
         })}
       </div>
       {selected.length === 0 && (
-        <p className="mt-1 text-[11px] text-muted-foreground">Nothing picked means every {title.toLowerCase()}.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Nothing picked means every {title.toLowerCase()}.</p>
       )}
     </div>
   );
@@ -102,12 +106,12 @@ export default function RegistrationRuleGroupsDialog({
     setAgentSearch('');
   }, [open, rules]);
 
-  const agents = useMemo(() => {
-    const list = options?.agents ?? [];
-    const q = agentSearch.trim().toLowerCase();
-    if (!q) return list.slice(0, 12);
-    return list.filter((a) => (a.full_name ?? '').toLowerCase().includes(q)).slice(0, 12);
-  }, [options?.agents, agentSearch]);
+  const agentMatches = useMemo(() => {
+    const term = agentSearch.trim().toLowerCase();
+    const all = options?.agents ?? [];
+    if (!term) return all.slice(0, 12);
+    return all.filter((a) => (a.full_name ?? '').toLowerCase().includes(term)).slice(0, 12);
+  }, [agentSearch, options?.agents]);
 
   const patch = (index: number, changes: Partial<RegistrationRuleGroup>) =>
     setGroups((prev) => prev.map((g, i) => (i === index ? { ...g, ...changes } : g)));
@@ -116,16 +120,15 @@ export default function RegistrationRuleGroupsDialog({
     setGroups((prev) =>
       prev.map((g, i) => {
         if (i !== index) return g;
-        const current = g[key] ?? [];
-        const has = current.some((c) => c.toLowerCase() === value.toLowerCase());
-        return { ...g, [key]: has ? current.filter((c) => c.toLowerCase() !== value.toLowerCase()) : [...current, value] };
+        const list = g[key] ?? [];
+        return { ...g, [key]: list.includes(value) ? list.filter((v) => v !== value) : [...list, value] };
       }),
     );
 
-  const move = (index: number, delta: number) =>
+  const move = (index: number, dir: -1 | 1) =>
     setGroups((prev) => {
       const next = [...prev];
-      const target = index + delta;
+      const target = index + dir;
       if (target < 0 || target >= next.length) return prev;
       [next[index], next[target]] = [next[target], next[index]];
       return next;
@@ -133,154 +136,164 @@ export default function RegistrationRuleGroupsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Registration rules</DialogTitle>
           <DialogDescription>
-            Set the percentage and who each rule applies to. An agent is checked against the first rule that matches
-            them, top to bottom.
+            Set your own required percentage and tenant numbers, and choose exactly which agents each rule
+            covers. An agent is judged by the first active rule that matches them.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center justify-between rounded-xl border p-3">
+        <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
             <div className="text-sm font-medium">Restriction switched on</div>
-            <p className="text-xs text-muted-foreground">
-              Switched off, no agent is ever stopped and the report stays visible.
-            </p>
+            <div className="text-xs text-muted-foreground">
+              Turn this off and no agent is ever stopped from registering.
+            </div>
           </div>
           <Switch checked={enabled} onCheckedChange={setEnabled} />
         </div>
 
-        <div className="space-y-4">
-          {groups.map((g, i) => (
-            <div key={g.id} className="space-y-3 rounded-xl border p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  value={g.label}
-                  onChange={(e) => patch(i, { label: e.target.value })}
-                  className="h-9 max-w-[16rem]"
-                  placeholder="Rule name"
-                />
-                <Badge variant="outline">Order {i + 1}</Badge>
-                <div className="ml-auto flex items-center gap-1">
-                  <Switch checked={g.active} onCheckedChange={(v) => patch(i, { active: v })} />
-                  <Button variant="ghost" size="icon" onClick={() => move(i, -1)} disabled={i === 0}>
-                    <ArrowUp className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => move(i, 1)}
-                    disabled={i === groups.length - 1}
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setGroups((prev) => prev.filter((_, idx) => idx !== i))}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">From this many tenants</Label>
+        <ScrollArea className="max-h-[52vh] pr-3">
+          <div className="space-y-4">
+            {groups.map((g, i) => (
+              <div key={g.id} className="space-y-3 rounded-xl border p-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
-                    type="number"
-                    min={0}
-                    value={g.min_active_tenants}
-                    onChange={(e) => patch(i, { min_active_tenants: Number(e.target.value) })}
+                    value={g.label}
+                    onChange={(e) => patch(i, { label: e.target.value })}
+                    className="max-w-[16rem]"
+                    placeholder="Rule name"
+                  />
+                  <div className="ml-auto flex items-center gap-1">
+                    <Switch checked={g.active} onCheckedChange={(v) => patch(i, { active: v })} />
+                    <span className="mr-2 text-xs text-muted-foreground">{g.active ? 'Active' : 'Paused'}</span>
+                    <Button size="icon" variant="ghost" onClick={() => move(i, -1)} disabled={i === 0}>
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => move(i, 1)}
+                      disabled={i === groups.length - 1}
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setGroups((prev) => prev.filter((_, idx) => idx !== i))}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">From this many tenants</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={g.min_active_tenants}
+                      onChange={(e) => patch(i, { min_active_tenants: Number(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Up to (blank = no limit)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={g.max_active_tenants ?? ''}
+                      onChange={(e) =>
+                        patch(i, {
+                          max_active_tenants: e.target.value === '' ? null : Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Required last month (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={g.required_prev_month_pct}
+                      onChange={(e) => patch(i, { required_prev_month_pct: Number(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <ChipPicker
+                    title="Regions"
+                    values={options?.regions ?? []}
+                    selected={g.regions}
+                    onToggle={(v) => toggleIn(i, 'regions', v)}
+                  />
+                  <ChipPicker
+                    title="Districts"
+                    values={options?.districts ?? []}
+                    selected={g.districts}
+                    onToggle={(v) => toggleIn(i, 'districts', v)}
+                  />
+                  <ChipPicker
+                    title="Agent levels"
+                    values={options?.tiers ?? []}
+                    selected={g.tiers}
+                    onToggle={(v) => toggleIn(i, 'tiers', v)}
                   />
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Up to (blank = no limit)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={g.max_active_tenants ?? ''}
-                    onChange={(e) =>
-                      patch(i, { max_active_tenants: e.target.value === '' ? null : Number(e.target.value) })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Required last month (%)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={g.required_prev_month_pct}
-                    onChange={(e) => patch(i, { required_prev_month_pct: Number(e.target.value) })}
-                  />
-                </div>
-              </div>
 
-              <ChipPicker
-                title="Regions"
-                values={options?.regions ?? []}
-                selected={g.regions}
-                onToggle={(v) => toggleIn(i, 'regions', v)}
-              />
-              <ChipPicker
-                title="Districts"
-                values={options?.districts ?? []}
-                selected={g.districts}
-                onToggle={(v) => toggleIn(i, 'districts', v)}
-              />
-              <ChipPicker
-                title="Agent levels"
-                values={options?.tiers ?? []}
-                selected={g.tiers}
-                onToggle={(v) => toggleIn(i, 'tiers', v)}
-              />
-
-              <div>
-                <Label className="text-xs text-muted-foreground">Hand-picked agents</Label>
-                {g.agent_ids.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {g.agent_ids.map((id) => {
-                      const a = (options?.agents ?? []).find((x) => x.agent_id === id);
+                <div>
+                  <Label className="text-xs text-muted-foreground">Named agents only (optional)</Label>
+                  <Input
+                    value={agentSearch}
+                    onChange={(e) => setAgentSearch(e.target.value)}
+                    placeholder="Search an agent by name"
+                    className="mt-1 max-w-sm"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {agentMatches.map((a) => {
+                      const on = g.agent_ids.includes(a.id);
                       return (
-                        <button key={id} type="button" onClick={() => toggleIn(i, 'agent_ids', id)}>
-                          <Badge className="cursor-pointer">{a?.full_name ?? id.slice(0, 8)} ×</Badge>
-                        </button>
+                        <Badge
+                          key={a.id}
+                          variant={on ? 'default' : 'outline'}
+                          className="cursor-pointer"
+                          onClick={() => toggleIn(i, 'agent_ids', a.id)}
+                        >
+                          {a.full_name ?? 'Unnamed agent'}
+                        </Badge>
                       );
                     })}
                   </div>
-                )}
-                <Input
-                  value={agentSearch}
-                  onChange={(e) => setAgentSearch(e.target.value)}
-                  placeholder="Search an agent to add"
-                  className="mt-2 h-9"
-                />
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {agents.map((a) => (
-                    <button key={a.agent_id} type="button" onClick={() => toggleIn(i, 'agent_ids', a.agent_id)}>
-                      <Badge
-                        variant={g.agent_ids.includes(a.agent_id) ? 'default' : 'outline'}
-                        className="cursor-pointer"
-                      >
-                        {a.full_name ?? 'Unnamed'} · {a.active_tenants}
-                      </Badge>
-                    </button>
-                  ))}
+                  {g.agent_ids.length > 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {g.agent_ids.length} agent(s) picked — the rule covers only them.
+                    </p>
+                  )}
                 </div>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Nothing picked means every agent that matches the rest of this rule.
-                </p>
               </div>
-            </div>
-          ))}
+            ))}
 
-          <Button variant="outline" onClick={() => setGroups((prev) => [...prev, emptyGroup()])}>
-            <Plus className="mr-2 h-4 w-4" /> Add a rule
-          </Button>
-        </div>
+            {groups.length === 0 && (
+              <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                No rules yet. Add one to start restricting registrations.
+              </p>
+            )}
+          </div>
+        </ScrollArea>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => setGroups((prev) => [...prev, emptyGroup(prev.length)])}
+        >
+          <Plus className="mr-2 h-4 w-4" /> Add a rule
+        </Button>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

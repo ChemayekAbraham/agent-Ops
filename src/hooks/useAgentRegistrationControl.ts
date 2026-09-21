@@ -5,14 +5,6 @@ export interface RegistrationControlRow {
   agent_id: string;
   full_name: string | null;
   phone: string | null;
-  district: string | null;
-  region: string | null;
-  tier: string | null;
-  group_id: string | null;
-  group_label: string | null;
-  group_min_active_tenants: number | null;
-  group_required_pct: number | null;
-  in_scope: boolean;
   active_tenants: number;
   prev_expected: number;
   prev_collected: number;
@@ -27,6 +19,14 @@ export interface RegistrationControlRow {
   override_by: string | null;
   override_at: string | null;
   override_expires: string | null;
+  district?: string | null;
+  region?: string | null;
+  tier?: string | null;
+  group_id?: string | null;
+  group_label?: string | null;
+  group_min_active_tenants?: number | null;
+  group_required_pct?: number | null;
+  in_scope?: boolean;
 }
 
 export interface RegistrationOverrideRecord {
@@ -69,12 +69,13 @@ export interface RegistrationControlOptions {
   districts: string[];
   regions: string[];
   tiers: string[];
-  agents: { agent_id: string; full_name: string | null; active_tenants: number }[];
+  agents: { id: string; full_name: string | null }[];
 }
 
 export interface RegistrationControlData {
   as_of: string;
   rules: RegistrationControlRules;
+  options?: RegistrationControlOptions;
   totals: {
     agents: number;
     at_threshold: number;
@@ -83,7 +84,6 @@ export interface RegistrationControlData {
     overridden: number;
   };
   rows: RegistrationControlRow[];
-  options?: RegistrationControlOptions;
   overrides: RegistrationOverrideRecord[];
 }
 
