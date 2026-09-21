@@ -13,7 +13,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, Check, Forward, Search, X } from 'lucide-react';
+import { AlertTriangle, Check, Forward, Paperclip, Search, X } from 'lucide-react';
+import {
+  CONCERN_ATTACHMENT_MAX_BYTES,
+  uploadConcernAttachments,
+} from '@/hooks/useConcernAttachments';
 import { CCBlock, CCDialogHeading } from './ccUi';
 import { toast } from 'sonner';
 import {
