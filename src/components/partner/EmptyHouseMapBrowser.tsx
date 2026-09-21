@@ -573,16 +573,28 @@ export function EmptyHouseMapBrowser({
             setUserPosition(point);
             setGeoStatus('granted');
             setGeoPromptDismissed(true);
+            try {
+              window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+              setLocationPreviouslyGranted(true);
+            } catch {
+              // ignore storage errors
+            }
           }}
           onDenied={() => {
             setGeoStatus('denied');
             setGeoPromptDismissed(false);
+            try {
+              window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+              setLocationPreviouslyGranted(false);
+            } catch {
+              // ignore storage errors
+            }
           }}
         />
       </MapContainer>
 
-      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. */}
-      {!userPosition && (
+      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. Only show it when location has not been approved before. */}
+      {!userPosition && !locationPreviouslyGranted && (
         <div
           role="dialog"
           aria-label="Share your location to see empty houses near you"
