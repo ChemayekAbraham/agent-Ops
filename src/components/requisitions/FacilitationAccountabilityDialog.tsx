@@ -107,6 +107,7 @@ export function FacilitationAccountabilityDialog({
     if (!places.trim()) { toast.error('List the places you visited'); return; }
     if (!activities.trim()) { toast.error('Describe the activities you carried out'); return; }
     if (!results.trim()) { toast.error('Describe the results you achieved'); return; }
+    if (files.length === 0) { toast.error('Attach at least one receipt or proof of spending'); return; }
 
     setSaving(true);
 
@@ -272,7 +273,11 @@ export function FacilitationAccountabilityDialog({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs">Attachments (PDF, PNG, JPG — max 10MB each)</Label>
+            <Label className="text-xs">
+              Receipts or proof of spending
+              <span className="ml-1 text-destructive">*</span>
+            </Label>
+            <p className="text-xs text-muted-foreground">At least one required. Photo or PDF, up to 10MB each.</p>
             <div className="rounded-xl border border-dashed bg-muted/20 p-3 text-center">
               <label className="flex cursor-pointer flex-col items-center gap-1">
                 <Upload className="h-4 w-4 text-muted-foreground" />
@@ -308,7 +313,7 @@ export function FacilitationAccountabilityDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={() => void submit()} disabled={saving}>
+          <Button onClick={() => void submit()} disabled={saving || files.length === 0}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Submit report
           </Button>
