@@ -340,7 +340,7 @@ export default function AgentRegistrationControlTab() {
             <DialogTitle>Allow {overrideFor?.full_name ?? 'this agent'} to register</DialogTitle>
             <DialogDescription>
               {overrideFor
-                ? `${overrideFor.active_tenants} active tenants and ${overrideFor.prev_pct ?? 0}% collected last month, against the required ${rules?.required_prev_month_pct ?? 80}%.`
+                ? `${overrideFor.active_tenants} active tenants and ${overrideFor.prev_pct ?? 0}% collected last month, against the ${overrideFor.group_required_pct ?? rules?.required_prev_month_pct ?? 0}% required by ${overrideFor.group_label ?? 'the active rule'}.`
                 : ''}
             </DialogDescription>
           </DialogHeader>
