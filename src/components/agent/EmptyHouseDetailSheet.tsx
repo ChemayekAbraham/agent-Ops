@@ -414,6 +414,45 @@ export function EmptyHouseDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+
+    {/* Full-screen photo viewer — sits above the detail sheet (z-[1350]) */}
+    <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+      <DialogContent
+        className="z-[1450] flex h-[100dvh] w-full max-w-none flex-col items-center justify-center gap-0 border-0 bg-black/95 p-0 sm:rounded-none"
+        overlayClassName="z-[1400] bg-black/90"
+      >
+        <img
+          src={active}
+          alt={`${house.title || 'Empty house'} photo ${index + 1}`}
+          className="max-h-[100dvh] max-w-full object-contain"
+        />
+        {photos.length > 1 && (
+          <>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute left-3 top-1/2 h-11 w-11 -translate-y-1/2 rounded-full opacity-90"
+              onClick={() => setIndex((i) => (i - 1 + photos.length) % photos.length)}
+              aria-label="Previous photo"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute right-3 top-1/2 h-11 w-11 -translate-y-1/2 rounded-full opacity-90"
+              onClick={() => setIndex((i) => (i + 1) % photos.length)}
+              aria-label="Next photo"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+            <span className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-background/85 px-3 py-1 text-xs font-semibold">
+              {index + 1} / {photos.length}
+            </span>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
