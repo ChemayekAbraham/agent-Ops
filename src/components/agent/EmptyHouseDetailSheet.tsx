@@ -73,6 +73,8 @@ export function EmptyHouseDetailSheet({
   isPartner = false,
   remaining,
   onRelatedHouseClick,
+  onSeeMoreDistrict,
+
 }: {
   house: HouseOpportunity | null;
   open: boolean;
@@ -83,6 +85,9 @@ export function EmptyHouseDetailSheet({
   /** Supporter balance still free to commit — drives the funding requirement block. */
   remaining?: number;
   onRelatedHouseClick?: (house: HouseOpportunity) => void;
+  /** Closes this drawer and opens the map filtered to the house's district. */
+  onSeeMoreDistrict?: (district: string) => void;
+
 }) {
   const [index, setIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -478,7 +483,22 @@ export function EmptyHouseDetailSheet({
               ))}
             </div>
           )}
+
+          {onSeeMoreDistrict && house.district && (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenChange(false);
+                onSeeMoreDistrict(house.district as string);
+              }}
+              className="flex w-full items-center justify-between gap-2 pt-1 text-[11px] font-semibold text-primary"
+            >
+              See more in {prettyName(house.district)}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
+
 
         {onTogglePick && (
           <div className="sticky bottom-0 border-t bg-background p-4">
