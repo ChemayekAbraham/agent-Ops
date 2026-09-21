@@ -1786,6 +1786,13 @@
       "when": 1789916746742,
       "tag": "0254_map_empty_house_trend",
       "breakpoints": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1789969015910,
+      "tag": "0255_allow_tenant_repayment_before_landlord_paid",
+      "breakpoints": true
     }
   ]
 }
