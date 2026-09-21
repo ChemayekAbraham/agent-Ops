@@ -1403,6 +1403,8 @@ export function SelfPortfolioFundingCard({
               </span>
             </Button>
           )}
+          </div>
+          )}
         </div>
       )}
 
