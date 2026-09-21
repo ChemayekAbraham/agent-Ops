@@ -374,46 +374,14 @@ export default function AgentRegistrationControlTab() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registration control rules</DialogTitle>
-            <DialogDescription>These approved figures drive the restriction everywhere.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label htmlFor="rule-min">Restriction starts at this many active tenants</Label>
-              <Input
-                id="rule-min"
-                type="number"
-                min={1}
-                value={minTenants}
-                onChange={(e) => setMinTenants(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="rule-pct">Required previous month performance (%)</Label>
-              <Input
-                id="rule-pct"
-                type="number"
-                min={0}
-                max={100}
-                value={requiredPct}
-                onChange={(e) => setRequiredPct(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setRulesOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={submitRules} disabled={saveRules.isPending}>
-              {saveRules.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save rules
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RegistrationRuleGroupsDialog
+        open={rulesOpen}
+        onOpenChange={setRulesOpen}
+        rules={rules}
+        options={data?.options}
+        saving={saveRules.isPending}
+        onSave={submitRules}
+      />
     </div>
   );
 }
