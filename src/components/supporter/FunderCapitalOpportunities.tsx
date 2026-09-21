@@ -813,7 +813,6 @@ export function FunderCapitalOpportunities({
         onBack={embedded ? undefined : () => setView('menu')}
         compactMobile
       >
-        <HowItWorksSteps steps={DIRECT_FUNDING_STEPS} />
 
         {/* Tenant rent plans awaiting funding — stacked cards with bulk selection */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
