@@ -616,32 +616,6 @@ export function EmptyHouseMapBrowser({
 
   return (
     <div className="relative h-[26rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
-      <div className="absolute inset-x-3 top-3 z-[1000] sm:right-auto sm:w-[22rem]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={(event) => onSearchQueryChange(event.target.value)}
-            placeholder="Search district, neighborhood, or house"
-            aria-label="Search empty houses by district, neighborhood, or house name"
-            className="h-11 bg-background/95 pl-9 pr-10 text-sm shadow-lg backdrop-blur"
-          />
-          {searchQuery && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
-              onClick={() => onSearchQueryChange('')}
-              aria-label="Clear house search"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </Button>
-          )}
-        </div>
-      </div>
-
       <MapContainer
         center={KAMPALA}
         zoom={11}
