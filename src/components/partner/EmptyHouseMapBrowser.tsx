@@ -294,15 +294,9 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
-        // Default view: the whole country the funder is in, so they see the
-        // national picture first. Outside a known country, zoom to their area.
-        const homeCountry = AFRICA_COUNTRIES.find((c) => pointInCountry(c, point[0], point[1]));
-        if (homeCountry) {
-          const [south, west, north, east] = homeCountry.bbox;
-          mapInstance.fitBounds(L.latLngBounds([south, west], [north, east]), { padding: [24, 24] });
-        } else {
-          mapInstance.setView(point, 13);
-        }
+        // Default view: the funder's own area, so the empty houses around them
+        // are the first ones on screen.
+        mapInstance.setView(point, 13);
       },
       () => {
         if (cancelled) return;
@@ -547,42 +541,43 @@ export function EmptyHouseMapBrowser({
         />
       </MapContainer>
 
-      {(geoStatus === 'denied' || geoStatus === 'unsupported') && !geoPromptDismissed && !userPosition && (
+      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. */}
+      {!userPosition && (
         <div
           role="dialog"
-          aria-label="Location access needed"
-          className="absolute inset-x-3 top-14 z-[1100] rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur sm:inset-x-auto sm:left-3 sm:right-16"
+          aria-label="Share your location to see empty houses near you"
+          className="absolute inset-0 z-[1200] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm"
         >
-          <div className="flex items-start gap-2">
-            <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <div className="min-w-0 text-xs leading-snug">
-              <p className="font-semibold">We couldn't get your location</p>
-              <p className="mt-0.5 text-muted-foreground">
-                {geoStatus === 'unsupported'
-                  ? 'This browser cannot share your location. Choose your area manually to see the nearest empty houses first.'
-                  : 'Location access is off, so the map cannot show the nearest empty houses first. Allow access, or pick your area yourself.'}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {geoStatus !== 'unsupported' && (
-                  <Button type="button" size="sm" className="h-8" onClick={retryLocate}>
-                    <Crosshair className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                    Try again
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8"
-                  onClick={() => setAreaPickerOpen((open) => !open)}
-                  aria-expanded={areaPickerOpen}
-                >
-                  <MapPin className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  Choose my area
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-4 text-center shadow-xl">
+            <Navigation className="mx-auto h-6 w-6 text-primary" aria-hidden />
+            <p className="mt-2 text-sm font-semibold">Share your location</p>
+            <p className="mt-1 text-xs leading-snug text-muted-foreground">
+              {geoStatus === 'unsupported'
+                ? 'This browser cannot share your location. Pick your area to see the empty houses there.'
+                : geoStatus === 'denied'
+                  ? 'Location access is off. Turn it on and try again, or pick your area yourself.'
+                  : 'We show the empty houses around you, so we need your location first.'}
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              {geoStatus !== 'unsupported' && (
+                <Button type="button" size="sm" className="h-9" onClick={retryLocate}>
+                  <Crosshair className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  {geoStatus === 'denied' ? 'Try again' : 'Use my location'}
                 </Button>
-              </div>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9"
+                onClick={() => setAreaPickerOpen((open) => !open)}
+                aria-expanded={areaPickerOpen}
+              >
+                <MapPin className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Choose my area
+              </Button>
               {areaPickerOpen && (
-                <label className="mt-2 block">
+                <label className="block text-left">
                   <span className="sr-only">Choose your district or country</span>
                   <select
                     className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
@@ -601,17 +596,10 @@ export function EmptyHouseMapBrowser({
                 </label>
               )}
             </div>
-            <button
-              type="button"
-              aria-label="Dismiss location prompt"
-              onClick={() => setGeoPromptDismissed(true)}
-              className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-muted"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden />
-            </button>
           </div>
         </div>
       )}
+
 
       {cellsQuery.isFetching && (
         <div
