@@ -121,6 +121,8 @@ function ConcernTimelineDialog({
               </p>
             </CCBlock>
             {concern.context && <p className="text-[11px] leading-snug">{concern.context}</p>}
+            <ConcernCaseContextPanel concernId={concern.id} fallbackName={concern.caller_name} />
+            <ConcernAttachmentsPanel concernId={concern.id} />
             <ConcernParticipantsPanel concern={concern} reviewers={reviewerRows} />
             <ConcernControlPanel concern={concern} />
             <div className="space-y-2">
