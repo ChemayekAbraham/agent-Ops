@@ -447,9 +447,17 @@ export function EmptyHouseMapBrowser({
       const match = manualAreaOptions.find((o) => o.label === label);
       if (!match || !mapInstance) return;
       initialFitDone.current = true;
+      setGeoStatus('granted');
       setUserPosition(match.point);
       setGeoPromptDismissed(true);
       setAreaPickerOpen(false);
+      try {
+        window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+        window.localStorage.setItem(MANUAL_AREA_KEY, label);
+        setLocationPreviouslyGranted(true);
+      } catch {
+        // ignore storage errors
+      }
       mapInstance.flyTo(match.point, 11, { duration: 0.6 });
     },
     [manualAreaOptions, mapInstance],
