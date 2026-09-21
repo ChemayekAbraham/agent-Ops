@@ -16,6 +16,10 @@ import { Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { TOPUP_TIER_LABELS } from '@/hooks/useTenantTopupEligibility';
 import { useTenantOpsManagementOverview } from '@/hooks/useTenantOpsManagementOverview';
+import {
+  TenantQuickActions,
+  AgentQuickActions,
+} from '@/components/executive/tenant-ops/workspace/TenantOpsQuickActions';
 
 const CYCLE_LABELS: Record<string, string> = {
   in_cycle: 'Still inside the cycle',
@@ -231,6 +235,7 @@ export default function ManagementOverviewTab() {
                       <TableHead>Eligibility</TableHead>
                       <TableHead className="text-right">Can access</TableHead>
                       <TableHead className="text-right">Needed for next level</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -285,12 +290,15 @@ export default function ManagementOverviewTab() {
                               '—'
                             )}
                           </TableCell>
+                          <TableCell className="text-right">
+                            <TenantQuickActions tenant={t} agentOptions={agentOptions} />
+                          </TableCell>
                         </TableRow>
                       );
                     })}
                     {visibleTenants.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={14} className="py-8 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={15} className="py-8 text-center text-sm text-muted-foreground">
                           No tenants match these filters.
                         </TableCell>
                       </TableRow>
@@ -353,6 +361,7 @@ export default function ManagementOverviewTab() {
                       <TableHead className="text-right">Arrears</TableHead>
                       <TableHead className="text-right">Last month</TableHead>
                       <TableHead>New registrations</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -384,11 +393,14 @@ export default function ManagementOverviewTab() {
                             <Badge variant="outline">Can register</Badge>
                           )}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <AgentQuickActions agentId={a.agent_id} agentName={a.agent_name} />
+                        </TableCell>
                       </TableRow>
                     ))}
                     {visibleAgents.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                           No agents match these filters.
                         </TableCell>
                       </TableRow>
