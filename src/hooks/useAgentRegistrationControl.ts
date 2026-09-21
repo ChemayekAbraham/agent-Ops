@@ -19,6 +19,14 @@ export interface RegistrationControlRow {
   override_by: string | null;
   override_at: string | null;
   override_expires: string | null;
+  district?: string | null;
+  region?: string | null;
+  tier?: string | null;
+  group_id?: string | null;
+  group_label?: string | null;
+  group_min_active_tenants?: number | null;
+  group_required_pct?: number | null;
+  in_scope?: boolean;
 }
 
 export interface RegistrationOverrideRecord {
