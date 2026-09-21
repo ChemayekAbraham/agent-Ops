@@ -274,7 +274,7 @@ export function ROIPayoutQueue() {
       </div>
 
       <Sheet open={!!reviewTarget} onOpenChange={(o) => { if (!o) setReviewTarget(null); }}>
-        <SheetContent side="center" className="max-h-[70vh] w-[85vw] sm:max-w-sm overflow-y-auto rounded-xl p-4">
+        <SheetContent side="center" className="max-h-[70vh] w-[80vw] sm:max-w-xs overflow-y-auto rounded-xl p-4">
           {reviewTarget && (
             <div className="space-y-4">
               <SheetHeader>
