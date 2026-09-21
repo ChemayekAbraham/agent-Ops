@@ -13,7 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -122,67 +122,6 @@ export function EmptyHouseDetailSheet({
         className="z-[1350] max-h-[90vh] gap-0 overflow-y-auto rounded-t-2xl p-0 sm:left-1/2 sm:w-[26rem] sm:-translate-x-1/2 sm:rounded-t-2xl"
         overlayClassName="z-[1260]"
       >
-        <SheetHeader className="p-4 text-left">
-          {/* Detailed house card */}
-          <div className="space-y-3 rounded-2xl border p-4">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <Home className="h-4 w-4 text-primary" />
-              {house.title || formatHouseCategory(house.house_category) || 'Empty house'}
-            </SheetTitle>
-            <SheetDescription className="flex items-center gap-1 text-[11px]">
-              <MapPin className="h-3 w-3 shrink-0" /> {housePlace(house)}
-            </SheetDescription>
-
-            <div className="grid grid-cols-2 gap-3 pt-1 text-[12px]">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Type</p>
-                <p className="font-semibold">{formatHouseCategory(house.house_category) || 'Not stated'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Rooms</p>
-                <p className="font-semibold">{house.number_of_rooms ?? 'Not stated'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Status</p>
-                {house.verified ? (
-                  <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
-                    <ShieldCheck className="h-3 w-3" /> Verified
-                  </Badge>
-                ) : (
-                  <span className="font-semibold">Pending verification</span>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Monthly rent</p>
-                <p className="text-base font-black text-primary">{formatUGX(house.monthly_rent)}</p>
-              </div>
-            </div>
-
-            <div className="space-y-1.5 border-t pt-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Landlord</p>
-              <p className="text-base font-bold leading-tight text-primary">{house.landlord_name || 'Name not on file'}</p>
-              {house.landlord_phone && (
-                <p className="text-sm font-medium text-primary/80">{house.landlord_phone}</p>
-              )}
-              {house.landlord_phone ? (
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <Button asChild variant="outline" size="sm" className="h-10 gap-1.5 text-[12px]">
-                    <a href={`tel:${house.landlord_phone}`}>
-                      <Phone className="h-3.5 w-3.5" /> Call
-                    </a>
-                  </Button>
-                  <Button asChild variant="secondary" size="sm" className="h-10 gap-1.5 text-[12px]">
-                    <a href={`sms:${house.landlord_phone}`}>
-                      <MessageSquare className="h-3.5 w-3.5" /> Message
-                    </a>
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">No contact on file.</p>
-              )}
-            </div>
-          </div>
-        </SheetHeader>
 
         <div className="space-y-4 p-4">
           {/* Gallery */}
@@ -250,6 +189,66 @@ export function EmptyHouseDetailSheet({
               <ImageIcon className="h-4 w-4" /> No photo on file
             </div>
           )}
+
+          {/* Detailed house card */}
+          <div className="space-y-3 rounded-2xl border p-4">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <Home className="h-4 w-4 text-primary" />
+              {house.title || formatHouseCategory(house.house_category) || 'Empty house'}
+            </h2>
+            <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <MapPin className="h-3 w-3 shrink-0" /> {housePlace(house)}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 pt-1 text-[12px]">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Type</p>
+                <p className="font-semibold">{formatHouseCategory(house.house_category) || 'Not stated'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Rooms</p>
+                <p className="font-semibold">{house.number_of_rooms ?? 'Not stated'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Status</p>
+                {house.verified ? (
+                  <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
+                    <ShieldCheck className="h-3 w-3" /> Verified
+                  </Badge>
+                ) : (
+                  <span className="font-semibold">Pending verification</span>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Monthly rent</p>
+                <p className="text-base font-black text-primary">{formatUGX(house.monthly_rent)}</p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 border-t pt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Landlord</p>
+              <p className="text-base font-bold leading-tight text-primary">{house.landlord_name || 'Name not on file'}</p>
+              {house.landlord_phone && (
+                <p className="text-sm font-medium text-primary/80">{house.landlord_phone}</p>
+              )}
+              {house.landlord_phone ? (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Button asChild variant="outline" size="sm" className="h-10 gap-1.5 text-[12px]">
+                    <a href={`tel:${house.landlord_phone}`}>
+                      <Phone className="h-3.5 w-3.5" /> Call
+                    </a>
+                  </Button>
+                  <Button asChild variant="secondary" size="sm" className="h-10 gap-1.5 text-[12px]">
+                    <a href={`sms:${house.landlord_phone}`}>
+                      <MessageSquare className="h-3.5 w-3.5" /> Message
+                    </a>
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">No contact on file.</p>
+              )}
+            </div>
+          </div>
 
           {/* Your opportunity / benefit card */}
           <div className="rounded-2xl border p-4 space-y-3">

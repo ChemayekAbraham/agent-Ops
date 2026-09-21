@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useWallet } from '@/hooks/useWallet';
 import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
@@ -841,33 +842,28 @@ export function FunderCapitalOpportunities({
             </div>
           </div>
 
-          {/* Single "How it works" explainer — one tap opens all guidance sections */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant={showHowItWorks ? 'default' : 'outline'}
-              size="sm"
-              className="h-8 gap-1.5 rounded-full text-[11px] font-bold"
-              aria-expanded={showHowItWorks}
-              aria-controls="empty-house-how-it-works"
-              onClick={() => setShowHowItWorks(v => !v)}
-            >
-              <Info className="h-3.5 w-3.5" aria-hidden />
-              How it works
-              {showHowItWorks ? <ChevronUp className="h-3 w-3" aria-hidden /> : <ChevronDown className="h-3 w-3" aria-hidden />}
-            </Button>
-          </div>
+          {/* Single "How it works" explainer — opens a dedicated dialog */}
+          <Dialog open={showHowItWorks} onOpenChange={setShowHowItWorks}>
+            <div className="flex flex-wrap items-center gap-2">
+              <DialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-full text-[11px] font-bold"
+                  onClick={() => hapticTap()}
+                >
+                  <Info className="h-3.5 w-3.5" aria-hidden />
+                  How it works
+                </Button>
+              </DialogTrigger>
+            </div>
 
-          <AnimatePresence initial={false}>
-            {showHowItWorks && (
-              <motion.div
-                id="empty-house-how-it-works"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden space-y-3"
-              >
+            <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>How it works</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
                 <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 sm:p-3.5 space-y-2.5">
                   <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-snug">
                     Start a rental business with your savings — even small ones.
@@ -930,9 +926,9 @@ export function FunderCapitalOpportunities({
                     </li>
                   </ul>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* House cards appear first so funders can browse immediately */}
           {user?.id
