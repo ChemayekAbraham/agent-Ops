@@ -113,9 +113,11 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     );
   };
 
-  // These two views carry their own page header, so the shell heading is dropped
+  // These views carry their own page header, so the shell heading is dropped
   // to avoid printing the same title twice.
-  const selfTitled = active === 'action.portfolio-performance' || active === 'action.notifications-analytics';
+  const selfTitled = active === 'action.portfolio-performance'
+    || active === 'action.notifications-analytics'
+    || active === 'tenant-operations-workspace';
   const label = active === 'home' || selfTitled ? '' : tenantOpsLabelFor(active);
 
   return (
