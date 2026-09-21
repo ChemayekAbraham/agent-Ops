@@ -838,33 +838,6 @@ export function FunderCapitalOpportunities({
             </ToggleGroupItem>
           </ToggleGroup>
 
-          {/* Live rent-needed headline for every empty house, straight under the button */}
-          {feedOrder === 'houses' && (() => {
-            const s = emptyHouseSummary;
-            const openHouses = s?.house_count ?? 0;
-            const rentNeeded = s?.total_rent_needed ?? 0;
-            const avgRent = s?.avg_monthly_rent ?? 0;
-
-            return (
-              <div className="rounded-2xl border border-success/30 bg-success/5 p-3 sm:p-3.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Rent needed for all empty houses
-                </p>
-                <p className="mt-0.5 text-2xl font-black leading-none tracking-tight text-foreground tabular-nums sm:text-3xl">
-                  {loading && !s ? '—' : formatAmountCompact(rentNeeded)}
-                </p>
-                <p className="mt-1.5 text-[11px] font-semibold leading-snug text-foreground/80">
-                  {openHouses.toLocaleString()} {openHouses === 1 ? 'empty house is' : 'empty houses are'} waiting for a
-                  Supporter{avgRent > 0 ? ` · about ${formatAmountCompact(avgRent)} per house` : ''}
-                </p>
-                <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                  This is all the rent money still needed to put tenants into every empty house. It goes up when agents
-                  list new empty houses, and down when Supporters fund them.
-                </p>
-              </div>
-            );
-          })()}
-
           {feedOrder !== 'houses' && (
             <>
               <div className="flex items-center gap-2">
