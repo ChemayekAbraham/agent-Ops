@@ -6,7 +6,7 @@
  * left out. The hand-off itself is written by a SECURITY DEFINER function, which
  * also opens the concern's history trail.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
