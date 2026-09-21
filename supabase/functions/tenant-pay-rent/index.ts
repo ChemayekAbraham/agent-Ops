@@ -167,26 +167,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Landlord-paid gate: if the landlord float released to the agent still
-    // holds money (paid_out < allocated), the landlord has not been paid and
-    // collection must stay closed — even when the request reads 'repaying'.
-    const { data: unpaidAlloc } = await supabaseAdmin
-      .from("agent_landlord_float_allocations")
-      .select("id")
-      .eq("rent_request_id", rentRequest.id)
-      .gt("remaining_amount", 0)
-      .limit(1)
-      .maybeSingle();
+    // Landlord-paid gate REMOVED (2026-09-21 business decision): tenant
+    // repayments are accepted even when the landlord float released to the
+    // agent has not yet reached the landlord. Landlord settlement is tracked
+    // separately via agent_landlord_float_allocations.
 
-    if (unpaidAlloc) {
-      return new Response(
-        JSON.stringify({
-          error: "The landlord has not been paid yet for this Rent Plan. Collection opens once the landlord is paid.",
-          error_code: "LANDLORD_NOT_PAID",
-        }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     const outstanding = rentRequest.total_repayment - rentRequest.amount_repaid;
     const payAmount = Math.min(amount, outstanding);

@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
@@ -17,6 +17,7 @@ import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
 import { PlanShareButton } from './PlanShareButton';
 import { SlotAmount } from './SlotAmount';
 import {
+  HighlightText,
   HouseSupportBar,
   HouseSupportCard,
   houseTitleLine,
@@ -26,21 +27,54 @@ import {
 import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
 import DepositFlow from '@/components/payments/DepositFlow';
 import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
+import { EmptyHouseTrendPanel } from './EmptyHouseTrendPanel';
+import { useEmptyHouseTotalRentNeeded } from '@/hooks/useEmptyHouseTotalRentNeeded';
 import { HouseCompareDialog } from './HouseCompareDialog';
+import { FundHouseTooltip } from './FundHouseTooltip';
+import { HousePlacementTimeline } from './HousePlacementTimeline';
+import { AFRICA_COUNTRIES, countryByCode, pointInCountry } from '@/lib/africaCountries';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
 
-type HouseSort = 'return_desc' | 'rent_desc' | 'rent_asc' | 'rooms_desc' | 'nearest';
+type HouseSort =
+  | 'return_desc'
+  | 'rent_desc'
+  | 'rent_asc'
+  | 'rooms_desc'
+  | 'nearest'
+  | 'location_asc'
+  | 'ready_first'
+  | 'relevance'
+  | 'newest';
 
 const HOUSE_SORTS: { value: HouseSort; label: string }[] = [
   { value: 'rent_asc', label: 'Rent: low to high' },
-  { value: 'nearest', label: 'Nearest first' },
-  { value: 'return_desc', label: 'Biggest monthly return' },
   { value: 'rent_desc', label: 'Rent: high to low' },
+  { value: 'nearest', label: 'Nearest first' },
+  { value: 'location_asc', label: 'Location: A to Z' },
+  { value: 'ready_first', label: 'Ready to fund first' },
+  { value: 'relevance', label: 'Best match for my search' },
+  { value: 'return_desc', label: 'Biggest monthly return' },
   { value: 'rooms_desc', label: 'Most rooms' },
+  { value: 'newest', label: 'Newest listings first' },
 ];
+
+/** Haversine distance between two lat/lng points in kilometres. */
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 export type FeedOrder = 'rent' | 'houses';
 
@@ -116,6 +150,8 @@ export function SelfPortfolioFundingCard({
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
   const [houseSort, setHouseSort] = useState<HouseSort>('rent_asc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
+  // Neighborhood (sub-county) quick filter — set via chips, pairs with district.
+  const [houseSubCounty, setHouseSubCounty] = useState<string>('all');
   const [houseSearch, setHouseSearch] = useState('');
   const [houseWithinFloat, setHouseWithinFloat] = useState(false);
   // Show only saved houses whose current balance is enough to fund them.
@@ -127,6 +163,36 @@ export function SelfPortfolioFundingCard({
   // not cover it yet — "ready" fits within float, "topup" needs a top-up first.
   type HouseFundingStatus = 'all' | 'ready' | 'topup';
   const [houseFundingStatus, setHouseFundingStatus] = useState<HouseFundingStatus>('all');
+  // Country filter (Africa-wide): narrows both the map/heatmap viewport and the cards.
+  const [houseCountry, setHouseCountry] = useState<string>('all');
+  // Listing age ceiling in days ('all' = any age).
+  const [houseListingAge, setHouseListingAge] = useState<string>('all');
+  // Reference point for the "Nearest first" sort, taken from the last house selected on the map.
+  const [referencePoint, setReferencePoint] = useState<{ lat: number; lng: number } | null>(null);
+  // The funder's own device location, used for the distance / travel-time labels
+  // on each house card when no map house has been tapped yet.
+  const [userPoint, setUserPoint] = useState<{ lat: number; lng: number } | null>(null);
+  // Radius filter (km) around the funder's own location, falling back to the
+  // last house tapped on the map when device location is unavailable.
+  const [houseRadiusKm, setHouseRadiusKm] = useState<string>('all');
+
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (cancelled) return;
+        setUserPoint({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        /* location off or refused — cards simply omit the distance labels */
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   // Side-by-side comparison picks (in-session only; never touches funding).
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -136,6 +202,9 @@ export function SelfPortfolioFundingCard({
   // A changing key asks HouseSupportBar to open its confirm dialog (used by
   // the balance-ready notification's "Fund this house" action).
   const [fundConfirmKey, setFundConfirmKey] = useState<string | null>(null);
+  // Bumped after a house funding is submitted so the placement timeline
+  // immediately picks up the newly funded house.
+  const [placementRefresh, setPlacementRefresh] = useState(0);
   // Houses that just became fundable stay highlighted until the partner
   // dismisses the highlight or funds them. Persisted so it survives reloads.
   const fundableKey = `psm-house-fundable-${partnerId}`;
@@ -313,10 +382,34 @@ export function SelfPortfolioFundingCard({
   });
 
   const housesQuery = useVerifiedEmptyHouses();
+  const rentNeededQuery = useEmptyHouseTotalRentNeeded();
 
   const plans = plansQuery.data?.plans ?? [];
 
-  const houses = housesQuery.data?.houses ?? [];
+  // The map reads houses straight from the database per viewport, so it can show
+  // houses this page has not loaded. Anything it surfaces is registered here so
+  // selection totals, saved-for-later and funding stay accurate.
+  const [discoveredHouses, setDiscoveredHouses] = useState<Record<string, SupportableHouse>>({});
+  const registerDiscoveredHouses = useCallback((found: SupportableHouse[]) => {
+    setDiscoveredHouses((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const house of found) {
+        if (!next[house.house_id]) {
+          next[house.house_id] = house;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, []);
+
+  const houses = useMemo(() => {
+    const fetched = housesQuery.data?.houses ?? [];
+    const seen = new Set(fetched.map((h) => h.house_id));
+    const extra = Object.values(discoveredHouses).filter((h) => !seen.has(h.house_id));
+    return extra.length ? [...fetched, ...extra] : fetched;
+  }, [housesQuery.data, discoveredHouses]);
 
   // Drop picked houses that are no longer listed (already funded by someone else).
   useEffect(() => {
@@ -332,6 +425,7 @@ export function SelfPortfolioFundingCard({
     });
   }, [housesQuery.data, houses]);
   const available = plansQuery.data?.available ?? 0;
+  const marketRentNeeded = rentNeededQuery.data?.totalRentNeeded ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
   const activeCommitmentId = fundedQuery.data?.activeCommitmentId ?? null;
   const activeHouseCommitment = fundedQuery.data?.houseCommitment ?? null;
@@ -616,17 +710,111 @@ export function SelfPortfolioFundingCard({
     | { kind: 'plan'; id: string; plan: FundablePlan }
     | { kind: 'house'; id: string; house: SupportableHouse };
 
-  // District filter options: distinct districts present in the current list.
+  const normalizedSearch = useMemo(() => houseSearch.trim().toLocaleLowerCase(), [houseSearch]);
+  const rentMinBound = useMemo(() => Number(houseRentMin), [houseRentMin]);
+  const rentMaxBound = useMemo(() => Number(houseRentMax), [houseRentMax]);
+  const selectedCountry = useMemo(
+    () => (houseCountry === 'all' ? null : countryByCode(houseCountry)),
+    [houseCountry],
+  );
+  const listingAgeDays = useMemo(
+    () => (houseListingAge === 'all' ? null : Number(houseListingAge)),
+    [houseListingAge],
+  );
+  const listedAfter = useMemo(
+    () => (listingAgeDays ? Date.now() - listingAgeDays * 24 * 60 * 60 * 1000 : null),
+    [listingAgeDays],
+  );
+
+  // Shared filter predicate used by location-chip counts and the main feed.
+  const matchesBaseFilters = useCallback(
+    (h: SupportableHouse) => {
+      if (normalizedSearch) {
+        const matchesSearch = [
+          houseTitleLine(h),
+          h.title,
+          h.house_category,
+          h.district,
+          h.sub_county,
+          h.village,
+          h.region,
+        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch));
+        if (!matchesSearch) return false;
+      }
+      const rent = Number(h.monthly_rent || 0);
+      if (houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) && rent < rentMinBound) return false;
+      if (houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) && rent > rentMaxBound) return false;
+      if (houseFundingStatus === 'ready' && rent > remaining) return false;
+      if (houseFundingStatus === 'topup' && rent <= remaining) return false;
+      if (houseWithinFloat && rent > remaining) return false;
+      if (showSavedReadyOnly && (!houseSelected.includes(h.house_id) || rent > remaining)) return false;
+      if (selectedCountry && !pointInCountry(selectedCountry, h.latitude, h.longitude)) return false;
+      if (listedAfter !== null) {
+        const listedAt = h.created_at ? new Date(h.created_at).getTime() : NaN;
+        if (!Number.isFinite(listedAt) || listedAt < listedAfter) return false;
+      }
+      return true;
+    },
+    [
+      normalizedSearch,
+      selectedCountry,
+      listedAfter,
+      houseRentMin,
+      houseRentMax,
+      houseFundingStatus,
+      houseWithinFloat,
+      showSavedReadyOnly,
+      houseSelected,
+      remaining,
+      rentMinBound,
+      rentMaxBound,
+    ],
+  );
+
+  // District filter options with counts — scoped to current sub-county and all other active filters.
   const houseDistricts = useMemo(() => {
-    const set = new Map<string, string>();
+    const map = new Map<string, { label: string; count: number }>();
     for (const h of houses) {
+      if (!matchesBaseFilters(h)) continue;
+      if (houseSubCounty !== 'all' && (h.sub_county ?? '').trim().toLowerCase() !== houseSubCounty) continue;
       const raw = (h.district ?? '').trim();
       if (!raw) continue;
       const key = raw.toLowerCase();
-      if (!set.has(key)) set.set(key, raw);
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(key, { label: raw, count: 1 });
+      }
     }
-    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [houses]);
+    return [...map.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
+  }, [houses, matchesBaseFilters, houseSubCounty]);
+
+  // Neighborhood filter options with counts — scoped to the selected district and all other active filters.
+  const houseSubCounties = useMemo(() => {
+    const map = new Map<string, { label: string; count: number }>();
+    for (const h of houses) {
+      if (!matchesBaseFilters(h)) continue;
+      if (houseDistrict !== 'all' && (h.district ?? '').trim().toLowerCase() !== houseDistrict) continue;
+      const raw = (h.sub_county ?? '').trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(key, { label: raw, count: 1 });
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
+  }, [houses, matchesBaseFilters, houseDistrict]);
+
+  // Changing district can invalidate a neighborhood chip choice.
+  useEffect(() => {
+    if (houseSubCounty !== 'all' && !houseSubCounties.some(([key]) => key === houseSubCounty)) {
+      setHouseSubCounty('all');
+    }
+  }, [houseDistrict, houseSubCounties, houseSubCounty]);
 
   const feed = useMemo<FeedItem[]>(() => {
     const planItems: FeedItem[] = plans.map((plan) => ({
@@ -634,52 +822,64 @@ export function SelfPortfolioFundingCard({
       id: plan.rent_request_id,
       plan,
     }));
-    let visibleHouses = houses;
-    const normalizedSearch = houseSearch.trim().toLocaleLowerCase();
-    if (normalizedSearch) {
-      visibleHouses = visibleHouses.filter((house) =>
-        [
-          houseTitleLine(house),
-          house.title,
-          house.house_category,
-          house.district,
-          house.sub_county,
-          house.village,
-          house.region,
-        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)),
-      );
-    }
+    let visibleHouses = houses.filter((h) => matchesBaseFilters(h));
     if (houseDistrict !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
       );
     }
-    const rentMinBound = Number(houseRentMin);
-    if (houseRentMin.trim() !== '' && Number.isFinite(rentMinBound)) {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) >= rentMinBound);
-    }
-    const rentMaxBound = Number(houseRentMax);
-    if (houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound)) {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= rentMaxBound);
-    }
-    if (houseFundingStatus === 'ready') {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
-    } else if (houseFundingStatus === 'topup') {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) > remaining);
-    }
-    if (houseWithinFloat) {
-      visibleHouses = visibleHouses.filter((h) => Number(h.monthly_rent || 0) <= remaining);
-    }
-    if (showSavedReadyOnly) {
+    if (houseSubCounty !== 'all') {
       visibleHouses = visibleHouses.filter(
-        (h) => houseSelected.includes(h.house_id) && Number(h.monthly_rent || 0) <= remaining,
+        (h) => (h.sub_county ?? '').trim().toLowerCase() === houseSubCounty,
       );
+    }
+    if (houseRadiusKm !== 'all') {
+      const maxKm = Number(houseRadiusKm);
+      const origin = userPoint ?? referencePoint;
+      if (origin && Number.isFinite(maxKm)) {
+        visibleHouses = visibleHouses.filter((h) => {
+          const lat = Number(h.latitude);
+          const lng = Number(h.longitude);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+          return distanceKm(origin.lat, origin.lng, lat, lng) <= maxKm;
+        });
+      }
     }
     visibleHouses = [...visibleHouses].sort((a, b) => {
       const rentA = Number(a.monthly_rent || 0);
       const rentB = Number(b.monthly_rent || 0);
-      const distA = a.distance_km ?? Infinity;
-      const distB = b.distance_km ?? Infinity;
+      const distanceTo = (h: SupportableHouse) => {
+        const lat = Number(h.latitude);
+        const lng = Number(h.longitude);
+        if (referencePoint && Number.isFinite(lat) && Number.isFinite(lng)) {
+          return distanceKm(referencePoint.lat, referencePoint.lng, lat, lng);
+        }
+        return h.distance_km ?? Infinity;
+      };
+      const distA = distanceTo(a);
+      const distB = distanceTo(b);
+      const locationLabel = (h: SupportableHouse) =>
+        [h.district, h.sub_county, h.village]
+          .map((v) => (v ?? '').trim())
+          .filter(Boolean)
+          .join(', ')
+          .toLocaleLowerCase();
+      // Ready to fund now (rent covered by available balance) sorts ahead of top-up needed.
+      const readyRank = (rent: number) => (rent <= remaining ? 0 : 1);
+      // Relevance: earlier and more field matches for the search term rank higher.
+      const relevanceScore = (h: SupportableHouse) => {
+        if (!normalizedSearch) return 0;
+        const fields = [houseTitleLine(h), h.title, h.district, h.sub_county, h.village, h.house_category];
+        let score = 0;
+        for (const field of fields) {
+          const value = (field ?? '').toLocaleLowerCase();
+          if (!value) continue;
+          const at = value.indexOf(normalizedSearch);
+          if (at === 0) score += 3;
+          else if (at > 0) score += 1;
+        }
+        return score;
+      };
       switch (houseSort) {
         case 'nearest':
           if (distA !== distB) return distA - distB;
@@ -691,6 +891,26 @@ export function SelfPortfolioFundingCard({
           return rentB - rentA;
         case 'rooms_desc':
           return Number(b.number_of_rooms || 0) - Number(a.number_of_rooms || 0);
+        case 'location_asc': {
+          const cmp = locationLabel(a).localeCompare(locationLabel(b));
+          if (cmp !== 0) return cmp;
+          return rentA - rentB;
+        }
+        case 'ready_first': {
+          const cmp = readyRank(rentA) - readyRank(rentB);
+          if (cmp !== 0) return cmp;
+          return rentA - rentB;
+        }
+        case 'relevance': {
+          const cmp = relevanceScore(b) - relevanceScore(a);
+          if (cmp !== 0) return cmp;
+          return rentA - rentB;
+        }
+        case 'newest': {
+          const cmp = String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''));
+          if (cmp !== 0) return cmp;
+          return rentA - rentB;
+        }
         case 'return_desc':
         default:
           return (
@@ -705,11 +925,40 @@ export function SelfPortfolioFundingCard({
       house,
     }));
     return feedOrder === 'houses' ? houseItems : planItems;
-  }, [plans, houses, feedOrder, houseSort, houseDistrict, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseSelected, remaining]);
+  }, [
+    plans,
+    houses,
+    feedOrder,
+    houseSort,
+    referencePoint,
+    userPoint,
+    houseRadiusKm,
+    houseDistrict,
+    houseSubCounty,
+    matchesBaseFilters,
+    normalizedSearch,
+    remaining,
+  ]);
+
+  const resetFilters = useCallback(() => {
+    setHouseSort('rent_asc');
+    setHouseDistrict('all');
+    setHouseSubCounty('all');
+    setHouseSearch('');
+    setHouseRentMin('');
+    setHouseRentMax('');
+    setHouseFundingStatus('all');
+    setHouseWithinFloat(false);
+    setShowSavedReadyOnly(false);
+    setHouseCountry('all');
+    setHouseListingAge('all');
+    setHouseRadiusKm('all');
+    setReferencePoint(null);
+  }, []);
 
   useEffect(() => {
     setPage(0);
-  }, [houseSort, houseDistrict, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, feedOrder]);
+  }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseCountry, houseListingAge, houseRadiusKm, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
@@ -802,9 +1051,22 @@ export function SelfPortfolioFundingCard({
             searchQuery={houseSearch}
             remaining={remaining}
             busy={busy}
+            minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
+            maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
+            district={houseDistrict !== 'all' ? houseDistrict : null}
+            country={selectedCountry}
+            maxAgeDays={listingAgeDays}
+            onHousesDiscovered={registerDiscoveredHouses}
             onSearchQueryChange={setHouseSearch}
             onOpenHouse={setDetailHouse}
             onFundHouse={(house) => toggleHouse(house.house_id)}
+            onActiveHouseChange={(house) => {
+              if (house && Number.isFinite(Number(house.latitude)) && Number.isFinite(Number(house.longitude))) {
+                setReferencePoint({ lat: Number(house.latitude), lng: Number(house.longitude) });
+              } else if (!house) {
+                setReferencePoint(null);
+              }
+            }}
           />
           <div className="flex min-h-0 flex-col gap-3 border-t border-border p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-4">
             <div>
@@ -842,8 +1104,12 @@ export function SelfPortfolioFundingCard({
                       </div>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-bold text-foreground">{houseTitleLine(house)}</span>
-                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{house.district || 'Uganda'}</span>
+                      <span className="block truncate text-xs font-bold text-foreground">
+                        <HighlightText text={houseTitleLine(house)} query={houseSearch} />
+                      </span>
+                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                        <HighlightText text={house.district || 'Uganda'} query={houseSearch} />
+                      </span>
                       <span className="mt-1 block text-xs font-black text-foreground">{formatDynamic(house.monthly_rent)}</span>
                       <span className="block text-[10px] font-semibold text-primary">Earn {formatDynamic(monthlyReturn)} monthly</span>
                     </span>
@@ -862,6 +1128,14 @@ export function SelfPortfolioFundingCard({
         </div>
       )}
 
+      {feedOrder === 'houses' && houses.length > 0 && (
+        <EmptyHouseTrendPanel
+          district={houseDistrict !== 'all' ? houseDistrict : null}
+          minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
+          maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
+        />
+      )}
+
       <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -873,6 +1147,9 @@ export function SelfPortfolioFundingCard({
             <p className="hidden sm:block text-[10px] font-semibold text-muted-foreground mt-0.5">
               You can only select plans up to your operational float —{' '}
               {formatDynamic(remaining)} left to fund
+            </p>
+            <p className="text-[10px] font-semibold text-primary mt-1">
+              {formatDynamic(marketRentNeeded)} rent needed by empty houses
             </p>
           </div>
           <Button variant="ghost" size="sm" onClick={() => void load()} disabled={busy}>
@@ -903,16 +1180,48 @@ export function SelfPortfolioFundingCard({
                 ))}
               </SelectContent>
             </Select>
+            {houseSort === 'nearest' && (
+              <span className="text-[10px] leading-tight text-muted-foreground max-w-[16rem]">
+                {referencePoint ? 'Sorted by distance from the selected house.' : 'Tap a house on the map to sort from that location.'}
+              </span>
+            )}
           </div>
+          <Select value={houseCountry} onValueChange={setHouseCountry}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by country">
+              <SelectValue placeholder="All countries" />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">All of Africa</SelectItem>
+              {AFRICA_COUNTRIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={houseListingAge} onValueChange={setHouseListingAge}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by listing age">
+              <SelectValue placeholder="Any listing age" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any listing age</SelectItem>
+              <SelectItem value="7">Listed in last 7 days</SelectItem>
+              <SelectItem value="30">Listed in last 30 days</SelectItem>
+              <SelectItem value="90">Listed in last 3 months</SelectItem>
+              <SelectItem value="365">Listed in last year</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={houseDistrict} onValueChange={setHouseDistrict}>
             <SelectTrigger className="h-9 w-auto min-w-[130px] text-xs font-semibold" aria-label="Filter by district">
               <SelectValue placeholder="All districts" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All districts</SelectItem>
-              {houseDistricts.map(([key, label]) => (
+              <SelectItem value="all">
+                All districts ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
+              </SelectItem>
+              {houseDistricts.map(([key, { label, count }]) => (
                 <SelectItem key={key} value={key}>
-                  {label}
+                  {label} ({count})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -925,6 +1234,21 @@ export function SelfPortfolioFundingCard({
               <SelectItem value="all">Any funding status</SelectItem>
               <SelectItem value="ready">Ready to fund now</SelectItem>
               <SelectItem value="topup">Needs a top-up</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={houseRadiusKm} onValueChange={setHouseRadiusKm}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by distance from your location">
+              <SelectValue placeholder="Any distance" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any distance</SelectItem>
+              <SelectItem value="1">Within 1 km of me</SelectItem>
+              <SelectItem value="2">Within 2 km of me</SelectItem>
+              <SelectItem value="5">Within 5 km of me</SelectItem>
+              <SelectItem value="10">Within 10 km of me</SelectItem>
+              <SelectItem value="25">Within 25 km of me</SelectItem>
+              <SelectItem value="50">Within 50 km of me</SelectItem>
+              <SelectItem value="100">Within 100 km of me</SelectItem>
             </SelectContent>
           </Select>
           <div className="flex items-center gap-1.5" aria-label="Filter by monthly rent range">
@@ -1002,28 +1326,19 @@ export function SelfPortfolioFundingCard({
               Clear compare
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all' || houseRadiusKm !== 'all') && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className="h-9 text-xs"
-              onClick={() => {
-                setHouseSort('rent_asc');
-                setHouseDistrict('all');
-                setHouseSearch('');
-                setHouseRentMin('');
-                setHouseRentMax('');
-                setHouseFundingStatus('all');
-                setHouseWithinFloat(false);
-                setShowSavedReadyOnly(false);
-              }}
+              onClick={resetFilters}
             >
               <X className="h-3.5 w-3.5 mr-1" aria-hidden />
               Reset
             </Button>
           )}
-          {(houseDistrict !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all') && (
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all' || houseRadiusKm !== 'all') && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
@@ -1044,6 +1359,83 @@ export function SelfPortfolioFundingCard({
                 {houseAlerts.length}
               </span>
             </Button>
+          )}
+        </div>
+      )}
+
+      {feedOrder === 'houses' && houses.length > 0 && (houseDistricts.length > 0 || houseSubCounties.length > 0) && (
+        <div className="space-y-1.5 px-1" aria-label="Quick location filters">
+          {houseDistricts.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="District quick filters">
+              <MapPin className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
+              <button
+                type="button"
+                aria-pressed={houseDistrict === 'all'}
+                onClick={() => setHouseDistrict('all')}
+                className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
+                  houseDistrict === 'all'
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-background text-foreground hover:bg-muted'
+                }`}
+              >
+                All districts
+                <span className="ml-1 opacity-70">
+                  ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
+                </span>
+              </button>
+              {houseDistricts.map(([key, { label, count }]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={houseDistrict === key}
+                  onClick={() => setHouseDistrict(houseDistrict === key ? 'all' : key)}
+                  className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
+                    houseDistrict === key
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {label}
+                  <span className="ml-1 opacity-70">({count})</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {houseSubCounties.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="Neighborhood quick filters">
+              <NavigationIcon className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
+              <button
+                type="button"
+                aria-pressed={houseSubCounty === 'all'}
+                onClick={() => setHouseSubCounty('all')}
+                className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
+                  houseSubCounty === 'all'
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-background text-foreground hover:bg-muted'
+                }`}
+              >
+                All neighborhoods
+                <span className="ml-1 opacity-70">
+                  ({houseSubCounties.reduce((sum, [, { count }]) => sum + count, 0)})
+                </span>
+              </button>
+              {houseSubCounties.map(([key, { label, count }]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={houseSubCounty === key}
+                  onClick={() => setHouseSubCounty(houseSubCounty === key ? 'all' : key)}
+                  className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
+                    houseSubCounty === key
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {label}
+                  <span className="ml-1 opacity-70">({count})</span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -1157,25 +1549,29 @@ export function SelfPortfolioFundingCard({
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-bold leading-tight">{houseTitleLine(h)}</p>
+                      <p className="truncate text-xs font-bold leading-tight">
+                        <HighlightText text={houseTitleLine(h)} query={houseSearch} />
+                      </p>
                       <p className="mt-0.5 truncate text-[10px] font-semibold text-success">
                         Your balance now covers it — ready to fund
                       </p>
                     </div>
-                    <Button
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => {
-                        recordAlertAction(h.house_id, 'funded');
-                        jumpToHouse(h.house_id);
-                        setFundConfirmKey(`${Date.now()}`);
-                      }}
-                      aria-label={`Fund ${houseTitleLine(h)} now`}
-                      className="h-8 flex-none rounded-lg px-2.5 text-[11px] font-bold"
-                    >
-                      <ShieldCheck className="mr-1 h-3 w-3" aria-hidden />
-                      Fund now
-                    </Button>
+                    <FundHouseTooltip>
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => {
+                          recordAlertAction(h.house_id, 'funded');
+                          jumpToHouse(h.house_id);
+                          setFundConfirmKey(`${Date.now()}`);
+                        }}
+                        aria-label={`Fund ${houseTitleLine(h)} now`}
+                        className="h-8 flex-none rounded-lg px-2.5 text-[11px] font-bold"
+                      >
+                        <ShieldCheck className="mr-1 h-3 w-3" aria-hidden />
+                        Fund now
+                      </Button>
+                    </FundHouseTooltip>
                     <button
                       type="button"
                       onClick={() => {
@@ -1216,7 +1612,9 @@ export function SelfPortfolioFundingCard({
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-bold leading-tight">{houseTitleLine(h)}</p>
+                    <p className="truncate text-xs font-bold leading-tight">
+                      <HighlightText text={houseTitleLine(h)} query={houseSearch} />
+                    </p>
                     <p className="mt-0.5 truncate text-[10px] font-semibold text-primary">
                       Top up {formatDynamic(topUpNeeded)} to fund it
                     </p>
@@ -1240,14 +1638,38 @@ export function SelfPortfolioFundingCard({
       )}
 
       {feed.length === 0 && feedOrder === 'houses' && houses.length > 0 && (
-        <Card className="p-6 rounded-2xl text-center">
-          <Home className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-          <p className="text-sm font-semibold">No houses match these filters</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {showSavedReadyOnly
-              ? 'You have no saved houses that your current balance can fund. Tap Reset to see all houses or top up your balance.'
-              : `Try another district or tap Reset to see all ${houses.length} houses again.`}
-          </p>
+        <Card className="p-6 rounded-2xl text-center space-y-3">
+          <Home className="h-8 w-8 mx-auto text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">No houses match your filters</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {houseSearch
+                ? `We could not find any houses matching "${houseSearch}". Try a different name, district, or neighborhood.`
+                : showSavedReadyOnly
+                  ? 'You have no saved houses that your current balance can fund. Reset to see all houses, or top up your balance.'
+                  : selectedCountry
+                    ? `No empty houses in ${selectedCountry.name} match the other filters yet. Choose "All of Africa" or widen your filters.`
+                    : houseListingAge !== 'all'
+                      ? 'No empty houses were listed in that period. Try a longer listing age.'
+                      : houseRadiusKm !== 'all'
+                        ? `No empty houses with known GPS are within ${houseRadiusKm} km of your location. Try a wider distance.`
+                        : houseDistrict !== 'all' || houseSubCounty !== 'all'
+                    ? 'No empty houses in this area match the other filters. Try a different location or widen your search.'
+                    : houseFundingStatus !== 'all' || houseWithinFloat
+                      ? 'No houses match the funding-status filter. Reset to see every available house.'
+                      : `No houses match the current rent range or sort filters. Reset to see all ${houses.length.toLocaleString()} houses again.`}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full text-xs font-bold"
+            onClick={resetFilters}
+          >
+            <X className="h-3.5 w-3.5 mr-1" aria-hidden />
+            Reset filters
+          </Button>
         </Card>
       )}
 
@@ -1293,6 +1715,8 @@ export function SelfPortfolioFundingCard({
                 onOpenDetail={setDetailHouse}
                  onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
                  flash={flashHouseId === item.id || fundableIds.includes(item.id)}
+                searchQuery={houseSearch}
+                origin={referencePoint ?? userPoint}
                 />
               <button
                 type="button"
@@ -1544,6 +1968,10 @@ export function SelfPortfolioFundingCard({
         </Card>
       )}
 
+      {partnerId && (
+        <HousePlacementTimeline partnerId={partnerId} refreshKey={placementRefresh} />
+      )}
+
       {houseSelected.length > 0 && (
         <HouseSupportBar
           selectedCount={houseSelected.length}
@@ -1558,8 +1986,14 @@ export function SelfPortfolioFundingCard({
 
           onSubmitted={async (outcome) => {
             setHouseSelected([]);
+            setDiscoveredHouses({});
             await housesQuery.refetch();
-            if (outcome === 'submitted') await loadFunded();
+            if (outcome === 'submitted') {
+              setPlacementRefresh((k) => k + 1);
+              await loadFunded();
+              // Refresh the market totals (rent still needed) shown above the list.
+              window.dispatchEvent(new CustomEvent('supporter-contribution-changed'));
+            }
           }}
         />
       )}
@@ -1569,6 +2003,7 @@ export function SelfPortfolioFundingCard({
         open={!!detailHouse}
         onOpenChange={(v) => !v && setDetailHouse(null)}
         isPartner
+        remaining={remaining}
         isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
         onTogglePick={(h) => toggleHouse(h.house_id)}
       />
@@ -1585,6 +2020,7 @@ export function SelfPortfolioFundingCard({
           if (!houseSelected.includes(house.house_id)) toggleHouse(house.house_id);
         }}
         onRemove={(houseId) => setCompareIds((prev) => prev.filter((x) => x !== houseId))}
+        searchQuery={houseSearch}
       />
 
       <SelfPortfolioDeployDialog

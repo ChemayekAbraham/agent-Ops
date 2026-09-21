@@ -1,12 +1,53 @@
+// FROZEN BACKUP of the Funder dashboard. Served at /dashboard/funders/bk.
+//
+// ┌──────────────────────────────────────────────────────────────────────┐
+// │ THIS IS DELIBERATELY NOT THE CURRENT DASHBOARD. DO NOT "REFRESH" IT. │
+// └──────────────────────────────────────────────────────────────────────┘
+//
+// Snapshot of src/components/dashboards/SupporterDashboard.tsx as it stood at
+// commit 7bc380053a (18 September 2026) — BEFORE the redesign that landed in
+// the 1197 commits synced on 21 September and cut the live file from 699 lines
+// to 605. Preserving that pre-redesign state is the entire purpose of this
+// file. It was taken on 21 September at the owner's request, explicitly ahead
+// of syncing, so the old dashboard would survive the new one landing.
+//
+// It was once re-taken against the post-sync file by mistake, on the reasoning
+// that a backup should match what is live. That reasoning is wrong here: a
+// backup that tracks the thing it is backing up is not a backup. Reverted.
+//
+// Identical to SupporterDashboard.tsx at 7bc380053a except:
+//   * the component and its props interface are renamed (…Backup) so both can
+//     be imported into the same build
+//   * console prefixes read [SupporterDashboard.backup] so the two are
+//     distinguishable in logs
+//
+// Do NOT develop against this file — edits here are invisible to real funders,
+// who are served by SupporterDashboard.tsx at /dashboard/funder.
+//
+// SCOPE — READ THIS BEFORE RELYING ON IT. This freezes the dashboard SHELL
+// only. Every child component (PortfolioSummaryCards, VirtualHousesFeed,
+// FunderWalletHubSection, the agreement modals, …), every hook (useWallet,
+// useProfile, useSupporterAgreement, …) and every RPC it calls are SHARED with
+// the live dashboard and are NOT frozen. All of them still resolved as at
+// 21 September; if one is later deleted or changed, this file breaks or
+// changes with it. It protects the page's own layout and composition, nothing
+// deeper.
+//
+// To restore: copy this file over SupporterDashboard.tsx and undo the renames.
 import calculatorIllustration from "@/assets/calculator-illustration.svg.asset.json";
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { AngelSharesTab } from '@/components/supporter/AngelSharesTab';
 import { useConfetti } from '@/components/Confetti';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Calculator, BadgeCheck } from 'lucide-react';
+import { 
+  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight
+} from 'lucide-react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -40,6 +81,8 @@ import { hapticTap } from '@/lib/haptics';
 // motion removed — static rendering for low-end devices
 
 // Virtual Houses components
+import { PortfolioSummaryCards } from '@/components/supporter/PortfolioSummaryCards';
+import { VirtualHousesFeed } from '@/components/supporter/VirtualHousesFeed';
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
 import { VirtualHouseDetailsSheet } from '@/components/supporter/VirtualHouseDetailsSheet';
 import { RentCategoryFeed, RentCategory } from '@/components/supporter/RentCategoryFeed';
@@ -47,6 +90,12 @@ import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
 import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
+import { PartnerPortfolioSection } from '@/components/supporter/portfolio/PartnerPortfolioSection';
+import { CapitalRoutesSection } from '@/components/supporter/portfolio/CapitalRoutesSection';
+import { SupportedHouseReturnsSection } from '@/components/supporter/SupportedHouseReturnsSection';
+
+import { PartnerPortfolioWalletCard } from '@/components/supporter/portfolio/PartnerPortfolioWalletCard';
+
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 
 import { InvestmentAccountsDrawer } from '@/components/supporter/InvestmentAccountsDrawer';
@@ -57,6 +106,7 @@ import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
 
 import AiIdButton from '@/components/ai-id/AiIdButton';
 import { NotificationBell } from '@/components/supporter/NotificationBell';
+import { InviteAndEarnCard } from '@/components/shared/InviteAndEarnCard';
 import { useInactivityLock } from '@/hooks/useInactivityLock';
 import { SupporterInactivityLock } from '@/components/supporter/SupporterInactivityLock';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
@@ -64,9 +114,10 @@ import {
   WidgetCardSkeleton,
   ListSectionSkeleton,
 } from '@/components/skeletons/SectionSkeletons';
+import { MissionBanner } from '@/components/mission/MissionBanner';
 
 
-interface SupporterDashboardProps {
+interface SupporterDashboardBackupProps {
   user: User;
   signOut: () => Promise<void>;
   currentRole: AppRole;
@@ -75,9 +126,9 @@ interface SupporterDashboardProps {
   addRoleComponent: ReactNode;
 }
 
-export default function SupporterDashboard({ 
+export default function SupporterDashboardBackup({ 
   user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent 
-}: SupporterDashboardProps) {
+}: SupporterDashboardBackupProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, loading: profileLoading } = useProfile();
@@ -110,8 +161,6 @@ export default function SupporterDashboard({
   const [showWallet, setShowWallet] = useState(false);
   const [showFunderHub, setShowFunderHub] = useState(false);
   const [showInvestments, setShowInvestments] = useState(false);
-  const [capitalView, setCapitalView] = useState<'direct' | 'managed' | 'angel'>('direct');
-  const [capitalFeedOrder, setCapitalFeedOrder] = useState<'rent' | 'houses'>('houses');
   const [investmentsTab, setInvestmentsTab] = useState<'accounts' | 'angel'>('accounts');
   const [focusPortfolioId, setFocusPortfolioId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -302,7 +351,7 @@ export default function SupporterDashboard({
       // Ledger may include initial registration deposits which aren't investments
       setTotalRentContributed(portfolioTotal);
     } catch (err) {
-      console.error('[SupporterDashboard] Failed to fetch contributions:', err);
+      console.error('[SupporterDashboard.backup] Failed to fetch contributions:', err);
     }
   }, [user?.id]);
 
@@ -385,7 +434,7 @@ export default function SupporterDashboard({
         setHasCachedData(true);
       }
     } catch (error) {
-      console.error('[SupporterDashboard] Error:', error);
+      console.error('[SupporterDashboard.backup] Error:', error);
     }
     setLoading(false);
   };
@@ -419,6 +468,10 @@ export default function SupporterDashboard({
     ]);
   };
 
+  const menuItems = [
+    { icon: CreditCard, label: 'Add Funding', onClick: () => setShowPaymentPartners(true) },
+  ];
+
   return (
     <div className="h-dvh bg-background flex flex-col overflow-hidden">
       {/* Inactivity lock overlay */}
@@ -435,18 +488,19 @@ export default function SupporterDashboard({
         availableRoles={availableRoles}
         onRoleChange={onRoleChange}
         onSignOut={signOut}
-        onMenuClick={() => setMenuOpen(true)}
+        menuItems={menuItems}
         headerActions={<NotificationBell userId={user.id} />}
-        compactInstallPrompt
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
-        <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg lg:max-w-7xl mx-auto">
+        <main className="px-3 xs:px-4 py-4 xs:py-5 space-y-5 max-w-lg mx-auto">
+          <MissionBanner dashboardRole="supporter" />
+
           {/* ═══ INLINE GREETING BAR ═══ */}
-          <div className="mx-auto flex max-w-lg items-center gap-3 px-1 py-1 sm:flex-col sm:gap-2 sm:py-2">
+          <div className="flex flex-col items-center gap-2 py-2">
             <ProfileSummaryPopover
               className="min-h-[44px] min-w-[44px]"
-              align="start"
+              align="center"
               avatarUrl={profile?.avatar_url}
               fullName={displayFullName}
               phone={(profile as any)?.phone}
@@ -456,8 +510,8 @@ export default function SupporterDashboard({
               roleLabel="Funder"
               triggerSize="lg"
             />
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:items-center">
-              <h1 className="font-bold text-base sm:text-lg leading-tight flex items-center gap-1.5">
+            <div className="flex flex-col items-center gap-0.5">
+              <h1 className="font-bold text-lg leading-tight flex items-center gap-1.5">
                 <span className="break-words">{displayFirstName}</span>
                 {profile?.verified ? (
                   <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />
@@ -467,16 +521,57 @@ export default function SupporterDashboard({
               </h1>
               <p className="text-[11px] text-muted-foreground font-medium">Welcome back</p>
             </div>
-            <div className="shrink-0"><AiIdButton variant="compact" /></div>
+            <AiIdButton variant="compact" />
           </div>
+
+
+
+
+
+          <WidgetErrorBoundary label="Portfolio card">
+            <PartnerPortfolioWalletCard
+              onAddCard={() => {
+                hapticTap();
+                const el = document.getElementById('opportunities');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              onPortfolios={() => { hapticTap(); setInvestmentsTab('accounts'); setShowInvestments(true); }}
+              onCalculator={() => { hapticTap(); setShowCalculator(true); }}
+              onMore={() => { hapticTap(); setShowFunderHub(true); }}
+            />
+          </WidgetErrorBoundary>
+
+          <WidgetErrorBoundary label="Capital routes">
+            <CapitalRoutesSection />
+          </WidgetErrorBoundary>
+
+          <WidgetErrorBoundary label="Your portfolio">
+            <PartnerPortfolioSection
+              onViewPortfolios={(portfolioId) => {
+                hapticTap();
+                if (portfolioId) setFocusPortfolioId(portfolioId);
+                setInvestmentsTab('accounts');
+                setShowInvestments(true);
+              }}
+              onExploreOpportunities={() => {
+                const el = document.getElementById('opportunities');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+            />
+          </WidgetErrorBoundary>
+
+          <WidgetErrorBoundary label="Houses you support">
+            <SupportedHouseReturnsSection />
+          </WidgetErrorBoundary>
+
+
+
+
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
-          <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
+          <div id="opportunities" className="relative scroll-mt-4 space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="w-1 h-5 rounded-full bg-primary" />
-              <div>
-                <h2 className="text-lg sm:text-base font-black text-foreground tracking-tight">Fund</h2>
-                <p className="text-[11px] text-muted-foreground">Choose a verified home and fund the tenant’s Rent Plan.</p>
-              </div>
+              <h2 className="text-sm font-black text-foreground tracking-tight">Capital Opportunities</h2>
             </div>
             {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
             <WidgetErrorBoundary label="Capital opportunities">
@@ -488,16 +583,56 @@ export default function SupporterDashboard({
               ) : (
                 <>
                   <FunderApprovalBanner className="mb-3" />
-                  <FunderCapitalOpportunities
-                    key={`${capitalView}-${capitalFeedOrder}`}
-                    initialView={capitalView}
-                    initialFeedOrder={capitalFeedOrder}
-                    embedded
-                  />
+                  <FunderCapitalOpportunities />
                 </>
               )}
             </WidgetErrorBoundary>
           </div>
+
+          {/* ═══ MY FUNDED HOUSES (collapsible) ═══ */}
+          {virtualHouses.length > 0 && (
+            <div id="my-houses" className="space-y-3 scroll-mt-4">
+              <div className="flex items-center gap-2 px-1">
+                <div className="w-1 h-5 rounded-full bg-success" />
+                <h2 className="text-sm font-black text-foreground tracking-tight">My Houses</h2>
+              </div>
+              <Collapsible defaultOpen>
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-card border border-border/60 shadow-sm hover:bg-accent/30 transition-colors touch-manipulation active:scale-[0.98]">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <span className="text-lg">🏘️</span>
+                      </div>
+                      <div className="text-left">
+                        <span className="font-bold text-sm text-foreground">{virtualHouses.length} Properties</span>
+                        <p className="text-[10px] text-muted-foreground">Your funded portfolio</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                        {virtualHouses.length}
+                      </Badge>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                    </div>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="pt-3">
+                    <WidgetErrorBoundary label="My houses">
+                      <VirtualHousesFeed
+                        houses={virtualHouses}
+                        loading={loading}
+                        onHouseTap={handleHouseTap}
+                      />
+                    </WidgetErrorBoundary>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          )}
+
+          {/* Houses on Welile / Available Now moved inside
+              "Support Tenants Directly" in Capital Opportunities. */}
 
         </main>
       </div>
@@ -519,15 +654,10 @@ export default function SupporterDashboard({
           setShowPackageSheet(true);
         }}
         onRefreshRef={opportunitiesRefreshRef}
-        onOpenWallet={() => setShowFunderHub(true)}
-        onOpenPortfolios={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
-        onShowDirectSupport={() => { setCapitalFeedOrder('rent'); setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowVacantHouses={() => { setCapitalFeedOrder('houses'); setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowManagedSupport={() => { setCapitalView('managed'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowAngelPool={() => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowSupportedHouses={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
-        onSignOut={signOut}
       />
+
+      {/* Invite & Earn */}
+      <InviteAndEarnCard variant="supporter" compact />
 
       <PaymentPartnersDialog 
         open={showPaymentPartners} 

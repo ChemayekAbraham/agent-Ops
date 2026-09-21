@@ -15,8 +15,10 @@ import {
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
+import { Car, Check, Home, Loader2, MapPin, Navigation, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
+import { estimateRoute } from '@/lib/houseGeo';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
+import { FundHouseTooltip } from './FundHouseTooltip';
 
 export const HOUSE_MONTHLY_ROI_RATE = 15;
 export const HOUSE_MIN_FUNDING = 50000;
@@ -34,6 +36,47 @@ export const houseTitleLine = (house: SupportableHouse) =>
 
 export const houseAddressLine = (house: SupportableHouse) =>
   [house.village, house.sub_county, house.district, 'Uganda'].filter(Boolean).join(', ');
+
+/** Renders text with the matching search query highlighted. */
+export function HighlightText({
+  text,
+  query,
+  className,
+}: {
+  text: string;
+  query?: string;
+  className?: string;
+}) {
+  if (!query || !text) return <>{text}</>;
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return <>{text}</>;
+
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  while (remaining.length > 0) {
+    const index = remaining.toLowerCase().indexOf(normalizedQuery);
+    if (index === -1) {
+      parts.push(<span key={key++}>{remaining}</span>);
+      break;
+    }
+    if (index > 0) {
+      parts.push(<span key={key++}>{remaining.slice(0, index)}</span>);
+    }
+    parts.push(
+      <mark
+        key={key++}
+        className={`rounded-sm bg-primary/20 px-0.5 text-foreground ${className ?? ''}`}
+      >
+        {remaining.slice(index, index + normalizedQuery.length)}
+      </mark>,
+    );
+    remaining = remaining.slice(index + normalizedQuery.length);
+  }
+
+  return <>{parts}</>;
+}
 
 /**
  * Verified empty houses a partner can support directly.
@@ -98,6 +141,8 @@ export function HouseSupportCard({
   onOpenDetail,
   onTopUp,
   flash = false,
+  searchQuery = '',
+  origin = null,
 }: {
   house: SupportableHouse;
   isSelected: boolean;
@@ -109,6 +154,10 @@ export function HouseSupportCard({
   onTopUp?: (shortfall: number) => void;
   /** Momentary highlight (e.g. after a "now fundable" notification action). */
   flash?: boolean;
+  /** Search query used to highlight matching house names and locations. */
+  searchQuery?: string;
+  /** Point the distance / travel-time labels are measured from (funder's location or the house tapped on the map). */
+  origin?: { lat: number; lng: number } | null;
 }) {
   const images = (house.image_urls ?? []).filter(Boolean);
   const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
@@ -116,6 +165,10 @@ export function HouseSupportCard({
   const addressLine = houseAddressLine(house);
   const shortfall = Number(house.monthly_rent || 0) - remaining;
   const unaffordable = shortfall > 0;
+  // How far away and roughly how long a drive it is, measured from the funder's
+  // location (or the house they tapped on the map). No API call — estimated.
+  const route = origin ? estimateRoute(house, origin.lat, origin.lng) : null;
+
 
   return (
     <Card
@@ -164,11 +217,32 @@ export function HouseSupportCard({
         </div>
 
         <div className="min-w-0 flex-1 p-4">
-          <p className="truncate text-sm font-bold leading-tight sm:text-base">{titleLine}</p>
+          <p className="truncate text-sm font-bold leading-tight sm:text-base">
+            <HighlightText text={titleLine} query={searchQuery} />
+          </p>
           <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
             <MapPin className="mt-0.5 h-3 w-3 flex-none" />
-            <span className="line-clamp-2">{addressLine || 'Uganda'}</span>
+            <span className="line-clamp-2">
+              <HighlightText text={addressLine || 'Uganda'} query={searchQuery} />
+            </span>
           </p>
+
+          {route ? (
+            <p
+              className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-muted-foreground"
+              aria-label={`About ${route.distanceLabel} away, roughly ${route.durationLabel} by car${route.approximate ? ', approximate location' : ''}`}
+            >
+              <span className="inline-flex items-center gap-1">
+                <Navigation className="h-3 w-3 flex-none text-primary" aria-hidden />
+                {route.distanceLabel} away
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Car className="h-3 w-3 flex-none text-primary" aria-hidden />
+                about {route.durationLabel} by car
+              </span>
+              {route.approximate ? <span className="text-[9px] italic">(approximate area)</span> : null}
+            </p>
+          ) : null}
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
@@ -366,14 +440,16 @@ export function HouseSupportBar({
             </p>
             <p className="text-xl sm:text-2xl font-black leading-none text-primary">{formatDynamic(total)}</p>
           </div>
-          <Button
-            onClick={() => setConfirmOpen(true)}
-            disabled={busy || total < HOUSE_MIN_FUNDING || overBudget}
-            className="shrink-0 w-full sm:w-auto"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-            <span className="ml-2">Fund these houses</span>
-          </Button>
+          <FundHouseTooltip>
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              disabled={busy || total < HOUSE_MIN_FUNDING || overBudget}
+              className="shrink-0 w-full sm:w-auto"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              <span className="ml-2">Fund these houses</span>
+            </Button>
+          </FundHouseTooltip>
         </div>
 
         <div className="mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
@@ -544,10 +620,12 @@ export function HouseSupportBar({
             <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)} disabled={busy}>
               Cancel
             </Button>
-            <Button size="sm" onClick={() => void doSubmit()} disabled={busy} className="gap-1.5">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              <span className="ml-2">Yes, fund these houses</span>
-            </Button>
+            <FundHouseTooltip side="top">
+              <Button size="sm" onClick={() => void doSubmit()} disabled={busy} className="gap-1.5">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                <span className="ml-2">Yes, fund these houses</span>
+              </Button>
+            </FundHouseTooltip>
           </DialogFooter>
         </DialogContent>
       </Dialog>

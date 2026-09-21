@@ -15455,6 +15455,87 @@ export type Database = {
         }
         Relationships: []
       }
+      funder_house_progress_notices: {
+        Row: {
+          agent_name: string | null
+          commitment_id: string | null
+          created_at: string
+          dedupe_key: string
+          district: string | null
+          earning_started_at: string | null
+          email: string | null
+          email_error: string | null
+          email_sent_at: string | null
+          house_count: number
+          house_id: string | null
+          house_title: string | null
+          id: string
+          kind: string
+          monthly_rent: number
+          monthly_return: number
+          partner_id: string
+          partner_name: string | null
+          phone: string | null
+          placed_at: string | null
+          principal: number
+          sms_error: string | null
+          sms_sent_at: string | null
+          supported_house_id: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          commitment_id?: string | null
+          created_at?: string
+          dedupe_key: string
+          district?: string | null
+          earning_started_at?: string | null
+          email?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          house_count?: number
+          house_id?: string | null
+          house_title?: string | null
+          id?: string
+          kind: string
+          monthly_rent?: number
+          monthly_return?: number
+          partner_id: string
+          partner_name?: string | null
+          phone?: string | null
+          placed_at?: string | null
+          principal?: number
+          sms_error?: string | null
+          sms_sent_at?: string | null
+          supported_house_id?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          commitment_id?: string | null
+          created_at?: string
+          dedupe_key?: string
+          district?: string | null
+          earning_started_at?: string | null
+          email?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          house_count?: number
+          house_id?: string | null
+          house_title?: string | null
+          id?: string
+          kind?: string
+          monthly_rent?: number
+          monthly_return?: number
+          partner_id?: string
+          partner_name?: string | null
+          phone?: string | null
+          placed_at?: string | null
+          principal?: number
+          sms_error?: string | null
+          sms_sent_at?: string | null
+          supported_house_id?: string | null
+        }
+        Relationships: []
+      }
       funder_pending_portfolios: {
         Row: {
           amount: number
@@ -25101,6 +25182,69 @@ export type Database = {
           id?: boolean
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      map_query_telemetry: {
+        Row: {
+          cache_hits: number
+          created_at: string
+          failures: number
+          houses_in_view_max: number
+          id: number
+          last_error: string | null
+          queries: number
+          query_ms_max: number
+          query_ms_sum: number
+          region: string
+          render_ms_max: number
+          render_ms_sum: number
+          renders: number
+          scan_capped_count: number
+          user_id: string | null
+          window_end: string
+          window_start: string
+          zoom: number | null
+        }
+        Insert: {
+          cache_hits?: number
+          created_at?: string
+          failures?: number
+          houses_in_view_max?: number
+          id?: number
+          last_error?: string | null
+          queries?: number
+          query_ms_max?: number
+          query_ms_sum?: number
+          region: string
+          render_ms_max?: number
+          render_ms_sum?: number
+          renders?: number
+          scan_capped_count?: number
+          user_id?: string | null
+          window_end?: string
+          window_start: string
+          zoom?: number | null
+        }
+        Update: {
+          cache_hits?: number
+          created_at?: string
+          failures?: number
+          houses_in_view_max?: number
+          id?: number
+          last_error?: string | null
+          queries?: number
+          query_ms_max?: number
+          query_ms_sum?: number
+          region?: string
+          render_ms_max?: number
+          render_ms_sum?: number
+          renders?: number
+          scan_capped_count?: number
+          user_id?: string | null
+          window_end?: string
+          window_start?: string
+          zoom?: number | null
         }
         Relationships: []
       }
@@ -46878,6 +47022,11 @@ export type Database = {
           fin_ops_reference: string | null
           fin_ops_verified_at: string | null
           fin_ops_verified_by: string | null
+          frozen: boolean
+          frozen_at: string | null
+          frozen_by: string | null
+          frozen_category: string | null
+          frozen_reason: string | null
           hidden_from_merchant_queue: boolean
           hidden_from_merchant_queue_at: string | null
           hidden_from_merchant_queue_by: string | null
@@ -46953,6 +47102,11 @@ export type Database = {
           fin_ops_reference?: string | null
           fin_ops_verified_at?: string | null
           fin_ops_verified_by?: string | null
+          frozen?: boolean
+          frozen_at?: string | null
+          frozen_by?: string | null
+          frozen_category?: string | null
+          frozen_reason?: string | null
           hidden_from_merchant_queue?: boolean
           hidden_from_merchant_queue_at?: string | null
           hidden_from_merchant_queue_by?: string | null
@@ -47028,6 +47182,11 @@ export type Database = {
           fin_ops_reference?: string | null
           fin_ops_verified_at?: string | null
           fin_ops_verified_by?: string | null
+          frozen?: boolean
+          frozen_at?: string | null
+          frozen_by?: string | null
+          frozen_category?: string | null
+          frozen_reason?: string | null
           hidden_from_merchant_queue?: boolean
           hidden_from_merchant_queue_at?: string | null
           hidden_from_merchant_queue_by?: string | null
@@ -54743,6 +54902,25 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      enqueue_funder_house_notice: {
+        Args: {
+          p_agent_name: string
+          p_commitment_id: string
+          p_dedupe_key: string
+          p_district: string
+          p_earning_started_at: string
+          p_house_count: number
+          p_house_id: string
+          p_house_title: string
+          p_kind: string
+          p_monthly_rent: number
+          p_partner_id: string
+          p_placed_at: string
+          p_principal: number
+          p_supported_house_id: string
+        }
+        Returns: undefined
+      }
       enroll_welile_home_tenant: {
         Args: {
           p_agent_id: string
@@ -56883,6 +57061,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_map_query_metrics: { Args: { p_hours?: number }; Returns: Json }
       get_maps_browser_key: { Args: never; Returns: string }
       get_merchandise_share_code: {
         Args: { p_catalog_id: string }
@@ -56998,6 +57177,10 @@ export type Database = {
         Returns: Json
       }
       get_merchant_payout_float: { Args: never; Returns: Json }
+      get_messaging_usage_weekly_bundle: {
+        Args: { p_end?: string; p_start?: string }
+        Returns: Json
+      }
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
       get_money_at_bank_reconciliation: { Args: never; Returns: Json }
       get_money_at_bank_total: { Args: never; Returns: Json }
@@ -59454,6 +59637,34 @@ export type Database = {
           vendor_id: string
         }[]
       }
+      map_empty_house_cells: {
+        Args: {
+          p_district?: string
+          p_limit?: number
+          p_max_age_days?: number
+          p_max_lat: number
+          p_max_lng: number
+          p_max_rent?: number
+          p_min_lat: number
+          p_min_lng: number
+          p_min_rent?: number
+          p_search?: string
+          p_zoom?: number
+        }
+        Returns: Json
+      }
+      map_empty_house_trend: {
+        Args: {
+          p_bucket?: string
+          p_district?: string
+          p_end: string
+          p_max_rent?: number
+          p_min_rent?: number
+          p_region_limit?: number
+          p_start: string
+        }
+        Returns: Json
+      }
       mark_budget_department_notification_read: {
         Args: { _notification_id: string }
         Returns: undefined
@@ -60670,6 +60881,26 @@ export type Database = {
             }
             Returns: Json
           }
+      partner_house_placement_status: {
+        Args: { p_partner_id?: string }
+        Returns: {
+          agent_name: string
+          days_to_place: number
+          district: string
+          house_category: string
+          house_id: string
+          image_url: string
+          listing_agent_id: string
+          monthly_rent: number
+          placed_at: string
+          principal: number
+          status: string
+          sub_county: string
+          supported_at: string
+          title: string
+          village: string
+        }[]
+      }
       partner_lead_attachment_stats: {
         Args: { p_lead?: string }
         Returns: {
@@ -61612,6 +61843,7 @@ export type Database = {
         Args: { p_error?: string; p_ok: boolean; p_receipt_id: string }
         Returns: undefined
       }
+      record_map_query_telemetry: { Args: { p_batch: Json }; Returns: number }
       record_merchant_float_delivery: {
         Args: {
           p_agent_user_id: string
@@ -62148,6 +62380,7 @@ export type Database = {
       }
       resume_expired_repayment_pauses: { Args: never; Returns: Json }
       retire_tenant_document: { Args: { p_doc_id: string }; Returns: Json }
+      retry_funder_house_progress_notices: { Args: never; Returns: undefined }
       return_rent_request_for_correction: {
         Args: { p_reason: string; p_request_id: string; p_stage: string }
         Returns: string

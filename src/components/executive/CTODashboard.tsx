@@ -8,6 +8,7 @@ import { format, subDays, startOfDay } from 'date-fns';
 import { SystemLogsViewer } from './SystemLogsViewer';
 import { BrowserCompatDashboard } from './BrowserCompatDashboard';
 import { InfrastructureHealthMonitor } from './InfrastructureHealthMonitor';
+import { MapQueryMonitorPanel } from './MapQueryMonitorPanel';
 import { CTOEmailsOverview } from './CTOEmailsOverview';
 import { CTOCommunicationOverview } from './CTOCommunicationOverview';
 import { SmsDeliveryLogViewer } from './SmsDeliveryLogViewer';
@@ -335,6 +336,9 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
 
       {/* Infrastructure Health Monitor */}
       <InfrastructureHealthMonitor />
+
+      {/* Empty-house map performance across Africa */}
+      <MapQueryMonitorPanel />
 
       {/* Database Backup */}
       <RunBackupNowButton />
