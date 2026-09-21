@@ -615,7 +615,7 @@ export function EmptyHouseMapBrowser({
   };
 
   return (
-    <div className="relative h-[26rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
+    <div className="relative isolate z-0 h-[26rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
       <MapContainer
         center={KAMPALA}
         zoom={11}
