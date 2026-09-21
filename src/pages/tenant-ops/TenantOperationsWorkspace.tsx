@@ -9,18 +9,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ExecutiveDataTable, type Column } from '@/components/executive/ExecutiveDataTable';
+import { KPICard } from '@/components/executive/KPICard';
 import TenantCommunicationsTab from '@/components/executive/tenant-ops/workspace/TenantCommunicationsTab';
 import AgentRegistrationControlTab from '@/components/executive/tenant-ops/workspace/AgentRegistrationControlTab';
 import ManagementOverviewTab from '@/components/executive/tenant-ops/workspace/ManagementOverviewTab';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Settings2, TrendingUp } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Settings2,
+  TrendingUp,
+  Users,
+  CheckCircle2,
+  Award,
+  Gauge,
+  Wallet,
+  PieChart as PieChartIcon,
+  FileText,
+  Sheet as SheetIcon,
+  Loader2,
+} from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   TOPUP_TIER_LABELS,
   useSaveTopupEligibilityRules,
   useTenantTopupEligibility,
   useTopupEligibilityRules,
   type TopupEligibilityRow,
+  type TopupEligibilityResult,
 } from '@/hooks/useTenantTopupEligibility';
+import {
+  generateTopupEligibilityPdf,
+  exportTopupEligibilityXlsx,
+} from '@/lib/tenantOpsTopupEligibilityReport';
 
 const PAGE_SIZE = 50;
 
@@ -35,6 +57,17 @@ const tierTone = (tier: string) => {
     case 'beyond_two_months': return 'bg-slate-100 text-slate-700 border-slate-200';
     case 'same_amount_only': return 'bg-orange-100 text-orange-800 border-orange-200';
     default: return 'bg-rose-100 text-rose-800 border-rose-200';
+  }
+};
+
+const tierChartColor = (tier: string) => {
+  switch (tier) {
+    case 'within_cycle': return 'hsl(var(--success))';
+    case 'within_one_month': return 'hsl(var(--primary))';
+    case 'within_two_months': return 'hsl(var(--warning))';
+    case 'same_amount_only': return 'hsl(var(--warning))';
+    case 'beyond_two_months': return 'hsl(var(--muted-foreground))';
+    default: return 'hsl(var(--destructive))';
   }
 };
 
@@ -198,6 +231,8 @@ function TopUpEligibilityTab() {
   const [page, setPage] = useState(0);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [selected, setSelected] = useState<TopupEligibilityRow | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingXlsx, setExportingXlsx] = useState(false);
 
   const { data, isLoading, isFetching } = useTenantTopupEligibility({
     search,
@@ -209,6 +244,62 @@ function TopUpEligibilityTab() {
   const rows = data?.rows || [];
   const summary = data?.summary;
   const rules = data?.rules;
+
+  const tierData = useMemo(() => {
+    const counts = rows.reduce<Record<string, number>>((acc, r) => {
+      acc[r.tier_key] = (acc[r.tier_key] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(counts).map(([key, value]) => ({
+      name: TOPUP_TIER_LABELS[key] || key,
+      value,
+      color: tierChartColor(key),
+    }));
+  }, [rows]);
+
+  /** Same RPC the table already uses, just fetched unpaginated for a report —
+   * no new endpoint, no re-derivation of eligibility, nothing invented. */
+  const fetchAllRowsForExport = async (): Promise<TopupEligibilityRow[]> => {
+    const total = data?.total ?? rows.length;
+    const { data: resp, error } = await supabase.rpc('get_tenant_topup_eligibility', {
+      p_search: search || null,
+      p_agent_id: null,
+      p_tier: tier === 'all' ? null : tier,
+      p_limit: Math.max(total, rows.length, 1),
+      p_offset: 0,
+    });
+    if (error) throw error;
+    return ((resp as unknown as TopupEligibilityResult)?.rows) || [];
+  };
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    const toastId = toast.loading('Generating professional PDF report…');
+    try {
+      const allRows = await fetchAllRowsForExport();
+      const { data: auth } = await supabase.auth.getUser();
+      await generateTopupEligibilityPdf(allRows, { generatedByUserId: auth?.user?.id });
+      toast.success('PDF report ready', { id: toastId });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Could not generate the PDF report', { id: toastId });
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const handleExportXlsx = async () => {
+    setExportingXlsx(true);
+    const toastId = toast.loading('Preparing Excel export…');
+    try {
+      const allRows = await fetchAllRowsForExport();
+      await exportTopupEligibilityXlsx(allRows);
+      toast.success('Excel export ready', { id: toastId });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Could not prepare the Excel export', { id: toastId });
+    } finally {
+      setExportingXlsx(false);
+    }
+  };
 
   const columns = useMemo<Column<TopupEligibilityRow>[]>(() => [
     { key: 'tenant_name', label: 'Tenant', render: (_v, r) => (
@@ -258,23 +349,82 @@ function TopUpEligibilityTab() {
             : 'Loading thresholds…'}
           {data?.as_of ? ` As of ${data.as_of}.` : ''}
         </p>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRulesOpen(true)}>
-          <Settings2 className="h-4 w-4" /> Thresholds
-        </Button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={exportingPdf}
+            onClick={handleExportPdf}
+          >
+            {exportingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            Professional PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={exportingXlsx}
+            onClick={handleExportXlsx}
+          >
+            {exportingXlsx ? <Loader2 className="h-4 w-4 animate-spin" /> : <SheetIcon className="h-4 w-4" />}
+            Export Excel
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRulesOpen(true)}>
+            <Settings2 className="h-4 w-4" /> Thresholds
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
         <Skeleton className="h-24 w-full" />
       ) : summary ? (
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
-          <StatTile label="Tenants" value={summary.tenants.toLocaleString()} />
-          <StatTile label="Eligible" value={summary.eligible.toLocaleString()} hint="any level" />
-          <StatTile label="100% level" value={summary.within_cycle.toLocaleString()} hint="within cycle" />
-          <StatTile label="50% level" value={summary.within_one_month.toLocaleString()} hint="within 1 month" />
-          <StatTile label="25% level" value={summary.within_two_months.toLocaleString()} hint="within 2 months" />
-          <StatTile label="Top-up accessible" value={fmt(summary.total_topup_accessible)} />
+        <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-6">
+          <KPICard title="Tenants" value={summary.tenants.toLocaleString()} icon={Users} color="bg-primary/10 text-primary" />
+          <KPICard title="Eligible" value={summary.eligible.toLocaleString()} icon={CheckCircle2} color="bg-success/10 text-success" subtitle="any level" />
+          <KPICard title="100% level" value={summary.within_cycle.toLocaleString()} icon={Award} color="bg-success/10 text-success" subtitle="within cycle" />
+          <KPICard title="50% level" value={summary.within_one_month.toLocaleString()} icon={Gauge} color="bg-warning/10 text-warning" subtitle="within 1 month" />
+          <KPICard title="25% level" value={summary.within_two_months.toLocaleString()} icon={Gauge} color="bg-warning/10 text-warning" subtitle="within 2 months" />
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className="rounded-xl bg-primary/15 p-1.5 sm:p-2 shrink-0">
+                  <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                </div>
+                <p className="text-xs font-medium text-muted-foreground leading-tight">Top-up accessible</p>
+              </div>
+              <p className="mt-2 text-xl sm:text-2xl font-bold tracking-tight tabular-nums">{fmt(summary.total_topup_accessible)}</p>
+            </CardContent>
+          </Card>
         </div>
       ) : null}
+
+      {!isLoading && tierData.length > 0 && (
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <PieChartIcon className="h-4 w-4 text-primary" />
+              Eligibility Tier Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-2 sm:px-4 pb-3">
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={tierData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={78} paddingAngle={2}>
+                    {tierData.map((d) => <Cell key={d.name} fill={d.color} />)}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                    formatter={(value: number, name: string) => [`${value} tenants`, name]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Select value={tier} onValueChange={(v) => { setTier(v); setPage(0); }}>
