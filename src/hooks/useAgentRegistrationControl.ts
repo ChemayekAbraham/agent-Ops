@@ -37,9 +37,31 @@ export interface RegistrationOverrideRecord {
   revoke_reason: string | null;
 }
 
+export interface RegistrationRuleGroup {
+  id: string;
+  label: string;
+  active: boolean;
+  min_active_tenants: number;
+  max_active_tenants: number | null;
+  required_prev_month_pct: number;
+  districts: string[];
+  regions: string[];
+  tiers: string[];
+  agent_ids: string[];
+}
+
 export interface RegistrationControlRules {
+  enabled: boolean;
   min_active_tenants: number;
   required_prev_month_pct: number;
+  groups: RegistrationRuleGroup[];
+}
+
+export interface RegistrationControlOptions {
+  districts: string[];
+  regions: string[];
+  tiers: string[];
+  agents: { agent_id: string; full_name: string | null; active_tenants: number }[];
 }
 
 export interface RegistrationControlData {
@@ -53,6 +75,7 @@ export interface RegistrationControlData {
     overridden: number;
   };
   rows: RegistrationControlRow[];
+  options?: RegistrationControlOptions;
   overrides: RegistrationOverrideRecord[];
 }
 
