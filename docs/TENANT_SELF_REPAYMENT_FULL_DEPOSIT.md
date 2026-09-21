@@ -61,6 +61,35 @@ refusals are "plan already cleared" and "no balance to apply".
   ahead, so agents will correctly stop chasing them for those days.
 - Plans can now be completed by a single large tenant deposit.
 
+### 2b. When the tenant deposits LESS than the expected daily amount
+
+This is the common case and it is treated as a genuine part-payment, never as a
+failure:
+
+```
+applied = LEAST( deposit amount, total rent outstanding, wallet balance )
+```
+
+The same one rule covers it — there is no minimum. A tenant whose daily amount is
+UGX 4,400 who deposits UGX 2,000 has the full UGX 2,000 applied to the Rent Plan.
+
+What the system then does:
+
+| Step | Behaviour on a short deposit |
+|---|---|
+| Amount applied | The whole deposit (UGX 2,000), not rounded, not refused |
+| Day record | The day-by-day settlement is rebuilt first-in-first-out: today shows UGX 2,000 paid and UGX 2,400 still due — the day stays **open** |
+| Arrears | Derived, never stored. Today's shortfall becomes arrears only once the day passes unpaid; the next payment (tenant or agent) clears the oldest open day first |
+| Agent's list | The tenant **stays** on the agent's collection list for today, with the expected amount reduced to the UGX 2,400 remaining |
+| Agent commission | Earned on UGX 2,000 only — commission always follows money actually received |
+| Rent plan balance | Falls by UGX 2,000; no penalty, no fee, no status change |
+| A second deposit the same day | Accepted and applied the same way; several small deposits can complete the day |
+
+So short deposits never block, never overdraw and never double-count: the day
+closes when the total received for it reaches the expected amount, whoever paid
+it in.
+
+
 ## 3. The SMS problem
 
 Current tenant message:
@@ -108,7 +137,17 @@ Rent balance: UGX 468,000
 Ref TSP-4f2a9c11.
 ```
 
-### 4d. Agent
+### 4d. Tenant — deposit smaller than today's expected amount (part-payment)
+
+```
+Welile: Rent payment received, Ronald.
+Paid: UGX 2,000
+Still due today: UGX 2,400 for 21 Sep 2026.
+Rent balance: UGX 478,000
+Ref TSP-4f2a9c11. Thank you.
+```
+
+### 4e. Agent — full deposit, days covered ahead
 
 ```
 Welile: Ronald Musana paid his own rent.
@@ -116,6 +155,17 @@ Received: UGX 20,000 (covers 4 days, paid up to 25 Sep 2026)
 Your commission: UGX 1,600 - already in your withdrawable balance.
 His rent balance: UGX 460,000. No collection needed from him until 26 Sep.
 ```
+
+### 4f. Agent — tenant part-paid, collection still open
+
+```
+Welile: Ronald Musana part-paid his own rent.
+Received: UGX 2,000 of UGX 4,400 for today.
+Still to collect today: UGX 2,400.
+Your commission: UGX 200 - already in your withdrawable balance.
+His rent balance: UGX 478,000.
+```
+
 
 Rules applied to all templates:
 
@@ -126,7 +176,10 @@ Rules applied to all templates:
   record that the payment itself rebuilds, so the message can never disagree with
   the plan.
 - The `TSP-` reference is kept so support can trace any message to one payment.
-- No line about "remaining today" — it is meaningless once days are paid ahead.
+- No "remaining today" line when days are paid ahead. It appears only in the
+  part-payment message, as "Still due today", because there the day is genuinely
+  still open and the tenant needs to know the exact gap.
+
 
 ## 5. What gets touched when implemented
 
