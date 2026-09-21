@@ -15,12 +15,14 @@ import {
 import { toast } from 'sonner';
 import {
   Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Building2, Wallet, Paperclip, Upload, X, FileText,
-  Landmark,
+  Landmark, MapPin,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { staffLoanSchedule, MONTH_WORDS, STAFF_LOAN_MAX_MONTHS } from '@/lib/staffLoanSchedule';
+import FacilitationRequestDialog from '@/components/requisitions/FacilitationRequestDialog';
+import FacilitationAccountabilityDialog from '@/components/requisitions/FacilitationAccountabilityDialog';
 
-type RequestKind = 'requisition' | 'staff_loan';
+type RequestKind = 'requisition' | 'staff_loan' | 'facilitation';
 
 interface LoanEligibility {
   eligible: boolean;
@@ -163,6 +165,11 @@ const MyRequisitions = () => {
   const [months, setMonths] = useState(3);
   const [loanInfo, setLoanInfo] = useState<LoanEligibility | null>(null);
   const [loans, setLoans] = useState<StaffLoan[]>([]);
+  // Facilitation is for Platform Sales Officers only. If the check fails we
+  // hide the entry point — fail closed.
+  const [isOfficer, setIsOfficer] = useState(false);
+  const [facOpen, setFacOpen] = useState(false);
+  const [accountFor, setAccountFor] = useState<Requisition | null>(null);
 
   const fetchRows = useCallback(async () => {
     const { data: userRes } = await supabase.auth.getUser();
@@ -218,6 +225,20 @@ const MyRequisitions = () => {
   }, []);
 
   useEffect(() => { void fetchLoans(); }, [fetchLoans]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc('pso_is_officer');
+        if (!active) return;
+        setIsOfficer(!error && data === true);
+      } catch {
+        if (active) setIsOfficer(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -404,6 +425,11 @@ const MyRequisitions = () => {
                       <Landmark className="mr-2 h-4 w-4" /> Request a loan
                     </Button>
                   </DialogTrigger>
+                )}
+                {isOfficer && (
+                  <Button variant="outline" onClick={() => setFacOpen(true)}>
+                    <MapPin className="mr-2 h-4 w-4" /> Request facilitation
+                  </Button>
                 )}
               </div>
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -732,6 +758,13 @@ const MyRequisitions = () => {
                       Update and resubmit
                     </Button>
                   )}
+                  {row.request_kind === 'facilitation'
+                    && row.wallet_credit_status === 'credited'
+                    && !usageReports[row.id] && (
+                    <Button size="sm" onClick={() => setAccountFor(row)}>
+                      <FileText className="mr-2 h-3 w-3" /> Account for this facilitation
+                    </Button>
+                  )}
                   <span className="inline-flex items-center gap-2 text-sm">
                     {uploadingId === row.id
                       ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
@@ -764,6 +797,24 @@ const MyRequisitions = () => {
               </Card>
             ))}
           </div>
+        )}
+
+        {isOfficer && (
+          <FacilitationRequestDialog
+            open={facOpen}
+            onOpenChange={setFacOpen}
+            onSubmitted={() => { void fetchRows(); }}
+          />
+        )}
+
+        {accountFor && (
+          <FacilitationAccountabilityDialog
+            requisitionId={accountFor.id}
+            requisitionCode={accountFor.requisition_code}
+            open
+            onOpenChange={(o) => { if (!o) setAccountFor(null); }}
+            onSubmitted={() => { setAccountFor(null); void fetchRows(); }}
+          />
         )}
       </div>
     </PersonalLayout>
