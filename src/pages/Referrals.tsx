@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserSnapshot } from '@/hooks/useUserSnapshot';
@@ -28,6 +28,7 @@ import { ReferralBonusProgress } from '@/components/ReferralBonusProgress';
 import { motion } from 'framer-motion';
 import { ReferralsSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
+import { createShortLink } from '@/lib/createShortLink';
 
 export default function Referrals() {
   const navigate = useNavigate();
@@ -47,7 +48,21 @@ export default function Referrals() {
     if (statusFilter === 'incomplete') return isReferralIncomplete(r);
     return true;
   });
-  const referralLink = user ? `${getPublicOrigin()}/join?r=${user.id}` : '';
+  const longReferralLink = user ? `${getPublicOrigin()}/join?r=${user.id}` : '';
+  const [shortLink, setShortLink] = useState<string | null>(null);
+  const referralLink = shortLink || longReferralLink;
+
+  // Each user gets their own short, unique invite link (e.g. /r/X7kM2p).
+  // The same code is reused on every visit; if creation fails we keep the
+  // full /join?r=<id> link so sharing always works.
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    createShortLink(user.id, '/join', { r: user.id })
+      .then((url) => { if (active) setShortLink(url); })
+      .catch(() => { /* keep the long link */ });
+    return () => { active = false; };
+  }, [user?.id]);
 
   const copyReferralLink = async () => {
     await navigator.clipboard.writeText(referralLink);
