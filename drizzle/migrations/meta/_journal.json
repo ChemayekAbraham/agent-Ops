@@ -1793,6 +1793,13 @@
       "when": 1789969015910,
       "tag": "0255_allow_tenant_repayment_before_landlord_paid",
       "breakpoints": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1789991574936,
+      "tag": "0256_adv_gate_2026_09_21_a",
+      "breakpoints": true
     }
   ]
 }
