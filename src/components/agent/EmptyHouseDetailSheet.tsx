@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  Loader2,
 } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/rentCalculations';
 import { prettyName, formatHouseCategory } from '@/lib/formatting';
+import { useRelatedHouses } from '@/hooks/useRelatedHouses';
 
 export interface HouseOpportunity {
   house_id: string;
@@ -70,6 +72,7 @@ export function EmptyHouseDetailSheet({
   onTogglePick,
   isPartner = false,
   remaining,
+  onRelatedHouseClick,
 }: {
   house: HouseOpportunity | null;
   open: boolean;
@@ -79,12 +82,22 @@ export function EmptyHouseDetailSheet({
   isPartner?: boolean;
   /** Supporter balance still free to commit — drives the funding requirement block. */
   remaining?: number;
+  onRelatedHouseClick?: (house: HouseOpportunity) => void;
 }) {
   const [index, setIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
+  const {
+    data: related,
+    isLoading: relatedLoading,
+    error: relatedError,
+  } = useRelatedHouses(house);
+
   useEffect(() => {
     setIndex(0);
+    // When the user taps a related house, start them at the top of the new details.
+    const sheet = document.querySelector('.app-sheet-content');
+    if (sheet) sheet.scrollTo(0, 0);
   }, [house?.house_id]);
 
   if (!house) return null;
@@ -376,6 +389,92 @@ export function EmptyHouseDetailSheet({
               </p>
             )}
           </div>
+        </div>
+
+        {/* Related houses in the same area */}
+        <div className="space-y-3 rounded-2xl border border-amber-500/15 bg-amber-500/[0.03] p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Home className="h-4 w-4 text-amber-500" />
+              <p className="text-xs font-bold">Related houses</p>
+            </div>
+            {related && related.length > 0 && (
+              <Badge variant="outline" className="h-5 text-[10px]">
+                {related.length}
+              </Badge>
+            )}
+          </div>
+
+          {relatedLoading && (
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Finding nearby opportunities…
+            </div>
+          )}
+
+          {relatedError && !relatedLoading && (
+            <p className="text-[11px] text-muted-foreground">Could not load related houses.</p>
+          )}
+
+          {!relatedLoading && related && related.length === 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              No other empty houses found in this area yet.
+            </p>
+          )}
+
+          {related && related.length > 0 && (
+            <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 snap-x">
+              {related.map((relatedHouse) => (
+                <button
+                  key={relatedHouse.house_id}
+                  type="button"
+                  onClick={() => onRelatedHouseClick?.(relatedHouse)}
+                  disabled={!onRelatedHouseClick}
+                  className={`relative flex w-44 shrink-0 snap-start flex-col overflow-hidden rounded-xl border bg-background text-left transition-colors ${
+                    onRelatedHouseClick
+                      ? 'cursor-pointer hover:border-primary/60'
+                      : 'cursor-default'
+                  }`}
+                >
+                  <div className="h-24 w-full bg-muted">
+                    {relatedHouse.image_url ? (
+                      <img
+                        src={relatedHouse.image_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <Home className="h-5 w-5" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1 p-2.5">
+                    <p className="truncate text-[11px] font-bold">
+                      {formatHouseCategory(relatedHouse.house_category)}
+                    </p>
+                    <p className="text-[11px] font-black text-emerald-600">
+                      {formatUGX(relatedHouse.monthly_rent)}/mo
+                    </p>
+                    <p className="flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      {relatedHouse.distance_km != null
+                        ? `${relatedHouse.distance_km.toFixed(1)} km away`
+                        : [relatedHouse.village, relatedHouse.sub_county, relatedHouse.district]
+                            .filter(Boolean)
+                            .join(', ') || 'Nearby'}
+                    </p>
+                  </div>
+                  {onRelatedHouseClick && (
+                    <div className="absolute right-2 top-2 rounded-full bg-background/90 p-1 shadow-sm">
+                      <ChevronRight className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {onTogglePick && (
