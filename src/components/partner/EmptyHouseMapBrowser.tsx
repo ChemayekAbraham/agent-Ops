@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { formatHouseCategory } from '@/lib/formatting';
 import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
@@ -46,6 +45,17 @@ interface EmptyHouseMapBrowserProps {
   country?: CountryBounds | null;
   /** Listing-age ceiling in days, applied in the database alongside the viewport. */
   maxAgeDays?: number | null;
+  /**
+   * Client-side list filters the viewport query cannot express. When any is
+   * active the map pins come from the already-filtered `houses` list instead
+   * of aggregated cells, so the pins always match what the list shows.
+   */
+  subCounty?: string | null;
+  radiusKm?: number | null;
+  radiusOrigin?: { lat: number; lng: number } | null;
+  fundingStatus?: 'all' | 'ready' | 'topup';
+  withinFloat?: boolean;
+  savedReadyOnly?: boolean;
   onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
@@ -170,6 +180,12 @@ export function EmptyHouseMapBrowser({
 
   country,
   maxAgeDays,
+  subCounty,
+  radiusKm,
+  radiusOrigin,
+  fundingStatus,
+  withinFloat,
+  savedReadyOnly,
   onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
@@ -237,11 +253,33 @@ export function EmptyHouseMapBrowser({
   const cellSize = cellsQuery.data?.cellSize ?? 0;
 
   /**
+   * Filters the viewport query cannot express (sub-county, distance radius,
+   * funding status, within-float, saved-ready). While any is active the pins
+   * come from the already-filtered list so the map shows exactly the houses
+   * the filter drawer promises.
+   */
+  const precisionActive = Boolean(
+    (subCounty && subCounty !== 'all') ||
+    (radiusKm != null && radiusOrigin) ||
+    (fundingStatus && fundingStatus !== 'all') ||
+    withinFloat ||
+    savedReadyOnly,
+  );
+  const pinHouses = useMemo(() => {
+    if (!precisionActive) return null;
+    return houses.filter((h) => {
+      const lat = Number(h.latitude);
+      const lng = Number(h.longitude);
+      return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+    });
+  }, [precisionActive, houses]);
+
+  /**
    * Optional density view: tints each grid cell by how many empty houses it
    * holds, so a funder can read where the opportunities are across Africa
    * before zooming into clustered houses. Built from the cells already fetched.
    */
-  const heatmapActive = showHeatmap && heatmapAppliesAtZoom(viewport?.zoom) && cellSize > 0;
+  const heatmapActive = !precisionActive && showHeatmap && heatmapAppliesAtZoom(viewport?.zoom) && cellSize > 0;
   const heatTiles = useMemo(() => {
     if (!heatmapActive) return [];
     const half = cellSize / 2;
@@ -557,6 +595,31 @@ export function EmptyHouseMapBrowser({
     setActiveHouse(mappedHouses[next]);
   };
 
+  /** One rent pin for a house — shared by the cell-driven pins and the precision-filtered list pins. */
+  const renderHousePin = (house: SupportableHouse) => {
+    const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
+    const rentLabel = formatDynamic(Number(house.monthly_rent ?? 0));
+    const icon = L.divIcon({
+      className: 'empty-house-map-pin-hitbox',
+      html: `<span class="empty-house-map-pin truncate${active ? ' empty-house-map-pin--active' : ''}">${rentLabel}</span>`,
+      iconSize: [144, 44],
+      iconAnchor: [72, 44],
+    });
+    return (
+      <Marker
+        key={house.house_id}
+        position={[Number(house.latitude), Number(house.longitude)]}
+        icon={icon}
+        title={`${houseTitleLine(house)} · ${rentLabel}`}
+        eventHandlers={{
+          click: () => {
+            onOpenHouse(house);
+          },
+        }}
+      />
+    );
+  };
+
   return (
     <div className="relative h-[26rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
       <div className="absolute inset-x-3 top-3 z-[1000] sm:right-auto sm:w-[22rem]">
@@ -615,36 +678,13 @@ export function EmptyHouseMapBrowser({
             }}
           />
         ))}
-        {cells.map((cell) => {
+        {pinHouses?.map((house) => renderHousePin(house))}
+        {!pinHouses && cells.map((cell) => {
           const house = cell.count === 1 && cell.house
             ? (mappedHouses.find((item) => item.house_id === cell.house!.house_id) ?? cell.house)
             : null;
 
-          if (house) {
-            const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
-            const categoryLabel = formatHouseCategory(house.house_category);
-            const rentLabel = formatDynamic(Number(house.monthly_rent ?? 0));
-            const icon = L.divIcon({
-              className: 'empty-house-map-pin-hitbox',
-              html: `<span class="empty-house-map-pin truncate${active ? ' empty-house-map-pin--active' : ''}">${rentLabel}</span>`,
-              iconSize: [144, 44],
-              iconAnchor: [72, 44],
-            });
-
-            return (
-              <Marker
-                key={house.house_id}
-                position={[Number(house.latitude), Number(house.longitude)]}
-                icon={icon}
-                title={`${houseTitleLine(house)} · ${rentLabel}`}
-                eventHandlers={{
-                  click: () => {
-                    onOpenHouse(house);
-                  },
-                }}
-              />
-            );
-          }
+          if (house) return renderHousePin(house);
 
           const size = clusterMarkerSize(cell.count);
           const label = clusterMarkerLabel(cell.count);
