@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -183,6 +183,11 @@ export function SelfPortfolioFundingCard({
   const [houseRadiusKm, setHouseRadiusKm] = useState<string>('all');
   // Filter drawer (funnel button) — search stays on the map, everything else lives here.
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  // Async search: once the funder types 3+ letters, a debounced RPC call fetches
+  // matching houses from the whole database (not just the loaded list) so houses
+  // outside the current map area also appear. null = not searching.
+  const [searchResults, setSearchResults] = useState<SupportableHouse[] | null>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
   const activeFilterCount =
     (houseDistrict !== 'all' ? 1 : 0) +
     (houseSubCounty !== 'all' ? 1 : 0) +
