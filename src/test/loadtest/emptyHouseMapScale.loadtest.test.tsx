@@ -29,9 +29,11 @@ const rpcCalls: Array<Record<string, unknown>> = [];
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
-    rpc: vi.fn(async (_fn: string, args: Record<string, unknown>) => {
+    // Mirrors the real client shape: the promise exposes abortSignal(), which
+    // the hook chains for stale-result protection.
+    rpc: vi.fn((_fn: string, args: Record<string, unknown>) => {
       rpcCalls.push(args);
-      return {
+      const promise = Promise.resolve({
         data: queryCatalogue({
           minLat: Number(args.p_min_lat),
           minLng: Number(args.p_min_lng),
