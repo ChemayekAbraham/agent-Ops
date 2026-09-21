@@ -307,6 +307,12 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
+        try {
+          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+          setLocationPreviouslyGranted(true);
+        } catch {
+          // ignore storage errors
+        }
         // Default view: the funder's own area, so the empty houses around them
         // are the first ones on screen.
         mapInstance.setView(point, 13);
@@ -314,6 +320,12 @@ export function EmptyHouseMapBrowser({
       () => {
         if (cancelled) return;
         setGeoStatus('denied');
+        try {
+          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+          setLocationPreviouslyGranted(false);
+        } catch {
+          // ignore storage errors
+        }
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
