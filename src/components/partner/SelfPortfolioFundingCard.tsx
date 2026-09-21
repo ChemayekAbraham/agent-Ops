@@ -2022,6 +2022,7 @@ export function SelfPortfolioFundingCard({
         remaining={remaining}
         isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
         onTogglePick={(h) => toggleHouse(h.house_id)}
+        onRelatedHouseClick={(h) => setDetailHouse(h)}
       />
 
 
