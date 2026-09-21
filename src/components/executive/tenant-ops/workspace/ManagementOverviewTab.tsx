@@ -388,11 +388,14 @@ export default function ManagementOverviewTab() {
                             <Badge variant="outline">Can register</Badge>
                           )}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <AgentQuickActions agentId={a.agent_id} agentName={a.agent_name} />
+                        </TableCell>
                       </TableRow>
                     ))}
                     {visibleAgents.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                           No agents match these filters.
                         </TableCell>
                       </TableRow>
