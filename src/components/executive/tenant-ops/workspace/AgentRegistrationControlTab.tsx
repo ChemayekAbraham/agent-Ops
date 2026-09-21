@@ -47,8 +47,6 @@ export default function AgentRegistrationControlTab() {
   const revoke = useRevokeRegistrationOverride();
 
   const [rulesOpen, setRulesOpen] = useState(false);
-  const [minTenants, setMinTenants] = useState('');
-  const [requiredPct, setRequiredPct] = useState('');
   const saveRules = useSaveRegistrationControlRules();
 
   const rules = data?.rules;
