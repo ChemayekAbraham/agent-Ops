@@ -273,7 +273,11 @@ export function FacilitationAccountabilityDialog({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs">Attachments (PDF, PNG, JPG — max 10MB each)</Label>
+            <Label className="text-xs">
+              Receipts or proof of spending
+              <span className="ml-1 text-destructive">*</span>
+            </Label>
+            <p className="text-xs text-muted-foreground">At least one required. Photo or PDF, up to 10MB each.</p>
             <div className="rounded-xl border border-dashed bg-muted/20 p-3 text-center">
               <label className="flex cursor-pointer flex-col items-center gap-1">
                 <Upload className="h-4 w-4 text-muted-foreground" />
