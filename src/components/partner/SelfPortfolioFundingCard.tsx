@@ -1084,11 +1084,11 @@ export function SelfPortfolioFundingCard({
               }
             }}
           />
-          <div className="flex min-h-0 flex-col gap-3 border-t border-border p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-4">
+          <div className="flex min-h-0 flex-col gap-3 border-t border-border/50 p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-5">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-base font-black text-foreground">Empty houses</p>
+                  <p className="text-lg font-bold tracking-tight text-foreground">Where you'll fund</p>
                   <p className="text-[11px] font-medium text-muted-foreground">
                     {feed.length.toLocaleString()} available · showing {visibleMapHouses.length} cards
                   </p>
@@ -1110,24 +1110,24 @@ export function SelfPortfolioFundingCard({
                     key={`map-list-${house.house_id}`}
                     type="button"
                     onClick={() => setDetailHouse(house)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-background p-2 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                    className="group flex w-full items-start gap-3 rounded-xl border border-border/40 bg-background p-2.5 text-left transition-all hover:border-border hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
                   >
                     {image ? (
-                      <img src={image} alt="" loading="lazy" className="h-16 w-20 shrink-0 rounded-lg object-cover" />
+                      <img src={image} alt="" loading="lazy" className="h-20 w-24 shrink-0 rounded-lg object-cover transition-transform group-hover:scale-[1.02]" />
                     ) : (
-                      <div className="flex h-16 w-20 shrink-0 items-center justify-center rounded-lg bg-muted">
-                        <Home className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-lg bg-muted">
+                        <Home className="h-6 w-6 text-muted-foreground/50" />
                       </div>
                     )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-bold text-foreground">
+                    <span className="min-w-0 flex-1 py-0.5">
+                      <span className="block truncate text-[13px] font-semibold text-foreground">
                         <HighlightText text={houseTitleLine(house)} query={houseSearch} />
                       </span>
-                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                         <HighlightText text={house.district || 'Uganda'} query={houseSearch} />
                       </span>
-                      <span className="mt-1 block text-xs font-black text-foreground">{formatDynamic(house.monthly_rent)}</span>
-                      <span className="block text-[10px] font-semibold text-primary">Earn {formatDynamic(monthlyReturn)} monthly</span>
+                      <span className="mt-1.5 block text-[13px] font-bold text-foreground">{formatDynamic(house.monthly_rent)}<span className="text-[11px] font-normal text-muted-foreground"> / month</span></span>
+                      <span className="block text-[11px] font-medium text-emerald-600 dark:text-emerald-400">Earn {formatDynamic(monthlyReturn)} returns</span>
                     </span>
                   </button>
                 );

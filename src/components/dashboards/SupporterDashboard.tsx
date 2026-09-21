@@ -446,48 +446,41 @@ export default function SupporterDashboard({
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
         <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg lg:max-w-7xl mx-auto">
-          {/* ═══ INLINE GREETING BAR ═══ */}
-          <div className="mx-auto flex max-w-lg items-center gap-3 px-1 py-1 sm:flex-col sm:gap-2 sm:py-2">
-            <ProfileSummaryPopover
-              className="min-h-[44px] min-w-[44px]"
-              align="start"
-              avatarUrl={profile?.avatar_url}
-              fullName={displayFullName}
-              phone={(profile as any)?.phone}
-              email={(profile as any)?.email}
-              location={(profile as any)?.location}
-              verified={profile?.verified}
-              roleLabel="Funder"
-              triggerSize="lg"
-            />
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:items-center">
-              <h1 className="font-bold text-base sm:text-lg leading-tight flex items-center gap-1.5">
-                <span className="break-words">{displayFirstName}</span>
-                {profile?.verified ? (
-                  <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />
-                ) : (
-                  <BadgeCheck className="h-4 w-4 text-muted-foreground/30 shrink-0" />
-                )}
-              </h1>
-              <p className="text-[11px] text-muted-foreground font-medium">Welcome back</p>
-            </div>
-            <div className="shrink-0"><AiIdButton variant="compact" /></div>
-          </div>
+          {/* ═══ AIRBNB-STYLE PROFILE CARD ═══ */}
+          <div className="rounded-2xl border border-border/40 bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-card sm:p-6">
+            <div className="flex items-start gap-5 sm:gap-6">
+              {/* Left: Avatar + Name */}
+              <div className="flex flex-col items-center text-center">
+                <ProfileSummaryPopover
+                  className="min-h-[72px] min-w-[72px] sm:min-h-[88px] sm:min-w-[88px]"
+                  align="start"
+                  avatarUrl={profile?.avatar_url}
+                  fullName={displayFullName}
+                  phone={(profile as any)?.phone}
+                  email={(profile as any)?.email}
+                  location={(profile as any)?.location}
+                  verified={profile?.verified}
+                  roleLabel="Funder"
+                  triggerSize="lg"
+                />
+                <h1 className="mt-2 text-lg font-bold leading-tight sm:text-xl">{displayFirstName}</h1>
+                <p className="text-[11px] text-muted-foreground font-medium">{(profile as any)?.location || 'Uganda'}</p>
+              </div>
 
-          {/* Portfolio shortcut */}
-          <div className="px-1 -mt-1 sm:mt-0 flex items-center justify-between gap-3">
-            <span className="text-sm font-medium flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-primary" />
-              View portfolio
-            </span>
-            <Button
-              variant="default"
-              size="default"
-              className="text-sm font-medium"
-              onClick={() => navigate('/dashboard/funder/portfolio')}
-            >
-              Open
-            </Button>
+              {/* Right: View portfolio action */}
+              <div className="flex flex-1 flex-col items-end justify-center gap-3">
+                <AiIdButton variant="compact" />
+                <Button
+                  variant="default"
+                  size="default"
+                  className="rounded-full px-6 text-sm font-semibold gap-2"
+                  onClick={() => navigate('/dashboard/funder/portfolio')}
+                >
+                  <Wallet className="h-4 w-4" />
+                  View portfolio
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Rent needed for all empty houses — market overview */}
