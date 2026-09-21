@@ -1793,6 +1793,55 @@
       "when": 1789969015910,
       "tag": "0255_allow_tenant_repayment_before_landlord_paid",
       "breakpoints": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1789991574936,
+      "tag": "0256_adv_gate_2026_09_21_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1789991970707,
+      "tag": "0257_tenant_self_repayment_full_deposit",
+      "breakpoints": true
+    },
+    {
+      "idx": 258,
+      "version": "7",
+      "when": 1789993397754,
+      "tag": "0258_loan_chain_2026_09_21_e",
+      "breakpoints": true
+    },
+    {
+      "idx": 259,
+      "version": "7",
+      "when": 1789994043944,
+      "tag": "0259_loan_schedule_2026_09_21_f",
+      "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1789994166478,
+      "tag": "0260_loan_recovery_2026_09_21_g",
+      "breakpoints": true
+    },
+    {
+      "idx": 261,
+      "version": "7",
+      "when": 1789994682243,
+      "tag": "0261_loan_policy_confirm_2026_09_21_h",
+      "breakpoints": true
+    },
+    {
+      "idx": 262,
+      "version": "7",
+      "when": 1789995628489,
+      "tag": "0262_pso_facil_schema_2026_09_21_j",
+      "breakpoints": true
     }
   ]
 }

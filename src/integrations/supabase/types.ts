@@ -5909,6 +5909,81 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_tid_backed_float: {
+        Row: {
+          agent_id: string
+          balance: number
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          balance?: number
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          balance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       agent_tier_capabilities: {
         Row: {
           capability: string
@@ -39290,6 +39365,216 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_facilitation_notes: {
+        Row: {
+          id: string
+          linked_at: string
+          linked_by: string | null
+          promissory_note_id: string
+          requisition_id: string
+        }
+        Insert: {
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          promissory_note_id: string
+          requisition_id: string
+        }
+        Update: {
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          promissory_note_id?: string
+          requisition_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "promissory_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_facilitation_plan_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          location: string
+          purpose: string
+          requisition_id: string
+          seq: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          location: string
+          purpose: string
+          requisition_id: string
+          seq: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          location?: string
+          purpose?: string
+          requisition_id?: string
+          seq?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_facilitation_plan_lines_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_loan_instalments: {
+        Row: {
+          amount_due: number
+          amount_paid: number
+          created_at: string
+          due_on: string
+          id: string
+          loan_id: string
+          seq: number
+          status: string
+        }
+        Insert: {
+          amount_due: number
+          amount_paid?: number
+          created_at?: string
+          due_on: string
+          id?: string
+          loan_id: string
+          seq: number
+          status?: string
+        }
+        Update: {
+          amount_due?: number
+          amount_paid?: number
+          created_at?: string
+          due_on?: string
+          id?: string
+          loan_id?: string
+          seq?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_loan_instalments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "staff_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_loan_policy: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          deduction_day: number
+          id: boolean
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal: number | null
+          monthly_rate: number
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          deduction_day?: number
+          id?: boolean
+          interest_method?: string
+          is_open?: boolean
+          max_months?: number
+          max_principal?: number | null
+          monthly_rate: number
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          deduction_day?: number
+          id?: boolean
+          interest_method?: string
+          is_open?: boolean
+          max_months?: number
+          max_principal?: number | null
+          monthly_rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_loan_policy_history: {
+        Row: {
+          deduction_day: number
+          id: string
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal: number | null
+          monthly_rate: number
+          note: string | null
+          set_at: string
+          set_by: string
+        }
+        Insert: {
+          deduction_day: number
+          id?: string
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal?: number | null
+          monthly_rate: number
+          note?: string | null
+          set_at?: string
+          set_by: string
+        }
+        Update: {
+          deduction_day?: number
+          id?: string
+          interest_method?: string
+          is_open?: boolean
+          max_months?: number
+          max_principal?: number | null
+          monthly_rate?: number
+          note?: string | null
+          set_at?: string
+          set_by?: string
+        }
+        Relationships: []
+      }
       staff_loan_repayments: {
         Row: {
           amount: number
@@ -39565,12 +39850,16 @@ export type Database = {
       }
       staff_requisition_usage_reports: {
         Row: {
+          activities_carried_out: string | null
+          amount_received: number | null
           amount_used: number
           attachment_paths: string[] | null
           created_at: string
           id: string
+          places_visited: string | null
           requester_id: string
           requisition_id: string
+          results_achieved: string | null
           review_note: string | null
           review_status: string
           reviewed_at: string | null
@@ -39579,12 +39868,16 @@ export type Database = {
           summary: string
         }
         Insert: {
+          activities_carried_out?: string | null
+          amount_received?: number | null
           amount_used: number
           attachment_paths?: string[] | null
           created_at?: string
           id?: string
+          places_visited?: string | null
           requester_id: string
           requisition_id: string
+          results_achieved?: string | null
           review_note?: string | null
           review_status?: string
           reviewed_at?: string | null
@@ -39593,12 +39886,16 @@ export type Database = {
           summary: string
         }
         Update: {
+          activities_carried_out?: string | null
+          amount_received?: number | null
           amount_used?: number
           attachment_paths?: string[] | null
           created_at?: string
           id?: string
+          places_visited?: string | null
           requester_id?: string
           requisition_id?: string
+          results_achieved?: string | null
           review_note?: string | null
           review_status?: string
           reviewed_at?: string | null
@@ -39640,6 +39937,9 @@ export type Database = {
           department_id: string | null
           department_key: string | null
           final_stage: string
+          hr_decided_at: string | null
+          hr_decided_by: string | null
+          hr_note: string | null
           id: string
           loan_monthly_rate: number | null
           loan_months: number | null
@@ -39684,6 +39984,9 @@ export type Database = {
           department_id?: string | null
           department_key?: string | null
           final_stage?: string
+          hr_decided_at?: string | null
+          hr_decided_by?: string | null
+          hr_note?: string | null
           id?: string
           loan_monthly_rate?: number | null
           loan_months?: number | null
@@ -39728,6 +40031,9 @@ export type Database = {
           department_id?: string | null
           department_key?: string | null
           final_stage?: string
+          hr_decided_at?: string | null
+          hr_decided_by?: string | null
+          hr_note?: string | null
           id?: string
           loan_monthly_rate?: number | null
           loan_months?: number | null
@@ -54227,6 +54533,10 @@ export type Database = {
             }
             Returns: Json
           }
+      credit_agent_tid_backed_float: {
+        Args: { p_agent_id: string; p_delta: number }
+        Returns: undefined
+      }
       credit_merchant_payout_commission: {
         Args: { p_awarded_via?: string; p_withdrawal_id: string }
         Returns: Json
@@ -62905,6 +63215,34 @@ export type Database = {
           interest_charged: number
           loans_charged: number
         }[]
+      }
+      staff_loan_policy_confirm: {
+        Args: {
+          _interest_method: string
+          _max_months: number
+          _max_principal: number
+          _monthly_rate: number
+          _note: string
+          _open: boolean
+        }
+        Returns: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          deduction_day: number
+          id: boolean
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal: number | null
+          monthly_rate: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_loan_policy"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       staff_loan_recover_from_wallet: {
         Args: { p_max_amount?: number; p_source?: string; p_user_id: string }

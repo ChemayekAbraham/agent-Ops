@@ -143,6 +143,29 @@ async function sendSMSWithRetries(phone: string, message: string, attempts = 3):
 
 async function fetchRoleUserPhones(admin: any, role: Audience): Promise<{ user_id: string; phone: string }[]> {
   const out: { user_id: string; phone: string }[] = [];
+
+  // "Agents" means real, working field/referral agents — anyone who has ever
+  // collected rent or been assigned as the agent on a rent request — not
+  // everyone who merely holds the 'agent' row in user_roles. Most accounts in
+  // this system carry {tenant, agent, landlord, supporter} simultaneously, so
+  // a raw role-table query for 'agent' returns ~58,755 users (essentially the
+  // whole platform) instead of the ~233 who actually are one. Reuses the same
+  // canonical definition agent_ops_strict_agent_ids() already uses elsewhere
+  // (get_agent_ops_overview, get_agent_ops_top_agents) so this can't drift
+  // from what the rest of the product calls an agent.
+  if (role === 'agent') {
+    const { data, error } = await admin.rpc('agent_ops_strict_agent_ids');
+    if (error) throw error;
+    const userIds = Array.from(new Set((data || []).map((r: any) => r.agent_id).filter(Boolean)));
+    const CHUNK = 200;
+    for (let i = 0; i < userIds.length; i += CHUNK) {
+      const slice = userIds.slice(i, i + CHUNK);
+      const { data: profs } = await admin.from('profiles').select('id, phone').in('id', slice);
+      for (const p of profs || []) out.push({ user_id: p.id, phone: p.phone });
+    }
+    return out;
+  }
+
   const PAGE = 1000;
   let from = 0;
   const userIds: string[] = [];
