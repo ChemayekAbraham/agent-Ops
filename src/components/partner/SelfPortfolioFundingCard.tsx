@@ -1024,7 +1024,7 @@ export function SelfPortfolioFundingCard({
     return feedOrder === 'houses' ? houseItems : planItems;
   }, [
     plans,
-    houses,
+    searchPool,
     feedOrder,
     houseSort,
     referencePoint,
