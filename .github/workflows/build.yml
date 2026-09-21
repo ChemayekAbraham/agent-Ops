@@ -56,6 +56,14 @@ jobs:
           set -euxo pipefail
           node scripts/run-guards.mjs
 
+      # Blocks deployment when map load-test budgets, query bounds, or
+      # interaction responsiveness regress (10M+ houses simulation).
+      - name: Map load-test budgets (blocks deploy on regression)
+        run: |
+          set -euxo pipefail
+          npm run test:loadtest
+
+
       # npm run build runs prebuild (sitemap), the repo guards, vite build via the
       # heap wrapper, then postbuild (prerender) also via the heap wrapper.
       - name: Production build + prerender
