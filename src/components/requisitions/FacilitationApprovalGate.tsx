@@ -33,6 +33,7 @@ interface Prompt {
   currency: string;
   snooze_count: number;
   submitted_at: string;
+  kind?: 'approval' | 'disbursement' | null;
 }
 
 interface PlanLine {
@@ -115,6 +116,19 @@ export function FacilitationApprovalGate() {
     setWorking(false);
     if (error) { toast.error(error.message); return; }
     toast.success('Facilitation declined');
+    setPrompt(null);
+    void load();
+  };
+
+  const disburse = async () => {
+    if (!prompt) return;
+    setWorking(true);
+    const { error } = await supabase.rpc('pso_facilitation_disburse' as never, {
+      _requisition_id: prompt.requisition_id,
+    } as never);
+    setWorking(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Facilitation disbursed');
     setPrompt(null);
     void load();
   };
