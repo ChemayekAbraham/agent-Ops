@@ -624,8 +624,8 @@ export function EmptyHouseMapBrowser({
             const icon = L.divIcon({
               className: 'empty-house-map-pin-hitbox',
               html: `<span class="empty-house-map-pin${active ? ' empty-house-map-pin--active' : ''}">${houseSvg}</span>`,
-              iconSize: [46, 46],
-              iconAnchor: [23, 23],
+              iconSize: [32, 32],
+              iconAnchor: [16, 16],
             });
 
             return (
