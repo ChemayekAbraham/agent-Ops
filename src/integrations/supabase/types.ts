@@ -34423,11 +34423,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pso_facilitation_disbursers: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          enabled: boolean
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       pso_facilitation_prompts: {
         Row: {
           approver_id: string
           created_at: string
           id: string
+          kind: string
           requisition_id: string
           resolution: string | null
           resolved_at: string | null
@@ -34439,6 +34464,7 @@ export type Database = {
           approver_id: string
           created_at?: string
           id?: string
+          kind?: string
           requisition_id: string
           resolution?: string | null
           resolved_at?: string | null
@@ -34450,6 +34476,7 @@ export type Database = {
           approver_id?: string
           created_at?: string
           id?: string
+          kind?: string
           requisition_id?: string
           resolution?: string | null
           resolved_at?: string | null
@@ -62031,6 +62058,7 @@ export type Database = {
         Returns: {
           amount: number
           currency: string
+          kind: string
           officer_name: string
           prompt_id: string
           reason: string
@@ -62047,6 +62075,7 @@ export type Database = {
           approver_id: string
           created_at: string
           id: string
+          kind: string
           requisition_id: string
           resolution: string | null
           resolved_at: string | null
