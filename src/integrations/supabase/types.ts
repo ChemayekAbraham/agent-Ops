@@ -39365,6 +39365,47 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_loan_instalments: {
+        Row: {
+          amount_due: number
+          amount_paid: number
+          created_at: string
+          due_on: string
+          id: string
+          loan_id: string
+          seq: number
+          status: string
+        }
+        Insert: {
+          amount_due: number
+          amount_paid?: number
+          created_at?: string
+          due_on: string
+          id?: string
+          loan_id: string
+          seq: number
+          status?: string
+        }
+        Update: {
+          amount_due?: number
+          amount_paid?: number
+          created_at?: string
+          due_on?: string
+          id?: string
+          loan_id?: string
+          seq?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_loan_instalments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "staff_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_loan_policy: {
         Row: {
           confirmed_at: string | null
