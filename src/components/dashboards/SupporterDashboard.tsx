@@ -6,7 +6,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Calculator, BadgeCheck } from 'lucide-react';
+import { Calculator, BadgeCheck, Wallet } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -469,7 +469,25 @@ export default function SupporterDashboard({
             </div>
             <div className="shrink-0"><AiIdButton variant="compact" /></div>
           </div>
+
+          {/* Portfolio shortcut */}
+          <div className="px-1 -mt-1 sm:mt-0 flex items-center justify-between gap-3">
+            <span className="text-sm font-medium flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-primary" />
+              View portfolio
+            </span>
+            <Button
+              variant="default"
+              size="default"
+              className="text-sm font-medium"
+              onClick={() => navigate('/dashboard/funder/portfolio')}
+            >
+              Open
+            </Button>
+          </div>
+
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
+
           <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="w-1 h-5 rounded-full bg-primary" />
