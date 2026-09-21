@@ -63,7 +63,7 @@ import {
 } from '@/lib/merchantPayoutQueue';
 import {
   CLAIM_MESSAGES, outcomeFromClaimResponse, outcomeFromRpcError, reconcileClaim,
-  removeFromQueuePage, withClaimUpserted,
+  removeFromQueuePage, withClaimUpserted, readCachedActiveClaims, persistActiveClaims,
   type ClaimOutcome, type ClaimRpcResponse, type ClaimStatusResponse, type ClaimedWithdrawal,
 } from '@/lib/merchantClaim';
 
@@ -611,7 +611,18 @@ export function AgentCashPayoutsTab() {
   // queue fence here, the server could refuse a second claim over a row this
   // list never showed (merchants saw "you have another transaction" with
   // nothing in "Claimed by you").
-  const { data: myActiveClaims = [], isError: myActiveClaimsError, refetch: refetchMyActiveClaims } = useQuery({
+  //
+  // Seeded from a local display cache (see merchantClaim.ts) so a mobile
+  // browser discarding and re-creating the page — opening MoMo to pay, then
+  // switching back — doesn't blank the claimed payout's number/code/amount
+  // while the fresh identity cascade (user -> desk -> claims) catches up.
+  // Confirm/Reject always call the server regardless of what this shows.
+  const [cachedActiveClaims] = useState(() => readCachedActiveClaims<any>(user?.id));
+  const {
+    data: liveActiveClaims,
+    isError: myActiveClaimsError,
+    refetch: refetchMyActiveClaims,
+  } = useQuery({
     queryKey: ['cashout-my-active-claims', isCashoutAgent?.id],
     queryFn: async () => {
       // Deliberately simple server filter (desk + open status + not processed).
@@ -629,7 +640,9 @@ export function AgentCashPayoutsTab() {
         .filter((w: any) => String(w.fin_ops_reference ?? '').trim() === '')
         .sort((a: any, b: any) =>
           String(a.dispatched_at ?? '').localeCompare(String(b.dispatched_at ?? '')));
-      return attachProfiles(open);
+      const result = await attachProfiles(open);
+      persistActiveClaims(user?.id, result);
+      return result;
     },
     enabled: !!isCashoutAgent?.id,
     staleTime: 5_000,
@@ -638,6 +651,10 @@ export function AgentCashPayoutsTab() {
     refetchOnMount: 'always',
     retry: 2,
   });
+  // Live data wins the instant it's known — even an empty live `[]` (genuinely
+  // no active claim) overrides the cache. Only fall back while the live query
+  // has never resolved yet.
+  const myActiveClaims = liveActiveClaims ?? cachedActiveClaims;
 
   // Show a claim the server returned: into "Claimed by you", out of the Pending
   // Queue, straight from the returned object — no second read. The server has
@@ -651,7 +668,11 @@ export function AgentCashPayoutsTab() {
       qc.cancelQueries({ queryKey: ['cashout-my-active-claims', deskId] }),
       qc.cancelQueries({ queryKey: ['cashout-queue-page'] }),
     ]);
-    qc.setQueryData(['cashout-my-active-claims', deskId], withClaimUpserted(claim));
+    const upserted = qc.setQueryData(['cashout-my-active-claims', deskId], withClaimUpserted(claim));
+    // Protect this brand-new claim (number, code, amount) against a mobile
+    // browser discarding the page before the next background refetch would
+    // have written it to the local cache itself.
+    persistActiveClaims(user?.id, Array.isArray(upserted) ? upserted : [claim]);
     qc.setQueriesData<{ rows?: Array<{ id: string }>; count?: number } | undefined>(
       { queryKey: ['cashout-queue-page'] },
       (old) => removeFromQueuePage(old, claim.id) ?? undefined,
@@ -1146,6 +1167,13 @@ export function AgentCashPayoutsTab() {
         if (claimClosed) {
           qc.setQueriesData({ queryKey: ['cashout-my-active-claims'] }, (old: any) =>
             Array.isArray(old) ? old.filter((row: any) => row.id !== newRow.id) : old,
+          );
+          // Keep the local display cache from outliving the claim it describes
+          // — otherwise a completed/reassigned payout could reappear as a
+          // "ghost" claim on the next reload.
+          persistActiveClaims(
+            user?.id,
+            qc.getQueryData(['cashout-my-active-claims', isCashoutAgent?.id]) as any[] ?? [],
           );
         }
         invalidateQueue();

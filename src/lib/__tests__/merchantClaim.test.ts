@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   CLAIM_MESSAGES, isAmbiguousTransportError, outcomeFromClaimResponse, outcomeFromClaimStatus, outcomeFromRpcError,
-  reconcileClaim, removeFromQueuePage, upsertClaimedRow, type ClaimStatusResponse,
+  reconcileClaim, removeFromQueuePage, upsertClaimedRow, readCachedActiveClaims, persistActiveClaims,
+  type ClaimStatusResponse,
 } from '../merchantClaim';
 
 const claimRow = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -144,5 +145,50 @@ describe('TEST 8 — returned claim is shown immediately (cache writes, no refet
     const page = { rows: [{ id: 'Y' }], count: 1 };
     expect(removeFromQueuePage(page, 'X')).toBe(page);
     expect(removeFromQueuePage(undefined, 'X')).toBeUndefined();
+  });
+});
+
+describe('TEST 9 — local display cache survives a mobile browser discarding the page', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('round-trips what was persisted', () => {
+    persistActiveClaims('agent-1', [claimRow('X')]);
+    expect(readCachedActiveClaims('agent-1')).toEqual([claimRow('X')]);
+  });
+
+  it('is scoped per user — another user id sees nothing', () => {
+    persistActiveClaims('agent-1', [claimRow('X')]);
+    expect(readCachedActiveClaims('agent-2')).toEqual([]);
+  });
+
+  it('clears the entry when the live list becomes empty (claim completed/released)', () => {
+    persistActiveClaims('agent-1', [claimRow('X')]);
+    persistActiveClaims('agent-1', []);
+    expect(readCachedActiveClaims('agent-1')).toEqual([]);
+  });
+
+  it('never throws for a missing/no user id', () => {
+    expect(() => persistActiveClaims(undefined, [claimRow('X')])).not.toThrow();
+    expect(readCachedActiveClaims(undefined)).toEqual([]);
+    expect(readCachedActiveClaims(null)).toEqual([]);
+  });
+
+  it('treats corrupted JSON as no cache rather than throwing', () => {
+    localStorage.setItem('welile:cashout-active-claims:agent-1', 'not json');
+    expect(readCachedActiveClaims('agent-1')).toEqual([]);
+  });
+
+  it('discards an entry older than the max age instead of showing stale ghost claims', () => {
+    const key = 'welile:cashout-active-claims:agent-1';
+    localStorage.setItem(key, JSON.stringify({ at: Date.now() - 7 * 60 * 60 * 1000, claims: [claimRow('X')] }));
+    expect(readCachedActiveClaims('agent-1')).toEqual([]);
+  });
+
+  it('keeps a recent entry within the max age', () => {
+    const key = 'welile:cashout-active-claims:agent-1';
+    localStorage.setItem(key, JSON.stringify({ at: Date.now() - 60 * 1000, claims: [claimRow('X')] }));
+    expect(readCachedActiveClaims('agent-1')).toEqual([claimRow('X')]);
   });
 });
