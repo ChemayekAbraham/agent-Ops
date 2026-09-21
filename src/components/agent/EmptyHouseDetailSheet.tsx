@@ -94,6 +94,7 @@ export function EmptyHouseDetailSheet({
   const active = photos[Math.min(index, Math.max(photos.length - 1, 0))];
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
@@ -453,6 +454,7 @@ export function EmptyHouseDetailSheet({
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 
