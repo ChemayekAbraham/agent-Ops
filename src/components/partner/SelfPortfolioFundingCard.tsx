@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -1462,82 +1462,6 @@ export function SelfPortfolioFundingCard({
         </SheetContent>
       </Sheet>
 
-      {feedOrder === 'houses' && houses.length > 0 && (houseDistricts.length > 0 || houseSubCounties.length > 0) && (
-        <div className="space-y-1.5 px-1" aria-label="Quick location filters">
-          {houseDistricts.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="District quick filters">
-              <MapPin className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
-              <button
-                type="button"
-                aria-pressed={houseDistrict === 'all'}
-                onClick={() => setHouseDistrict('all')}
-                className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
-                  houseDistrict === 'all'
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-muted'
-                }`}
-              >
-                All districts
-                <span className="ml-1 opacity-70">
-                  ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
-                </span>
-              </button>
-              {houseDistricts.map(([key, { label, count }]) => (
-                <button
-                  key={key}
-                  type="button"
-                  aria-pressed={houseDistrict === key}
-                  onClick={() => setHouseDistrict(houseDistrict === key ? 'all' : key)}
-                  className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
-                    houseDistrict === key
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {label}
-                  <span className="ml-1 opacity-70">({count})</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {houseSubCounties.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="Neighborhood quick filters">
-              <NavigationIcon className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
-              <button
-                type="button"
-                aria-pressed={houseSubCounty === 'all'}
-                onClick={() => setHouseSubCounty('all')}
-                className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
-                  houseSubCounty === 'all'
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-muted'
-                }`}
-              >
-                All neighborhoods
-                <span className="ml-1 opacity-70">
-                  ({houseSubCounties.reduce((sum, [, { count }]) => sum + count, 0)})
-                </span>
-              </button>
-              {houseSubCounties.map(([key, { label, count }]) => (
-                <button
-                  key={key}
-                  type="button"
-                  aria-pressed={houseSubCounty === key}
-                  onClick={() => setHouseSubCounty(houseSubCounty === key ? 'all' : key)}
-                  className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
-                    houseSubCounty === key
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {label}
-                  <span className="ml-1 opacity-70">({count})</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {feedOrder === 'houses' && alertsOpen && houseAlerts.length > 0 && (
         <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border-border" aria-label="Balance alert history">
