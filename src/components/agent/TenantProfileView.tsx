@@ -781,15 +781,12 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           (Date.parse(`${repaymentStartsOn}T00:00:00Z`) - Date.parse(`${todayEAT}T00:00:00Z`)) / 86400000))
       : 0;
   const repaymentNotStarted = daysUntilStart > 0;
-  // Landlord float has been released to the agent, but the landlord has not
-  // actually been paid yet — collection must stay closed until that happens.
-  // Landlord not paid yet when the request is still at `approved` (float just
-  // released) OR the landlord float allocation for this plan still holds money
-  // (paid_out < allocated). Status alone is not enough — a plan can read
-  // `repaying` while the landlord was never paid.
-  const awaitingLandlord =
-    summary.activeRequest?.status === 'approved' ||
-    (!!summary.activeRequest && landlordUnpaidRequestIds.has(summary.activeRequest.id));
+  // Landlord settlement no longer gates tenant repayment (2026-09-21 business
+  // decision): collection is open even when the landlord float released to the
+  // agent has not yet reached the landlord. Landlord payment is tracked
+  // separately via the landlord float allocations.
+  const awaitingLandlord = false;
+
 
   const activePct = summary.activeRequest && summary.activeRequest.total_repayment > 0
     ? Math.min(100, Math.round((summary.activeRequest.amount_repaid / summary.activeRequest.total_repayment) * 100))
