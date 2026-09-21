@@ -235,6 +235,7 @@ export default function ManagementOverviewTab() {
                       <TableHead>Eligibility</TableHead>
                       <TableHead className="text-right">Can access</TableHead>
                       <TableHead className="text-right">Needed for next level</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
