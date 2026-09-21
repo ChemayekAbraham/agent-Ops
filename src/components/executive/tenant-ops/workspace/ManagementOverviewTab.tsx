@@ -16,6 +16,10 @@ import { Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { TOPUP_TIER_LABELS } from '@/hooks/useTenantTopupEligibility';
 import { useTenantOpsManagementOverview } from '@/hooks/useTenantOpsManagementOverview';
+import {
+  TenantQuickActions,
+  AgentQuickActions,
+} from '@/components/executive/tenant-ops/workspace/TenantOpsQuickActions';
 
 const CYCLE_LABELS: Record<string, string> = {
   in_cycle: 'Still inside the cycle',
