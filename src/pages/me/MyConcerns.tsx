@@ -19,6 +19,8 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { ConcernControlPanel } from '@/components/executive/tenant-ops/calling-center/ConcernControlPanel';
 import { ConcernParticipantsPanel } from '@/components/executive/tenant-ops/calling-center/ConcernParticipantsPanel';
+import { ConcernAttachmentsPanel } from '@/components/executive/tenant-ops/calling-center/ConcernAttachmentsPanel';
+import { ConcernCaseContextPanel } from '@/components/executive/tenant-ops/calling-center/ConcernCaseContextPanel';
 import { CCEmpty, CC_ROW } from '@/components/executive/tenant-ops/calling-center/ccUi';
 
 import {
@@ -104,6 +106,10 @@ function ConcernCard({
       </div>
 
       {concern.context && <p className="mt-2 text-[11px] leading-snug">{concern.context}</p>}
+      <div className="mt-1.5 space-y-1.5">
+        <ConcernCaseContextPanel concernId={concern.id} fallbackName={concern.caller_name} />
+        <ConcernAttachmentsPanel concernId={concern.id} />
+      </div>
       {reviewerRows.length > 0 && (
         <div className="mt-1.5">
           <ConcernParticipantsPanel concern={concern} reviewers={reviewerRows} />
