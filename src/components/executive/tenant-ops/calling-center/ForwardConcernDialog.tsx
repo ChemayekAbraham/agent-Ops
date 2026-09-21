@@ -112,7 +112,19 @@ export function ForwardConcernDialog({
       due_hours: dueHours,
     };
     try {
-      await forward.mutateAsync(payload);
+      const concernId = await forward.mutateAsync(payload);
+      if (files.length > 0) {
+        setUploading(true);
+        try {
+          await uploadConcernAttachments(concernId, files);
+        } catch (e: any) {
+          toast.error(
+            `The concern was saved, but a file did not attach: ${e?.message ?? 'upload failed'}. You can attach it again from the concern.`,
+          );
+        } finally {
+          setUploading(false);
+        }
+      }
       const many = to.length > 1;
       toast.success(
         addReviewer
