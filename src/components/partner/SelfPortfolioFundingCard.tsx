@@ -8,10 +8,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
 import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
@@ -151,11 +150,6 @@ export function SelfPortfolioFundingCard({
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
   const [houseSort, setHouseSort] = useState<HouseSort>('rent_asc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
-  // Coordinates of the house the funder tapped "See more in <district>" from, so the map lands there.
-  const [districtFocus, setDistrictFocus] = useState<{ lat: number; lng: number } | null>(null);
-  /** District the map only zooms to (no filtering) — set by "See more in <district>". */
-  const [mapZoomDistrict, setMapZoomDistrict] = useState<string | null>(null);
-
   // Neighborhood (sub-county) quick filter — set via chips, pairs with district.
   const [houseSubCounty, setHouseSubCounty] = useState<string>('all');
   const [houseSearch, setHouseSearch] = useState('');
@@ -181,22 +175,6 @@ export function SelfPortfolioFundingCard({
   // Radius filter (km) around the funder's own location, falling back to the
   // last house tapped on the map when device location is unavailable.
   const [houseRadiusKm, setHouseRadiusKm] = useState<string>('all');
-  // Filter drawer (funnel button) — search stays on the map, everything else lives here.
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const activeFilterCount =
-    (houseDistrict !== 'all' ? 1 : 0) +
-    (houseSubCounty !== 'all' ? 1 : 0) +
-    (houseCountry !== 'all' ? 1 : 0) +
-    (houseListingAge !== 'all' ? 1 : 0) +
-    (houseRadiusKm !== 'all' ? 1 : 0) +
-    (houseFundingStatus !== 'all' ? 1 : 0) +
-    (houseSort !== 'rent_asc' ? 1 : 0) +
-    (houseRentMin.trim() !== '' ? 1 : 0) +
-    (houseRentMax.trim() !== '' ? 1 : 0) +
-    (houseWithinFloat ? 1 : 0) +
-    (showSavedReadyOnly ? 1 : 0);
-
-
 
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
@@ -1081,7 +1059,7 @@ export function SelfPortfolioFundingCard({
   return (
     <div className="space-y-3">
       {feedOrder === 'houses' && houses.length > 0 && (
-        <div id="empty-house-map-section" className="overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
           <EmptyHouseMapBrowser
             houses={searchableMapHouses}
             selectedIds={houseSelected}
@@ -1092,9 +1070,6 @@ export function SelfPortfolioFundingCard({
             minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
             maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
             district={houseDistrict !== 'all' ? houseDistrict : null}
-            zoomDistrict={mapZoomDistrict}
-            districtFocus={districtFocus}
-
             country={selectedCountry}
             maxAgeDays={listingAgeDays}
             onHousesDiscovered={registerDiscoveredHouses}
@@ -1109,11 +1084,11 @@ export function SelfPortfolioFundingCard({
               }
             }}
           />
-          <div className="flex min-h-0 flex-col gap-3 border-t border-border p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-4">
+          <div className="flex min-h-0 flex-col gap-3 border-t border-border/50 p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-5">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-base font-black text-foreground">Empty houses</p>
+                  <p className="text-lg font-bold tracking-tight text-foreground">Where you'll fund</p>
                   <p className="text-[11px] font-medium text-muted-foreground">
                     {feed.length.toLocaleString()} available · showing {visibleMapHouses.length} cards
                   </p>
@@ -1135,24 +1110,24 @@ export function SelfPortfolioFundingCard({
                     key={`map-list-${house.house_id}`}
                     type="button"
                     onClick={() => setDetailHouse(house)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-background p-2 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                    className="group flex w-full items-start gap-3 rounded-xl border border-border/40 bg-background p-2.5 text-left transition-all hover:border-border hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
                   >
                     {image ? (
-                      <img src={image} alt="" loading="lazy" className="h-16 w-20 shrink-0 rounded-lg object-cover" />
+                      <img src={image} alt="" loading="lazy" className="h-20 w-24 shrink-0 rounded-lg object-cover transition-transform group-hover:scale-[1.02]" />
                     ) : (
-                      <div className="flex h-16 w-20 shrink-0 items-center justify-center rounded-lg bg-muted">
-                        <Home className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-lg bg-muted">
+                        <Home className="h-6 w-6 text-muted-foreground/50" />
                       </div>
                     )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-bold text-foreground">
+                    <span className="min-w-0 flex-1 py-0.5">
+                      <span className="block truncate text-[13px] font-semibold text-foreground">
                         <HighlightText text={houseTitleLine(house)} query={houseSearch} />
                       </span>
-                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                         <HighlightText text={house.district || 'Uganda'} query={houseSearch} />
                       </span>
-                      <span className="mt-1 block text-xs font-black text-foreground">{formatDynamic(house.monthly_rent)}</span>
-                      <span className="block text-[10px] font-semibold text-primary">Earn {formatDynamic(monthlyReturn)} monthly</span>
+                      <span className="mt-1.5 block text-[13px] font-bold text-foreground">{formatDynamic(house.monthly_rent)}<span className="text-[11px] font-normal text-muted-foreground"> / month</span></span>
+                      <span className="block text-[11px] font-medium text-emerald-600 dark:text-emerald-400">Earn {formatDynamic(monthlyReturn)} returns</span>
                     </span>
                   </button>
                 );
@@ -1206,255 +1181,203 @@ export function SelfPortfolioFundingCard({
       )}
 
       {feedOrder === 'houses' && houses.length > 0 && (
-        <div className="flex items-center gap-2 px-1" aria-label="Filter empty houses">
+        <div className="flex flex-wrap items-center gap-2 px-1" aria-label="Sort and filter empty houses">
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
+              <SelectTrigger className="h-9 w-auto min-w-[150px] text-xs font-semibold" aria-label="Sort houses">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HOUSE_SORTS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {houseSort === 'nearest' && (
+              <span className="text-[10px] leading-tight text-muted-foreground max-w-[16rem]">
+                {referencePoint ? 'Sorted by distance from the selected house.' : 'Tap a house on the map to sort from that location.'}
+              </span>
+            )}
+          </div>
+          <Select value={houseCountry} onValueChange={setHouseCountry}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by country">
+              <SelectValue placeholder="All countries" />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">All of Africa</SelectItem>
+              {listedCountries.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.name} ({c.listings})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={houseListingAge} onValueChange={setHouseListingAge}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by listing age">
+              <SelectValue placeholder="Any listing age" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any listing age</SelectItem>
+              <SelectItem value="7">Listed in last 7 days</SelectItem>
+              <SelectItem value="30">Listed in last 30 days</SelectItem>
+              <SelectItem value="90">Listed in last 3 months</SelectItem>
+              <SelectItem value="365">Listed in last year</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={houseDistrict} onValueChange={setHouseDistrict}>
+            <SelectTrigger className="h-9 w-auto min-w-[130px] text-xs font-semibold" aria-label="Filter by district">
+              <SelectValue placeholder="All districts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                All districts ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
+              </SelectItem>
+              {houseDistricts.map(([key, { label, count }]) => (
+                <SelectItem key={key} value={key}>
+                  {label} ({count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={houseFundingStatus} onValueChange={(v) => setHouseFundingStatus(v as HouseFundingStatus)}>
+            <SelectTrigger className="h-9 w-auto min-w-[150px] text-xs font-semibold" aria-label="Filter by funding status">
+              <SelectValue placeholder="Any funding status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any funding status</SelectItem>
+              <SelectItem value="ready">Ready to fund now</SelectItem>
+              <SelectItem value="topup">Needs a top-up</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={houseRadiusKm} onValueChange={setHouseRadiusKm}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by distance from your location">
+              <SelectValue placeholder="Any distance" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any distance</SelectItem>
+              <SelectItem value="1">Within 1 km of me</SelectItem>
+              <SelectItem value="2">Within 2 km of me</SelectItem>
+              <SelectItem value="5">Within 5 km of me</SelectItem>
+              <SelectItem value="10">Within 10 km of me</SelectItem>
+              <SelectItem value="25">Within 25 km of me</SelectItem>
+              <SelectItem value="50">Within 50 km of me</SelectItem>
+              <SelectItem value="100">Within 100 km of me</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1.5" aria-label="Filter by monthly rent range">
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={houseRentMin}
+              onChange={(e) => setHouseRentMin(e.target.value)}
+              placeholder="Min rent"
+              aria-label="Minimum monthly rent"
+              className="h-9 w-[104px] text-xs font-semibold"
+            />
+            <span className="text-[11px] font-semibold text-muted-foreground" aria-hidden>–</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={houseRentMax}
+              onChange={(e) => setHouseRentMax(e.target.value)}
+              placeholder="Max rent"
+              aria-label="Maximum monthly rent"
+              className="h-9 w-[104px] text-xs font-semibold"
+            />
+          </div>
           <Button
             type="button"
-            variant={activeFilterCount > 0 ? 'default' : 'outline'}
+            variant={houseWithinFloat ? 'default' : 'outline'}
             size="sm"
-            className="h-9 gap-1.5 rounded-full px-3 text-xs font-semibold"
-            aria-label={activeFilterCount > 0 ? `Filter houses, ${activeFilterCount} applied` : 'Filter houses'}
-            onClick={() => setFilterDrawerOpen(true)}
+            className="h-9 text-xs font-semibold"
+            aria-pressed={houseWithinFloat}
+            onClick={() => setHouseWithinFloat((v) => !v)}
           >
-            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
-            Filter
-            {activeFilterCount > 0 && (
-              <span className="ml-0.5 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
-                {activeFilterCount}
+            Within my float
+          </Button>
+          <Button
+            type="button"
+            variant={showSavedReadyOnly ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            aria-pressed={showSavedReadyOnly}
+            onClick={() => setShowSavedReadyOnly((v) => !v)}
+          >
+            Saved · Ready to fund
+          </Button>
+          <Button
+            type="button"
+            variant={compareIds.length > 0 ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            disabled={compareIds.length < 2}
+            aria-label={
+              compareIds.length < 2
+                ? 'Compare houses — tap the compare icon on at least 2 house cards first'
+                : `Compare ${compareIds.length} houses side by side`
+            }
+            onClick={() => setCompareOpen(true)}
+          >
+            <GitCompareArrows className="h-3.5 w-3.5 mr-1" aria-hidden />
+            Compare
+            {compareIds.length > 0 && (
+              <span className="ml-1 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                {compareIds.length}
               </span>
             )}
           </Button>
-          {activeFilterCount > 0 && (
+          {compareIds.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs"
+              onClick={() => setCompareIds([])}
+            >
+              Clear compare
+            </Button>
+          )}
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all' || houseRadiusKm !== 'all') && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs"
+              onClick={resetFilters}
+            >
+              <X className="h-3.5 w-3.5 mr-1" aria-hidden />
+              Reset
+            </Button>
+          )}
+          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all' || houseRadiusKm !== 'all') && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
           )}
-          <div className="ml-auto flex items-center gap-2">
-            {compareIds.length >= 2 && (
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                className="h-9 rounded-full text-xs font-semibold"
-                aria-label={`Compare ${compareIds.length} houses side by side`}
-                onClick={() => setCompareOpen(true)}
-              >
-                <GitCompareArrows className="h-3.5 w-3.5 mr-1" aria-hidden />
-                Compare
-                <span className="ml-1 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
-                  {compareIds.length}
-                </span>
-              </Button>
-            )}
-            {houseAlerts.length > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 rounded-full text-xs font-semibold"
-                aria-label={`Balance alerts, ${houseAlerts.length} recorded`}
-                aria-expanded={alertsOpen}
-                onClick={() => setAlertsOpen((v) => !v)}
-              >
-                <Bell className="h-3.5 w-3.5 mr-1" aria-hidden />
-                <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground">
-                  {houseAlerts.length}
-                </span>
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      <Sheet open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen}>
-        <SheetContent side="bottom" className="max-h-[88dvh] overflow-y-auto rounded-t-2xl p-0">
-          <div className="sticky top-0 z-10 border-b border-border bg-background px-4 pb-3 pt-4">
-            <SheetHeader className="space-y-1 text-left">
-              <SheetTitle className="text-base font-black">Filter houses</SheetTitle>
-              <SheetDescription className="text-[11px]">
-                {feed.length} of {houses.length} empty houses match right now.
-              </SheetDescription>
-            </SheetHeader>
-          </div>
-
-          <div className="space-y-5 px-4 py-4">
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Sort by</p>
-              <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
-                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Sort houses">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {HOUSE_SORTS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {houseSort === 'nearest' && (
-                <p className="text-[10px] leading-tight text-muted-foreground">
-                  {referencePoint ? 'Sorted by distance from the selected house.' : 'Tap a house on the map to sort from that location.'}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Where</p>
-              <Select value={houseCountry} onValueChange={setHouseCountry}>
-                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by country">
-                  <SelectValue placeholder="All countries" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  <SelectItem value="all">All of Africa</SelectItem>
-                  {listedCountries.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.name} ({c.listings})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={houseDistrict} onValueChange={setHouseDistrict}>
-                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by district">
-                  <SelectValue placeholder="All districts" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  <SelectItem value="all">
-                    All districts ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
-                  </SelectItem>
-                  {houseDistricts.map(([key, { label, count }]) => (
-                    <SelectItem key={key} value={key}>
-                      {label} ({count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={houseRadiusKm} onValueChange={setHouseRadiusKm}>
-                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by distance from your location">
-                  <SelectValue placeholder="Any distance" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any distance</SelectItem>
-                  <SelectItem value="1">Within 1 km of me</SelectItem>
-                  <SelectItem value="2">Within 2 km of me</SelectItem>
-                  <SelectItem value="5">Within 5 km of me</SelectItem>
-                  <SelectItem value="10">Within 10 km of me</SelectItem>
-                  <SelectItem value="25">Within 25 km of me</SelectItem>
-                  <SelectItem value="50">Within 50 km of me</SelectItem>
-                  <SelectItem value="100">Within 100 km of me</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Monthly rent (UGX)</p>
-              <div className="flex items-center gap-2" aria-label="Filter by monthly rent range">
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={houseRentMin}
-                  onChange={(e) => setHouseRentMin(e.target.value)}
-                  placeholder="Min rent"
-                  aria-label="Minimum monthly rent"
-                  className="h-10 flex-1 text-xs font-semibold"
-                />
-                <span className="text-[11px] font-semibold text-muted-foreground" aria-hidden>–</span>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={houseRentMax}
-                  onChange={(e) => setHouseRentMax(e.target.value)}
-                  placeholder="Max rent"
-                  aria-label="Maximum monthly rent"
-                  className="h-10 flex-1 text-xs font-semibold"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Opportunity</p>
-              <Select value={houseFundingStatus} onValueChange={(v) => setHouseFundingStatus(v as HouseFundingStatus)}>
-                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by funding status">
-                  <SelectValue placeholder="Any funding status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any funding status</SelectItem>
-                  <SelectItem value="ready">Ready to fund now</SelectItem>
-                  <SelectItem value="topup">Needs a top-up</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={houseListingAge} onValueChange={setHouseListingAge}>
-                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by listing age">
-                  <SelectValue placeholder="Any listing age" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any listing age</SelectItem>
-                  <SelectItem value="7">Listed in last 7 days</SelectItem>
-                  <SelectItem value="30">Listed in last 30 days</SelectItem>
-                  <SelectItem value="90">Listed in last 3 months</SelectItem>
-                  <SelectItem value="365">Listed in last year</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex flex-wrap gap-2 pt-0.5">
-                <Button
-                  type="button"
-                  variant={houseWithinFloat ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-9 rounded-full text-xs font-semibold"
-                  aria-pressed={houseWithinFloat}
-                  onClick={() => setHouseWithinFloat((v) => !v)}
-                >
-                  Within my float
-                </Button>
-                <Button
-                  type="button"
-                  variant={showSavedReadyOnly ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-9 rounded-full text-xs font-semibold"
-                  aria-pressed={showSavedReadyOnly}
-                  onClick={() => setShowSavedReadyOnly((v) => !v)}
-                >
-                  Saved · Ready to fund
-                </Button>
-                {compareIds.length > 0 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 rounded-full text-xs"
-                    onClick={() => setCompareIds([])}
-                  >
-                    Clear compare ({compareIds.length})
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="sticky bottom-0 flex items-center gap-2 border-t border-border bg-background px-4 py-3">
+          {houseAlerts.length > 0 && (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-10 flex-1 text-xs font-semibold"
-              disabled={activeFilterCount === 0}
-              onClick={resetFilters}
+              className="h-9 text-xs font-semibold"
+              aria-label={`Balance alerts, ${houseAlerts.length} recorded`}
+              aria-expanded={alertsOpen}
+              onClick={() => setAlertsOpen((v) => !v)}
             >
-              <X className="mr-1 h-3.5 w-3.5" aria-hidden />
-              Reset
+              <Bell className="h-3.5 w-3.5 mr-1" aria-hidden />
+              Alerts
+              <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground">
+                {houseAlerts.length}
+              </span>
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-10 flex-1 text-xs font-semibold"
-              onClick={() => setFilterDrawerOpen(false)}
-            >
-              Show {feed.length} house{feed.length === 1 ? '' : 's'}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+          )}
+        </div>
+      )}
 
       {feedOrder === 'houses' && houses.length > 0 && (houseDistricts.length > 0 || houseSubCounties.length > 0) && (
         <div className="space-y-1.5 px-1" aria-label="Quick location filters">
@@ -2099,20 +2022,6 @@ export function SelfPortfolioFundingCard({
         remaining={remaining}
         isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
         onTogglePick={(h) => toggleHouse(h.house_id)}
-        onRelatedHouseClick={(h) => setDetailHouse(h)}
-        onSeeMoreDistrict={(district, anchor) => {
-          setDetailHouse(null);
-          setDistrictFocus(anchor);
-          // Zoom only — the house list and map keep showing every district.
-          setMapZoomDistrict(district.trim().toLowerCase());
-          window.setTimeout(() => {
-            document
-              .getElementById('empty-house-map-section')
-              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 150);
-        }}
-
-
       />
 
 

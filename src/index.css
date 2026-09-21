@@ -111,14 +111,34 @@ section[aria-label*="Notifications" i]:empty {
 }
 
 @layer components {
+  /* ── Purple-themed map pins ─────────────────────────────────── */
+
   .empty-house-map-pin {
-    @apply flex h-8 w-full items-center justify-center rounded-full border-2 border-background bg-primary px-0 text-[10px] font-black text-primary-foreground shadow-lg;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: hsl(271 100% 40%);
+    color: #fff;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(88,0,200,0.35);
     pointer-events: none;
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
     transform: none;
   }
 
+  .empty-house-map-pin svg {
+    width: 18px;
+    height: 18px;
+    fill: #fff;
+    flex-shrink: 0;
+  }
+
   .empty-house-map-pin-hitbox {
-    align-items: flex-end;
+    align-items: center;
+    justify-content: center;
     background: transparent;
     border: 0;
     display: flex;
@@ -130,26 +150,37 @@ section[aria-label*="Notifications" i]:empty {
 
   @media (hover: hover) and (pointer: fine) {
     .empty-house-map-pin:hover {
-      @apply bg-primary text-primary-foreground ring-4 ring-primary/20;
+      transform: scale(1.18);
+      box-shadow: 0 4px 16px rgba(88,0,200,0.45);
+      background: hsl(271 100% 35%);
     }
   }
 
   .empty-house-map-pin--active {
-    @apply bg-primary text-primary-foreground ring-4 ring-primary/20;
+    transform: scale(1.22);
+    box-shadow: 0 4px 16px rgba(88,0,200,0.45);
+    background: hsl(271 100% 30%);
   }
 
-  /* Grouped empty houses: one badge stands for many listings until you zoom in. */
+  /* Grouped empty houses: purple cluster bubbles */
   .empty-house-map-cluster {
-    @apply inline-flex items-center justify-center rounded-full border-2 border-background bg-primary text-[11px] font-black text-primary-foreground shadow-lg ring-4 ring-primary/20 transition-transform;
+    @apply inline-flex items-center justify-center rounded-full text-[11px] font-black transition-transform;
+    background: hsl(271 100% 50%);
+    color: #fff;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(88,0,200,0.3);
   }
 
   .empty-house-map-me {
-    @apply block h-[18px] w-[18px] rounded-full border-2 border-background bg-sky-500 shadow-lg ring-4 ring-sky-500/30;
+    @apply block h-[18px] w-[18px] rounded-full border-2 border-background shadow-lg;
+    background: #4285F4;
+    box-shadow: 0 0 0 6px rgba(66,133,244,0.25), 0 2px 6px rgba(0,0,0,0.2);
   }
 
   @media (hover: hover) and (pointer: fine) {
     .empty-house-map-cluster:hover {
-      @apply scale-110;
+      transform: scale(1.12);
+      box-shadow: 0 4px 14px rgba(88,0,200,0.4);
     }
   }
 

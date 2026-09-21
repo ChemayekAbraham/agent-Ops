@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MapContainer, Marker, Rectangle, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -9,12 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { formatHouseCategory } from '@/lib/formatting';
-import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Layers, Loader2, MapPin, Maximize2, Minimize2, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
-import { supabase } from '@/integrations/supabase/client';
-
 import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './emptyHouseMapCluster';
 import { MapPerfOverlay } from './MapPerfOverlay';
 import { HEAT_BUCKETS, heatBucketFor, heatmapAppliesAtZoom } from './emptyHouseHeatmap';
@@ -33,15 +32,6 @@ interface EmptyHouseMapBrowserProps {
   maxRent?: number | null;
   /** District currently applied to the list, mirrored on the map. */
   district?: string | null;
-  /**
-   * District the map should zoom to WITHOUT filtering — set by the house
-   * details sheet's "See more in <district>" button so the rest of the
-   * houses stay visible around it.
-   */
-  zoomDistrict?: string | null;
-  /** Coordinates to land on when the district was chosen from a house's details. */
-  districtFocus?: { lat: number; lng: number } | null;
-
   /** Country box currently applied to the list — the map fits to it so the heatmap covers that country only. */
   country?: CountryBounds | null;
   /** Listing-age ceiling in days, applied in the database alongside the viewport. */
@@ -148,7 +138,7 @@ function LocateMeButton({
       onClick={locate}
       disabled={locating}
       aria-label="Center the map on my location"
-      className="absolute right-3 top-16 z-[1000] h-11 w-11 rounded-full border border-border bg-background/95 shadow-lg backdrop-blur sm:top-3"
+      className="absolute right-3 top-[4.5rem] z-[1000] h-11 w-11 rounded-full border-0 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.12)] ring-1 ring-black/5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)] dark:bg-card sm:top-3"
     >
       <Crosshair className={`h-5 w-5${locating ? ' animate-pulse' : ''}`} aria-hidden />
     </Button>
@@ -165,9 +155,6 @@ export function EmptyHouseMapBrowser({
   minRent,
   maxRent,
   district,
-  zoomDistrict,
-  districtFocus,
-
   country,
   maxAgeDays,
   onSearchQueryChange,
@@ -180,15 +167,14 @@ export function EmptyHouseMapBrowser({
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
-  /** 'locating' = browser prompt open, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
-  const [geoStatus, setGeoStatus] = useState<'idle' | 'locating' | 'granted' | 'denied' | 'unsupported'>('idle');
+  /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
   const [geoPromptDismissed, setGeoPromptDismissed] = useState(false);
   const [locationPreviouslyGranted, setLocationPreviouslyGranted] = useState(false);
   const [areaPickerOpen, setAreaPickerOpen] = useState(false);
-  const [isOffline, setIsOffline] = useState(() =>
-    typeof navigator !== 'undefined' ? navigator.onLine === false : false,
-  );
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
     const goOnline = () => setIsOffline(false);
@@ -307,10 +293,51 @@ export function EmptyHouseMapBrowser({
   const initialLocateStarted = useRef(false);
 
   /**
-   * The map always opens on the funder's own area — the single locate effect
-   * lives further down (it needs the manual-area fallback), so nothing runs here.
+   * By default the map opens where the funder is, so the empty houses nearest
+   * to them are the first ones on screen. If location is unavailable or
+   * refused, the loaded-houses fit below takes over.
    */
-
+  useEffect(() => {
+    if (!mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
+    initialLocateStarted.current = true;
+    if (!navigator.geolocation) {
+      setGeoStatus('unsupported');
+      return;
+    }
+    let cancelled = false;
+    try {
+      window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+      setLocationPreviouslyGranted(true);
+    } catch {
+      // ignore storage errors
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled || initialFitDone.current) return;
+        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+        initialFitDone.current = true;
+        setGeoStatus('granted');
+        setUserPosition(point);
+        // Default view: the funder's own area, so the empty houses around them
+        // are the first ones on screen.
+        mapInstance.setView(point, 13);
+      },
+      () => {
+        if (cancelled) return;
+        setGeoStatus('denied');
+        try {
+          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+          setLocationPreviouslyGranted(false);
+        } catch {
+          // ignore storage errors
+        }
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [mapInstance, locationPreviouslyGranted]);
 
   /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
   const retryLocate = useCallback(() => {
@@ -393,94 +420,20 @@ export function EmptyHouseMapBrowser({
   );
 
   /**
-   * When the funder taps "See more in <district>", land the map on that district.
-   * The tapped house's own coordinates are the anchor, because some listings
-   * carry stray coordinates that would otherwise stretch the view to the ocean.
+   * If the funder already approved location sharing, re-locate on return
+   * visits. When geolocation is later revoked, fall back to a manually chosen
+   * area if one was saved; otherwise show the gate again.
    */
   useEffect(() => {
-    if (!mapInstance || !zoomDistrict) return;
-    let cancelled = false;
-    const key = zoomDistrict.trim().toLowerCase();
-
-    const usable = (rows: { latitude?: unknown; longitude?: unknown }[]) =>
-      rows
-        .map((h) => [Number(h.latitude), Number(h.longitude)] as [number, number])
-        .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
-
-    const anchor: [number, number] | null =
-      districtFocus &&
-      Number.isFinite(districtFocus.lat) &&
-      Number.isFinite(districtFocus.lng) &&
-      (districtFocus.lat !== 0 || districtFocus.lng !== 0)
-        ? [districtFocus.lat, districtFocus.lng]
-        : null;
-
-    const fit = (points: [number, number][]) => {
-      if (cancelled) return;
-      // Keep only houses near the anchor — a district is never hundreds of km wide.
-      const near = anchor
-        ? points.filter(([lat, lng]) => Math.abs(lat - anchor[0]) <= 1.5 && Math.abs(lng - anchor[1]) <= 1.5)
-        : points;
-      const usePoints = near.length > 0 ? near : anchor ? [anchor] : points;
-      if (usePoints.length === 0) return;
-      initialFitDone.current = true;
-      if (usePoints.length === 1) mapInstance.flyTo(usePoints[0], 13, { duration: 0.6 });
-      else mapInstance.fitBounds(L.latLngBounds(usePoints), { padding: [36, 36], maxZoom: 13 });
-    };
-
-    // Land immediately on the tapped house, then tighten once the district's houses are known.
-    if (anchor) mapInstance.flyTo(anchor, 13, { duration: 0.6 });
-
-    const local = usable(houses.filter((h) => String(h.district ?? '').trim().toLowerCase() === key));
-    if (local.length > 0) {
-      fit(local);
-      return;
-    }
-
-    (async () => {
-      const { data, error } = await supabase
-        .from('house_listings')
-        .select('latitude,longitude')
-        .eq('status', 'available')
-        .is('tenant_id', null)
-        .eq('verified', true)
-        .eq('is_hidden', false)
-        .gt('monthly_rent', 0)
-        .ilike('district', key)
-        .not('latitude', 'is', null)
-        .not('longitude', 'is', null)
-        .limit(500);
-      if (error || !data) return;
-      fit(usable(data as { latitude?: unknown; longitude?: unknown }[]));
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoomDistrict, districtFocus, mapInstance]);
-
-
-
-
-  /**
-   * Ask the browser for the funder's location as soon as the map mounts, so the
-   * houses nearest to them load first. If they refuse (or the browser cannot
-   * tell us), fall back to a saved manual area, otherwise show the gate so they
-   * can allow location or pick their area.
-   */
-  useEffect(() => {
-    if (!mapInstance || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
+    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
     initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       manualAreaRestored.current = true;
       const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
       if (stored) chooseManualArea(stored);
-      else setGeoStatus('unsupported');
       return;
     }
     let cancelled = false;
-    setGeoStatus('locating');
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled) return;
@@ -488,28 +441,22 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
-        try {
-          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
-          setLocationPreviouslyGranted(true);
-        } catch {
-          // ignore storage errors
-        }
         mapInstance.flyTo(point, 13, { duration: 0.6 });
       },
       () => {
         if (cancelled) return;
+        manualAreaRestored.current = true;
         const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
         if (stored) {
-          manualAreaRestored.current = true;
           chooseManualArea(stored);
         } else {
           setGeoStatus('denied');
-        }
-        try {
-          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
-          setLocationPreviouslyGranted(false);
-        } catch {
-          // ignore storage errors
+          try {
+            window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+            setLocationPreviouslyGranted(false);
+          } catch {
+            // ignore storage errors
+          }
         }
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
@@ -517,8 +464,7 @@ export function EmptyHouseMapBrowser({
     return () => {
       cancelled = true;
     };
-  }, [mapInstance, userPosition, chooseManualArea]);
-
+  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea]);
 
   // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
@@ -557,29 +503,81 @@ export function EmptyHouseMapBrowser({
     setActiveHouse(mappedHouses[next]);
   };
 
-  return (
-    <div className="relative h-[26rem] w-full overflow-hidden bg-muted sm:h-[30rem] lg:h-[38rem]">
-      <div className="absolute inset-x-3 top-3 z-[1000] sm:right-auto sm:w-[22rem]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={(event) => onSearchQueryChange(event.target.value)}
-            placeholder="Search district, neighborhood, or house"
-            aria-label="Search empty houses by district, neighborhood, or house name"
-            className="h-11 bg-background/95 pl-9 pr-10 text-sm shadow-lg backdrop-blur"
-          />
-          {searchQuery && (
+  // Invalidate map size after expand/collapse so tiles render correctly
+  useEffect(() => {
+    if (!mapInstance) return;
+    const timer = setTimeout(() => mapInstance.invalidateSize(), 350);
+    return () => clearTimeout(timer);
+  }, [isExpanded, mapInstance]);
+
+  // Lock body scroll when expanded
+  useEffect(() => {
+    if (isExpanded) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isExpanded]);
+
+  const mapContent = (
+    <div
+      className={`relative overflow-hidden bg-muted ${
+        isExpanded
+          ? 'fixed inset-0 z-[9999] h-[100dvh] w-screen'
+          : 'h-[26rem] w-full rounded-xl sm:h-[30rem] lg:h-[38rem]'
+      }`}
+      style={isExpanded ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 } : undefined}
+    >
+      {/* ── Top bar: search (left) + action buttons (right) ─── */}
+      <div className={`absolute top-3 z-[1000] ${isExpanded ? 'inset-x-3' : 'inset-x-3 sm:right-auto sm:w-[22rem]'}`}>
+        <div className="flex items-center gap-2">
+          {/* Search bar */}
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" aria-hidden />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => onSearchQueryChange(event.target.value)}
+              placeholder="Search district, neighborhood, or house"
+              aria-label="Search empty houses by district, neighborhood, or house name"
+              className="h-12 rounded-full border-0 bg-white pl-10 pr-10 text-sm font-medium shadow-[0_2px_12px_rgba(0,0,0,0.12)] ring-1 ring-black/5 placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-black/15 dark:bg-card"
+            />
+            {searchQuery && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
+                onClick={() => onSearchQueryChange('')}
+                aria-label="Clear house search"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </Button>
+            )}
+          </div>
+          {/* Close / Expand button — Airbnb style */}
+          {isExpanded ? (
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="icon"
-              className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
-              onClick={() => onSearchQueryChange('')}
-              aria-label="Clear house search"
+              onClick={() => setIsExpanded(false)}
+              aria-label="Close full screen map"
+              className="h-12 w-12 shrink-0 rounded-full border-0 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.12)] ring-1 ring-black/5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)] dark:bg-card"
             >
-              <X className="h-4 w-4" aria-hidden />
+              <X className="h-5 w-5" aria-hidden />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              onClick={() => setIsExpanded(true)}
+              aria-label="Expand map to full screen"
+              className="hidden h-12 w-12 shrink-0 rounded-full border-0 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.12)] ring-1 ring-black/5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)] dark:bg-card sm:flex"
+            >
+              <Maximize2 className="h-4.5 w-4.5" aria-hidden />
             </Button>
           )}
         </div>
@@ -591,7 +589,7 @@ export function EmptyHouseMapBrowser({
         scrollWheelZoom
         preferCanvas
         attributionControl={false}
-        className="h-full w-full"
+        className="h-full w-full [&_.leaflet-tile-pane]:saturate-[0.25] [&_.leaflet-tile-pane]:brightness-[1.06] [&_.leaflet-control-zoom]:!rounded-xl [&_.leaflet-control-zoom]:!border-0 [&_.leaflet-control-zoom]:!shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
         ref={setMapInstance}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
@@ -622,13 +620,12 @@ export function EmptyHouseMapBrowser({
 
           if (house) {
             const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
-            const categoryLabel = formatHouseCategory(house.house_category);
-            const rentLabel = formatDynamic(Number(house.monthly_rent ?? 0));
+            const houseSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L4 9v12h5v-7h6v7h5V9l-8-6z"/></svg>`;
             const icon = L.divIcon({
               className: 'empty-house-map-pin-hitbox',
-              html: `<span class="empty-house-map-pin truncate${active ? ' empty-house-map-pin--active' : ''}">${rentLabel}</span>`,
-              iconSize: [144, 44],
-              iconAnchor: [72, 44],
+              html: `<span class="empty-house-map-pin${active ? ' empty-house-map-pin--active' : ''}">${houseSvg}</span>`,
+              iconSize: [46, 46],
+              iconAnchor: [23, 23],
             });
 
             return (
@@ -636,7 +633,7 @@ export function EmptyHouseMapBrowser({
                 key={house.house_id}
                 position={[Number(house.latitude), Number(house.longitude)]}
                 icon={icon}
-                title={`${houseTitleLine(house)} · ${rentLabel}`}
+                title={`${houseTitleLine(house)} · ${formatHouseCategory(house.house_category)}`}
                 eventHandlers={{
                   click: () => {
                     onOpenHouse(house);
@@ -712,14 +709,14 @@ export function EmptyHouseMapBrowser({
         />
       </MapContainer>
 
-      {/* Location gate: houses are shown for the funder's own area. While the browser prompt is open we wait; it only appears if location was refused or is unavailable and no area was picked. */}
-      {!userPosition && (geoStatus === 'denied' || geoStatus === 'unsupported') && !manualAreaRestored.current && (
+      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. Only show it when location has not been approved before. */}
+      {!userPosition && !locationPreviouslyGranted && (
         <div
           role="dialog"
           aria-label="Share your location to see empty houses near you"
-          className="absolute inset-0 z-[1200] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm"
+          className="absolute inset-0 z-[1200] flex items-center justify-center bg-white/80 p-4 backdrop-blur-md dark:bg-background/80"
         >
-          <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-4 text-center shadow-xl">
+          <div className="w-full max-w-sm rounded-2xl border border-border/30 bg-white p-6 text-center shadow-[0_4px_24px_rgba(0,0,0,0.12)] dark:bg-card">
             <Navigation className="mx-auto h-6 w-6 text-primary" aria-hidden />
             <p className="mt-2 text-sm font-semibold">Share your location</p>
             <p className="mt-1 text-xs leading-snug text-muted-foreground">
@@ -818,18 +815,21 @@ export function EmptyHouseMapBrowser({
         </div>
       )}
 
-      <Button
-        type="button"
-        variant={showHeatmap ? 'default' : 'secondary'}
-        size="icon"
-        onClick={() => setShowHeatmap((current) => !current)}
-        aria-pressed={showHeatmap}
-        aria-label={showHeatmap ? 'Hide the empty-house density map' : 'Show the empty-house density map'}
-        title={showHeatmap ? 'Hide empty-house density' : 'Show empty-house density'}
-        className="absolute right-3 top-[7.25rem] z-[1000] h-11 w-11 rounded-full border border-border shadow-lg backdrop-blur sm:top-[4.25rem]"
-      >
-        <Flame className="h-5 w-5" aria-hidden />
-      </Button>
+      {/* ── Right-side button stack (Airbnb style) ── */}
+      <div className="absolute right-3 z-[1000] flex flex-col gap-2" style={{ top: isExpanded ? '4.5rem' : undefined, bottom: isExpanded ? undefined : undefined }}>
+        <Button
+          type="button"
+          variant={showHeatmap ? 'default' : 'secondary'}
+          size="icon"
+          onClick={() => setShowHeatmap((current) => !current)}
+          aria-pressed={showHeatmap}
+          aria-label={showHeatmap ? 'Hide density map' : 'Show density map'}
+          title={showHeatmap ? 'Hide empty-house density' : 'Show empty-house density'}
+          className={`h-11 w-11 rounded-full border-0 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.12)] ring-1 ring-black/5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)] dark:bg-card ${isExpanded ? '' : 'mt-[5.5rem] sm:mt-[1.25rem]'}`}
+        >
+          <Layers className="h-5 w-5" aria-hidden />
+        </Button>
+      </div>
 
       {showHeatmap && (
         <div className="pointer-events-none absolute bottom-20 left-3 z-[1000] rounded-lg border border-border bg-background/95 px-2.5 py-2 shadow-lg backdrop-blur sm:bottom-24">
@@ -933,6 +933,22 @@ export function EmptyHouseMapBrowser({
               : 'No empty houses in this area yet — move or zoom out the map'}
         </div>
       )}
+
+      {/* Mobile expand pill — Airbnb style */}
+      {!isExpanded && (
+        <button
+          type="button"
+          onClick={() => setIsExpanded(true)}
+          className="absolute inset-x-0 bottom-0 z-[1000] flex items-center justify-center gap-1.5 bg-gradient-to-t from-black/60 via-black/30 to-transparent pb-3 pt-8 sm:hidden"
+          aria-label="Tap to expand the map to full screen"
+        >
+          <Maximize2 className="h-3.5 w-3.5 text-white" aria-hidden />
+          <span className="text-xs font-semibold text-white">Tap to explore map</span>
+        </button>
+      )}
     </div>
   );
+
+  // Portal the map to document.body when expanded so it escapes all parent overflow/transform contexts
+  return isExpanded ? createPortal(mapContent, document.body) : mapContent;
 }
