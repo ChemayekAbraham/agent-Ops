@@ -1073,6 +1073,8 @@ export function SelfPortfolioFundingCard({
             minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
             maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
             district={houseDistrict !== 'all' ? houseDistrict : null}
+            districtFocus={districtFocus}
+
             country={selectedCountry}
             maxAgeDays={listingAgeDays}
             onHousesDiscovered={registerDiscoveredHouses}
