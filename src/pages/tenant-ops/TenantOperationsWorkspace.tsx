@@ -331,6 +331,7 @@ export default function TenantOperationsWorkspace() {
             <TabsTrigger value="topup">Tenant Top-Up Eligibility</TabsTrigger>
             <TabsTrigger value="comms">Tenant Communications</TabsTrigger>
             <TabsTrigger value="registration">Agent Registration Control</TabsTrigger>
+            <TabsTrigger value="overview">Management Overview</TabsTrigger>
           </TabsList>
           <TabsContent value="topup" className="mt-3">
             <TopUpEligibilityTab />
@@ -340,6 +341,9 @@ export default function TenantOperationsWorkspace() {
           </TabsContent>
           <TabsContent value="registration" className="mt-3">
             <AgentRegistrationControlTab />
+          </TabsContent>
+          <TabsContent value="overview" className="mt-3">
+            <ManagementOverviewTab />
           </TabsContent>
         </Tabs>
       </CardContent>
