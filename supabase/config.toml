@@ -225,6 +225,9 @@ verify_jwt = false
 [functions.weekly-tenant-ops-report]
 verify_jwt = false
 
+[functions.weekly-messaging-usage-report]
+verify_jwt = false
+
 [functions.staff-requisition-submit]
 verify_jwt = false
 

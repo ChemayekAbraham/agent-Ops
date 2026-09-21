@@ -598,14 +598,20 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
     queryKey: ['is-cashout-agent', user.id],
     queryFn: async () => {
       const { supabase } = await import('@/integrations/supabase/client');
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('cashout_agents')
         .select('*')
         .eq('agent_id', user.id)
         .eq('is_active', true)
         .maybeSingle();
+      // Shares the ['is-cashout-agent', user.id] cache entry with
+      // AgentCashPayoutsTab — a swallowed transient error here would
+      // overwrite that entry with null and flicker an in-progress claim out
+      // of "Claimed by you" there. Throw so a network blip retries instead.
+      if (error) throw error;
       return data;
     },
+    retry: 2,
   });
 
   // Pending (unclaimed) merchant payouts + the commission this agent would earn

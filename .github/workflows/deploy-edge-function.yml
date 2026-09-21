@@ -63,6 +63,7 @@ on:
           - national-id-link-otp
           - password-reset-sms
           - issue-wallet-withdrawal-otp
+          - weekly-messaging-usage-report
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
@@ -115,7 +116,7 @@ jobs:
           # entry appearing on a JWT function, or a public function quietly
           # losing the entry that keeps its scheduler able to call it.
           case "${{ inputs.function }}" in
-            agent-daily-performance-report|agent-ops-daily-report|redispatch-withdrawals|daily-cto-report)
+            agent-daily-performance-report|agent-ops-daily-report|redispatch-withdrawals|daily-cto-report|weekly-messaging-usage-report)
               EXPECT_PUBLIC=yes ;;   # invoked by pg_cron, no user JWT exists
             sms-otp|password-reset-sms)
               EXPECT_PUBLIC=yes ;;   # called pre-signup/pre-login, no user session exists yet

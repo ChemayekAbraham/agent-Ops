@@ -535,12 +535,19 @@ export function AgentCashPayoutsTab() {
     queryKey: ['is-cashout-agent', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('cashout_agents')
         .select('*')
         .eq('agent_id', user.id)
         .eq('is_active', true)
         .maybeSingle();
+      // A transient network/PostgREST error must never be read as "not a
+      // cashout agent" — that silently drops this desk's identity, which
+      // flips `['cashout-my-active-claims', isCashoutAgent?.id]` to a fresh,
+      // empty cache entry and makes an in-progress claim (and its Pay/Confirm
+      // button) flicker out of existence until the next successful poll.
+      // Throwing keeps the last known-good id in place while React Query retries.
+      if (error) throw error;
       return data;
     },
     enabled: !!user,
@@ -548,6 +555,7 @@ export function AgentCashPayoutsTab() {
     staleTime: 0,
     refetchInterval: 20_000,
     refetchOnWindowFocus: true,
+    retry: 2,
   });
 
   // Live enforcement: when the CFO changes this merchant's channels / categories,
