@@ -2023,8 +2023,9 @@ export function SelfPortfolioFundingCard({
         isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
         onTogglePick={(h) => toggleHouse(h.house_id)}
         onRelatedHouseClick={(h) => setDetailHouse(h)}
-        onSeeMoreDistrict={(district) => {
+        onSeeMoreDistrict={(district, anchor) => {
           setDetailHouse(null);
+          setDistrictFocus(anchor);
           setHouseDistrict(district.trim().toLowerCase());
           window.setTimeout(() => {
             document
@@ -2032,6 +2033,7 @@ export function SelfPortfolioFundingCard({
               ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }, 150);
         }}
+
 
       />
 
