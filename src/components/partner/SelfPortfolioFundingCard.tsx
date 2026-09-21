@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronDown, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
@@ -245,6 +245,7 @@ export function SelfPortfolioFundingCard({
     }
   });
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [houseFiltersOpen, setHouseFiltersOpen] = useState(false);
   const persistAlerts = useCallback(
     (next: HouseBalanceAlert[]) => {
       setHouseAlerts(next);
@@ -1181,7 +1182,33 @@ export function SelfPortfolioFundingCard({
       )}
 
       {feedOrder === 'houses' && houses.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 px-1" aria-label="Sort and filter empty houses">
+        <div className="space-y-2 px-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs font-semibold"
+              aria-expanded={houseFiltersOpen}
+              onClick={() => setHouseFiltersOpen((v) => !v)}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" aria-hidden />
+              Filters
+              {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all' || houseRadiusKm !== 'all') && (
+                <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground">
+                  on
+                </span>
+              )}
+              <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${houseFiltersOpen ? 'rotate-180' : ''}`} aria-hidden />
+            </Button>
+            {!houseFiltersOpen && (
+              <span className="text-[11px] font-semibold text-muted-foreground">
+                {feed.length} house{feed.length === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
+          {houseFiltersOpen && (
+          <div className="flex flex-wrap items-center gap-2" aria-label="Sort and filter empty houses">
           <div className="flex items-center gap-1.5">
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
@@ -1375,6 +1402,8 @@ export function SelfPortfolioFundingCard({
                 {houseAlerts.length}
               </span>
             </Button>
+          )}
+          </div>
           )}
         </div>
       )}
