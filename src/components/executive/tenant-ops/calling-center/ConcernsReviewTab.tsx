@@ -29,6 +29,8 @@ import { ForwardConcernDialog, type ForwardConcernSource } from './ForwardConcer
 import { useCcCallHistory } from '@/hooks/useCcCallHistory';
 import { ConcernControlPanel } from './ConcernControlPanel';
 import { ConcernParticipantsPanel } from './ConcernParticipantsPanel';
+import { ConcernAttachmentsPanel } from './ConcernAttachmentsPanel';
+import { ConcernCaseContextPanel } from './ConcernCaseContextPanel';
 import {
   CONCERN_ACTION_LABEL,
   CONCERN_PRIORITY_LABEL,
