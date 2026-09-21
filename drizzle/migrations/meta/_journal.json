@@ -1982,6 +1982,27 @@
       "when": 1790006948702,
       "tag": "0282_agent_registration_control_list_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 283,
+      "version": "7",
+      "when": 1790008229314,
+      "tag": "0283_tenant_payment_message_vars_align_reached_on",
+      "breakpoints": true
+    },
+    {
+      "idx": 284,
+      "version": "7",
+      "when": 1790008279730,
+      "tag": "0284_tenant_payment_message_vars_reached_on_fallback",
+      "breakpoints": true
+    },
+    {
+      "idx": 285,
+      "version": "7",
+      "when": 1790008364712,
+      "tag": "0285_tenant_payment_message_vars_last_payment_source",
+      "breakpoints": true
     }
   ]
 }
