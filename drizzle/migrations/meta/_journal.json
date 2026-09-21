@@ -2003,6 +2003,13 @@
       "when": 1790008364712,
       "tag": "0285_tenant_payment_message_vars_last_payment_source",
       "breakpoints": true
+    },
+    {
+      "idx": 286,
+      "version": "7",
+      "when": 1790009429356,
+      "tag": "0286_agent_registration_gate_rule_groups",
+      "breakpoints": true
     }
   ]
 }
