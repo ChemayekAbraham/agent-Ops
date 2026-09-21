@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,6 +43,12 @@ export function ROIPayoutQueue() {
   // CFO-editable payout amounts, keyed by operation id. Empty until the CFO edits.
   const [editedAmounts, setEditedAmounts] = useState<Record<string, string>>({});
   const [reviewTarget, setReviewTarget] = useState<PendingOp | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+
+  // Reset reject-mode whenever the reviewed operation changes or the sheet closes.
+  useEffect(() => {
+    setRejectingId(null);
+  }, [reviewTarget?.id]);
 
   const { data: operations = [], isLoading } = useQuery({
     queryKey: ['cfo-roi-requests', 'coo_approved'],
@@ -334,29 +340,53 @@ export function ROIPayoutQueue() {
                 </CfoApprovalGate>
               </div>
 
-              {/* Rejection reason */}
-              <div className="space-y-2">
-                <Label className="text-[11px] text-muted-foreground">Rejection reason (min 10 chars)</Label>
-                <Textarea
-                  placeholder="Why is this payout being rejected?"
-                  value={reviewRejReason}
-                  onChange={e => setRejectionReasons(prev => ({ ...prev, [reviewTarget.id]: e.target.value }))}
-                  className="text-xs min-h-[60px]"
-                  rows={2}
-                />
+              {/* Rejection */}
+              {rejectingId !== reviewTarget.id ? (
                 <CfoApprovalGate>
                   <Button
                     size="sm"
-                    variant="destructive"
-                    className="w-full"
-                    disabled={reviewRejReason.length < 10 || rejectMutation.isPending}
-                    onClick={() => rejectMutation.mutate({ opId: reviewTarget.id, reason: reviewRejReason })}
+                    variant="outline"
+                    className="w-full border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                    onClick={() => setRejectingId(reviewTarget.id)}
                   >
-                    {rejectMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
+                    <XCircle className="h-3.5 w-3.5 mr-1" />
                     Reject
                   </Button>
                 </CfoApprovalGate>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label className="text-[11px] text-muted-foreground">Rejection reason (min 10 chars)</Label>
+                  <Textarea
+                    placeholder="Why is this payout being rejected?"
+                    value={reviewRejReason}
+                    onChange={e => setRejectionReasons(prev => ({ ...prev, [reviewTarget.id]: e.target.value }))}
+                    className="text-xs min-h-[60px]"
+                    rows={2}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setRejectingId(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <CfoApprovalGate>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1"
+                        disabled={reviewRejReason.length < 10 || rejectMutation.isPending}
+                        onClick={() => rejectMutation.mutate({ opId: reviewTarget.id, reason: reviewRejReason })}
+                      >
+                        {rejectMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
+                        Confirm Reject
+                      </Button>
+                    </CfoApprovalGate>
+                  </div>
+                </div>
+              )}
 
               {/* Treasury impact */}
               <TreasuryImpactBanner payoutAmount={reviewEditValid ? reviewEditedAmount : reviewTarget.amount} />
