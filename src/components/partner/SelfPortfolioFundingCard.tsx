@@ -230,6 +230,46 @@ export function SelfPortfolioFundingCard({
   useEffect(() => {
     if (userPoint && !sortTouched) setHouseSort('nearest');
   }, [userPoint, sortTouched]);
+  // Country pre-selection: device GPS first, then the funder's profile country,
+  // otherwise the Africa-wide view. A country the funder picks themselves wins.
+  const [countryTouched, setCountryTouched] = useState(false);
+  const { data: profileCountry } = useQuery({
+    queryKey: ['funder-profile-country'],
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('country, country_code')
+        .eq('id', auth.user.id)
+        .maybeSingle();
+      if (!data) return null;
+      const code = (data.country_code ?? '').trim().toUpperCase();
+      const name = (data.country ?? '').trim().toLowerCase();
+      const match =
+        AFRICA_COUNTRIES.find((c) => c.code === code) ??
+        AFRICA_COUNTRIES.find((c) => c.name.toLowerCase() === name) ??
+        null;
+      return match?.code ?? null;
+    },
+  });
+  useEffect(() => {
+    if (countryTouched || houseCountry !== 'all') return;
+    if (!geoResolved || listedCountries.length === 0) return;
+    const available = new Set(listedCountries.map((c) => c.code));
+    const fromGps = userPoint
+      ? AFRICA_COUNTRIES.find((c) => pointInCountry(c, userPoint.lat, userPoint.lng))?.code ?? null
+      : null;
+    const preferred =
+      fromGps && available.has(fromGps)
+        ? fromGps
+        : profileCountry && available.has(profileCountry)
+          ? profileCountry
+          : null;
+    if (preferred) setHouseCountry(preferred);
+  }, [countryTouched, houseCountry, geoResolved, userPoint, profileCountry, listedCountries]);
+
   // Side-by-side comparison picks (in-session only; never touches funding).
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
