@@ -439,7 +439,7 @@ export function EmptyHouseMapBrowser({
       else mapInstance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 13 });
     };
 
-    const usable = (rows: { latitude: unknown; longitude: unknown }[]) =>
+    const usable = (rows: { latitude?: unknown; longitude?: unknown }[]) =>
       rows
         .map((h) => [Number(h.latitude), Number(h.longitude)] as [number, number])
         .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
@@ -464,7 +464,7 @@ export function EmptyHouseMapBrowser({
         .not('longitude', 'is', null)
         .limit(500);
       if (error || !data) return;
-      fit(usable(data as { latitude: unknown; longitude: unknown }[]));
+      fit(usable(data as { latitude?: unknown; longitude?: unknown }[]));
     })();
 
     return () => {
