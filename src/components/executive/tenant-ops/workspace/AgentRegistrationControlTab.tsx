@@ -130,21 +130,9 @@ export default function AgentRegistrationControlTab() {
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle className="text-base">Agent registration control</CardTitle>
-            <CardDescription>
-              {rules
-                ? `An agent carrying ${rules.min_active_tenants} or more active tenants must have collected at least ${rules.required_prev_month_pct}% of last month's dues to keep registering new tenants.`
-                : 'Loading the approved rules…'}
-            </CardDescription>
+            <CardDescription>{ruleSummary()}</CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setMinTenants(String(rules?.min_active_tenants ?? 20));
-              setRequiredPct(String(rules?.required_prev_month_pct ?? 80));
-              setRulesOpen(true);
-            }}
-          >
+          <Button variant="outline" size="sm" onClick={() => setRulesOpen(true)}>
             <Settings2 className="mr-2 h-4 w-4" />
             Rules
           </Button>
@@ -152,7 +140,7 @@ export default function AgentRegistrationControlTab() {
         <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-5">
           {[
             { label: 'Agents reviewed', value: totals?.agents ?? 0 },
-            { label: `At ${rules?.min_active_tenants ?? 20}+ tenants`, value: totals?.at_threshold ?? 0 },
+            { label: 'Covered by a rule', value: totals?.at_threshold ?? 0 },
             { label: 'Below required level', value: totals?.restricted ?? 0 },
             { label: 'Blocked now', value: totals?.blocked ?? 0 },
             { label: 'Allowed by override', value: totals?.overridden ?? 0 },
