@@ -112,17 +112,30 @@ section[aria-label*="Notifications" i]:empty {
 
 @layer components {
   .empty-house-map-pin {
-    @apply inline-flex h-8 min-w-[5.75rem] items-center justify-center rounded-full border-2 border-background bg-card px-2 text-[10px] font-black text-foreground shadow-lg transition-transform;
+    @apply flex h-8 w-full items-center justify-center rounded-full border-2 border-background bg-card px-2 text-[10px] font-black text-foreground shadow-lg;
+    pointer-events: none;
+    transform: none;
+  }
+
+  .empty-house-map-pin-hitbox {
+    align-items: flex-end;
+    background: transparent;
+    border: 0;
+    display: flex;
+    margin: 0;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   @media (hover: hover) and (pointer: fine) {
     .empty-house-map-pin:hover {
-      @apply scale-110 bg-primary text-primary-foreground ring-4 ring-primary/20;
+      @apply bg-primary text-primary-foreground ring-4 ring-primary/20;
     }
   }
 
   .empty-house-map-pin--active {
-    @apply scale-110 bg-primary text-primary-foreground ring-4 ring-primary/20;
+    @apply bg-primary text-primary-foreground ring-4 ring-primary/20;
   }
 
   /* Grouped empty houses: one badge stands for many listings until you zoom in. */

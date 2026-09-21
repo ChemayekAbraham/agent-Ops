@@ -570,10 +570,10 @@ export function EmptyHouseMapBrowser({
             const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
             const categoryLabel = formatHouseCategory(house.house_category);
             const icon = L.divIcon({
-              className: '',
-              html: `<span class="empty-house-map-pin max-w-[9rem] truncate${active ? ' empty-house-map-pin--active' : ''}">${categoryLabel}</span>`,
-              iconSize: [128, 34],
-              iconAnchor: [64, 34],
+              className: 'empty-house-map-pin-hitbox',
+              html: `<span class="empty-house-map-pin truncate${active ? ' empty-house-map-pin--active' : ''}">${categoryLabel}</span>`,
+              iconSize: [144, 44],
+              iconAnchor: [72, 44],
             });
 
             return (
@@ -584,7 +584,6 @@ export function EmptyHouseMapBrowser({
                 title={`${houseTitleLine(house)} · ${categoryLabel}`}
                 eventHandlers={{
                   click: () => {
-                    setActiveHouse(house);
                     onOpenHouse(house);
                   },
                 }}
