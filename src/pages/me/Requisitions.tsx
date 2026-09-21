@@ -758,6 +758,13 @@ const MyRequisitions = () => {
                       Update and resubmit
                     </Button>
                   )}
+                  {row.request_kind === 'facilitation'
+                    && row.wallet_credit_status === 'credited'
+                    && !usageReports[row.id] && (
+                    <Button size="sm" onClick={() => setAccountFor(row)}>
+                      <FileText className="mr-2 h-3 w-3" /> Account for this facilitation
+                    </Button>
+                  )}
                   <span className="inline-flex items-center gap-2 text-sm">
                     {uploadingId === row.id
                       ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
