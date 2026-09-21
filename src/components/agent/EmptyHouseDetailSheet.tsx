@@ -324,6 +324,9 @@ export function EmptyHouseDetailSheet({
           <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 space-y-2.5">
             <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord</p>
             <p className="text-base font-bold leading-tight">{house.landlord_name || 'Name not on file'}</p>
+            {house.landlord_phone && (
+              <p className="text-sm font-medium text-primary">{house.landlord_phone}</p>
+            )}
             {house.landlord_phone ? (
               <div className="grid grid-cols-2 gap-2">
                 <Button asChild variant="outline" size="sm" className="h-10 gap-1.5 text-[12px]">
