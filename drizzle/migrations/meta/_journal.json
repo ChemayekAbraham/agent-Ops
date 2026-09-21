@@ -1800,6 +1800,13 @@
       "when": 1789991574936,
       "tag": "0256_adv_gate_2026_09_21_a",
       "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1789991970707,
+      "tag": "0257_tenant_self_repayment_full_deposit",
+      "breakpoints": true
     }
   ]
 }
