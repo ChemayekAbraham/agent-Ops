@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ExecutiveDataTable, type Column } from '@/components/executive/ExecutiveDataTable';
+import TenantCommunicationsTab from '@/components/executive/tenant-ops/workspace/TenantCommunicationsTab';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, Settings2, TrendingUp } from 'lucide-react';
 import {
@@ -326,9 +327,13 @@ export default function TenantOperationsWorkspace() {
         <Tabs defaultValue="topup">
           <TabsList>
             <TabsTrigger value="topup">Tenant Top-Up Eligibility</TabsTrigger>
+            <TabsTrigger value="comms">Tenant Communications</TabsTrigger>
           </TabsList>
           <TabsContent value="topup" className="mt-3">
             <TopUpEligibilityTab />
+          </TabsContent>
+          <TabsContent value="comms" className="mt-3">
+            <TenantCommunicationsTab />
           </TabsContent>
         </Tabs>
       </CardContent>

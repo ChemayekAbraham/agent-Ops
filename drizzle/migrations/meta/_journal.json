@@ -1947,6 +1947,27 @@
       "when": 1790005188226,
       "tag": "0277_tenant_topup_eligibility_reached_on_fallback",
       "breakpoints": true
+    },
+    {
+      "idx": 278,
+      "version": "7",
+      "when": 1790005611908,
+      "tag": "0278_tenant_payment_message_eligibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 279,
+      "version": "7",
+      "when": 1790005727087,
+      "tag": "0279_tenant_payment_message_nearest_next_level",
+      "breakpoints": true
+    },
+    {
+      "idx": 280,
+      "version": "7",
+      "when": 1790005914137,
+      "tag": "0280_tenant_communications_overview_and_guard",
+      "breakpoints": true
     }
   ]
 }

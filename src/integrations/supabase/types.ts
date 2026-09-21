@@ -43243,6 +43243,36 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_support_contacts: {
+        Row: {
+          active: boolean
+          id: string
+          label: string
+          phone: string
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          id?: string
+          label: string
+          phone: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          id?: string
+          label?: string
+          phone?: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       tenant_transfers: {
         Row: {
           actor_accuracy: number | null
@@ -58532,6 +58562,10 @@ export type Database = {
         Args: { p_end?: string; p_event_key?: string; p_start?: string }
         Returns: Json
       }
+      get_tenant_communications_overview: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       get_tenant_consecutive_missed_days: {
         Args: { p_as_of?: string; p_window_days?: number }
         Returns: {
@@ -58783,6 +58817,29 @@ export type Database = {
           paid_on_day: number
           remaining_today: number
           tenant_id: string
+        }[]
+      }
+      get_tenant_payment_message_vars: {
+        Args: { p_tenant_ids: string[] }
+        Returns: {
+          current_access: number
+          current_topup: number
+          days_after_cycle: number
+          days_left_in_cycle: number
+          next_level_access: number
+          next_level_deadline: string
+          next_level_key: string
+          next_level_label: string
+          next_level_required: number
+          paid_to_date: number
+          pct_covered: number
+          remaining: number
+          rent_amount: number
+          rent_request_id: string
+          tenant_id: string
+          term_end: string
+          tier_key: string
+          total_expected: number
         }[]
       }
       get_tenant_payment_notice_candidates: {
@@ -63417,6 +63474,16 @@ export type Database = {
       set_tenant_smartphone_status: {
         Args: { p_source?: string; p_status: string; p_tenant_id: string }
         Returns: Json
+      }
+      set_tenant_support_contact: {
+        Args: {
+          p_active?: boolean
+          p_id: string
+          p_label: string
+          p_phone: string
+          p_sort_order?: number
+        }
+        Returns: string
       }
       set_tenant_topup_eligibility_rules: {
         Args: { p_rules: Json }
