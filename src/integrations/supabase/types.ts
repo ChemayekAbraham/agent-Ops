@@ -39365,6 +39365,45 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_loan_policy: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          deduction_day: number
+          id: boolean
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal: number | null
+          monthly_rate: number
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          deduction_day?: number
+          id?: boolean
+          interest_method?: string
+          is_open?: boolean
+          max_months?: number
+          max_principal?: number | null
+          monthly_rate: number
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          deduction_day?: number
+          id?: boolean
+          interest_method?: string
+          is_open?: boolean
+          max_months?: number
+          max_principal?: number | null
+          monthly_rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_loan_repayments: {
         Row: {
           amount: number
@@ -39715,6 +39754,9 @@ export type Database = {
           department_id: string | null
           department_key: string | null
           final_stage: string
+          hr_decided_at: string | null
+          hr_decided_by: string | null
+          hr_note: string | null
           id: string
           loan_monthly_rate: number | null
           loan_months: number | null
@@ -39759,6 +39801,9 @@ export type Database = {
           department_id?: string | null
           department_key?: string | null
           final_stage?: string
+          hr_decided_at?: string | null
+          hr_decided_by?: string | null
+          hr_note?: string | null
           id?: string
           loan_monthly_rate?: number | null
           loan_months?: number | null
@@ -39803,6 +39848,9 @@ export type Database = {
           department_id?: string | null
           department_key?: string | null
           final_stage?: string
+          hr_decided_at?: string | null
+          hr_decided_by?: string | null
+          hr_note?: string | null
           id?: string
           loan_monthly_rate?: number | null
           loan_months?: number | null
