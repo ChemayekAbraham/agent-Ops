@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ExecutiveDataTable, type Column } from '@/components/executive/ExecutiveDataTable';
 import TenantCommunicationsTab from '@/components/executive/tenant-ops/workspace/TenantCommunicationsTab';
 import AgentRegistrationControlTab from '@/components/executive/tenant-ops/workspace/AgentRegistrationControlTab';
+import ManagementOverviewTab from '@/components/executive/tenant-ops/workspace/ManagementOverviewTab';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, Settings2, TrendingUp } from 'lucide-react';
 import {
