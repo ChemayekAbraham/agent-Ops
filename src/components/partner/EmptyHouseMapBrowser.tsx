@@ -181,6 +181,12 @@ export function EmptyHouseMapBrowser({
 
   country,
   maxAgeDays,
+  subCounty,
+  radiusKm,
+  radiusOrigin,
+  fundingStatus,
+  withinFloat,
+  savedReadyOnly,
   onSearchQueryChange,
   onOpenHouse,
   onFundHouse,
