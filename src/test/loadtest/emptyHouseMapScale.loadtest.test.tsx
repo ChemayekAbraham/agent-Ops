@@ -47,7 +47,8 @@ vi.mock('@/integrations/supabase/client', () => ({
           limit: Number(args.p_limit ?? SERVER_CELL_LIMIT),
         }),
         error: null,
-      };
+      });
+      return Object.assign(promise, { abortSignal: () => promise });
     }),
   },
 }));
