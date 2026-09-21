@@ -470,11 +470,12 @@ export function EmptyHouseMapBrowser({
 
           if (house) {
             const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
+            const categoryLabel = house.house_category || 'House';
             const icon = L.divIcon({
               className: '',
-              html: `<span class="empty-house-map-pin${active ? ' empty-house-map-pin--active' : ''}">${formatDynamic(Number(house.monthly_rent || 0))}</span>`,
-              iconSize: [112, 34],
-              iconAnchor: [56, 34],
+              html: `<span class="empty-house-map-pin max-w-[9rem] truncate${active ? ' empty-house-map-pin--active' : ''}">${categoryLabel}</span>`,
+              iconSize: [128, 34],
+              iconAnchor: [64, 34],
             });
 
             return (
@@ -482,7 +483,7 @@ export function EmptyHouseMapBrowser({
                 key={house.house_id}
                 position={[Number(house.latitude), Number(house.longitude)]}
                 icon={icon}
-                title={`${houseTitleLine(house)} · ${formatDynamic(Number(house.monthly_rent || 0))}`}
+                title={`${houseTitleLine(house)} · ${categoryLabel}`}
                 eventHandlers={{ click: () => setActiveHouse(house) }}
               />
             );
