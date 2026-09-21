@@ -49,6 +49,7 @@ interface EmptyHouseMapBrowserProps {
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
 const LOCATION_GRANTED_KEY = 'welile-map-location-granted';
+const MANUAL_AREA_KEY = 'welile-map-manual-area';
 
 /** Reports the visible bounds + zoom so the database only aggregates what is on screen. */
 function ViewportReporter({ onChange }: { onChange: (viewport: MapViewport) => void }) {
