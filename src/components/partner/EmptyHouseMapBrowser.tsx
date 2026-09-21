@@ -582,7 +582,12 @@ export function EmptyHouseMapBrowser({
                 position={[Number(house.latitude), Number(house.longitude)]}
                 icon={icon}
                 title={`${houseTitleLine(house)} · ${categoryLabel}`}
-                eventHandlers={{ click: () => setActiveHouse(house) }}
+                eventHandlers={{
+                  click: () => {
+                    setActiveHouse(house);
+                    onOpenHouse(house);
+                  },
+                }}
               />
             );
           }
@@ -863,120 +868,6 @@ export function EmptyHouseMapBrowser({
 
       <MapPerfOverlay />
 
-      {(() => {
-        if (!activeHouse) return null;
-        const rent = Number(activeHouse.monthly_rent || 0);
-        const isPicked = selectedIds.includes(activeHouse.house_id);
-        const shortfall = Math.max(0, rent - remaining);
-        const image = (activeHouse.image_urls ?? []).filter(Boolean)[0] ?? activeHouse.image_url;
-        const location = houseAddressLine(activeHouse) || 'Uganda';
-
-        return (
-          <Sheet open onOpenChange={(open) => !open && setActiveHouse(null)}>
-            <SheetContent
-              side="bottom"
-              className="z-[1300] max-h-[85vh] gap-0 overflow-y-auto rounded-t-2xl p-0 sm:left-1/2 sm:w-[26rem] sm:-translate-x-1/2 sm:rounded-t-2xl"
-              overlayClassName="z-[1250]"
-              aria-label={`Funding details for ${houseTitleLine(activeHouse)}`}
-            >
-              <SheetHeader className="px-4 pt-4 text-left">
-                <SheetTitle className="line-clamp-1 text-base font-bold">
-                  <HighlightText text={houseTitleLine(activeHouse)} query={searchQuery} />
-                </SheetTitle>
-                <SheetDescription className="flex items-start gap-1 text-xs leading-snug">
-                  <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-                  <span className="line-clamp-2">
-                    <HighlightText text={location} query={searchQuery} />
-                  </span>
-                </SheetDescription>
-              </SheetHeader>
-
-              <div className="flex gap-3 px-4 pt-3">
-                {image ? (
-                  <img
-                    src={image}
-                    alt={houseTitleLine(activeHouse)}
-                    className="h-24 w-28 shrink-0 rounded-md object-cover"
-                  />
-                ) : (
-                  <div className="flex h-24 w-28 shrink-0 items-center justify-center rounded-md bg-muted">
-                    <Home className="h-5 w-5 text-muted-foreground" aria-hidden />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Rent needed</p>
-                  <p className="mt-0.5 text-2xl font-black leading-none text-foreground">{formatDynamic(rent)}</p>
-                  <Badge
-                    variant={isPicked ? 'default' : 'secondary'}
-                    className="mt-2 rounded-full text-[10px] font-bold"
-                  >
-                    {isPicked ? 'Selected for funding' : shortfall > 0 ? `Top up ${formatDynamic(shortfall)}` : 'Ready to fund'}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 shrink-0"
-                  onClick={() => stepHouse(-1)}
-                  disabled={mappedHouses.length < 2}
-                  aria-label="Show the previous house in this area"
-                >
-                  <ChevronLeft className="h-5 w-5" aria-hidden />
-                </Button>
-                <p className="flex-1 text-center text-[11px] font-semibold text-muted-foreground">
-                  {activeIndex >= 0 ? `House ${activeIndex + 1} of ${mappedHouses.length}` : `${mappedHouses.length} houses`}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 shrink-0"
-                  onClick={() => stepHouse(1)}
-                  disabled={mappedHouses.length < 2}
-                  aria-label="Show the next house in this area"
-                >
-                  <ChevronRight className="h-5 w-5" aria-hidden />
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 p-4">
-                <Button type="button" variant="outline" className="h-11" onClick={() => onOpenHouse(activeHouse)}>
-                  View details
-                </Button>
-                <FundHouseTooltip>
-                  <Button
-                    type="button"
-                    className="h-11"
-                    variant={isPicked ? 'secondary' : 'default'}
-                    disabled={busy}
-                    onClick={() => onFundHouse(activeHouse)}
-                  >
-                    {isPicked ? 'Remove' : 'Fund'}
-                  </Button>
-                </FundHouseTooltip>
-                <Button
-                  asChild
-                  variant="ghost"
-                  className="col-span-2 h-11 text-xs font-semibold"
-                >
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${Number(activeHouse.latitude)},${Number(activeHouse.longitude)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Navigation className="mr-1.5 h-4 w-4" aria-hidden />
-                    Get directions to this house
-                  </a>
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-        );
-      })()}
 
 
       {!activeHouse && mappedHouses.length === 0 && (
