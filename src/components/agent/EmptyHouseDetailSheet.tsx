@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/rentCalculations';
-import { prettyName } from '@/lib/formatting';
+import { prettyName, formatHouseCategory } from '@/lib/formatting';
 
 export interface HouseOpportunity {
   house_id: string;
@@ -101,7 +101,7 @@ export function EmptyHouseDetailSheet({
         <SheetHeader className="border-b p-4 text-left">
           <SheetTitle className="flex items-center gap-2 text-base">
             <Home className="h-4 w-4 text-primary" />
-            {house.title || prettyName(house.house_category) || 'Empty house'}
+            {house.title || formatHouseCategory(house.house_category) || 'Empty house'}
           </SheetTitle>
           <SheetDescription className="flex items-center gap-1 text-[11px]">
             <MapPin className="h-3 w-3 shrink-0" /> {housePlace(house)}
@@ -286,7 +286,7 @@ export function EmptyHouseDetailSheet({
           <div className="rounded-2xl border p-4 space-y-2 text-[12px]">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Type</span>
-              <span className="font-semibold">{prettyName(house.house_category) || 'Not stated'}</span>
+              <span className="font-semibold">{formatHouseCategory(house.house_category) || 'Not stated'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Rooms</span>

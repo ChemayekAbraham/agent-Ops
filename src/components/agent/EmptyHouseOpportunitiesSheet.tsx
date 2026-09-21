@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatUGX } from '@/lib/rentCalculations';
-import { prettyName } from '@/lib/formatting';
+import { prettyName, formatHouseCategory } from '@/lib/formatting';
 import { UGANDA_DISTRICTS, CITY_TO_DISTRICT } from '@/lib/ugandaDistricts';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
@@ -983,7 +983,7 @@ export function EmptyHouseOpportunitiesSheet({
                           <div className="min-w-0 flex-1 space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-semibold truncate">
-                                {h.title || prettyName(h.house_category) || 'Empty house'}
+                                {h.title || formatHouseCategory(h.house_category) || 'Empty house'}
                               </span>
                               {h.verified && (
                                 <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">

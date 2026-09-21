@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatDynamic } from '@/lib/currencyFormat';
+import { formatHouseCategory } from '@/lib/formatting';
 import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
@@ -48,6 +49,7 @@ interface EmptyHouseMapBrowserProps {
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
 const LOCATION_GRANTED_KEY = 'welile-map-location-granted';
+const MANUAL_AREA_KEY = 'welile-map-manual-area';
 
 /** Reports the visible bounds + zoom so the database only aggregates what is on screen. */
 function ViewportReporter({ onChange }: { onChange: (viewport: MapViewport) => void }) {
@@ -287,6 +289,8 @@ export function EmptyHouseMapBrowser({
   }, [focusedId, houses, mappedHouses]);
 
   const initialFitDone = useRef(false);
+  const manualAreaRestored = useRef(false);
+  const initialLocateStarted = useRef(false);
 
   /**
    * By default the map opens where the funder is, so the empty houses nearest
@@ -294,12 +298,19 @@ export function EmptyHouseMapBrowser({
    * refused, the loaded-houses fit below takes over.
    */
   useEffect(() => {
-    if (!mapInstance || initialFitDone.current) return;
+    if (!mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
+    initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       setGeoStatus('unsupported');
       return;
     }
     let cancelled = false;
+    try {
+      window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+      setLocationPreviouslyGranted(true);
+    } catch {
+      // ignore storage errors
+    }
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled || initialFitDone.current) return;
@@ -307,12 +318,6 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
-        try {
-          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
-          setLocationPreviouslyGranted(true);
-        } catch {
-          // ignore storage errors
-        }
         // Default view: the funder's own area, so the empty houses around them
         // are the first ones on screen.
         mapInstance.setView(point, 13);
@@ -332,7 +337,7 @@ export function EmptyHouseMapBrowser({
     return () => {
       cancelled = true;
     };
-  }, [mapInstance]);
+  }, [mapInstance, locationPreviouslyGranted]);
 
   /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
   const retryLocate = useCallback(() => {
@@ -398,13 +403,68 @@ export function EmptyHouseMapBrowser({
       const match = manualAreaOptions.find((o) => o.label === label);
       if (!match || !mapInstance) return;
       initialFitDone.current = true;
+      setGeoStatus('granted');
       setUserPosition(match.point);
       setGeoPromptDismissed(true);
       setAreaPickerOpen(false);
+      try {
+        window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+        window.localStorage.setItem(MANUAL_AREA_KEY, label);
+        setLocationPreviouslyGranted(true);
+      } catch {
+        // ignore storage errors
+      }
       mapInstance.flyTo(match.point, 11, { duration: 0.6 });
     },
     [manualAreaOptions, mapInstance],
   );
+
+  /**
+   * If the funder already approved location sharing, re-locate on return
+   * visits. When geolocation is later revoked, fall back to a manually chosen
+   * area if one was saved; otherwise show the gate again.
+   */
+  useEffect(() => {
+    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
+    initialLocateStarted.current = true;
+    if (!navigator.geolocation) {
+      manualAreaRestored.current = true;
+      const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
+      if (stored) chooseManualArea(stored);
+      return;
+    }
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled) return;
+        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+        initialFitDone.current = true;
+        setGeoStatus('granted');
+        setUserPosition(point);
+        mapInstance.flyTo(point, 13, { duration: 0.6 });
+      },
+      () => {
+        if (cancelled) return;
+        manualAreaRestored.current = true;
+        const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
+        if (stored) {
+          chooseManualArea(stored);
+        } else {
+          setGeoStatus('denied');
+          try {
+            window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+            setLocationPreviouslyGranted(false);
+          } catch {
+            // ignore storage errors
+          }
+        }
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea]);
 
   // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
@@ -508,7 +568,7 @@ export function EmptyHouseMapBrowser({
 
           if (house) {
             const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
-            const categoryLabel = (house.house_category || 'House').replace(/_/g, ' ');
+            const categoryLabel = formatHouseCategory(house.house_category);
             const icon = L.divIcon({
               className: '',
               html: `<span class="empty-house-map-pin max-w-[9rem] truncate${active ? ' empty-house-map-pin--active' : ''}">${categoryLabel}</span>`,
