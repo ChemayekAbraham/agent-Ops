@@ -46,6 +46,17 @@ interface EmptyHouseMapBrowserProps {
   country?: CountryBounds | null;
   /** Listing-age ceiling in days, applied in the database alongside the viewport. */
   maxAgeDays?: number | null;
+  /**
+   * Client-side list filters the viewport query cannot express. When any is
+   * active the map pins come from the already-filtered `houses` list instead
+   * of aggregated cells, so the pins always match what the list shows.
+   */
+  subCounty?: string | null;
+  radiusKm?: number | null;
+  radiusOrigin?: { lat: number; lng: number } | null;
+  fundingStatus?: 'all' | 'ready' | 'topup';
+  withinFloat?: boolean;
+  savedReadyOnly?: boolean;
   onSearchQueryChange: (query: string) => void;
   onOpenHouse: (house: SupportableHouse) => void;
   onFundHouse: (house: SupportableHouse) => void;
