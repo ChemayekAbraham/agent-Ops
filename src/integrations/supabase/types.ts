@@ -58907,6 +58907,16 @@ export type Database = {
           status_code: string
         }[]
       }
+      get_tenant_topup_eligibility: {
+        Args: {
+          p_agent_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_tier?: string
+        }
+        Returns: Json
+      }
       get_tenant_transfer_history: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -63408,6 +63418,10 @@ export type Database = {
         Args: { p_source?: string; p_status: string; p_tenant_id: string }
         Returns: Json
       }
+      set_tenant_topup_eligibility_rules: {
+        Args: { p_rules: Json }
+        Returns: Json
+      }
       set_wallet_transfer_schedule_state: {
         Args: { p_schedule_id: string; p_state: string }
         Returns: {
@@ -63889,6 +63903,7 @@ export type Database = {
           total_repayment: number
         }[]
       }
+      tenant_topup_eligibility_rules: { Args: never; Returns: Json }
       test_wallet_drift_fix: { Args: never; Returns: Json }
       tlb_authorized: { Args: never; Returns: boolean }
       tlb_children: {
