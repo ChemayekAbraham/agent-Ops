@@ -1322,11 +1322,6 @@ export function SelfPortfolioFundingCard({
               </span>
             )}
           </Button>
-          {activeFilterCount > 0 && (
-            <span className="text-[11px] font-semibold text-muted-foreground">
-              {feed.length} of {houses.length} shown
-            </span>
-          )}
           <div className="ml-auto flex items-center gap-2">
             {compareIds.length >= 2 && (
               <Button
