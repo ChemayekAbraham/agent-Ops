@@ -11,12 +11,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  Loader2,
 } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/rentCalculations';
+import { prettyName, formatHouseCategory } from '@/lib/formatting';
+import { useRelatedHouses } from '@/hooks/useRelatedHouses';
 
 export interface HouseOpportunity {
   house_id: string;
@@ -68,6 +72,7 @@ export function EmptyHouseDetailSheet({
   onTogglePick,
   isPartner = false,
   remaining,
+  onRelatedHouseClick,
 }: {
   house: HouseOpportunity | null;
   open: boolean;
@@ -77,11 +82,22 @@ export function EmptyHouseDetailSheet({
   isPartner?: boolean;
   /** Supporter balance still free to commit — drives the funding requirement block. */
   remaining?: number;
+  onRelatedHouseClick?: (house: HouseOpportunity) => void;
 }) {
   const [index, setIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const {
+    data: related,
+    isLoading: relatedLoading,
+    error: relatedError,
+  } = useRelatedHouses(house);
 
   useEffect(() => {
     setIndex(0);
+    // When the user taps a related house, start them at the top of the new details.
+    const sheet = document.querySelector('.app-sheet-content');
+    if (sheet) sheet.scrollTo(0, 0);
   }, [house?.house_id]);
 
   if (!house) return null;
@@ -91,12 +107,17 @@ export function EmptyHouseDetailSheet({
   const active = photos[Math.min(index, Math.max(photos.length - 1, 0))];
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
+      <SheetContent
+        side="bottom"
+        className="z-[1350] max-h-[90vh] gap-0 overflow-y-auto rounded-t-2xl p-0 sm:left-1/2 sm:w-[26rem] sm:-translate-x-1/2 sm:rounded-t-2xl"
+        overlayClassName="z-[1260]"
+      >
         <SheetHeader className="border-b p-4 text-left">
           <SheetTitle className="flex items-center gap-2 text-base">
             <Home className="h-4 w-4 text-primary" />
-            {house.title || house.house_category || 'Empty house'}
+            {house.title || formatHouseCategory(house.house_category) || 'Empty house'}
           </SheetTitle>
           <SheetDescription className="flex items-center gap-1 text-[11px]">
             <MapPin className="h-3 w-3 shrink-0" /> {housePlace(house)}
@@ -108,12 +129,19 @@ export function EmptyHouseDetailSheet({
           {photos.length > 0 ? (
             <div className="space-y-2">
               <div className="relative overflow-hidden rounded-2xl bg-muted">
-                <img
-                  src={active}
-                  alt={`${house.title || 'Empty house'} photo ${index + 1}`}
-                  loading="lazy"
-                  className="h-56 w-full object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="block w-full cursor-zoom-in"
+                  aria-label="View full photo"
+                >
+                  <img
+                    src={active}
+                    alt={`${house.title || 'Empty house'} photo ${index + 1}`}
+                    loading="lazy"
+                    className="h-56 w-full object-cover"
+                  />
+                </button>
                 {photos.length > 1 && (
                   <>
                     <Button
@@ -281,7 +309,7 @@ export function EmptyHouseDetailSheet({
           <div className="rounded-2xl border p-4 space-y-2 text-[12px]">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Type</span>
-              <span className="font-semibold">{house.house_category || 'Not stated'}</span>
+              <span className="font-semibold">{formatHouseCategory(house.house_category) || 'Not stated'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Rooms</span>
@@ -309,6 +337,9 @@ export function EmptyHouseDetailSheet({
           <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 space-y-2.5">
             <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord</p>
             <p className="text-base font-bold leading-tight">{house.landlord_name || 'Name not on file'}</p>
+            {house.landlord_phone && (
+              <p className="text-sm font-medium text-primary">{house.landlord_phone}</p>
+            )}
             {house.landlord_phone ? (
               <div className="grid grid-cols-2 gap-2">
                 <Button asChild variant="outline" size="sm" className="h-10 gap-1.5 text-[12px]">
@@ -330,17 +361,6 @@ export function EmptyHouseDetailSheet({
           {/* Map */}
           <div className="rounded-2xl border p-4 space-y-2">
             <p className="text-xs font-bold">GPS location</p>
-            {(house.landlord_name || house.landlord_phone) && (
-              <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord on this map</p>
-                <p className="text-sm font-bold">{house.landlord_name || 'Name not on file'}</p>
-                {house.landlord_phone && (
-                  <p className="flex items-center gap-1.5 text-sm font-bold text-primary">
-                    <Phone className="h-3.5 w-3.5 shrink-0" /> {house.landlord_phone}
-                  </p>
-                )}
-              </div>
-            )}
             {gps ? (
               <>
                 <div className="relative overflow-hidden rounded-xl border">
@@ -351,16 +371,6 @@ export function EmptyHouseDetailSheet({
                     referrerPolicy="no-referrer-when-downgrade"
                     className="h-48 w-full border-0"
                   />
-                  {(house.landlord_name || house.landlord_phone) && (
-                    <div className="absolute left-2 top-2 max-w-[calc(100%-1rem)] rounded-lg border border-primary/15 bg-background/95 px-2.5 py-1.5 shadow-sm">
-                      <p className="text-[10px] font-bold truncate">{house.landlord_name || 'Landlord'}</p>
-                      {house.landlord_phone && (
-                        <p className="flex items-center gap-1 text-[10px] font-semibold text-primary">
-                          <Phone className="h-3 w-3" /> {house.landlord_phone}
-                        </p>
-                      )}
-                    </div>
-                  )}
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] text-muted-foreground">
@@ -379,6 +389,92 @@ export function EmptyHouseDetailSheet({
               </p>
             )}
           </div>
+        </div>
+
+        {/* Related houses in the same area */}
+        <div className="space-y-3 rounded-2xl border border-amber-500/15 bg-amber-500/[0.03] p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Home className="h-4 w-4 text-amber-500" />
+              <p className="text-xs font-bold">Related houses</p>
+            </div>
+            {related && related.length > 0 && (
+              <Badge variant="outline" className="h-5 text-[10px]">
+                {related.length}
+              </Badge>
+            )}
+          </div>
+
+          {relatedLoading && (
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Finding nearby opportunities…
+            </div>
+          )}
+
+          {relatedError && !relatedLoading && (
+            <p className="text-[11px] text-muted-foreground">Could not load related houses.</p>
+          )}
+
+          {!relatedLoading && related && related.length === 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              No other empty houses found in this area yet.
+            </p>
+          )}
+
+          {related && related.length > 0 && (
+            <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 snap-x">
+              {related.map((relatedHouse) => (
+                <button
+                  key={relatedHouse.house_id}
+                  type="button"
+                  onClick={() => onRelatedHouseClick?.(relatedHouse)}
+                  disabled={!onRelatedHouseClick}
+                  className={`relative flex w-44 shrink-0 snap-start flex-col overflow-hidden rounded-xl border bg-background text-left transition-colors ${
+                    onRelatedHouseClick
+                      ? 'cursor-pointer hover:border-primary/60'
+                      : 'cursor-default'
+                  }`}
+                >
+                  <div className="h-24 w-full bg-muted">
+                    {relatedHouse.image_url ? (
+                      <img
+                        src={relatedHouse.image_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <Home className="h-5 w-5" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1 p-2.5">
+                    <p className="truncate text-[11px] font-bold">
+                      {formatHouseCategory(relatedHouse.house_category)}
+                    </p>
+                    <p className="text-[11px] font-black text-emerald-600">
+                      {formatUGX(relatedHouse.monthly_rent)}/mo
+                    </p>
+                    <p className="flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      {relatedHouse.distance_km != null
+                        ? `${relatedHouse.distance_km.toFixed(1)} km away`
+                        : [relatedHouse.village, relatedHouse.sub_county, relatedHouse.district]
+                            .filter(Boolean)
+                            .join(', ') || 'Nearby'}
+                    </p>
+                  </div>
+                  {onRelatedHouseClick && (
+                    <div className="absolute right-2 top-2 rounded-full bg-background/90 p-1 shadow-sm">
+                      <ChevronRight className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {onTogglePick && (
@@ -400,6 +496,46 @@ export function EmptyHouseDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+
+    {/* Full-screen photo viewer — sits above the detail sheet (z-[1350]) */}
+    <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+      <DialogContent
+        className="z-[1450] flex h-[100dvh] w-full max-w-none flex-col items-center justify-center gap-0 border-0 bg-black/95 p-0 sm:rounded-none"
+        overlayClassName="z-[1400] bg-black/90"
+      >
+        <img
+          src={active}
+          alt={`${house.title || 'Empty house'} photo ${index + 1}`}
+          className="max-h-[100dvh] max-w-full object-contain"
+        />
+        {photos.length > 1 && (
+          <>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute left-3 top-1/2 h-11 w-11 -translate-y-1/2 rounded-full opacity-90"
+              onClick={() => setIndex((i) => (i - 1 + photos.length) % photos.length)}
+              aria-label="Previous photo"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute right-3 top-1/2 h-11 w-11 -translate-y-1/2 rounded-full opacity-90"
+              onClick={() => setIndex((i) => (i + 1) % photos.length)}
+              aria-label="Next photo"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+            <span className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-background/85 px-3 py-1 text-xs font-semibold">
+              {index + 1} / {photos.length}
+            </span>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

@@ -6,7 +6,9 @@ import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatDynamic } from '@/lib/currencyFormat';
+import { formatHouseCategory } from '@/lib/formatting';
 import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Navigation, RefreshCw, Search, WifiOff, X } from 'lucide-react';
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
@@ -46,6 +48,8 @@ interface EmptyHouseMapBrowserProps {
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
+const LOCATION_GRANTED_KEY = 'welile-map-location-granted';
+const MANUAL_AREA_KEY = 'welile-map-manual-area';
 
 /** Reports the visible bounds + zoom so the database only aggregates what is on screen. */
 function ViewportReporter({ onChange }: { onChange: (viewport: MapViewport) => void }) {
@@ -166,6 +170,7 @@ export function EmptyHouseMapBrowser({
   /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
   const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
   const [geoPromptDismissed, setGeoPromptDismissed] = useState(false);
+  const [locationPreviouslyGranted, setLocationPreviouslyGranted] = useState(false);
   const [areaPickerOpen, setAreaPickerOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(() =>
     typeof navigator !== 'undefined' ? navigator.onLine === false : false,
@@ -180,6 +185,16 @@ export function EmptyHouseMapBrowser({
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
+  }, []);
+
+  // Remember that the funder already approved location sharing so the gate
+  // does not block the map on every return.
+  useEffect(() => {
+    try {
+      setLocationPreviouslyGranted(window.localStorage.getItem(LOCATION_GRANTED_KEY) === 'true');
+    } catch {
+      // ignore storage errors
+    }
   }, []);
 
 
@@ -274,6 +289,8 @@ export function EmptyHouseMapBrowser({
   }, [focusedId, houses, mappedHouses]);
 
   const initialFitDone = useRef(false);
+  const manualAreaRestored = useRef(false);
+  const initialLocateStarted = useRef(false);
 
   /**
    * By default the map opens where the funder is, so the empty houses nearest
@@ -281,12 +298,19 @@ export function EmptyHouseMapBrowser({
    * refused, the loaded-houses fit below takes over.
    */
   useEffect(() => {
-    if (!mapInstance || initialFitDone.current) return;
+    if (!mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
+    initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       setGeoStatus('unsupported');
       return;
     }
     let cancelled = false;
+    try {
+      window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+      setLocationPreviouslyGranted(true);
+    } catch {
+      // ignore storage errors
+    }
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled || initialFitDone.current) return;
@@ -294,26 +318,26 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
-        // Default view: the whole country the funder is in, so they see the
-        // national picture first. Outside a known country, zoom to their area.
-        const homeCountry = AFRICA_COUNTRIES.find((c) => pointInCountry(c, point[0], point[1]));
-        if (homeCountry) {
-          const [south, west, north, east] = homeCountry.bbox;
-          mapInstance.fitBounds(L.latLngBounds([south, west], [north, east]), { padding: [24, 24] });
-        } else {
-          mapInstance.setView(point, 13);
-        }
+        // Default view: the funder's own area, so the empty houses around them
+        // are the first ones on screen.
+        mapInstance.setView(point, 13);
       },
       () => {
         if (cancelled) return;
         setGeoStatus('denied');
+        try {
+          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+          setLocationPreviouslyGranted(false);
+        } catch {
+          // ignore storage errors
+        }
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
     return () => {
       cancelled = true;
     };
-  }, [mapInstance]);
+  }, [mapInstance, locationPreviouslyGranted]);
 
   /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
   const retryLocate = useCallback(() => {
@@ -325,9 +349,23 @@ export function EmptyHouseMapBrowser({
         setGeoStatus('granted');
         setGeoPromptDismissed(true);
         setUserPosition(point);
+        try {
+          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+          setLocationPreviouslyGranted(true);
+        } catch {
+          // ignore storage errors
+        }
         mapInstance.flyTo(point, 13, { duration: 0.6 });
       },
-      () => setGeoStatus('denied'),
+      () => {
+        setGeoStatus('denied');
+        try {
+          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+          setLocationPreviouslyGranted(false);
+        } catch {
+          // ignore storage errors
+        }
+      },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
   }, [mapInstance]);
@@ -365,13 +403,68 @@ export function EmptyHouseMapBrowser({
       const match = manualAreaOptions.find((o) => o.label === label);
       if (!match || !mapInstance) return;
       initialFitDone.current = true;
+      setGeoStatus('granted');
       setUserPosition(match.point);
       setGeoPromptDismissed(true);
       setAreaPickerOpen(false);
+      try {
+        window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+        window.localStorage.setItem(MANUAL_AREA_KEY, label);
+        setLocationPreviouslyGranted(true);
+      } catch {
+        // ignore storage errors
+      }
       mapInstance.flyTo(match.point, 11, { duration: 0.6 });
     },
     [manualAreaOptions, mapInstance],
   );
+
+  /**
+   * If the funder already approved location sharing, re-locate on return
+   * visits. When geolocation is later revoked, fall back to a manually chosen
+   * area if one was saved; otherwise show the gate again.
+   */
+  useEffect(() => {
+    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
+    initialLocateStarted.current = true;
+    if (!navigator.geolocation) {
+      manualAreaRestored.current = true;
+      const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
+      if (stored) chooseManualArea(stored);
+      return;
+    }
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled) return;
+        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+        initialFitDone.current = true;
+        setGeoStatus('granted');
+        setUserPosition(point);
+        mapInstance.flyTo(point, 13, { duration: 0.6 });
+      },
+      () => {
+        if (cancelled) return;
+        manualAreaRestored.current = true;
+        const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
+        if (stored) {
+          chooseManualArea(stored);
+        } else {
+          setGeoStatus('denied');
+          try {
+            window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+            setLocationPreviouslyGranted(false);
+          } catch {
+            // ignore storage errors
+          }
+        }
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea]);
 
   // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
@@ -475,11 +568,12 @@ export function EmptyHouseMapBrowser({
 
           if (house) {
             const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
+            const categoryLabel = formatHouseCategory(house.house_category);
             const icon = L.divIcon({
-              className: '',
-              html: `<span class="empty-house-map-pin${active ? ' empty-house-map-pin--active' : ''}">${formatDynamic(Number(house.monthly_rent || 0))}</span>`,
-              iconSize: [112, 34],
-              iconAnchor: [56, 34],
+              className: 'empty-house-map-pin-hitbox',
+              html: `<span class="empty-house-map-pin truncate${active ? ' empty-house-map-pin--active' : ''}">${categoryLabel}</span>`,
+              iconSize: [144, 44],
+              iconAnchor: [72, 44],
             });
 
             return (
@@ -487,8 +581,12 @@ export function EmptyHouseMapBrowser({
                 key={house.house_id}
                 position={[Number(house.latitude), Number(house.longitude)]}
                 icon={icon}
-                title={`${houseTitleLine(house)} · ${formatDynamic(Number(house.monthly_rent || 0))}`}
-                eventHandlers={{ click: () => setActiveHouse(house) }}
+                title={`${houseTitleLine(house)} · ${categoryLabel}`}
+                eventHandlers={{
+                  click: () => {
+                    onOpenHouse(house);
+                  },
+                }}
               />
             );
           }
@@ -539,50 +637,63 @@ export function EmptyHouseMapBrowser({
             setUserPosition(point);
             setGeoStatus('granted');
             setGeoPromptDismissed(true);
+            try {
+              window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+              setLocationPreviouslyGranted(true);
+            } catch {
+              // ignore storage errors
+            }
           }}
           onDenied={() => {
             setGeoStatus('denied');
             setGeoPromptDismissed(false);
+            try {
+              window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+              setLocationPreviouslyGranted(false);
+            } catch {
+              // ignore storage errors
+            }
           }}
         />
       </MapContainer>
 
-      {(geoStatus === 'denied' || geoStatus === 'unsupported') && !geoPromptDismissed && !userPosition && (
+      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. Only show it when location has not been approved before. */}
+      {!userPosition && !locationPreviouslyGranted && (
         <div
           role="dialog"
-          aria-label="Location access needed"
-          className="absolute inset-x-3 top-14 z-[1100] rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur sm:inset-x-auto sm:left-3 sm:right-16"
+          aria-label="Share your location to see empty houses near you"
+          className="absolute inset-0 z-[1200] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm"
         >
-          <div className="flex items-start gap-2">
-            <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <div className="min-w-0 text-xs leading-snug">
-              <p className="font-semibold">We couldn't get your location</p>
-              <p className="mt-0.5 text-muted-foreground">
-                {geoStatus === 'unsupported'
-                  ? 'This browser cannot share your location. Choose your area manually to see the nearest empty houses first.'
-                  : 'Location access is off, so the map cannot show the nearest empty houses first. Allow access, or pick your area yourself.'}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {geoStatus !== 'unsupported' && (
-                  <Button type="button" size="sm" className="h-8" onClick={retryLocate}>
-                    <Crosshair className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                    Try again
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8"
-                  onClick={() => setAreaPickerOpen((open) => !open)}
-                  aria-expanded={areaPickerOpen}
-                >
-                  <MapPin className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  Choose my area
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-4 text-center shadow-xl">
+            <Navigation className="mx-auto h-6 w-6 text-primary" aria-hidden />
+            <p className="mt-2 text-sm font-semibold">Share your location</p>
+            <p className="mt-1 text-xs leading-snug text-muted-foreground">
+              {geoStatus === 'unsupported'
+                ? 'This browser cannot share your location. Pick your area to see the empty houses there.'
+                : geoStatus === 'denied'
+                  ? 'Location access is off. Turn it on and try again, or pick your area yourself.'
+                  : 'We show the empty houses around you, so we need your location first.'}
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              {geoStatus !== 'unsupported' && (
+                <Button type="button" size="sm" className="h-9" onClick={retryLocate}>
+                  <Crosshair className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  {geoStatus === 'denied' ? 'Try again' : 'Use my location'}
                 </Button>
-              </div>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9"
+                onClick={() => setAreaPickerOpen((open) => !open)}
+                aria-expanded={areaPickerOpen}
+              >
+                <MapPin className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Choose my area
+              </Button>
               {areaPickerOpen && (
-                <label className="mt-2 block">
+                <label className="block text-left">
                   <span className="sr-only">Choose your district or country</span>
                   <select
                     className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
@@ -601,17 +712,10 @@ export function EmptyHouseMapBrowser({
                 </label>
               )}
             </div>
-            <button
-              type="button"
-              aria-label="Dismiss location prompt"
-              onClick={() => setGeoPromptDismissed(true)}
-              className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-muted"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden />
-            </button>
           </div>
         </div>
       )}
+
 
       {cellsQuery.isFetching && (
         <div
@@ -763,134 +867,7 @@ export function EmptyHouseMapBrowser({
 
       <MapPerfOverlay />
 
-      {activeHouse && (() => {
-        const rent = Number(activeHouse.monthly_rent || 0);
-        const isPicked = selectedIds.includes(activeHouse.house_id);
-        const shortfall = Math.max(0, rent - remaining);
-        const image = (activeHouse.image_urls ?? []).filter(Boolean)[0] ?? activeHouse.image_url;
-        const location = houseAddressLine(activeHouse) || 'Uganda';
 
-        return (
-          <section
-            aria-label={`Funding details for ${houseTitleLine(activeHouse)}`}
-            className="absolute inset-x-2 bottom-2 z-[1000] overflow-hidden rounded-lg border border-border bg-background/95 shadow-xl backdrop-blur sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]"
-          >
-            <div className="flex gap-3 p-3">
-              {image ? (
-                <img
-                  src={image}
-                  alt={houseTitleLine(activeHouse)}
-                  className="h-20 w-24 shrink-0 rounded-md object-cover"
-                />
-              ) : (
-                <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-md bg-muted">
-                  <Home className="h-5 w-5 text-muted-foreground" aria-hidden />
-                </div>
-              )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="line-clamp-1 text-sm font-bold text-foreground">
-                      <HighlightText text={houseTitleLine(activeHouse)} query={searchQuery} />
-                    </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="-mr-2 -mt-2 h-8 w-8 shrink-0"
-                      onClick={() => setActiveHouse(null)}
-                      aria-label="Close house details"
-                    >
-                      <X className="h-4 w-4" aria-hidden />
-                    </Button>
-                  </div>
-                  <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
-                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-                    <span className="line-clamp-2">
-                      <HighlightText text={location} query={searchQuery} />
-                    </span>
-                  </p>
-                <p className="mt-1.5 text-lg font-black leading-none text-foreground">{formatDynamic(rent)}</p>
-                <Badge
-                  variant={isPicked ? 'default' : 'secondary'}
-                  className="mt-2 rounded-full text-[10px] font-bold"
-                >
-                  {isPicked ? 'Selected for funding' : shortfall > 0 ? `Top up ${formatDynamic(shortfall)}` : 'Ready to fund'}
-                </Badge>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 border-t border-border px-2.5 pt-2.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-11 w-11 shrink-0"
-                onClick={() => stepHouse(-1)}
-                disabled={mappedHouses.length < 2}
-                aria-label="Show the previous house on the map"
-              >
-                <ChevronLeft className="h-5 w-5" aria-hidden />
-              </Button>
-              <p className="flex-1 text-center text-[11px] font-semibold text-muted-foreground">
-                {activeIndex >= 0 ? `House ${activeIndex + 1} of ${mappedHouses.length}` : `${mappedHouses.length} houses`}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-11 w-11 shrink-0"
-                onClick={() => stepHouse(1)}
-                disabled={mappedHouses.length < 2}
-                aria-label="Show the next house on the map"
-              >
-                <ChevronRight className="h-5 w-5" aria-hidden />
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-2 p-2.5">
-              <Button type="button" variant="outline" className="h-11" onClick={() => onOpenHouse(activeHouse)}>
-                View details
-              </Button>
-              <FundHouseTooltip>
-                <Button
-                  type="button"
-                  className="h-11"
-                  variant={isPicked ? 'secondary' : 'default'}
-                  disabled={busy}
-                  onClick={() => onFundHouse(activeHouse)}
-                >
-                  {isPicked ? 'Remove' : 'Fund'}
-                </Button>
-              </FundHouseTooltip>
-              <Button
-                asChild
-                variant="ghost"
-                className="col-span-2 h-11 text-xs font-semibold"
-              >
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${Number(activeHouse.latitude)},${Number(activeHouse.longitude)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Navigation className="mr-1.5 h-4 w-4" aria-hidden />
-                  Get directions to this house
-                </a>
-              </Button>
-            </div>
-          </section>
-        );
-      })()}
-
-      {!activeHouse && mappedHouses.length > 0 && (
-        <div className="absolute inset-x-2 bottom-2 z-[1000] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]">
-          <Button
-            type="button"
-            className="h-12 w-full text-sm font-bold shadow-xl"
-            onClick={() => setActiveHouse(mappedHouses[0])}
-          >
-            <Home className="mr-2 h-4 w-4" aria-hidden />
-            Browse {mappedHouses.length.toLocaleString()} {mappedHouses.length === 1 ? 'house' : 'houses'} one by one
-          </Button>
-        </div>
-      )}
 
       {!activeHouse && mappedHouses.length === 0 && (
         <div role="status" className="pointer-events-none absolute inset-x-2 bottom-2 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur sm:inset-x-auto sm:left-3">
