@@ -117,21 +117,21 @@ section[aria-label*="Notifications" i]:empty {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: hsl(271 100% 40%);
     color: #fff;
-    border: 3px solid #fff;
-    box-shadow: 0 2px 8px rgba(88,0,200,0.35);
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(88,0,200,0.35);
     pointer-events: none;
     transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
     transform: none;
   }
 
   .empty-house-map-pin svg {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     fill: #fff;
     flex-shrink: 0;
   }
@@ -160,6 +160,39 @@ section[aria-label*="Notifications" i]:empty {
     transform: scale(1.22);
     box-shadow: 0 4px 16px rgba(88,0,200,0.45);
     background: hsl(271 100% 30%);
+  }
+
+  /* Price pill variant: Airbnb-style amount labels */
+  .empty-house-map-pin--price {
+    width: auto;
+    height: auto;
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    background: #fff;
+    color: hsl(271 100% 35%);
+    border: 2px solid hsl(271 100% 85%);
+    box-shadow: 0 2px 6px rgba(88,0,200,0.18);
+  }
+
+  .empty-house-map-pin--price.empty-house-map-pin--active {
+    background: hsl(271 100% 40%);
+    color: #fff;
+    border-color: hsl(271 100% 40%);
+    box-shadow: 0 4px 14px rgba(88,0,200,0.4);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .empty-house-map-pin--price:hover {
+      background: hsl(271 100% 40%);
+      color: #fff;
+      border-color: hsl(271 100% 40%);
+      transform: scale(1.08);
+      box-shadow: 0 4px 14px rgba(88,0,200,0.35);
+    }
   }
 
   /* Grouped empty houses: purple cluster bubbles */
