@@ -345,17 +345,6 @@ export function EmptyHouseDetailSheet({
           {/* Map */}
           <div className="rounded-2xl border p-4 space-y-2">
             <p className="text-xs font-bold">GPS location</p>
-            {(house.landlord_name || house.landlord_phone) && (
-              <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord on this map</p>
-                <p className="text-sm font-bold">{house.landlord_name || 'Name not on file'}</p>
-                {house.landlord_phone && (
-                  <p className="flex items-center gap-1.5 text-sm font-bold text-primary">
-                    <Phone className="h-3.5 w-3.5 shrink-0" /> {house.landlord_phone}
-                  </p>
-                )}
-              </div>
-            )}
             {gps ? (
               <>
                 <div className="relative overflow-hidden rounded-xl border">
