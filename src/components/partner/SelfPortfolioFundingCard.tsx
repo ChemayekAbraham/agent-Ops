@@ -1148,6 +1148,9 @@ export function SelfPortfolioFundingCard({
               You can only select plans up to your operational float —{' '}
               {formatDynamic(remaining)} left to fund
             </p>
+            <p className="text-[10px] font-semibold text-primary mt-1">
+              {formatDynamic(marketRentNeeded)} rent needed by empty houses
+            </p>
           </div>
           <Button variant="ghost" size="sm" onClick={() => void load()} disabled={busy}>
             <RefreshCw className="h-4 w-4" />
