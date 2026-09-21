@@ -59,6 +59,21 @@ export function ForwardConcernDialog({
   const [dueHours, setDueHours] = useState(DEFAULT_DUE);
   const [to, setTo] = useState<string[]>([]);
   const [staffSearch, setStaffSearch] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const addFiles = (picked: FileList | null) => {
+    if (!picked) return;
+    const tooBig = Array.from(picked).find((f) => f.size > CONCERN_ATTACHMENT_MAX_BYTES);
+    if (tooBig) {
+      toast.error(`${tooBig.name} is larger than 10MB.`);
+      return;
+    }
+    setFiles((prev) => [...prev, ...Array.from(picked)]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
 
   // Reset only when the dialog opens for a different call — the parent rebuilds the
   // `source` object on every render, so depending on the object itself would wipe the
