@@ -65,6 +65,8 @@ const UserLocationCorrectionGate = optionalLazyWithRetry(() => import("@/compone
 const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/components/requisitions/RequisitionUsageReportGate"), "RequisitionUsageReportGate");
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
+const FacilitationApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/FacilitationApprovalGate"), "FacilitationApprovalGate");
+const PsoFacilitationRegister = lazyWithRetry(() => import("@/pages/PsoFacilitationRegister"));
 
 // Field recruitment campaign pages
 const CampaignRedirect = lazyWithRetry(() => import("@/pages/CampaignRedirect"));
