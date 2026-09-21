@@ -432,6 +432,7 @@ function GlobalOnboardingGates() {
       <RequisitionUsageReportGate />
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
+      <FacilitationApprovalGate />
     </>
   );
 }
