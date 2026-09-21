@@ -919,7 +919,7 @@ export function SelfPortfolioFundingCard({
       id: plan.rent_request_id,
       plan,
     }));
-    let visibleHouses = houses.filter((h) => matchesBaseFilters(h));
+    let visibleHouses = searchPool.filter((h) => matchesBaseFilters(h));
     if (houseDistrict !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
