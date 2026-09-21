@@ -94,8 +94,8 @@ export function EmptyHouseDetailSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side="right"
-        className="z-[1350] w-full sm:max-w-md overflow-y-auto p-0"
+        side="bottom"
+        className="z-[1350] max-h-[90vh] gap-0 overflow-y-auto rounded-t-2xl p-0 sm:left-1/2 sm:w-[26rem] sm:-translate-x-1/2 sm:rounded-t-2xl"
         overlayClassName="z-[1260]"
       >
         <SheetHeader className="border-b p-4 text-left">
