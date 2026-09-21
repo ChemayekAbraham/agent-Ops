@@ -57472,6 +57472,18 @@ export type Database = {
           total_debits: number
         }[]
       }
+      get_link_performance_summary: {
+        Args: { p_since?: string }
+        Returns: {
+          channel: string
+          conversions: number
+          group_key: string
+          last_click_at: string
+          links_created: number
+          links_with_clicks: number
+          total_clicks: number
+        }[]
+      }
       get_listing_agent_contacts: {
         Args: { p_listing_ids: string[] }
         Returns: {
