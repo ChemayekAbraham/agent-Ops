@@ -15,12 +15,14 @@ import {
 import { toast } from 'sonner';
 import {
   Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Building2, Wallet, Paperclip, Upload, X, FileText,
-  Landmark,
+  Landmark, MapPin,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { staffLoanSchedule, MONTH_WORDS, STAFF_LOAN_MAX_MONTHS } from '@/lib/staffLoanSchedule';
+import FacilitationRequestDialog from '@/components/requisitions/FacilitationRequestDialog';
+import FacilitationAccountabilityDialog from '@/components/requisitions/FacilitationAccountabilityDialog';
 
-type RequestKind = 'requisition' | 'staff_loan';
+type RequestKind = 'requisition' | 'staff_loan' | 'facilitation';
 
 interface LoanEligibility {
   eligible: boolean;
