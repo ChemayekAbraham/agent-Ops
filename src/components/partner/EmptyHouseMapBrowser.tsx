@@ -867,18 +867,6 @@ export function EmptyHouseMapBrowser({
         );
       })()}
 
-      {!activeHouse && mappedHouses.length > 0 && (
-        <div className="absolute inset-x-2 bottom-2 z-[1000] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[22rem]">
-          <Button
-            type="button"
-            className="h-12 w-full text-sm font-bold shadow-xl"
-            onClick={() => setActiveHouse(mappedHouses[0])}
-          >
-            <Home className="mr-2 h-4 w-4" aria-hidden />
-            Browse {mappedHouses.length.toLocaleString()} {mappedHouses.length === 1 ? 'house' : 'houses'} one by one
-          </Button>
-        </div>
-      )}
 
       {!activeHouse && mappedHouses.length === 0 && (
         <div role="status" className="pointer-events-none absolute inset-x-2 bottom-2 z-[1000] rounded-lg border border-border bg-background/90 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground shadow-sm backdrop-blur sm:inset-x-auto sm:left-3">
