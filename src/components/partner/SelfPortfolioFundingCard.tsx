@@ -150,6 +150,9 @@ export function SelfPortfolioFundingCard({
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
   const [houseSort, setHouseSort] = useState<HouseSort>('rent_asc');
+  // Once the funder manually picks a sort order, location-based auto-sorting
+  // must never override their choice.
+  const [sortTouched, setSortTouched] = useState(false);
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
   // Coordinates of the house the funder tapped "See more in <district>" from, so the map lands there.
   const [districtFocus, setDistrictFocus] = useState<{ lat: number; lng: number } | null>(null);
@@ -211,6 +214,9 @@ export function SelfPortfolioFundingCard({
         if (cancelled) return;
         setUserPoint({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
+      // When the browser shares the funder's location, the listing defaults to
+      // nearest-first; without it the default listing order stays untouched.
+      // A sort the funder picked themselves always wins.
       () => {
         /* location off or refused — cards simply omit the distance labels */
       },
@@ -220,6 +226,11 @@ export function SelfPortfolioFundingCard({
       cancelled = true;
     };
   }, []);
+  // Location available → list nearest-first by default. Refused or
+  // unavailable → the default listing order stays as the fallback.
+  useEffect(() => {
+    if (userPoint && !sortTouched) setHouseSort('nearest');
+  }, [userPoint, sortTouched]);
   // Side-by-side comparison picks (in-session only; never touches funding).
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -948,8 +959,9 @@ export function SelfPortfolioFundingCard({
       const distanceTo = (h: SupportableHouse) => {
         const lat = Number(h.latitude);
         const lng = Number(h.longitude);
-        if (referencePoint && Number.isFinite(lat) && Number.isFinite(lng)) {
-          return distanceKm(referencePoint.lat, referencePoint.lng, lat, lng);
+        const origin = userPoint ?? referencePoint;
+        if (origin && Number.isFinite(lat) && Number.isFinite(lng)) {
+          return distanceKm(origin.lat, origin.lng, lat, lng);
         }
         return h.distance_km ?? Infinity;
       };
@@ -1366,7 +1378,13 @@ export function SelfPortfolioFundingCard({
           <div className="space-y-5 px-4 py-4">
             <div className="space-y-1.5">
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Sort by</p>
-              <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
+              <Select
+                value={houseSort}
+                onValueChange={(v) => {
+                  setSortTouched(true);
+                  setHouseSort(v as HouseSort);
+                }}
+              >
                 <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Sort houses">
                   <SelectValue />
                 </SelectTrigger>
