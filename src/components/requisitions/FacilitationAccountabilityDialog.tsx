@@ -107,6 +107,7 @@ export function FacilitationAccountabilityDialog({
     if (!places.trim()) { toast.error('List the places you visited'); return; }
     if (!activities.trim()) { toast.error('Describe the activities you carried out'); return; }
     if (!results.trim()) { toast.error('Describe the results you achieved'); return; }
+    if (files.length === 0) { toast.error('Attach at least one receipt or proof of spending'); return; }
 
     setSaving(true);
 
