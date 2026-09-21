@@ -90,6 +90,7 @@ export function ForwardConcernDialog({
     setDueHours(DEFAULT_DUE);
     setTo([]);
     setStaffSearch('');
+    setFiles([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sourceKey]);
 
