@@ -171,6 +171,9 @@ export function SelfPortfolioFundingCard({
   // The funder's own device location, used for the distance / travel-time labels
   // on each house card when no map house has been tapped yet.
   const [userPoint, setUserPoint] = useState<{ lat: number; lng: number } | null>(null);
+  // Radius filter (km) around the funder's own location, falling back to the
+  // last house tapped on the map when device location is unavailable.
+  const [houseRadiusKm, setHouseRadiusKm] = useState<string>('all');
 
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
@@ -827,6 +830,18 @@ export function SelfPortfolioFundingCard({
         (h) => (h.sub_county ?? '').trim().toLowerCase() === houseSubCounty,
       );
     }
+    if (houseRadiusKm !== 'all') {
+      const maxKm = Number(houseRadiusKm);
+      const origin = userPoint ?? referencePoint;
+      if (origin && Number.isFinite(maxKm)) {
+        visibleHouses = visibleHouses.filter((h) => {
+          const lat = Number(h.latitude);
+          const lng = Number(h.longitude);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+          return distanceKm(origin.lat, origin.lng, lat, lng) <= maxKm;
+        });
+      }
+    }
     visibleHouses = [...visibleHouses].sort((a, b) => {
       const rentA = Number(a.monthly_rent || 0);
       const rentB = Number(b.monthly_rent || 0);
@@ -913,6 +928,8 @@ export function SelfPortfolioFundingCard({
     feedOrder,
     houseSort,
     referencePoint,
+    userPoint,
+    houseRadiusKm,
     houseDistrict,
     houseSubCounty,
     matchesBaseFilters,
@@ -932,12 +949,13 @@ export function SelfPortfolioFundingCard({
     setShowSavedReadyOnly(false);
     setHouseCountry('all');
     setHouseListingAge('all');
+    setHouseRadiusKm('all');
     setReferencePoint(null);
   }, []);
 
   useEffect(() => {
     setPage(0);
-  }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseCountry, houseListingAge, feedOrder]);
+  }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseCountry, houseListingAge, houseRadiusKm, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
@@ -1210,6 +1228,21 @@ export function SelfPortfolioFundingCard({
               <SelectItem value="all">Any funding status</SelectItem>
               <SelectItem value="ready">Ready to fund now</SelectItem>
               <SelectItem value="topup">Needs a top-up</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={houseRadiusKm} onValueChange={setHouseRadiusKm}>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by distance from your location">
+              <SelectValue placeholder="Any distance" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any distance</SelectItem>
+              <SelectItem value="1">Within 1 km of me</SelectItem>
+              <SelectItem value="2">Within 2 km of me</SelectItem>
+              <SelectItem value="5">Within 5 km of me</SelectItem>
+              <SelectItem value="10">Within 10 km of me</SelectItem>
+              <SelectItem value="25">Within 25 km of me</SelectItem>
+              <SelectItem value="50">Within 50 km of me</SelectItem>
+              <SelectItem value="100">Within 100 km of me</SelectItem>
             </SelectContent>
           </Select>
           <div className="flex items-center gap-1.5" aria-label="Filter by monthly rent range">
