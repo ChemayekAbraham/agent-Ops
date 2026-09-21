@@ -176,7 +176,10 @@ Rules applied to all templates:
   record that the payment itself rebuilds, so the message can never disagree with
   the plan.
 - The `TSP-` reference is kept so support can trace any message to one payment.
-- No line about "remaining today" — it is meaningless once days are paid ahead.
+- No "remaining today" line when days are paid ahead. It appears only in the
+  part-payment message, as "Still due today", because there the day is genuinely
+  still open and the tenant needs to know the exact gap.
+
 
 ## 5. What gets touched when implemented
 
