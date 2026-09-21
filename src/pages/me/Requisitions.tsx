@@ -227,6 +227,20 @@ const MyRequisitions = () => {
   useEffect(() => { void fetchLoans(); }, [fetchLoans]);
 
   useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc('pso_is_officer');
+        if (!active) return;
+        setIsOfficer(!error && data === true);
+      } catch {
+        if (active) setIsOfficer(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     const channel = supabase
       .channel('my-staff-requisitions')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_requisitions' }, () => { void fetchRows(); })
