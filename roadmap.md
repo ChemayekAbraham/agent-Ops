@@ -4,4 +4,4 @@
 - [x] Verify calculations, safeguards, and desktop/mobile presentation.
 
 ## Pending
-- [ ] CI: run map load-test budgets in workflow, block deploy on regression (see .github/workflows/build.yml + npm run test:loadtest)
+- [x] CI: map load-test budgets run in build workflow and block deploy on regression (done 2026-09-21)
