@@ -143,7 +143,7 @@ export function useRevokeRegistrationOverride() {
 export function useSaveRegistrationControlRules() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (rules: RegistrationControlRules) => {
+    mutationFn: async (rules: Partial<RegistrationControlRules>) => {
       const { data, error } = await supabase.rpc('set_agent_registration_gate_rules', {
         p_rules: rules as unknown as never,
       });
