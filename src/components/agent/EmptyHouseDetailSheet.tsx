@@ -95,6 +95,9 @@ export function EmptyHouseDetailSheet({
 
   useEffect(() => {
     setIndex(0);
+    // When the user taps a related house, start them at the top of the new details.
+    const sheet = document.querySelector('.app-sheet-content');
+    if (sheet) sheet.scrollTo(0, 0);
   }, [house?.house_id]);
 
   if (!house) return null;
