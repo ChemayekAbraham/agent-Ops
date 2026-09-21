@@ -232,7 +232,6 @@ export function EmptyHouseMapBrowser({
   }, [mapInstance, country]);
 
   const cellsQuery = useEmptyHouseMapCells(viewport, {
-    search: searchQuery,
     district: district ?? undefined,
     minRent: minRent ?? null,
     maxRent: maxRent ?? null,
