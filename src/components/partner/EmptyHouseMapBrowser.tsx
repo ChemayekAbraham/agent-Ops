@@ -33,6 +33,12 @@ interface EmptyHouseMapBrowserProps {
   maxRent?: number | null;
   /** District currently applied to the list, mirrored on the map. */
   district?: string | null;
+  /**
+   * District the map should zoom to WITHOUT filtering — set by the house
+   * details sheet's "See more in <district>" button so the rest of the
+   * houses stay visible around it.
+   */
+  zoomDistrict?: string | null;
   /** Coordinates to land on when the district was chosen from a house's details. */
   districtFocus?: { lat: number; lng: number } | null;
 
@@ -159,6 +165,7 @@ export function EmptyHouseMapBrowser({
   minRent,
   maxRent,
   district,
+  zoomDistrict,
   districtFocus,
 
   country,
@@ -391,9 +398,9 @@ export function EmptyHouseMapBrowser({
    * carry stray coordinates that would otherwise stretch the view to the ocean.
    */
   useEffect(() => {
-    if (!mapInstance || !district) return;
+    if (!mapInstance || !zoomDistrict) return;
     let cancelled = false;
-    const key = district.trim().toLowerCase();
+    const key = zoomDistrict.trim().toLowerCase();
 
     const usable = (rows: { latitude?: unknown; longitude?: unknown }[]) =>
       rows
@@ -451,7 +458,7 @@ export function EmptyHouseMapBrowser({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [district, districtFocus, mapInstance]);
+  }, [zoomDistrict, districtFocus, mapInstance]);
 
 
 

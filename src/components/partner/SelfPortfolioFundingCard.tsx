@@ -152,6 +152,8 @@ export function SelfPortfolioFundingCard({
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
   // Coordinates of the house the funder tapped "See more in <district>" from, so the map lands there.
   const [districtFocus, setDistrictFocus] = useState<{ lat: number; lng: number } | null>(null);
+  /** District the map only zooms to (no filtering) — set by "See more in <district>". */
+  const [mapZoomDistrict, setMapZoomDistrict] = useState<string | null>(null);
 
   // Neighborhood (sub-county) quick filter — set via chips, pairs with district.
   const [houseSubCounty, setHouseSubCounty] = useState<string>('all');
@@ -1073,6 +1075,7 @@ export function SelfPortfolioFundingCard({
             minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
             maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
             district={houseDistrict !== 'all' ? houseDistrict : null}
+            zoomDistrict={mapZoomDistrict}
             districtFocus={districtFocus}
 
             country={selectedCountry}
@@ -2031,7 +2034,8 @@ export function SelfPortfolioFundingCard({
         onSeeMoreDistrict={(district, anchor) => {
           setDetailHouse(null);
           setDistrictFocus(anchor);
-          setHouseDistrict(district.trim().toLowerCase());
+          // Zoom only — the house list and map keep showing every district.
+          setMapZoomDistrict(district.trim().toLowerCase());
           window.setTimeout(() => {
             document
               .getElementById('empty-house-map-section')
