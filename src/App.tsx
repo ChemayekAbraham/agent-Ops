@@ -499,7 +499,7 @@ function AppRoutes() {
           <Route path="/dashboard/agent" element={<Dashboard />} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />
           <Route path="/dashboard/funder" element={<Dashboard />} />
-          <Route path="/dashboard/funder/portfolio" element={<InvestmentPortfolio />} />
+          <Route path="/dashboard/funder/portfolio" element={<FunderDashboardBackup />} />
           {/* Frozen backup of the funder dashboard. Not a persona slug, so it
               is invisible to slugToRole() and never fights the live router. */}
           <Route path="/dashboard/funders/bk" element={<FunderDashboardBackup />} />
