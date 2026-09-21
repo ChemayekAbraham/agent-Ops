@@ -88,17 +88,38 @@ export default function AgentRegistrationControlTab() {
     }
   };
 
-  const submitRules = async () => {
+  const submitRules = async (next: Partial<RegistrationControlRules>) => {
     try {
-      await saveRules.mutateAsync({
-        min_active_tenants: Math.max(Number(minTenants) || 20, 1),
-        required_prev_month_pct: Number(requiredPct) || 80,
-      });
+      await saveRules.mutateAsync(next);
       toast.success('Rules updated');
       setRulesOpen(false);
     } catch (e) {
       toast.error('Could not save the rules', { description: e instanceof Error ? e.message : undefined });
     }
+  };
+
+  const ruleSummary = () => {
+    if (!rules) return 'Loading the approved rules…';
+    if (rules.enabled === false) return 'The restriction is switched off — no agent is being stopped.';
+    const active = (rules.groups ?? []).filter((g) => g.active);
+    if (active.length === 0) return 'No rules are active — no agent is being stopped.';
+    return active
+      .map((g) => {
+        const band = g.max_active_tenants
+          ? `${g.min_active_tenants}–${g.max_active_tenants} tenants`
+          : `${g.min_active_tenants}+ tenants`;
+        const who =
+          [
+            g.regions?.length ? g.regions.join(', ') : null,
+            g.districts?.length ? g.districts.join(', ') : null,
+            g.tiers?.length ? g.tiers.join(', ') : null,
+            g.agent_ids?.length ? `${g.agent_ids.length} named agent(s)` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'all agents';
+        return `${g.label}: ${who} on ${band} must have collected ${g.required_prev_month_pct}% of last month's dues.`;
+      })
+      .join(' ');
   };
 
   if (error) {
