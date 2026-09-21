@@ -5909,6 +5909,81 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_tid_backed_float: {
+        Row: {
+          agent_id: string
+          balance: number
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          balance?: number
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          balance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_tid_backed_float_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       agent_tier_capabilities: {
         Row: {
           capability: string
@@ -39290,6 +39365,45 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_loan_policy: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          deduction_day: number
+          id: boolean
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal: number | null
+          monthly_rate: number
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          deduction_day?: number
+          id?: boolean
+          interest_method?: string
+          is_open?: boolean
+          max_months?: number
+          max_principal?: number | null
+          monthly_rate: number
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          deduction_day?: number
+          id?: boolean
+          interest_method?: string
+          is_open?: boolean
+          max_months?: number
+          max_principal?: number | null
+          monthly_rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_loan_repayments: {
         Row: {
           amount: number
@@ -39640,6 +39754,9 @@ export type Database = {
           department_id: string | null
           department_key: string | null
           final_stage: string
+          hr_decided_at: string | null
+          hr_decided_by: string | null
+          hr_note: string | null
           id: string
           loan_monthly_rate: number | null
           loan_months: number | null
@@ -39684,6 +39801,9 @@ export type Database = {
           department_id?: string | null
           department_key?: string | null
           final_stage?: string
+          hr_decided_at?: string | null
+          hr_decided_by?: string | null
+          hr_note?: string | null
           id?: string
           loan_monthly_rate?: number | null
           loan_months?: number | null
@@ -39728,6 +39848,9 @@ export type Database = {
           department_id?: string | null
           department_key?: string | null
           final_stage?: string
+          hr_decided_at?: string | null
+          hr_decided_by?: string | null
+          hr_note?: string | null
           id?: string
           loan_monthly_rate?: number | null
           loan_months?: number | null
@@ -54227,6 +54350,10 @@ export type Database = {
             }
             Returns: Json
           }
+      credit_agent_tid_backed_float: {
+        Args: { p_agent_id: string; p_delta: number }
+        Returns: undefined
+      }
       credit_merchant_payout_commission: {
         Args: { p_awarded_via?: string; p_withdrawal_id: string }
         Returns: Json
