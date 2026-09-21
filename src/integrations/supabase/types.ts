@@ -57177,6 +57177,10 @@ export type Database = {
         Returns: Json
       }
       get_merchant_payout_float: { Args: never; Returns: Json }
+      get_messaging_usage_weekly_bundle: {
+        Args: { p_end?: string; p_start?: string }
+        Returns: Json
+      }
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
       get_money_at_bank_reconciliation: { Args: never; Returns: Json }
       get_money_at_bank_total: { Args: never; Returns: Json }
