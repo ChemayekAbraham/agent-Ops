@@ -738,6 +738,60 @@ export function SelfPortfolioFundingCard({
     | { kind: 'house'; id: string; house: SupportableHouse };
 
   const normalizedSearch = useMemo(() => houseSearch.trim().toLocaleLowerCase(), [houseSearch]);
+
+  // Debounced async house search — fires only at 3+ characters, 350ms after the
+  // last keystroke, and stale responses are discarded when the term changes.
+  useEffect(() => {
+    if (normalizedSearch.length < 3) {
+      setSearchResults(null);
+      setSearchBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setSearchBusy(true);
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
+            p_search: houseSearch.trim(),
+            p_limit: 100,
+            p_offset: 0,
+            p_district: null,
+            p_verified_only: true,
+            p_gps_only: false,
+            p_min_rent: null,
+            p_max_rent: null,
+            p_near_lat: null,
+            p_near_lng: null,
+            p_radius_km: null,
+            p_sort: 'newest',
+          });
+          if (cancelled) return;
+          if (error) throw error;
+          const payload = (data ?? {}) as { houses?: SupportableHouse[] };
+          setSearchResults(
+            (payload.houses ?? []).filter((h) => h.verified === true && Number(h.monthly_rent) > 0),
+          );
+        } catch {
+          if (!cancelled) setSearchResults([]);
+        } finally {
+          if (!cancelled) setSearchBusy(false);
+        }
+      })();
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [normalizedSearch, houseSearch]);
+
+  // While an async search is active, merge its results with the loaded houses
+  // (deduped) so matches from anywhere in the database show up.
+  const searchPool = useMemo(() => {
+    if (!searchResults) return houses;
+    const seen = new Set(searchResults.map((h) => h.house_id));
+    return [...searchResults, ...houses.filter((h) => !seen.has(h.house_id))];
+  }, [houses, searchResults]);
   const rentMinBound = useMemo(() => Number(houseRentMin), [houseRentMin]);
   const rentMaxBound = useMemo(() => Number(houseRentMax), [houseRentMax]);
   const selectedCountry = useMemo(
