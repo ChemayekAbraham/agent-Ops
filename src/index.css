@@ -195,7 +195,75 @@ section[aria-label*="Notifications" i]:empty {
     }
   }
 
-  /* Grouped empty houses: purple cluster bubbles */
+  /* ── Rent-tier price pin colours ──────────────────────────── */
+  /* Affordable: < 300K — green */
+  .empty-house-map-pin--affordable {
+    background: #fff;
+    color: #16a34a;
+    border-color: #bbf7d0;
+    box-shadow: 0 2px 6px rgba(22,163,74,0.18);
+  }
+  .empty-house-map-pin--affordable.empty-house-map-pin--active,
+  .empty-house-map-pin--affordable:hover {
+    background: #16a34a;
+    color: #fff;
+    border-color: #16a34a;
+    box-shadow: 0 4px 14px rgba(22,163,74,0.35);
+  }
+
+  /* Mid-range: 300K – 800K — blue */
+  .empty-house-map-pin--mid {
+    background: #fff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+    box-shadow: 0 2px 6px rgba(37,99,235,0.18);
+  }
+  .empty-house-map-pin--mid.empty-house-map-pin--active,
+  .empty-house-map-pin--mid:hover {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+    box-shadow: 0 4px 14px rgba(37,99,235,0.35);
+  }
+
+  /* Premium: 800K – 2M — purple (default, inherits from --price) */
+  .empty-house-map-pin--premium {
+    /* uses the default purple from .empty-house-map-pin--price */
+  }
+
+  /* Luxury: 2M+ — gold */
+  .empty-house-map-pin--luxury {
+    background: #fff;
+    color: #b45309;
+    border-color: #fde68a;
+    box-shadow: 0 2px 6px rgba(180,83,9,0.2);
+  }
+  .empty-house-map-pin--luxury.empty-house-map-pin--active,
+  .empty-house-map-pin--luxury:hover {
+    background: #b45309;
+    color: #fff;
+    border-color: #b45309;
+    box-shadow: 0 4px 14px rgba(180,83,9,0.35);
+  }
+
+  /* ── Density-tiered cluster bubbles ─────────────────────── */
+  /* Cool: 1-9 houses — light purple */
+  .empty-house-map-cluster-cool {
+    background: hsl(271 80% 70%);
+    box-shadow: 0 2px 6px rgba(88,0,200,0.2);
+  }
+  /* Warm: 10-49 houses — medium purple */
+  .empty-house-map-cluster-warm {
+    background: hsl(271 100% 50%);
+    box-shadow: 0 2px 8px rgba(88,0,200,0.3);
+  }
+  /* Hot: 50+ houses — deep saturated purple */
+  .empty-house-map-cluster-hot {
+    background: hsl(271 100% 35%);
+    box-shadow: 0 2px 10px rgba(88,0,200,0.45);
+  }
+
+  /* Grouped empty houses: base cluster styles */
   .empty-house-map-cluster {
     @apply inline-flex items-center justify-center rounded-full text-[11px] font-black transition-transform;
     background: hsl(271 100% 50%);
