@@ -65,29 +65,6 @@ const MANAGED_FUNDING_STEPS: HowItWorksStep[] = [
   },
 ];
 
-// Steps shown in the collapsible "How it works" explainer on Support Tenants Directly.
-const DIRECT_FUNDING_STEPS: HowItWorksStep[] = [
-  {
-    title: 'Pick tenant rent plans',
-    description: 'Choose one or more approved tenant rent plans from the list below.',
-    icon: Home,
-  },
-  {
-    title: 'Your capital funds the landlord',
-    description: 'The amount you commit is sent straight to the landlord for that tenant.',
-    icon: HandCoins,
-  },
-  {
-    title: 'Welile tracks repayments',
-    description: 'Daily tenant repayments are recorded and reconciled for you automatically.',
-    icon: BadgeCheck,
-  },
-  {
-    title: 'Returns land in your dashboard',
-    description: 'Monthly returns and repayment progress appear in your funder dashboard.',
-    icon: TrendingUp,
-  },
-];
 
 // Steps shown in the collapsible "How it works" explainer on the Angel Pool view.
 const ANGEL_POOL_STEPS: HowItWorksStep[] = [
