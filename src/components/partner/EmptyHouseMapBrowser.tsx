@@ -764,7 +764,8 @@ export function EmptyHouseMapBrowser({
           <Sheet open onOpenChange={(open) => !open && setActiveHouse(null)}>
             <SheetContent
               side="bottom"
-              className="max-h-[85vh] gap-0 overflow-y-auto rounded-t-2xl p-0 sm:left-1/2 sm:w-[26rem] sm:-translate-x-1/2 sm:rounded-t-2xl"
+              className="z-[1300] max-h-[85vh] gap-0 overflow-y-auto rounded-t-2xl p-0 sm:left-1/2 sm:w-[26rem] sm:-translate-x-1/2 sm:rounded-t-2xl"
+              overlayClassName="z-[1250]"
               aria-label={`Funding details for ${houseTitleLine(activeHouse)}`}
             >
               <SheetHeader className="px-4 pt-4 text-left">
