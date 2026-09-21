@@ -48,6 +48,8 @@ import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackage
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
+import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
+import { useCurrency } from '@/hooks/useCurrency';
 
 import { InvestmentAccountsDrawer } from '@/components/supporter/InvestmentAccountsDrawer';
 import { FunderApprovalBanner } from '@/components/supporter/FunderApprovalGate';
