@@ -1208,9 +1208,9 @@ export function SelfPortfolioFundingCard({
             </SelectTrigger>
             <SelectContent className="max-h-72">
               <SelectItem value="all">All of Africa</SelectItem>
-              {AFRICA_COUNTRIES.map((c) => (
+              {listedCountries.map((c) => (
                 <SelectItem key={c.code} value={c.code}>
-                  {c.name}
+                  {c.name} ({c.listings})
                 </SelectItem>
               ))}
             </SelectContent>
