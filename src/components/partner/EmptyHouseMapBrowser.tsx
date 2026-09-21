@@ -294,7 +294,15 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
-        mapInstance.setView(point, 13);
+        // Default view: the whole country the funder is in, so they see the
+        // national picture first. Outside a known country, zoom to their area.
+        const homeCountry = AFRICA_COUNTRIES.find((c) => pointInCountry(c, point[0], point[1]));
+        if (homeCountry) {
+          const [south, west, north, east] = homeCountry.bbox;
+          mapInstance.fitBounds(L.latLngBounds([south, west], [north, east]), { padding: [24, 24] });
+        } else {
+          mapInstance.setView(point, 13);
+        }
       },
       () => {
         if (cancelled) return;
