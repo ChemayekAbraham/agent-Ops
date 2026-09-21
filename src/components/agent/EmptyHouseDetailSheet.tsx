@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/rentCalculations';
+import { prettyName } from '@/lib/formatting';
 
 export interface HouseOpportunity {
   house_id: string;
