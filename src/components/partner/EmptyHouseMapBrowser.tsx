@@ -565,7 +565,7 @@ export function EmptyHouseMapBrowser({
 
           if (house) {
             const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
-            const categoryLabel = (house.house_category || 'House').replace(/_/g, ' ');
+            const categoryLabel = formatHouseCategory(house.house_category);
             const icon = L.divIcon({
               className: '',
               html: `<span class="empty-house-map-pin max-w-[9rem] truncate${active ? ' empty-house-map-pin--active' : ''}">${categoryLabel}</span>`,
