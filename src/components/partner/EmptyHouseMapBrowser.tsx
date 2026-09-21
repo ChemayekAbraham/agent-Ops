@@ -165,6 +165,7 @@ export function EmptyHouseMapBrowser({
   minRent,
   maxRent,
   district,
+  zoomDistrict,
   districtFocus,
 
   country,
