@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ExecutiveDataTable, type Column } from '@/components/executive/ExecutiveDataTable';
 import TenantCommunicationsTab from '@/components/executive/tenant-ops/workspace/TenantCommunicationsTab';
 import AgentRegistrationControlTab from '@/components/executive/tenant-ops/workspace/AgentRegistrationControlTab';
+import ManagementOverviewTab from '@/components/executive/tenant-ops/workspace/ManagementOverviewTab';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, Settings2, TrendingUp } from 'lucide-react';
 import {
@@ -330,6 +331,7 @@ export default function TenantOperationsWorkspace() {
             <TabsTrigger value="topup">Tenant Top-Up Eligibility</TabsTrigger>
             <TabsTrigger value="comms">Tenant Communications</TabsTrigger>
             <TabsTrigger value="registration">Agent Registration Control</TabsTrigger>
+            <TabsTrigger value="overview">Management Overview</TabsTrigger>
           </TabsList>
           <TabsContent value="topup" className="mt-3">
             <TopUpEligibilityTab />
@@ -339,6 +341,9 @@ export default function TenantOperationsWorkspace() {
           </TabsContent>
           <TabsContent value="registration" className="mt-3">
             <AgentRegistrationControlTab />
+          </TabsContent>
+          <TabsContent value="overview" className="mt-3">
+            <ManagementOverviewTab />
           </TabsContent>
         </Tabs>
       </CardContent>
