@@ -181,6 +181,22 @@ export function SelfPortfolioFundingCard({
   // Radius filter (km) around the funder's own location, falling back to the
   // last house tapped on the map when device location is unavailable.
   const [houseRadiusKm, setHouseRadiusKm] = useState<string>('all');
+  // Filter drawer (funnel button) — search stays on the map, everything else lives here.
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const activeFilterCount =
+    (houseDistrict !== 'all' ? 1 : 0) +
+    (houseSubCounty !== 'all' ? 1 : 0) +
+    (houseCountry !== 'all' ? 1 : 0) +
+    (houseListingAge !== 'all' ? 1 : 0) +
+    (houseRadiusKm !== 'all' ? 1 : 0) +
+    (houseFundingStatus !== 'all' ? 1 : 0) +
+    (houseSort !== 'rent_asc' ? 1 : 0) +
+    (houseRentMin.trim() !== '' ? 1 : 0) +
+    (houseRentMax.trim() !== '' ? 1 : 0) +
+    (houseWithinFloat ? 1 : 0) +
+    (showSavedReadyOnly ? 1 : 0);
+
+
 
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
