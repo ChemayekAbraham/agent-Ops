@@ -26,6 +26,7 @@ import {
 import { generateTenantCallsReportPdf } from '@/lib/tenantCallsReportPdf';
 import { analyseCallFeedback } from '@/lib/tenantCallFeedbackAnalysis';
 import { FeedbackAnalysisSection } from './FeedbackAnalysisSection';
+import { CombinedCallingCenterReportButton } from './CombinedCallingCenterReportButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
