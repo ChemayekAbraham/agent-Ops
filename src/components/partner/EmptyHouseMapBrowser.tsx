@@ -344,9 +344,23 @@ export function EmptyHouseMapBrowser({
         setGeoStatus('granted');
         setGeoPromptDismissed(true);
         setUserPosition(point);
+        try {
+          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+          setLocationPreviouslyGranted(true);
+        } catch {
+          // ignore storage errors
+        }
         mapInstance.flyTo(point, 13, { duration: 0.6 });
       },
-      () => setGeoStatus('denied'),
+      () => {
+        setGeoStatus('denied');
+        try {
+          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+          setLocationPreviouslyGranted(false);
+        } catch {
+          // ignore storage errors
+        }
+      },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
   }, [mapInstance]);
