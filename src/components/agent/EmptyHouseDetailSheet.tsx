@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -80,6 +81,7 @@ export function EmptyHouseDetailSheet({
   remaining?: number;
 }) {
   const [index, setIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     setIndex(0);
@@ -92,6 +94,7 @@ export function EmptyHouseDetailSheet({
   const active = photos[Math.min(index, Math.max(photos.length - 1, 0))];
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
@@ -113,12 +116,19 @@ export function EmptyHouseDetailSheet({
           {photos.length > 0 ? (
             <div className="space-y-2">
               <div className="relative overflow-hidden rounded-2xl bg-muted">
-                <img
-                  src={active}
-                  alt={`${house.title || 'Empty house'} photo ${index + 1}`}
-                  loading="lazy"
-                  className="h-56 w-full object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="block w-full cursor-zoom-in"
+                  aria-label="View full photo"
+                >
+                  <img
+                    src={active}
+                    alt={`${house.title || 'Empty house'} photo ${index + 1}`}
+                    loading="lazy"
+                    className="h-56 w-full object-cover"
+                  />
+                </button>
                 {photos.length > 1 && (
                   <>
                     <Button
@@ -405,6 +415,46 @@ export function EmptyHouseDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+
+    {/* Full-screen photo viewer — sits above the detail sheet (z-[1350]) */}
+    <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+      <DialogContent
+        className="z-[1450] flex h-[100dvh] w-full max-w-none flex-col items-center justify-center gap-0 border-0 bg-black/95 p-0 sm:rounded-none"
+        overlayClassName="z-[1400] bg-black/90"
+      >
+        <img
+          src={active}
+          alt={`${house.title || 'Empty house'} photo ${index + 1}`}
+          className="max-h-[100dvh] max-w-full object-contain"
+        />
+        {photos.length > 1 && (
+          <>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute left-3 top-1/2 h-11 w-11 -translate-y-1/2 rounded-full opacity-90"
+              onClick={() => setIndex((i) => (i - 1 + photos.length) % photos.length)}
+              aria-label="Previous photo"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute right-3 top-1/2 h-11 w-11 -translate-y-1/2 rounded-full opacity-90"
+              onClick={() => setIndex((i) => (i + 1) % photos.length)}
+              aria-label="Next photo"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+            <span className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-background/85 px-3 py-1 text-xs font-semibold">
+              {index + 1} / {photos.length}
+            </span>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
