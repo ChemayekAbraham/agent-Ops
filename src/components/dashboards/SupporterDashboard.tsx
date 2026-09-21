@@ -447,6 +447,12 @@ export default function SupporterDashboard({
       <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
         <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg lg:max-w-7xl mx-auto">
           {/* ═══ AIRBNB-STYLE PROFILE CARD ═══ */}
+          {(() => {
+            const s = emptyHouseSummary;
+            const openHouses = s?.house_count ?? 0;
+            const rentNeeded = s?.total_rent_needed ?? 0;
+            const avgRent = s?.avg_monthly_rent ?? 0;
+            return (
           <div className="rounded-2xl border border-border/40 bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-card sm:p-6">
             <div className="flex items-start gap-5 sm:gap-6">
               {/* Left: Avatar + Name */}
@@ -467,9 +473,17 @@ export default function SupporterDashboard({
                 <p className="text-[11px] text-muted-foreground font-medium">{(profile as any)?.location || 'Uganda'}</p>
               </div>
 
-              {/* Right: View portfolio action */}
-              <div className="flex flex-1 flex-col items-end justify-center gap-3">
+              {/* Right: Stats + action */}
+              <div className="flex flex-1 flex-col items-end justify-between gap-2">
                 <AiIdButton variant="compact" />
+                <div className="text-right">
+                  <p className="text-2xl font-black leading-none tracking-tight tabular-nums sm:text-3xl">
+                    {capitalLoading && !s ? '—' : formatAmountCompact(rentNeeded)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Rent needed
+                  </p>
+                </div>
                 <Button
                   variant="default"
                   size="default"
@@ -481,31 +495,15 @@ export default function SupporterDashboard({
                 </Button>
               </div>
             </div>
-          </div>
 
-          {/* Rent needed for all empty houses — market overview */}
-          {(() => {
-            const s = emptyHouseSummary;
-            const openHouses = s?.house_count ?? 0;
-            const rentNeeded = s?.total_rent_needed ?? 0;
-            const avgRent = s?.avg_monthly_rent ?? 0;
-            return (
-              <div className="rounded-2xl border border-success/30 bg-success/5 p-3 sm:p-3.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Rent needed for all empty houses
-                </p>
-                <p className="mt-0.5 text-2xl font-black leading-none tracking-tight text-foreground tabular-nums sm:text-3xl">
-                  {capitalLoading && !s ? '—' : formatAmountCompact(rentNeeded)}
-                </p>
-                <p className="mt-1.5 text-[11px] font-semibold leading-snug text-foreground/80">
-                  {openHouses.toLocaleString()} {openHouses === 1 ? 'empty house is' : 'empty houses are'} waiting for a
-                  Supporter{avgRent > 0 ? ` · about ${formatAmountCompact(avgRent)} per house` : ''}
-                </p>
-                <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                  This is all the rent money still needed to put tenants into every empty house. It goes up when agents
-                  list new empty houses, and down when Supporters fund them.
-                </p>
-              </div>
+            {/* Bottom summary strip */}
+            <div className="mt-4 flex items-center gap-4 border-t border-border/40 pt-3">
+              <p className="text-[11px] font-medium leading-snug text-muted-foreground">
+                <span className="font-bold text-foreground">{openHouses.toLocaleString()}</span> empty {openHouses === 1 ? 'house' : 'houses'} waiting
+                {avgRent > 0 && <> · avg <span className="font-bold text-foreground">{formatAmountCompact(avgRent)}</span>/mo</>}
+              </p>
+            </div>
+          </div>
             );
           })()}
 

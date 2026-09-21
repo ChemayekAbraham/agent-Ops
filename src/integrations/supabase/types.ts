@@ -34392,6 +34392,74 @@ export type Database = {
         }
         Relationships: []
       }
+      pso_facilitation_approvers: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          enabled: boolean
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pso_facilitation_prompts: {
+        Row: {
+          approver_id: string
+          created_at: string
+          id: string
+          requisition_id: string
+          resolution: string | null
+          resolved_at: string | null
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        Insert: {
+          approver_id: string
+          created_at?: string
+          id?: string
+          requisition_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Update: {
+          approver_id?: string
+          created_at?: string
+          id?: string
+          requisition_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pso_facilitation_prompts_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pso_note_reversals: {
         Row: {
           created_at: string
@@ -39365,6 +39433,97 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_facilitation_notes: {
+        Row: {
+          id: string
+          linked_at: string
+          linked_by: string | null
+          promissory_note_id: string
+          requisition_id: string
+        }
+        Insert: {
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          promissory_note_id: string
+          requisition_id: string
+        }
+        Update: {
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          promissory_note_id?: string
+          requisition_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "promissory_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_facilitation_plan_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          location: string
+          purpose: string
+          requisition_id: string
+          seq: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          location: string
+          purpose: string
+          requisition_id: string
+          seq: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          location?: string
+          purpose?: string
+          requisition_id?: string
+          seq?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_facilitation_plan_lines_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_loan_instalments: {
         Row: {
           amount_due: number
@@ -39442,6 +39601,45 @@ export type Database = {
           max_principal?: number | null
           monthly_rate?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_loan_policy_history: {
+        Row: {
+          deduction_day: number
+          id: string
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal: number | null
+          monthly_rate: number
+          note: string | null
+          set_at: string
+          set_by: string
+        }
+        Insert: {
+          deduction_day: number
+          id?: string
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal?: number | null
+          monthly_rate: number
+          note?: string | null
+          set_at?: string
+          set_by: string
+        }
+        Update: {
+          deduction_day?: number
+          id?: string
+          interest_method?: string
+          is_open?: boolean
+          max_months?: number
+          max_principal?: number | null
+          monthly_rate?: number
+          note?: string | null
+          set_at?: string
+          set_by?: string
         }
         Relationships: []
       }
@@ -39720,12 +39918,16 @@ export type Database = {
       }
       staff_requisition_usage_reports: {
         Row: {
+          activities_carried_out: string | null
+          amount_received: number | null
           amount_used: number
           attachment_paths: string[] | null
           created_at: string
           id: string
+          places_visited: string | null
           requester_id: string
           requisition_id: string
+          results_achieved: string | null
           review_note: string | null
           review_status: string
           reviewed_at: string | null
@@ -39734,12 +39936,16 @@ export type Database = {
           summary: string
         }
         Insert: {
+          activities_carried_out?: string | null
+          amount_received?: number | null
           amount_used: number
           attachment_paths?: string[] | null
           created_at?: string
           id?: string
+          places_visited?: string | null
           requester_id: string
           requisition_id: string
+          results_achieved?: string | null
           review_note?: string | null
           review_status?: string
           reviewed_at?: string | null
@@ -39748,12 +39954,16 @@ export type Database = {
           summary: string
         }
         Update: {
+          activities_carried_out?: string | null
+          amount_received?: number | null
           amount_used?: number
           attachment_paths?: string[] | null
           created_at?: string
           id?: string
+          places_visited?: string | null
           requester_id?: string
           requisition_id?: string
+          results_achieved?: string | null
           review_note?: string | null
           review_status?: string
           reviewed_at?: string | null
@@ -61738,6 +61948,41 @@ export type Database = {
           staff_ref: string
         }[]
       }
+      pso_facilitation_pending_prompt: {
+        Args: never
+        Returns: {
+          amount: number
+          currency: string
+          officer_name: string
+          prompt_id: string
+          reason: string
+          requisition_code: string
+          requisition_id: string
+          snooze_count: number
+          submitted_at: string
+          title: string
+        }[]
+      }
+      pso_facilitation_prompt_snooze: {
+        Args: { _prompt_id: string }
+        Returns: {
+          approver_id: string
+          created_at: string
+          id: string
+          requisition_id: string
+          resolution: string | null
+          resolved_at: string | null
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pso_facilitation_prompts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       pso_funded_summary: {
         Args: { p_from: string; p_staff_id?: string; p_to: string }
         Returns: {
@@ -63073,6 +63318,34 @@ export type Database = {
           interest_charged: number
           loans_charged: number
         }[]
+      }
+      staff_loan_policy_confirm: {
+        Args: {
+          _interest_method: string
+          _max_months: number
+          _max_principal: number
+          _monthly_rate: number
+          _note: string
+          _open: boolean
+        }
+        Returns: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          deduction_day: number
+          id: boolean
+          interest_method: string
+          is_open: boolean
+          max_months: number
+          max_principal: number | null
+          monthly_rate: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_loan_policy"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       staff_loan_recover_from_wallet: {
         Args: { p_max_amount?: number; p_source?: string; p_user_id: string }
