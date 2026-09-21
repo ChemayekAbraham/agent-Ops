@@ -425,6 +425,7 @@ export function SelfPortfolioFundingCard({
     });
   }, [housesQuery.data, houses]);
   const available = plansQuery.data?.available ?? 0;
+  const marketRentNeeded = rentNeededQuery.data?.totalRentNeeded ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
   const activeCommitmentId = fundedQuery.data?.activeCommitmentId ?? null;
   const activeHouseCommitment = fundedQuery.data?.houseCommitment ?? null;
