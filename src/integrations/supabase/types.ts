@@ -58562,6 +58562,10 @@ export type Database = {
         Args: { p_end?: string; p_event_key?: string; p_start?: string }
         Returns: Json
       }
+      get_tenant_communications_overview: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       get_tenant_consecutive_missed_days: {
         Args: { p_as_of?: string; p_window_days?: number }
         Returns: {
@@ -63470,6 +63474,16 @@ export type Database = {
       set_tenant_smartphone_status: {
         Args: { p_source?: string; p_status: string; p_tenant_id: string }
         Returns: Json
+      }
+      set_tenant_support_contact: {
+        Args: {
+          p_active?: boolean
+          p_id: string
+          p_label: string
+          p_phone: string
+          p_sort_order?: number
+        }
+        Returns: string
       }
       set_tenant_topup_eligibility_rules: {
         Args: { p_rules: Json }
