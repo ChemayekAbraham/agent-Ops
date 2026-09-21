@@ -312,12 +312,60 @@ export function ForwardConcernDialog({
           </div>
 
 
+          <div className="space-y-1">
+            <Label className="text-[11px] font-semibold">Photos or documents (optional)</Label>
+            <p className="px-1 text-[11px] text-muted-foreground">
+              Anything you attach stays on this concern for everyone who handles it. Up to 10MB each.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+              className="hidden"
+              onChange={(e) => addFiles(e.target.files)}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-9 gap-1.5 text-xs font-semibold"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              Attach files
+            </Button>
+            {files.length > 0 && (
+              <div className="flex flex-wrap gap-1 px-1 pt-1">
+                {files.map((f, i) => (
+                  <button
+                    key={`${f.name}-${i}`}
+                    type="button"
+                    onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                    title="Tap to remove"
+                  >
+                    {f.name}
+                    <X className="h-3 w-3" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" size="sm" className="h-9 text-xs" onClick={onClose}>
               Cancel
             </Button>
-            <Button size="sm" className="h-9 text-xs font-semibold" onClick={submit} disabled={forward.isPending}>
-              {forward.isPending
+            <Button
+              size="sm"
+              className="h-9 text-xs font-semibold"
+              onClick={submit}
+              disabled={forward.isPending || uploading}
+            >
+              {uploading
+                ? 'Attaching files…'
+                : forward.isPending
                 ? 'Saving…'
                 : addReviewer
                   ? to.length > 1
