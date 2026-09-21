@@ -1378,7 +1378,13 @@ export function SelfPortfolioFundingCard({
           <div className="space-y-5 px-4 py-4">
             <div className="space-y-1.5">
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Sort by</p>
-              <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
+              <Select
+                value={houseSort}
+                onValueChange={(v) => {
+                  setSortTouched(true);
+                  setHouseSort(v as HouseSort);
+                }}
+              >
                 <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Sort houses">
                   <SelectValue />
                 </SelectTrigger>
