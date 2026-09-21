@@ -150,6 +150,9 @@ export function SelfPortfolioFundingCard({
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
   const [houseSort, setHouseSort] = useState<HouseSort>('rent_asc');
   const [houseDistrict, setHouseDistrict] = useState<string>('all');
+  // Coordinates of the house the funder tapped "See more in <district>" from, so the map lands there.
+  const [districtFocus, setDistrictFocus] = useState<{ lat: number; lng: number } | null>(null);
+
   // Neighborhood (sub-county) quick filter — set via chips, pairs with district.
   const [houseSubCounty, setHouseSubCounty] = useState<string>('all');
   const [houseSearch, setHouseSearch] = useState('');
