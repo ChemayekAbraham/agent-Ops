@@ -290,6 +290,7 @@ export function EmptyHouseMapBrowser({
 
   const initialFitDone = useRef(false);
   const manualAreaRestored = useRef(false);
+  const initialLocateStarted = useRef(false);
 
   /**
    * By default the map opens where the funder is, so the empty houses nearest
