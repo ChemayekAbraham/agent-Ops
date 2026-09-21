@@ -1387,7 +1387,13 @@ export function SelfPortfolioFundingCard({
 
             <div className="space-y-2">
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Where</p>
-              <Select value={houseCountry} onValueChange={setHouseCountry}>
+              <Select
+                value={houseCountry}
+                onValueChange={(v) => {
+                  setCountryTouched(true);
+                  setHouseCountry(v);
+                }}
+              >
                 <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by country">
                   <SelectValue placeholder="All countries" />
                 </SelectTrigger>
