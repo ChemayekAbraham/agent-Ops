@@ -94,6 +94,13 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
         </Suspense>
       );
     }
+    if (active === 'tenant-operations-workspace') {
+      return (
+        <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <TenantOperationsWorkspace />
+        </Suspense>
+      );
+    }
     if (active === 'calling-hub') return <CallingHub subjectType="tenant" />;
     if (active === 'calling-center') return <TenantCallingCenter />;
     if (active === 'phone-duplicates') return <TenantPhoneDuplicatePanel variant="full" />;
