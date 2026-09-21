@@ -185,46 +185,6 @@ export function EmptyHouseDetailSheet({
         </SheetHeader>
 
         <div className="space-y-4 p-4">
-          {/* Your opportunity / benefit card */}
-          <div className="rounded-2xl border p-4 space-y-3">
-            <p className="text-xs font-bold">Your opportunity</p>
-            <div className="space-y-2 text-[12px]">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Rent amount funded</span>
-                <span className="font-bold text-primary">{formatUGX(house.monthly_rent)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Monthly Returns</span>
-                <span className="font-bold text-primary">15%</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">{isPartner ? 'You earn today' : 'Partner earns today'}</span>
-                <span className="text-base font-black text-primary">{formatUGX(house.partner_monthly_return)}/mo</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Total after 12 months</span>
-                <span className="font-bold text-primary">{formatUGX(house.partner_annual_return)}</span>
-              </div>
-            </div>
-            {isPartner && typeof remaining === 'number' && (
-              <div className="border-t pt-2">
-                {topUpNeeded > 0 ? (
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-muted-foreground">Top-up needed</span>
-                    <span className="font-bold text-primary">{formatUGX(topUpNeeded)}</span>
-                  </div>
-                ) : (
-                  <Badge
-                    variant="outline"
-                    className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600"
-                  >
-                    <ShieldCheck className="h-3 w-3" /> Ready to fund now
-                  </Badge>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Gallery */}
           {photos.length > 0 ? (
             <div className="space-y-2">
@@ -290,6 +250,46 @@ export function EmptyHouseDetailSheet({
               <ImageIcon className="h-4 w-4" /> No photo on file
             </div>
           )}
+
+          {/* Your opportunity / benefit card */}
+          <div className="rounded-2xl border p-4 space-y-3">
+            <p className="text-xs font-bold">Your opportunity</p>
+            <div className="space-y-2 text-[12px]">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Rent amount funded</span>
+                <span className="font-bold text-primary">{formatUGX(house.monthly_rent)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Monthly Returns</span>
+                <span className="font-bold text-primary">15%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">{isPartner ? 'You earn today' : 'Partner earns today'}</span>
+                <span className="text-base font-black text-primary">{formatUGX(house.partner_monthly_return)}/mo</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Total after 12 months</span>
+                <span className="font-bold text-primary">{formatUGX(house.partner_annual_return)}</span>
+              </div>
+            </div>
+            {isPartner && typeof remaining === 'number' && (
+              <div className="border-t pt-2">
+                {topUpNeeded > 0 ? (
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="text-muted-foreground">Top-up needed</span>
+                    <span className="font-bold text-primary">{formatUGX(topUpNeeded)}</span>
+                  </div>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600"
+                  >
+                    <ShieldCheck className="h-3 w-3" /> Ready to fund now
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Map */}
           <div className="rounded-2xl border p-4 space-y-2">
