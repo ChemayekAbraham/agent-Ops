@@ -292,7 +292,7 @@ export function RequisitionUsageReportGate() {
                     onChange={(e) => { pickReceipt(e.target.files?.[0] ?? null); e.target.value = ''; }}
                   />
                 )}
-                <p className="text-xs text-muted-foreground">Photo or PDF, up to 10MB.</p>
+                <p className="text-xs text-muted-foreground">Required. Photo or PDF, up to 10MB.</p>
               </div>
             </div>
           )}
@@ -309,7 +309,7 @@ export function RequisitionUsageReportGate() {
             Later
           </Button>
           {showForm ? (
-            <Button onClick={() => void submitReport()} disabled={saving}>
+            <Button onClick={() => void submitReport()} disabled={saving || !receipt}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit report
             </Button>
