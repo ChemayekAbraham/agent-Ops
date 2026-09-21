@@ -92,7 +92,11 @@ export function EmptyHouseDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
+      <SheetContent
+        side="right"
+        className="z-[1350] w-full sm:max-w-md overflow-y-auto p-0"
+        overlayClassName="z-[1260]"
+      >
         <SheetHeader className="border-b p-4 text-left">
           <SheetTitle className="flex items-center gap-2 text-base">
             <Home className="h-4 w-4 text-primary" />
