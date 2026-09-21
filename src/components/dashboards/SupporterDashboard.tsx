@@ -471,18 +471,18 @@ export default function SupporterDashboard({
           </div>
 
           {/* Portfolio shortcut */}
-          <div className="px-1 -mt-1 sm:mt-0">
+          <div className="px-1 -mt-1 sm:mt-0 flex items-center justify-between gap-3">
+            <span className="text-sm font-medium flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-primary" />
+              View portfolio
+            </span>
             <Button
               variant="outline"
-              size="sm"
-              className="w-full justify-between gap-2 text-sm font-medium"
+              size="default"
+              className="text-sm font-medium"
               onClick={() => navigate('/dashboard/funder/portfolio')}
             >
-              <span className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-primary" />
-                View portfolio
-              </span>
-              <span className="text-xs text-muted-foreground">{_formatUGX(strictAvailable ?? 0)}</span>
+              Open
             </Button>
           </div>
 
