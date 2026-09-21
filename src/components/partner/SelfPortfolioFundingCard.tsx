@@ -717,6 +717,22 @@ export function SelfPortfolioFundingCard({
     () => (houseCountry === 'all' ? null : countryByCode(houseCountry)),
     [houseCountry],
   );
+
+  // The country picker only offers countries that actually have listings —
+  // derived from each house's GPS point so the list always matches the map.
+  const listedCountries = useMemo(() => {
+    const counts = new Map<string, number>();
+    houses.forEach((h) => {
+      const lat = Number(h.latitude);
+      const lng = Number(h.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return;
+      const match = AFRICA_COUNTRIES.find((c) => pointInCountry(c, lat, lng));
+      if (match) counts.set(match.code, (counts.get(match.code) ?? 0) + 1);
+    });
+    return AFRICA_COUNTRIES
+      .filter((c) => counts.has(c.code))
+      .map((c) => ({ ...c, listings: counts.get(c.code) ?? 0 }));
+  }, [houses]);
   const listingAgeDays = useMemo(
     () => (houseListingAge === 'all' ? null : Number(houseListingAge)),
     [houseListingAge],
@@ -1192,9 +1208,9 @@ export function SelfPortfolioFundingCard({
             </SelectTrigger>
             <SelectContent className="max-h-72">
               <SelectItem value="all">All of Africa</SelectItem>
-              {AFRICA_COUNTRIES.map((c) => (
+              {listedCountries.map((c) => (
                 <SelectItem key={c.code} value={c.code}>
-                  {c.name}
+                  {c.name} ({c.listings})
                 </SelectItem>
               ))}
             </SelectContent>
