@@ -1097,6 +1097,12 @@ export function SelfPortfolioFundingCard({
 
             country={selectedCountry}
             maxAgeDays={listingAgeDays}
+            subCounty={houseSubCounty !== 'all' ? houseSubCounty : null}
+            radiusKm={houseRadiusKm !== 'all' ? Number(houseRadiusKm) : null}
+            radiusOrigin={userPoint ?? referencePoint}
+            fundingStatus={houseFundingStatus}
+            withinFloat={houseWithinFloat}
+            savedReadyOnly={showSavedReadyOnly}
             onHousesDiscovered={registerDiscoveredHouses}
             onSearchQueryChange={setHouseSearch}
             onOpenHouse={setDetailHouse}
