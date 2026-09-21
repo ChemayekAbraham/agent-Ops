@@ -71,6 +71,11 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
       <SheetPortal>
         <SheetOverlay className={overlayClassName} />
         <SheetPrimitive.Content ref={ref} data-sheet-side={side} className={cn("app-sheet-content", sheetVariants({ side }), className)} {...props}>
+          {side === "bottom" && (
+            <div className="sticky top-0 z-10 flex justify-center bg-gradient-to-b from-background to-background/95 pb-1 pt-2.5">
+              <span aria-hidden className="h-1.5 w-11 rounded-full bg-muted-foreground/30" />
+            </div>
+          )}
           {children}
         </SheetPrimitive.Content>
       </SheetPortal>
