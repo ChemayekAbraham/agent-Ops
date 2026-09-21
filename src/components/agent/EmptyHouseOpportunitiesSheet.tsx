@@ -983,7 +983,7 @@ export function EmptyHouseOpportunitiesSheet({
                           <div className="min-w-0 flex-1 space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-semibold truncate">
-                                {h.title || h.house_category || 'Empty house'}
+                                {h.title || prettyName(h.house_category) || 'Empty house'}
                               </span>
                               {h.verified && (
                                 <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
