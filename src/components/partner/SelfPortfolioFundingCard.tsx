@@ -226,6 +226,11 @@ export function SelfPortfolioFundingCard({
       cancelled = true;
     };
   }, []);
+  // Location available → list nearest-first by default. Refused or
+  // unavailable → the default listing order stays as the fallback.
+  useEffect(() => {
+    if (userPoint && !sortTouched) setHouseSort('nearest');
+  }, [userPoint, sortTouched]);
   // Side-by-side comparison picks (in-session only; never touches funding).
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -954,8 +959,9 @@ export function SelfPortfolioFundingCard({
       const distanceTo = (h: SupportableHouse) => {
         const lat = Number(h.latitude);
         const lng = Number(h.longitude);
-        if (referencePoint && Number.isFinite(lat) && Number.isFinite(lng)) {
-          return distanceKm(referencePoint.lat, referencePoint.lng, lat, lng);
+        const origin = userPoint ?? referencePoint;
+        if (origin && Number.isFinite(lat) && Number.isFinite(lng)) {
+          return distanceKm(origin.lat, origin.lng, lat, lng);
         }
         return h.distance_km ?? Infinity;
       };
