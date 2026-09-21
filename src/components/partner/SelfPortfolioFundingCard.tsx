@@ -1059,7 +1059,7 @@ export function SelfPortfolioFundingCard({
   return (
     <div className="space-y-3">
       {feedOrder === 'houses' && houses.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
+        <div id="empty-house-map-section" className="overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
           <EmptyHouseMapBrowser
             houses={searchableMapHouses}
             selectedIds={houseSelected}
@@ -2023,6 +2023,16 @@ export function SelfPortfolioFundingCard({
         isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
         onTogglePick={(h) => toggleHouse(h.house_id)}
         onRelatedHouseClick={(h) => setDetailHouse(h)}
+        onSeeMoreDistrict={(district) => {
+          setDetailHouse(null);
+          setHouseDistrict(district.trim().toLowerCase());
+          window.setTimeout(() => {
+            document
+              .getElementById('empty-house-map-section')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 150);
+        }}
+
       />
 
 
