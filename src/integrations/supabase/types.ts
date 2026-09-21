@@ -39365,6 +39365,97 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_facilitation_notes: {
+        Row: {
+          id: string
+          linked_at: string
+          linked_by: string | null
+          promissory_note_id: string
+          requisition_id: string
+        }
+        Insert: {
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          promissory_note_id: string
+          requisition_id: string
+        }
+        Update: {
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          promissory_note_id?: string
+          requisition_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "promissory_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_facilitation_plan_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          location: string
+          purpose: string
+          requisition_id: string
+          seq: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          location: string
+          purpose: string
+          requisition_id: string
+          seq: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          location?: string
+          purpose?: string
+          requisition_id?: string
+          seq?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_facilitation_plan_lines_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_loan_instalments: {
         Row: {
           amount_due: number
@@ -39759,12 +39850,16 @@ export type Database = {
       }
       staff_requisition_usage_reports: {
         Row: {
+          activities_carried_out: string | null
+          amount_received: number | null
           amount_used: number
           attachment_paths: string[] | null
           created_at: string
           id: string
+          places_visited: string | null
           requester_id: string
           requisition_id: string
+          results_achieved: string | null
           review_note: string | null
           review_status: string
           reviewed_at: string | null
@@ -39773,12 +39868,16 @@ export type Database = {
           summary: string
         }
         Insert: {
+          activities_carried_out?: string | null
+          amount_received?: number | null
           amount_used: number
           attachment_paths?: string[] | null
           created_at?: string
           id?: string
+          places_visited?: string | null
           requester_id: string
           requisition_id: string
+          results_achieved?: string | null
           review_note?: string | null
           review_status?: string
           reviewed_at?: string | null
@@ -39787,12 +39886,16 @@ export type Database = {
           summary: string
         }
         Update: {
+          activities_carried_out?: string | null
+          amount_received?: number | null
           amount_used?: number
           attachment_paths?: string[] | null
           created_at?: string
           id?: string
+          places_visited?: string | null
           requester_id?: string
           requisition_id?: string
+          results_achieved?: string | null
           review_note?: string | null
           review_status?: string
           reviewed_at?: string | null
