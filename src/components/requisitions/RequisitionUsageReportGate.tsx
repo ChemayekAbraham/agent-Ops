@@ -88,6 +88,9 @@ export function RequisitionUsageReportGate() {
       .select('id, requisition_code, title, amount, approved_amount, reason, cfo_decided_at, category')
       .eq('requester_id', user.id)
       .eq('stage', 'approved')
+      // Facilitations have their own accountability form (extra required
+      // fields), so they must not be nagged by this generic report popup.
+      .or('request_kind.is.null,request_kind.neq.facilitation')
       .not('cfo_decided_at', 'is', null)
       .order('cfo_decided_at', { ascending: true })
       .limit(50);
