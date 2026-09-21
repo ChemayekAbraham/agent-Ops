@@ -482,7 +482,7 @@ export default function SupporterDashboard({
                 <Wallet className="h-4 w-4 text-primary" />
                 View portfolio
               </span>
-              <span className="text-xs text-muted-foreground">{formatUGX(availableBalance ?? 0)}</span>
+              <span className="text-xs text-muted-foreground">{_formatUGX(strictAvailable ?? 0)}</span>
             </Button>
           </div>
 
