@@ -627,9 +627,14 @@ export function EmptyHouseMapBrowser({
               : rent >= 1_000
                 ? `${Math.round(rent / 1_000)}K`
                 : String(rent);
+            // Color tier based on rent range
+            const tier = rent >= 2_000_000 ? 'luxury'
+              : rent >= 800_000 ? 'premium'
+              : rent >= 300_000 ? 'mid'
+              : 'affordable';
             const icon = L.divIcon({
               className: 'empty-house-map-pin-hitbox',
-              html: `<span class="empty-house-map-pin empty-house-map-pin--price${active ? ' empty-house-map-pin--active' : ''}">${pinLabel}</span>`,
+              html: `<span class="empty-house-map-pin empty-house-map-pin--price empty-house-map-pin--${tier}${active ? ' empty-house-map-pin--active' : ''}">${pinLabel}</span>`,
               iconSize: [80, 36],
               iconAnchor: [40, 18],
             });
@@ -651,9 +656,13 @@ export function EmptyHouseMapBrowser({
 
           const size = clusterMarkerSize(cell.count);
           const label = clusterMarkerLabel(cell.count);
+          // Cluster density tier: small / medium / large
+          const clusterTier = cell.count >= 50 ? 'cluster-hot'
+            : cell.count >= 10 ? 'cluster-warm'
+            : 'cluster-cool';
           const icon = L.divIcon({
             className: '',
-            html: `<span class="empty-house-map-cluster" style="width:${size}px;height:${size}px">${label}</span>`,
+            html: `<span class="empty-house-map-cluster empty-house-map-${clusterTier}" style="width:${size}px;height:${size}px">${label}</span>`,
             iconSize: [size, size],
             iconAnchor: [size / 2, size / 2],
           });

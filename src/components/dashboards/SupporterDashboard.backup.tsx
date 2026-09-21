@@ -496,36 +496,6 @@ export default function SupporterDashboardBackup({
         <main className="px-3 xs:px-4 py-4 xs:py-5 space-y-5 max-w-lg mx-auto">
           <MissionBanner dashboardRole="supporter" />
 
-          {/* ═══ INLINE GREETING BAR ═══ */}
-          <div className="flex flex-col items-center gap-2 py-2">
-            <ProfileSummaryPopover
-              className="min-h-[44px] min-w-[44px]"
-              align="center"
-              avatarUrl={profile?.avatar_url}
-              fullName={displayFullName}
-              phone={(profile as any)?.phone}
-              email={(profile as any)?.email}
-              location={(profile as any)?.location}
-              verified={profile?.verified}
-              roleLabel="Funder"
-              triggerSize="lg"
-            />
-            <div className="flex flex-col items-center gap-0.5">
-              <h1 className="font-bold text-lg leading-tight flex items-center gap-1.5">
-                <span className="break-words">{displayFirstName}</span>
-                {profile?.verified ? (
-                  <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />
-                ) : (
-                  <BadgeCheck className="h-4 w-4 text-muted-foreground/30 shrink-0" />
-                )}
-              </h1>
-              <p className="text-[11px] text-muted-foreground font-medium">Welcome back</p>
-            </div>
-            <AiIdButton variant="compact" />
-          </div>
-
-
-
 
 
           <WidgetErrorBoundary label="Portfolio card">
