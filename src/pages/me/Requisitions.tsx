@@ -798,6 +798,24 @@ const MyRequisitions = () => {
             ))}
           </div>
         )}
+
+        {isOfficer && (
+          <FacilitationRequestDialog
+            open={facOpen}
+            onOpenChange={setFacOpen}
+            onSubmitted={() => { void fetchRows(); }}
+          />
+        )}
+
+        {accountFor && (
+          <FacilitationAccountabilityDialog
+            requisitionId={accountFor.id}
+            requisitionCode={accountFor.requisition_code}
+            open
+            onOpenChange={(o) => { if (!o) setAccountFor(null); }}
+            onSubmitted={() => { setAccountFor(null); void fetchRows(); }}
+          />
+        )}
       </div>
     </PersonalLayout>
   );
