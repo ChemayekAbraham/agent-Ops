@@ -289,12 +289,15 @@ export default function ManagementOverviewTab() {
                               '—'
                             )}
                           </TableCell>
+                          <TableCell className="text-right">
+                            <TenantQuickActions tenant={t} agentOptions={agentOptions} />
+                          </TableCell>
                         </TableRow>
                       );
                     })}
                     {visibleTenants.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={14} className="py-8 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={15} className="py-8 text-center text-sm text-muted-foreground">
                           No tenants match these filters.
                         </TableCell>
                       </TableRow>
