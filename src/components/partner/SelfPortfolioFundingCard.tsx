@@ -205,19 +205,27 @@ export function SelfPortfolioFundingCard({
 
 
 
+  // Tracks that the browser answered the location request either way, so the
+  // country pre-selection knows when to fall back to the profile country.
+  const [geoResolved, setGeoResolved] = useState(false);
   useEffect(() => {
-    if (!('geolocation' in navigator)) return;
+    if (!('geolocation' in navigator)) {
+      setGeoResolved(true);
+      return;
+    }
     let cancelled = false;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         if (cancelled) return;
         setUserPoint({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoResolved(true);
       },
       // When the browser shares the funder's location, the listing defaults to
       // nearest-first; without it the default listing order stays untouched.
       // A sort the funder picked themselves always wins.
       () => {
-        /* location off or refused — cards simply omit the distance labels */
+        if (cancelled) return;
+        setGeoResolved(true);
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
@@ -225,11 +233,39 @@ export function SelfPortfolioFundingCard({
       cancelled = true;
     };
   }, []);
+
   // Location available → list nearest-first by default. Refused or
   // unavailable → the default listing order stays as the fallback.
   useEffect(() => {
     if (userPoint && !sortTouched) setHouseSort('nearest');
   }, [userPoint, sortTouched]);
+  // Country pre-selection: device GPS first, then the funder's profile country,
+  // otherwise the Africa-wide view. A country the funder picks themselves wins.
+  const [countryTouched, setCountryTouched] = useState(false);
+  const { data: profileCountry } = useQuery({
+    queryKey: ['funder-profile-country'],
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('country, country_code')
+        .eq('id', auth.user.id)
+        .maybeSingle();
+      if (!data) return null;
+      const code = (data.country_code ?? '').trim().toUpperCase();
+      const name = (data.country ?? '').trim().toLowerCase();
+      const match =
+        AFRICA_COUNTRIES.find((c) => c.code === code) ??
+        AFRICA_COUNTRIES.find((c) => c.name.toLowerCase() === name) ??
+        null;
+      return match?.code ?? null;
+    },
+  });
+  // (the pre-selection effect runs below, once listedCountries exists)
+
+
   // Side-by-side comparison picks (in-session only; never touches funding).
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -824,6 +860,24 @@ export function SelfPortfolioFundingCard({
       .filter((c) => counts.has(c.code))
       .map((c) => ({ ...c, listings: counts.get(c.code) ?? 0 }));
   }, [houses]);
+  // Pre-select the funder's own country: GPS first, then their profile country,
+  // otherwise the Africa-wide view. Their own pick always wins.
+  useEffect(() => {
+    if (countryTouched || houseCountry !== 'all') return;
+    if (!geoResolved || listedCountries.length === 0) return;
+    const available = new Set(listedCountries.map((c) => c.code));
+    const fromGps = userPoint
+      ? AFRICA_COUNTRIES.find((c) => pointInCountry(c, userPoint.lat, userPoint.lng))?.code ?? null
+      : null;
+    const preferred =
+      fromGps && available.has(fromGps)
+        ? fromGps
+        : profileCountry && available.has(profileCountry)
+          ? profileCountry
+          : null;
+    if (preferred) setHouseCountry(preferred);
+  }, [countryTouched, houseCountry, geoResolved, userPoint, profileCountry, listedCountries]);
+
   const listingAgeDays = useMemo(
     () => (houseListingAge === 'all' ? null : Number(houseListingAge)),
     [houseListingAge],
@@ -1333,7 +1387,13 @@ export function SelfPortfolioFundingCard({
 
             <div className="space-y-2">
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Where</p>
-              <Select value={houseCountry} onValueChange={setHouseCountry}>
+              <Select
+                value={houseCountry}
+                onValueChange={(v) => {
+                  setCountryTouched(true);
+                  setHouseCountry(v);
+                }}
+              >
                 <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by country">
                   <SelectValue placeholder="All countries" />
                 </SelectTrigger>
