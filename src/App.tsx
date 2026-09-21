@@ -696,6 +696,7 @@ function AppRoutes() {
           <Route path="/me/work" element={<HRSignedInRoute><HRMyWorkPage /></HRSignedInRoute>} />
           <Route path="/me/performance" element={<HRSignedInRoute><HRMyPerformancePage /></HRSignedInRoute>} />
           <Route path="/hr/reports/platform-sales-officers" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'coo', 'ceo']}><HRPlatformSalesOfficersPage /></RoleGuard>} />
+          <Route path="/hr/reports/facilitation-register" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'coo', 'ceo', 'cfo', 'operations']}><PsoFacilitationRegister /></RoleGuard>} />
           <Route path="/hr/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'coo', 'ceo']}><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/me/contribution" element={<HRSignedInRoute><MyContribution /></HRSignedInRoute>} />
           <Route path="/hr/engineering/contribution" element={<HRSignedInRoute><EngineeringContribution /></HRSignedInRoute>} />
