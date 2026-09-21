@@ -420,6 +420,25 @@ export function EmptyHouseMapBrowser({
   );
 
   /**
+   * When the funder taps "See more in <district>" from a house's details, the
+   * district filter changes — move the map onto that district's houses.
+   */
+  useEffect(() => {
+    if (!mapInstance || !district) return;
+    const key = district.trim().toLowerCase();
+    const points = houses
+      .filter((h) => String(h.district ?? '').trim().toLowerCase() === key)
+      .map((h) => [Number(h.latitude), Number(h.longitude)] as [number, number])
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
+    if (points.length === 0) return;
+    initialFitDone.current = true;
+    if (points.length === 1) mapInstance.flyTo(points[0], 14, { duration: 0.6 });
+    else mapInstance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 13 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [district, mapInstance]);
+
+
+  /**
    * If the funder already approved location sharing, re-locate on return
    * visits. When geolocation is later revoked, fall back to a manually chosen
    * area if one was saved; otherwise show the gate again.
