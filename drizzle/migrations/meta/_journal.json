@@ -1814,6 +1814,13 @@
       "when": 1789993397754,
       "tag": "0258_loan_chain_2026_09_21_e",
       "breakpoints": true
+    },
+    {
+      "idx": 259,
+      "version": "7",
+      "when": 1789994043944,
+      "tag": "0259_loan_schedule_2026_09_21_f",
+      "breakpoints": true
     }
   ]
 }
