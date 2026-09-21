@@ -35,7 +35,12 @@ import type { TenantOpsClassicView } from '../TenantOpsDashboard';
  * view keys (so selecting one simply drives `TenantOpsDashboard`) or one of the
  * shell-owned keys below.
  */
-export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates' | 'calling-hub' | 'calling-center';
+export type TenantOpsShellOnlyView =
+  | 'home'
+  | 'phone-duplicates'
+  | 'calling-hub'
+  | 'calling-center'
+  | 'tenant-operations-workspace';
 export type TenantOpsViewKey = TenantOpsShellOnlyView | TenantOpsClassicView;
 
 /** Actions that are not views — they open a sheet or leave the dashboard. */
@@ -103,6 +108,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
     icon: Gauge,
     keywords: ['hubs', 'workspaces'],
     children: [
+      { key: 'tenant-operations-workspace', label: 'Tenant Operations Workspace', icon: Gauge, keywords: ['workspace', 'top up', 'topup', 'top-up', 'eligibility', 'increase', 'tenant operations'] },
       { key: 'pipeline-hub', label: 'Pipeline Status', icon: Activity, keywords: ['lifecycle', 'receivables', 'payables', 'charts'] },
       { key: 'agent-capacity-hub', label: 'Agent Rent Capacity', icon: Gauge, keywords: ['capacity', 'eligibility', 'rating'] },
       { key: 'all-tenants-hub', label: 'All Tenants', icon: Users, keywords: ['register', 'search', 'bulk'] },

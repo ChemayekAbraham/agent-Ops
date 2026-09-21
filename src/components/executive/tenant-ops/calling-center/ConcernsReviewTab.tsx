@@ -29,6 +29,8 @@ import { ForwardConcernDialog, type ForwardConcernSource } from './ForwardConcer
 import { useCcCallHistory } from '@/hooks/useCcCallHistory';
 import { ConcernControlPanel } from './ConcernControlPanel';
 import { ConcernParticipantsPanel } from './ConcernParticipantsPanel';
+import { ConcernAttachmentsPanel } from './ConcernAttachmentsPanel';
+import { ConcernCaseContextPanel } from './ConcernCaseContextPanel';
 import {
   CONCERN_ACTION_LABEL,
   CONCERN_PRIORITY_LABEL,
@@ -121,6 +123,8 @@ function ConcernTimelineDialog({
               </p>
             </CCBlock>
             {concern.context && <p className="text-[11px] leading-snug">{concern.context}</p>}
+            <ConcernCaseContextPanel concernId={concern.id} fallbackName={concern.caller_name} />
+            <ConcernAttachmentsPanel concernId={concern.id} />
             <ConcernParticipantsPanel concern={concern} reviewers={reviewerRows} />
             <ConcernControlPanel concern={concern} />
             <div className="space-y-2">

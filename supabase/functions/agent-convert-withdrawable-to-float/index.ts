@@ -34,6 +34,13 @@ const json = (body: unknown, status = 200) =>
  * The withdrawable side is gated on the strict `get_user_available_balance`
  * RPC (never the cached bucket), so pending withdrawal holds cannot be
  * converted out from under Financial Ops.
+ *
+ * Idempotent against retries: an identical (user, amount) request repeated
+ * within 10 seconds replays the original transfer's result instead of
+ * posting money a second time (see the dedupe check below). Added
+ * 2026-09-21 — this function's output now feeds `agent_tid_backed_float`,
+ * the rule that gates rent-collection allocation, so a duplicate here would
+ * hand out real spendable capacity, not just an extra ledger row.
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -86,6 +93,45 @@ Deno.serve(async (req) => {
     }
     if (amount > 100_000_000) {
       return json({ error: "Amount is too large. Contact Financial Ops for amounts above UGX 100,000,000." }, 400);
+    }
+
+    // ── Idempotency: a retried/double-tapped request must not move money
+    // twice. This function mints a brand-new reference_id on every call and
+    // has no client-supplied idempotency key, so a network retry (timeout,
+    // double-tap) previously created a second, fully real transfer — and
+    // since 2026-09-22 this feeds the TID-backed rent-collection gate, a
+    // duplicate here means real, extra spendable float, not just a cosmetic
+    // double row. If an identical (user, amount) transfer through this exact
+    // path was posted in the last 10 seconds, replay that transfer's result
+    // instead of posting a new one.
+    const dedupeSince = new Date(Date.now() - 10_000).toISOString();
+    const { data: recentDuplicate } = await adminClient
+      .from("general_ledger")
+      .select("reference_id, created_at")
+      .eq("user_id", userId)
+      .eq("source_table", "agent_withdrawable_to_float")
+      .eq("category", "bucket_reclass_out")
+      .eq("amount", amount)
+      .gte("created_at", dedupeSince)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (recentDuplicate?.reference_id) {
+      const { data: currentWallet } = await adminClient
+        .from("wallets")
+        .select("float_balance, withdrawable_balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+      return json({
+        success: true,
+        amount,
+        reference_id: recentDuplicate.reference_id,
+        duplicate_of_recent_request: true,
+        float_after: Number(currentWallet?.float_balance ?? 0),
+        withdrawable_after: Number(currentWallet?.withdrawable_balance ?? 0),
+        message: `UGX ${amount.toLocaleString()} was already moved to your Float moments ago.`,
+      });
     }
 
     // ── Strict availability gate (never the cached bucket) ────────────────
