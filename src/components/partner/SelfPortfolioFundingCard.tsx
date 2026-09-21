@@ -382,6 +382,7 @@ export function SelfPortfolioFundingCard({
   });
 
   const housesQuery = useVerifiedEmptyHouses();
+  const rentNeededQuery = useEmptyHouseTotalRentNeeded();
 
   const plans = plansQuery.data?.plans ?? [];
 
