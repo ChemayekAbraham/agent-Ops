@@ -357,6 +357,7 @@ export default function ManagementOverviewTab() {
                       <TableHead className="text-right">Arrears</TableHead>
                       <TableHead className="text-right">Last month</TableHead>
                       <TableHead>New registrations</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
