@@ -1189,203 +1189,255 @@ export function SelfPortfolioFundingCard({
       )}
 
       {feedOrder === 'houses' && houses.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 px-1" aria-label="Sort and filter empty houses">
-          <div className="flex items-center gap-1.5">
-            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
-              <SelectTrigger className="h-9 w-auto min-w-[150px] text-xs font-semibold" aria-label="Sort houses">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {HOUSE_SORTS.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {houseSort === 'nearest' && (
-              <span className="text-[10px] leading-tight text-muted-foreground max-w-[16rem]">
-                {referencePoint ? 'Sorted by distance from the selected house.' : 'Tap a house on the map to sort from that location.'}
-              </span>
-            )}
-          </div>
-          <Select value={houseCountry} onValueChange={setHouseCountry}>
-            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by country">
-              <SelectValue placeholder="All countries" />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              <SelectItem value="all">All of Africa</SelectItem>
-              {listedCountries.map((c) => (
-                <SelectItem key={c.code} value={c.code}>
-                  {c.name} ({c.listings})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={houseListingAge} onValueChange={setHouseListingAge}>
-            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by listing age">
-              <SelectValue placeholder="Any listing age" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any listing age</SelectItem>
-              <SelectItem value="7">Listed in last 7 days</SelectItem>
-              <SelectItem value="30">Listed in last 30 days</SelectItem>
-              <SelectItem value="90">Listed in last 3 months</SelectItem>
-              <SelectItem value="365">Listed in last year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={houseDistrict} onValueChange={setHouseDistrict}>
-            <SelectTrigger className="h-9 w-auto min-w-[130px] text-xs font-semibold" aria-label="Filter by district">
-              <SelectValue placeholder="All districts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                All districts ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
-              </SelectItem>
-              {houseDistricts.map(([key, { label, count }]) => (
-                <SelectItem key={key} value={key}>
-                  {label} ({count})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={houseFundingStatus} onValueChange={(v) => setHouseFundingStatus(v as HouseFundingStatus)}>
-            <SelectTrigger className="h-9 w-auto min-w-[150px] text-xs font-semibold" aria-label="Filter by funding status">
-              <SelectValue placeholder="Any funding status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any funding status</SelectItem>
-              <SelectItem value="ready">Ready to fund now</SelectItem>
-              <SelectItem value="topup">Needs a top-up</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={houseRadiusKm} onValueChange={setHouseRadiusKm}>
-            <SelectTrigger className="h-9 w-auto min-w-[140px] text-xs font-semibold" aria-label="Filter by distance from your location">
-              <SelectValue placeholder="Any distance" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any distance</SelectItem>
-              <SelectItem value="1">Within 1 km of me</SelectItem>
-              <SelectItem value="2">Within 2 km of me</SelectItem>
-              <SelectItem value="5">Within 5 km of me</SelectItem>
-              <SelectItem value="10">Within 10 km of me</SelectItem>
-              <SelectItem value="25">Within 25 km of me</SelectItem>
-              <SelectItem value="50">Within 50 km of me</SelectItem>
-              <SelectItem value="100">Within 100 km of me</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-1.5" aria-label="Filter by monthly rent range">
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={houseRentMin}
-              onChange={(e) => setHouseRentMin(e.target.value)}
-              placeholder="Min rent"
-              aria-label="Minimum monthly rent"
-              className="h-9 w-[104px] text-xs font-semibold"
-            />
-            <span className="text-[11px] font-semibold text-muted-foreground" aria-hidden>–</span>
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={houseRentMax}
-              onChange={(e) => setHouseRentMax(e.target.value)}
-              placeholder="Max rent"
-              aria-label="Maximum monthly rent"
-              className="h-9 w-[104px] text-xs font-semibold"
-            />
-          </div>
+        <div className="flex items-center gap-2 px-1" aria-label="Filter empty houses">
           <Button
             type="button"
-            variant={houseWithinFloat ? 'default' : 'outline'}
+            variant={activeFilterCount > 0 ? 'default' : 'outline'}
             size="sm"
-            className="h-9 text-xs font-semibold"
-            aria-pressed={houseWithinFloat}
-            onClick={() => setHouseWithinFloat((v) => !v)}
+            className="h-9 gap-1.5 rounded-full px-3 text-xs font-semibold"
+            aria-label={activeFilterCount > 0 ? `Filter houses, ${activeFilterCount} applied` : 'Filter houses'}
+            onClick={() => setFilterDrawerOpen(true)}
           >
-            Within my float
-          </Button>
-          <Button
-            type="button"
-            variant={showSavedReadyOnly ? 'default' : 'outline'}
-            size="sm"
-            className="h-9 text-xs font-semibold"
-            aria-pressed={showSavedReadyOnly}
-            onClick={() => setShowSavedReadyOnly((v) => !v)}
-          >
-            Saved · Ready to fund
-          </Button>
-          <Button
-            type="button"
-            variant={compareIds.length > 0 ? 'default' : 'outline'}
-            size="sm"
-            className="h-9 text-xs font-semibold"
-            disabled={compareIds.length < 2}
-            aria-label={
-              compareIds.length < 2
-                ? 'Compare houses — tap the compare icon on at least 2 house cards first'
-                : `Compare ${compareIds.length} houses side by side`
-            }
-            onClick={() => setCompareOpen(true)}
-          >
-            <GitCompareArrows className="h-3.5 w-3.5 mr-1" aria-hidden />
-            Compare
-            {compareIds.length > 0 && (
-              <span className="ml-1 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
-                {compareIds.length}
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+            Filter
+            {activeFilterCount > 0 && (
+              <span className="ml-0.5 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                {activeFilterCount}
               </span>
             )}
           </Button>
-          {compareIds.length > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-9 text-xs"
-              onClick={() => setCompareIds([])}
-            >
-              Clear compare
-            </Button>
-          )}
-          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all' || houseRadiusKm !== 'all') && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-9 text-xs"
-              onClick={resetFilters}
-            >
-              <X className="h-3.5 w-3.5 mr-1" aria-hidden />
-              Reset
-            </Button>
-          )}
-          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all' || houseRadiusKm !== 'all') && (
+          {activeFilterCount > 0 && (
             <span className="text-[11px] font-semibold text-muted-foreground">
               {feed.length} of {houses.length} shown
             </span>
           )}
-          {houseAlerts.length > 0 && (
+          <div className="ml-auto flex items-center gap-2">
+            {compareIds.length >= 2 && (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="h-9 rounded-full text-xs font-semibold"
+                aria-label={`Compare ${compareIds.length} houses side by side`}
+                onClick={() => setCompareOpen(true)}
+              >
+                <GitCompareArrows className="h-3.5 w-3.5 mr-1" aria-hidden />
+                Compare
+                <span className="ml-1 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                  {compareIds.length}
+                </span>
+              </Button>
+            )}
+            {houseAlerts.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-full text-xs font-semibold"
+                aria-label={`Balance alerts, ${houseAlerts.length} recorded`}
+                aria-expanded={alertsOpen}
+                onClick={() => setAlertsOpen((v) => !v)}
+              >
+                <Bell className="h-3.5 w-3.5 mr-1" aria-hidden />
+                <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground">
+                  {houseAlerts.length}
+                </span>
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <Sheet open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen}>
+        <SheetContent side="bottom" className="max-h-[88dvh] overflow-y-auto rounded-t-2xl p-0">
+          <div className="sticky top-0 z-10 border-b border-border bg-background px-4 pb-3 pt-4">
+            <SheetHeader className="space-y-1 text-left">
+              <SheetTitle className="text-base font-black">Filter houses</SheetTitle>
+              <SheetDescription className="text-[11px]">
+                {feed.length} of {houses.length} empty houses match right now.
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+
+          <div className="space-y-5 px-4 py-4">
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Sort by</p>
+              <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
+                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Sort houses">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HOUSE_SORTS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {houseSort === 'nearest' && (
+                <p className="text-[10px] leading-tight text-muted-foreground">
+                  {referencePoint ? 'Sorted by distance from the selected house.' : 'Tap a house on the map to sort from that location.'}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Where</p>
+              <Select value={houseCountry} onValueChange={setHouseCountry}>
+                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by country">
+                  <SelectValue placeholder="All countries" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">All of Africa</SelectItem>
+                  {listedCountries.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.name} ({c.listings})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={houseDistrict} onValueChange={setHouseDistrict}>
+                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by district">
+                  <SelectValue placeholder="All districts" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">
+                    All districts ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
+                  </SelectItem>
+                  {houseDistricts.map(([key, { label, count }]) => (
+                    <SelectItem key={key} value={key}>
+                      {label} ({count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={houseRadiusKm} onValueChange={setHouseRadiusKm}>
+                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by distance from your location">
+                  <SelectValue placeholder="Any distance" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any distance</SelectItem>
+                  <SelectItem value="1">Within 1 km of me</SelectItem>
+                  <SelectItem value="2">Within 2 km of me</SelectItem>
+                  <SelectItem value="5">Within 5 km of me</SelectItem>
+                  <SelectItem value="10">Within 10 km of me</SelectItem>
+                  <SelectItem value="25">Within 25 km of me</SelectItem>
+                  <SelectItem value="50">Within 50 km of me</SelectItem>
+                  <SelectItem value="100">Within 100 km of me</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Monthly rent (UGX)</p>
+              <div className="flex items-center gap-2" aria-label="Filter by monthly rent range">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={houseRentMin}
+                  onChange={(e) => setHouseRentMin(e.target.value)}
+                  placeholder="Min rent"
+                  aria-label="Minimum monthly rent"
+                  className="h-10 flex-1 text-xs font-semibold"
+                />
+                <span className="text-[11px] font-semibold text-muted-foreground" aria-hidden>–</span>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={houseRentMax}
+                  onChange={(e) => setHouseRentMax(e.target.value)}
+                  placeholder="Max rent"
+                  aria-label="Maximum monthly rent"
+                  className="h-10 flex-1 text-xs font-semibold"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Opportunity</p>
+              <Select value={houseFundingStatus} onValueChange={(v) => setHouseFundingStatus(v as HouseFundingStatus)}>
+                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by funding status">
+                  <SelectValue placeholder="Any funding status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any funding status</SelectItem>
+                  <SelectItem value="ready">Ready to fund now</SelectItem>
+                  <SelectItem value="topup">Needs a top-up</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={houseListingAge} onValueChange={setHouseListingAge}>
+                <SelectTrigger className="h-10 w-full text-xs font-semibold" aria-label="Filter by listing age">
+                  <SelectValue placeholder="Any listing age" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any listing age</SelectItem>
+                  <SelectItem value="7">Listed in last 7 days</SelectItem>
+                  <SelectItem value="30">Listed in last 30 days</SelectItem>
+                  <SelectItem value="90">Listed in last 3 months</SelectItem>
+                  <SelectItem value="365">Listed in last year</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                <Button
+                  type="button"
+                  variant={houseWithinFloat ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-9 rounded-full text-xs font-semibold"
+                  aria-pressed={houseWithinFloat}
+                  onClick={() => setHouseWithinFloat((v) => !v)}
+                >
+                  Within my float
+                </Button>
+                <Button
+                  type="button"
+                  variant={showSavedReadyOnly ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-9 rounded-full text-xs font-semibold"
+                  aria-pressed={showSavedReadyOnly}
+                  onClick={() => setShowSavedReadyOnly((v) => !v)}
+                >
+                  Saved · Ready to fund
+                </Button>
+                {compareIds.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 rounded-full text-xs"
+                    onClick={() => setCompareIds([])}
+                  >
+                    Clear compare ({compareIds.length})
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 flex items-center gap-2 border-t border-border bg-background px-4 py-3">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 text-xs font-semibold"
-              aria-label={`Balance alerts, ${houseAlerts.length} recorded`}
-              aria-expanded={alertsOpen}
-              onClick={() => setAlertsOpen((v) => !v)}
+              className="h-10 flex-1 text-xs font-semibold"
+              disabled={activeFilterCount === 0}
+              onClick={resetFilters}
             >
-              <Bell className="h-3.5 w-3.5 mr-1" aria-hidden />
-              Alerts
-              <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground">
-                {houseAlerts.length}
-              </span>
+              <X className="mr-1 h-3.5 w-3.5" aria-hidden />
+              Reset
             </Button>
-          )}
-        </div>
-      )}
+            <Button
+              type="button"
+              size="sm"
+              className="h-10 flex-1 text-xs font-semibold"
+              onClick={() => setFilterDrawerOpen(false)}
+            >
+              Show {feed.length} house{feed.length === 1 ? '' : 's'}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {feedOrder === 'houses' && houses.length > 0 && (houseDistricts.length > 0 || houseSubCounties.length > 0) && (
         <div className="space-y-1.5 px-1" aria-label="Quick location filters">
