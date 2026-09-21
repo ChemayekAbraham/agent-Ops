@@ -78,7 +78,7 @@ export function useRelatedHouses(currentHouse: HouseOpportunity | null) {
         .eq('verified', true)
         .eq('is_hidden', false)
         .gt('monthly_rent', 0)
-        .or(filters.join(','))
+        .ilike('district', district)
         .order('created_at', { ascending: false })
         .limit(FETCH_MORE);
 

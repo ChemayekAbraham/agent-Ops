@@ -391,12 +391,14 @@ export function EmptyHouseDetailSheet({
           </div>
         </div>
 
-        {/* Related houses in the same area */}
-        <div className="space-y-3 rounded-2xl border border-amber-500/15 bg-amber-500/[0.03] p-4">
+        {/* Related houses in the same district */}
+        <div className="space-y-3 border-t p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Home className="h-4 w-4 text-amber-500" />
+            <div>
               <p className="text-xs font-bold">Related houses</p>
+              <p className="text-[10px] text-muted-foreground">
+                {house.district ? `${prettyName(house.district)} district` : 'Same district'}
+              </p>
             </div>
             {related && related.length > 0 && (
               <Badge variant="outline" className="h-5 text-[10px]">
@@ -408,7 +410,7 @@ export function EmptyHouseDetailSheet({
           {relatedLoading && (
             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Finding nearby opportunities…
+              Finding houses in this district…
             </div>
           )}
 
@@ -418,9 +420,10 @@ export function EmptyHouseDetailSheet({
 
           {!relatedLoading && related && related.length === 0 && (
             <p className="text-[11px] text-muted-foreground">
-              No other empty houses found in this area yet.
+              No other empty houses found in this district yet.
             </p>
           )}
+
 
           {related && related.length > 0 && (
             <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 snap-x">
