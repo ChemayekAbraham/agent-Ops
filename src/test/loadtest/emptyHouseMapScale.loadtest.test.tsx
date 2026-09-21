@@ -2,9 +2,12 @@
  * Load tests for the empty-house map at African scale.
  *
  * The catalogue simulated here holds well over 10,000,000 empty houses. The map
- * must stay bounded and responsive: every viewport query returns at most 400
- * grid cells, scans at most 20,000 rows, small pans reuse the cache instead of
- * refetching, and cluster interactions keep drilling down to single houses.
+ * must stay bounded and responsive: the viewport loads as a 2×2 grid of
+ * independent async tiles (houses render as each tile lands, never one
+ * blocking batch), every tile query returns at most 400 grid cells, scans at
+ * most 20,000 rows, the merged view is still capped at 400 cells, small pans
+ * reuse the cache instead of refetching, and cluster interactions keep
+ * drilling down to single houses.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
@@ -133,7 +136,18 @@ describe('empty-house map at 10,000,000+ house scale', () => {
     const elapsed = performance.now() - started;
 
     expect(elapsed).toBeLessThan(15_000);
-    expect(rpcCalls.length).toBeLessThanOrEqual(41);
+    // Each viewport fans out to at most 2×2 async tile queries.
+    expect(rpcCalls.length).toBeLessThanOrEqual(41 * 4);
+    // Every tile query stays inside the server cell budget.
+    expect(rpcCalls.every((call) => Number(call.p_limit) <= SERVER_CELL_LIMIT)).toBe(true);
+    // Tiling must never punch outside the requested viewport.
+    expect(
+      rpcCalls.every(
+        (call) =>
+          Number(call.p_max_lat) > Number(call.p_min_lat) &&
+          Number(call.p_max_lng) > Number(call.p_min_lng),
+      ),
+    ).toBe(true);
     expect(rpcCalls.every((call) => Number(call.p_limit) <= SERVER_CELL_LIMIT)).toBe(true);
   });
 
