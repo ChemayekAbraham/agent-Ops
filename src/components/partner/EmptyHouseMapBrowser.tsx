@@ -13,6 +13,8 @@ import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Nav
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
+import { supabase } from '@/integrations/supabase/client';
+
 import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './emptyHouseMapCluster';
 import { MapPerfOverlay } from './MapPerfOverlay';
 import { HEAT_BUCKETS, heatBucketFor, heatmapAppliesAtZoom } from './emptyHouseHeatmap';
@@ -31,6 +33,15 @@ interface EmptyHouseMapBrowserProps {
   maxRent?: number | null;
   /** District currently applied to the list, mirrored on the map. */
   district?: string | null;
+  /**
+   * District the map should zoom to WITHOUT filtering — set by the house
+   * details sheet's "See more in <district>" button so the rest of the
+   * houses stay visible around it.
+   */
+  zoomDistrict?: string | null;
+  /** Coordinates to land on when the district was chosen from a house's details. */
+  districtFocus?: { lat: number; lng: number } | null;
+
   /** Country box currently applied to the list — the map fits to it so the heatmap covers that country only. */
   country?: CountryBounds | null;
   /** Listing-age ceiling in days, applied in the database alongside the viewport. */
@@ -154,6 +165,9 @@ export function EmptyHouseMapBrowser({
   minRent,
   maxRent,
   district,
+  zoomDistrict,
+  districtFocus,
+
   country,
   maxAgeDays,
   onSearchQueryChange,
@@ -167,8 +181,8 @@ export function EmptyHouseMapBrowser({
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
-  /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
-  const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
+  /** 'locating' = browser prompt open, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'locating' | 'granted' | 'denied' | 'unsupported'>('idle');
   const [geoPromptDismissed, setGeoPromptDismissed] = useState(false);
   const [locationPreviouslyGranted, setLocationPreviouslyGranted] = useState(false);
   const [areaPickerOpen, setAreaPickerOpen] = useState(false);
@@ -293,51 +307,10 @@ export function EmptyHouseMapBrowser({
   const initialLocateStarted = useRef(false);
 
   /**
-   * By default the map opens where the funder is, so the empty houses nearest
-   * to them are the first ones on screen. If location is unavailable or
-   * refused, the loaded-houses fit below takes over.
+   * The map always opens on the funder's own area — the single locate effect
+   * lives further down (it needs the manual-area fallback), so nothing runs here.
    */
-  useEffect(() => {
-    if (!mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
-    initialLocateStarted.current = true;
-    if (!navigator.geolocation) {
-      setGeoStatus('unsupported');
-      return;
-    }
-    let cancelled = false;
-    try {
-      window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
-      setLocationPreviouslyGranted(true);
-    } catch {
-      // ignore storage errors
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (cancelled || initialFitDone.current) return;
-        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
-        initialFitDone.current = true;
-        setGeoStatus('granted');
-        setUserPosition(point);
-        // Default view: the funder's own area, so the empty houses around them
-        // are the first ones on screen.
-        mapInstance.setView(point, 13);
-      },
-      () => {
-        if (cancelled) return;
-        setGeoStatus('denied');
-        try {
-          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
-          setLocationPreviouslyGranted(false);
-        } catch {
-          // ignore storage errors
-        }
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [mapInstance, locationPreviouslyGranted]);
+
 
   /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
   const retryLocate = useCallback(() => {
@@ -420,20 +393,94 @@ export function EmptyHouseMapBrowser({
   );
 
   /**
-   * If the funder already approved location sharing, re-locate on return
-   * visits. When geolocation is later revoked, fall back to a manually chosen
-   * area if one was saved; otherwise show the gate again.
+   * When the funder taps "See more in <district>", land the map on that district.
+   * The tapped house's own coordinates are the anchor, because some listings
+   * carry stray coordinates that would otherwise stretch the view to the ocean.
    */
   useEffect(() => {
-    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
+    if (!mapInstance || !zoomDistrict) return;
+    let cancelled = false;
+    const key = zoomDistrict.trim().toLowerCase();
+
+    const usable = (rows: { latitude?: unknown; longitude?: unknown }[]) =>
+      rows
+        .map((h) => [Number(h.latitude), Number(h.longitude)] as [number, number])
+        .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
+
+    const anchor: [number, number] | null =
+      districtFocus &&
+      Number.isFinite(districtFocus.lat) &&
+      Number.isFinite(districtFocus.lng) &&
+      (districtFocus.lat !== 0 || districtFocus.lng !== 0)
+        ? [districtFocus.lat, districtFocus.lng]
+        : null;
+
+    const fit = (points: [number, number][]) => {
+      if (cancelled) return;
+      // Keep only houses near the anchor — a district is never hundreds of km wide.
+      const near = anchor
+        ? points.filter(([lat, lng]) => Math.abs(lat - anchor[0]) <= 1.5 && Math.abs(lng - anchor[1]) <= 1.5)
+        : points;
+      const usePoints = near.length > 0 ? near : anchor ? [anchor] : points;
+      if (usePoints.length === 0) return;
+      initialFitDone.current = true;
+      if (usePoints.length === 1) mapInstance.flyTo(usePoints[0], 13, { duration: 0.6 });
+      else mapInstance.fitBounds(L.latLngBounds(usePoints), { padding: [36, 36], maxZoom: 13 });
+    };
+
+    // Land immediately on the tapped house, then tighten once the district's houses are known.
+    if (anchor) mapInstance.flyTo(anchor, 13, { duration: 0.6 });
+
+    const local = usable(houses.filter((h) => String(h.district ?? '').trim().toLowerCase() === key));
+    if (local.length > 0) {
+      fit(local);
+      return;
+    }
+
+    (async () => {
+      const { data, error } = await supabase
+        .from('house_listings')
+        .select('latitude,longitude')
+        .eq('status', 'available')
+        .is('tenant_id', null)
+        .eq('verified', true)
+        .eq('is_hidden', false)
+        .gt('monthly_rent', 0)
+        .ilike('district', key)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null)
+        .limit(500);
+      if (error || !data) return;
+      fit(usable(data as { latitude?: unknown; longitude?: unknown }[]));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomDistrict, districtFocus, mapInstance]);
+
+
+
+
+  /**
+   * Ask the browser for the funder's location as soon as the map mounts, so the
+   * houses nearest to them load first. If they refuse (or the browser cannot
+   * tell us), fall back to a saved manual area, otherwise show the gate so they
+   * can allow location or pick their area.
+   */
+  useEffect(() => {
+    if (!mapInstance || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
     initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       manualAreaRestored.current = true;
       const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
       if (stored) chooseManualArea(stored);
+      else setGeoStatus('unsupported');
       return;
     }
     let cancelled = false;
+    setGeoStatus('locating');
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled) return;
@@ -441,22 +488,28 @@ export function EmptyHouseMapBrowser({
         initialFitDone.current = true;
         setGeoStatus('granted');
         setUserPosition(point);
+        try {
+          window.localStorage.setItem(LOCATION_GRANTED_KEY, 'true');
+          setLocationPreviouslyGranted(true);
+        } catch {
+          // ignore storage errors
+        }
         mapInstance.flyTo(point, 13, { duration: 0.6 });
       },
       () => {
         if (cancelled) return;
-        manualAreaRestored.current = true;
         const stored = window.localStorage.getItem(MANUAL_AREA_KEY);
         if (stored) {
+          manualAreaRestored.current = true;
           chooseManualArea(stored);
         } else {
           setGeoStatus('denied');
-          try {
-            window.localStorage.removeItem(LOCATION_GRANTED_KEY);
-            setLocationPreviouslyGranted(false);
-          } catch {
-            // ignore storage errors
-          }
+        }
+        try {
+          window.localStorage.removeItem(LOCATION_GRANTED_KEY);
+          setLocationPreviouslyGranted(false);
+        } catch {
+          // ignore storage errors
         }
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
@@ -464,7 +517,8 @@ export function EmptyHouseMapBrowser({
     return () => {
       cancelled = true;
     };
-  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea]);
+  }, [mapInstance, userPosition, chooseManualArea]);
+
 
   // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
@@ -569,9 +623,10 @@ export function EmptyHouseMapBrowser({
           if (house) {
             const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
             const categoryLabel = formatHouseCategory(house.house_category);
+            const rentLabel = formatDynamic(Number(house.monthly_rent ?? 0));
             const icon = L.divIcon({
               className: 'empty-house-map-pin-hitbox',
-              html: `<span class="empty-house-map-pin truncate${active ? ' empty-house-map-pin--active' : ''}">${categoryLabel}</span>`,
+              html: `<span class="empty-house-map-pin truncate${active ? ' empty-house-map-pin--active' : ''}">${rentLabel}</span>`,
               iconSize: [144, 44],
               iconAnchor: [72, 44],
             });
@@ -581,7 +636,7 @@ export function EmptyHouseMapBrowser({
                 key={house.house_id}
                 position={[Number(house.latitude), Number(house.longitude)]}
                 icon={icon}
-                title={`${houseTitleLine(house)} · ${categoryLabel}`}
+                title={`${houseTitleLine(house)} · ${rentLabel}`}
                 eventHandlers={{
                   click: () => {
                     onOpenHouse(house);
@@ -657,8 +712,8 @@ export function EmptyHouseMapBrowser({
         />
       </MapContainer>
 
-      {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. Only show it when location has not been approved before. */}
-      {!userPosition && !locationPreviouslyGranted && (
+      {/* Location gate: houses are shown for the funder's own area. While the browser prompt is open we wait; it only appears if location was refused or is unavailable and no area was picked. */}
+      {!userPosition && (geoStatus === 'denied' || geoStatus === 'unsupported') && !manualAreaRestored.current && (
         <div
           role="dialog"
           aria-label="Share your location to see empty houses near you"

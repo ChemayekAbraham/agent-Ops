@@ -73,6 +73,8 @@ export function EmptyHouseDetailSheet({
   isPartner = false,
   remaining,
   onRelatedHouseClick,
+  onSeeMoreDistrict,
+
 }: {
   house: HouseOpportunity | null;
   open: boolean;
@@ -83,6 +85,10 @@ export function EmptyHouseDetailSheet({
   /** Supporter balance still free to commit — drives the funding requirement block. */
   remaining?: number;
   onRelatedHouseClick?: (house: HouseOpportunity) => void;
+  /** Closes this drawer and opens the map filtered to the house's district. */
+  onSeeMoreDistrict?: (district: string, anchor: { lat: number; lng: number } | null) => void;
+
+
 }) {
   const [index, setIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -124,7 +130,7 @@ export function EmptyHouseDetailSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-4 p-4 pb-28">
+        <div className="space-y-4 p-4">
           {/* Gallery */}
           {photos.length > 0 ? (
             <div className="space-y-2">
@@ -389,14 +395,32 @@ export function EmptyHouseDetailSheet({
               </p>
             )}
           </div>
+
+          {onTogglePick && (
+            <Button
+              className="h-11 w-full gap-2 font-semibold"
+              variant={isPicked ? 'outline' : 'default'}
+              onClick={() => onTogglePick(house)}
+            >
+              {isPicked ? (
+                <>
+                  <Check className="h-4 w-4" /> Selected — tap to remove
+                </>
+              ) : (
+                'Select this house'
+              )}
+            </Button>
+          )}
         </div>
 
-        {/* Related houses in the same area */}
-        <div className="space-y-3 rounded-2xl border border-amber-500/15 bg-amber-500/[0.03] p-4">
+        {/* Related houses in the same district */}
+        <div className="space-y-3 border-t p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Home className="h-4 w-4 text-amber-500" />
+            <div>
               <p className="text-xs font-bold">Related houses</p>
+              <p className="text-[10px] text-muted-foreground">
+                {house.district ? `${prettyName(house.district)} district` : 'Same district'}
+              </p>
             </div>
             {related && related.length > 0 && (
               <Badge variant="outline" className="h-5 text-[10px]">
@@ -408,7 +432,7 @@ export function EmptyHouseDetailSheet({
           {relatedLoading && (
             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Finding nearby opportunities…
+              Finding houses in this district…
             </div>
           )}
 
@@ -418,9 +442,10 @@ export function EmptyHouseDetailSheet({
 
           {!relatedLoading && related && related.length === 0 && (
             <p className="text-[11px] text-muted-foreground">
-              No other empty houses found in this area yet.
+              No other empty houses found in this district yet.
             </p>
           )}
+
 
           {related && related.length > 0 && (
             <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 snap-x">
@@ -475,25 +500,29 @@ export function EmptyHouseDetailSheet({
               ))}
             </div>
           )}
+
+          {onSeeMoreDistrict && house.district && (
+            <button
+              type="button"
+              onClick={() => {
+                const lat = Number(house.latitude);
+                const lng = Number(house.longitude);
+                const anchor =
+                  Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)
+                    ? { lat, lng }
+                    : null;
+                onOpenChange(false);
+                onSeeMoreDistrict(house.district as string, anchor);
+              }}
+              className="mx-auto flex w-auto items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-[11px] font-semibold text-primary"
+            >
+              See more in {prettyName(house.district)}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+
         </div>
 
-        {onTogglePick && (
-          <div className="sticky bottom-0 border-t bg-background p-4">
-            <Button
-              className="h-11 w-full gap-2 font-semibold"
-              variant={isPicked ? 'outline' : 'default'}
-              onClick={() => onTogglePick(house)}
-            >
-              {isPicked ? (
-                <>
-                  <Check className="h-4 w-4" /> Selected — tap to remove
-                </>
-              ) : (
-                'Select this house'
-              )}
-            </Button>
-          </div>
-        )}
       </SheetContent>
     </Sheet>
 

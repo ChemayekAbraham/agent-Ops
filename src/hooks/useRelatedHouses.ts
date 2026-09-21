@@ -9,8 +9,9 @@ const FETCH_MORE = LIMIT * 3;
 
 function hasLocation(h: HouseOpportunity | null): boolean {
   if (!h) return false;
-  return !!(h.district?.trim() || h.sub_county?.trim() || h.village?.trim());
+  return !!h.district?.trim();
 }
+
 
 function hasGps(h: HouseOpportunity | null): boolean {
   if (!h) return false;
@@ -43,18 +44,10 @@ export function useRelatedHouses(currentHouse: HouseOpportunity | null) {
     queryFn: async () => {
       if (!currentHouse) return [];
 
-      const filters: string[] = [];
-      if (currentHouse.district?.trim()) {
-        filters.push(`district.ilike.%${currentHouse.district.trim()}%`);
-      }
-      if (currentHouse.sub_county?.trim()) {
-        filters.push(`sub_county.ilike.%${currentHouse.sub_county.trim()}%`);
-      }
-      if (currentHouse.village?.trim()) {
-        filters.push(`village.ilike.%${currentHouse.village.trim()}%`);
-      }
+      // Same district is the unit of comparison the Supporter sees on the map.
+      const district = currentHouse.district?.trim();
+      if (!district) return [];
 
-      if (filters.length === 0) return [];
 
       const { data, error } = await supabase
         .from('house_listings')
@@ -85,7 +78,7 @@ export function useRelatedHouses(currentHouse: HouseOpportunity | null) {
         .eq('verified', true)
         .eq('is_hidden', false)
         .gt('monthly_rent', 0)
-        .or(filters.join(','))
+        .ilike('district', district)
         .order('created_at', { ascending: false })
         .limit(FETCH_MORE);
 
