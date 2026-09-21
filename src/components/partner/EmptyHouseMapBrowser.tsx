@@ -254,6 +254,28 @@ export function EmptyHouseMapBrowser({
   const cellSize = cellsQuery.data?.cellSize ?? 0;
 
   /**
+   * Filters the viewport query cannot express (sub-county, distance radius,
+   * funding status, within-float, saved-ready). While any is active the pins
+   * come from the already-filtered list so the map shows exactly the houses
+   * the filter drawer promises.
+   */
+  const precisionActive = Boolean(
+    (subCounty && subCounty !== 'all') ||
+    (radiusKm != null && radiusOrigin) ||
+    (fundingStatus && fundingStatus !== 'all') ||
+    withinFloat ||
+    savedReadyOnly,
+  );
+  const pinHouses = useMemo(() => {
+    if (!precisionActive) return null;
+    return houses.filter((h) => {
+      const lat = Number(h.latitude);
+      const lng = Number(h.longitude);
+      return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+    });
+  }, [precisionActive, houses]);
+
+  /**
    * Optional density view: tints each grid cell by how many empty houses it
    * holds, so a funder can read where the opportunities are across Africa
    * before zooming into clustered houses. Built from the cells already fetched.
