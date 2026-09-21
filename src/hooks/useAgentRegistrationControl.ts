@@ -5,6 +5,14 @@ export interface RegistrationControlRow {
   agent_id: string;
   full_name: string | null;
   phone: string | null;
+  district: string | null;
+  region: string | null;
+  tier: string | null;
+  group_id: string | null;
+  group_label: string | null;
+  group_min_active_tenants: number | null;
+  group_required_pct: number | null;
+  in_scope: boolean;
   active_tenants: number;
   prev_expected: number;
   prev_collected: number;
