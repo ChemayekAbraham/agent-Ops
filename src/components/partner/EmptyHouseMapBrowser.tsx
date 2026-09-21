@@ -620,12 +620,18 @@ export function EmptyHouseMapBrowser({
 
           if (house) {
             const active = selectedIds.includes(house.house_id) || focusedId === house.house_id;
-            const houseSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L4 9v12h5v-7h6v7h5V9l-8-6z"/></svg>`;
+            // Compact amount for pin label: 250K, 1.2M, etc.
+            const rent = Number(house.monthly_rent) || 0;
+            const pinLabel = rent >= 1_000_000
+              ? `${(rent / 1_000_000).toFixed(rent % 1_000_000 === 0 ? 0 : 1)}M`
+              : rent >= 1_000
+                ? `${Math.round(rent / 1_000)}K`
+                : String(rent);
             const icon = L.divIcon({
               className: 'empty-house-map-pin-hitbox',
-              html: `<span class="empty-house-map-pin${active ? ' empty-house-map-pin--active' : ''}">${houseSvg}</span>`,
-              iconSize: [46, 46],
-              iconAnchor: [23, 23],
+              html: `<span class="empty-house-map-pin empty-house-map-pin--price${active ? ' empty-house-map-pin--active' : ''}">${pinLabel}</span>`,
+              iconSize: [80, 36],
+              iconAnchor: [40, 18],
             });
 
             return (
