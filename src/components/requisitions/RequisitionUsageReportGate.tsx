@@ -149,6 +149,7 @@ export function RequisitionUsageReportGate() {
     const used = Number(amountUsed);
     if (!Number.isFinite(used) || used < 0) { toast.error('Enter how much of the money you used'); return; }
     if (summary.trim().length < 20) { toast.error('Explain how the funds were used (at least 20 characters)'); return; }
+    if (!receipt) { toast.error('Attach a receipt or proof of payment'); return; }
 
     setSaving(true);
 
@@ -263,7 +264,9 @@ export function RequisitionUsageReportGate() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="usage-receipt">Receipt or supporting document (optional)</Label>
+                <Label htmlFor="usage-receipt">
+                  Receipt or proof of payment <span className="text-destructive">*</span>
+                </Label>
                 {receipt ? (
                   <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
                     <span className="flex min-w-0 items-center gap-2 text-sm">
