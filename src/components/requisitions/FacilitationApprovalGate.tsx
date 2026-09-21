@@ -33,6 +33,7 @@ interface Prompt {
   currency: string;
   snooze_count: number;
   submitted_at: string;
+  kind?: 'approval' | 'disbursement' | null;
 }
 
 interface PlanLine {
@@ -119,6 +120,19 @@ export function FacilitationApprovalGate() {
     void load();
   };
 
+  const disburse = async () => {
+    if (!prompt) return;
+    setWorking(true);
+    const { error } = await supabase.rpc('pso_facilitation_disburse' as never, {
+      _requisition_id: prompt.requisition_id,
+    } as never);
+    setWorking(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Facilitation disbursed');
+    setPrompt(null);
+    void load();
+  };
+
   const later = async () => {
     if (!prompt) return;
     setWorking(true);
@@ -131,6 +145,8 @@ export function FacilitationApprovalGate() {
 
   if (!prompt) return null;
 
+  const isDisbursement = prompt.kind === 'disbursement';
+
   return (
     <Dialog open onOpenChange={() => { /* cannot be dismissed */ }}>
       <DialogContent
@@ -141,7 +157,8 @@ export function FacilitationApprovalGate() {
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5 text-primary" /> Facilitation needs your decision
+            <ShieldAlert className="h-5 w-5 text-primary" />{' '}
+            {isDisbursement ? 'Facilitation ready for disbursement' : 'Facilitation needs your decision'}
           </DialogTitle>
           <DialogDescription>
             {prompt.officer_name} • {prompt.requisition_code} • submitted {fmtDate(prompt.submitted_at)}
@@ -210,9 +227,9 @@ export function FacilitationApprovalGate() {
               </>
             ) : (
               <>
-                <Button onClick={() => void approve()} disabled={working}>
+                <Button onClick={() => void (isDisbursement ? disburse() : approve())} disabled={working}>
                   {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Approve
+                  {isDisbursement ? 'Disburse' : 'Approve'}
                 </Button>
                 <Button variant="destructive" onClick={() => setDeclining(true)} disabled={working}>
                   Decline
