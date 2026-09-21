@@ -13,6 +13,8 @@ import { ChevronLeft, ChevronRight, Crosshair, Flame, Home, Loader2, MapPin, Nav
 import { HighlightText, houseAddressLine, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
+import { supabase } from '@/integrations/supabase/client';
+
 import { clusterMarkerLabel, clusterMarkerSize, clusterZoomTarget } from './emptyHouseMapCluster';
 import { MapPerfOverlay } from './MapPerfOverlay';
 import { HEAT_BUCKETS, heatBucketFor, heatmapAppliesAtZoom } from './emptyHouseHeatmap';
@@ -421,21 +423,56 @@ export function EmptyHouseMapBrowser({
 
   /**
    * When the funder taps "See more in <district>" from a house's details, the
-   * district filter changes — move the map onto that district's houses.
+   * district filter changes — move the map onto that district's houses. The
+   * loaded list rarely holds them (the map only fetches the current viewport),
+   * so fall back to asking the database for that district's coordinates.
    */
   useEffect(() => {
     if (!mapInstance || !district) return;
+    let cancelled = false;
     const key = district.trim().toLowerCase();
-    const points = houses
-      .filter((h) => String(h.district ?? '').trim().toLowerCase() === key)
-      .map((h) => [Number(h.latitude), Number(h.longitude)] as [number, number])
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
-    if (points.length === 0) return;
-    initialFitDone.current = true;
-    if (points.length === 1) mapInstance.flyTo(points[0], 14, { duration: 0.6 });
-    else mapInstance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 13 });
+
+    const fit = (points: [number, number][]) => {
+      if (cancelled || points.length === 0) return;
+      initialFitDone.current = true;
+      if (points.length === 1) mapInstance.flyTo(points[0], 14, { duration: 0.6 });
+      else mapInstance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 13 });
+    };
+
+    const usable = (rows: { latitude?: unknown; longitude?: unknown }[]) =>
+      rows
+        .map((h) => [Number(h.latitude), Number(h.longitude)] as [number, number])
+        .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
+
+    const local = usable(houses.filter((h) => String(h.district ?? '').trim().toLowerCase() === key));
+    if (local.length > 0) {
+      fit(local);
+      return;
+    }
+
+    (async () => {
+      const { data, error } = await supabase
+        .from('house_listings')
+        .select('latitude,longitude')
+        .eq('status', 'available')
+        .is('tenant_id', null)
+        .eq('verified', true)
+        .eq('is_hidden', false)
+        .gt('monthly_rent', 0)
+        .ilike('district', key)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null)
+        .limit(500);
+      if (error || !data) return;
+      fit(usable(data as { latitude?: unknown; longitude?: unknown }[]));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [district, mapInstance]);
+
 
 
   /**
