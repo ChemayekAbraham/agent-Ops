@@ -415,7 +415,7 @@ export async function generateCombinedCallingCenterPdf(
   }
 
   // =========================================================== Footer
-  const pages = doc.internal.getNumberOfPages();
+  const pages = (doc.internal as any).getNumberOfPages();
   for (let i = 1; i <= pages; i += 1) {
     doc.setPage(i);
     doc.setDrawColor(...THEME_BORDER);
