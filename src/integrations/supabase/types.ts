@@ -62053,6 +62053,62 @@ export type Database = {
           staff_ref: string
         }[]
       }
+      pso_facilitation_disburse: {
+        Args: { _requisition_id: string }
+        Returns: {
+          amount: number
+          approved_amount: number | null
+          attachment_urls: string[]
+          category: string | null
+          ceo_decided_at: string | null
+          ceo_decided_by: string | null
+          ceo_note: string | null
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_note: string | null
+          coo_decided_at: string | null
+          coo_decided_by: string | null
+          coo_note: string | null
+          created_at: string
+          credited_at: string | null
+          credited_by: string | null
+          currency: string
+          current_approver_role: string | null
+          decided_at: string | null
+          department_id: string | null
+          department_key: string | null
+          final_stage: string
+          hr_decided_at: string | null
+          hr_decided_by: string | null
+          hr_note: string | null
+          id: string
+          loan_monthly_rate: number | null
+          loan_months: number | null
+          needed_by: string | null
+          reason: string
+          rejection_reason: string | null
+          request_kind: string
+          requester_id: string
+          requester_name: string | null
+          requester_role: string | null
+          requisition_code: string
+          returned_from_stage: string | null
+          stage: string
+          supervisor_decided_at: string | null
+          supervisor_decided_by: string | null
+          supervisor_note: string | null
+          title: string
+          updated_at: string
+          wallet_credit_status: string | null
+          wallet_transaction_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_requisitions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       pso_facilitation_pending_prompt: {
         Args: never
         Returns: {
