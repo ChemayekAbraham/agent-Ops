@@ -994,6 +994,7 @@ export function FunderCapitalOpportunities({
                           value={calcAmountInput}
                           onChange={(e) => setCalcAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
                           className="h-9 text-xs"
+                          autoFocus={calcOpen}
                         />
                       </div>
 
