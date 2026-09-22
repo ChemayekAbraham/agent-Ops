@@ -122,20 +122,28 @@ export default function FunderDashboardNew() {
    * location".
    */
   const origin: FunderNewOrigin | null = useMemo(() => {
+    const chosenRadius = filters.radiusKm === 'all' ? null : filters.radiusKm;
     if (location.coords) {
       return {
         lat: location.coords.lat,
         lng: location.coords.lng,
         source: 'device',
-        radiusKm: DEFAULT_RADIUS_KM,
+        radiusKm: chosenRadius ?? DEFAULT_RADIUS_KM,
         label: 'your location',
       };
     }
     if (area) {
-      return { lat: area.lat, lng: area.lng, source: 'area', radiusKm: area.radiusKm, label: 'this area' };
+      return {
+        lat: area.lat,
+        lng: area.lng,
+        source: 'area',
+        radiusKm: chosenRadius ?? area.radiusKm,
+        label: 'this area',
+      };
     }
     return null;
-  }, [location.coords, area]);
+  }, [location.coords, area, filters.radiusKm]);
+
 
   /** Distance labels always measure from the real device position. */
   const deviceOrigin = location.coords ? { lat: location.coords.lat, lng: location.coords.lng } : null;
