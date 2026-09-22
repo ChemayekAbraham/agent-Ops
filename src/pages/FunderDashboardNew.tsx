@@ -462,10 +462,15 @@ export default function FunderDashboardNew() {
             supportsSort
             hasOrigin={!!origin}
             availableBalance={availableBalance}
+            resultCount={
+              filters.withinFloat && availableBalance !== null ? items.length : filteredTotal
+            }
+            resultCounting={feedLoading || feedFetching}
             onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
             onSortChange={changeSort}
             onReset={resetFilters}
           />
+
 
           {filters.withinFloat && availableBalance !== null ? (
             <p className="px-1 text-xs text-muted-foreground">
