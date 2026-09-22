@@ -62,16 +62,16 @@ function ContactRow({ contact }: { contact: SupportContact }) {
   };
 
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-lg border bg-card p-3">
-      <div className="min-w-[180px] flex-1">
+    <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <div className="min-w-0 w-full sm:min-w-[180px] sm:flex-1">
         <Label className="text-xs text-muted-foreground">Name</Label>
         <Input value={label} onChange={(e) => setLabel(e.target.value)} />
       </div>
-      <div className="min-w-[160px] flex-1">
+      <div className="min-w-0 w-full sm:min-w-[160px] sm:flex-1">
         <Label className="text-xs text-muted-foreground">Number</Label>
         <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
       </div>
-      <Button size="sm" onClick={onSave} disabled={!dirty || save.isPending}>
+      <Button size="sm" className="w-full sm:w-auto" onClick={onSave} disabled={!dirty || save.isPending}>
         <Save className="mr-1 h-3.5 w-3.5" />
         Save
       </Button>
@@ -97,16 +97,16 @@ function AddContact() {
   };
 
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-dashed p-3">
-      <div className="min-w-[180px] flex-1">
+    <div className="flex flex-col gap-2 rounded-lg border border-dashed p-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <div className="min-w-0 w-full sm:min-w-[180px] sm:flex-1">
         <Label className="text-xs text-muted-foreground">Name</Label>
         <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Welile Customer Care" />
       </div>
-      <div className="min-w-[160px] flex-1">
+      <div className="min-w-0 w-full sm:min-w-[160px] sm:flex-1">
         <Label className="text-xs text-muted-foreground">Number</Label>
         <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+256..." />
       </div>
-      <Button size="sm" variant="outline" onClick={onAdd} disabled={!label.trim() || !phone.trim() || save.isPending}>
+      <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={onAdd} disabled={!label.trim() || !phone.trim() || save.isPending}>
         Add number
       </Button>
     </div>
@@ -352,7 +352,7 @@ export default function TenantCommunicationsTab() {
             setTenantId(null);
           }}
           placeholder="Search a tenant by name or phone"
-          className="max-w-sm"
+          className="w-full sm:max-w-sm"
         />
         {matches.length > 0 && !tenantId && (
           <div className="mt-2 flex flex-wrap gap-2">
@@ -361,6 +361,7 @@ export default function TenantCommunicationsTab() {
                 key={row.tenant_id}
                 size="sm"
                 variant="outline"
+                className="h-auto max-w-full whitespace-normal break-words text-left"
                 onClick={() => setTenantId(row.tenant_id)}
               >
                 {row.tenant_name ?? 'Unnamed'} · {row.tenant_phone ?? 'no phone'}
@@ -408,10 +409,10 @@ export default function TenantCommunicationsTab() {
       </div>
 
       <div>
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="mb-2 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold">Recent payment messages</h3>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={onExportPdf} disabled={pdfLoading}>
+          <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:flex sm:flex-wrap">
+            <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={onExportPdf} disabled={pdfLoading}>
               {pdfLoading ? (
                 <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -419,7 +420,7 @@ export default function TenantCommunicationsTab() {
               )}
               Professional PDF
             </Button>
-            <Button size="sm" variant="outline" onClick={onExportXlsx} disabled={xlsxLoading}>
+            <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={onExportXlsx} disabled={xlsxLoading}>
               {xlsxLoading ? (
                 <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               ) : (
