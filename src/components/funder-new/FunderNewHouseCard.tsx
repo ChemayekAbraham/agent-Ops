@@ -119,14 +119,6 @@ export function FunderNewHouseCard({
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {monthlyReturn === null ? null : (
-            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-              {formatDynamic(monthlyReturn)} / month
-            </span>
-          )}
-        </div>
-
         <div className="pt-1">
           <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(amount)}</p>
           <p className="mt-2 text-xs text-muted-foreground">
