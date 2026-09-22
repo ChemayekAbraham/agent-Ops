@@ -167,9 +167,39 @@ export default function FunderDashboardNew() {
   const readyItems = useMemo(() => (readyQuery.data?.pages ?? []).flatMap((page) => page.items), [readyQuery.data]);
 
   const activeQuery = tab === 'empty' ? emptyQuery : readyQuery;
-  const items: Array<FunderNewEmptyHouse | FunderNewReadyPlan> = tab === 'empty' ? emptyItems : readyItems;
+  const loadedItems: Array<FunderNewEmptyHouse | FunderNewReadyPlan> = tab === 'empty' ? emptyItems : readyItems;
   const filteredTotal = activeQuery.data?.pages?.[0]?.total ?? 0;
   const readyLimitation = readyQuery.data?.pages?.[0]?.limitation ?? null;
+
+  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
+
+  /** Districts present in the homes already loaded, used by the district chip. */
+  const districtOptions = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    loadedItems.forEach((item) => {
+      const raw = (item as Record<string, unknown>).district;
+      const value = typeof raw === 'string' ? raw.trim() : '';
+      if (!value) return;
+      const existing = counts.get(value);
+      if (existing) existing.count += 1;
+      else counts.set(value, { label: placeCase(value) || value, count: 1 });
+    });
+    return [...counts.entries()]
+      .map(([value, meta]) => ({ value, label: meta.label, count: meta.count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [loadedItems]);
+
+  /**
+   * The within-balance chip is applied to the homes already loaded, because the
+   * read service has no balance parameter. The chip row says so.
+   */
+  const items = useMemo(() => {
+    if (!filters.withinFloat || availableBalance === null) return loadedItems;
+    return loadedItems.filter((item) => {
+      const amount = itemAmount(item, tab);
+      return amount > 0 && amount <= availableBalance;
+    });
+  }, [loadedItems, filters.withinFloat, availableBalance, tab]);
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
 
@@ -182,8 +212,29 @@ export default function FunderDashboardNew() {
     [selectedItems],
   );
 
-  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
-  const filtersActive = filters.search.trim() !== '' || filters.location.trim() !== '' || filters.amount !== 'all';
+  const filtersActive =
+    filters.search.trim() !== '' ||
+    filters.location.trim() !== '' ||
+    filters.amount !== 'all' ||
+    filters.rentMin !== null ||
+    filters.rentMax !== null ||
+    filters.radiusKm !== 'all' ||
+    filters.withinFloat;
+
+  const resetFilters = () => {
+    setSearchInput('');
+    setFilters((current) => ({
+      search: '',
+      location: '',
+      amount: 'all',
+      sort: current.sort,
+      rentMin: null,
+      rentMax: null,
+      radiusKm: 'all',
+      withinFloat: false,
+    }));
+  };
+
 
   const toggleSave = (category: FunderNewCategory, id: string) => {
     setSaved((current) => {
