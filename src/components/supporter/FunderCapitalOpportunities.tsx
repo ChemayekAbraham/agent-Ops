@@ -793,10 +793,6 @@ export function FunderCapitalOpportunities({
 
         {/* One merged list: empty houses and houses with ready tenants */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
-          <div className="w-full rounded-md bg-success px-2 py-2 text-center text-[11px] sm:text-xs font-bold leading-tight text-white min-h-11 flex items-center justify-center">
-            Houses to fund
-          </div>
-
           {user?.id
             ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
