@@ -100,19 +100,21 @@ function meIcon(): L.DivIcon {
 }
 
 /**
- * Applies the automatic initial centre exactly once.
+ * Applies the automatic initial centre exactly once, with a flyTo animation.
  *
- * The fallback fitBounds is deliberately withheld while an automatic
- * (already-granted) location fix is still in flight, so a late success is never
- * overridden by the fallback.
+ * - With an already-granted device fix: fly to the user so the nearest homes
+ *   load around them.
+ * - Otherwise: fly to Kampala by default, so the map opens on house pins
+ *   instead of a blank country-level view.
+ *
+ * The fallback is deliberately withheld while an automatic (already-granted)
+ * location fix is still in flight, so a late success is never overridden.
  */
 function InitialView({
   device,
-  points,
   awaitingDeviceFix,
 }: {
   device: { lat: number; lng: number } | null;
-  points: { lat: number; lng: number }[];
   awaitingDeviceFix: boolean;
 }) {
   const map = useMap();
@@ -122,21 +124,13 @@ function InitialView({
     if (done.current) return;
     if (device) {
       done.current = true;
-      map.setView([device.lat, device.lng], LOCATED_ZOOM, { animate: false });
+      map.flyTo([device.lat, device.lng], LOCATED_ZOOM, { duration: 1.2 });
       return;
     }
     if (awaitingDeviceFix) return;
-    if (points.length === 0) return;
     done.current = true;
-    if (points.length === 1) {
-      map.setView([points[0].lat, points[0].lng], 12, { animate: false });
-      return;
-    }
-    map.fitBounds(
-      points.map((point) => [point.lat, point.lng] as [number, number]),
-      { padding: [28, 28], maxZoom: 12, animate: false },
-    );
-  }, [map, device, points, awaitingDeviceFix]);
+    map.flyTo(KAMPALA_CENTRE, KAMPALA_ZOOM, { duration: 1.2 });
+  }, [map, device, awaitingDeviceFix]);
 
   return null;
 }
