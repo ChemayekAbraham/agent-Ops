@@ -50,7 +50,8 @@ function useScrollWidening(ref: React.RefObject<HTMLDivElement>) {
       if (next === progressRef.current) return;
       progressRef.current = next;
 
-      const parentWidth = node.parentElement?.clientWidth ?? rect.width;
+      const parentWidth = node.parentElement?.clientWidth || rect.width;
+      if (parentWidth <= 1) return;
       const full = document.documentElement.clientWidth || window.innerWidth;
       const gutter = Math.max(0, (full - parentWidth) / 2);
       setBleed(Number((gutter * next).toFixed(2)));
