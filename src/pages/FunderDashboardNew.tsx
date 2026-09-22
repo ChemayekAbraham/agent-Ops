@@ -428,16 +428,31 @@ export default function FunderDashboardNew() {
               <Button
                 variant="ghost"
                 className="h-11 min-w-0 basis-full rounded-xl text-sm sm:flex-none sm:basis-auto"
-                onClick={() => {
-                  setSearchInput('');
-                  setFilters({ search: '', location: '', amount: 'all', sort: filters.sort });
-                }}
+                onClick={resetFilters}
               >
                 <X className="h-4 w-4" aria-hidden />
                 Clear
               </Button>
             ) : null}
           </div>
+
+          {/* Chip filters, matching the current funding dashboard */}
+          <FunderNewFilterChips
+            filters={filters}
+            districts={districtOptions}
+            supportsSort={tab === 'empty'}
+            hasOrigin={!!origin}
+            availableBalance={availableBalance}
+            onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
+            onSortChange={changeSort}
+            onReset={resetFilters}
+          />
+          {filters.withinFloat && availableBalance !== null ? (
+            <p className="px-1 text-xs text-muted-foreground">
+              Within-balance is applied to the homes already loaded, because the read service has no balance filter.
+            </p>
+          ) : null}
+
 
           <Tabs value={tab} onValueChange={(value) => setTab(value as FunderNewCategory)}>
             <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-xl p-1 sm:w-fit">
