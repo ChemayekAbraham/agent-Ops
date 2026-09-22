@@ -452,8 +452,8 @@ export function CombinedCallingCenterReportButton({
         reconciliation: [
           {
             label: 'Total forwarded — concerns sent to at least one staff member',
-            count: concerns.length,
-            share: gPct(concerns.length),
+            count: reportRows.length,
+            share: gPct(reportRows.length),
           },
           {
             label: 'Not forwarded / no staff assigned — calls we made',
