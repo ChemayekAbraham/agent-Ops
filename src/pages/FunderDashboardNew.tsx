@@ -391,13 +391,6 @@ export default function FunderDashboardNew() {
               </button>
             )}
           </div>
-          <Button
-            variant="outline"
-            className="shrink-0 rounded-xl"
-            onClick={() => navigate('/dashboard/funder')}
-          >
-            Current dashboard
-          </Button>
         </div>
       </section>
 
