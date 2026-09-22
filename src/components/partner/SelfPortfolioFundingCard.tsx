@@ -1070,27 +1070,6 @@ export function SelfPortfolioFundingCard({
       )}
 
 
-      <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold text-muted-foreground">Available to fund</p>
-            <p className="text-base sm:text-lg font-black text-foreground">{formatDynamic(available)}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Minimum {formatDynamic(MIN_FUNDING)} per plan
-            </p>
-            <p className="hidden sm:block text-[10px] font-semibold text-muted-foreground mt-0.5">
-              You can only select plans up to your operational float —{' '}
-              {formatDynamic(remaining)} left to fund
-            </p>
-            <p className="text-[10px] font-semibold text-primary mt-1">
-              {formatDynamic(marketRentNeeded)} rent needed by  houses
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={() => void load()} disabled={busy}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </Card>
       {(
         <p className="text-[11px] font-semibold text-muted-foreground px-1">
           &nbsp;{houses.length} house
