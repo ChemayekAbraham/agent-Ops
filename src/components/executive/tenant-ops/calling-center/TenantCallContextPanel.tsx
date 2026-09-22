@@ -60,9 +60,14 @@ export function TenantCallContextPanel({
         }
         badges={
           <>
+            {snap?.is_weekly && (
+              <Badge variant="outline" className="border-primary/30 bg-primary/10 text-[10px] text-primary">
+                Weekly payments
+              </Badge>
+            )}
             {risk && (
               <Badge variant="outline" className={`text-[10px] ${riskTone}`}>
-                {snap?.missed_days}d missed
+                {snap?.is_weekly ? `${snap.days_overdue}d overdue` : `${snap?.missed_days}d missed`}
               </Badge>
             )}
             {snap && (
@@ -91,23 +96,85 @@ export function TenantCallContextPanel({
             No active rent plan figures are on file for this tenant.
           </p>
         ) : (
-          <StatGrid>
-            <StatTile label="Days missed" value={`${snap.missed_days}d`} tone={missedTone} />
-            <StatTile label="Missed amount" value={formatUGX(snap.missed_amount)} tone="text-destructive" />
-            <StatTile label="Total owed" value={formatUGX(snap.outstanding_balance)} />
-            <StatTile label="Daily payment" value={formatUGX(snap.daily_repayment)} />
-            <StatTile label="Repaid so far" value={formatUGX(snap.amount_repaid)} tone="text-emerald-600" />
-            <StatTile label="Days active" value={`${snap.days_since_disbursed}d`} />
-            <StatTile label="Rent amount" value={formatUGX(snap.rent_amount)} />
-            <StatTile label="Plan total" value={formatUGX(snap.total_repayment)} />
-            <StatTile
-              label="Tenant wallet"
-              value={formatUGX(snap.tenant_wallet)}
-              tone={snap.tenant_wallet > 0 ? 'text-emerald-600' : 'text-destructive'}
-            />
-          </StatGrid>
+          <>
+            {snap.is_weekly && (
+              <p className="mb-2 rounded-xl border border-primary/25 bg-primary/5 px-2.5 py-2 text-[11px] leading-relaxed">
+                <span className="font-bold">Weekly-payment tenant.</span> Expected{' '}
+                <span className="font-semibold tabular-nums">{formatUGX(snap.period_amount)}</span> every week.{' '}
+                {snap.current_due_settled ? (
+                  <span className="font-semibold text-emerald-600">Rent Plan fully repaid — nothing due.</span>
+                ) : (
+                  <>
+                    Payment due{' '}
+                    <span className="font-semibold">{snap.current_due_date ? dayLabel(snap.current_due_date) : '—'}</span>{' '}
+                    ·{' '}
+                    {snap.current_due_paid > 0 ? (
+                      <span className="font-semibold text-amber-600">
+                        part paid ({formatUGX(snap.current_due_paid)} of {formatUGX(snap.period_amount)})
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-destructive">not paid</span>
+                    )}{' '}
+                    ·{' '}
+                    {snap.days_overdue > 0 ? (
+                      <span className="font-semibold text-destructive">
+                        {snap.days_overdue} day{snap.days_overdue === 1 ? '' : 's'} overdue
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-emerald-600">not yet overdue</span>
+                    )}
+                    {snap.next_due_date && (
+                      <span className="text-muted-foreground"> · next payment {dayLabel(snap.next_due_date)}</span>
+                    )}
+                  </>
+                )}
+              </p>
+            )}
+            <StatGrid>
+              {snap.is_weekly ? (
+                <>
+                  <StatTile label="Days overdue" value={`${snap.days_overdue}d`} tone={missedTone} />
+                  <StatTile label="Weekly payment" value={formatUGX(snap.period_amount)} />
+                  <StatTile
+                    label="Payment due"
+                    value={snap.current_due_date ? dayLabel(snap.current_due_date) : '—'}
+                  />
+                  <StatTile
+                    label="This payment"
+                    value={
+                      snap.current_due_settled
+                        ? 'Cleared'
+                        : snap.current_due_paid > 0
+                          ? `Part paid ${formatUGX(snap.current_due_paid)}`
+                          : 'Not paid'
+                    }
+                    tone={snap.current_due_settled ? 'text-emerald-600' : 'text-destructive'}
+                  />
+                  <StatTile label="Weeks unpaid" value={`${snap.periods_overdue}`} />
+                  <StatTile label="Overdue amount" value={formatUGX(snap.missed_amount)} tone="text-destructive" />
+                </>
+              ) : (
+                <>
+                  <StatTile label="Days missed" value={`${snap.missed_days}d`} tone={missedTone} />
+                  <StatTile label="Missed amount" value={formatUGX(snap.missed_amount)} tone="text-destructive" />
+                  <StatTile label="Daily payment" value={formatUGX(snap.daily_repayment)} />
+                </>
+              )}
+              <StatTile label="Total owed" value={formatUGX(snap.outstanding_balance)} />
+              <StatTile label="Repaid so far" value={formatUGX(snap.amount_repaid)} tone="text-emerald-600" />
+              <StatTile label="Days active" value={`${snap.days_since_disbursed}d`} />
+              <StatTile label="Rent amount" value={formatUGX(snap.rent_amount)} />
+              <StatTile label="Plan total" value={formatUGX(snap.total_repayment)} />
+              <StatTile
+                label="Tenant wallet"
+                value={formatUGX(snap.tenant_wallet)}
+                tone={snap.tenant_wallet > 0 ? 'text-emerald-600' : 'text-destructive'}
+              />
+            </StatGrid>
+          </>
         )}
       </DrawerSection>
+
 
       <DrawerSection title="Contacts" icon={UserRound} className="mt-1">
         <div className="space-y-2">
