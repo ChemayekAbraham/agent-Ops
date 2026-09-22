@@ -49953,6 +49953,7 @@ export type Database = {
         Row: {
           person_id: string | null
           section: string | null
+          subtype: string | null
         }
         Relationships: []
       }
