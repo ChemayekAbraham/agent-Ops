@@ -98,7 +98,6 @@ export function FunderNewHouseCard({
         <div className="min-w-0">
           <div className="flex min-w-0 items-start gap-2">
             <p className="min-w-0 flex-1 break-words text-base font-bold leading-snug text-foreground">{title}</p>
-            {verified ? <FunderNewVerifiedBadge variant="icon" /> : null}
           </div>
           <p className="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
             <MapPin className="mt-0.5 h-3.5 w-3.5 flex-none" aria-hidden />
