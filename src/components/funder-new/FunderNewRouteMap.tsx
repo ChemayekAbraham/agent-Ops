@@ -15,6 +15,10 @@ import { emptyHouseTitle, itemAmount } from './utils';
 const SERVICE_AREA_CENTRE: [number, number] = [1.3733, 32.2903];
 const SERVICE_AREA_ZOOM = 7;
 const LOCATED_ZOOM = 13;
+/** Default fly-to when no device location is available: Kampala, where most
+ *  homes are listed, so the map opens on house pins instead of a blank view. */
+const KAMPALA_CENTRE: [number, number] = [0.3476, 32.5825];
+const KAMPALA_ZOOM = 12;
 const CLUSTER_CELL_PX = 74;
 
 export interface FunderNewViewport {
@@ -96,19 +100,21 @@ function meIcon(): L.DivIcon {
 }
 
 /**
- * Applies the automatic initial centre exactly once.
+ * Applies the automatic initial centre exactly once, with a flyTo animation.
  *
- * The fallback fitBounds is deliberately withheld while an automatic
- * (already-granted) location fix is still in flight, so a late success is never
- * overridden by the fallback.
+ * - With an already-granted device fix: fly to the user so the nearest homes
+ *   load around them.
+ * - Otherwise: fly to Kampala by default, so the map opens on house pins
+ *   instead of a blank country-level view.
+ *
+ * The fallback is deliberately withheld while an automatic (already-granted)
+ * location fix is still in flight, so a late success is never overridden.
  */
 function InitialView({
   device,
-  points,
   awaitingDeviceFix,
 }: {
   device: { lat: number; lng: number } | null;
-  points: { lat: number; lng: number }[];
   awaitingDeviceFix: boolean;
 }) {
   const map = useMap();
@@ -118,21 +124,13 @@ function InitialView({
     if (done.current) return;
     if (device) {
       done.current = true;
-      map.setView([device.lat, device.lng], LOCATED_ZOOM, { animate: false });
+      map.flyTo([device.lat, device.lng], LOCATED_ZOOM, { duration: 1.2 });
       return;
     }
     if (awaitingDeviceFix) return;
-    if (points.length === 0) return;
     done.current = true;
-    if (points.length === 1) {
-      map.setView([points[0].lat, points[0].lng], 12, { animate: false });
-      return;
-    }
-    map.fitBounds(
-      points.map((point) => [point.lat, point.lng] as [number, number]),
-      { padding: [28, 28], maxZoom: 12, animate: false },
-    );
-  }, [map, device, points, awaitingDeviceFix]);
+    map.flyTo(KAMPALA_CENTRE, KAMPALA_ZOOM, { duration: 1.2 });
+  }, [map, device, awaitingDeviceFix]);
 
   return null;
 }
@@ -325,7 +323,6 @@ export function FunderNewRouteMap({
   const expandRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
-  const points = useMemo(() => cells.map((cell) => ({ lat: cell.lat, lng: cell.lng })), [cells]);
 
   // Escape closes full screen; focus is moved in and restored on close.
   useEffect(() => {
@@ -453,7 +450,6 @@ export function FunderNewRouteMap({
 
         <InitialView
           device={device}
-          points={points}
           awaitingDeviceFix={awaitingDeviceFix}
         />
         <ViewportReporter onChange={onViewportChange} onMoved={setMoved} />
