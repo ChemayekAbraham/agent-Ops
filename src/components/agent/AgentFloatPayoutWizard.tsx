@@ -651,7 +651,6 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     void refetchLandlordPayoutFloat();
     setSelectedRequest(r);
     setAmountInput(String(r?.rent_amount ?? ''));
-    setPhoneOverride('');
     setStep('otp');
   };
 
