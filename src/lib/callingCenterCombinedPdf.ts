@@ -219,6 +219,60 @@ export async function generateCombinedCallingCenterPdf(
     columnStyles: { 0: { cellWidth: 120 } },
   });
 
+  // ================================= 2. Staff concern handling summary
+  doc.addPage();
+  cursor = 20;
+  section('2 · Staff Concern Handling Summary — calls we made and calls that came in', 60);
+  note(input.staffHandling.note);
+  if (!input.staffHandling.rows.length) {
+    note('No concern was forwarded to any staff member in this period.');
+  } else {
+    table({
+      head: [
+        [
+          'Staff member',
+          'Concerns sent to them',
+          'From calls we made',
+          'From calls that came in',
+          'Completed',
+          'Still open',
+          'Past due',
+          'Answered in time',
+          'Average time to complete',
+          'Also involved as reviewer',
+        ],
+      ],
+      body: input.staffHandling.rows.map((r) => [
+        r.name,
+        String(r.total),
+        String(r.fromMade),
+        String(r.fromReceived),
+        String(r.completed),
+        String(r.open),
+        String(r.overdue),
+        String(r.onTime),
+        r.avgHours,
+        String(r.alsoReviewer),
+      ]),
+      styles: { ...tableBase.styles, fontSize: 7.5 },
+      headStyles: { ...tableBase.headStyles, fontSize: 7.5 },
+      columnStyles: { 0: { cellWidth: 45 } },
+    });
+  }
+
+  section('Forwarded, not forwarded and the grand total', 55);
+  table({
+    head: [['Measure', 'Count', 'Share of grand total']],
+    body: input.staffHandling.reconciliation.map((r) => [r.label, String(r.count), r.share]),
+    columnStyles: { 0: { cellWidth: 140 } },
+    didParseCell: (data: any) => {
+      const label = String(input.staffHandling.reconciliation[data.row.index]?.label ?? '');
+      if (data.section === 'body' && /^(Total|Grand total)/i.test(label)) {
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
   section('Status breakdown — received calls and forwarded concerns side by side', 60);
   table({
     head: [['Received call status', 'Count', 'Share', 'Concern status', 'Count', 'Share']],
