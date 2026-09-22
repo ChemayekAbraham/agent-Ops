@@ -15,6 +15,10 @@ import { emptyHouseTitle, itemAmount } from './utils';
 const SERVICE_AREA_CENTRE: [number, number] = [1.3733, 32.2903];
 const SERVICE_AREA_ZOOM = 7;
 const LOCATED_ZOOM = 13;
+/** Default fly-to when no device location is available: Kampala, where most
+ *  homes are listed, so the map opens on house pins instead of a blank view. */
+const KAMPALA_CENTRE: [number, number] = [0.3476, 32.5825];
+const KAMPALA_ZOOM = 12;
 const CLUSTER_CELL_PX = 74;
 
 export interface FunderNewViewport {
