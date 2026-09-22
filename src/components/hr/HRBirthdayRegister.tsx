@@ -47,6 +47,14 @@ export default function HRBirthdayRegister() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState<BirthdayRow | null>(null);
 
+  // Write capability is known up front, so read-only viewers never see controls
+  // that would fail on click. The post-failure readOnly flag stays as a backstop.
+  const canWrite = useMemo(
+    () => (roles ?? []).some((r) => ['hr', 'ceo', 'super_admin'].includes(r as string)),
+    [roles],
+  );
+  const showActions = canWrite && !readOnly;
+
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc('hr_list_staff_birthdays' as never);
     if (error) {
