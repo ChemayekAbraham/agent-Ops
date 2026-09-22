@@ -1056,7 +1056,7 @@ export function SelfPortfolioFundingCard({
 
   return (
     <div className="space-y-3">
-      {feedOrder === 'houses' && houses.length > 0 && (
+      {houses.length > 0 && (
         <div className="flex items-center justify-between px-1">
           <div>
             <p className="text-[15px] font-bold text-foreground">
@@ -1091,14 +1091,14 @@ export function SelfPortfolioFundingCard({
           </Button>
         </div>
       </Card>
-      {feedOrder !== 'houses' && (
+      {(
         <p className="text-[11px] font-semibold text-muted-foreground px-1">
           {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
           {houses.length === 1 ? '' : 's'}
         </p>
       )}
 
-      {feedOrder === 'houses' && houses.length > 0 && (
+      {houses.length > 0 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1 px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter houses">
           {/* Sort chip */}
           <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
@@ -1212,7 +1212,7 @@ export function SelfPortfolioFundingCard({
 
 
 
-      {feedOrder === 'houses' && houses.length > 0 && (houseDistricts.length > 0 || houseSubCounties.length > 0) && (
+      {houses.length > 0 && (houseDistricts.length > 0 || houseSubCounties.length > 0) && (
         <div className="space-y-1.5 px-1" aria-label="Quick location filters">
           {houseDistricts.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="District quick filters">
@@ -1289,7 +1289,7 @@ export function SelfPortfolioFundingCard({
         </div>
       )}
 
-      {feedOrder === 'houses' && alertsOpen && houseAlerts.length > 0 && (
+      {alertsOpen && houseAlerts.length > 0 && (
         <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border-border" aria-label="Balance alert history">
           <div className="flex items-center justify-between gap-2 px-0.5">
             <p className="text-xs font-black text-foreground">Balance alerts</p>
@@ -1360,7 +1360,7 @@ export function SelfPortfolioFundingCard({
       )}
 
 
-      {feedOrder === 'houses' && (savedForLater.length > 0 || fundableNow.length > 0) && (
+      {(savedForLater.length > 0 || fundableNow.length > 0) && (
         <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border-primary/30 bg-primary/5">
           <div className="flex items-center gap-1.5 px-0.5">
             <Bookmark className="h-3.5 w-3.5 text-primary" aria-hidden />
@@ -1486,7 +1486,7 @@ export function SelfPortfolioFundingCard({
         </Card>
       )}
 
-      {feed.length === 0 && feedOrder === 'houses' && houses.length > 0 && (
+      {feed.length === 0 && houses.length > 0 && (
         <Card className="p-6 rounded-2xl text-center space-y-3">
           <Home className="h-8 w-8 mx-auto text-muted-foreground" />
           <div className="space-y-1">
@@ -1522,7 +1522,7 @@ export function SelfPortfolioFundingCard({
         </Card>
       )}
 
-      {feed.length === 0 && !(feedOrder === 'houses' && houses.length > 0) && (
+      {feed.length === 0 && houses.length === 0 && (
         <Card className="p-6 rounded-2xl text-center">
           <Wallet className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
           <p className="text-sm font-semibold">Nothing awaiting money right now</p>
@@ -1536,13 +1536,13 @@ export function SelfPortfolioFundingCard({
 
 
 
-      <div className={feedOrder === 'houses' ? 'grid gap-3 sm:grid-cols-2' : 'space-y-3'}>
+      <div className="grid gap-3 sm:grid-cols-2">
       {pageItems.map((item, i) => {
         const globalIndex = pageStart + i;
         const prevKind = globalIndex > 0 ? feed[globalIndex - 1].kind : null;
         const groupHeader =
           globalIndex > 0 && prevKind !== item.kind ? (
-            <div key={`hr-${item.kind}`} className="flex items-center gap-2 px-1 pt-2">
+            <div key={`hr-${item.kind}`} className="flex items-center gap-2 px-1 pt-2 sm:col-span-2">
               <span className="h-px flex-1 bg-border" />
               <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
                 {item.kind === 'house' ? 'Houses' : 'Rent requests'}
@@ -1588,7 +1588,7 @@ export function SelfPortfolioFundingCard({
         }
 
         return (
-          <div key={`plan-${item.id}`} className="space-y-3">
+          <div key={`plan-${item.id}`} className="space-y-3 sm:col-span-2">
             {groupHeader}
             {(() => {
         const plan = item.plan;
