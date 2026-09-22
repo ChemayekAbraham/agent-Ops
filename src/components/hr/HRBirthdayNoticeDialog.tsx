@@ -31,19 +31,30 @@ function formatDate(value: string | null) {
 }
 
 export default function HRBirthdayNoticeDialog() {
+  const { user, roles } = useAuth();
   const [pending, setPending] = useState<PendingNotice[]>([]);
   const [busy, setBusy] = useState(false);
 
+  // Only internal staff can ever be a birthday-notice recipient. Everyone else
+  // (tenants, agents, landlords, supporters) must never fetch at all.
+  const isInternalStaff = useMemo(
+    () => (roles ?? []).some((r) => (INTERNAL_STAFF_ROLES as readonly string[]).includes(r as string)),
+    [roles],
+  );
+  const canFetch = !!user && isInternalStaff;
+
   const load = useCallback(async () => {
+    if (!canFetch) return;
     const { data, error } = await supabase.rpc('hr_birthday_pending' as never);
     if (error) {
       setPending([]);
       return;
     }
     setPending(((data ?? []) as unknown as PendingNotice[]));
-  }, []);
+  }, [canFetch]);
 
   useEffect(() => {
+    if (!canFetch) return;
     void load();
     const onFocus = () => void load();
     window.addEventListener('focus', onFocus);
@@ -52,18 +63,30 @@ export default function HRBirthdayNoticeDialog() {
       window.removeEventListener('focus', onFocus);
       window.clearInterval(timer);
     };
-  }, [load]);
+  }, [canFetch, load]);
 
   const current = pending[0];
-  if (!current) return null;
+  if (!canFetch || !current) return null;
 
   const acknowledge = async () => {
     setBusy(true);
     const { error } = await supabase.rpc('hr_birthday_acknowledge' as never, {
       p_notice_id: current.notice_id,
     } as never);
+    if (error) {
+      const message = error.message ?? '';
+      const lower = message.toLowerCase();
+      // 'notice not found or already acknowledged' means another device handled it — treat as success.
+      if (lower.includes('already acknowledged') || lower.includes('not found')) {
+        setBusy(false);
+        await load();
+        return;
+      }
+      toast.error(message);
+      setBusy(false);
+      return;
+    }
     setBusy(false);
-    // 'notice not found or already acknowledged' means another device handled it — treat as success.
     await load();
   };
 
