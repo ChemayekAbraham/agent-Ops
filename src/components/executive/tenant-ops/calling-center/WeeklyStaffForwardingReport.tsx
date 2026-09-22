@@ -204,6 +204,29 @@ export function WeeklyStaffForwardingReport() {
       .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 
     const grandTotal = dailyTotals.reduce((a, b) => a + b, 0);
+
+    // --- Resolved at the Calling Center (no concern forwarded on).
+    const resolvedStaff = new Map<
+      string,
+      { perDay: number[]; fromMade: number; fromReceived: number; total: number }
+    >();
+    const resolvedDailyTotals = blank();
+    (data?.resolved ?? []).forEach((r) => {
+      const idx = dayKeys.indexOf(isoDay(new Date(r.at)));
+      if (idx < 0) return;
+      const entry = resolvedStaff.get(r.name) ?? { perDay: blank(), fromMade: 0, fromReceived: 0, total: 0 };
+      entry.perDay[idx] += 1;
+      entry.total += 1;
+      if (r.source === 'received') entry.fromReceived += 1;
+      else entry.fromMade += 1;
+      resolvedStaff.set(r.name, entry);
+      resolvedDailyTotals[idx] += 1;
+    });
+    const resolvedRows = Array.from(resolvedStaff.entries())
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+    const resolvedGrandTotal = resolvedDailyTotals.reduce((a, b) => a + b, 0);
+
     const busiestIdx = dailyTotals.reduce((best, n, i) => (n > dailyTotals[best] ? i : best), 0);
     const quietestIdx = dailyTotals.reduce((best, n, i) => (n < dailyTotals[best] ? i : best), 0);
     const topStaff = staffRows[0] ?? null;
@@ -216,6 +239,11 @@ export function WeeklyStaffForwardingReport() {
       dailyReceived,
       staffRows,
       grandTotal,
+      resolvedRows,
+      resolvedDailyTotals,
+      resolvedGrandTotal,
+      combinedDailyTotals: dailyTotals.map((n, i) => n + resolvedDailyTotals[i]),
+      combinedGrandTotal: grandTotal + resolvedGrandTotal,
       busiestDay: grandTotal ? `${dayLabels[busiestIdx]} · ${dailyTotals[busiestIdx]}` : '—',
       quietestDay: grandTotal ? `${dayLabels[quietestIdx]} · ${dailyTotals[quietestIdx]}` : '—',
       topStaff,
@@ -225,6 +253,7 @@ export function WeeklyStaffForwardingReport() {
       perDayAverage: grandTotal ? (grandTotal / 7).toFixed(1) : '0',
     };
   }, [data, win.days]);
+
 
   const exportPdf = async () => {
     setBusy(true);
