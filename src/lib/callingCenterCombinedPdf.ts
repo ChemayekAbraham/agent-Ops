@@ -21,11 +21,34 @@ const THEME_MUTED: [number, number, number] = [104, 96, 117];
 const THEME_BORDER: [number, number, number] = [218, 208, 231];
 const STRIPE: [number, number, number] = [246, 243, 251];
 
+/** One staff member's handling of the concerns forwarded to them. */
+export interface StaffHandlingRow {
+  name: string;
+  total: number;
+  fromMade: number;
+  fromReceived: number;
+  completed: number;
+  open: number;
+  overdue: number;
+  onTime: number;
+  avgHours: string;
+  alsoReviewer: number;
+}
+
 export interface CombinedCallingCenterInput {
   /** Overall totals across both reports. */
   executiveTiles: ConcernPdfTile[];
   /** Overall figures table: measure → value (+ optional share of its own report). */
   executiveTotals: { label: string; value: string; share?: string }[];
+  /**
+   * Staff concern handling across BOTH Made Calls and Received Calls, plus the
+   * reconciliation rows (forwarded, not forwarded, grand total).
+   */
+  staffHandling: {
+    rows: StaffHandlingRow[];
+    reconciliation: { label: string; count: number; share: string }[];
+    note: string;
+  };
   received: {
     tiles: ConcernPdfTile[];
     byStatus: { label: string; count: number; pct: number }[];
