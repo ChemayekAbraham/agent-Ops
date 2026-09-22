@@ -836,12 +836,15 @@ export function SelfPortfolioFundingCard({
   }, [houseDistrict, houseSubCounties, houseSubCounty]);
 
   const feed = useMemo<FeedItem[]>(() => {
-    const planItems: FeedItem[] = plans.map((plan) => ({
-      kind: 'plan',
-      id: plan.rent_request_id,
-      plan,
-    }));
-    let visibleHouses = houses.filter((h) => matchesBaseFilters(h));
+    const planItems: FeedItem[] =
+      houseOccupancy === 'empty'
+        ? []
+        : plans.map((plan) => ({
+            kind: 'plan',
+            id: plan.rent_request_id,
+            plan,
+          }));
+    let visibleHouses = houseOccupancy === 'tenant' ? [] : houses.filter((h) => matchesBaseFilters(h));
     if (houseDistrict !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
