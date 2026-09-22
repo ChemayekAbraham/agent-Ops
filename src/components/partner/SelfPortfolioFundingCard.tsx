@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronDown, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
@@ -174,6 +174,11 @@ export function SelfPortfolioFundingCard({
   // Radius filter (km) around the funder's own location, falling back to the
   // last house tapped on the map when device location is unavailable.
   const [houseRadiusKm, setHouseRadiusKm] = useState<string>('all');
+  // Occupancy filter: vacant houses vs houses that already have a tenant (Rent Plans).
+  type HouseOccupancy = 'all' | 'empty' | 'tenant';
+  const [houseOccupancy, setHouseOccupancy] = useState<HouseOccupancy>('all');
+  // Filters panel visibility — the search bar stays visible when collapsed.
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
