@@ -901,12 +901,6 @@ export function FunderCapitalOpportunities({
             </DialogContent>
           </Dialog>
 
-          {/* House cards appear first so funders can browse immediately */}
-          {user?.id
-            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder="houses" onFeedOrderChange={setFeedOrder} />
-            : <p className="text-[11px] text-muted-foreground">Sign in to view empty houses.</p>}
-
-
           {/* Calculator: pick how many houses (or an amount) and see the return */}
           {(() => {
             const avgAvailable = (emptyHouseSummary?.avg_monthly_rent ?? 0) > 0;
@@ -1067,7 +1061,6 @@ export function FunderCapitalOpportunities({
           </Button>
 
         </div>
-        )}
 
         <EmptyHouseOpportunitiesSheet
           open={housePickerOpen}
