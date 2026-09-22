@@ -50,7 +50,7 @@ export default function HRBirthdayRegister() {
   // Write capability is known up front, so read-only viewers never see controls
   // that would fail on click. The post-failure readOnly flag stays as a backstop.
   const canWrite = useMemo(
-    () => (roles ?? []).some((r) => ['hr', 'ceo', 'super_admin'].includes(r as string)),
+    () => (roles ?? []).some((r) => (r as string) === 'hr'),
     [roles],
   );
   const showActions = canWrite && !readOnly;
