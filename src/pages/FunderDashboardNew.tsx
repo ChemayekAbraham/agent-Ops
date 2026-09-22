@@ -570,7 +570,7 @@ export default function FunderDashboardNew() {
                 <div className="flex justify-center">
                   <Button
                     variant="default"
-                    className="h-11 rounded-full px-6"
+                    className="h-11 rounded-md px-6"
                     onClick={fetchNextFeed}
                     disabled={feedFetchingNext}
                   >
