@@ -11010,22 +11010,28 @@ export type Database = {
       }
       critical_function_baselines: {
         Row: {
+          auto_remediate: boolean
           baselined_at: string
           baselined_by: string | null
+          canonical_body: string | null
           expected_sha256: string
           function_signature: string
           note: string | null
         }
         Insert: {
+          auto_remediate?: boolean
           baselined_at?: string
           baselined_by?: string | null
+          canonical_body?: string | null
           expected_sha256: string
           function_signature: string
           note?: string | null
         }
         Update: {
+          auto_remediate?: boolean
           baselined_at?: string
           baselined_by?: string | null
+          canonical_body?: string | null
           expected_sha256?: string
           function_signature?: string
           note?: string | null
