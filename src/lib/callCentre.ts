@@ -616,6 +616,41 @@ export const CALL_SECTION_VIEW_LABEL: Record<CallSectionView, string> = {
   summaries: 'Summaries',
 };
 
+/**
+ * The filter offered at the top of a queue's People table.
+ *
+ * Mirrors `v_crm_call_section.subtype`. A `null` value means the whole queue,
+ * and because queues overlap the options do NOT partition it: an agent who is
+ * also a sub-agent appears under both, so the option counts sum to more than
+ * "All". Three queues have nothing to narrow by and render no filter at all.
+ */
+export interface CallSectionFilterOption {
+  /** `null` is the whole queue. Otherwise a `subtype` value. */
+  value: CallSection extends never ? never : string | null;
+  label: string;
+}
+
+export const CALL_SECTION_FILTERS: Record<CallSection, CallSectionFilterOption[]> = {
+  tenant: [
+    { value: null, label: 'All tenants' },
+    { value: 'repaying', label: 'Repaying' },
+    { value: 'funded', label: 'Funded' },
+    { value: 'defaulter', label: 'Defaulters' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'pipeline', label: 'Pipeline' },
+    { value: 'rejected', label: 'Rejected' },
+  ],
+  operational_agent: [
+    { value: null, label: 'All agents' },
+    { value: 'agent', label: 'Agents' },
+    { value: 'sub_agent', label: 'Sub-agents' },
+  ],
+  // Nothing meaningful to narrow these by — the queue is the filter.
+  partner: [],
+  proxy_agent: [],
+  employee: [],
+};
+
 /** Sidebar id for one leaf, e.g. `call-centre-tenants-logs`. */
 export function callSectionNavId(section: CallSection, view: CallSectionView): string {
   return `call-centre-${CALL_SECTION_SLUG[section]}-${view}`;

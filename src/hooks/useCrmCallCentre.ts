@@ -237,6 +237,12 @@ export interface PlatformPeopleQuery {
    * second, so both kinds of value resolve.
    */
   role?: CalleeRole | CallSection | 'all';
+  /**
+   * Narrows WITHIN a queue: 'agent' / 'sub_agent' for operational_agent, or a
+   * tenant lifecycle stage. Null or omitted means the whole queue. Only
+   * meaningful when `role` is a queue name.
+   */
+  subtype?: string | null;
   status?: PeopleStatusFilter;
   sort?: PeopleSort;
   page?: number;
@@ -274,6 +280,7 @@ export function usePlatformPeople(params: PlatformPeopleQuery = {}) {
   const {
     search = '',
     role = 'all',
+    subtype = null,
     status = 'all',
     sort = 'name',
     page = 0,
@@ -281,12 +288,15 @@ export function usePlatformPeople(params: PlatformPeopleQuery = {}) {
   } = params;
 
   const query = useQuery({
-    queryKey: ['crm-platform-people', search, role, status, sort, page, pageSize],
+    // `subtype` belongs in the key: without it, switching the in-queue filter
+    // would serve the previous filter's cached page.
+    queryKey: ['crm-platform-people', search, role, subtype, status, sort, page, pageSize],
     queryFn: async (): Promise<{ rows: PlatformPerson[]; total: number }> => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any).rpc('crm_platform_people_page', {
         p_search: search.trim() || null,
         p_role: role === 'all' ? null : role,
+        p_subtype: subtype ?? null,
         p_status: status === 'all' ? null : status,
         p_sort: sort,
         p_limit: pageSize,
