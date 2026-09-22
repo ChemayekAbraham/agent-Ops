@@ -64,7 +64,7 @@ import {
   useTenantCallCenterDialer,
 } from './useTenantCallCenterDialer';
 
-type CenterTab = 'overview' | 'queue' | 'live' | 'received' | 'concerns' | 'history' | 'settings';
+type CenterTab = 'overview' | 'queue' | 'live' | 'received' | 'concerns' | 'history' | 'forwarding' | 'settings';
 
 const AUTO_LABEL: Record<string, string> = {
   off: 'Idle',
@@ -340,6 +340,7 @@ export function TenantCallingCenter() {
             ['received', 'Received Calls', PhoneIncoming],
             ['concerns', 'Issues Review', ClipboardList],
             ['history', 'History', History],
+            ['forwarding', 'Weekly Forwarding', CalendarClock],
             ['settings', 'Settings', Settings2],
           ] as [CenterTab, string, typeof Phone][]).map(([key, label, Icon]) => (
             <TabsTrigger
@@ -659,10 +660,6 @@ export function TenantCallingCenter() {
               second heavy read over the same spine, so it is fetched only when
               the officer actually asks for it instead of on every tab visit. */}
           <TenantCallsReport />
-          {/* Additive, read-only weekly (Wed → Tue) staff forwarding report.
-              Reads the same authoritative forwarding record the Combined Report
-              reads; no existing report or filter is affected. */}
-          <WeeklyStaffForwardingReport />
 
           {fullHistoryOpen ? (
             <TenantCallCenterHistory />
