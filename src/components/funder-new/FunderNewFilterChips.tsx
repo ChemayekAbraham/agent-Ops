@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ArrowUpDown, MapPin, Wallet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { formatDynamic } from '@/lib/currencyFormat';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { FunderNewFilters, FunderNewSort } from './types';
 
@@ -26,6 +27,8 @@ interface Props {
   hasOrigin: boolean;
   /** Available balance, needed for the within-balance chip. */
   availableBalance: number | null;
+  /** Operational float balance, always shown on the within-balance chip. */
+  floatBalance?: number | null;
   /** Stack the controls (used inside the filter drawer) instead of one scrolling row. */
   stacked?: boolean;
   onChange: (next: Partial<FunderNewFilters>) => void;
@@ -46,6 +49,7 @@ export function FunderNewFilterChips({
   supportsSort,
   hasOrigin,
   availableBalance,
+  floatBalance = null,
   stacked = false,
   onChange,
   onSortChange,
@@ -181,6 +185,9 @@ export function FunderNewFilterChips({
         >
           <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
           Within my balance
+          <span className={filters.withinFloat ? 'text-primary-foreground/90' : 'text-muted-foreground'}>
+            {' '}· Float: {floatBalance === null ? '…' : formatDynamic(floatBalance)}
+          </span>
         </button>
       </div>
     </div>
