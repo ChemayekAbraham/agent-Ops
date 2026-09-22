@@ -164,9 +164,26 @@ export default function HRBirthdayNoticeDialog() {
             </p>
           )}
 
-          <Button size="lg" className="mt-10 h-14 w-full max-w-sm text-base" onClick={() => void acknowledge()} disabled={busy}>
-            Acknowledge
-          </Button>
+          <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-3">
+            <Button size="lg" className="h-14 w-full text-base" onClick={() => void acknowledge()} disabled={busy}>
+              Seen
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12 w-full text-base"
+              onClick={() => void snooze()}
+              disabled={busy}
+            >
+              Remind me in 2 hours
+            </Button>
+            <Link
+              to="/hr/people?tab=birthdays"
+              className="text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              Open the birthday register
+            </Link>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
