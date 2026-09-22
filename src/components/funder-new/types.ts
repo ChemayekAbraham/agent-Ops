@@ -12,7 +12,16 @@ export interface FunderNewFilters {
   location: string;
   amount: AmountBucket;
   sort: FunderNewSort;
+  /** Exact rent floor, typed by the funder. Overrides the amount bucket floor. */
+  rentMin: number | null;
+  /** Exact rent ceiling, typed by the funder. Overrides the amount bucket ceiling. */
+  rentMax: number | null;
+  /** Search radius in km, or 'all' for no radius limit. */
+  radiusKm: number | 'all';
+  /** Show only homes at or under the available balance (applied to loaded homes). */
+  withinFloat: boolean;
 }
+
 
 /**
  * Where the list/map is anchored. `device` is the real browser position,
