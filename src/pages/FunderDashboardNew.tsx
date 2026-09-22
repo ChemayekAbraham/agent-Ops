@@ -483,7 +483,6 @@ export default function FunderDashboardNew() {
           {/* Applied context: what is loaded, and by which order */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
-            <span>Houses first, then Rent Plans</span>
             {feedLoading ? (
               <span>Loading…</span>
             ) : (
