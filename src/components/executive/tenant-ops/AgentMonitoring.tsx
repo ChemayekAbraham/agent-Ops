@@ -649,6 +649,36 @@ export function AgentMonitoring() {
     }));
   }, [collectionMap, day, profileMap, scheduleMap, selectedAgent]);
 
+  /**
+   * Comprehensive payment position for the open agent: how much of the whole
+   * book has been paid, how much is left, and the same reading split by the
+   * tenants' own payment period (daily vs weekly). Presentation only — every
+   * figure is derived from the rent plans already loaded above.
+   */
+  const agentPortfolio = useMemo(() => {
+    const blank = () => ({ planned: 0, paid: 0, scheduled: 0, tenants: 0 });
+    const totals = blank();
+    const daily = blank();
+    const weekly = blank();
+    selectedAgentRows.forEach(({ request, schedule }) => {
+      const planned = Number(request.total_repayment ?? 0);
+      const bucket = schedule.weekly ? weekly : daily;
+      [totals, bucket].forEach((target) => {
+        target.planned += planned;
+        target.paid += schedule.paidToDate;
+        target.scheduled += schedule.scheduledToDate;
+        target.tenants += 1;
+      });
+    });
+    const withRates = (value: ReturnType<typeof blank>) => ({
+      ...value,
+      remaining: Math.max(0, value.planned - value.paid),
+      planPercent: value.planned > 0 ? Math.min(100, (value.paid / value.planned) * 100) : null,
+      schedulePercent: value.scheduled > 0 ? Math.min(100, (value.paid / value.scheduled) * 100) : null,
+    });
+    return { totals: withRates(totals), daily: withRates(daily), weekly: withRates(weekly) };
+  }, [selectedAgentRows]);
+
   const selectedPlanIds = useMemo(
     () => (selectedAgent ? selectedAgent.tenants.map((request) => request.id).sort() : []),
     [selectedAgent],
