@@ -22,12 +22,16 @@ export function FunderNewVerifiedBadge({ className }: { className?: string }) {
                 type="button"
                 aria-label={LABEL}
                 className={cn(
-                  'inline-flex h-6 w-6 items-center justify-center rounded-full bg-success text-success-foreground shadow-sm ring-2 ring-background transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95',
+                  // A labelled pill, not a bare tick: a plain check circle read
+                  // like a "selected" state on the photo.
+                  'inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[11px] font-semibold text-success-foreground shadow-sm ring-1 ring-background/60 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95',
                   className,
                 )}
               >
-                <Check className="h-3.5 w-3.5" strokeWidth={3.5} aria-hidden />
+                <Check className="h-3 w-3" strokeWidth={3.5} aria-hidden />
+                Verified
               </button>
+
             </PopoverTrigger>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-56 text-xs">
