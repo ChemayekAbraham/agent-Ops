@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ArrowUpDown, MapPin, Wallet, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -5,6 +6,8 @@ import type { FunderNewFilters, FunderNewSort } from './types';
 
 const CHIP =
   'h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none';
+const CHIP_STACKED =
+  'h-10 w-full min-w-0 rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none';
 
 export interface FunderNewDistrictOption {
   value: string;
@@ -56,19 +59,30 @@ export function FunderNewFilterChips({
     filters.radiusKm !== 'all' ||
     filters.withinFloat;
 
+  const chip = stacked ? CHIP_STACKED : CHIP;
+  const field = (label: string, node: ReactNode, wide = false) =>
+    stacked ? (
+      <div className={wide ? 'sm:col-span-2 min-w-0' : 'min-w-0'}>
+        <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</span>
+        {node}
+      </div>
+    ) : (
+      node
+    );
+
   return (
     <div
       className={
         stacked
-          ? 'flex flex-wrap items-center gap-2'
+          ? 'grid grid-cols-1 gap-3 sm:grid-cols-2'
           : 'flex items-center gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
       }
       aria-label="Filter homes"
     >
 
-      {supportsSort ? (
+      {supportsSort ? field('Sort by',
         <Select value={filters.sort} onValueChange={(value) => onSortChange(value as FunderNewSort)}>
-          <SelectTrigger className={CHIP} aria-label="Sort">
+          <SelectTrigger className={chip} aria-label="Sort">
             <ArrowUpDown className="mr-1 h-3 w-3 flex-none" aria-hidden />
             <SelectValue />
           </SelectTrigger>
@@ -84,12 +98,12 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      {districts.length > 0 ? (
+      {districts.length > 0 ? field('District',
         <Select
           value={filters.location.trim() === '' ? 'all' : filters.location}
           onValueChange={(value) => onChange({ location: value === 'all' ? '' : value })}
         >
-          <SelectTrigger className={CHIP} aria-label="District">
+          <SelectTrigger className={chip} aria-label="District">
             <MapPin className="mr-1 h-3 w-3 flex-none" aria-hidden />
             <SelectValue placeholder="All districts" />
           </SelectTrigger>
@@ -104,12 +118,12 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      {supportsSort ? (
+      {supportsSort ? field('Distance',
         <Select
           value={filters.radiusKm === 'all' ? 'all' : String(filters.radiusKm)}
           onValueChange={(value) => onChange({ radiusKm: value === 'all' ? 'all' : Number(value) })}
         >
-          <SelectTrigger className={CHIP} aria-label="Distance">
+          <SelectTrigger className={chip} aria-label="Distance">
             <SelectValue placeholder="Any distance" />
           </SelectTrigger>
           <SelectContent>
@@ -124,48 +138,62 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      <Input
-        value={filters.rentMin === null ? '' : String(filters.rentMin)}
-        onChange={(event) => onChange({ rentMin: parseAmount(event.target.value) })}
-        inputMode="numeric"
-        placeholder="Min amount"
-        aria-label="Minimum amount"
-        className="h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold"
-      />
-      <Input
-        value={filters.rentMax === null ? '' : String(filters.rentMax)}
-        onChange={(event) => onChange({ rentMax: parseAmount(event.target.value) })}
-        inputMode="numeric"
-        placeholder="Max amount"
-        aria-label="Maximum amount"
-        className="h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold"
-      />
+      {field('Min amount',
+        <Input
+          value={filters.rentMin === null ? '' : String(filters.rentMin)}
+          onChange={(event) => onChange({ rentMin: parseAmount(event.target.value) })}
+          inputMode="numeric"
+          placeholder="Min amount"
+          aria-label="Minimum amount"
+          className={
+            stacked
+              ? 'h-10 w-full rounded-xl text-xs font-semibold'
+              : 'h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold'
+          }
+        />
+      )}
+      {field('Max amount',
+        <Input
+          value={filters.rentMax === null ? '' : String(filters.rentMax)}
+          onChange={(event) => onChange({ rentMax: parseAmount(event.target.value) })}
+          inputMode="numeric"
+          placeholder="Max amount"
+          aria-label="Maximum amount"
+          className={
+            stacked
+              ? 'h-10 w-full rounded-xl text-xs font-semibold'
+              : 'h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold'
+          }
+        />
+      )}
 
-      <button
-        type="button"
-        aria-pressed={filters.withinFloat}
-        disabled={availableBalance === null}
-        onClick={() => onChange({ withinFloat: !filters.withinFloat })}
-        className={`h-8 flex-none rounded-full border px-3 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
-          filters.withinFloat
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-border bg-background text-foreground hover:bg-muted'
-        }`}
-      >
-        <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
-        Within my balance
-      </button>
-
-      {dirty ? (
+      <div className={stacked ? 'sm:col-span-2 flex flex-wrap items-center gap-2 pt-1' : 'contents'}>
         <button
           type="button"
-          onClick={onReset}
-          className="h-8 flex-none rounded-full border border-destructive/30 bg-destructive/5 px-3 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
+          aria-pressed={filters.withinFloat}
+          disabled={availableBalance === null}
+          onClick={() => onChange({ withinFloat: !filters.withinFloat })}
+          className={`h-8 flex-none rounded-full border px-3 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+            filters.withinFloat
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-background text-foreground hover:bg-muted'
+          }`}
         >
-          <X className="mr-1 inline h-3 w-3" aria-hidden />
-          Reset
+          <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
+          Within my balance
         </button>
-      ) : null}
+
+        {dirty ? (
+          <button
+            type="button"
+            onClick={onReset}
+            className="h-8 flex-none rounded-full border border-destructive/30 bg-destructive/5 px-3 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="mr-1 inline h-3 w-3" aria-hidden />
+            Reset
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
