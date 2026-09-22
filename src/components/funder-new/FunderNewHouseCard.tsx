@@ -141,13 +141,23 @@ export function FunderNewHouseCard({
           </button>
           <Button
             variant="default"
-            className="h-11 flex-1 rounded-lg text-sm font-bold text-primary-foreground shadow-sm"
+            className={cn(
+              'h-11 flex-1 gap-2 rounded-lg text-sm font-bold shadow-sm',
+              selected
+                ? 'border border-primary bg-primary/10 text-primary hover:bg-primary/15'
+                : 'text-primary-foreground',
+            )}
             onClick={onSelect}
             aria-pressed={selected}
           >
-            {selected ? <Check className="h-4 w-4" aria-hidden /> : null}
+            {selected ? (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
+                <Check className="h-3.5 w-3.5 text-white" aria-hidden />
+              </span>
+            ) : null}
             {selected ? 'Selected' : 'Select'}
           </Button>
+
         </div>
       </div>
     </article>
