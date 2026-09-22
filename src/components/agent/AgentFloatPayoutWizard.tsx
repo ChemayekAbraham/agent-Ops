@@ -792,7 +792,6 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
         };
         setSelectedRequest(synthetic);
         setAmountInput(String(allocation.remaining_amount ?? ''));
-        setPhoneOverride('');
         // The agent already submitted a payout for this allocation and it is
         // still moving through the merchant queue. Show them where it is
         // instead of an OTP form they cannot complete — their float is held
