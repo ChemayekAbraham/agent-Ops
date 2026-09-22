@@ -2024,6 +2024,13 @@
       "when": 1790059239560,
       "tag": "0288_agent_collection_quality_from_daily_settlements",
       "breakpoints": true
+    },
+    {
+      "idx": 289,
+      "version": "7",
+      "when": 1790063898972,
+      "tag": "0289_crm_call_centre_five_overlapping_queues",
+      "breakpoints": true
     }
   ]
 }

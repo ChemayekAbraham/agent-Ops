@@ -49949,6 +49949,13 @@ export type Database = {
         }
         Relationships: []
       }
+      v_crm_call_section: {
+        Row: {
+          person_id: string | null
+          section: string | null
+        }
+        Relationships: []
+      }
       v_crm_person_roles: {
         Row: {
           person_id: string | null
@@ -54976,8 +54983,21 @@ export type Database = {
           total_rows: number
         }[]
       }
+      crm_call_section_counts: {
+        Args: never
+        Returns: {
+          people: number
+          section: string
+        }[]
+      }
       crm_call_sessions_feed: {
-        Args: { p_days?: number; p_limit?: number; p_target_user_id?: string }
+        Args: {
+          p_days?: number
+          p_limit?: number
+          p_section?: string
+          p_target_user_id?: string
+          p_with_summary_only?: boolean
+        }
         Returns: {
           created_at: string
           duration_seconds: number
