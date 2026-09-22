@@ -6,7 +6,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Calculator, BadgeCheck, Wallet } from 'lucide-react';
+import { Calculator, BadgeCheck, MapPin, Wallet } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -66,6 +66,12 @@ import {
   WidgetCardSkeleton,
   ListSectionSkeleton,
 } from '@/components/skeletons/SectionSkeletons';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { Suspense } from 'react';
+
+const EmptyHouseMapBrowser = lazyWithRetry(
+  () => import('@/components/partner/EmptyHouseMapBrowser').then(m => ({ default: m.EmptyHouseMapBrowser })),
+);
 
 
 interface SupporterDashboardProps {
@@ -104,6 +110,7 @@ export default function SupporterDashboard({
   const [localHasAccepted, setLocalHasAccepted] = useState<boolean | null>(null);
   const [justAccepted, setJustAccepted] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
@@ -506,6 +513,26 @@ export default function SupporterDashboard({
           </div>
             );
           })()}
+
+          {/* ═══ STANDALONE MAP ═══ */}
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <Suspense fallback={
+              <div className="flex h-[300px] items-center justify-center bg-muted/30">
+                <p className="text-xs text-muted-foreground animate-pulse">Loading map…</p>
+              </div>
+            }>
+              <EmptyHouseMapBrowser
+                houses={[]}
+                selectedIds={[]}
+                searchQuery=""
+                remaining={0}
+                busy={false}
+                onSearchQueryChange={() => {}}
+                onOpenHouse={() => {}}
+                onFundHouse={() => {}}
+              />
+            </Suspense>
+          </div>
 
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
 
