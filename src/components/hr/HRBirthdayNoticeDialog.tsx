@@ -90,18 +90,48 @@ export default function HRBirthdayNoticeDialog() {
     await load();
   };
 
+  const snooze = async () => {
+    setBusy(true);
+    const { error } = await supabase.rpc('hr_birthday_snooze' as never, {
+      p_notice_id: current.notice_id,
+      p_minutes: 120,
+    } as never);
+    if (error) {
+      const lower = (error.message ?? '').toLowerCase();
+      // Another device already handled it — nothing left to snooze, treat as success.
+      if (lower.includes('already acknowledged') || lower.includes('not found')) {
+        setBusy(false);
+        await load();
+        return;
+      }
+      toast.error(error.message);
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    await load();
+  };
+
   return (
-    // Same primitives as the staff loan approval notice: Radix Dialog (portals to
-    // document.body, overlay in the z-50 band, body scroll locked while open),
-    // close control hidden, escape / outside interaction prevented.
+    // Radix Dialog primitives (portals to document.body, overlay + content in the
+    // z-50 band, body scroll locked by Radix while open), close control hidden and
+    // escape / outside interaction prevented. 100dvh with a 100vh fallback so the
+    // actions stay above the fold under mobile browser chrome.
     <Dialog open onOpenChange={() => { /* cannot be dismissed */ }}>
       <DialogContent
-        className="left-0 top-0 h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-0 p-0 sm:max-w-none [&>button]:hidden"
+        style={{ height: '100vh', maxHeight: '100dvh' }}
+        className="left-0 top-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none [&>button]:hidden"
         onEscapeKeyDown={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <div className="flex min-h-screen flex-col items-center justify-center px-6 py-12 text-center">
+        <div
+          className="flex h-full flex-col items-center justify-center overflow-y-auto px-6 text-center"
+          style={{
+            paddingTop: 'max(1.5rem, env(safe-area-inset-top))',
+            paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+          }}
+        >
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Cake className="h-8 w-8" aria-hidden />
           </span>
