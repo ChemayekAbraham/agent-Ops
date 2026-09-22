@@ -371,7 +371,7 @@ export function FunderNewRouteMap({
 
       {/* "Search this area" only appears after a deliberate move */}
       {moved ? (
-        <div className="pointer-events-auto absolute left-1/2 top-16 -translate-x-1/2 sm:top-[4.25rem]">
+        <div className="pointer-events-auto absolute left-1/2 top-16 hidden -translate-x-1/2 sm:top-[4.25rem]">
           <Button
             size="sm"
             className="h-10 rounded-full px-4 shadow-lg"
