@@ -181,8 +181,12 @@ export default function FunderDashboardNew() {
     setFilters((current) => ({ ...current, sort: 'nearest' }));
   }, [origin, sortTouched]);
 
-  const emptyQuery = useFunderNewEmptyHouses(filters, origin, tab === 'empty');
-  const readyQuery = useFunderNewReadyPlans(filters, tab === 'ready');
+  /**
+   * Single combined feed: every empty house first, then every tenant-ready
+   * Rent Plan. Both reads run together; there is no tab switch.
+   */
+  const emptyQuery = useFunderNewEmptyHouses(filters, origin, true);
+  const readyQuery = useFunderNewReadyPlans(filters, true);
 
   const emptyItems = useMemo(
     () => (emptyQuery.data?.pages ?? []).flatMap((page) => page.items),
@@ -190,10 +194,35 @@ export default function FunderDashboardNew() {
   );
   const readyItems = useMemo(() => (readyQuery.data?.pages ?? []).flatMap((page) => page.items), [readyQuery.data]);
 
-  const activeQuery = tab === 'empty' ? emptyQuery : readyQuery;
-  const loadedItems: Array<FunderNewEmptyHouse | FunderNewReadyPlan> = tab === 'empty' ? emptyItems : readyItems;
-  const filteredTotal = activeQuery.data?.pages?.[0]?.total ?? 0;
-  const readyLimitation = readyQuery.data?.pages?.[0]?.limitation ?? null;
+  interface FeedEntry {
+    category: FunderNewCategory;
+    item: FunderNewEmptyHouse | FunderNewReadyPlan;
+  }
+
+  /** Houses first, Rent Plans last. Each entry carries its own category. */
+  const loadedItems = useMemo<FeedEntry[]>(
+    () => [
+      ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
+      ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
+    ],
+    [emptyItems, readyItems],
+  );
+
+  const feedLoading = emptyQuery.isLoading || readyQuery.isLoading;
+  const feedError = emptyQuery.error || readyQuery.error;
+  const feedFetching = emptyQuery.isFetching || readyQuery.isFetching;
+  const feedFetchingNext = emptyQuery.isFetchingNextPage || readyQuery.isFetchingNextPage;
+  const feedHasNext = !!emptyQuery.hasNextPage || !!readyQuery.hasNextPage;
+  const refetchFeed = () => {
+    emptyQuery.refetch();
+    readyQuery.refetch();
+  };
+  const fetchNextFeed = () => {
+    if (emptyQuery.hasNextPage && !emptyQuery.isFetchingNextPage) emptyQuery.fetchNextPage();
+    if (readyQuery.hasNextPage && !readyQuery.isFetchingNextPage) readyQuery.fetchNextPage();
+  };
+
+  const filteredTotal = (emptyQuery.data?.pages?.[0]?.total ?? 0) + (readyQuery.data?.pages?.[0]?.total ?? 0);
 
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
 
