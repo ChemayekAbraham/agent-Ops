@@ -178,6 +178,8 @@ const MyRequisitions = () => {
   const [scheduleAccepted, setScheduleAccepted] = useState(false);
   const [loanInfo, setLoanInfo] = useState<LoanEligibility | null>(null);
   const [loans, setLoans] = useState<StaffLoan[]>([]);
+  const [instalments, setInstalments] = useState<Record<string, LoanInstalment[]>>({});
+
   // Facilitation is for Platform Sales Officers only. If the check fails we
   // hide the entry point — fail closed.
   const [isOfficer, setIsOfficer] = useState(false);
