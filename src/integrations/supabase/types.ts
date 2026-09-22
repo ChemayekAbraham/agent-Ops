@@ -56249,6 +56249,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_agent_active_rent_request: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_agent_advance_activity_correlation: {
         Args: { p_days?: number }
         Returns: {
