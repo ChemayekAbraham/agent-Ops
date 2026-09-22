@@ -676,7 +676,10 @@ export function TenantCallingCenter() {
           )}
         </TabsContent>
 
-
+        {/* --------------------------------------------- Weekly Forwarding */}
+        <TabsContent value="forwarding" className="mt-4">
+          <WeeklyStaffForwardingReport />
+        </TabsContent>
 
         {/* ------------------------------------------------------ Settings */}
         <TabsContent value="settings" className="mt-4 space-y-3">
