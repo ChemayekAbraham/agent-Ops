@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowUpDown, MapPin, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, MapPin, Wallet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { FunderNewFilters, FunderNewSort } from './types';
@@ -30,7 +30,6 @@ interface Props {
   stacked?: boolean;
   onChange: (next: Partial<FunderNewFilters>) => void;
   onSortChange: (sort: FunderNewSort) => void;
-  onReset: () => void;
 }
 
 
@@ -50,7 +49,6 @@ export function FunderNewFilterChips({
   stacked = false,
   onChange,
   onSortChange,
-  onReset,
 }: Props) {
   const districtTotal = districts.reduce((sum, item) => sum + item.count, 0);
   const dirty =
@@ -184,17 +182,6 @@ export function FunderNewFilterChips({
           <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
           Within my balance
         </button>
-
-        {dirty ? (
-          <button
-            type="button"
-            onClick={onReset}
-            className="h-8 flex-none rounded-full border border-destructive/30 bg-destructive/5 px-3 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
-          >
-            <X className="mr-1 inline h-3 w-3" aria-hidden />
-            Reset
-          </button>
-        ) : null}
       </div>
     </div>
   );

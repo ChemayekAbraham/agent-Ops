@@ -71,7 +71,6 @@ export function FunderNewFilterDrawer({
             availableBalance={availableBalance}
             onChange={onChange}
             onSortChange={onSortChange}
-            onReset={onReset}
           />
 
           <div className="flex gap-2 pb-2">
