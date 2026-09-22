@@ -30,7 +30,6 @@ interface Props {
   stacked?: boolean;
   onChange: (next: Partial<FunderNewFilters>) => void;
   onSortChange: (sort: FunderNewSort) => void;
-  onReset: () => void;
 }
 
 
@@ -50,7 +49,6 @@ export function FunderNewFilterChips({
   stacked = false,
   onChange,
   onSortChange,
-  onReset,
 }: Props) {
   const districtTotal = districts.reduce((sum, item) => sum + item.count, 0);
   const dirty =
