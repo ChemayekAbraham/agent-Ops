@@ -113,7 +113,7 @@ function RulesDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto">
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] max-w-lg flex-col overflow-hidden p-4 sm:max-h-[calc(100dvh-2rem)] sm:p-6">
         <DialogHeader>
           <DialogTitle>Approved eligibility thresholds</DialogTitle>
           <DialogDescription>
@@ -121,7 +121,7 @@ function RulesDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
             change any payment, plan or approval.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label className="text-xs">Qualifying coverage %</Label>
@@ -148,12 +148,12 @@ function RulesDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
               </div>
             ))}
           </div>
-          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
-            <Button variant="outline" className="w-full sm:w-auto" onClick={onClose}>Cancel</Button>
-            <Button className="w-full sm:w-auto" onClick={submit} disabled={save.isPending}>
-              {save.isPending ? 'Saving…' : 'Save thresholds'}
-            </Button>
-          </div>
+        </div>
+        <div className="grid shrink-0 grid-cols-1 gap-2 pt-2 sm:grid-cols-2">
+          <Button variant="outline" className="w-full" onClick={onClose}>Cancel</Button>
+          <Button className="w-full" onClick={submit} disabled={save.isPending}>
+            {save.isPending ? 'Saving…' : 'Save thresholds'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
