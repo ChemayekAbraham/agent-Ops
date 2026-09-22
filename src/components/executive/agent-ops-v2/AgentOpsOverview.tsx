@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 
 import { AgentRentCapacityPanel } from '../AgentRentCapacityPanel';
+import { ActiveAgentsBreakdownDialog } from './ActiveAgentsBreakdownDialog';
 import type { DateRange } from 'react-day-picker';
 import { OpsDateRangeFilter, resolveRange, rangePhrase, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
 
@@ -122,6 +123,7 @@ export interface AgentOpsOverviewProps {
 export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   const qc = useQueryClient();
   const [preset, setPreset] = useState<PresetKey>('today');
+  const [activeBreakdownOpen, setActiveBreakdownOpen] = useState(false);
   const [custom, setCustom] = useState<DateRange | undefined>();
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
   const startIso = start.toISOString();
@@ -152,6 +154,28 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
       });
       if (error) throw error;
       return data as unknown as OverviewPayload;
+    },
+    staleTime: 60_000,
+  });
+
+  // Active agents, counted as two disjoint groups: primary agents (who collected
+  // themselves OR whose sub-agents collected) and sub-agents who collected. The
+  // overview RPC's active_agents_curr counts every collector including
+  // sub-agents, so adding it to active_subagents_curr double-counted them and
+  // left team-only primary agents out.
+  const { data: activeBreakdown } = useQuery({
+    queryKey: ['agent-ops-overview', 'active-breakdown', startIso, endIso],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_active_breakdown' as any, {
+        p_range_start: startIso,
+        p_range_end: endIso,
+      });
+      if (error) throw error;
+      return data as unknown as {
+        agents_curr: number; agents_prev: number;
+        subagents_curr: number; subagents_prev: number;
+        total_curr: number; total_prev: number;
+      };
     },
     staleTime: 60_000,
   });
@@ -206,6 +230,12 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   });
 
   const k = data?.kpis || ({} as Record<string, number>);
+  // Disjoint active counts (see the active-breakdown query above).
+  const activeCurrAgents = activeBreakdown?.agents_curr ?? 0;
+  const activeCurrSubs = activeBreakdown?.subagents_curr ?? 0;
+  const activeCurrTotal = activeBreakdown?.total_curr ?? activeCurrAgents + activeCurrSubs;
+  const activePrevTotal = activeBreakdown?.total_prev
+    ?? ((activeBreakdown?.agents_prev ?? 0) + (activeBreakdown?.subagents_prev ?? 0));
   const trend = trendPayload?.trend || data?.trend || [];
 
   const trendData = trend.map((t) => ({
@@ -301,31 +331,25 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Active Agents"
-          value={fmtNum((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))}
-          delta={pctDelta(
-            (k.active_agents_curr || 0) + (k.active_subagents_curr || 0),
-            (k.active_agents_prev || 0) + (k.active_subagents_prev || 0)
-          )}
-          subtitle={`${fmtNum(k.active_agents_curr || 0)} agents · ${fmtNum(k.active_subagents_curr || 0)} sub-agents active`}
+          value={fmtNum(activeCurrTotal)}
+          delta={pctDelta(activeCurrTotal, activePrevTotal)}
+          subtitle={`${fmtNum(activeCurrAgents)} agents · ${fmtNum(activeCurrSubs)} sub-agents active`}
           icon={Activity}
           accent="bg-emerald-600"
           spark={trendData.map((t) => t.activeAgents)}
-          onClick={() => onOpenSection('directory')}
+          onClick={() => setActiveBreakdownOpen(true)}
           loading={isLoading}
         />
         <KpiTile
           title="Inactive Agents"
-          value={fmtNum(
-            ((k.total_agents || 0) + (k.total_subagents || 0)) -
-            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))
-          )}
+          value={fmtNum(Math.max(
+            ((k.total_agents || 0) + (k.total_subagents || 0)) - activeCurrTotal, 0
+          ))}
           delta={pctDelta(
-            ((k.total_agents || 0) + (k.total_subagents || 0)) -
-            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0)),
-            ((k.total_agents_prev || 0) + (k.total_subagents_prev || 0)) -
-            ((k.active_agents_prev || 0) + (k.active_subagents_prev || 0))
+            Math.max(((k.total_agents || 0) + (k.total_subagents || 0)) - activeCurrTotal, 0),
+            Math.max(((k.total_agents_prev || 0) + (k.total_subagents_prev || 0)) - activePrevTotal, 0)
           )}
-          subtitle={`${fmtNum((k.total_agents || 0) - (k.active_agents_curr || 0))} agents · ${fmtNum((k.total_subagents || 0) - (k.active_subagents_curr || 0))} sub-agents inactive`}
+          subtitle={`${fmtNum(Math.max((k.total_subagents || 0) - activeCurrSubs, 0))} sub-agents inactive`}
           icon={UserPlus}
           accent="bg-slate-500"
           onClick={() => onOpenSection('directory')}
@@ -473,6 +497,8 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
 
       {/* Agent performance for rent collection */}
       <AgentRentCapacityPanel defaultLimit={25} />
+
+      <ActiveAgentsBreakdownDialog open={activeBreakdownOpen} onOpenChange={setActiveBreakdownOpen} />
 
     </div>
   );
@@ -750,85 +776,26 @@ function PartialCollectionsOverview() {
     queryKey: ['agent-ops-partial-vs-full', DAYS],
     staleTime: 60_000,
     queryFn: async () => {
-      const since = startOfDay(subDays(new Date(), DAYS - 1));
-      const today = startOfDay(new Date());
-      const sinceStr = format(since, 'yyyy-MM-dd');
-      const todayStr = format(today, 'yyyy-MM-dd');
+      const { data: result, error } = await supabase.rpc('get_agent_collection_quality', {
+        p_days: DAYS,
+      });
+      if (error) throw error;
 
-      const [{ data: cols, error: colsErr }, { data: expectedRows, error: expErr }] = await Promise.all([
-        supabase
-          .from('agent_collections')
-          .select('id, amount, created_at, tenant_id, rent_request_id').is('reversed_at', null)
-          .gte('created_at', since.toISOString())
-          .gt('amount', 0)
-          .limit(5000),
-        supabase
-          .from('agent_expected_day_plans')
-          .select('day, rent_request_id')
-          .gte('day', sinceStr)
-          .lte('day', todayStr)
-          .limit(20000),
-      ]);
-      if (colsErr) throw colsErr;
-      if (expErr) throw expErr;
-
-      const rows = (cols || []) as any[];
-
-      const expectedByDay = new Map<string, number>();
-      for (const e of (expectedRows || []) as any[]) {
-        const key = String(e.day).slice(0, 10);
-        expectedByDay.set(key, (expectedByDay.get(key) || 0) + 1);
-      }
-
-      if (rows.length === 0 && expectedByDay.size === 0) {
-        return { series: [], full: 0, partial: 0, missed: 0, shortfall: 0 };
-      }
-
-      const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean)));
-      const { data: plans } = await supabase
-        .from('rent_requests')
-        .select('id, tenant_id, daily_repayment, repayment_frequency')
-        .in('tenant_id', tenantIds.slice(0, 500));
-      const byId = new Map<string, any>();
-      const byTenant = new Map<string, any>();
-      for (const p of (plans || []) as any[]) {
-        byId.set(p.id, p);
-        if (!byTenant.has(p.tenant_id)) byTenant.set(p.tenant_id, p);
-      }
-      const expectedFor = (r: any): number => {
-        const p = (r.rent_request_id && byId.get(r.rent_request_id)) || byTenant.get(r.tenant_id);
-        if (!p) return 0;
-        const daily = Number(p.daily_repayment || 0);
-        const freq = String(p.repayment_frequency || 'daily');
-        return freq === 'weekly' ? daily * 7 : freq === 'monthly' ? daily * 30 : daily;
+      const payload = (result ?? {}) as {
+        series?: Array<{ label: string; full: number; partial: number; missed: number; shortfall: number }>;
+        full?: number;
+        partial?: number;
+        missed?: number;
+        shortfall?: number;
       };
 
-      const buckets = new Map<string, { label: string; full: number; partial: number; missed: number; shortfall: number }>();
-      for (let i = DAYS - 1; i >= 0; i--) {
-        const d = subDays(new Date(), i);
-        buckets.set(format(d, 'yyyy-MM-dd'), { label: format(d, 'd MMM'), full: 0, partial: 0, missed: 0, shortfall: 0 });
-      }
-      let full = 0, partial = 0, missed = 0, shortfall = 0;
-      for (const r of rows) {
-        const key = format(new Date(r.created_at), 'yyyy-MM-dd');
-        const b = buckets.get(key);
-        if (!b) continue;
-        const exp = expectedFor(r);
-        const amt = Number(r.amount || 0);
-        if (exp > 0 && amt < exp - 1) {
-          b.partial += 1; partial += 1;
-          const gap = exp - amt;
-          b.shortfall += gap; shortfall += gap;
-        } else {
-          b.full += 1; full += 1;
-        }
-      }
-      for (const [key, b] of buckets) {
-        const expCount = expectedByDay.get(key) || 0;
-        b.missed = Math.max(0, expCount - b.full - b.partial);
-        missed += b.missed;
-      }
-      return { series: Array.from(buckets.values()), full, partial, missed, shortfall };
+      return {
+        series: payload.series ?? [],
+        full: Number(payload.full || 0),
+        partial: Number(payload.partial || 0),
+        missed: Number(payload.missed || 0),
+        shortfall: Number(payload.shortfall || 0),
+      };
     },
   });
 

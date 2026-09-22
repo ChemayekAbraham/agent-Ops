@@ -21,11 +21,45 @@ const THEME_MUTED: [number, number, number] = [104, 96, 117];
 const THEME_BORDER: [number, number, number] = [218, 208, 231];
 const STRIPE: [number, number, number] = [246, 243, 251];
 
+/**
+ * One row of the staff handling table.
+ *
+ * Normally one staff member and the concerns forwarded to them. The same shape
+ * also carries the "Not forwarded" row (calls that never reached a staff member)
+ * and the closing "Total" row, so all three read as one continuous table.
+ * Columns that cannot apply to a row — a call that was never forwarded has no
+ * answer deadline, so it can never be past due — are `null` and print as “—”
+ * rather than a misleading zero.
+ */
+export interface StaffHandlingRow {
+  name: string;
+  total: number;
+  fromMade: number;
+  fromReceived: number;
+  completed: number;
+  open: number;
+  overdue: number | null;
+  onTime: number | null;
+  avgHours: string;
+  alsoReviewer: number | null;
+  /** Drives emphasis in the PDF. Defaults to a normal staff row. */
+  kind?: 'staff' | 'not_forwarded' | 'total';
+}
+
 export interface CombinedCallingCenterInput {
   /** Overall totals across both reports. */
   executiveTiles: ConcernPdfTile[];
   /** Overall figures table: measure → value (+ optional share of its own report). */
   executiveTotals: { label: string; value: string; share?: string }[];
+  /**
+   * Staff concern handling across BOTH Made Calls and Received Calls, plus the
+   * reconciliation rows (forwarded, not forwarded, grand total).
+   */
+  staffHandling: {
+    rows: StaffHandlingRow[];
+    reconciliation: { label: string; count: number; share: string }[];
+    note: string;
+  };
   received: {
     tiles: ConcernPdfTile[];
     byStatus: { label: string; count: number; pct: number }[];
@@ -187,13 +221,79 @@ export async function generateCombinedCallingCenterPdf(
     `${input.received.rows.length.toLocaleString()} received calls · ${input.issues.rows.length.toLocaleString()} forwarded concerns`,
   );
   metaCard();
-  tiles(input.executiveTiles);
 
-  section('1 · Executive summary', 60);
+  // ============ 1. Staff concern handling — first, before every other section
+  section('1 · Staff Concern Handling Summary — calls we made and calls that came in', 60);
+  note(input.staffHandling.note);
+  if (!input.staffHandling.rows.length) {
+    note('No concern was forwarded to any staff member in this period.');
+  } else {
+    const num = (v: number | null) => (v == null ? '—' : String(v));
+    table({
+      head: [
+        [
+          'Staff member',
+          'Concerns sent to them',
+          'From calls we made',
+          'From calls that came in',
+          'Completed',
+          'Still open',
+          'Past due',
+          'Answered in time',
+          'Average time to complete',
+          'Also involved as reviewer',
+        ],
+      ],
+      body: input.staffHandling.rows.map((r) => [
+        r.name,
+        String(r.total),
+        String(r.fromMade),
+        String(r.fromReceived),
+        String(r.completed),
+        String(r.open),
+        num(r.overdue),
+        num(r.onTime),
+        r.avgHours,
+        num(r.alsoReviewer),
+      ]),
+      styles: { ...tableBase.styles, fontSize: 7.5 },
+      headStyles: { ...tableBase.headStyles, fontSize: 7.5 },
+      columnStyles: { 0: { cellWidth: 45 } },
+      // The "Not forwarded" and closing "Total" rows are part of the same
+      // table, so they are emphasised rather than split into a second one.
+      didParseCell: (data: any) => {
+        if (data.section !== 'body') return;
+        const kind = input.staffHandling.rows[data.row.index]?.kind;
+        if (kind === 'total') {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = STRIPE;
+        } else if (kind === 'not_forwarded') {
+          data.cell.styles.fontStyle = 'bold';
+        }
+      },
+    });
+  }
+
+  // ============================================== 2. Executive summary
+  section('2 · Executive summary', 60);
+  tiles(input.executiveTiles);
   table({
     head: [['Measure', 'Figure', 'Share of its report']],
     body: input.executiveTotals.map((r) => [r.label, r.value, r.share ?? '—']),
     columnStyles: { 0: { cellWidth: 120 } },
+  });
+
+  section('Forwarded, not forwarded and the grand total', 55);
+  table({
+    head: [['Measure', 'Count', 'Share of grand total']],
+    body: input.staffHandling.reconciliation.map((r) => [r.label, String(r.count), r.share]),
+    columnStyles: { 0: { cellWidth: 140 } },
+    didParseCell: (data: any) => {
+      const label = String(input.staffHandling.reconciliation[data.row.index]?.label ?? '');
+      if (data.section === 'body' && /^(Total|Grand total)/i.test(label)) {
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
   });
 
   section('Status breakdown — received calls and forwarded concerns side by side', 60);
@@ -223,7 +323,7 @@ export async function generateCombinedCallingCenterPdf(
   // ============================================ 2. Received calls summary
   doc.addPage();
   cursor = 20;
-  section('2 · Received Calls — summary', 60);
+  section('3 · Received Calls — summary', 60);
   tiles(input.received.tiles);
   table({
     head: [['Where each received call stands', 'Count', 'Share of received calls']],
@@ -248,7 +348,7 @@ export async function generateCombinedCallingCenterPdf(
   // =================================== 3. Complete received calls report
   doc.addPage();
   cursor = 20;
-  section('3 · Complete Received Calls report', 30);
+  section('4 · Complete Received Calls report', 30);
   if (!input.received.rows.length) {
     note('No received calls were recorded in this period.');
   } else {
@@ -274,7 +374,7 @@ export async function generateCombinedCallingCenterPdf(
   // ============================================ 4. Issues review summary
   doc.addPage();
   cursor = 20;
-  section('4 · Issues Review — summary', 60);
+  section('5 · Issues Review — summary', 60);
   tiles(input.issues.tiles);
 
   table({
@@ -349,7 +449,7 @@ export async function generateCombinedCallingCenterPdf(
   // ==================================== 5. Complete issues review report
   doc.addPage();
   cursor = 20;
-  section('5 · Complete Issues Review report', 30);
+  section('6 · Complete Issues Review report', 30);
   if (!input.issues.rows.length) {
     note('No concerns were forwarded in this period.');
   } else {

@@ -506,7 +506,7 @@ export default function SupporterDashboard({
             {/* Bottom summary strip */}
             <div className="mt-4 flex items-center gap-4 border-t border-border/40 pt-3">
               <p className="text-[11px] font-medium leading-snug text-muted-foreground">
-                <span className="font-bold text-foreground">{openHouses.toLocaleString()}</span> empty {openHouses === 1 ? 'house' : 'houses'} waiting
+                <span className="font-bold text-foreground">{openHouses.toLocaleString()}</span> {openHouses === 1 ? 'house' : 'houses'} waiting
                 {avgRent > 0 && <> · avg <span className="font-bold text-foreground">{formatAmountCompact(avgRent)}</span>/mo</>}
               </p>
             </div>

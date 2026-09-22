@@ -102,6 +102,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
 const FunderDashboardBackup = lazy(() => import("./pages/FunderDashboardBackup"));
 const DashboardRedirect = lazy(() => import("./pages/DashboardRedirect"));
@@ -502,6 +503,7 @@ function AppRoutes() {
           <Route path="/dashboard/agent" element={<Dashboard />} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />
           <Route path="/dashboard/funder" element={<Dashboard />} />
+          <Route path="/dashboard/funder-new" element={<RoleGuard allowedRoles={['supporter']}><FunderDashboardNew /></RoleGuard>} />
           <Route path="/dashboard/funder/portfolio" element={<FunderDashboardBackup />} />
           {/* Frozen backup of the funder dashboard. Not a persona slug, so it
               is invisible to slugToRole() and never fights the live router. */}

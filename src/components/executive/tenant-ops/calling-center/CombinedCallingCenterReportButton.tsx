@@ -59,26 +59,41 @@ function repeatThemes(rows: ForwardedConcern[]) {
     .slice(0, 12);
 }
 
-export function CombinedCallingCenterReportButton({ days = 90 }: { days?: number }) {
+/**
+ * The report covers exactly the window the History tab's own date controls
+ * select (Today / Yesterday / custom range). `fromIso`/`toIso` and the label are
+ * the very same values `TenantCallsReport` already computes for its own PDF, so
+ * both documents always describe the same period — there is no second filter.
+ */
+export function CombinedCallingCenterReportButton({
+  fromIso,
+  toIso,
+  periodLabel,
+}: {
+  fromIso: string;
+  toIso: string;
+  periodLabel: string;
+}) {
   const [busy, setBusy] = useState(false);
 
   const build = async () => {
     setBusy(true);
     try {
-      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
       const { data: auth } = await supabase.auth.getUser();
 
       const [callsRes, concernsRes] = await Promise.all([
         anyDb
           .from('cc_received_calls')
           .select('*')
-          .gte('called_at', since)
+          .gte('called_at', fromIso)
+          .lt('called_at', toIso)
           .order('called_at', { ascending: false })
           .limit(1000),
         anyDb
           .from('cc_forwarded_concerns')
           .select('*')
-          .gte('created_at', since)
+          .gte('created_at', fromIso)
+          .lt('created_at', toIso)
           .order('created_at', { ascending: false })
           .limit(1000),
       ]);
@@ -212,6 +227,193 @@ export function CombinedCallingCenterReportButton({ days = 90 }: { days?: number
         })
         .sort((a, b) => b.total - a.total);
 
+      // ------------------------------- Made Calls (same cc_* calling spine)
+      // Read-only, exactly the records the History tab reads: attempt rows on
+      // tenant roster rows. A made call counts as forwarded when a concern was
+      // raised from its roster row (`cc_forwarded_concerns.cycle_row_id`) —
+      // the same link the Forward Concern dialog writes.
+      // `outcome` is read for the same reason the History report reads it: a made
+      // call counts as handled once its outcome has been recorded. Same field,
+      // same meaning — nothing new is derived here.
+      const attempts: { id: string; cycle_row_id: string; outcome: string | null }[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await anyDb
+          .from('cc_call_attempts')
+          .select('id, cycle_row_id, outcome')
+          .gte('revealed_at', fromIso)
+          .lt('revealed_at', toIso)
+          .order('revealed_at', { ascending: false })
+          .range(from, from + 999);
+        if (error) throw new Error(error.message);
+        attempts.push(...((data ?? []) as { id: string; cycle_row_id: string; outcome: string | null }[]));
+        if (!data || data.length < 1000) break;
+      }
+      const tenantRowIds = new Set<string>();
+      const allRowIds = [...new Set(attempts.map((a) => a.cycle_row_id))];
+      for (let i = 0; i < allRowIds.length; i += 300) {
+        const { data, error } = await anyDb
+          .from('cc_cycle_rows')
+          .select('id, subject_type')
+          .in('id', allRowIds.slice(i, i + 300));
+        if (error) throw new Error(error.message);
+        ((data ?? []) as { id: string; subject_type: string }[]).forEach((r) => {
+          if (r.subject_type === 'tenant') tenantRowIds.add(r.id);
+        });
+      }
+      const concernRowIds = new Set(concerns.map((c) => c.cycle_row_id).filter(Boolean) as string[]);
+      const madeCalls = attempts.filter((a) => tenantRowIds.has(a.cycle_row_id));
+      const madeForwardedCalls = madeCalls.filter((a) => concernRowIds.has(a.cycle_row_id));
+      const madeNotForwardedCalls = madeCalls.filter((a) => !concernRowIds.has(a.cycle_row_id));
+      const madeForwarded = madeForwardedCalls.length;
+      const madeNotForwarded = madeNotForwardedCalls.length;
+      const receivedNotForwardedCalls = calls.filter((c) => !concernByCall.has(c.id));
+      const receivedNotForwarded = receivedNotForwardedCalls.length;
+      const totalNotForwarded = madeNotForwarded + receivedNotForwarded;
+      const grandTotal = concerns.length + totalNotForwarded;
+      const gPct = (n: number) => (grandTotal ? `${Math.round((n / grandTotal) * 100)}%` : '0%');
+
+      // How much of the never-forwarded work is already dealt with, using the
+      // SAME definitions the two existing reports use: a made call is handled
+      // once its outcome is recorded; a received call is handled once it is
+      // resolved or closed. Nothing else is inferred.
+      const madeNotForwardedHandled = madeNotForwardedCalls.filter((a) => !!a.outcome).length;
+      const receivedNotForwardedHandled = receivedNotForwardedCalls.filter(
+        (c) => c.status === 'resolved' || c.status === 'closed',
+      ).length;
+      const notForwardedHandled = madeNotForwardedHandled + receivedNotForwardedHandled;
+
+      // ------------------------- Staff concern handling (both call sources)
+      // Same grouping the Issues Review uses (the person it was forwarded to),
+      // so the staff rows add up exactly to the forwarded total — a concern is
+      // never counted twice even when more people were added as reviewers.
+      const staffHandlingRows = Array.from(receiverMap.entries())
+        .map(([name, list]) => {
+          const done = list.filter((c) => c.status === 'completed' && c.completed_at);
+          const avg =
+            done.length > 0
+              ? done.reduce(
+                  (a, c) => a + (new Date(c.completed_at as string).getTime() - new Date(c.created_at).getTime()),
+                  0,
+                ) /
+                done.length /
+                3_600_000
+              : null;
+          return {
+            name,
+            total: list.length,
+            fromMade: list.filter((c) => c.source_kind === 'outbound_call').length,
+            fromReceived: list.filter((c) => c.source_kind === 'received_call').length,
+            completed: done.length,
+            open: list.length - done.length,
+            overdue: list.filter(isConcernOverdue).length,
+            onTime: done.filter((c) => concernOverdueHours(c) === 0).length,
+            avgHours: avg == null ? '—' : `${avg.toFixed(1)} hours`,
+            alsoReviewer: concerns.filter(
+              (c) =>
+                (c.forwarded_to_name ?? 'Staff member') !== name &&
+                (anyReviewerNames.get(c.id) ?? []).includes(name),
+            ).length,
+          };
+        })
+        .sort((a, b) => b.total - a.total);
+
+      // Every concern sits against exactly one staff member above, so these
+      // sums are the forwarded side of the book with no double counting.
+      const staffTotals = staffHandlingRows.reduce(
+        (a, r) => ({
+          total: a.total + r.total,
+          fromMade: a.fromMade + r.fromMade,
+          fromReceived: a.fromReceived + r.fromReceived,
+          completed: a.completed + r.completed,
+          open: a.open + r.open,
+          overdue: a.overdue + r.overdue,
+          onTime: a.onTime + r.onTime,
+        }),
+        { total: 0, fromMade: 0, fromReceived: 0, completed: 0, open: 0, overdue: 0, onTime: 0 },
+      );
+
+      /**
+       * Counted as distinct concerns, not as a sum of the staff column: one
+       * concern with three extra reviewers is still one concern here.
+       */
+      const concernsWithExtraReviewer = concerns.filter((c) => {
+        const primary = c.forwarded_to_name ?? 'Staff member';
+        return (anyReviewerNames.get(c.id) ?? []).some((n) => n !== primary);
+      }).length;
+
+      /** Overall average completion time — same formula as the per-staff column. */
+      const allDone = concerns.filter((c) => c.status === 'completed' && c.completed_at);
+      const overallAvgHours =
+        allDone.length > 0
+          ? `${(
+              allDone.reduce(
+                (a, c) => a + (new Date(c.completed_at as string).getTime() - new Date(c.created_at).getTime()),
+                0,
+              ) /
+              allDone.length /
+              3_600_000
+            ).toFixed(1)} hours`
+          : '—';
+
+      /**
+       * Calls that never reached a staff member. They carry no answer deadline,
+       * so "past due", "answered in time" and the handling-time columns cannot
+       * apply and are left blank rather than shown as zero.
+       */
+      const notForwardedRow = {
+        name: 'Not forwarded — no staff member assigned',
+        total: totalNotForwarded,
+        fromMade: madeNotForwarded,
+        fromReceived: receivedNotForwarded,
+        completed: notForwardedHandled,
+        open: totalNotForwarded - notForwardedHandled,
+        overdue: null,
+        onTime: null,
+        avgHours: '—',
+        alsoReviewer: null,
+        kind: 'not_forwarded' as const,
+      };
+
+      /** Forwarded + not forwarded = every call and concern in the period. */
+      const totalRow = {
+        name: 'Total — forwarded and not forwarded',
+        total: staffTotals.total + notForwardedRow.total,
+        fromMade: staffTotals.fromMade + notForwardedRow.fromMade,
+        fromReceived: staffTotals.fromReceived + notForwardedRow.fromReceived,
+        completed: staffTotals.completed + notForwardedRow.completed,
+        open: staffTotals.open + notForwardedRow.open,
+        overdue: staffTotals.overdue,
+        onTime: staffTotals.onTime,
+        avgHours: overallAvgHours,
+        alsoReviewer: concernsWithExtraReviewer,
+        kind: 'total' as const,
+      };
+
+      const staffHandling = {
+        rows: [...staffHandlingRows, notForwardedRow, totalRow],
+        note:
+          'Every concern is counted once, against the staff member it was forwarded to. Where more people were later added to the same concern they appear in the last column instead, so the staff rows add up exactly to the forwarded total. The "Not forwarded" row holds the calls that never reached a staff member, and the "Total" row is the two added together — every call we made and every call that came in during this period, counted once. Calls that were never forwarded carry no answer deadline, so the past-due and handling-time columns are left blank for them.',
+        reconciliation: [
+          {
+            label: 'Total forwarded — concerns sent to at least one staff member',
+            count: concerns.length,
+            share: gPct(concerns.length),
+          },
+          {
+            label: 'Not forwarded / no staff assigned — calls we made',
+            count: madeNotForwarded,
+            share: gPct(madeNotForwarded),
+          },
+          {
+            label: 'Not forwarded / no staff assigned — calls that came in',
+            count: receivedNotForwarded,
+            share: gPct(receivedNotForwarded),
+          },
+          { label: 'Total not forwarded', count: totalNotForwarded, share: gPct(totalNotForwarded) },
+          { label: 'Grand total concerns and calls', count: grandTotal, share: '100%' },
+        ],
+      };
+
       const withDue = concerns.filter((c) => !!c.due_at);
       const late = concerns.filter((c) => concernOverdueHours(c) > 0);
       const lateTotal = late.reduce((a, c) => a + concernOverdueHours(c), 0);
@@ -317,7 +519,11 @@ export function CombinedCallingCenterReportButton({ days = 90 }: { days?: number
             { label: 'Staff members holding concerns', value: String(byReceiver.length) },
             { label: 'Officers who recorded received calls', value: String(receivedByOfficer.length) },
             { label: 'Repeated concerns identified', value: String(themes.length) },
+            { label: 'Calls we made', value: String(madeCalls.length) },
+            { label: 'Calls we made with a concern forwarded', value: String(madeForwarded) },
+            { label: 'Calls and concerns never forwarded to staff', value: String(totalNotForwarded) },
           ],
+          staffHandling,
           received: {
             tiles: [
               { label: 'Calls received', value: String(calls.length) },
@@ -369,14 +575,14 @@ export function CombinedCallingCenterReportButton({ days = 90 }: { days?: number
           generatedBy: auth?.user?.user_metadata?.full_name ?? 'Tenant Operations',
           email: auth?.user?.email ?? '—',
           generatedAt: new Date(),
-          reportPeriod: `Last ${days} days`,
+          reportPeriod: periodLabel,
         },
       );
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `calling-center-combined-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `calling-center-combined-report-${fromIso.slice(0, 10)}_to_${toIso.slice(0, 10)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e: any) {

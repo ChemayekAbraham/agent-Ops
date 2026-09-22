@@ -2003,6 +2003,41 @@
       "when": 1790008364712,
       "tag": "0285_tenant_payment_message_vars_last_payment_source",
       "breakpoints": true
+    },
+    {
+      "idx": 286,
+      "version": "7",
+      "when": 1790010388120,
+      "tag": "0286_agent_registration_gate_default_no_barrier",
+      "breakpoints": true
+    },
+    {
+      "idx": 287,
+      "version": "7",
+      "when": 1790019996190,
+      "tag": "0287_restrict_tenant_support_contacts_read",
+      "breakpoints": true
+    },
+    {
+      "idx": 288,
+      "version": "7",
+      "when": 1790059239560,
+      "tag": "0288_agent_collection_quality_from_daily_settlements",
+      "breakpoints": true
+    },
+    {
+      "idx": 289,
+      "version": "7",
+      "when": 1790063898972,
+      "tag": "0289_crm_call_centre_five_overlapping_queues",
+      "breakpoints": true
+    },
+    {
+      "idx": 290,
+      "version": "7",
+      "when": 1790064428198,
+      "tag": "0290_agent_active_breakdown",
+      "breakpoints": true
     }
   ]
 }

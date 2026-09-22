@@ -47,6 +47,46 @@ const CARD_LABEL_WORDS = new Set([
 
 const VOWELS = /[aeiouAEIOU]/;
 
+/** Classic edit distance — small and dependency-free, only ever called on short tokens. */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const prev = new Array(n + 1);
+  const curr = new Array(n + 1);
+  for (let j = 0; j <= n; j += 1) prev[j] = j;
+  for (let i = 1; i <= m; i += 1) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= n; j += 1) prev[j] = curr[j];
+  }
+  return prev[n];
+}
+
+/**
+ * True when a token is a close OCR corruption of a card-label word, not just
+ * an exact match — e.g. "STHERNAME" is a fusion of "SURNAME" and "OTHER
+ * NAME(S)" (the two adjacent field labels on a Ugandan National ID), close
+ * enough in edit distance to either that it is almost certainly a misread
+ * label rather than a real name. Exact CARD_LABEL_WORDS membership already
+ * catches the clean case; this catches the mangled one.
+ */
+function looksLikeCardLabel(token: string): boolean {
+  const t = token.toLowerCase();
+  if (t.length < 5) return false;
+  for (const label of CARD_LABEL_WORDS) {
+    if (label.length < 5) continue;
+    if (t.includes(label) || label.includes(t)) return true;
+    const maxDist = label.length <= 6 ? 2 : 3;
+    if (levenshtein(t, label) <= maxDist) return true;
+  }
+  return false;
+}
+
 function tokens(name: string): string[] {
   return name
     .replace(/[.,'’\-]/g, ' ')
@@ -96,6 +136,19 @@ export function assessIdNameConfidence(rawIdName: string | null | undefined): Id
     return {
       confident: false,
       reason: `Wording from the card itself ("${labelHit}") was read instead of the person\u2019s name.`,
+    };
+  }
+
+  // A near-miss OCR corruption of a card label (e.g. "STHERNAME", a fusion of
+  // the adjacent "SURNAME" / "OTHER NAME(S)" field labels) is just as much a
+  // misread as an exact match \u2014 checked separately from the exact-match
+  // labelHit above so a real name that merely resembles a label ("Nakato" is
+  // not close to any of these) never gets flagged.
+  const fuzzyLabelHit = parts.find((p) => looksLikeCardLabel(p));
+  if (fuzzyLabelHit) {
+    return {
+      confident: false,
+      reason: `"${fuzzyLabelHit}" looks like a garbled reading of wording printed on the card itself, not a person\u2019s name.`,
     };
   }
 

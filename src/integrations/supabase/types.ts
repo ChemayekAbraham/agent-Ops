@@ -11010,22 +11010,28 @@ export type Database = {
       }
       critical_function_baselines: {
         Row: {
+          auto_remediate: boolean
           baselined_at: string
           baselined_by: string | null
+          canonical_body: string | null
           expected_sha256: string
           function_signature: string
           note: string | null
         }
         Insert: {
+          auto_remediate?: boolean
           baselined_at?: string
           baselined_by?: string | null
+          canonical_body?: string | null
           expected_sha256: string
           function_signature: string
           note?: string | null
         }
         Update: {
+          auto_remediate?: boolean
           baselined_at?: string
           baselined_by?: string | null
+          canonical_body?: string | null
           expected_sha256?: string
           function_signature?: string
           note?: string | null
@@ -49943,6 +49949,13 @@ export type Database = {
         }
         Relationships: []
       }
+      v_crm_call_section: {
+        Row: {
+          person_id: string | null
+          section: string | null
+        }
+        Relationships: []
+      }
       v_crm_person_roles: {
         Row: {
           person_id: string | null
@@ -52760,6 +52773,17 @@ export type Database = {
         Args: { p_payout_id: string; p_receipt_number: string }
         Returns: Json
       }
+      agent_registration_gate_group: {
+        Args: {
+          p_active_tenants: number
+          p_agent_id: string
+          p_district: string
+          p_region: string
+          p_rules: Json
+          p_tier: string
+        }
+        Returns: Json
+      }
       agent_registration_gate_metrics: {
         Args: { p_agent_ids: string[] }
         Returns: {
@@ -54959,8 +54983,21 @@ export type Database = {
           total_rows: number
         }[]
       }
+      crm_call_section_counts: {
+        Args: never
+        Returns: {
+          people: number
+          section: string
+        }[]
+      }
       crm_call_sessions_feed: {
-        Args: { p_days?: number; p_limit?: number; p_target_user_id?: string }
+        Args: {
+          p_days?: number
+          p_limit?: number
+          p_section?: string
+          p_target_user_id?: string
+          p_with_summary_only?: boolean
+        }
         Returns: {
           created_at: string
           duration_seconds: number
@@ -56232,6 +56269,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_agent_active_breakdown: {
+        Args: { p_range_end?: string; p_range_start: string }
+        Returns: Json
+      }
+      get_agent_active_rent_request: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_agent_advance_activity_correlation: {
         Args: { p_days?: number }
         Returns: {
@@ -56386,6 +56431,7 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_week_start?: string }
         Returns: Json
       }
+      get_agent_collection_quality: { Args: { p_days?: number }; Returns: Json }
       get_agent_collection_records: {
         Args: { p_agent_id: string; p_end: string; p_start: string }
         Returns: Json
@@ -57843,6 +57889,7 @@ export type Database = {
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
       get_money_at_bank_reconciliation: { Args: never; Returns: Json }
       get_money_at_bank_total: { Args: never; Returns: Json }
+      get_my_agent_collections_today: { Args: never; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
       get_my_borrowed_loans: {
         Args: never
