@@ -952,6 +952,7 @@ export function SelfPortfolioFundingCard({
     plans,
     houses,
     houseSort,
+    houseOccupancy,
     referencePoint,
     userPoint,
     houseRadiusKm,
@@ -969,6 +970,7 @@ export function SelfPortfolioFundingCard({
     setHouseSearch('');
     setHouseRentMin('');
     setHouseRentMax('');
+    setHouseOccupancy('all');
     setHouseFundingStatus('all');
     setHouseWithinFloat(false);
     setShowSavedReadyOnly(false);
