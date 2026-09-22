@@ -186,7 +186,7 @@ export function FunderNewFilterChips({
           <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
           Within my balance
           <span className={filters.withinFloat ? 'text-primary-foreground/90' : 'text-muted-foreground'}>
-            {' '}· Float: {floatBalance === null ? '…' : formatDynamic(floatBalance)}
+            {' '}· {floatBalance === null ? '…' : formatDynamic(floatBalance)}
           </span>
         </button>
       </div>
