@@ -36,7 +36,19 @@ type ReportRow = {
   source_kind: string;
   forwarded_to_name: string | null;
   created_at: string;
+  cycle_row_id?: string | null;
+  received_call_id?: string | null;
 };
+
+/** One call closed at the Calling Center with nothing forwarded on. */
+type ResolvedEntry = { name: string; at: string; source: 'made' | 'received' };
+
+const chunk = <T,>(arr: T[], size: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+};
+
 
 const isoDay = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -89,13 +101,79 @@ export function WeeklyStaffForwardingReport() {
         p_to: win.toIso,
       });
       if (rpcError) throw new Error(rpcError.message);
-      return (rows ?? []) as ReportRow[];
+      const forwarded = (rows ?? []) as ReportRow[];
+
+      // ---- Calls handled at the Calling Center with nothing forwarded on.
+      // Anything that produced a forwarded concern is excluded, so a call is
+      // counted either as forwarded above or as resolved here — never twice.
+      const forwardedRowIds = new Set(forwarded.map((r) => r.cycle_row_id).filter(Boolean) as string[]);
+      const forwardedCallIds = new Set(forwarded.map((r) => r.received_call_id).filter(Boolean) as string[]);
+
+      const [attemptsRes, callsRes] = await Promise.all([
+        anyDb
+          .from('cc_call_attempts')
+          .select('id, cycle_row_id, caller_id, recorded_at, outcome, void_reason')
+          .gte('recorded_at', win.fromIso)
+          .lt('recorded_at', win.toIso)
+          .limit(5000),
+        anyDb
+          .from('cc_received_calls')
+          .select('id, recorded_by_name, called_at')
+          .gte('called_at', win.fromIso)
+          .lt('called_at', win.toIso)
+          .limit(5000),
+      ]);
+      if (attemptsRes.error) throw new Error(attemptsRes.error.message);
+      if (callsRes.error) throw new Error(callsRes.error.message);
+
+      type Attempt = {
+        id: string;
+        cycle_row_id: string;
+        caller_id: string | null;
+        recorded_at: string | null;
+        outcome: string | null;
+        void_reason: string | null;
+      };
+      const attempts = ((attemptsRes.data ?? []) as Attempt[]).filter(
+        (a) =>
+          !a.void_reason &&
+          a.recorded_at &&
+          (a.outcome === 'engaged' || a.outcome === 'callback_booked') &&
+          !forwardedRowIds.has(a.cycle_row_id),
+      );
+
+      const officerNames = new Map<string, string>();
+      const officerIds = [...new Set(attempts.map((a) => a.caller_id).filter(Boolean) as string[])];
+      for (const slice of chunk(officerIds, 300)) {
+        const { data: profs } = await anyDb.from('profiles').select('id, full_name').in('id', slice);
+        ((profs ?? []) as { id: string; full_name: string | null }[]).forEach((p) => {
+          if (p.full_name) officerNames.set(p.id, p.full_name);
+        });
+      }
+
+      const resolved: ResolvedEntry[] = [
+        ...attempts.map((a) => ({
+          name: (a.caller_id ? officerNames.get(a.caller_id) : null) ?? 'Call centre officer',
+          at: a.recorded_at as string,
+          source: 'made' as const,
+        })),
+        ...((callsRes.data ?? []) as { id: string; recorded_by_name: string | null; called_at: string }[])
+          .filter((c) => !forwardedCallIds.has(c.id))
+          .map((c) => ({
+            name: c.recorded_by_name?.trim() || 'Call centre officer',
+            at: c.called_at,
+            source: 'received' as const,
+          })),
+      ];
+
+      return { forwarded, resolved };
     },
     staleTime: 60_000,
   });
 
   const report = useMemo(() => {
-    const rows = data ?? [];
+    const rows = data?.forwarded ?? [];
+
     const dayKeys = win.days.map(isoDay);
     const dayLabels = win.days.map((d) => format(d, 'EEE dd MMM'));
     const blank = () => dayKeys.map(() => 0);
@@ -126,6 +204,29 @@ export function WeeklyStaffForwardingReport() {
       .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 
     const grandTotal = dailyTotals.reduce((a, b) => a + b, 0);
+
+    // --- Resolved at the Calling Center (no concern forwarded on).
+    const resolvedStaff = new Map<
+      string,
+      { perDay: number[]; fromMade: number; fromReceived: number; total: number }
+    >();
+    const resolvedDailyTotals = blank();
+    (data?.resolved ?? []).forEach((r) => {
+      const idx = dayKeys.indexOf(isoDay(new Date(r.at)));
+      if (idx < 0) return;
+      const entry = resolvedStaff.get(r.name) ?? { perDay: blank(), fromMade: 0, fromReceived: 0, total: 0 };
+      entry.perDay[idx] += 1;
+      entry.total += 1;
+      if (r.source === 'received') entry.fromReceived += 1;
+      else entry.fromMade += 1;
+      resolvedStaff.set(r.name, entry);
+      resolvedDailyTotals[idx] += 1;
+    });
+    const resolvedRows = Array.from(resolvedStaff.entries())
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+    const resolvedGrandTotal = resolvedDailyTotals.reduce((a, b) => a + b, 0);
+
     const busiestIdx = dailyTotals.reduce((best, n, i) => (n > dailyTotals[best] ? i : best), 0);
     const quietestIdx = dailyTotals.reduce((best, n, i) => (n < dailyTotals[best] ? i : best), 0);
     const topStaff = staffRows[0] ?? null;
@@ -138,6 +239,11 @@ export function WeeklyStaffForwardingReport() {
       dailyReceived,
       staffRows,
       grandTotal,
+      resolvedRows,
+      resolvedDailyTotals,
+      resolvedGrandTotal,
+      combinedDailyTotals: dailyTotals.map((n, i) => n + resolvedDailyTotals[i]),
+      combinedGrandTotal: grandTotal + resolvedGrandTotal,
       busiestDay: grandTotal ? `${dayLabels[busiestIdx]} · ${dailyTotals[busiestIdx]}` : '—',
       quietestDay: grandTotal ? `${dayLabels[quietestIdx]} · ${dailyTotals[quietestIdx]}` : '—',
       topStaff,
@@ -147,6 +253,7 @@ export function WeeklyStaffForwardingReport() {
       perDayAverage: grandTotal ? (grandTotal / 7).toFixed(1) : '0',
     };
   }, [data, win.days]);
+
 
   const exportPdf = async () => {
     setBusy(true);
@@ -170,13 +277,24 @@ export function WeeklyStaffForwardingReport() {
           })),
           dailyTotals: report.dailyTotals,
           grandTotal: report.grandTotal,
+          resolvedRows: report.resolvedRows.map((r) => ({
+            name: r.name,
+            perDay: r.perDay,
+            total: r.total,
+            fromMade: r.fromMade,
+            fromReceived: r.fromReceived,
+          })),
+          resolvedDailyTotals: report.resolvedDailyTotals,
+          resolvedGrandTotal: report.resolvedGrandTotal,
           tiles: [
             { label: 'Total forwarded this week', value: String(report.grandTotal) },
+            { label: 'Resolved by call center', value: String(report.resolvedGrandTotal) },
             { label: 'Staff members involved', value: String(report.staffRows.length) },
             { label: 'Busiest day', value: report.busiestDay },
             { label: 'From calls we made', value: String(report.fromMade) },
             { label: 'From calls that came in', value: String(report.fromReceived) },
           ],
+
           insights: [
             { label: 'Total concerns forwarded to staff', value: String(report.grandTotal) },
             { label: 'Staff members who received work', value: String(report.staffRows.length) },
@@ -197,7 +315,11 @@ export function WeeklyStaffForwardingReport() {
               label: 'Forwarded from calls that came in',
               value: `${report.fromReceived} (${pct(report.fromReceived)})`,
             },
+            { label: 'Resolved by call center (nothing forwarded)', value: String(report.resolvedGrandTotal) },
+            { label: 'People who resolved calls at the call center', value: String(report.resolvedRows.length) },
+            { label: 'Forwarded + resolved for the week', value: String(report.combinedGrandTotal) },
           ],
+
           perDayBreakdown: report.dayLabels.map((day, i) => ({
             day,
             made: report.dailyMade[i],
@@ -206,7 +328,8 @@ export function WeeklyStaffForwardingReport() {
             share: pct(report.dailyTotals[i]),
           })),
           note:
-            'Each figure is the number of concerns forwarded to that staff member on that day, counting both calls we made and calls that came in. Every concern is counted once, against the staff member it was forwarded to, so a concern later shared with more reviewers is never counted twice. "Daily total" is every staff member added together for that day; the "Weekly total" column is one staff member across the week, and the grand total is the whole week counted once.',
+            'Each figure is the number of concerns forwarded to that staff member on that day, counting both calls we made and calls that came in. Every concern is counted once, against the staff member it was forwarded to, so a concern later shared with more reviewers is never counted twice. The "Resolved by call center" block lists the person who handled and closed the call at the Calling Center with nothing forwarded on, so every call appears either as forwarded or as resolved — never in both. "Daily total" is every staff member added together for that day; the "Weekly total" column is one staff member across the week.',
+
         },
         {
           generatedBy,
@@ -320,10 +443,11 @@ export function WeeklyStaffForwardingReport() {
               <Skeleton className="h-8 w-full" />
               <Skeleton className="h-8 w-2/3" />
             </div>
-          ) : !report.staffRows.length ? (
+          ) : !report.staffRows.length && !report.resolvedRows.length ? (
             <div className="p-8 text-center text-xs text-muted-foreground">
-              No concern was forwarded to any staff member in this week.
+              No concern was forwarded and no call was closed at the call center in this week.
             </div>
+
           ) : (
             <table className="w-full min-w-[820px] text-xs">
               <thead>
@@ -361,6 +485,48 @@ export function WeeklyStaffForwardingReport() {
                   ))}
                   <td className="p-2.5 text-center text-primary">{report.grandTotal}</td>
                 </tr>
+                <tr className="border-t bg-primary/5">
+                  <td
+                    className="p-2.5 text-[10px] font-bold uppercase tracking-wide text-primary"
+                    colSpan={report.dayLabels.length + 2}
+                  >
+                    Resolved by call center — not forwarded
+                  </td>
+                </tr>
+                {report.resolvedRows.length ? (
+                  report.resolvedRows.map((r) => (
+                    <tr key={`resolved-${r.name}`} className="border-b border-border/50 hover:bg-muted/40">
+                      <td className="p-2.5 font-semibold">{r.name}</td>
+                      {r.perDay.map((n, i) => (
+                        <td
+                          key={`resolved-${r.name}-${i}`}
+                          className={n ? 'p-2.5 text-center font-semibold' : 'p-2.5 text-center text-muted-foreground'}
+                        >
+                          {n || '—'}
+                        </td>
+                      ))}
+                      <td className="p-2.5 text-center font-bold text-primary">{r.total}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr className="border-b border-border/50">
+                    <td
+                      className="p-2.5 text-center text-muted-foreground"
+                      colSpan={report.dayLabels.length + 2}
+                    >
+                      No call was closed without a forward in this week.
+                    </td>
+                  </tr>
+                )}
+                <tr className="border-t bg-muted/40 font-bold">
+                  <td className="p-2.5">Daily total — resolved by call center</td>
+                  {report.resolvedDailyTotals.map((n, i) => (
+                    <td key={`resolved-daily-${i}`} className="p-2.5 text-center">
+                      {n}
+                    </td>
+                  ))}
+                  <td className="p-2.5 text-center text-primary">{report.resolvedGrandTotal}</td>
+                </tr>
                 <tr className="border-t bg-primary/10 font-bold">
                   <td className="p-2.5">Grand total — whole week</td>
                   <td className="p-2.5 text-center text-muted-foreground" colSpan={report.dayLabels.length}>
@@ -368,6 +534,16 @@ export function WeeklyStaffForwardingReport() {
                   </td>
                   <td className="p-2.5 text-center text-primary">{report.grandTotal}</td>
                 </tr>
+                <tr className="border-t bg-primary/15 font-bold">
+                  <td className="p-2.5">Grand total — forwarded + resolved</td>
+                  {report.combinedDailyTotals.map((n, i) => (
+                    <td key={`combined-${i}`} className="p-2.5 text-center">
+                      {n}
+                    </td>
+                  ))}
+                  <td className="p-2.5 text-center text-primary">{report.combinedGrandTotal}</td>
+                </tr>
+
               </tbody>
             </table>
           )}
