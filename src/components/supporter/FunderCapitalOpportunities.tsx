@@ -1096,7 +1096,7 @@ export function FunderCapitalOpportunities({
             className="h-11 w-full gap-2 text-xs font-bold rounded-xl"
             onClick={() => { hapticTap(); setHousePickerOpen(true); }}
           >
-            <Home className="h-4 w-4" /> Browse all empty houses
+            <Home className="h-4 w-4" /> Browse all houses
           </Button>
 
         </div>
