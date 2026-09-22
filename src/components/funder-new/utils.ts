@@ -97,9 +97,10 @@ export function readyPlanTitle(plan: FunderNewReadyPlan): string {
 export function readyPlanPlace(plan: FunderNewReadyPlan): string {
   const local = plan.tenant_location ? prettyName(plan.tenant_location) : '';
   const city = plan.request_city ? prettyName(plan.request_city) : '';
-  const parts = [local, city].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
+  const parts = [city, local].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
   return parts.join(', ') || 'Location on file';
 }
+
 
 export function readyPlanTerm(plan: FunderNewReadyPlan): string {
   if (plan.duration_days && plan.duration_days > 0) {
