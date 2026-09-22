@@ -79,8 +79,6 @@ export function FunderNewHouseCard({
           )}
         </button>
 
-        {verified ? <FunderNewVerifiedBadge className="absolute left-1.5 top-1.5" /> : null}
-
         <button
           type="button"
           onClick={onSave}
@@ -93,7 +91,15 @@ export function FunderNewHouseCard({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1 sm:gap-1.5 sm:p-3">
-        <p className="truncate text-sm font-semibold leading-snug">{place}</p>
+        {/* House type first, then a short place line with the one verification
+            check beside it. */}
+        <p className="truncate text-sm font-semibold leading-snug">{title}</p>
+
+        <p className="flex min-w-0 items-center gap-1.5 text-xs leading-snug text-muted-foreground">
+          <span className="truncate">{place}</span>
+          {verified ? <FunderNewVerifiedBadge variant="icon" /> : null}
+        </p>
+
 
         <p className="break-words text-[0.9375rem] font-bold leading-snug sm:text-base">
           {formatDynamic(amount)}
