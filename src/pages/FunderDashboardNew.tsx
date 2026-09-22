@@ -102,7 +102,6 @@ export default function FunderDashboardNew() {
   const summary = useFunderNewMarketSummary();
   const location = useFunderNewLocation();
 
-  const [tab, setTab] = useState<FunderNewCategory>('empty');
   const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState<FunderNewFilters>({
     search: '',
@@ -327,8 +326,8 @@ export default function FunderDashboardNew() {
   }, []);
 
   const openDetailById = (id: string) => {
-    const found = items.find((item) => itemId(tab, item) === id);
-    if (found) openDetail(tab, found);
+    const found = items.find((entry) => itemId(entry.category, entry.item) === id);
+    if (found) openDetail(found.category, found.item);
   };
 
   /** Applying a map area changes the list; simply panning does not. */
