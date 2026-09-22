@@ -323,7 +323,6 @@ export function FunderNewRouteMap({
   const expandRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
-  const points = useMemo(() => cells.map((cell) => ({ lat: cell.lat, lng: cell.lng })), [cells]);
 
   // Escape closes full screen; focus is moved in and restored on close.
   useEffect(() => {
@@ -451,7 +450,6 @@ export function FunderNewRouteMap({
 
         <InitialView
           device={device}
-          points={points}
           awaitingDeviceFix={awaitingDeviceFix}
         />
         <ViewportReporter onChange={onViewportChange} onMoved={setMoved} />
