@@ -313,16 +313,18 @@ export function CombinedCallingCenterReportButton({
           if (r.subject_type === 'tenant') tenantRowIds.add(r.id);
         });
       }
-      const concernRowIds = new Set(concerns.map((c) => c.cycle_row_id).filter(Boolean) as string[]);
+      // Forwarded / not forwarded is decided against every concern in the period
+      // (the reporting read), not only the ones visible to this officer.
+      const concernRowIds = reportRowIds;
       const madeCalls = attempts.filter((a) => tenantRowIds.has(a.cycle_row_id));
       const madeForwardedCalls = madeCalls.filter((a) => concernRowIds.has(a.cycle_row_id));
       const madeNotForwardedCalls = madeCalls.filter((a) => !concernRowIds.has(a.cycle_row_id));
       const madeForwarded = madeForwardedCalls.length;
       const madeNotForwarded = madeNotForwardedCalls.length;
-      const receivedNotForwardedCalls = calls.filter((c) => !concernByCall.has(c.id));
+      const receivedNotForwardedCalls = calls.filter((c) => !reportByCall.has(c.id));
       const receivedNotForwarded = receivedNotForwardedCalls.length;
       const totalNotForwarded = madeNotForwarded + receivedNotForwarded;
-      const grandTotal = concerns.length + totalNotForwarded;
+      const grandTotal = reportRows.length + totalNotForwarded;
       const gPct = (n: number) => (grandTotal ? `${Math.round((n / grandTotal) * 100)}%` : '0%');
 
       // How much of the never-forwarded work is already dealt with, using the
