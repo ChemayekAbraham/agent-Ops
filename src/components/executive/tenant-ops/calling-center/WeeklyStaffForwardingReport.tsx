@@ -277,13 +277,24 @@ export function WeeklyStaffForwardingReport() {
           })),
           dailyTotals: report.dailyTotals,
           grandTotal: report.grandTotal,
+          resolvedRows: report.resolvedRows.map((r) => ({
+            name: r.name,
+            perDay: r.perDay,
+            total: r.total,
+            fromMade: r.fromMade,
+            fromReceived: r.fromReceived,
+          })),
+          resolvedDailyTotals: report.resolvedDailyTotals,
+          resolvedGrandTotal: report.resolvedGrandTotal,
           tiles: [
             { label: 'Total forwarded this week', value: String(report.grandTotal) },
+            { label: 'Resolved by call center', value: String(report.resolvedGrandTotal) },
             { label: 'Staff members involved', value: String(report.staffRows.length) },
             { label: 'Busiest day', value: report.busiestDay },
             { label: 'From calls we made', value: String(report.fromMade) },
             { label: 'From calls that came in', value: String(report.fromReceived) },
           ],
+
           insights: [
             { label: 'Total concerns forwarded to staff', value: String(report.grandTotal) },
             { label: 'Staff members who received work', value: String(report.staffRows.length) },
