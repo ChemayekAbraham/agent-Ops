@@ -17,6 +17,17 @@ import { StatGrid, StatTile, DrawerSection, ContactCard, PersonHeader } from '@/
 
 const titleCase = (v?: string | null) => (v ? String(v).replace(/_/g, ' ') : null);
 
+/** yyyy-MM-dd rendered as a short, unambiguous day for calling officers. */
+const dayLabel = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+  });
+};
+
+
 export function TenantCallContextPanel({
   hub,
   subjectId,
