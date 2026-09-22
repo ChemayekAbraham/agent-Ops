@@ -6,7 +6,7 @@ import './funderNewMap.css';
 import { Crosshair, Loader2, Maximize2, RotateCcw, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatDynamicCompact } from '@/lib/currencyFormat';
+import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
 import type { FunderNewEmptyHouse } from './types';
 import { emptyHouseTitle, itemAmount } from './utils';
@@ -68,14 +68,14 @@ function viewportOf(map: L.Map): FunderNewViewport {
 }
 
 function priceIcon(label: string, active: boolean, saved: boolean): L.DivIcon {
-  const width = Math.max(46, Math.round(14 + label.length * 7.4));
+  const width = Math.max(74, Math.round(18 + label.length * 7.2));
   return L.divIcon({
     className: 'fn-map-divicon',
     html: `<span class="fn-map-price${active ? ' fn-map-price--active' : ''}${
       saved ? ' fn-map-price--saved' : ''
     }">${label}</span>`,
-    iconSize: [width, 26],
-    iconAnchor: [width / 2, 13],
+    iconSize: [width, 28],
+    iconAnchor: [width / 2, 14],
   });
 }
 
@@ -258,12 +258,12 @@ function CellLayer({
               key={id}
               position={[cell.lat, cell.lng]}
               icon={priceIcon(
-                formatDynamicCompact(amount),
+                formatDynamic(amount),
                 selectedIds.includes(id) || activeId === id,
                 savedIds.includes(id),
               )}
               keyboard
-              alt={`${emptyHouseTitle(house)}. ${formatDynamicCompact(amount)} to support. Open details.`}
+              alt={`${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support. Open details.`}
               eventHandlers={{
                 click: () => onOpenHouse(house),
                 keypress: () => onOpenHouse(house),
