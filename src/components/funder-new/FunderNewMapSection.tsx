@@ -10,7 +10,7 @@ import { FUNDER_NEW_MAP_LIMIT, useFunderNewMapHouses } from './useFunderNewOppor
 const LazyRouteMap = lazy(() => import('./FunderNewRouteMap').then((module) => ({ default: module.FunderNewRouteMap })));
 
 /** Reserved box so lazy loading the map never shifts the page. */
-const MAP_BOX = 'h-[300px] sm:h-[360px] lg:h-[400px]';
+const MAP_BOX = 'h-[300px] sm:h-[440px] lg:h-[520px]';
 
 /**
  * Location-aware map for /dashboard/funder-new.
