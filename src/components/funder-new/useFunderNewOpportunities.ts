@@ -127,7 +127,11 @@ export function useFunderNewEmptyHouses(
  * shown per plan where a pin exists, but the ordering is the service's own.
  */
 export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boolean) {
-  const range = amountRange(filters.amount);
+  const bucket = amountRange(filters.amount);
+  const range = {
+    min: filters.rentMin ?? bucket.min,
+    max: filters.rentMax ?? bucket.max,
+  };
 
   return useInfiniteQuery<FunderNewListResult<FunderNewReadyPlan>>({
     queryKey: [
@@ -137,8 +141,11 @@ export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boole
         search: filters.search.trim(),
         location: filters.location.trim(),
         amount: filters.amount,
+        rentMin: filters.rentMin,
+        rentMax: filters.rentMax,
       },
     ],
+
     enabled,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
