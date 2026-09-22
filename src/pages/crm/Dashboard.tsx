@@ -6,6 +6,11 @@ import { CRMSupportLogPanel } from '@/components/executive/CRMSupportLogPanel';
 import { CTOCommunicationOverview } from '@/components/executive/CTOCommunicationOverview';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  CALL_SECTIONS,
+  CALL_SECTION_SLUG,
+  parseCallSectionNavId,
+} from '@/lib/callCentre';
 
 /**
  * Call Centre panels are lazy: they pull in recharts, which no other CRM tab
@@ -19,6 +24,11 @@ const CallCentreOverview = lazy(() =>
 const CallCentreHistory = lazy(() =>
   import('@/components/executive/crm/call-centre/CallCentreHistory').then((m) => ({
     default: m.CallCentreHistory,
+  })),
+);
+const CallCentreSummaries = lazy(() =>
+  import('@/components/executive/crm/call-centre/CallCentreSummaries').then((m) => ({
+    default: m.CallCentreSummaries,
   })),
 );
 const CallCentrePeople = lazy(() =>
@@ -38,29 +48,57 @@ export default function CRMDashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('crm');
 
   const renderContent = () => {
+    // The Call Centre is five queues × four views. Resolve those first, by
+    // parsing the sidebar id, so the switch below stays a list of one-off
+    // panels instead of twenty near-identical cases.
+    const leaf = parseCallSectionNavId(activeTab);
+    if (leaf) {
+      const { section, view } = leaf;
+      return (
+        <Suspense fallback={<PanelFallback />}>
+          {view === 'overview' && <CallCentreOverview section={section} />}
+          {view === 'people' && <CallCentrePeople section={section} />}
+          {view === 'logs' && <CallCentreHistory section={section} />}
+          {view === 'summaries' && <CallCentreSummaries section={section} />}
+        </Suspense>
+      );
+    }
+
+    // A queue's own id is the sidebar disclosure, not a destination — land on
+    // its Overview rather than the fallback panel.
+    const parentSection = CALL_SECTIONS.find(
+      (s) => activeTab === `call-centre-${CALL_SECTION_SLUG[s]}`,
+    );
+    if (parentSection) {
+      return (
+        <Suspense fallback={<PanelFallback />}>
+          <CallCentreOverview section={parentSection} />
+        </Suspense>
+      );
+    }
+
     switch (activeTab) {
       case 'requisitions':
         return <RequisitionsWorkspace />;
-      // `call-centre` is the parent disclosure in the sidebar, not a view of its
-      // own — it falls through to the Overview child so a stale persisted tab
-      // (or a ?section=call-centre deep link) still lands somewhere real.
+      // Pre-queue ids. Bookmarks, ?section= deep links and persisted tabs from
+      // before the split still resolve — onto Tenants, the largest queue.
       case 'call-centre':
       case 'call-centre-overview':
         return (
           <Suspense fallback={<PanelFallback />}>
-            <CallCentreOverview />
+            <CallCentreOverview section="tenant" />
           </Suspense>
         );
       case 'call-centre-history':
         return (
           <Suspense fallback={<PanelFallback />}>
-            <CallCentreHistory />
+            <CallCentreHistory section="tenant" />
           </Suspense>
         );
       case 'call-centre-people':
         return (
           <Suspense fallback={<PanelFallback />}>
-            <CallCentrePeople />
+            <CallCentrePeople section="tenant" />
           </Suspense>
         );
       case 'customer-issues':

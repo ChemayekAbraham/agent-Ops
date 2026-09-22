@@ -14,10 +14,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import {
-  buildMostCalled, buildOutcomeTrend, buildRoleShare, computeKpis, formatCallStamp, formatTalkTime,
-  OUTCOME_LABEL, type CallOutcome, type CallRecord,
+  buildMostCalled, buildOutcomeTrend, buildRoleShare, computeSectionKpis, formatCallStamp,
+  formatTalkTime,
+  OUTCOME_LABEL, type CallOutcome, type CallRecord, type CallSection,
 } from '@/lib/callCentre';
-import { useCallRecords } from '@/hooks/useCrmCallCentre';
+import { useCallSectionCounts, useSectionCallRecords } from '@/hooks/useCrmCallCentre';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 import { resolveChartTheme } from './callCentreChartTheme';
 import { CallDrawer } from './CallDrawer';
@@ -135,13 +136,23 @@ function endLabel(lastIndex: number, colour: string) {
  * Overview
  * ------------------------------------------------------------------ */
 
-export function CallCentreOverview() {
+interface CallCentreOverviewProps {
+  /** Which queue this panel describes. One of the five `CallSection` values. */
+  section: CallSection;
+}
+
+export function CallCentreOverview({ section }: CallCentreOverviewProps) {
   // The dialer sheet can leave <body> pointer-events:none behind on close.
   useRestoreBodyPointerEvents();
   const { resolvedTheme } = useTheme();
   const theme = resolveChartTheme(resolvedTheme === 'dark');
 
-  const { data: records = [], isLoading, error } = useCallRecords();
+  // Queue membership is resolved server-side: filtering the flat feed on
+  // `record.calleeRole` here would miss anyone whose role changed after the
+  // call was placed, because that column is a snapshot.
+  const { records, isLoading, error } = useSectionCallRecords(section);
+  const { counts } = useCallSectionCounts();
+  const queueSize = counts[section] ?? 0;
   const { target, dial, close } = useCallDialer();
 
   const [range, setRange] = useState<(typeof RANGES)[number]['value']>('14');
@@ -158,7 +169,9 @@ export function CallCentreOverview() {
     return records.filter((r) => new Date(r.calledAt).getTime() >= startOfCutoffDay.getTime());
   }, [records, days]);
 
-  const kpis = useMemo(() => computeKpis(scoped), [scoped]);
+  // `computeSectionKpis` adds the two tiles that count PEOPLE rather than
+  // calls — Total Numbers (the queue) and how many of them have been reached.
+  const kpis = useMemo(() => computeSectionKpis(scoped, queueSize), [scoped, queueSize]);
   const trend = useMemo(() => buildOutcomeTrend(records, { days }), [records, days]);
   const roleShare = useMemo(() => buildRoleShare(scoped), [scoped]);
 

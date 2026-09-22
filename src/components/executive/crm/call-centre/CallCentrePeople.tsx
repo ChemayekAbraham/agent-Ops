@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import {
   CALLEE_ROLES, CALLEE_ROLE_BADGE, CALLEE_ROLE_LABEL, formatCallStamp, OUTCOME_LABEL,
-  primaryRole, type CalleeRole, type CallOutcome,
+  primaryRole, type CalleeRole, type CallOutcome, type CallSection,
 } from '@/lib/callCentre';
 import {
   PEOPLE_PAGE_SIZE, usePlatformPeople, usePlatformPeopleCounts,
@@ -114,7 +114,12 @@ function PersonIdentity({ person, onOpen }: { person: PlatformPerson; onOpen: ()
   );
 }
 
-export function CallCentrePeople() {
+interface CallCentrePeopleProps {
+  /** Which queue's people to list. Locks the audience filter. */
+  section: CallSection;
+}
+
+export function CallCentrePeople({ section }: CallCentrePeopleProps) {
   // This panel stacks two sheets (dialer over summary history), which is the
   // exact case where Radix leaves <body> pointer-events:none and swallows the
   // next click.
@@ -137,10 +142,17 @@ export function CallCentrePeople() {
   }, [queryInput]);
 
   // Any filter change restarts paging — page 3 of the old result set is meaningless.
-  useEffect(() => setPage(0), [search, status, role, sort]);
+  useEffect(() => setPage(0), [search, status, section, sort]);
 
+  // The audience is now the section you are standing in, so `role` is pinned
+  // rather than chosen. `crm_platform_people_page` accepts queue names as well
+  // as raw roles, so 'operational_agent' and 'proxy_agent' resolve here too.
+  //
+  // GEMINI: the role selector this used to drive is now redundant inside a
+  // queue - it should come out of the filter bar. Status, sort and search all
+  // still apply and should stay.
   const { rows, total, isLoading, isFetching, error } = usePlatformPeople({
-    search, role, status, sort, page,
+    search, role: section, status, sort, page,
   });
 
   const from = total === 0 ? 0 : page * PEOPLE_PAGE_SIZE + 1;

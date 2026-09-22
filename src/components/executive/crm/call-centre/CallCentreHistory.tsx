@@ -11,8 +11,9 @@ import { cn } from '@/lib/utils';
 import {
   CALLEE_ROLE_LABEL, computeKpis, deriveOutcome, formatCallStamp, formatTalkTime, labelTemperatures,
   OUTCOME_LABEL, type CallOutcome, type CallRecord,
+  type CallSection,
 } from '@/lib/callCentre';
-import { useCallRecords } from '@/hooks/useCrmCallCentre';
+import { useSectionCallRecords } from '@/hooks/useCrmCallCentre';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 import { CallDrawer } from './CallDrawer';
 import { useCallDialer, type DialTarget } from './useCallDialer';
@@ -49,10 +50,16 @@ const dayHeading = (iso: string) => {
   });
 };
 
-export function CallCentreHistory() {
+interface CallCentreHistoryProps {
+  /** Which queue's calls to list. */
+  section: CallSection;
+}
+
+export function CallCentreHistory({ section }: CallCentreHistoryProps) {
   // The dialer sheet can leave <body> pointer-events:none behind on close.
   useRestoreBodyPointerEvents();
-  const { data: records = [], isLoading, error } = useCallRecords();
+  // Membership resolved server-side - see useSectionCallRecords.
+  const { records, isLoading, error } = useSectionCallRecords(section);
   const { target, dial, close } = useCallDialer();
 
   const [query, setQuery] = useState('');

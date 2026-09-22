@@ -49953,6 +49953,7 @@ export type Database = {
         Row: {
           person_id: string | null
           section: string | null
+          subtype: string | null
         }
         Relationships: []
       }
@@ -55070,6 +55071,7 @@ export type Database = {
           total_rows: number
         }[]
       }
+      crm_reap_stale_call_sessions: { Args: never; Returns: Json }
       crm_record_call_outcome: {
         Args: { p_outcome: string; p_session_id: string }
         Returns: undefined
@@ -56852,6 +56854,10 @@ export type Database = {
           verified: boolean
         }[]
       }
+      get_agent_tenant_repayments: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_agent_tenants_overview: {
         Args: { p_today_start?: string }
         Returns: {
@@ -57912,6 +57918,7 @@ export type Database = {
         }[]
       }
       get_my_commission_rate: { Args: never; Returns: Json }
+      get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
