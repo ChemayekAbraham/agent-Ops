@@ -56403,6 +56403,7 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_week_start?: string }
         Returns: Json
       }
+      get_agent_collection_quality: { Args: { p_days?: number }; Returns: Json }
       get_agent_collection_records: {
         Args: { p_agent_id: string; p_end: string; p_start: string }
         Returns: Json
