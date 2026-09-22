@@ -237,7 +237,7 @@ export default function FunderDashboardNew() {
     (summary.data?.districts ?? []).forEach((item) => {
       counts.set(item.value, { label: item.label, count: item.count });
     });
-    loadedItems.forEach((item) => {
+    loadedItems.forEach(({ item }) => {
       const raw = (item as unknown as Record<string, unknown>).district;
       const value = typeof raw === 'string' ? raw.trim() : '';
       if (!value || counts.has(value)) return;
@@ -254,18 +254,13 @@ export default function FunderDashboardNew() {
    */
   const items = useMemo(() => {
     if (!filters.withinFloat || availableBalance === null) return loadedItems;
-    return loadedItems.filter((item) => {
-      const amount = itemAmount(tab, item);
+    return loadedItems.filter((entry) => {
+      const amount = itemAmount(entry.category, entry.item);
       return amount > 0 && amount <= availableBalance;
     });
-  }, [loadedItems, filters.withinFloat, availableBalance, tab]);
+  }, [loadedItems, filters.withinFloat, availableBalance]);
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
-
-  const activeSelectedIds = useMemo(
-    () => selectedItems.filter((item) => item.category === tab).map((item) => item.id),
-    [selectedItems, tab],
-  );
   const selectedEmptyIds = useMemo(
     () => selectedItems.filter((item) => item.category === 'empty').map((item) => item.id),
     [selectedItems],
