@@ -22,10 +22,13 @@ interface Props {
   hasOrigin: boolean;
   /** Available balance, needed for the within-balance chip. */
   availableBalance: number | null;
+  /** Stack the controls (used inside the filter drawer) instead of one scrolling row. */
+  stacked?: boolean;
   onChange: (next: Partial<FunderNewFilters>) => void;
   onSortChange: (sort: FunderNewSort) => void;
   onReset: () => void;
 }
+
 
 const parseAmount = (raw: string): number | null => {
   const digits = raw.replace(/[^0-9]/g, '');
@@ -40,6 +43,7 @@ export function FunderNewFilterChips({
   supportsSort,
   hasOrigin,
   availableBalance,
+  stacked = false,
   onChange,
   onSortChange,
   onReset,
@@ -54,9 +58,14 @@ export function FunderNewFilterChips({
 
   return (
     <div
-      className="flex items-center gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className={
+        stacked
+          ? 'flex flex-wrap items-center gap-2'
+          : 'flex items-center gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+      }
       aria-label="Filter homes"
     >
+
       {supportsSort ? (
         <Select value={filters.sort} onValueChange={(value) => onSortChange(value as FunderNewSort)}>
           <SelectTrigger className={CHIP} aria-label="Sort">
