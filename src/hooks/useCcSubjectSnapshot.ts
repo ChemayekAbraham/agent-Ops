@@ -11,10 +11,23 @@ import { useQuery } from '@tanstack/react-query';
 import { differenceInDays, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import type { CcSubjectType } from '@/hooks/useCcCallingHub';
+import { describePlanSchedule, isWeeklyPlan } from '@/lib/agentMonitoringSchedule';
 
 /** Same repayment clock anchor fallback chain used by Missed Days. */
 const startAnchor = (r: { disbursed_at?: string | null; funded_at?: string | null; created_at?: string | null }) =>
   r.disbursed_at || r.funded_at || r.created_at || null;
+
+const DAY_MS = 86_400_000;
+
+const isoDay = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+const fromIsoDay = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
 
 export interface CcSubjectSnapshot {
   tenant_id: string;
@@ -38,7 +51,24 @@ export interface CcSubjectSnapshot {
   agent_wallet: number;
   status: string | null;
   started_at: string | null;
+  /** True when this plan repays weekly rather than daily. */
+  is_weekly: boolean;
+  /** UGX due per scheduled payment (weekly = daily figure x 7). */
+  period_amount: number;
+  /** Date (yyyy-MM-dd) of the earliest scheduled payment not yet fully paid. */
+  current_due_date: string | null;
+  /** UGX already paid towards that scheduled payment. */
+  current_due_paid: number;
+  /** That scheduled payment has been settled in full. */
+  current_due_settled: boolean;
+  /** Whole days since that payment's due date; 0 when nothing is overdue. */
+  days_overdue: number;
+  /** Whole scheduled payments left unpaid. */
+  periods_overdue: number;
+  /** Next scheduled payment date for weekly plans (yyyy-MM-dd). */
+  next_due_date: string | null;
 }
+
 
 export function useCcSubjectSnapshot(subjectType: CcSubjectType, subjectId: string | null) {
   const enabled = subjectType === 'tenant' && !!subjectId;
