@@ -181,3 +181,124 @@ export function payDirectSentence(channels: PaymentChannels): string {
   const phrase = payChannelsPhrase(channels);
   return phrase ? ` Pay directly via ${phrase}.` : "";
 }
+
+// ---------------------------------------------------------------------------
+// Payment-confirmation figures (added 2026-09-21).
+//
+// Everything below renders EXACT money amounts. Percentages are deliberately
+// never published to tenants: the eligibility rule is a percentage internally,
+// but the message must always say "pay UGX X more to access up to UGX Y".
+// Figures come from get_tenant_payment_message_vars, which reads the same
+// authoritative plan/collection data and the same configurable thresholds as
+// the Top-Up Eligibility report.
+// ---------------------------------------------------------------------------
+
+export interface TenantPaymentMessageVars {
+  tenant_id: string;
+  rent_amount: number;
+  total_expected: number;
+  paid_to_date: number;
+  remaining: number;
+  term_end: string | null;
+  days_left_in_cycle: number | null;
+  days_after_cycle: number | null;
+  tier_key: string;
+  current_access: number;
+  current_topup: number;
+  next_level_required: number | null;
+  next_level_access: number | null;
+  next_level_deadline: string | null;
+}
+
+export interface SupportContact {
+  label: string;
+  phone: string;
+}
+
+export async function loadTenantPaymentMessageVars(
+  admin: any,
+  tenantIds: Array<string | null | undefined>,
+): Promise<Map<string, TenantPaymentMessageVars>> {
+  const ids = Array.from(new Set(tenantIds.filter((id): id is string => Boolean(id))));
+  if (ids.length === 0) return new Map();
+
+  const { data, error } = await admin.rpc("get_tenant_payment_message_vars", {
+    p_tenant_ids: ids,
+  });
+  if (error) {
+    console.error("[tenantTemplates] payment message vars load failed:", error.message);
+    return new Map();
+  }
+  const rows = (data ?? []) as TenantPaymentMessageVars[];
+  return new Map(rows.map((row) => [row.tenant_id, row]));
+}
+
+/** Active customer-care numbers, in configured order. */
+export async function loadSupportContacts(admin: any): Promise<SupportContact[]> {
+  const { data, error } = await admin
+    .from("tenant_support_contacts")
+    .select("label, phone, active, sort_order")
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+  if (error) {
+    console.error("[tenantTemplates] support contacts load failed:", error.message);
+    return [];
+  }
+  return (data ?? []) as SupportContact[];
+}
+
+/** Whole care-line sentence, or "" when no number is configured. */
+export function careSentence(contacts: SupportContact[]): string {
+  const numbers = contacts.map((c) => String(c.phone || "").trim()).filter(Boolean);
+  if (numbers.length === 0) return "";
+  return ` Need help? Call Welile customer care on ${numbers.join(" or ")}.`;
+}
+
+/** "You have now paid UGX X of UGX Y. UGX Z remains." */
+export function progressSentence(vars: TenantPaymentMessageVars | undefined): string {
+  if (!vars || !(Number(vars.total_expected) > 0)) return "";
+  const paid = formatUGX(vars.paid_to_date);
+  const expected = formatUGX(vars.total_expected);
+  if (Number(vars.remaining) <= 0) {
+    return ` You have now paid ${paid} of ${expected} — nothing remains on this Rent Plan.`;
+  }
+  return ` You have now paid ${paid} of ${expected}, leaving ${formatUGX(vars.remaining)} to pay.`;
+}
+
+/** Cycle timing, in days rather than dates where the tenant is still inside it. */
+export function cycleSentence(vars: TenantPaymentMessageVars | undefined): string {
+  if (!vars) return "";
+  const left = Number(vars.days_left_in_cycle ?? 0);
+  if (left > 0) {
+    return ` Your payment cycle ends in ${left} day${left === 1 ? "" : "s"}.`;
+  }
+  const after = Number(vars.days_after_cycle ?? 0);
+  if (after > 0) {
+    return ` Your payment cycle ended ${after} day${after === 1 ? "" : "s"} ago.`;
+  }
+  return "";
+}
+
+/** What the tenant has already earned the right to take. */
+export function accessSentence(vars: TenantPaymentMessageVars | undefined): string {
+  if (!vars) return "";
+  const access = Number(vars.current_access ?? 0);
+  if (!(access > 0)) return "";
+  const topup = Number(vars.current_topup ?? 0);
+  if (topup > 0) {
+    return ` You have qualified for rent of up to ${formatUGX(access)} next time — that is ${formatUGX(topup)} more than your current ${formatUGX(vars.rent_amount)}.`;
+  }
+  return ` You have qualified for rent of up to ${formatUGX(access)} next time, the same as your current rent.`;
+}
+
+/** The exact amount to the next level and what it unlocks. */
+export function nextLevelSentence(vars: TenantPaymentMessageVars | undefined): string {
+  if (!vars) return "";
+  const required = Number(vars.next_level_required ?? 0);
+  const access = Number(vars.next_level_access ?? 0);
+  if (!(required > 0) || !(access > 0)) return "";
+  const deadline = vars.next_level_deadline
+    ? ` Pay it by ${vars.next_level_deadline} to keep this.`
+    : "";
+  return ` Pay ${formatUGX(required)} more to qualify for rent of up to ${formatUGX(access)}.${deadline}`;
+}

@@ -26,6 +26,7 @@ import {
 import { generateTenantCallsReportPdf } from '@/lib/tenantCallsReportPdf';
 import { analyseCallFeedback } from '@/lib/tenantCallFeedbackAnalysis';
 import { FeedbackAnalysisSection } from './FeedbackAnalysisSection';
+import { CombinedCallingCenterReportButton } from './CombinedCallingCenterReportButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -325,6 +326,10 @@ export function TenantCallsReport() {
                 <FileText className="mr-1.5 h-3.5 w-3.5" />
                 {busy ? 'Building…' : 'PDF'}
               </Button>
+              {/* Separate, additive export: Received Calls + Issues Review in
+                  one document. The History PDF above is untouched. */}
+              <CombinedCallingCenterReportButton />
+              
               <Button
                 size="sm"
                 variant="outline"

@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 
 import { AgentRentCapacityPanel } from '../AgentRentCapacityPanel';
+import { ActiveAgentsBreakdownDialog } from './ActiveAgentsBreakdownDialog';
 import type { DateRange } from 'react-day-picker';
 import { OpsDateRangeFilter, resolveRange, rangePhrase, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
 
@@ -122,6 +123,7 @@ export interface AgentOpsOverviewProps {
 export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   const qc = useQueryClient();
   const [preset, setPreset] = useState<PresetKey>('today');
+  const [activeBreakdownOpen, setActiveBreakdownOpen] = useState(false);
   const [custom, setCustom] = useState<DateRange | undefined>();
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
   const startIso = start.toISOString();
@@ -310,7 +312,7 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
           icon={Activity}
           accent="bg-emerald-600"
           spark={trendData.map((t) => t.activeAgents)}
-          onClick={() => onOpenSection('directory')}
+          onClick={() => setActiveBreakdownOpen(true)}
           loading={isLoading}
         />
         <KpiTile
@@ -473,6 +475,8 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
 
       {/* Agent performance for rent collection */}
       <AgentRentCapacityPanel defaultLimit={25} />
+
+      <ActiveAgentsBreakdownDialog open={activeBreakdownOpen} onOpenChange={setActiveBreakdownOpen} />
 
     </div>
   );
@@ -750,85 +754,26 @@ function PartialCollectionsOverview() {
     queryKey: ['agent-ops-partial-vs-full', DAYS],
     staleTime: 60_000,
     queryFn: async () => {
-      const since = startOfDay(subDays(new Date(), DAYS - 1));
-      const today = startOfDay(new Date());
-      const sinceStr = format(since, 'yyyy-MM-dd');
-      const todayStr = format(today, 'yyyy-MM-dd');
+      const { data: result, error } = await supabase.rpc('get_agent_collection_quality', {
+        p_days: DAYS,
+      });
+      if (error) throw error;
 
-      const [{ data: cols, error: colsErr }, { data: expectedRows, error: expErr }] = await Promise.all([
-        supabase
-          .from('agent_collections')
-          .select('id, amount, created_at, tenant_id, rent_request_id').is('reversed_at', null)
-          .gte('created_at', since.toISOString())
-          .gt('amount', 0)
-          .limit(5000),
-        supabase
-          .from('agent_expected_day_plans')
-          .select('day, rent_request_id')
-          .gte('day', sinceStr)
-          .lte('day', todayStr)
-          .limit(20000),
-      ]);
-      if (colsErr) throw colsErr;
-      if (expErr) throw expErr;
-
-      const rows = (cols || []) as any[];
-
-      const expectedByDay = new Map<string, number>();
-      for (const e of (expectedRows || []) as any[]) {
-        const key = String(e.day).slice(0, 10);
-        expectedByDay.set(key, (expectedByDay.get(key) || 0) + 1);
-      }
-
-      if (rows.length === 0 && expectedByDay.size === 0) {
-        return { series: [], full: 0, partial: 0, missed: 0, shortfall: 0 };
-      }
-
-      const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean)));
-      const { data: plans } = await supabase
-        .from('rent_requests')
-        .select('id, tenant_id, daily_repayment, repayment_frequency')
-        .in('tenant_id', tenantIds.slice(0, 500));
-      const byId = new Map<string, any>();
-      const byTenant = new Map<string, any>();
-      for (const p of (plans || []) as any[]) {
-        byId.set(p.id, p);
-        if (!byTenant.has(p.tenant_id)) byTenant.set(p.tenant_id, p);
-      }
-      const expectedFor = (r: any): number => {
-        const p = (r.rent_request_id && byId.get(r.rent_request_id)) || byTenant.get(r.tenant_id);
-        if (!p) return 0;
-        const daily = Number(p.daily_repayment || 0);
-        const freq = String(p.repayment_frequency || 'daily');
-        return freq === 'weekly' ? daily * 7 : freq === 'monthly' ? daily * 30 : daily;
+      const payload = (result ?? {}) as {
+        series?: Array<{ label: string; full: number; partial: number; missed: number; shortfall: number }>;
+        full?: number;
+        partial?: number;
+        missed?: number;
+        shortfall?: number;
       };
 
-      const buckets = new Map<string, { label: string; full: number; partial: number; missed: number; shortfall: number }>();
-      for (let i = DAYS - 1; i >= 0; i--) {
-        const d = subDays(new Date(), i);
-        buckets.set(format(d, 'yyyy-MM-dd'), { label: format(d, 'd MMM'), full: 0, partial: 0, missed: 0, shortfall: 0 });
-      }
-      let full = 0, partial = 0, missed = 0, shortfall = 0;
-      for (const r of rows) {
-        const key = format(new Date(r.created_at), 'yyyy-MM-dd');
-        const b = buckets.get(key);
-        if (!b) continue;
-        const exp = expectedFor(r);
-        const amt = Number(r.amount || 0);
-        if (exp > 0 && amt < exp - 1) {
-          b.partial += 1; partial += 1;
-          const gap = exp - amt;
-          b.shortfall += gap; shortfall += gap;
-        } else {
-          b.full += 1; full += 1;
-        }
-      }
-      for (const [key, b] of buckets) {
-        const expCount = expectedByDay.get(key) || 0;
-        b.missed = Math.max(0, expCount - b.full - b.partial);
-        missed += b.missed;
-      }
-      return { series: Array.from(buckets.values()), full, partial, missed, shortfall };
+      return {
+        series: payload.series ?? [],
+        full: Number(payload.full || 0),
+        partial: Number(payload.partial || 0),
+        missed: Number(payload.missed || 0),
+        shortfall: Number(payload.shortfall || 0),
+      };
     },
   });
 

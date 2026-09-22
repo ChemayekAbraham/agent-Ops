@@ -65,6 +65,8 @@ const UserLocationCorrectionGate = optionalLazyWithRetry(() => import("@/compone
 const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/components/requisitions/RequisitionUsageReportGate"), "RequisitionUsageReportGate");
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
+const FacilitationApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/FacilitationApprovalGate"), "FacilitationApprovalGate");
+const PsoFacilitationRegister = lazyWithRetry(() => import("@/pages/PsoFacilitationRegister"));
 
 // Field recruitment campaign pages
 const CampaignRedirect = lazyWithRetry(() => import("@/pages/CampaignRedirect"));
@@ -100,6 +102,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
 const FunderDashboardBackup = lazy(() => import("./pages/FunderDashboardBackup"));
 const DashboardRedirect = lazy(() => import("./pages/DashboardRedirect"));
@@ -430,6 +433,7 @@ function GlobalOnboardingGates() {
       <RequisitionUsageReportGate />
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
+      <FacilitationApprovalGate />
     </>
   );
 }
@@ -499,6 +503,7 @@ function AppRoutes() {
           <Route path="/dashboard/agent" element={<Dashboard />} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />
           <Route path="/dashboard/funder" element={<Dashboard />} />
+          <Route path="/dashboard/funder-new" element={<RoleGuard allowedRoles={['supporter']}><FunderDashboardNew /></RoleGuard>} />
           <Route path="/dashboard/funder/portfolio" element={<FunderDashboardBackup />} />
           {/* Frozen backup of the funder dashboard. Not a persona slug, so it
               is invisible to slugToRole() and never fights the live router. */}
@@ -693,6 +698,7 @@ function AppRoutes() {
           <Route path="/me/work" element={<HRSignedInRoute><HRMyWorkPage /></HRSignedInRoute>} />
           <Route path="/me/performance" element={<HRSignedInRoute><HRMyPerformancePage /></HRSignedInRoute>} />
           <Route path="/hr/reports/platform-sales-officers" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'coo', 'ceo']}><HRPlatformSalesOfficersPage /></RoleGuard>} />
+          <Route path="/hr/reports/facilitation-register" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'coo', 'ceo', 'cfo', 'operations']}><PsoFacilitationRegister /></RoleGuard>} />
           <Route path="/hr/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'coo', 'ceo']}><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/me/contribution" element={<HRSignedInRoute><MyContribution /></HRSignedInRoute>} />
           <Route path="/hr/engineering/contribution" element={<HRSignedInRoute><EngineeringContribution /></HRSignedInRoute>} />
