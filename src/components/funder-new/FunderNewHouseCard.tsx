@@ -1,4 +1,4 @@
-import { Bookmark, Check, Home } from 'lucide-react';
+import { Bookmark, Check, Home, MapPin, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -16,12 +16,7 @@ import {
 import { FunderNewVerifiedBadge } from './FunderNewVerifiedBadge';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
 
-/**
- * Compact listing for /dashboard/funder-new.
- *
- * Mobile: a photo-led horizontal row. Tablet/desktop: a shallow photo with text
- * below. Only the essentials are shown here — everything else is in full view.
- */
+/** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
   category,
   item,
@@ -57,83 +52,77 @@ export function FunderNewHouseCard({
         selected && 'border-primary ring-1 ring-primary',
       )}
     >
-      <div className="flex min-w-0 gap-4 p-4">
-        <div className="relative h-24 w-24 flex-none">
-          <button
-            type="button"
-            onClick={onDetail}
-            aria-label={`Open full details for ${title} in ${place}`}
-            className="block h-full w-full overflow-hidden rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {photo ? (
-              <img
-                src={photo}
-                alt={`${title} in ${place}`}
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-primary/5">
-                <Home className="h-7 w-7 text-primary/45" aria-hidden />
-                <span className="sr-only">No photo available</span>
-              </div>
-            )}
-          </button>
+      <div className="relative aspect-[16/10] w-full bg-muted">
+        <button
+          type="button"
+          onClick={onDetail}
+          aria-label={`Open full details for ${title} in ${place}`}
+          className="block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          {photo ? (
+            <img
+              src={photo}
+              alt={`${title} in ${place}`}
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-primary/5">
+              <Home className="h-9 w-9 text-primary/45" aria-hidden />
+              <span className="sr-only">No photo available</span>
+            </div>
+          )}
+        </button>
 
-          <button
-            type="button"
-            onClick={onSave}
-            aria-label={saved ? `Remove ${title} from saved homes` : `Save ${title} for later`}
-            aria-pressed={saved}
-            className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-card/90 text-foreground shadow-sm ring-1 ring-border backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Bookmark className={cn('h-4 w-4', saved && 'fill-current text-primary')} aria-hidden />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onSave}
+          aria-label={saved ? `Remove ${title} from saved homes` : `Save ${title} for later`}
+          aria-pressed={saved}
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-sm ring-1 ring-border backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Bookmark className={cn('h-4 w-4', saved && 'fill-current text-primary')} aria-hidden />
+        </button>
+      </div>
 
-        <div className="flex min-w-0 flex-1 flex-col py-0.5">
-          <p className="break-words text-base font-bold leading-snug text-foreground">{title}</p>
-          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm leading-snug text-muted-foreground">
-            <span className="truncate">{place}</span>
+      <div className="space-y-3 p-4">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-start gap-2">
+            <p className="min-w-0 flex-1 break-words text-base font-bold leading-snug text-foreground">{title}</p>
             {verified ? <FunderNewVerifiedBadge variant="icon" /> : null}
+          </div>
+          <p className="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 flex-none" aria-hidden />
+            <span className="min-w-0 break-words">{place}</span>
           </p>
 
           {distance ? (
-            <p className="mt-auto pt-2 text-xs font-medium text-muted-foreground" title={STRAIGHT_LINE_EXPLANATION}>
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground" title={STRAIGHT_LINE_EXPLANATION}>
+              <Navigation className="h-3.5 w-3.5 flex-none text-primary" aria-hidden />
               {distance.label}
               <span className="sr-only"> ({STRAIGHT_LINE_EXPLANATION})</span>
             </p>
           ) : null}
         </div>
-      </div>
 
-      <div className="space-y-2.5 border-y border-border bg-muted/45 px-4 py-3">
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <span className="text-xs font-semibold text-muted-foreground">Support amount</span>
-          <div className="min-w-0 text-right">
-            <span className="break-words text-[0.9375rem] font-bold text-foreground">{formatDynamic(amount)}</span>
-            <span className="block text-[0.6875rem] text-muted-foreground">to support</span>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {monthlyReturn === null ? null : (
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+              {formatDynamic(monthlyReturn)} / month
+            </span>
+          )}
+          {verified ? (
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Verified</span>
+          ) : null}
         </div>
 
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <span className="text-xs font-semibold text-muted-foreground">Projected return</span>
-          <div className="min-w-0 text-right">
-            {monthlyReturn === null ? (
-              <span className="text-xs text-muted-foreground">Not available yet</span>
-            ) : (
-              <>
-                <span className="break-words text-[0.9375rem] font-bold text-success">
-                  {formatDynamic(monthlyReturn)}
-                </span>
-                <span className="block text-[0.6875rem] text-muted-foreground">per month</span>
-              </>
-            )}
-          </div>
+        <div className="pt-1">
+          <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(amount)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {monthlyReturn === null ? 'Support this home' : <>Earn <span className="font-semibold text-primary">{formatDynamic(monthlyReturn)}</span> monthly</>}
+          </p>
         </div>
-      </div>
 
-      <div className="p-4">
         <Button
           variant="default"
           className="h-11 w-full rounded-lg text-sm font-bold text-primary-foreground shadow-sm"
