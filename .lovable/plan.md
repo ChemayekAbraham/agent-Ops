@@ -1,21 +1,15 @@
-# Tenant Operations Workspace responsive pass
+# Fix Collection Quality Overview
 
-## Scope
-Update only the five approved Tenant Operations Workspace files. Preserve all calculations, data access, permissions, actions, exports, navigation, colors, and existing behavior.
+## What will change
+- Add one read-only database calculation for the last 14 Kampala calendar days.
+- Match each pinned daily Rent Plan bill to all non-reversed settlements for the same plan and Kampala day.
+- Count each pinned bill once: full when settled amount meets the bill, partial when some is paid, and missed when nothing is paid.
+- Calculate shortfall from the unpaid portion of pinned bills.
+- Replace the browser-side multi-query calculation with this single uncapped result, removing record and tenant limits.
 
-## Changes
-- Make both tab bars wrap cleanly using the established Tenant Ops Classic pattern.
-- Improve KPI grids, headers, filters, pagination, action groups, and long-text handling across phone, tablet, laptop, and desktop widths.
-- Reduce the Top-Up table to essential columns on phones, progressively reveal all existing columns at larger breakpoints, and keep every field available at desktop widths.
-- Make contact forms, export controls, filter chips, dialogs, rule rows, switches, and dialog footers fit narrow and short screens.
-- Keep existing mobile-card/table structural swaps and chart conventions; only adjust responsive wrappers and dimensions where needed.
-
-## Validation
-- Inspect the live workspace before and after changes at 1920×1080, 1440×900, 1024×768, 768×1024, 600×960, 390×844, 375×667, 320px wide, and 740×360.
-- Exercise all four tabs, nested tabs, filters/chips, tables/cards, exports, empty/loading presentation, long names/large amounts, and both dialogs.
-- Check for page-level horizontal scrolling, clipping, overlap, unreadable chart labels, and unreachable dialog actions.
-- Run the project type check/guards and review the final diff to confirm five-file isolation.
-
-## Technical notes
-- Use Tailwind responsive variants only; do not edit shared table/KPI components.
-- Use `lg` as the structural table/card cutover and existing semantic design tokens unchanged.
+## Technical details
+- Implement a `SECURITY DEFINER`, operations-role-gated RPC returning daily and total JSON data.
+- Use half-open Kampala timestamps for settlement matching and `agent_expected_day_plans.day` for the pinned schedule.
+- Aggregate multiple receipts per plan/day before classification and exclude reversed or non-positive collections.
+- Update only the chart data handler in `AgentOpsOverview.tsx`; preserve the existing visual design.
+- Validate the RPC against direct read-only totals, run type checks and safeguards, then verify the live dashboard chart.
