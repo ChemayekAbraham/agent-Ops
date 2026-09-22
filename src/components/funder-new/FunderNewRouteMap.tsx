@@ -334,7 +334,7 @@ export function FunderNewRouteMap({
   const controls = (
     <div className="pointer-events-none absolute inset-0 z-[500]">
       {/* One compact floating area search */}
-      <div className="pointer-events-auto absolute left-2 right-2 top-2 flex gap-2 sm:left-3 sm:right-3 sm:top-3">
+      <div className="pointer-events-auto absolute left-2 right-2 top-2 hidden gap-2 sm:left-3 sm:right-3 sm:top-3">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Search homes by area</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
