@@ -36,7 +36,19 @@ type ReportRow = {
   source_kind: string;
   forwarded_to_name: string | null;
   created_at: string;
+  cycle_row_id?: string | null;
+  received_call_id?: string | null;
 };
+
+/** One call closed at the Calling Center with nothing forwarded on. */
+type ResolvedEntry = { name: string; at: string; source: 'made' | 'received' };
+
+const chunk = <T,>(arr: T[], size: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+};
+
 
 const isoDay = (d: Date) => format(d, 'yyyy-MM-dd');
 
