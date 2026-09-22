@@ -29,14 +29,16 @@ export function FunderNewVerifiedBadge({
                 type="button"
                 aria-label={LABEL}
                 className={cn(
-                  // A labelled pill, not a bare tick: a plain check circle read
-                  // like a "selected" state on the photo.
-                  'inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[11px] font-semibold text-success-foreground shadow-sm ring-1 ring-background/60 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95',
+                  'inline-flex shrink-0 items-center justify-center rounded-full bg-success text-success-foreground transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95',
+                  variant === 'icon'
+                    ? // Browse list: one small check only, no wording.
+                      'h-4 w-4 align-middle'
+                    : 'gap-1 px-2 py-0.5 text-[11px] font-semibold shadow-sm ring-1 ring-background/60',
                   className,
                 )}
               >
-                <Check className="h-3 w-3" strokeWidth={3.5} aria-hidden />
-                Verified
+                <Check className={variant === 'icon' ? 'h-3 w-3' : 'h-3 w-3'} strokeWidth={3.5} aria-hidden />
+                {variant === 'icon' ? null : 'Verified'}
               </button>
 
             </PopoverTrigger>
