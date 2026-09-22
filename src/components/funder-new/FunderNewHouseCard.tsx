@@ -53,6 +53,15 @@ export function FunderNewHouseCard({
       )}
     >
       <div className="relative aspect-[16/10] w-full bg-muted">
+        {isEmpty ? (
+          <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-success text-success-foreground">
+              <Check className="h-2.5 w-2.5" strokeWidth={4} aria-hidden />
+            </span>
+            Empty house
+          </div>
+        ) : null}
+
         <button
           type="button"
           onClick={onDetail}
