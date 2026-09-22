@@ -467,7 +467,7 @@ export default function FunderDashboardNew() {
             onOpenChange={setFiltersOpen}
             filters={filters}
             districts={districtOptions}
-            supportsSort={tab === 'empty'}
+            supportsSort
             hasOrigin={!!origin}
             availableBalance={availableBalance}
             onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
@@ -482,23 +482,11 @@ export default function FunderDashboardNew() {
           ) : null}
 
 
-          <Tabs value={tab} onValueChange={(value) => setTab(value as FunderNewCategory)}>
-            <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-xl p-1 sm:w-fit">
-              <TabsTrigger value="empty" className="rounded-lg px-4 py-2 text-sm">
-                Empty homes
-              </TabsTrigger>
-              <TabsTrigger value="ready" className="rounded-lg px-4 py-2 text-sm">
-                Tenant ready
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
           {/* Applied context: what is loaded, and by which order */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">
-              {tab === 'empty' ? sortLabel(effectiveSort) : 'Order from the tenant-ready service'}
-            </span>
-            {activeQuery.isLoading ? (
+            <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
+            <span>Houses first, then Rent Plans</span>
+            {feedLoading ? (
               <span>Loading…</span>
             ) : (
               <span>
@@ -514,19 +502,8 @@ export default function FunderDashboardNew() {
             {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
           </div>
 
-          {tab === 'ready' ? (
-            <p className="flex items-start gap-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-3.5 w-3.5 flex-none" aria-hidden />
-              <span>
-                Tenant-ready homes cannot be ordered by distance: the read service supports district and amount only, so
-                this list is not a nearest-first search. Distances are still shown where a home has a map pin.
-                {readyLimitation ? ` ${readyLimitation}` : ''}
-              </span>
-            </p>
-          ) : null}
-
-          {/* Listings */}
-          {activeQuery.isLoading ? (
+          {/* Listings — houses first, then Rent Plans */}
+          {feedLoading ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
                 <Skeleton key={index} className="h-40 rounded-2xl" />
