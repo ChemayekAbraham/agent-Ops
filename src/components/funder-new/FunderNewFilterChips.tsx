@@ -5,6 +5,8 @@ import type { FunderNewFilters, FunderNewSort } from './types';
 
 const CHIP =
   'h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none';
+const CHIP_STACKED =
+  'h-10 w-full min-w-0 rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none';
 
 export interface FunderNewDistrictOption {
   value: string;
