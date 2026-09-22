@@ -49924,6 +49924,32 @@ export type Database = {
           },
         ]
       }
+      v_agent_receivable_restatement: {
+        Row: {
+          account: string | null
+          category: string | null
+          current_net: number | null
+          delta: number | null
+          item_id: string | null
+          item_table: string | null
+          product: string | null
+          target: number | null
+        }
+        Relationships: []
+      }
+      v_agent_receivable_restatement_orphans: {
+        Row: {
+          account: string | null
+          category: string | null
+          current_net: number | null
+          delta: number | null
+          item_id: string | null
+          item_table: string | null
+          product: string | null
+          target: number | null
+        }
+        Relationships: []
+      }
       v_cc_call_queue: {
         Row: {
           active_capability_count: number | null
@@ -51790,6 +51816,18 @@ export type Database = {
           tenant_id: string | null
           term_ends_on: string | null
           total_repayment: number | null
+        }
+        Relationships: []
+      }
+      v_rent_plan_receivable_restatement: {
+        Row: {
+          classification: string | null
+          current_net: number | null
+          delta: number | null
+          kind: string | null
+          plan_id: string | null
+          status: string | null
+          target: number | null
         }
         Relationships: []
       }
@@ -60423,6 +60461,7 @@ export type Database = {
       }
       landlord_payouts_blocked_from_queue: { Args: never; Returns: boolean }
       ledger_category_allowlist: { Args: never; Returns: string[] }
+      ledger_category_allowlist_base: { Args: never; Returns: string[] }
       lending_find_user_by_phone: {
         Args: { p_phone: string }
         Returns: {
@@ -63508,6 +63547,14 @@ export type Database = {
       respond_payout_dispute: {
         Args: { p_dispute_id: string; p_note?: string; p_status: string }
         Returns: undefined
+      }
+      restate_agent_receivables: {
+        Args: { p_dry_run?: boolean; p_reason: string }
+        Returns: Json
+      }
+      restate_rent_plan_receivables: {
+        Args: { p_dry_run?: boolean; p_reason: string }
+        Returns: Json
       }
       restore_campaign_attribution: { Args: { p_token: string }; Returns: Json }
       resubmit_rejected_deposit: {
