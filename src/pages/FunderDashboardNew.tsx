@@ -105,6 +105,8 @@ export default function FunderDashboardNew() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
 
   useEffect(() => {
     saveSaved(saved);
